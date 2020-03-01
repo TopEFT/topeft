@@ -1,19 +1,29 @@
 '''
-  @ Author: Xuan (xuan.gonzalez@cern.ch)
+  samples.py
+
+  This script is executed with a .cfg file as input. The script takes a path and sample names as input (and some other options)
+  and creates a dictionary with all the per-sample information used in the analysis.
+
+  - The cross section is read from another .cfg file, based on the name of the process
+  - The sum of weights (used for normalization) is calculated from a histogram within the rootfiles
+  - The dictorionary contains all samples for the form sample1name_[number].root, grouped into processes
+  - Reads the number of entries and, according to the present branches, determines if a sample contains data or MC events
+
+  The output is a '.coffea' file with a dictionary containting all the info for each sample.
+
   Usage:
     >> python samples.py configFile.cfg
-  In this repo: 
+
+  Example of how to run this script in this repo: 
     >> python moca/samples.py cfg/2018.cfg
 
-  Creates a .coffea file with all the info for each sample:
-    files, xsec, sum of weights, isData...
 '''
 
 import os, sys
 from coffea.util import save
 basepath = os.path.abspath(__file__).rsplit('/topcoffea/',1)[0]+'/topcoffea/'
 sys.path.append(basepath)
-from modules.fileReader import *
+from modules.fileReader import GetFiles, GetAllInfoFromFile
 
 outdir  = basepath+'coffeaFiles/'
 
@@ -79,11 +89,11 @@ def GetSampleList(path, sample):
 def GetOptions(path, sample, options = ""):
   if not path.endswith('/'): path += '/'
   if not sample.endswith(".root"): sample += '.root'
-  doPUweight  = 'PUweight,' if IsVarInTree(path+sample, 'puWeight') else ''
-  doJECunc    = 'JECunc,'   if IsVarInTree(path+sample, 'Jet_pt_jesTotalUp') else ''
-  doIFSR      = 'doIFSR,'   if IsVarInTree(path+sample, 'nPSWeight') and GetValOfVarInTree(path+sample, 'nPSWeight') == 4 else ''
-  useJetPtNom = 'JetPtNom,' if IsVarInTree(path+sample, 'Jet_pt_nom') else ''
-  options += doPUweight + doJECunc + doIFSR + useJetPtNom + options
+  #doPUweight  = 'PUweight,' if IsVarInTree(path+sample, 'puWeight') else ''
+  #doJECunc    = 'JECunc,'   if IsVarInTree(path+sample, 'Jet_pt_jesTotalUp') else ''
+  #doIFSR      = 'doIFSR,'   if IsVarInTree(path+sample, 'nPSWeight') and GetValOfVarInTree(path+sample, 'nPSWeight') == 4 else ''
+  #useJetPtNom = 'JetPtNom,' if IsVarInTree(path+sample, 'Jet_pt_nom') else ''
+  #options += doPUweight + doJECunc + doIFSR + useJetPtNom + options
   if options.endswith(','): options = options[:-1]
   return options
 
