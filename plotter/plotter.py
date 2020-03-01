@@ -12,7 +12,7 @@ from coffea.hist import plot
 from cycler import cycler
 
 class plotter:
-  def __init__(self, path, prDic={}, colors={}, bkgList=[], dataName='data', outpath='./temp/', lumi=294.6):
+  def __init__(self, path, prDic={}, colors={}, bkgList=[], dataName='data', outpath='./temp/', lumi=59.7):
     self.SetPath(path)
     self.SetProcessDic(prDic)
     self.SetBkgProcesses(bkgList)
@@ -22,6 +22,7 @@ class plotter:
     self.SetLumi(lumi)
     self.SetColors(colors)
     self.SetRegion()
+    self.SetLog(False)
 
   def SetPath(self, path):
     ''' Set path to sample '''
@@ -79,6 +80,9 @@ class plotter:
     ''' Set output path '''
     self.outpath = outpath
 
+  def SetLog(self, do=True):
+    self.doLog = do
+
   def SetColors(self, colors={}):
     ''' Set a dictionary with a color for each process '''
     if isinstance(colors, str):
@@ -106,7 +110,7 @@ class plotter:
       col.append(c)
     return col
 
-  def SetLumi(self, lumi=296.4, lumiunit='pb$^{-1}$', sqrts='5.02 TeV'):
+  def SetLumi(self, lumi=59.7, lumiunit='fb$^{-1}$', sqrts='13 TeV'):
     self.lumi = lumi
     self.lumiunit = lumiunit
     self.sqrts = sqrts
@@ -132,9 +136,9 @@ class plotter:
     #ax.set_prop_cycle(cycler(color=colors))
 
     # Data
-    dataOpts = {'linestyle':'none', 'marker':'.', 'markersize':10., 'color':'k', 'elinewith':1, 'emarker':'_'}
+    dataOpts = {'linestyle':'none', 'marker':'.', 'markersize':10., 'color':'k', 'elinewidth':1}
     if self.dataName in [str(x) for x in list(self.hists[hname].identifiers(self.processLabel))]:
-      plot.plot1d(self.hists[hname].sum('level')[self.dataName].sum('channel'), 
+      plot.plot1d(self.hists[hname].sum('cut').sum('channel').sum('Zcat').sum('lepCat')[self.dataName],
         overlay=self.processLabel, ax=ax, clear=False, error_opts=dataOpts)
 
     # Background
@@ -143,14 +147,11 @@ class plotter:
     for bkg in self.bkgdic:
       fillOpti = {'edgecolor': (0,0,0,0.3), 'alpha': 0.8}
       fillOpti['color'] = self.colors[bkg]
-      #fillOpti['label'] = bkg
-      print('fillopt', fillOpti)
-      h = self.hists[hname].sum('level').sum('channel')[bkg]#.sum(self.processLabel)
+      h = self.hists[hname].sum('cut').sum('channel').sum('Zcat').sum('lepCat')[bkg] #.sum(self.processLabel)
       plot.plot1d(h, ax=ax, clear=False, stack=True, fill_opts=fillOpti, overlay=self.processLabel )#, error_opts=mcOpt)
-    hbkg = self.hists[hname].sum('level').sum('channel').group(hist.Cat(self.processLabel,self.processLabel), hist.Cat(self.processLabel, self.processLabel), {'All bkg' : self.bkglist})
-    #hbkg = hbkg.sum(self.processLabel)
-    print('erropt = ', mcOpt)
+    hbkg = self.hists[hname].sum('cut').sum('channel').sum('Zcat').sum('lepCat').group(hist.Cat(self.processLabel,self.processLabel), hist.Cat(self.processLabel, self.processLabel), {'All bkg' : self.bkglist})
     plot.plot1d(hbkg, ax=ax, clear=False, overlay=self.processLabel)#, error_opts={'hatch':'///', 'facecolor':'none', 'edgecolor':(0,0,0,.5), 'linewidth': 0}, overlay=self.processLabel)
+
     #hbkg = self.hists[hname].group(hist.Cat(self.processLabel,self.processLabel), hist.Cat(self.processLabel, self.processLabel), self.bkgdic)
     #plot.plot1d(hbkg.sum('level').sum('channel'),
     #  overlay=self.processLabel, ax=ax, clear=False, stack=True, fill_opts=fillOpt, error_opts=mcOpt)
@@ -163,7 +164,7 @@ class plotter:
 
     # Options
     ax.autoscale(axis='x', tight=True)
-    ax.set_yscale('log')
+    if self.doLog: ax.set_yscale('log')
     ax.set_ylim(.1, None)
     leg = ax.legend()
     region = plt.text(0., 1., u"☕ %s"%self.region, fontsize=20, horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
