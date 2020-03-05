@@ -24,14 +24,18 @@ fundic = {}
 pow2 = lambda x : x*x
 
 def GetGoodTriplets(triplet):
+  print('triplet: ', triplet)
   pair  = triplet.i0
   third = triplet.i1
-  return triplet[np.not_equal(pair.i0.p4, third.p4) & np.not_equal(pair.i1.p4, third.p4)]
+  neq1 = np.not_equal(pair.i0.p4, third.p4)
+  neq2 = np.not_equal(pair.i1.p4, third.p4)
+  mask = (neq1 & neq2)
+  return triplet[mask]
 
-def IsClosestToZ(masses):
+def IsClosestToZ(masses, thr=15):
   delta = np.abs(91.18 - masses)
   closest_masses = delta.min()
-  is_closest = (delta == closest_masses)
+  is_closest = (delta == closest_masses)&(delta<(np.ones_like(delta)*thr))
   return is_closest
 
 fundic ['pow2'] = pow2
