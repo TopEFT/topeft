@@ -63,6 +63,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         'met'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Cat("cut", "cut"), hist.Bin("met",   "MET (GeV)", 40, 0, 400)),
         'm3l' : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Cat("cut", "cut"), hist.Bin("m3l", "$m_{3\ell}$ (GeV) ", 20, 0, 200)),
         'wleppt' : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Cat("cut", "cut"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
+        'ht'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Cat("cut", "cut"), hist.Bin("ht",   "H$_{T}$ (GeV)", 40, 0, 800)),
         })
 
     @property
@@ -205,6 +206,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # njets
         goodJets = j[(j.isclean)&(j.isgood)]
         njets = j.counts
+        ht = j.pt.sum()
 
         # nbtags
         nbtags = goodJets[goodJets.deepjet > 0.2770].counts
@@ -215,26 +217,89 @@ class AnalysisProcessor(processor.ProcessorABC):
         ### 3 leptons
         ##################################################################
 
+        # eem
         muon_eem = mu[(nElec==2)&(nMuon==1)&(mu.pt>-1)]
         elec_eem =  e[(nElec==2)&(nMuon==1)&( e.pt>-1)]
         ee_eem   = elec_eem.distincts()
-        ee_eemZmask  = (ee_eem.i0.charge*ee_eem.i1.charge<1)&(np.abs((ee_eem.i0+ee_eem.i1).mass-91)<15)
+        ee_eemZmask     = (ee_eem.i0.charge*ee_eem.i1.charge<1)&(np.abs((ee_eem.i0+ee_eem.i1).mass-91)<15)
+        ee_eemOffZmask  = (ee_eem.i0.charge*ee_eem.i1.charge<1)&(np.abs((ee_eem.i0+ee_eem.i1).mass-91)>15)
+        ee_eemZmask     = (ee_eemZmask[ee_eemZmask].counts>0)
+        ee_eemOffZmask  = (ee_eemOffZmask[ee_eemOffZmask].counts>0)
 
-        ee_emm_onZ    = ee_eem[ee_eemZmask]
-        muon_eem_onZ = muon_eem[ee_eemZmask]
+        eepair_eem     = (ee_eem.i0+ee_eem.i1)
+        trilep_eem     = eepair_eem.cross(muon_eem)
+        trilep_eem     = (trilep_eem.i0+trilep_eem.i1) 
 
-        # deal with eee, mumumu
-        #eee =  e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
-        #eee_groups = eee.choose(2).cross(eee)
-        #eee_groups = GetGoodTriplets(eee_groups)
+        # mme
+        muon_mme = mu[(nElec==1)&(nMuon==2)&(mu.pt>-1)]
+        elec_mme =  e[(nElec==1)&(nMuon==2)&( e.pt>-1)]
+        mm_mme   = muon_mme.distincts()
+        mm_mmeZmask     = (mm_mme.i0.charge*mm_mme.i1.charge<1)&(np.abs((mm_mme.i0+mm_mme.i1).mass-91)<15)
+        mm_mmeOffZmask  = (mm_mme.i0.charge*mm_mme.i1.charge<1)&(np.abs((mm_mme.i0+mm_mme.i1).mass-91)>15)
+        mm_mmeZmask     = (mm_mmeZmask[mm_mmeZmask].counts>0)
+        mm_mmeOffZmask  = (mm_mmeOffZmask[mm_mmeOffZmask].counts>0)
 
-        #mmm = mu[(nElec==0)&(nMuon==3)&( e.pt>-1)] 
+        mmpair_mme     = (mm_mme.i0+mm_mme.i1)
+        trilep_mme     = mmpair_mme.cross(elec_mme)
+        trilep_mme     = (trilep_mme.i0+trilep_mme.i1)
+
+
+        ### eee and mmm
+        eee =   e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
+        mmm =  mu[(nElec==0)&(nMuon==3)&(mu.pt>-1)] 
+        # Create pairs
+        eee_groups = eee.distincts()
+        mmm_groups = mmm.distincts()
+        # Calculate the invariant mass of the pairs
+        invMass_eee = ((eee_groups.i0+eee_groups.i1).mass)
+        invMass_mmm = ((mmm_groups.i0+mmm_groups.i1).mass)
+        # OS pairs
+        isOSeee = ((eee_groups.i0.charge != eee_groups.i1.charge))
+        isOSmmm = ((mmm_groups.i0.charge != mmm_groups.i1.charge))
+        # Get the ones with a mass closest to the Z mass (and in a range of  thr)
+        clos_eee = IsClosestToZ(invMass_eee, thr=15)
+        clos_mmm = IsClosestToZ(invMass_mmm, thr=15)
+        # Finally, the mask for eee/mmm with/without OS onZ pair
+        eeeOnZmask  = (clos_eee)&(isOSeee)
+        eeeOffZmask = (eeeOnZmask==0)
+        mmmOnZmask  = (clos_mmm)&(isOSmmm)
+        mmmOffZmask = (mmmOnZmask==0)
+        eeeOnZmask  = (eeeOnZmask[eeeOnZmask].counts>0)
+        eeeOffZmask = (eeeOffZmask[eeeOffZmask].counts>0)
+        mmmOnZmask  = (mmmOnZmask[mmmOnZmask].counts>0)
+        mmmOffZmask = (mmmOffZmask[mmmOffZmask].counts>0)
+        
+        # Get Z and W invariant masses
+        goodPairs_eee = eee_groups[(eeeOnZmask)&(eee_groups.i0.pt>-1)]
+        '''
+        eZ0 = goodPairs_eee.i0[goodPairs_eee.counts>0].regular()
+        eZ1 = goodPairs_eee.i1[goodPairs_eee.counts>0].regular()
+
+        eee_reg = eee[goodPairs_eee.counts>0].regular()
+        eW = np.append(eZ0, eee_reg,axis=1)
+        eW = np.append(eW, eZ1,axis=1)
+        mask = np.apply_along_axis(lambda a : [list(a).count(x)==1 for x in a], 1, eW)
+        eW = eW[mask]
+        #
+        #trilep = eZ0+eZ1+eW
+        #meee = trilep.mass
+        #print('Trilep mass = ', meee)
+
+        # Trilep
+        #trilep = goodPairs_eee.cross(single_e)
+        #meee = (trilep.i0+trilep.i1+trilep.i2).mass
+        '''
         
 
         # Triggers
+        #passTrigger = lambda df, n, m, o : np.ones_like(df['MET_pt'], dtype=np.bool) # XXX
         trig_eeSS = passTrigger(df,'ee',isData,dataset)
         trig_mmSS = passTrigger(df,'mm',isData,dataset)
         trig_emSS = passTrigger(df,'em',isData,dataset)
+        trig_eee  = passTrigger(df,'eee',isData,dataset)
+        trig_mmm  = passTrigger(df,'mmm',isData,dataset)
+        trig_eem  = passTrigger(df,'eem',isData,dataset)
+        trig_mme  = passTrigger(df,'mme',isData,dataset)
 
         # MET filters
 
@@ -245,12 +310,24 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Selections and cuts
         selections = processor.PackedSelection()
-        channels = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
+        channels2LSS = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
         selections.add('eeSSonZ',  (eeonZmask)&(eeSSmask)&(trig_eeSS))
         selections.add('eeSSoffZ', (eeoffZmask)&(eeSSmask)&(trig_eeSS))
         selections.add('mmSSonZ',  (mmonZmask)&(mmSSmask)&(trig_mmSS))
         selections.add('mmSSoffZ', (mmoffZmask)&(mmSSmask)&(trig_mmSS))
         selections.add('emSS',     (emSSmask)&(trig_emSS))
+
+        channels3L = ['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ']#, 'eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ']
+        selections.add('eemSSonZ',   (ee_eemZmask)&(trig_eem))
+        selections.add('eemSSoffZ',  (ee_eemOffZmask)&(trig_eem))
+        selections.add('mmeSSonZ',   (mm_mmeZmask)&(trig_mme))
+        selections.add('mmeSSoffZ',  (mm_mmeOffZmask)&(trig_mme))
+
+        channels3L += ['eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ']
+        selections.add('eeeSSonZ',   (eeeOnZmask)&(trig_eee))
+        selections.add('eeeSSoffZ',  (eeeOffZmask)&(trig_eee))
+        selections.add('mmmSSonZ',   (mmmOnZmask)&(trig_mmm))
+        selections.add('mmmSSoffZ',  (mmmOffZmask)&(trig_mmm))
 
         levels = ['base', '2jets', '4jets', '4j1b', '4j2b']
         selections.add('base', (nElec+nMuon>=2))
@@ -264,10 +341,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         invMass_eeSSoffZ = (eeSSoffZ.i0+eeSSoffZ.i1).mass
         invMass_mmSSonZ  = ( mmSSonZ.i0+ mmSSonZ.i1).mass
         invMass_mmSSoffZ = (mmSSoffZ.i0+mmSSoffZ.i1).mass
+
+        #invMass_ee_eemSSonZ = (
         
         varnames = {}
         varnames['invmass'] = ''
         varnames['met'] = met.pt
+        varnames['ht'] = ht
         varnames['njets'] = njets
         varnames['nbtags'] = nbtags
 
@@ -276,7 +356,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         hout['dummy'].fill(sample=dataset, dummy=1, weight=df.size)
 
         for var, v in varnames.items():
-         for ch in channels:
+         for ch in channels2LSS+channels3L:
           for lev in levels:
             weight = weights.weight()
             cuts = [ch] + [lev]
@@ -291,10 +371,12 @@ class AnalysisProcessor(processor.ProcessorABC):
               elif ch == 'mmSSonZ' : hout['invmass'].fill(sample=dataset, channel=ch, cut=lev, lepCat='2lSS', Zcat=Zcat, invmass=invMass_mmSSonZ[cut].flatten(), weight=weights_flat)
               elif ch == 'mmSSoffZ': hout['invmass'].fill(sample=dataset, channel=ch, cut=lev, lepCat='2lSS', Zcat=Zcat, invmass=invMass_mmSSoffZ[cut].flatten(), weight=weights_flat)
             else:
+              lepCat = '2lSS' if ch in channels2LSS else '3l'
               values = v[cut].flatten()
-              if   var == 'met'   : hout[var].fill(met=values, sample=dataset, channel=ch, cut=lev, lepCat='2lSS', Zcat=Zcat, weight=weights_flat)
-              elif var == 'njets' : hout[var].fill(njets=values, sample=dataset, channel=ch, cut=lev, lepCat='2lSS', Zcat=Zcat, weight=weights_flat)
-              elif var == 'nbtags': hout[var].fill(nbtags=values, sample=dataset, channel=ch, cut=lev, lepCat='2lSS', Zcat=Zcat, weight=weights_flat)
+              if   var == 'ht'    : hout[var].fill(ht=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
+              if   var == 'met'   : hout[var].fill(met=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
+              elif var == 'njets' : hout[var].fill(njets=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
+              elif var == 'nbtags': hout[var].fill(nbtags=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
 
             #hout['invmass'].fill(sample=dataset, channel=ch, lepCat=lev, Zcat="all", invmass=invmass_flat, weight=weights_flat)#*selections.all(*{'mm'})
         #flat_variables = {k: v[cut].flatten() for k, v in variables.items()}
