@@ -126,7 +126,7 @@ def PassTrigger(df, cat, isData=False, dataName=''):
   else:
     passTriggers    = triggersForFinalState[cat]
     notPassTriggers = triggersNotForFinalState[cat]
-    if not dataName in passTrigger: 
+    if not dataName in passTriggers: 
       return tpass
     else:
       for path in passTriggers: tpass |= df[path]
