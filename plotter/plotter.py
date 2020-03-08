@@ -22,7 +22,18 @@ class plotter:
     self.SetLumi(lumi)
     self.SetColors(colors)
     self.SetRegion()
-    self.SetLog(False)
+    self.categories = {}
+    self.doLegend = True
+    self.doRatio = True
+    self.doStack = True
+    self.doLogY = False
+    self.invertStack = False
+    self.plotData = True
+    self.fill_opts = {'edgecolor': (0,0,0,0.3), 'alpha': 0.8}
+    self.error_opts = {'label':'Stat. Unc.','hatch':'///','facecolor':'none','edgecolor':(0,0,0,.5),'linewidth': 0}
+    self.textParams = {'font.size': 14, 'axes.titlesize': 18, 'axes.labelsize': 18, 'xtick.labelsize': 12, 'ytick.labelsize': 12}
+    self.data_err_opts = {'linestyle':'none', 'marker': '.', 'markersize': 10., 'color':'k', 'elinewidth': 1,}#'emarker': '_'
+
 
   def SetPath(self, path):
     ''' Set path to sample '''
@@ -80,9 +91,6 @@ class plotter:
     ''' Set output path '''
     self.outpath = outpath
 
-  def SetLog(self, do=True):
-    self.doLog = do
-
   def SetColors(self, colors={}):
     ''' Set a dictionary with a color for each process '''
     if isinstance(colors, str):
@@ -115,25 +123,143 @@ class plotter:
     self.lumiunit = lumiunit
     self.sqrts = sqrts
 
+  def SetCategories(self, dic):
+    self.categories = dic
+
+  def SetCategoty(self, catname, values):
+    self.categories[catname] = values
+
   def SetRegion(self, region='$t\bar{t}$'):
     self.region = region
+
+  def GetHistogram(self, hname, process, categories=None):
+    ''' Returns a histogram with all categories contracted '''
+    if categories == None: categories = self.categories
+    h = self.hists[hname]
+    for cat in categories: 
+      print('cat : categories --> ', cat, ' : ', categories[cat])
+      h = h.integrate(cat, categories[cat])
+    if isinstance(process, str) and ',' in process: process = process.split(',')
+    if isinstance(process, list): 
+      prdic = {}
+      for pr in process: prdic[pr] = pr
+      h = h.group("process", hist.Cat("process", "process"), prdic)
+    elif isinstance(process, str): 
+      h = h[process].sum("process")
+    return h
+
+  def doData(self, hname):
+    ''' Check if data histogram exists '''
+    return self.dataName in [str(x) for x in list(self.hists[hname].identifiers(self.processLabel))] and self.plotData
+
+  def SetLegend(self, do=True):
+    self.doLegend = do
+
+  def SetRatio(self, do=True):
+    self.doRatio = do
+
+  def SetStack(self, do=True):
+    self.doStack = do
+
+  def SetInvertStack(self, do=True):
+    self.invertStack = do
+
+  def SetLogY(self, do=True):
+    self.doLogY = do
 
   def Stack(self, hname={}, xtit='', ytit=''):
     ''' prName can be a list of histograms or a dictionary 'histoName : xtit' '''
     if isinstance(hname, dict):
-      for k in hname:
-        self.Stack(k, hname[k], ytit)
+      for k in hname: self.Stack(k, hname[k], ytit)
       return
     if isinstance(hname, list):
-      for k in hname:
-        self.Stack(k, xtit, ytit)
+      for k in hname: self.Stack(k, xtit, ytit)
       return
      
-    fig, ax = plt.subplots(1, 1, figsize=(10,10))
+    density = False; binwnorm = None
+    plt.rcParams.update(self.textParams)
 
+    if self.doData(hname) and self.doRatio:
+      fig, (ax, rax) = plt.subplots(2, 1, figsize=(7,7), gridspec_kw={"height_ratios": (3, 1)}, sharex=True)
+      fig.subplots_adjust(hspace=.07)
+    else:
+      fig, ax = plt.subplots(1, 1, figsize=(7,7))#, gridspec_kw={"height_ratios": (3, 1)}, sharex=True)
+
+    # Colors
+    from cycler import cycler
+    colors = self.GetColors(self.bkglist)
+    if self.invertStack: 
+      _n = len(h.identifiers(overlay))-1
+      colors = colors[_n::-1]
+    ax.set_prop_cycle(cycler(color=colors))
+
+    fill_opts  = self.fill_opts
+    error_opts = self.error_opts
+    data_err_opts = self.data_err_opts
+    if not self.doStack:
+      error_opts = None
+      fill_opts  = None
+
+    if self.invertStack and type(h._axes[0])==hist.hist_tools.Cat:  h._axes[0]._sorted.reverse() 
+    h = self.GetHistogram(hname, self.bkglist)
+    hist.plot1d(h, overlay="process", ax=ax, clear=False, stack=self.doStack, density=density, line_opts=None, fill_opts=fill_opts, error_opts=error_opts, binwnorm=binwnorm)
+
+    if self.doData(hname):
+      hData = self.GetHistogram(hname, self.dataName)
+      hist.plot1d(hData, ax=ax, clear=False, error_opts=data_err_opts, binwnorm=binwnorm)
+
+    ax.autoscale(axis='x', tight=True)
+    ax.set_ylim(0, None)
+    '''
+    if not binwnorm is None:
+      ax.set_ylabel(f"<Counts/{binwnorm}>")
+      if '[' in ax.get_xlabel():
+        units = ax.get_xlabel().split('[')[-1].split(']')[0]
+        ax.set_ylabel(f"<Counts / {binwnorm} {units}>")
+            
+    ax.set_xlabel(None)
+    '''
+
+    if self.doLegend:
+      leg_anchor=(1., 1.)
+      leg_loc='upper left'
+      handles, labels = ax.get_legend_handles_labels()
+      if self.doData(hname):
+        handles = handles[-1:]+handles[:-1]
+        labels = ['Data']+labels[:-1]            
+      ax.legend(handles, labels)#,bbox_to_anchor=leg_anchor,loc=leg_loc)
+    
+    if self.doData(hname) and self.doRatio:
+      #hbkg = self.hists[hname].group(hist.Cat(self.processLabel,self.processLabel), hist.Cat(self.processLabel, self.processLabel), self.bkgdic)
+      hist.plotratio(hData, h.sum("process"), ax=rax, error_opts=data_err_opts, denom_fill_opts={}, guide_opts={}, unc='num')
+      rax.set_ylabel('Ratio')
+      rax.set_ylim(0.5, 1.5)#ratioRange[0],ratioRange[1])
+
+    if self.doLogY:
+      ax.set_yscale("log")
+      ax.set_ylim(1,ax.get_ylim()[1]*5)        
+
+    #if not xRange is None: ax.set_xlim(xRange[0],xRange[1])
+    #if not yRange is None: ax.set_ylim(yRange[0],yRange[1])
+
+    CMS = plt.text(0., 1., r"$\bf{CMS}$ Preliminary", fontsize=16, horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
+
+    #if not extraText is None:
+    # extraLabel = plt.text(0.02, .99, extraText, fontsize=16, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes)
+    # ax.set_ylim(0,ax.get_ylim()[1]*1.1)
+    
+    #region = plt.text(0., 1., u"☕ %s"%self.region, fontsize=20, horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
+    lumi = plt.text(1., 1., r"%1.1f %s (%s)"%(self.lumi, self.lumiunit, self.sqrts), fontsize=20, horizontalalignment='right', verticalalignment='bottom', transform=ax.transAxes)
+
+
+    os.system('mkdir -p %s'%self.outpath)
+    fig.savefig(os.path.join(self.outpath, hname+'.png'))
+
+
+  '''
     # Get colors for the stack
     colors = self.GetColors(self.bkglist)
-    #ax.set_prop_cycle(cycler(color=colors))
+    ax.set_prop_cycle(cycler(color=colors))
 
     # Data
     dataOpts = {'linestyle':'none', 'marker':'.', 'markersize':10., 'color':'k', 'elinewidth':1}
@@ -147,9 +273,19 @@ class plotter:
     for bkg in self.bkgdic:
       fillOpti = {'edgecolor': (0,0,0,0.3), 'alpha': 0.8}
       fillOpti['color'] = self.colors[bkg]
-      h = self.hists[hname].sum('cut').sum('channel').sum('Zcat').sum('lepCat')[bkg] #.sum(self.processLabel)
-      plot.plot1d(h, ax=ax, clear=False, stack=True, fill_opts=fillOpti, overlay=self.processLabel )#, error_opts=mcOpt)
-    hbkg = self.hists[hname].sum('cut').sum('channel').sum('Zcat').sum('lepCat').group(hist.Cat(self.processLabel,self.processLabel), hist.Cat(self.processLabel, self.processLabel), {'All bkg' : self.bkglist})
+      #h = self.hists[hname].sum('cut').sum('channel').sum('Zcat').sum('lepCat')[bkg] #.sum(self.processLabel)
+      h = self.hists[hname]
+      for cat in self.categories: h = h.integrate(cat, self.categories[cat])
+      h = h[bkg]
+      h.scale(self.lumi*1000)
+      y = h.values(overflow='all')
+      print(bkg, ' : ', y[list(y.keys())[0]].sum())
+    h = self.hists[hname]
+    for cat in self.categories: h = h.integrate(cat, self.categories[cat])
+    plot.plot1d(h, ax=ax, clear=False, stack=True, fill_opts=fillOpti, overlay=self.processLabel )#, error_opts=mcOpt)
+    hbkg = self.hists[hname]
+    for cat in self.categories: hbkg = hbkg.integrate(cat, self.categories[cat])
+    hbkg = hbkg.group(hist.Cat(self.processLabel,self.processLabel), hist.Cat(self.processLabel, self.processLabel), {'All bkg' : self.bkglist})
     plot.plot1d(hbkg, ax=ax, clear=False, overlay=self.processLabel)#, error_opts={'hatch':'///', 'facecolor':'none', 'edgecolor':(0,0,0,.5), 'linewidth': 0}, overlay=self.processLabel)
 
     #hbkg = self.hists[hname].group(hist.Cat(self.processLabel,self.processLabel), hist.Cat(self.processLabel, self.processLabel), self.bkgdic)
@@ -164,10 +300,11 @@ class plotter:
 
     # Options
     ax.autoscale(axis='x', tight=True)
-    if self.doLog: ax.set_yscale('log')
+    if self.doLogY: ax.set_yscale('log')
     ax.set_ylim(.1, None)
     leg = ax.legend()
     region = plt.text(0., 1., u"☕ %s"%self.region, fontsize=20, horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
     lumi = plt.text(1., 1., r"%1.1f %s (%s)"%(self.lumi, self.lumiunit, self.sqrts), fontsize=20, horizontalalignment='right', verticalalignment='bottom', transform=ax.transAxes)
     os.system('mkdir -p %s'%self.outpath)
     fig.savefig(os.path.join(self.outpath, hname+'.png'))
+    '''

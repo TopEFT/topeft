@@ -177,7 +177,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         eepairs = ee.distincts()
         eeSSmask = (eepairs.i0.charge*eepairs.i1.charge>0)
-        eeonZmask  = (((eepairs.i0+eepairs.i1).mass-91)<15)
+        eeonZmask  = (np.abs((eepairs.i0+eepairs.i1).mass-91)<15)
         eeoffZmask = (eeonZmask==0)
 
         mmpairs = mm.distincts()
@@ -306,7 +306,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Weights
         genw = np.ones_like(df['MET_pt']) if isData else df['genWeight']
         weights = processor.Weights(df.size)
-        weights.add('norm',xsec/sow*genw)
+        weights.add('norm',1 if isData else (xsec/sow)*genw)
 
         # Selections and cuts
         selections = processor.PackedSelection()
@@ -363,7 +363,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             cut = selections.all(*cuts)
             #metflat = met.pt[cut].flatten()
             weights_flat = weight[cut].flatten()
-            Zcat = 'onZ' if 'onZ' in lev else 'offZ'
+            Zcat = 'onZ' if 'onZ' in ch else 'offZ'
             # Special case for invmass
             if var == 'invmass':
               if   ch == 'eeSSonZ' : hout['invmass'].fill(sample=dataset, channel=ch, cut=lev, lepCat='2lSS', Zcat=Zcat, invmass=invMass_eeSSonZ[cut].flatten(), weight=weights_flat)
