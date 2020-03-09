@@ -99,7 +99,6 @@ class plotter:
       return
     elif isinstance(colors, list):
       self.colors = {}
-      print('colors = ', colors)
       for i in range(len(self.prDic)):
         key = list(self.prDic.keys())[i]
         if i < len(colors): self.colors[key] = colors[i]
@@ -137,7 +136,6 @@ class plotter:
     if categories == None: categories = self.categories
     h = self.hists[hname]
     for cat in categories: 
-      print('cat : categories --> ', cat, ' : ', categories[cat])
       h = h.integrate(cat, categories[cat])
     if isinstance(process, str) and ',' in process: process = process.split(',')
     if isinstance(process, list): 
@@ -202,14 +200,23 @@ class plotter:
 
     if self.invertStack and type(h._axes[0])==hist.hist_tools.Cat:  h._axes[0]._sorted.reverse() 
     h = self.GetHistogram(hname, self.bkglist)
+    h.scale(1000.*self.lumi)
+    print('lumi = ', self.lumi)
+    for bkg in self.bkglist:
+      y = h[bkg].values(overflow='all')
+      print(bkg, ' : ', y[list(y.keys())[0]].sum())
+
     hist.plot1d(h, overlay="process", ax=ax, clear=False, stack=self.doStack, density=density, line_opts=None, fill_opts=fill_opts, error_opts=error_opts, binwnorm=binwnorm)
 
     if self.doData(hname):
       hData = self.GetHistogram(hname, self.dataName)
       hist.plot1d(hData, ax=ax, clear=False, error_opts=data_err_opts, binwnorm=binwnorm)
+      ydata = hData.values(overflow='all')
+      print('data : ', ydata[list(ydata.keys())[0]].sum())
 
     ax.autoscale(axis='x', tight=True)
     ax.set_ylim(0, None)
+    ax.set_xlabel(None)
     '''
     if not binwnorm is None:
       ax.set_ylabel(f"<Counts/{binwnorm}>")
@@ -217,7 +224,6 @@ class plotter:
         units = ax.get_xlabel().split('[')[-1].split(']')[0]
         ax.set_ylabel(f"<Counts / {binwnorm} {units}>")
             
-    ax.set_xlabel(None)
     '''
 
     if self.doLegend:
@@ -231,7 +237,7 @@ class plotter:
     
     if self.doData(hname) and self.doRatio:
       #hbkg = self.hists[hname].group(hist.Cat(self.processLabel,self.processLabel), hist.Cat(self.processLabel, self.processLabel), self.bkgdic)
-      hist.plotratio(hData, h.sum("process"), ax=rax, error_opts=data_err_opts, denom_fill_opts={}, guide_opts={}, unc='num')
+      hist.plotratio(hData, h.sum("process"), clear=False,ax=rax, error_opts=data_err_opts, denom_fill_opts={}, guide_opts={}, unc='num')
       rax.set_ylabel('Ratio')
       rax.set_ylim(0.5, 1.5)#ratioRange[0],ratioRange[1])
 
