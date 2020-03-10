@@ -16,28 +16,18 @@ sys.path.append(basepath)
 path = 'histos/plotsTopEFT.pkl.gz'
 
 processDic = {
-  'Nonprompt' : 'TTTo2L2Nu,tW_noFullHad, tbarW_noFullHad, TTG,WJetsToLNu_MLM, WWTo2L2Nu',
-  #'tt' : 'TTTo2L2Nu',
-  #'tW' : 'tW_noFullHad, tbarW_noFullHad',
-  #'Nonprompt' : 'WWTo2L2Nu',
-  #'ttG' : 'TTG',
-  #'WJets' : 'WJetsToLNu_MLM',
-  'Other': 'WWW,WZG,WWZ,WZZ,ZZZ,tttt,ttWW,ttWZ,ttZH,ttZZ,ttHH,tZq',
+  'Nonprompt' : 'TTTo2L2Nu,tW_noFullHad, tbarW_noFullHad, WJetsToLNu_MLM, WWTo2L2Nu',
   'DY' : 'DYJetsToLL_M_10to50_MLM, DYJetsToLL_M_50_a',
+  'Other': 'WWW,WZG,WWZ,WZZ,ZZZ,tttt,ttWW,ttWZ,ttZH,ttZZ,ttHH,tZq,TTG',
   'WZ' : 'WZTo2L2Q,WZTo3LNu',
   'ZZ' : 'ZZTo2L2Nu,ZZTo2L2Q,ZZTo4L',
   'ttW': 'TTWJetsToLNu',
   'ttZ': 'TTZToLL_M_1to10,TTZToLLNuNu_M_10_a',
-  #'VVV' : 'WWW,WZG,WWZ,WZZ,ZZG,ZZZ',
-  #'tttt' : 'tttt',
-  #'ttVV' : 'ttWW,ttWZ,ttZH,ttZZ,ttHH,ttZZ',
-  #'tZq' : 'tZq',
-  #'tHq' : 'tHq',
   'ttH' : 'ttHnobb,tHq',
   'data' : 'EGamma, SingleMuon, DoubleMuon',
 }
-bkglist = ['Nonprompt', 'Other', 'DY',  'ttH', 'WZ', 'ZZ', 'ttZ', 'ttW'] #'VVV', 'ttVV', 'tttt', 'tZq', 'tHq',
-#bkglist = ['tt', 'tW', 'WW', 'ttG', 'WW', 'WJets', 'Other', 'DY',  'ttH', 'WZ', 'ZZ', 'ttZ', 'ttW'] #'VVV', 'ttVV', 'tttt', 'tZq', 'tHq',
+bkglist = ['Nonprompt', 'Other', 'DY',  'ttH', 'WZ', 'ZZ', 'ttZ', 'ttW']
+allbkg  = ['tt', 'tW', 'WW', 'ttG', 'WW', 'WJets', 'Other', 'DY',  'ttH', 'WZ', 'ZZ', 'ttZ', 'ttW']
 
 colordic ={
   'Other' : '#808080',
@@ -64,19 +54,23 @@ ch3l = ['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ','eeeSSonZ', 'eeeSSoffZ'
 ch2lss = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
 categories = {
  'channel' : ch3l,#['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ','eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ'],#'eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS'],
- 'Zcat' : ['onZ','offZ'],#, 'offZ'],
- 'lepCat' : ['3l'], #3l
- 'cut' : ['4j1b', '4j2b']#['2jets', '4jets','4j1b', '4j2b'],#['base', '2jets', '4jets', '4j1b', '4j2b'],
+ 'cut' : ['2jets', '4jets','4j1b', '4j2b'],#['base', '2jets', '4jets', '4j1b', '4j2b'],
+ 'Zcat' : ['onZ', 'offZ'],
+ 'lepCat' : ['3l'],
 }
 
 colors = [colordic[k] for k in bkglist]
 
 from plotter.plotter import plotter
 
-plt = plotter(path, prDic=processDic, bkgList=bkglist)
-plt.plotData = True
-plt.SetCategories(categories)
-plt.SetColors(colors)
-plt.Stack('invmass', xtit='', ytit='')
+def Draw(var, categories, label=''):
+  plt = plotter(path, prDic=processDic, bkgList=bkglist)
+  plt.plotData = True
+  plt.SetColors(colors)
+  plt.SetCategories(categories)
+  plt.SetRegion(label)
+  plt.Stack(var, xtit='', ytit='')
+  plt.GetYields()
 
 
+Draw('met', categories, '3 leptons')

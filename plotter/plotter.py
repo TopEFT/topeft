@@ -33,7 +33,9 @@ class plotter:
     self.error_opts = {'label':'Stat. Unc.','hatch':'///','facecolor':'none','edgecolor':(0,0,0,.5),'linewidth': 0}
     self.textParams = {'font.size': 14, 'axes.titlesize': 18, 'axes.labelsize': 18, 'xtick.labelsize': 12, 'ytick.labelsize': 12}
     self.data_err_opts = {'linestyle':'none', 'marker': '.', 'markersize': 10., 'color':'k', 'elinewidth': 1,}#'emarker': '_'
-
+    self.SetRange()
+    self.SetRatioRange()
+    self.yRatioTit = 'Data / Pred.'
 
   def SetPath(self, path):
     ''' Set path to sample '''
@@ -121,15 +123,28 @@ class plotter:
     self.lumi = lumi
     self.lumiunit = lumiunit
     self.sqrts = sqrts
+  
+  def SetRange(self, xRange=None, yRange=None):
+    self.xRange = None
+    self.yRange = None
+
+  def SetRatioRange(self, ymin=0.5, ymax=1.5):
+    self.ratioRange = [ymin, ymax]
+
+  def SetRegion(self, ref=None):
+    self.region = ref
+
+  def SetLabel(self, lab=None):
+    self.retion = lab
+
+  def SetYRatioTit(self, rat='Ratio'):
+    self.yRatioTit = rat
 
   def SetCategories(self, dic):
     self.categories = dic
 
   def SetCategoty(self, catname, values):
     self.categories[catname] = values
-
-  def SetRegion(self, region='$t\bar{t}$'):
-    self.region = region
 
   def GetHistogram(self, hname, process, categories=None):
     ''' Returns a histogram with all categories contracted '''
@@ -201,30 +216,16 @@ class plotter:
     if self.invertStack and type(h._axes[0])==hist.hist_tools.Cat:  h._axes[0]._sorted.reverse() 
     h = self.GetHistogram(hname, self.bkglist)
     h.scale(1000.*self.lumi)
-    print('lumi = ', self.lumi)
-    for bkg in self.bkglist:
-      y = h[bkg].values(overflow='all')
-      print(bkg, ' : ', y[list(y.keys())[0]].sum())
-
     hist.plot1d(h, overlay="process", ax=ax, clear=False, stack=self.doStack, density=density, line_opts=None, fill_opts=fill_opts, error_opts=error_opts, binwnorm=binwnorm)
 
     if self.doData(hname):
       hData = self.GetHistogram(hname, self.dataName)
       hist.plot1d(hData, ax=ax, clear=False, error_opts=data_err_opts, binwnorm=binwnorm)
       ydata = hData.values(overflow='all')
-      print('data : ', ydata[list(ydata.keys())[0]].sum())
 
     ax.autoscale(axis='x', tight=True)
     ax.set_ylim(0, None)
     ax.set_xlabel(None)
-    '''
-    if not binwnorm is None:
-      ax.set_ylabel(f"<Counts/{binwnorm}>")
-      if '[' in ax.get_xlabel():
-        units = ax.get_xlabel().split('[')[-1].split(']')[0]
-        ax.set_ylabel(f"<Counts / {binwnorm} {units}>")
-            
-    '''
 
     if self.doLegend:
       leg_anchor=(1., 1.)
@@ -236,30 +237,49 @@ class plotter:
       ax.legend(handles, labels)#,bbox_to_anchor=leg_anchor,loc=leg_loc)
     
     if self.doData(hname) and self.doRatio:
-      #hbkg = self.hists[hname].group(hist.Cat(self.processLabel,self.processLabel), hist.Cat(self.processLabel, self.processLabel), self.bkgdic)
       hist.plotratio(hData, h.sum("process"), clear=False,ax=rax, error_opts=data_err_opts, denom_fill_opts={}, guide_opts={}, unc='num')
-      rax.set_ylabel('Ratio')
-      rax.set_ylim(0.5, 1.5)#ratioRange[0],ratioRange[1])
+      rax.set_ylabel(self.yRatioTit)
+      rax.set_ylim(self.ratioRange[0], self.ratioRange[1])
 
     if self.doLogY:
       ax.set_yscale("log")
       ax.set_ylim(1,ax.get_ylim()[1]*5)        
 
-    #if not xRange is None: ax.set_xlim(xRange[0],xRange[1])
-    #if not yRange is None: ax.set_ylim(yRange[0],yRange[1])
+    if not self.xRange is None: ax.set_xlim(xRange[0],xRange[1])
+    if not self.yRange is None: ax.set_ylim(yRange[0],yRange[1])
 
-    CMS = plt.text(0., 1., r"$\bf{CMS}$ Preliminary", fontsize=16, horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
-
-    #if not extraText is None:
-    # extraLabel = plt.text(0.02, .99, extraText, fontsize=16, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes)
-    # ax.set_ylim(0,ax.get_ylim()[1]*1.1)
-    
-    #region = plt.text(0., 1., u"☕ %s"%self.region, fontsize=20, horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
+    # Labels
+    CMS  = plt.text(0., 1., r"$\bf{CMS}$ Preliminary", fontsize=16, horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
     lumi = plt.text(1., 1., r"%1.1f %s (%s)"%(self.lumi, self.lumiunit, self.sqrts), fontsize=20, horizontalalignment='right', verticalalignment='bottom', transform=ax.transAxes)
 
-
+    if not self.region is None:
+      lab = plt.text(0.03, .98, self.region, fontsize=16, horizontalalignment='left', verticalalignment='top', transform=ax.transAxes)
+      ax.set_ylim(0,ax.get_ylim()[1]*1.1)
+    
+    # Save
     os.system('mkdir -p %s'%self.outpath)
     fig.savefig(os.path.join(self.outpath, hname+'.png'))
+
+
+  def GetYields(self, var='met'):
+    sumy = 0
+    h = self.GetHistogram(var, self.bkglist)
+    h.scale(1000.*self.lumi)
+    print('==============================================')
+    for bkg in self.bkglist:
+      y = h[bkg].integrate("process").values(overflow='all')
+      y = y[list(y.keys())[0]].sum()
+      sumy += y
+      print(bkg, ' : %1.3f'%y)
+
+    print('----------------------------------------------')
+    print('All bkg : %1.3f'%sumy)
+    if self.doData(var):
+      hData = self.GetHistogram(var, self.dataName)
+      ydata = hData.values(overflow='all')
+      print('----------------------------------------------')
+      print('data : %1.3f'%ydata[list(ydata.keys())[0]].sum())
+    print('==============================================')
 
 
   '''
