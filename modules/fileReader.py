@@ -161,10 +161,14 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
     nEvents = len(t['MET_pt'])
     hc = f['Count']
     nGenEvents = hc.values[0] #hc.GetBinContent(1) if isinstance(hc,TH1F) else 1
-    if 'SumWeights' in f.keys():
-      hs = f['SumWeights']
-      nSumOfWeights = hs.values[0]
-    else: nSumOfWeights = nGenEvents
+    nSumOfWeights = 0
+    keys = [str(k) for k in f.keys()]
+    for k in keys:
+      if 'SumWeights' in str(k):
+        hs = f['SumWeights']
+        nSumOfWeights = hs.values[0]
+    if nSumOfWeights == 0: 
+      nSumOfWeights = nGenEvents
     isData = not 'genWeight' in t#.keys()
     return [nEvents, nGenEvents, nSumOfWeights, isData]
   else: print('[ERROR] [GetAllInfoFromFile]: wrong input')

@@ -124,13 +124,10 @@ def PassTrigger(df, cat, isData=False, dataName=''):
     paths = triggersForFinalState[cat]['MC']
     for path in paths: tpass |= df[path]
   else:
-    passTriggers    = triggersForFinalState[cat]
-    notPassTriggers = triggersNotForFinalState[cat]
-    if not dataName in passTriggers: 
-      return tpass
-    else:
-      for path in passTriggers: tpass |= df[path]
-      for path in notPassTriggers: tpass = tpass = tpass & (not(df[path]))
+    passTriggers    = triggersForFinalState[cat][dataName] if dataName in triggersForFinalState[cat].keys() else []
+    notPassTriggers = triggersNotForFinalState[cat][dataName] if dataName in triggersNotForFinalState[cat].keys() else []
+    for path in passTriggers: tpass |= df[path]
+    for path in notPassTriggers: tpass = (tpass)&(df[path]==0)
   return tpass
 
 
