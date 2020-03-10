@@ -82,7 +82,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         xsec   = self._samples[dataset]['xsec']
         sow    = self._samples[dataset]['nSumOfWeights' ]
         isData = self._samples[dataset]['isData']
-        if dataset in ['SingleMuon', 'SingleElectron', 'EGamma', 'MuonEG', 'DoubleMuon', 'DoubleElectron']: dataset = dataset.split('_')[0]
+        datasets = ['SingleMuon', 'SingleElectron', 'EGamma', 'MuonEG', 'DoubleMuon', 'DoubleElectron']
+        for d in datasets: 
+          if d in dataset: dataset = dataset.split('_')[0]
 
         ### Recover objects, selection, functions and others...
         # Objects
@@ -270,26 +272,33 @@ class AnalysisProcessor(processor.ProcessorABC):
         mmmOffZmask = (mmmOffZmask[mmmOffZmask].counts>0)
         
         # Get Z and W invariant masses
-        goodPairs_eee = eee_groups[(eeeOnZmask)&(eee_groups.i0.pt>-1)]
-        '''
-        eZ0 = goodPairs_eee.i0[goodPairs_eee.counts>0].regular()
-        eZ1 = goodPairs_eee.i1[goodPairs_eee.counts>0].regular()
+        goodPairs_eee = eee_groups[(clos_eee)&(isOSeee)]
+        eZ0   = goodPairs_eee.i0[goodPairs_eee.counts>0].regular()#[(goodPairs_eee.counts>0)].regular()
+        eZ1   = goodPairs_eee.i1[goodPairs_eee.counts>0].regular()#[(goodPairs_eee.counts>0)].regular()
+        goodPairs_mmm = mmm_groups[(clos_mmm)&(isOSmmm)]
+        mZ0   = goodPairs_mmm.i0[goodPairs_mmm.counts>0].regular()#[(goodPairs_eee.counts>0)].regular()
+        mZ1   = goodPairs_mmm.i1[goodPairs_mmm.counts>0].regular()#[(goodPairs_eee.counts>0)].regular()
 
-        eee_reg = eee[goodPairs_eee.counts>0].regular()
-        eW = np.append(eZ0, eee_reg,axis=1)
+        eee_reg = eee[(eeeOnZmask)].regular()
+        eW = np.append(eee_reg, eZ0, axis=1)
         eW = np.append(eW, eZ1,axis=1)
-        mask = np.apply_along_axis(lambda a : [list(a).count(x)==1 for x in a], 1, eW)
-        eW = eW[mask]
-        #
-        #trilep = eZ0+eZ1+eW
-        #meee = trilep.mass
-        #print('Trilep mass = ', meee)
-
-        # Trilep
-        #trilep = goodPairs_eee.cross(single_e)
-        #meee = (trilep.i0+trilep.i1+trilep.i2).mass
-        '''
+        eWmask = np.apply_along_axis(lambda a : [list(a).count(x)==1 for x in a], 1, eW)
+        eW = eW[eWmask]
+        mmm_reg = mmm[(mmmOnZmask)].regular()
+        mW = np.append(mmm_reg, mZ0, axis=1)
+        mW = np.append(mW, mZ1,axis=1)
+        mWmask = np.apply_along_axis(lambda a : [list(a).count(x)==1 for x in a], 1, mW)
+        mW = mW[mWmask]
         
+        eZ = [x+y for x,y in zip(eZ0, eZ1)]
+        triElec = [x+y for x,y in zip(eZ, eW)]
+        mZ_eee = [t[0].mass for t in eZ]
+        m3l_eee = [t[0].mass for t in triElec]
+        mZ = [x+y for x,y in zip(mZ0, mZ1)]
+        triMuon = [x+y for x,y in zip(mZ, mW)]
+        mZ_mmm = [t[0].mass for t in mZ]
+        m3l_mmm = [t[0].mass for t in triMuon]
+
 
         # Triggers
         #passTrigger = lambda df, n, m, o : np.ones_like(df['MET_pt'], dtype=np.bool) # XXX
@@ -301,12 +310,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         trig_eem  = passTrigger(df,'eem',isData,dataset)
         trig_mme  = passTrigger(df,'mme',isData,dataset)
 
+
         # MET filters
 
         # Weights
         genw = np.ones_like(df['MET_pt']) if isData else df['genWeight']
         weights = processor.Weights(df.size)
-        weights.add('norm',1 if isData else (xsec/sow)*genw)
+        weights.add('norm',genw if isData else (xsec/sow)*genw)
 
         # Selections and cuts
         selections = processor.PackedSelection()

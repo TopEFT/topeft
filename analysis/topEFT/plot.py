@@ -61,7 +61,7 @@ colors = [colordic[k] for k in bkglist]
 from plotter.plotter import plotter
 
 plt = plotter(path, prDic=processDic, bkgList=bkglist)
-plt.plotData = False
+plt.plotData = True
 plt.SetCategories(categories)
 plt.SetColors(colors)
 plt.Stack('invmass', xtit='', ytit='')
