@@ -54,23 +54,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Create the histograms
         # 'name' : hist.Hist("Ytitle", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("level", "level"), hist.Cat("syst", "syst"), hist.Bin("name", "X axis (GeV)", 20, 0, 100)),
         self._accumulator = processor.dict_accumulator({
-        'dummy'   : hist.Hist("Dummy", hist.Cat("sample", "sample"), hist.Bin("dummy", "Number of events", 1, 0, 1)),
-        'counts' : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Cat("cut", "cut"), hist.Bin("counts", "Counts", 1, 0, 2)),
-        #'lep0pt'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Bin("lep0pt",  "Leading lepton $p_{T}$ (GeV)", 20, 0, 200)),
-        #'lep0eta' : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Bin("lep0eta", "Leading lepton $\eta$ ", 15, -2.5, 2.50)),
-        'invmass' : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"),hist.Cat("cut","cut"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
-        'njets'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Cat("cut", "cut"), hist.Bin("njets",   "Jet multiplicitu ", 10, 0, 10)),
-        'nbtags'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Cat("cut", "cut"), hist.Bin("nbtags",   "btag multiplicitu ", 5, 0, 5)),
-        'met'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Cat("cut", "cut"), hist.Bin("met",   "MET (GeV)", 40, 0, 400)),
-        'm3l' : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Cat("cut", "cut"), hist.Bin("m3l", "$m_{3\ell}$ (GeV) ", 20, 0, 200)),
-        'wleppt' : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Cat("cut", "cut"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
-        'e0pt' : hist.Hist("Events", hist.Cat("sample","sample"), hist.Cat("channel","channel"), hist.Cat("lepCat","lepCat"), hist.Cat("Zcat","Zcat"), hist.Cat("cut","cut"), hist.Bin("e0pt", "Leading elec $p_{T}$ (GeV)", 30, 0, 300)),
-        'm0pt' : hist.Hist("Events", hist.Cat("sample","sample"), hist.Cat("channel","channel"), hist.Cat("lepCat","lepCat"), hist.Cat("Zcat","Zcat"), hist.Cat("cut","cut"), hist.Bin("m0pt", "Leading muon $p_{T}$ (GeV)", 30, 0, 300)),
-        'j0pt' : hist.Hist("Events", hist.Cat("sample","sample"), hist.Cat("channel","channel"), hist.Cat("lepCat","lepCat"), hist.Cat("Zcat","Zcat"), hist.Cat("cut","cut"), hist.Bin("j0pt", "Leading jet  $p_{T}$ (GeV)", 20, 0, 400)),
-        'e0eta' : hist.Hist("Events", hist.Cat("sample","sample"), hist.Cat("channel","channel"), hist.Cat("lepCat","lepCat"), hist.Cat("Zcat","Zcat"), hist.Cat("cut","cut"), hist.Bin("e0eta", "Leading elec $\eta$", 20, -2.5, 2.5)),
-        'm0eta' : hist.Hist("Events", hist.Cat("sample","sample"), hist.Cat("channel","channel"), hist.Cat("lepCat","lepCat"), hist.Cat("Zcat","Zcat"), hist.Cat("cut","cut"), hist.Bin("m0eta", "Leading muon $\eta$", 20, -2.5, 2.5)),
-        'j0eta' : hist.Hist("Events", hist.Cat("sample","sample"), hist.Cat("channel","channel"), hist.Cat("lepCat","lepCat"), hist.Cat("Zcat","Zcat"), hist.Cat("cut","cut"), hist.Bin("j0eta", "Leading jet  $\eta$", 20, -2.5, 2.5)),
-        'ht'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("lepCat", "lepCat"), hist.Cat("Zcat", "Zcat"), hist.Cat("cut", "cut"), hist.Bin("ht",   "H$_{T}$ (GeV)", 40, 0, 800)),
+        'dummy'   : hist.Hist("Dummy" , hist.Cat("sample", "sample"), hist.Bin("dummy", "Number of events", 1, 0, 1)),
+        'counts'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("counts", "Counts", 1, 0, 2)),
+        'invmass' : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut","cut"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
+        'njets'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("njets",  "Jet multiplicitu ", 10, 0, 10)),
+        'nbtags'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("nbtags", "btag multiplicitu ", 5, 0, 5)),
+        'met'     : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
+        'm3l'     : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 20, 0, 200)),
+        'wleppt'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
+        'e0pt'    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 30, 0, 300)),
+        'm0pt'    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 30, 0, 300)),
+        'j0pt'    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'e0eta'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0eta",  "Leading elec $\eta$", 20, -2.5, 2.5)),
+        'm0eta'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0eta",  "Leading muon $\eta$", 20, -2.5, 2.5)),
+        'j0eta'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0eta",  "Leading jet  $\eta$", 20, -2.5, 2.5)),
+        'ht'      : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("ht",     "H$_{T}$ (GeV)", 40, 0, 800)),
         })
 
     @property
@@ -340,7 +338,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add('mmSSoffZ', (mmoffZmask)&(mmSSmask)&(trig_mmSS))
         selections.add('emSS',     (emSSmask)&(trig_emSS))
 
-        channels3L = ['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ']#, 'eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ']
+        channels3L = ['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ']
         selections.add('eemSSonZ',   (ee_eemZmask)&(trig_eem))
         selections.add('eemSSoffZ',  (ee_eemOffZmask)&(trig_eem))
         selections.add('mmeSSonZ',   (mm_mmeZmask)&(trig_mme))
@@ -414,11 +412,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             weight = weights.weight()
             cuts = [ch] + [lev]
             cut = selections.all(*cuts)
-            #metflat = met.pt[cut].flatten()
             weights_flat = weight[cut].flatten()
-            Zcat = 'onZ' if 'onZ' in ch else 'offZ'
-            # Special case for invmass
-            lepCat = '2lSS' if ch in channels2LSS else '3l'
             if var == 'invmass':
               values = v[ch][cut].flatten()
               hout['invmass'].fill(sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, invmass=values, weight=weights_flat)
@@ -428,16 +422,16 @@ class AnalysisProcessor(processor.ProcessorABC):
               hout['m3l'].fill(sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, invmass=values, weight=weights_flat)
             else:
               values = v[cut].flatten()
-              if   var == 'ht'    : hout[var].fill(ht=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
-              elif var == 'met'   : hout[var].fill(met=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
-              elif var == 'njets' : hout[var].fill(njets=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
-              elif var == 'nbtags': hout[var].fill(nbtags=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
-              elif var == 'e0pt'  : hout[var].fill(e0pt=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
-              elif var == 'm0pt'  : hout[var].fill(m0pt=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
-              elif var == 'j0pt'  : hout[var].fill(j0pt=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
-              elif var == 'e0eta' : hout[var].fill(e0eta=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
-              elif var == 'm0eta' : hout[var].fill(m0eta=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
-              elif var == 'j0eta' : hout[var].fill(j0eta=values, sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, weight=weights_flat)
+              if   var == 'ht'    : hout[var].fill(ht=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'met'   : hout[var].fill(met=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'njets' : hout[var].fill(njets=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'nbtags': hout[var].fill(nbtags=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e0pt'  : hout[var].fill(e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm0pt'  : hout[var].fill(m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'j0pt'  : hout[var].fill(j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e0eta' : hout[var].fill(e0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm0eta' : hout[var].fill(m0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'j0eta' : hout[var].fill(j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
 
         return hout
 
