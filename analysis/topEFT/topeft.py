@@ -150,7 +150,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         twoElec   = (nElec == 2)
         twoMuon   = (nMuon == 2)
         e0 = e[e.pt.argmax()]
-        m0 = m[m.pt.argmax()]
+        m0 = mu[mu.pt.argmax()]
 
         # Jet selection
         j['deepjet'] = df['Jet_btagDeepFlavB']
@@ -161,9 +161,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         j['isgood']  = isGoodJet(j.pt, j.eta, j.id)
         j['isclean'] = ~j.match(e,0.4) & ~j.match(mu,0.4) & j.isgood.astype(np.bool)
-        j0 = j[j.pt.argmax()]
-        j0 = j0[j0.isclean.astype(np.bool)]
-        nJets = j.counts
+        #goodJets = j[(j['isgood'])&(j['isclean'])]
+        #j0 = goodJets[goodJets.pt.argmax()]
+        #nJets = goodJets.counts
 
 
 
@@ -214,8 +214,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # njets
         goodJets = j[(j.isclean)&(j.isgood)]
-        njets = j.counts
-        ht = j.pt.sum()
+        njets = goodJets.counts
+        ht = goodJets.pt.sum()
+        j0 = goodJets[goodJets.pt.argmax()]
 
         # nbtags
         nbtags = goodJets[goodJets.deepjet > 0.2770].counts
@@ -254,7 +255,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         mZ_mme  = mmpair_mme.mass
         mZ_eem  = eepair_eem.mass
         m3l_eem = trilep_eem.mass
-        m3l_mme = trilep_mee.mass
+        m3l_mme = trilep_mme.mass
 
 
         ### eee and mmm
@@ -370,29 +371,29 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['njets'] = njets
         varnames['nbtags'] = nbtags
         varnames['invmass'] = {
-          'eeSSonZ'   = invMass_eeSSonZ,
-          'eeSSoffZ'  = invMass_eeSSoffZ,
-          'mmSSonZ'   = invMass_mmSSonZ,
-          'mmSSoffZ'  = invMass_mmSSoffZ,
-          'emSS'      = invMass_em,
-          'eemSSonZ'  = mZ_eem,
-          'eemSSoffZ' = mZ_eem,
-          'mmeSSonZ'  = mZ_mme,
-          'mmeSSoffZ' = mZ_mme,
-          'eeeSSonZ'  = mZ_eee,
-          'eeeSSoffZ' = mZ_eee,
-          'mmmSSonZ'  = mZ_mmm,
-          'mmmSSoffZ' = mZ_mmm,
+          'eeSSonZ'   : invMass_eeSSonZ,
+          'eeSSoffZ'  : invMass_eeSSoffZ,
+          'mmSSonZ'   : invMass_mmSSonZ,
+          'mmSSoffZ'  : invMass_mmSSoffZ,
+          'emSS'      : invMass_emSS,
+          'eemSSonZ'  : mZ_eem,
+          'eemSSoffZ' : mZ_eem,
+          'mmeSSonZ'  : mZ_mme,
+          'mmeSSoffZ' : mZ_mme,
+          'eeeSSonZ'  : mZ_eee,
+          'eeeSSoffZ' : mZ_eee,
+          'mmmSSonZ'  : mZ_mmm,
+          'mmmSSoffZ' : mZ_mmm,
         }
         varnames['m3l'] = {
-          'eemSSonZ'  = m3l_eem,
-          'eemSSoffZ' = m3l_eem,
-          'mmeSSonZ'  = m3l_mme,
-          'mmeSSoffZ' = m3l_mme,
-          'eeeSSonZ'  = m3l_eee,
-          'eeeSSoffZ' = m3l_eee,
-          'mmmSSonZ'  = m3l_mmm,
-          'mmmSSoffZ' = m3l_mmm,
+          'eemSSonZ'  : m3l_eem,
+          'eemSSoffZ' : m3l_eem,
+          'mmeSSonZ'  : m3l_mme,
+          'mmeSSoffZ' : m3l_mme,
+          'eeeSSonZ'  : m3l_eee,
+          'eeeSSoffZ' : m3l_eee,
+          'mmmSSonZ'  : m3l_mmm,
+          'mmmSSoffZ' : m3l_mmm,
         }
         varnames['e0pt' ] = e0.pt
         varnames['e0eta'] = e0.eta
@@ -414,24 +415,38 @@ class AnalysisProcessor(processor.ProcessorABC):
             cut = selections.all(*cuts)
             weights_flat = weight[cut].flatten()
             if var == 'invmass':
+              if   ch in ['eeeSSoffZ', 'mmmSSoffZ']: continue
+              elif ch in ['eeeSSonZ' , 'mmmSSonZ' ]: continue #values = v[ch]
+              else                                 : values = v[ch][cut].flatten()
+              hout['invmass'].fill(sample=dataset, channel=ch, cut=lev, invmass=values, weight=weights_flat)
+            elif var == 'm3l': 
+              if ch in ['eeSSonZ','eeSSoffZ', 'mmSSonZ', 'mmSSoffZ','emSS', 'eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']: continue
               values = v[ch][cut].flatten()
-              hout['invmass'].fill(sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, invmass=values, weight=weights_flat)
-            elif var == 'm3l':
-              if lepCat != '3l': continue
-              values = v[ch][cut].flatten()
-              hout['m3l'].fill(sample=dataset, channel=ch, cut=lev, lepCat=lepCat, Zcat=Zcat, invmass=values, weight=weights_flat)
+              hout['m3l'].fill(sample=dataset, channel=ch, cut=lev, m3l=values, weight=weights_flat)
             else:
               values = v[cut].flatten()
               if   var == 'ht'    : hout[var].fill(ht=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'met'   : hout[var].fill(met=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'njets' : hout[var].fill(njets=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'nbtags': hout[var].fill(nbtags=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'e0pt'  : hout[var].fill(e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'm0pt'  : hout[var].fill(m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'j0pt'  : hout[var].fill(j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'e0eta' : hout[var].fill(e0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'm0eta' : hout[var].fill(m0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'j0eta' : hout[var].fill(j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e0pt'  : 
+                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
+                hout[var].fill(e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm0pt'  : 
+                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
+                hout[var].fill(m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e0eta' : 
+                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
+                hout[var].fill(e0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm0eta':
+                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
+                hout[var].fill(m0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'j0pt'  : 
+                if lev == 'base': continue
+                hout[var].fill(j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'j0eta' : 
+                if lev == 'base': continue
+                hout[var].fill(j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
 
         return hout
 
