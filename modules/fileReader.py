@@ -38,6 +38,8 @@ def findValidRootfiles(path, sampleName = '', getOnlyNumberedFiles = False, verb
   if len(files) == 0: 
     if retry: files = findValidRootfiles(path, 'Tree_' + sampleName, getOnlyNumberedFiles, verbose, FullPaths, False)
     if len(files) == 0: 
+      if os.path.isdir(path+sampleName):
+        return GetSampleListInDir(path+sampleName)
       print ('[ERROR]: Not files "' + sampleName + '" found in: ' + path)
       return []
   return files
@@ -222,15 +224,23 @@ def main():
  pr = argparse.ArgumentParser()
  pr.add_argument('path', help='Input folder', type = str)
  pr.add_argument('--sample', type = str, default = '')
- pr.add_argument('-p','--inspect', action='store_true', help='Print branches')
+ pr.add_argument('-i','--inspect', action='store_true', help='Print branches')
  pr.add_argument('-t','--treeName', default='Events', help='Name of the tree')
+ pr.add_argument('-c','--cfg', default='tempsamples', help='Name of the output cfg file')
+ pr.add_argument('-p','--prod','--prodName', default='', help='Name of the production')
+ pr.add_argument('-v','--verbose', action='store_true', help='Verbose')
+ pr.add_argument('-x','--xsec', '--xsecfile', default='cfg/xsec.cfg', help='xsec file')
  args = pr.parse_args()
  if args.sample:  sample = args.sample
  treeName = args.treeName
  printb = args.inspect
  path = args.path
+ prod = args.prod
  if os.path.isdir(path) and not path[-1] == '/': path += '/'
 
+ if prod != '':
+   CreateCfgFromCrabOutput(path, prod, args.cfg, args.xsec, args.verbose)
+   exit()
  if sample == '':
    origpath = path
    path, sample, n = guessPathAndName(path)
@@ -250,6 +260,73 @@ def main():
  else:
    GetProcessInfo(path, sample, treeName)
    exit()
+
+##############################################
+### From crab output
+
+def GetSampleListInDir(dirname):
+  filelist = []
+  for path, subdirs, files in os.walk(dirname):
+    for name in files:
+      if not name.endswith('.root'): continue
+      fname = '%s/%s'%(path,name)
+      filelist.append(fname)
+  return filelist
+
+def CraftSampleName(name):
+  # Deal with 'ext' in the end
+  if   'ext' in name[-3:]: name = name[:-3] + '_' + name[-3:]
+  elif 'ext' in name[-4:]: name = name[:-4] + '_' + name[-4:]
+  # Rename bits...
+  name = name.replace('madgraphMLM', 'MLM')
+  name = name.replace('ST_tW_top', 'tW')
+  name = name.replace('ST_tW_antitop', 'tbarW')
+  name = name.replace('NoFullyHadronicDecays', 'noFullHad')
+  # Delete bits...
+  deleteWords = ['13TeV', 'powheg', 'Powheg', 'pythia8']
+  s = name.replace('-', '_').split('_')
+  a = ''
+  for bit in s:
+    if bit in deleteWords: continue    
+    else: a += '_' + bit
+  if a.startswith('_'): a = a[1:]
+  if a.endswith('_')  : a = a[:-1]
+  while '__' in a: a = a.replace('__', '_')
+  return a
+
+def haddProduction(dirname, prodname, verbose=0):
+  dirnames = []
+  samplenames = []
+  n = len(prodname)
+  for path, subdirs, files in os.walk(dirname):
+    for s in subdirs:
+      if not s.startswith(prodname+'_'): continue
+      else:
+        treeName = s[n+1:]
+        dirName  = path + '/' + s
+        sname = dirName[len(dirname):]
+        sname.replace('//', '/')
+        sampleName = CraftSampleName(treeName)
+        dirnames.append(sname)#dirName)
+        samplenames.append(sampleName)
+        if verbose >= 1: print(' >> Found sample: ' + pcol.red + treeName + pcol.white + ' (' + pcol.cyan + sampleName + pcol.white + ')' + pcol.end)
+  return [dirnames, samplenames]
+
+def CreateCfgFromCrabOutput(dirname, prodname, out='samples', xsecfile='cfg/xsec.cfg', verbose=0):
+  if not out.endswith('.cfg'): out += '.cfg'
+  f = open(out, 'a+')
+  nlines = len(f.readlines())
+  if nlines <= 1:
+    f.write('path: %s\n'%dirname)
+    f.write('xsec: %s\n'%xsecfile)
+    f.write('verbose: %i\n'%int(verbose))
+  dirs, samples = haddProduction(dirname, prodname)
+  f.write('\n\n')
+  for d, s in zip(dirs, samples):
+    f.write('%s : %s\n'%(s, d))
+  print('Created file: %s'%out)
+
+##############################################
 
 if __name__ == '__main__':
   main()

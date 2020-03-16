@@ -135,5 +135,5 @@ seldic['passNJets' ] = passNJets
 seldic['passMETcut'] = passMETcut
 seldic['passTrigger'] = PassTrigger
 
-if not os.path.isdir(outdir): os.system('mkdir -r ' + outdir)
+if not os.path.isdir(outdir): os.system('mkdir -p ' + outdir)
 save(seldic, outdir+outname+'.coffea')
