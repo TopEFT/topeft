@@ -42,5 +42,5 @@ fundic ['pow2'] = pow2
 fundic ['GetGoodTriplets'] = GetGoodTriplets
 fundic ['IsClosestToZ'] = IsClosestToZ
 
-if not os.path.isdir(outdir): os.system('mkdir -r ' + outdir)
+if not os.path.isdir(outdir): os.system('mkdir -p ' + outdir)
 save(fundic, outdir+outname+'.coffea')
