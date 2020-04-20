@@ -56,7 +56,7 @@ ids['isMuonMVA'] = isMuonMVA
 ids['isElecMVA'] = isElecMVA
 ids['isGoodJet'] = isGoodJet
 
-if not os.path.isdir(outdir): os.system('mkdir -r ' + outdir)
+if not os.path.isdir(outdir): os.system('mkdir -p ' + outdir)
 save(ids, outdir+outname+'.coffea')
 
 
