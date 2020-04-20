@@ -19,6 +19,9 @@ def findValidRootfiles(path, sampleName = '', getOnlyNumberedFiles = False, verb
       #if len(files) == 0:
       #  files += findValidRootfiles(path, 'Tree_'+s, getOnlyNumberedFiles, verbose, FullPaths)
     return files
+  ### Files from a T2 !!
+  if path.startswith('root') and 'global.cern.ch' in path:
+    return [path+sampleName] if FullPaths else [sampleName]
   if not path[-1] == '/': path += '/'
   if verbose: print(' >> Looking for files in path: ' + path)
   for f in os.listdir(path):
@@ -160,18 +163,29 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
   elif isinstance(fname, str):
     f = uproot.open(fname)
     t = f[treeName]
-    nEvents = len(t['MET_pt'])
-    hc = f['Count']
-    nGenEvents = hc.values[0] #hc.GetBinContent(1) if isinstance(hc,TH1F) else 1
-    nSumOfWeights = 0
-    keys = [str(k) for k in f.keys()]
-    for k in keys:
-      if 'SumWeights' in str(k):
-        hs = f['SumWeights']
-        nSumOfWeights = hs.values[0]
-    if nSumOfWeights == 0: 
-      nSumOfWeights = nGenEvents
     isData = not 'genWeight' in t#.keys()
+    nEvents = len(t['MET_pt'])
+    ## Method 1: from histograms
+    if 'Count' in f:
+      hc = f['Count']
+      nGenEvents = hc.values[0] #hc.GetBinContent(1) if isinstance(hc,TH1F) else 1
+      nSumOfWeights = 0
+      keys = [str(k) for k in f.keys()]
+      for k in keys:
+        if 'SumWeights' in str(k):
+          hs = f['SumWeights']
+          nSumOfWeights = hs.values[0]
+      if nSumOfWeights == 0: 
+        nSumOfWeights = nGenEvents
+    # Method 2: from 'Runs' tree
+    elif 'Runs' in f:
+      r = f['Runs']
+      nGenEvents = sum(r['genEventSumw'].array())
+      nSumOfWeights = sum(r['genEventCount'].array())
+    # Method 3: from unskimmed file
+    else:
+      nGenEvents = nEvents
+      nSumOfWeights = sum(t['genWeight']) if not isData else nEvents
     return [nEvents, nGenEvents, nSumOfWeights, isData]
   else: print('[ERROR] [GetAllInfoFromFile]: wrong input')
 

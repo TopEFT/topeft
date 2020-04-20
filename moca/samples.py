@@ -150,7 +150,10 @@ def main():
       if   key == 'pretend'   : pretend   = 1
       elif key == 'verbose'   : verbose   = int(val) if val.isdigit() else 1
       elif key == 'test'      : dotest    = 1
-      elif key == 'path'      : path      = val
+      elif key == 'path'      :
+        path      = val
+        if len(lst) > 2: 
+          for v in lst[2:]: path += ':'+v
       elif key == 'options'   : options   = val
       elif key == 'xsec'      : xsec      = val
       elif key == 'year'      : year      = int(val)
@@ -203,7 +206,7 @@ def main():
 
   if '/' in outname: 
     odir = outname[:outname.rfind('/')+1]
-    if not os.path.isdir(odir): os.system('mkdir -r ' + odir)
+    if not os.path.isdir(odir): os.system('mkdir -p ' + odir)
   save(sampdic, outname+'.coffea')
 
 if __name__ == '__main__':
