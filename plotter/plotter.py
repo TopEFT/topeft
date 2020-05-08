@@ -10,12 +10,14 @@ import numpy as np
 from coffea import hist, processor
 from coffea.hist import plot
 from cycler import cycler
+from plotter.OutText import OutText
 
 class plotter:
-  def __init__(self, path, prDic={}, colors={}, bkgList=[], dataName='data', outpath='./temp/', lumi=59.7):
+  def __init__(self, path, prDic={}, colors={}, bkgList=[], dataName='data', outpath='./temp/', lumi=59.7, sigList=[]):
     self.SetPath(path)
     self.SetProcessDic(prDic)
     self.SetBkgProcesses(bkgList)
+    self.SetSignalProcesses(sigList)
     self.SetDataName(dataName)
     self.Load()
     self.SetOutpath(outpath)
@@ -23,6 +25,7 @@ class plotter:
     self.SetColors(colors)
     self.SetRegion()
     self.categories = {}
+    self.multicategories = {}
     self.doLegend = True
     self.doRatio = True
     self.doStack = True
@@ -80,6 +83,14 @@ class plotter:
       self.bkglist = self.bkglist.replace(' ', '').split(',')
     self.bkgdic = OrderedDict()
     for b in self.bkglist: self.bkgdic[b] = b
+
+  def SetSignalProcesses(self, siglist=[]):
+    ''' Set the list of signal processes '''
+    self.signallist = siglist
+    if isinstance(self.signallist, str): 
+      self.signallist = self.signallist.replace(' ', '').split(',')
+    self.signaldic = OrderedDict()
+    for s in self.signallist: self.signaldic[b] = b
 
   def SetDataName(self, dataName='data'):
     ''' Set the name of the data process '''
@@ -143,8 +154,19 @@ class plotter:
   def SetCategories(self, dic):
     self.categories = dic
 
-  def SetCategoty(self, catname, values):
+  def SetCategory(self, catname, values):
     self.categories[catname] = values
+
+  def AddCategory(self, catname, catdic):
+    self.multicategories[catname] = catdic
+
+  def SetMultiCategores(self, multidic={}):
+    if multidic =={} and self.categories != {}:
+      self.multicategories = {'Yields' : self.categories}
+    elif multidic =={}:
+      pass
+    else:
+      self.multicategories = multidic
 
   def GetHistogram(self, hname, process, categories=None):
     ''' Returns a histogram with all categories contracted '''
@@ -260,26 +282,83 @@ class plotter:
     os.system('mkdir -p %s'%self.outpath)
     fig.savefig(os.path.join(self.outpath, hname+'.png'))
 
-
-  def GetYields(self, var='met'):
+  def GetYields(self, var='counts'):
     sumy = 0
+    dicyields = {}
     h = self.GetHistogram(var, self.bkglist)
     h.scale(1000.*self.lumi)
-    print('==============================================')
     for bkg in self.bkglist:
       y = h[bkg].integrate("process").values(overflow='all')
       y = y[list(y.keys())[0]].sum()
       sumy += y
-      print(bkg, ' : %1.3f'%y)
-
-    print('----------------------------------------------')
-    print('All bkg : %1.3f'%sumy)
+      dicyields[bkg] = y
     if self.doData(var):
       hData = self.GetHistogram(var, self.dataName)
       ydata = hData.values(overflow='all')
-      print('----------------------------------------------')
-      print('data : %1.3f'%ydata[list(ydata.keys())[0]].sum())
-    print('==============================================')
+      ndata = ydata[list(ydata.keys())[0]].sum()
+      dicyields['data'] = ndata
+    return dicyields
+
+  def PrintYields(self, var='counts', tform='%1.2f', save=False, multicategories={}, bkgprocess=None, signalprocess=None, doData=True, doTotBkg=True):
+    if bkgprocess   !=None: self.SetBkgProcesses(bkgprocess)
+    if signalprocess!=None: self.SetSignalProcesses(signalprocess)
+    if multicategories != {} : 
+      k0 = multicategories.keys()[0]
+      if not isinstance(multicategories[k0], dict): # Not a multicategory, but single one
+        self.SetMultiCategores({'Yields' : multicategories})
+      else:
+        self.SetMultiCategores(multicategories)
+    else: 
+      self.SetMultiCategores(multicategories)
+    if self.multicategories == {}:
+      print('[plotter.PrintYields] ERROR: no categories found!')
+      exit()
+
+    # Output name
+    name = save if (save and save!='') else 'yields'
+
+    # Create an OutText object: the output will be a tex file
+    t = OutText(self.outpath, name, 'new', 'tex')
+    t.bar()
+
+    ncolumns = len(self.multicategories)
+    t.SetTexAlign('l' + ' c'*ncolumns)
+    dic = {}
+    for k in self.multicategories.keys():
+      self.SetCategories(self.multicategories[k])
+      dic[k] = self.GetYields(var)
+    # header
+    header = ''
+    for label in dic: header += t.vsep() + ' ' + label
+    t.line(header)
+    t.sep()
+    # backgrounds
+    for bkg in self.bkglist:
+      line = bkg
+      for label in dic:
+        line += t.vsep() + ' ' + (tform%(dic[label][bkg]))
+      t.line(line) 
+    if len(self.bkglist) > 0: t.sep()
+    if doTotBkg and len(self.bkglist)>0:
+      line = 'Total background'
+      for label in dic:
+        line += t.vsep() + ' ' + (tform%(sum([dic[label][bkg] for bkg in self.bkglist])))
+      t.line(line) 
+      t.sep()
+    for sig in self.signallist:
+      line = sig
+      for label in dic:
+        line += t.vsep() + ' ' + (tform%(dic[label][sig]))
+      t.line(line) 
+    if len(self.signallist) > 0:  t.sep()
+    if doData:
+      line = self.dataName
+      for label in dic:
+        line += t.vsep() + ' ' + tform%(dic[label][self.dataName]) 
+      t.line(line)
+      t.sep()
+    t.write()
+
 
 
   '''
