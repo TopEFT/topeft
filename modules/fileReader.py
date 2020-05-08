@@ -166,7 +166,7 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
     isData = not 'genWeight' in t#.keys()
     nEvents = len(t['MET_pt'])
     ## Method 1: from histograms
-    if 'Count' in f:
+    if 'Count' in f and False:
       hc = f['Count']
       nGenEvents = hc.values[0] #hc.GetBinContent(1) if isinstance(hc,TH1F) else 1
       nSumOfWeights = 0
@@ -180,8 +180,10 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
     # Method 2: from 'Runs' tree
     elif 'Runs' in f:
       r = f['Runs']
-      nGenEvents = sum(r['genEventSumw'].array())
-      nSumOfWeights = sum(r['genEventCount'].array())
+      genEventSumw  = 'genEventSumw'  if 'genEventSumw'  in r else 'genEventSumw_'
+      genEventCount = 'genEventCount' if 'genEventCount' in r else 'genEventCount_'
+      nGenEvents    = sum(r[genEventSumw] .array())
+      nSumOfWeights = sum(r[genEventCount].array())
     # Method 3: from unskimmed file
     else:
       nGenEvents = nEvents
