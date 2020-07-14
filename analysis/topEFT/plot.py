@@ -55,8 +55,8 @@ ch2lss = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
 categories = {
  'channel' : ch3l,#['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ','eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ'],#'eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS'],
  'cut' : ['2jets', '4jets','4j1b', '4j2b'],#['base', '2jets', '4jets', '4j1b', '4j2b'],
- 'Zcat' : ['onZ', 'offZ'],
- 'lepCat' : ['3l'],
+ #'Zcat' : ['onZ', 'offZ'],
+ #'lepCat' : ['3l'],
 }
 
 colors = [colordic[k] for k in bkglist]
@@ -70,7 +70,6 @@ def Draw(var, categories, label=''):
   plt.SetCategories(categories)
   plt.SetRegion(label)
   plt.Stack(var, xtit='', ytit='')
-  plt.GetYields()
-
+  plt.PrintYields('counts')
 
 Draw('met', categories, '3 leptons')
