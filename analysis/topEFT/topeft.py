@@ -284,23 +284,27 @@ class AnalysisProcessor(processor.ProcessorABC):
         mmmOffZmask = (mmmOffZmask[mmmOffZmask].counts>0)
         
         # Get Z and W invariant masses
+        eZ0 = []; eZ1 = []; mZ0 = []; mZ1 = []
         goodPairs_eee = eee_groups[(clos_eee)&(isOSeee)]
-        eZ0   = goodPairs_eee.i0[goodPairs_eee.counts>0].regular()#[(goodPairs_eee.counts>0)].regular()
-        eZ1   = goodPairs_eee.i1[goodPairs_eee.counts>0].regular()#[(goodPairs_eee.counts>0)].regular()
         goodPairs_mmm = mmm_groups[(clos_mmm)&(isOSmmm)]
-        mZ0   = goodPairs_mmm.i0[goodPairs_mmm.counts>0].regular()#[(goodPairs_eee.counts>0)].regular()
-        mZ1   = goodPairs_mmm.i1[goodPairs_mmm.counts>0].regular()#[(goodPairs_eee.counts>0)].regular()
+        if len(goodPairs_eee.i0[goodPairs_eee.counts>0])>0:
+          eZ0   = goodPairs_eee.i0[goodPairs_eee.counts>0].regular()
+          eZ1   = goodPairs_eee.i1[goodPairs_eee.counts>0].regular()
+          mZ0   = goodPairs_mmm.i0[goodPairs_mmm.counts>0].regular()
+          mZ1   = goodPairs_mmm.i1[goodPairs_mmm.counts>0].regular()
 
-        eee_reg = eee[(eeeOnZmask)].regular()
-        eW = np.append(eee_reg, eZ0, axis=1)
-        eW = np.append(eW, eZ1,axis=1)
-        eWmask = np.apply_along_axis(lambda a : [list(a).count(x)==1 for x in a], 1, eW)
-        eW = eW[eWmask]
-        mmm_reg = mmm[(mmmOnZmask)].regular()
-        mW = np.append(mmm_reg, mZ0, axis=1)
-        mW = np.append(mW, mZ1,axis=1)
-        mWmask = np.apply_along_axis(lambda a : [list(a).count(x)==1 for x in a], 1, mW)
-        mW = mW[mWmask]
+        eee_reg = eee[(eeeOnZmask)].regular() if len(eee[(eeeOnZmask)])>0 else eee[(eeeOnZmask)]
+        eW = []; mW = []
+        if len(eZ0) > 0:
+          eW = np.append(eee_reg, eZ0, axis=1)
+          eW = np.append(eW, eZ1,axis=1)
+          eWmask = np.apply_along_axis(lambda a : [list(a).count(x)==1 for x in a], 1, eW)
+          eW = eW[eWmask]
+          mmm_reg = mmm[(mmmOnZmask)].regular() if len(mmm[(mmmOnZmask)])>0 else mmm[(mmmOnZmask)]
+          mW = np.append(mmm_reg, mZ0, axis=1)
+          mW = np.append(mW, mZ1,axis=1)
+          mWmask = np.apply_along_axis(lambda a : [list(a).count(x)==1 for x in a], 1, mW)
+          mW = mW[mWmask]
         
         eZ      = [x+y for x,y in zip(eZ0, eZ1)]
         triElec = [x+y for x,y in zip(eZ, eW)]
