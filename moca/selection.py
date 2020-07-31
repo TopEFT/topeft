@@ -38,15 +38,15 @@ def passMETcut(met, metCut=40):
 # Overlap removal at trigger level... singlelep, doublelep, triplelep
 
 triggers = {
-  'SingleMuonTriggers' : ['HLT_IsoMu24', 'HLT_IsoMu27'],
-  'SingleElecTriggers' : ['HLT_Ele32_WPTight_Gsf', 'HLT_Ele35_WPTight_Gsf'],
-  'DoubleMuonTrig' : ['HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ', 'HLT_Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8'],
-  'DoubleElecTrig' : ['HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL', 'HLT_Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ'],
-  'MuonEGTrig' : ['HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL', 'HLT_Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ', 'HLT_Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ'],
-  'TripleElecTrig' : ['HLT_Ele16_Ele12_Ele8_CaloIdL_TrackIdL'],
-  'TripleMuonTrig' : ['HLT_TripleMu_12_10_5'],
-  'DoubleMuonElecTrig' : ['HLT_DiMu9_Ele9_CaloIdL_TrackIdL_DZ'],
-  'DoubleElecMuonTrig' : ['HLT_Mu8_DiEle12_CaloIdL_TrackIdL'],
+  'SingleMuonTriggers' : ['IsoMu24', 'IsoMu27'],
+  'SingleElecTriggers' : ['Ele32_WPTight_Gsf', 'Ele35_WPTight_Gsf'],
+  'DoubleMuonTrig' : ['Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ', 'Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8'],
+  'DoubleElecTrig' : ['Ele23_Ele12_CaloIdL_TrackIdL_IsoVL', 'Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ'],
+  'MuonEGTrig' : ['Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL', 'Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ', 'Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ'],
+  'TripleElecTrig' : ['Ele16_Ele12_Ele8_CaloIdL_TrackIdL'],
+  'TripleMuonTrig' : ['TripleMu_12_10_5'],
+  'DoubleMuonElecTrig' : ['DiMu9_Ele9_CaloIdL_TrackIdL_DZ'],
+  'DoubleElecMuonTrig' : ['Mu8_DiEle12_CaloIdL_TrackIdL'],
 }
 
 triggersForFinalState = {
@@ -169,10 +169,11 @@ triggersNotForFinalState = {
 }
 
 def PassTrigger(df, cat, isData=False, dataName=''):
-  tpass = np.zeros_like(df['MET_pt'], dtype=np.bool)
+  tpass = np.zeros_like(df.MET.pt, dtype=np.bool)
+  df = df.HLT
   if not isData: 
     paths = triggersForFinalState[cat]['MC']
-    for path in paths: tpass |= df[path]
+    for path in paths: tpass = tpass | df[path]
   else:
     passTriggers    = triggersForFinalState[cat][dataName] if dataName in triggersForFinalState[cat].keys() else []
     notPassTriggers = triggersNotForFinalState[cat][dataName] if dataName in triggersNotForFinalState[cat].keys() else []

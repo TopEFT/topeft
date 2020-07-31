@@ -44,7 +44,8 @@ for k in samplesdict.keys():
 
 # Run the processor and get the output
 tstart = time.time()
-output = processor.run_uproot_job(flist, treename='Events', processor_instance=processor_instance, executor=processor.futures_executor, executor_args={'workers': nworkers, 'pre_workers': 1}, chunksize=500000)
+#output = processor.run_uproot_job(flist, treename='Events', processor_instance=processor_instance, executor=processor.futures_executor, executor_args={'workers': nworkers, 'pre_workers': 1}, chunksize=500000)
+output = processor.run_uproot_job(flist, treename='Events', processor_instance=processor_instance, executor=processor.futures_executor, executor_args={'nano':True,'workers': nworkers, 'pre_workers': 1}, chunksize=500000)
 dt = time.time() - tstart
 
 nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
