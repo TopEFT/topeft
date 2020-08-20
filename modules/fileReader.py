@@ -20,7 +20,7 @@ def findValidRootfiles(path, sampleName = '', getOnlyNumberedFiles = False, verb
       #  files += findValidRootfiles(path, 'Tree_'+s, getOnlyNumberedFiles, verbose, FullPaths)
     return files
   ### Files from a T2 !!
-  if path.startswith('root') and 'global.cern.ch' in path:
+  if path.startswith('root') and 'global.cern.ch'  or 'ndcms.crc.nd.edu' in path: 
     return [path+sampleName] if FullPaths else [sampleName]
   if not path[-1] == '/': path += '/'
   if verbose: print(' >> Looking for files in path: ' + path)
