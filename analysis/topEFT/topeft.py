@@ -287,7 +287,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         eZ0 = []; eZ1 = []; mZ0 = []; mZ1 = []
         goodPairs_eee = eee_groups[(clos_eee)&(isOSeee)]
         goodPairs_mmm = mmm_groups[(clos_mmm)&(isOSmmm)]
-        if len(goodPairs_eee.i0[goodPairs_eee.counts>0])>0:
+        if len(goodPairs_eee.i0[goodPairs_eee.counts>0])>0 and len(goodPairs_mmm.i0[goodPairs_mmm.counts>0])>0:
           eZ0   = goodPairs_eee.i0[goodPairs_eee.counts>0].regular()
           eZ1   = goodPairs_eee.i1[goodPairs_eee.counts>0].regular()
           mZ0   = goodPairs_mmm.i0[goodPairs_mmm.counts>0].regular()
