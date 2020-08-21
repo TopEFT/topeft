@@ -207,7 +207,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ### eee and mmm
         eee =   e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
         mmm =  mu[(nElec==0)&(nMuon==3)&(mu.pt>-1)] 
-
+        # Create pairs
         ee_pairs = eee.argchoose(2)
         mm_pairs = mmm.argchoose(2)
 
