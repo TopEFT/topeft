@@ -19,7 +19,7 @@ coffeapath = './coffeaFiles/'
 outname = 'plotsTopEFT'
 
 mocapath   = 'moca'
-mocaScripts = ['corrections', 'functions', 'objects', 'samples',  'selection']
+mocaScripts = ['corrections',  'objects', 'samples',  'selection']
 #analysis = 
 #treeName
 
