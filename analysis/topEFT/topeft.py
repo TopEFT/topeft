@@ -12,12 +12,12 @@ from coffea.util import load, save
 from optparse import OptionParser
 
 class AnalysisProcessor(processor.ProcessorABC):
-    def __init__(self, samples, objects, selection, corrections, functions):
+    def __init__(self, samples, objects, selection, corrections):
         self._samples = samples
         self._objects = objects
         self._selection = selection
         self._corrections = corrections
-        self._functions = functions
+        #self._functions = functions
 
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
@@ -78,9 +78,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         passTrigger = self._selection['passTrigger']
 
         # Functions
-        pow2            = self._functions['pow2']
-        IsClosestToZ    = self._functions['IsClosestToZ']
-        GetGoodTriplets = self._functions['GetGoodTriplets']
+        #pow2            = self._functions['pow2']
+        #IsClosestToZ    = self._functions['IsClosestToZ']
+        #GetGoodTriplets = self._functions['GetGoodTriplets']
 
         # Initialize objects
         met = events.MET
@@ -398,8 +398,8 @@ if __name__ == '__main__':
     objects     = load(outpath+'objects.coffea')
     selection   = load(outpath+'selection.coffea')
     corrections = load(outpath+'corrections.coffea')
-    functions   = load(outpath+'functions.coffea')
+    #functions   = load(outpath+'functions.coffea')
 
-    topprocessor = AnalysisProcessor(samples, objects, selection, corrections, functions)
+    topprocessor = AnalysisProcessor(samples, objects, selection, corrections)
     save(topprocessor, outpath+'topeft.coffea')
 
