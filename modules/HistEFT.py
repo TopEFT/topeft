@@ -1,3 +1,17 @@
+"""
+ HistEFT class - built on top of coffea.hist.Hist
+ Deals with EFT coefficients. Most common methods of the parent class are redefined in order to account for the EFT coefficients
+ The plotting settings are inherited.
+ Uses WCPoint and WCFit to evaluate the weight fuctions (at plotter level).
+
+ Example of initizalization: 
+  HistEFT("Events", ['c1', 'c2', 'c3'], hist.Cat("sample", "sample"), hist.Cat("cut", "cut"), hist.Bin("met", "MET (GeV)", 40, 0, 400))
+
+ TODO: check the group and rebin functions... in particular, the part of grouping/rebinning the coefficients
+ TODO: add sum of weights for normalization? 
+"""
+
+
 import coffea
 import numpy as np
 import copy
@@ -6,9 +20,7 @@ from modules.WCFit import WCFit
 class HistEFT(coffea.hist.Hist):
 
   def __init__(self, label, wcnames, *axes, **kwargs):
-    """ Initialize. Example:
-          HistEFT("Events", ['c1', 'c2', 'c3'], hist.Cat("sample", "sample"), hist.Cat("cut", "cut"), hist.Bin("met", "MET (GeV)", 40, 0, 400))
-    """
+    """ Initialize """
     if isinstance(wcnames, str) and ',' in wcnames: wcnames = wcnames.replace(' ', '').split(',')
     n = len(wcnames) if isinstance(wcnames, list) else wcnames
     self._wcnames = wcnames
@@ -308,6 +320,86 @@ class HistEFT(coffea.hist.Hist):
     full_slice = tuple(slice(None) if ax != axis else keep for ax in self._axes)
     return self[full_slice]
 
+  def group(self, old_axes, new_axis, mapping): 
+    """ Group a set of slices on old axes into a single new axis """
+    ### WARNING: check that this function works properly... (TODO) --> Are the EFT coefficients properly grouped?
+    if not isinstance(new_axis, SparseAxis):
+      raise TypeError("New axis must be a sparse axis.  Note: Hist.group() signature has changed to group(old_axes, new_axis, ...)!")
+    if new_axis in self.axes() and self.axis(new_axis) is new_axis:
+      raise RuntimeError("new_axis is already in the list of axes.  Note: Hist.group() signature has changed to group(old_axes, new_axis, ...)!")
+    if not isinstance(old_axes, tuple): old_axes = (old_axes,)
+    old_axes = [self.axis(ax) for ax in old_axes]
+    old_indices = [i for i, ax in enumerate(self._axes) if ax in old_axes]
+    new_dims = [new_axis] + [ax for ax in self._axes if ax not in old_axes]
+    out = HistEFT(self._label, self._wcnames, *new_dims, dtype=self._dtype)
+    if self._sumw2 is not None: out._init_sumw2()
+    for new_cat in mapping.keys():
+      the_slice = mapping[new_cat]
+      if not isinstance(the_slice, tuple): the_slice = (the_slice,)
+      if len(the_slice) != len(old_axes):
+        raise Exception("Slicing does not match number of axes being rebinned")
+      full_slice = [slice(None)] * self.dim()
+      for idx, s in zip(old_indices, the_slice): full_slice[idx] = s
+      full_slice = tuple(full_slice)
+      reduced_hist = self[full_slice].sum(*tuple(ax.name for ax in old_axes), overflow=overflow)  # slice may change old axis binning
+      new_idx = new_axis.index(new_cat)
+      for key in reduced_hist._sumw:
+        new_key = (new_idx,) + key
+        out._sumw[new_key] = reduced_hist._sumw[key]
+        if self._sumw2 is not None:
+          out._sumw2[new_key] = reduced_hist._sumw2[key]
+
+      # Will this piece work??
+      out.EFTcoeffs = copy.deepcopy(reduced_hist.EFTcoeffs)
+      out.EFTerrs   = copy.deepcopy(reduced_hist.EFTerrs)
+
+    return out
+
+  def rebin(self, old_axis, new_axis):
+    """ Rebin a dense axis """
+    old_axis = self.axis(old_axis)
+    if isinstance(new_axis, numbers.Integral):
+        new_axis = Bin(old_axis.name, old_axis.label, old_axis.edges()[::new_axis])
+    new_dims = [ax if ax != old_axis else new_axis for ax in self._axes]
+    out = HistEFT(self._label, self._wcnames, *new_dims, dtype=self._dtype)
+    if self._sumw2 is not None: out._init_sumw2()
+    idense = self._idense(old_axis)
+
+    def view_ax(idx):
+      fullindex = [slice(None)] * self.dense_dim()
+      fullindex[idense] = idx
+      return tuple(fullindex)
+    binmap = [new_axis.index(i) for i in old_axis.identifiers(overflow='allnan')]
+
+    def dense_op(array):
+      anew = np.zeros(out._dense_shape, dtype=out._dtype)
+      for iold, inew in enumerate(binmap):
+        anew[view_ax(inew)] += array[view_ax(iold)]
+      return anew
+
+    for key in self._sumw:
+      out._sumw[key] = dense_op(self._sumw[key])
+      if self._sumw2 is not None:
+        out._sumw2[key] = dense_op(self._sumw2[key])
+
+    ### TODO: check that this is working!
+    for key in self.EFTcoeffs.keys():
+      if key in out.EFTcoeffs:
+        for i in range(len(self.EFTcoeffs[key])):
+          out.EFTcoeffs[key][i] += dense_op(self.EFTcoeffs[key][i])
+        for i in range(len(self.EFTerrs[key])):
+          out.EFTerrs  [key][i] += dense_op(self.EFTerrs[key][i])
+      else:
+        out.EFTcoeffs[key] = []
+        out.EFTerrs[key] = []
+        for i in range(len(self.EFTcoeffs[key])):
+          out.EFTcoeffs[key].append( dense_op(self.EFTcoeffs[key][i]).copy() )
+        for i in range(len(self.EFTerrs[key])):
+          out.EFTerrs  [key].append( dense_op(self.EFTerrs  [key][i]).copy() )
+    return out
+
+  ###################################################################
+  ### Evaluation
   def Eval(self, WCPoint):
     """ Eval to a given WC point """
     if len(self.WCFit.keys()) == 0: self.SetWCFit()
@@ -319,6 +411,4 @@ class HistEFT(coffea.hist.Hist):
       errors  = np.array([wc.EvalPointError(WCPoint) for wc in self.WCFit[key]])
       self._sumw [key] = self._sumw_orig [key]*weights
       self._sumw2[key] = self._sumw2_orig[key]*errors
-      
-    # group, rebin
 
