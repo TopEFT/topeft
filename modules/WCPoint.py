@@ -1,3 +1,9 @@
+"""
+ WCPoint class
+ This is basically a python copy of the c++ WCPoint class
+   (see: https://github.com/TopEFT/EFTGenReader)
+"""
+
 from math import sqrt
 
 class WCPoint:

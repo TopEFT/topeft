@@ -1,3 +1,10 @@
+"""
+ WCFit class
+ This is basically a python copy of the c++ WCFit class
+   (see: https://github.com/TopEFT/EFTGenReader)
+ Per-event fits of WC points are done with numpy.lstsq
+"""
+
 import numpy as np
 from numpy import sqrt
 from modules.WCPoint import WCPoint
