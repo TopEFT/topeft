@@ -14,8 +14,8 @@
 #import uproot, uproot_methods
 import numpy as np
 #from coffea.arrays import Initialize
-from coffea import hist, lookup_tools
-from coffea.util import save
+#from coffea import hist, lookup_tools
+#from coffea.util import save
 
 
 def passNJets(nJets, lim=2):

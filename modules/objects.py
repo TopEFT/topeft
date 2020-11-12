@@ -6,15 +6,15 @@
 
 '''
 
-import os, sys
-basepath = os.path.abspath(__file__).rsplit('/topcoffea/',1)[0]+'/topcoffea/'
-sys.path.append(basepath)
-import awkward
-import uproot, uproot_methods
+#import os, sys
+#basepath = os.path.abspath(__file__).rsplit('/topcoffea/',1)[0]+'/topcoffea/'
+#sys.path.append(basepath)
+#import awkward
+#import uproot, uproot_methods
 import numpy as np
-from coffea.arrays import Initialize
-from coffea import hist, lookup_tools
-from coffea.util import save
+#from coffea.arrays import Initialize
+#from coffea import hist, lookup_tools
+#from coffea.util import save
 
 
 def isTightMuonPOG(pt,eta,dxy,dz,iso,tight_id, tightCharge, year):
