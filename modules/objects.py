@@ -5,17 +5,7 @@
  The functions are called with (jagged)arrays as imputs and return a boolean mask.
 
 '''
-
-#import os, sys
-#basepath = os.path.abspath(__file__).rsplit('/topcoffea/',1)[0]+'/topcoffea/'
-#sys.path.append(basepath)
-#import awkward
-#import uproot, uproot_methods
 import numpy as np
-#from coffea.arrays import Initialize
-#from coffea import hist, lookup_tools
-#from coffea.util import save
-
 
 def isTightMuonPOG(pt,eta,dxy,dz,iso,tight_id, tightCharge, year):
     #dxy and dz cuts are baked on tight_id; tight isolation is 0.15

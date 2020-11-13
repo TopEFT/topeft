@@ -17,12 +17,8 @@ from modules.selection import *
 
 
 class AnalysisProcessor(processor.ProcessorABC):
-    #def __init__(self, samples, objects, selection, corrections):
     def __init__(self, samples):
         self._samples = samples
-        #self._objects = objects
-        #self._selection = selection
-        #self._corrections = corrections
 
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
@@ -63,24 +59,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         datasets = ['SingleMuon', 'SingleElectron', 'EGamma', 'MuonEG', 'DoubleMuon', 'DoubleElectron']
         for d in datasets: 
           if d in dataset: dataset = dataset.split('_')[0] 
-
-        ### Recover objects, selection, functions and others...
-        # Objects
-        #isTightMuon     = self._objects['isTightMuonPOG']
-        #isTightElectron = self._objects['isTightElectronPOG']
-        #isGoodJet       = self._objects['isGoodJet']
-        #isClean         = self._objects['isClean']
-        #isMuonMVA       = self._objects['isMuonMVA'] #isMuonMVA(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, mediumPrompt, tightCharge, jetDeepB=0, minpt=15)
-        #isElecMVA       = self._objects['isElecMVA'] #isElecMVA(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, elecMVA, lostHits, convVeto, tightCharge, jetDeepB=0, minpt=15)
-
-        # Corrections
-        #GetMuonIsoSF    = self._corrections['getMuonIso']
-        #GetMuonIDSF     = self._corrections['getMuonID' ]
-
-        # Selection
-        #passNJets   = self._selection['passNJets']
-        #passMETcut  = self._selection['passMETcut']
-        #passTrigger = self._selection['passTrigger']
 
         # Initialize objects
         met = events.MET
@@ -395,11 +373,6 @@ if __name__ == '__main__':
     # Load the .coffea files
     outpath= './coffeaFiles/'
     samples     = load(outpath+'samples.coffea')
-    #objects     = load(outpath+'objects.coffea')
-    #selection   = load(outpath+'selection.coffea')
-    #corrections = load(outpath+'corrections.coffea')
 
-    #topprocessor = AnalysisProcessor(samples, objects, selection, corrections)
     topprocessor = AnalysisProcessor(samples)
-    #save(topprocessor, outpath+'topeft.coffea')
 
