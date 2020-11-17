@@ -34,7 +34,7 @@ def findValidRootfiles(path, sampleName = '', getOnlyNumberedFiles = False, verb
     for e in s: fname+=e+'_'
     if fname[-1] == '_': fname = fname[:-1]
     if getOnlyNumberedFiles and not n.isdigit(): continue
-    if sampleName != '' and fname != sampleName and (fname+'_'+n) != sampleName: continue
+    if sampleName != '' and fname != sampleName and (fname+'_'+n) != sampleName and (fname+'.root') != sampleName and (fname+'_'+n+'.root') != sampleName: continue
     if verbose: print(' >> Adding file: ', f)
     files.append(f)
   if FullPaths: files = [path + x for x in files]
