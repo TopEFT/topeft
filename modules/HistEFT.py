@@ -16,6 +16,7 @@ import coffea
 import numpy as np
 import copy
 from modules.WCFit import WCFit
+from modules.WCPoint import WCPoint
 
 class HistEFT(coffea.hist.Hist):
 
@@ -27,6 +28,7 @@ class HistEFT(coffea.hist.Hist):
     self._nwc = n
     self._ncoeffs = int(1+2*n+n*(n-1)/2)
     self.CreatePairs()
+    self._WCPoint = None
 
     super().__init__(label, *axes, **kwargs)
 
@@ -82,7 +84,7 @@ class HistEFT(coffea.hist.Hist):
     """ Get tuple from values """
     return tuple(d.index(values[d.name]) for d in self.sparse_axes())
 
-  def Fill(self, EFTcoefficients, **values):
+  def fill(self, EFTcoefficients, **values):
     """ Fill histogram, incuding EFT fit coefficients """
     values_orig = values.copy()
     weight = values.pop("weight", None)
@@ -117,7 +119,7 @@ class HistEFT(coffea.hist.Hist):
       # Calculate errs...
       for err in np.transpose(errs):
         self.EFTerrs[sparse_key][iErr][:] += np.sum(err)
-    self.fill(**values_orig)
+    super().fill(**values_orig)
 
   #######################################################################################
   def SetWCFit(self, key=None):
@@ -400,15 +402,44 @@ class HistEFT(coffea.hist.Hist):
 
   ###################################################################
   ### Evaluation
-  def Eval(self, WCPoint):
-    """ Eval to a given WC point """
+  def Eval(self, wcp=None):
+    """ Set a WC point and evaluate """
+    if isinstance(WCPoint, dict):
+      wcp = WCPoint(wcp)
+    elif isinstance(wcp, str):
+      values = wcp.replace(" ", "").split(',')
+      wcp = WCPoint(values, names=self.GetWCnames())
+    elif isinstance(wcp, list):
+      wcp = WCPoint(wcp, names=self.GetWCnames())
+
+    if wcp is None:
+      if self._WCPoint is None: self._WCPoint = WCPoint(names=self._wcnames)
+    else: 
+      self._WCPoint = wcp
+    self.EvalInSelfPoint()
+
+  def EvalInSelfPoint(self):
+    """ Evaluate to self._WCPoint """
     if len(self.WCFit.keys()) == 0: self.SetWCFit()
     if not hasattr(self,'_sumw_orig'): 
       self._sumw_orig  = self._sumw.copy()
       self._sumw2_orig = self._sumw2.copy()
     for key in self.WCFit.keys():
-      weights = np.array([wc.EvalPoint(     WCPoint) for wc in self.WCFit[key]])
-      errors  = np.array([wc.EvalPointError(WCPoint) for wc in self.WCFit[key]])
+      weights = np.array([wc.EvalPoint(     self._WCPoint) for wc in self.WCFit[key]])
+      errors  = np.array([wc.EvalPointError(self._WCPoint) for wc in self.WCFit[key]])
       self._sumw [key] = self._sumw_orig [key]*weights
       self._sumw2[key] = self._sumw2_orig[key]*errors
 
+  def SetSMpoint(self):
+    """ Set SM WC point and evaluate """
+    wc = WCPoint(names=self._wcnames)
+    wc.SetSMPoint()
+    self.Eval(wc)
+
+  def SetStrength(self, wc, val):
+    """ Set a WC strength and evaluate """
+    self._WCPoint.SetStrength(wc, val)
+    self.EvalInSelfPoint()
+
+  def GetWCnames(self):
+    return self._wcnames
