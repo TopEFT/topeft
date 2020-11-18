@@ -3,7 +3,9 @@ from collections import defaultdict, OrderedDict
 import gzip
 import pickle
 import json
-import os
+import os,sys
+basepath = os.path.abspath(__file__).rsplit('/topcoffea/',1)[0]+'/topcoffea/'
+sys.path.append(basepath)
 import uproot
 import matplotlib.pyplot as plt
 import numpy as np
@@ -33,10 +35,11 @@ fig, (ax, rax) = plt.subplots(2, 1, figsize=(14,7), gridspec_kw={"height_ratios"
 plt.subplots_adjust(left=0.1, bottom=0.1, right=0.6, top=0.9)
 
 # Get histogram
-h = hists['m0pt']
+h = hists['met']
 h = h.integrate('channel', ch3l)
 h = h.integrate('cut', 'base')
 h = h.sum('sample')
+      
 
 # Get the histogram with the sum of weights, for normalization
 hsow = hists['SumOfEFTweights']
@@ -66,19 +69,22 @@ for i in range(len(wcnames)):
   sliders[wcnames[i]] = Slider(saxes[-1], wcnames[i], -3, 3, valinit=0)
 
 # This function is called when moving a slider
-def updatePlot(name, amount):
+def updatePlot(amount, name):
+  norm = h.values()[()][0]
   h.SetStrength(name, amount)
   hsow.SetStrength(name, amount)
-  h.scale(1./(hsow.values()[()][0]))
+  norm = hsow.values()[()][0]
+  h.scale(1./norm)
   hist.plot1d(h, ax=ax, line_opts={'color':'orange'})
-  #hist.plotratio(h, hSM, ax=rax, clear=False, denom_fill_opts={}, guide_opts={}, unc='num')
-  print('values h   = ', h.values())
-  print('values hSM = ', hSM.values())
+  hist.plotratio(h, hSM, ax=rax, clear=True, denom_fill_opts={}, error_opts={'linestyle':'none', 'marker': '.', 'markersize': 10., 'color':'k', 'elinewidth': 1}, guide_opts={}, unc='num')
+  rax.set_ylim(0, 3)
+  rax.set_ylabel('Ratio to SM')
   fig.canvas.draw_idle()
+  return norm
   
 # Activate the sliders
-for k in sliders.keys():
-  sliders[k].on_changed(lambda x : updatePlot(k, x))
+for n in wcnames:
+  sliders[n].on_changed(lambda x, n=n : updatePlot(x,n))
 
 # Plot!
 plt.show()
