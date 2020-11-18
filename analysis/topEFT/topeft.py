@@ -350,8 +350,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         # fill Histos
         hout = self.accumulator.identity()
         allweights = weights.weight().flatten()
+        eftweightsall = eftweights[varnames['counts']]
         #hout['dummy'].fill(sample=dataset, dummy=varnames['counts'], weight=np.ones_like(events.MET.pt, dtype=np.int))
-        hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=allweights)
+        hout['SumOfEFTweights'].fill(eftweightsall, sample=dataset, SumOfEFTweights=varnames['counts'], weight=allweights)
 
         for var, v in varnames.items():
          for ch in channels2LSS+channels3L:
