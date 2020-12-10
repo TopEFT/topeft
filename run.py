@@ -23,7 +23,7 @@ mocaScripts = ['corrections',  'objects', 'samples',  'selection']
 #analysis = 
 #treeName
 
-nworkers = 8
+nworkers = 6
 
 ### (Re)produce inputs...
 
@@ -60,7 +60,7 @@ os.system("mkdir -p histos/")
 with gzip.open("histos/" + outname + ".pkl.gz", "wb") as fout:
   cloudpickle.dump(output, fout)
 
-#print("%.2f *cpu overall" % (dt*nworkers, ))
+print("%.2f *cpu overall" % (dt*nworkers, ))
 
 
 

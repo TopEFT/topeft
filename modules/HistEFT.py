@@ -45,11 +45,13 @@ class HistEFT(coffea.hist.Hist):
       for i in range(f+1):
         self.idpairs.append((f,i))
         for j in range(len(self.idpairs)-1):
-          self.errpairs.append((i,j))
+          self.errpairs.append([i,j])
+    self.errpairs = np.array(self.errpairs)
 
   def GetErrCoeffs(self, coeffs):
     """ Get all the w*w coefficients """
-    return [coeffs[p[0]]*coeffs[p[1]] if (p[1] == p[0]) else 2*(coeffs[p[0]]*coeffs[p[1]]) for p in self.errpairs]
+    #return [coeffs[p[0]]*coeffs[p[1]] if (p[1] == p[0]) else 2*(coeffs[p[0]]*coeffs[p[1]]) for p in self.errpairs]
+    return np.where(self.errpairs[:,0]==self.errpairs[:,1], coeffs[self.errpairs[:,0]]*coeffs[self.errpairs[:,1]], 2*coeffs[self.errpairs[:,0]]*coeffs[self.errpairs[:,1]])
 
   def copy(self, content=True):
     """ Copy """

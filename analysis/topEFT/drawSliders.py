@@ -76,6 +76,8 @@ def updatePlot(amount, name):
   norm = hsow.values()[()][0]
   h.scale(1./norm)
   hist.plot1d(h, ax=ax, line_opts={'color':'orange'})
+  hist.plot1d(hSM, ax=ax, clear=False, line_opts={'color':'black'})
+  hist.plot1d(h, ax=ax, clear=False, line_opts={'color':'orange'})
   hist.plotratio(h, hSM, ax=rax, clear=True, denom_fill_opts={}, error_opts={'linestyle':'none', 'marker': '.', 'markersize': 10., 'color':'k', 'elinewidth': 1}, guide_opts={}, unc='num')
   rax.set_ylim(0, 3)
   rax.set_ylabel('Ratio to SM')
