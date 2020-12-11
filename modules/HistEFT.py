@@ -107,7 +107,7 @@ class HistEFT(coffea.hist.Hist):
         EFTcoefficients = EFTcoefficients.regular()
         errs = [self.GetErrCoeffs(x) for x in EFTcoefficients]
       for coef in np.transpose(EFTcoefficients):
-        coef = coffea.util._ensure_flat(coef)
+        #coef = coffea.util._ensure_flat(coef)
         self.EFTcoeffs[sparse_key][iCoeff][:] += np.bincount(xy, weights=coef, minlength=np.array(self._dense_shape).prod() ).reshape(self._dense_shape)
         iCoeff += 1
       
