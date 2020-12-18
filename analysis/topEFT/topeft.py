@@ -11,9 +11,9 @@ from coffea import hist, processor
 from coffea.util import load, save
 from optparse import OptionParser
 
-from modules.objects import *
-from modules.corrections import *
-from modules.selection import *
+from topcoffea.modules.objects import *
+from topcoffea.modules.corrections import *
+from topcoffea.modules.selection import *
 
 
 class AnalysisProcessor(processor.ProcessorABC):

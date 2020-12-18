@@ -10,7 +10,7 @@ import numpy as np
 from coffea import hist, processor
 from coffea.hist import plot
 from cycler import cycler
-from plotter.OutText import OutText
+from topcoffea.plotter.OutText import OutText
 
 class plotter:
   def __init__(self, path, prDic={}, colors={}, bkgList=[], dataName='data', outpath='./temp/', lumi=59.7, sigList=[]):

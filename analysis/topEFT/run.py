@@ -13,7 +13,8 @@ import numpy as np
 from coffea import hist, processor
 from coffea.util import load, save
 
-import modules.topeft as topeft
+#import modules.topeft as topeft
+import topeft
 
 nameSamples   = 'samples'
 coffeapath = './coffeaFiles/'
