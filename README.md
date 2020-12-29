@@ -21,9 +21,9 @@ This is a developing effort... no complete instructions or test yet!
   Tools to produce stack plots and other plots
 
 ### Set up the environment 
-`conda create --name coffea-env python=3.8.3`
-`conda activate coffea-env`
-`conda install -y -c conda-forge coffea`
+`conda create --name coffea-env python=3.8.3`  
+`conda activate coffea-env`  
+`conda install -y -c conda-forge coffea`  
 
 ### How to start
 - This directory is set up to be installed as a python package. To install, run `pip install -e .` from the top level directory. The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`.
