@@ -21,6 +21,7 @@ This is a developing effort... no complete instructions or test yet!
   Tools to produce stack plots and other plots
 
 ### Set up the environment 
+If necessary, first run `unset PYTHONPATH` to avoid conflicts. Then run the following commands to set up the conda environment:  
 `conda create --name coffea-env python=3.8.3`  
 `conda activate coffea-env`  
 `conda install -y -c conda-forge coffea`  
