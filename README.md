@@ -4,21 +4,23 @@ Top quark analyses using the Coffea framework
 This is a developing effort... no complete instructions or test yet!
 
 ### Contents
-- analysis
+- `analysis`:
    Subfolders with different analyses: creating histograms, applying selections...
    Also including plotter scripts and/or jupyter files
 
-- cfg
+- `cfg`:
   Configuration files (lists of samples, cross sections...)
 
-- data
+- `data`:
   External inputs used in the analysis: scale factors, corrections...
 
-- modules
+- `topcoffea/modules`:
   Auxiliar python modules and scripts
 
-- plotter
+- `topcoffea/plotter`:
   Tools to produce stack plots and other plots
+
+- `setup.py`: File for installing the `topcoffea` package
 
 ### Set up the environment 
 If necessary, first run `unset PYTHONPATH` to avoid conflicts. Then run the following commands to set up the conda environment:  
