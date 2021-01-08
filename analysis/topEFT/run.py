@@ -13,24 +13,14 @@ import numpy as np
 from coffea import hist, processor
 from coffea.util import load, save
 
+#import modules.topeft as topeft
+import topeft
+
 nameSamples   = 'samples'
-nameProcessor = 'topeft'
 coffeapath = './coffeaFiles/'
 outname = 'plotsTopEFT'
 
-mocapath   = 'moca'
-mocaScripts = ['corrections',  'objects', 'samples',  'selection']
-#analysis = 
-#treeName
-
 nworkers = 8
-
-### (Re)produce inputs...
-
-### Produce/load analysis object
-#print("Executing python analysis/topEFT/topeft.py...")
-#os.system('python analysis/topEFT/topeft.py')
-processor_instance=load(coffeapath+nameProcessor+'.coffea')
 
 ### Load samples
 samplesdict = load(coffeapath+nameSamples+'.coffea')
@@ -41,6 +31,7 @@ for k in samplesdict.keys():
   sow[k]   = samplesdict[k]['nSumOfWeights']
   isData[k]= samplesdict[k]['isData']
 
+processor_instance = topeft.AnalysisProcessor(samplesdict)
 
 # Run the processor and get the output
 tstart = time.time()

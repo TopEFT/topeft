@@ -5,26 +5,9 @@
  The functinos defined here can be used to define a selection, signal/control region, etc.
  The functions are called with (jagged)arrays as imputs plus some custom paramenters and return a boolean mask.
 
- The functions are stored in a dictionary and saved in a '.coffea' file.
-
- Usage:
- >> python selection.py
-
 '''
 
-
-import os, sys
-basepath = os.path.abspath(__file__).rsplit('/topcoffea/',1)[0]+'/topcoffea/'
-sys.path.append(basepath)
-import uproot, uproot_methods
 import numpy as np
-from coffea.arrays import Initialize
-from coffea import hist, lookup_tools
-from coffea.util import save
-
-outdir  = basepath+'coffeaFiles/'
-outname = 'selection'
-seldic = {}
 
 def passNJets(nJets, lim=2):
   return nJets >= lim
@@ -168,7 +151,7 @@ triggersNotForFinalState = {
   }
 }
 
-def PassTrigger(df, cat, isData=False, dataName=''):
+def passTrigger(df, cat, isData=False, dataName=''):
   tpass = np.zeros_like(df.MET.pt, dtype=np.bool)
   df = df.HLT
   if not isData: 
@@ -180,11 +163,3 @@ def PassTrigger(df, cat, isData=False, dataName=''):
     for path in passTriggers: tpass |= df[path]
     for path in notPassTriggers: tpass = (tpass)&(df[path]==0)
   return tpass
-
-
-seldic['passNJets' ] = passNJets
-seldic['passMETcut'] = passMETcut
-seldic['passTrigger'] = PassTrigger
-
-if not os.path.isdir(outdir): os.system('mkdir -p ' + outdir)
-save(seldic, outdir+outname+'.coffea')

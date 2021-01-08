@@ -23,7 +23,7 @@ import os, sys
 from coffea.util import save
 basepath = os.path.abspath(__file__).rsplit('/topcoffea/',1)[0]+'/topcoffea/'
 sys.path.append(basepath)
-from modules.fileReader import GetFiles, GetAllInfoFromFile
+from topcoffea.modules.fileReader import GetFiles, GetAllInfoFromFile
 
 outdir  = basepath+'coffeaFiles/'
 
