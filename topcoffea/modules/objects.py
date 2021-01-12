@@ -4,26 +4,8 @@
  This script contains several functions that implement the object selection according to different object definitions.
  The functions are called with (jagged)arrays as imputs and return a boolean mask.
 
- The functions are stored in a dictionary and saved in a '.coffea' file.
-
- Usage:
- >> python objects.py
-
 '''
-
-
-import os, sys
-basepath = os.path.abspath(__file__).rsplit('/topcoffea/',1)[0]+'/topcoffea/'
-sys.path.append(basepath)
-import awkward
-import uproot, uproot_methods
 import numpy as np
-from coffea.arrays import Initialize
-from coffea import hist, lookup_tools
-from coffea.util import save
-
-outdir  = basepath+'coffeaFiles/'
-outname = 'objects'
 
 def isTightMuonPOG(pt,eta,dxy,dz,iso,tight_id, tightCharge, year):
     #dxy and dz cuts are baked on tight_id; tight isolation is 0.15
@@ -56,17 +38,6 @@ def isElecMVA(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, elecMVA, lostHits, convV
   miniIsoCut = 0.085 # Tight
   mask = (pt>minpt)&(abs(eta)<2.4)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(miniIso<miniIsoCut)&(sip3D<8)&(mvaTTH>0.125)&(elecMVA>0.80)&(jetDeepB<0.1522)&(lostHits<1)&(convVeto)&(tightCharge==2)
   return mask 
-
-ids = {}
-ids['isTightMuonPOG'] = isTightMuonPOG
-ids['isTightElectronPOG'] = isTightElectronPOG
-ids['isMuonMVA'] = isMuonMVA
-ids['isElecMVA'] = isElecMVA
-ids['isGoodJet'] = isGoodJet
-ids['isClean']   = isClean
-
-if not os.path.isdir(outdir): os.system('mkdir -p ' + outdir)
-save(ids, outdir+outname+'.coffea')
 
 
    
