@@ -10,16 +10,14 @@ from coffea.arrays import Initialize
 from coffea import hist, processor
 from coffea.util import load, save
 from optparse import OptionParser
-import os, sys
-basepath = os.path.abspath(__file__).rsplit('/topcoffea/',1)[0]+'/topcoffea/'
-sys.path.append(basepath)
-from modules.HistEFT import HistEFT
-
-WCNames = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
 
 from topcoffea.modules.objects import *
 from topcoffea.modules.corrections import *
 from topcoffea.modules.selection import *
+from topcoffea.modules.HistEFT import HistEFT
+
+# In the future these names will be read from the nanoAOD files
+WCNames = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
 
 
 class AnalysisProcessor(processor.ProcessorABC):

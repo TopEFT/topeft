@@ -12,8 +12,6 @@ from coffea.hist import plot
 import os, sys
 
 from topcoffea.plotter.plotter import plotter
-#basepath = os.path.abspath(__file__).rsplit('/topcoffea/',1)[0]+'/topcoffea/'
-#sys.path.append(basepath)
 
 path = 'histos/plotsTopEFT.pkl.gz'
 
@@ -63,7 +61,6 @@ categories = {
 
 colors = [colordic[k] for k in bkglist]
 
-#from plotter.plotter import plotter
 
 def Draw(var, categories, label=''):
   plt = plotter(path, prDic=processDic, bkgList=bkglist)
