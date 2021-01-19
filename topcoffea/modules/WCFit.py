@@ -7,7 +7,7 @@
 
 import numpy as np
 from numpy import sqrt
-from modules.WCPoint import WCPoint
+from topcoffea.modules.WCPoint import WCPoint
 
 kSMstr = 'sm' # For global use
 

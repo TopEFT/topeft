@@ -12,11 +12,11 @@ import numpy as np
 from coffea import hist, processor
 from coffea.hist import plot
 from cycler import cycler
-from plotter.OutText import OutText
-from modules.HistEFT import HistEFT
-from modules.WCPoint import WCPoint
-from modules.WCFit import WCFit
-from matplotlib.widgets import Slider, Button, RadioButtons
+from topcoffea.plotter.OutText import OutText
+from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.WCPoint import WCPoint
+from topcoffea.modules.WCFit import WCFit
+from topcoffea.matplotlib.widgets import Slider, Button, RadioButtons
 
 
 path = 'histos/plotsTopEFT.pkl.gz'
