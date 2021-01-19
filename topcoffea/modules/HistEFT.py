@@ -15,8 +15,8 @@
 import coffea
 import numpy as np
 import copy
-from modules.WCFit import WCFit
-from modules.WCPoint import WCPoint
+from topcoffea.modules.WCFit import WCFit
+from topcoffea.modules.WCPoint import WCPoint
 
 class HistEFT(coffea.hist.Hist):
 
@@ -88,6 +88,9 @@ class HistEFT(coffea.hist.Hist):
 
   def fill(self, EFTcoefficients, **values):
     """ Fill histogram, incuding EFT fit coefficients """
+    if EFTcoefficients is None or len(EFTcoefficients) == 0:
+      super().fill(**values)
+      return
     values_orig = values.copy()
     weight = values.pop("weight", None)
 
@@ -317,17 +320,17 @@ class HistEFT(coffea.hist.Hist):
     """ Remove bins from a sparse axis
         Same as in parent class """
     axis = self.axis(axis)
-    if not isinstance(axis, SparseAxis):
+    if not isinstance(axis, coffea.hist.hist_tools.SparseAxis):
       raise NotImplementedError("Hist.remove() only supports removing items from a sparse axis.")
     bins = [axis.index(binid) for binid in bins]
     keep = [binid.name for binid in self.identifiers(axis) if binid not in bins]
     full_slice = tuple(slice(None) if ax != axis else keep for ax in self._axes)
     return self[full_slice]
 
-  def group(self, old_axes, new_axis, mapping): 
+  def group(self, old_axes, new_axis, mapping, overflow='none'): 
     """ Group a set of slices on old axes into a single new axis """
     ### WARNING: check that this function works properly... (TODO) --> Are the EFT coefficients properly grouped?
-    if not isinstance(new_axis, SparseAxis):
+    if not isinstance(new_axis, coffea.hist.hist_tools.SparseAxis):
       raise TypeError("New axis must be a sparse axis.  Note: Hist.group() signature has changed to group(old_axes, new_axis, ...)!")
     if new_axis in self.axes() and self.axis(new_axis) is new_axis:
       raise RuntimeError("new_axis is already in the list of axes.  Note: Hist.group() signature has changed to group(old_axes, new_axis, ...)!")

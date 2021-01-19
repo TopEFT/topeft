@@ -248,7 +248,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         genw = np.ones_like(events['MET_pt']) if isData else events['genWeight']
         weights = processor.Weights(events.size)
         weights.add('norm',genw if isData else (xsec/sow)*genw)
-        eftweights = events['EFTfitCoefficients']
+        eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
 
         # Selections and cuts
         selections = processor.PackedSelection()
@@ -337,7 +337,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             cut = selections.all(*cuts)
             weights_flat = weight[cut].flatten()
             weights_ones = np.ones_like(weights_flat, dtype=np.int)
-            eftweightsvalues = eftweights[cut]
+            eftweightsvalues = eftweights[cut] if len(eftweights) > 0 else []
             if var == 'invmass':
               if   ch in ['eeeSSoffZ', 'mmmSSoffZ']: continue
               elif ch in ['eeeSSonZ' , 'mmmSSonZ' ]: continue #values = v[ch]
