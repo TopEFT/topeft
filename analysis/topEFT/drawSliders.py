@@ -16,7 +16,7 @@ from topcoffea.plotter.OutText import OutText
 from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.WCPoint import WCPoint
 from topcoffea.modules.WCFit import WCFit
-from topcoffea.matplotlib.widgets import Slider, Button, RadioButtons
+from matplotlib.widgets import Slider, Button, RadioButtons
 
 
 path = 'histos/plotsTopEFT.pkl.gz'
