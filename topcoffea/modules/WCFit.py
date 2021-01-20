@@ -7,7 +7,7 @@
 
 import numpy as np
 from numpy import sqrt
-from modules.WCPoint import WCPoint
+from topcoffea.modules.WCPoint import WCPoint
 
 kSMstr = 'sm' # For global use
 
@@ -171,7 +171,7 @@ class WCFit:
       self.err_coeffs[i] += added_fit.GetErrorCoefficient(i)
 
   def Scale(self, val):
-    """ NOTE: Should check that we are scaling the error fit properly... """
+    """ Scaling fit """
     for i in range(self.Size()):    self.coeffs[i]     *= val
     for i in range(self.ErrSize()): self.err_coeffs[i] += val*val
 

@@ -15,7 +15,8 @@
 import coffea
 import numpy as np
 import copy
-from modules.WCFit import WCFit
+from topcoffea.modules.WCFit import WCFit
+from topcoffea.modules.WCPoint import WCPoint
 
 class HistEFT(coffea.hist.Hist):
 
@@ -27,6 +28,7 @@ class HistEFT(coffea.hist.Hist):
     self._nwc = n
     self._ncoeffs = int(1+2*n+n*(n-1)/2)
     self.CreatePairs()
+    self._WCPoint = None
 
     super().__init__(label, *axes, **kwargs)
 
@@ -43,11 +45,13 @@ class HistEFT(coffea.hist.Hist):
       for i in range(f+1):
         self.idpairs.append((f,i))
         for j in range(len(self.idpairs)-1):
-          self.errpairs.append((i,j))
+          self.errpairs.append([i,j])
+    self.errpairs = np.array(self.errpairs)
 
   def GetErrCoeffs(self, coeffs):
     """ Get all the w*w coefficients """
-    return [coeffs[p[0]]*coeffs[p[1]] if (p[1] == p[0]) else 2*(coeffs[p[0]]*coeffs[p[1]]) for p in self.errpairs]
+    #return [coeffs[p[0]]*coeffs[p[1]] if (p[1] == p[0]) else 2*(coeffs[p[0]]*coeffs[p[1]]) for p in self.errpairs]
+    return np.where(self.errpairs[:,0]==self.errpairs[:,1], coeffs[self.errpairs[:,0]]*coeffs[self.errpairs[:,1]], 2*coeffs[self.errpairs[:,0]]*coeffs[self.errpairs[:,1]])
 
   def copy(self, content=True):
     """ Copy """
@@ -82,8 +86,11 @@ class HistEFT(coffea.hist.Hist):
     """ Get tuple from values """
     return tuple(d.index(values[d.name]) for d in self.sparse_axes())
 
-  def Fill(self, EFTcoefficients, **values):
+  def fill(self, EFTcoefficients, **values):
     """ Fill histogram, incuding EFT fit coefficients """
+    if EFTcoefficients is None or len(EFTcoefficients) == 0:
+      super().fill(**values)
+      return
     values_orig = values.copy()
     weight = values.pop("weight", None)
 
@@ -103,7 +110,7 @@ class HistEFT(coffea.hist.Hist):
         EFTcoefficients = EFTcoefficients.regular()
         errs = [self.GetErrCoeffs(x) for x in EFTcoefficients]
       for coef in np.transpose(EFTcoefficients):
-        coef = coffea.util._ensure_flat(coef)
+        #coef = coffea.util._ensure_flat(coef)
         self.EFTcoeffs[sparse_key][iCoeff][:] += np.bincount(xy, weights=coef, minlength=np.array(self._dense_shape).prod() ).reshape(self._dense_shape)
         iCoeff += 1
       
@@ -117,7 +124,7 @@ class HistEFT(coffea.hist.Hist):
       # Calculate errs...
       for err in np.transpose(errs):
         self.EFTerrs[sparse_key][iErr][:] += np.sum(err)
-    self.fill(**values_orig)
+    super().fill(**values_orig)
 
   #######################################################################################
   def SetWCFit(self, key=None):
@@ -313,17 +320,17 @@ class HistEFT(coffea.hist.Hist):
     """ Remove bins from a sparse axis
         Same as in parent class """
     axis = self.axis(axis)
-    if not isinstance(axis, SparseAxis):
+    if not isinstance(axis, coffea.hist.hist_tools.SparseAxis):
       raise NotImplementedError("Hist.remove() only supports removing items from a sparse axis.")
     bins = [axis.index(binid) for binid in bins]
     keep = [binid.name for binid in self.identifiers(axis) if binid not in bins]
     full_slice = tuple(slice(None) if ax != axis else keep for ax in self._axes)
     return self[full_slice]
 
-  def group(self, old_axes, new_axis, mapping): 
+  def group(self, old_axes, new_axis, mapping, overflow='none'): 
     """ Group a set of slices on old axes into a single new axis """
     ### WARNING: check that this function works properly... (TODO) --> Are the EFT coefficients properly grouped?
-    if not isinstance(new_axis, SparseAxis):
+    if not isinstance(new_axis, coffea.hist.hist_tools.SparseAxis):
       raise TypeError("New axis must be a sparse axis.  Note: Hist.group() signature has changed to group(old_axes, new_axis, ...)!")
     if new_axis in self.axes() and self.axis(new_axis) is new_axis:
       raise RuntimeError("new_axis is already in the list of axes.  Note: Hist.group() signature has changed to group(old_axes, new_axis, ...)!")
@@ -400,15 +407,44 @@ class HistEFT(coffea.hist.Hist):
 
   ###################################################################
   ### Evaluation
-  def Eval(self, WCPoint):
-    """ Eval to a given WC point """
+  def Eval(self, wcp=None):
+    """ Set a WC point and evaluate """
+    if isinstance(WCPoint, dict):
+      wcp = WCPoint(wcp)
+    elif isinstance(wcp, str):
+      values = wcp.replace(" ", "").split(',')
+      wcp = WCPoint(values, names=self.GetWCnames())
+    elif isinstance(wcp, list):
+      wcp = WCPoint(wcp, names=self.GetWCnames())
+
+    if wcp is None:
+      if self._WCPoint is None: self._WCPoint = WCPoint(names=self._wcnames)
+    else: 
+      self._WCPoint = wcp
+    self.EvalInSelfPoint()
+
+  def EvalInSelfPoint(self):
+    """ Evaluate to self._WCPoint """
     if len(self.WCFit.keys()) == 0: self.SetWCFit()
     if not hasattr(self,'_sumw_orig'): 
       self._sumw_orig  = self._sumw.copy()
       self._sumw2_orig = self._sumw2.copy()
     for key in self.WCFit.keys():
-      weights = np.array([wc.EvalPoint(     WCPoint) for wc in self.WCFit[key]])
-      errors  = np.array([wc.EvalPointError(WCPoint) for wc in self.WCFit[key]])
+      weights = np.array([wc.EvalPoint(     self._WCPoint) for wc in self.WCFit[key]])
+      errors  = np.array([wc.EvalPointError(self._WCPoint) for wc in self.WCFit[key]])
       self._sumw [key] = self._sumw_orig [key]*weights
       self._sumw2[key] = self._sumw2_orig[key]*errors
 
+  def SetSMpoint(self):
+    """ Set SM WC point and evaluate """
+    wc = WCPoint(names=self._wcnames)
+    wc.SetSMPoint()
+    self.Eval(wc)
+
+  def SetStrength(self, wc, val):
+    """ Set a WC strength and evaluate """
+    self._WCPoint.SetStrength(wc, val)
+    self.EvalInSelfPoint()
+
+  def GetWCnames(self):
+    return self._wcnames

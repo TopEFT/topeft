@@ -73,11 +73,31 @@ class WCPoint:
     print(ss1)
     print(ss2)
 
-  def __init__(self,brname, wgt=0., names=None):
+  def __init__(self,brname=None, wgt=0., names=None):
     """ Constructor """
     self.inputs = {}
     self.wgt = 0;
     self.tag = '';
     self.idnum = 0
-    if isinstance(brname, str): self.ParseRwgtId(brname)
+    # It can be a miniAOD branch name...
+    if isinstance(brname, str) and brname.startswith('EFT'): 
+      self.ParseRwgtId(brname)
+
+    # Or a dictiionary
+    elif isinstance(brname, dict):
+      self.inputs = brname.copy()
+
+    else:
+      values = brname
+      if isinstance(brname, str) and ',' in brname:
+        values = brname.replace(' ', '').split(',')
+      if isinstance(names, str) and ',' in names:
+        names = names.replace(' ', '').split(',')
+      if brname is None and isinstance(names, list):
+        values = [0.]*len(names)
+
+      if not (isinstance(values, list) and isinstance(names, list)):
+        print("ERROR -- WCPoint: wrong inputs. Try setting WC and values with lists or a dictionary")
+      for n,v in zip(names, values):
+        self.inputs[n] = v
     self.wgt = float(wgt)

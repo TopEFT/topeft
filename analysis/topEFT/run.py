@@ -41,17 +41,18 @@ dt = time.time() - tstart
 
 nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
 nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-print("Filled %.0f bins" % (nbins, ))
-print("Nonzero bins: %.1f%%" % (100*nfilled/nbins, ))
+print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
+print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
 
 # This is taken from the DM photon analysis...
 # Pickle is not very fast or memory efficient, will be replaced by something better soon
 #    with lz4f.open("pods/"+options.year+"/"+dataset+".pkl.gz", mode="xb", compression_level=5) as fout:
 os.system("mkdir -p histos/")
+print('Saving output in %s...'%("histos/" + outname + ".pkl.gz"))
 with gzip.open("histos/" + outname + ".pkl.gz", "wb") as fout:
   cloudpickle.dump(output, fout)
+print('Done!')
 
-#print("%.2f *cpu overall" % (dt*nworkers, ))
 
 
 

@@ -14,6 +14,10 @@ from optparse import OptionParser
 from topcoffea.modules.objects import *
 from topcoffea.modules.corrections import *
 from topcoffea.modules.selection import *
+from topcoffea.modules.HistEFT import HistEFT
+
+# In the future these names will be read from the nanoAOD files
+WCNames = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
 
 
 class AnalysisProcessor(processor.ProcessorABC):
@@ -23,21 +27,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
         self._accumulator = processor.dict_accumulator({
+        'SumOfEFTweights'  : HistEFT("SumOfWeights", WCNames, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
         'dummy'   : hist.Hist("Dummy" , hist.Cat("sample", "sample"), hist.Bin("dummy", "Number of events", 1, 0, 1)),
         'counts'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("counts", "Counts", 1, 0, 2)),
         'invmass' : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut","cut"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
-        'njets'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("njets",  "Jet multiplicitu ", 10, 0, 10)),
-        'nbtags'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("nbtags", "btag multiplicitu ", 5, 0, 5)),
-        'met'     : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
-        'm3l'     : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 20, 0, 200)),
-        'wleppt'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
-        'e0pt'    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 30, 0, 300)),
-        'm0pt'    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 30, 0, 300)),
-        'j0pt'    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 20, 0, 400)),
-        'e0eta'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0eta",  "Leading elec $\eta$", 20, -2.5, 2.5)),
-        'm0eta'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0eta",  "Leading muon $\eta$", 20, -2.5, 2.5)),
-        'j0eta'   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0eta",  "Leading jet  $\eta$", 20, -2.5, 2.5)),
-        'ht'      : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("ht",     "H$_{T}$ (GeV)", 40, 0, 800)),
+        'njets'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("njets",  "Jet multiplicitu ", 10, 0, 10)),
+        'nbtags'  : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("nbtags", "btag multiplicitu ", 5, 0, 5)),
+        'met'     : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
+        'm3l'     : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 20, 0, 200)),
+        'wleppt'  : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
+        'e0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 30, 0, 300)),
+        'm0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 30, 0, 300)),
+        'j0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'e0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0eta",  "Leading elec $\eta$", 20, -2.5, 2.5)),
+        'm0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0eta",  "Leading muon $\eta$", 20, -2.5, 2.5)),
+        'j0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0eta",  "Leading jet  $\eta$", 20, -2.5, 2.5)),
+        'ht'      : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("ht",     "H$_{T}$ (GeV)", 40, 0, 800)),
         })
 
     @property
@@ -243,6 +248,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         genw = np.ones_like(events['MET_pt']) if isData else events['genWeight']
         weights = processor.Weights(events.size)
         weights.add('norm',genw if isData else (xsec/sow)*genw)
+        eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
 
         # Selections and cuts
         selections = processor.PackedSelection()
@@ -317,9 +323,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['j0eta'] = j0.eta
         varnames['counts'] = np.ones_like(events.MET.pt, dtype=np.int) 
 
-        # Fill Histos
+        # fill Histos
         hout = self.accumulator.identity()
-        hout['dummy'].fill(sample=dataset, dummy=1, weight=events.size)
+        allweights = weights.weight().flatten()
+        #hout['dummy'].fill(sample=dataset, dummy=varnames['counts'], weight=np.ones_like(events.MET.pt, dtype=np.int))
+        hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=allweights)
 
         for var, v in varnames.items():
          for ch in channels2LSS+channels3L:
@@ -329,6 +337,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             cut = selections.all(*cuts)
             weights_flat = weight[cut].flatten()
             weights_ones = np.ones_like(weights_flat, dtype=np.int)
+            eftweightsvalues = eftweights[cut] if len(eftweights) > 0 else []
             if var == 'invmass':
               if   ch in ['eeeSSoffZ', 'mmmSSoffZ']: continue
               elif ch in ['eeeSSonZ' , 'mmmSSonZ' ]: continue #values = v[ch]
@@ -337,32 +346,32 @@ class AnalysisProcessor(processor.ProcessorABC):
             elif var == 'm3l': 
               if ch in ['eeSSonZ','eeSSoffZ', 'mmSSonZ', 'mmSSoffZ','emSS', 'eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']: continue
               values = v[ch][cut].flatten()
-              hout['m3l'].fill(sample=dataset, channel=ch, cut=lev, m3l=values, weight=weights_flat)
+              hout['m3l'].fill(eftweightsvalues, sample=dataset, channel=ch, cut=lev, m3l=values, weight=weights_flat)
             else:
               values = v[cut].flatten()
-              if   var == 'ht'    : hout[var].fill(ht=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'met'   : hout[var].fill(met=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'njets' : hout[var].fill(njets=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'nbtags': hout[var].fill(nbtags=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              if   var == 'ht'    : hout[var].fill(eftweightsvalues, ht=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'met'   : hout[var].fill(eftweightsvalues, met=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'njets' : hout[var].fill(eftweightsvalues, njets=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'nbtags': hout[var].fill(eftweightsvalues, nbtags=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'counts': hout[var].fill(counts=values, sample=dataset, channel=ch, cut=lev, weight=weights_ones)
-              elif var == 'e0pt'  : 
-                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
-                hout[var].fill(e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'm0pt'  : 
-                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
-                hout[var].fill(m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'e0eta' : 
-                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
-                hout[var].fill(e0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'm0eta':
-                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
-                hout[var].fill(m0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'j0pt'  : 
-                if lev == 'base': continue
-                hout[var].fill(j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'j0eta' : 
                 if lev == 'base': continue
-                hout[var].fill(j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(eftweightsvalues, j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e0pt'  : 
+                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
+                hout[var].fill(eftweightsvalues, e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm0pt'  : 
+                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
+                hout[var].fill(eftweightsvalues, m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e0eta' : 
+                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
+                hout[var].fill(eftweightsvalues, e0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm0eta':
+                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
+                hout[var].fill(eftweightsvalues, m0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'j0pt'  : 
+                if lev == 'base': continue
+                hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
 
         return hout
 
@@ -373,6 +382,5 @@ if __name__ == '__main__':
     # Load the .coffea files
     outpath= './coffeaFiles/'
     samples     = load(outpath+'samples.coffea')
-
     topprocessor = AnalysisProcessor(samples)
 
