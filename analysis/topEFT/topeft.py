@@ -6,13 +6,13 @@ import pprint
 import numpy as np
 import awkward
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea.arrays import Initialize
+#from coffea.arrays import Initialize # Not used and gives error
 from coffea import hist, processor
 from coffea.util import load, save
 from optparse import OptionParser
 
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import *
+#from topcoffea.modules.corrections import * # Comment this out for now, as it's not used an is giving this error: "AttributeError: 'Model_TH2D_v3' object has no attribute 'edges'"
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 
