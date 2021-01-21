@@ -4,7 +4,7 @@ import cloudpickle
 import json
 import pprint
 import numpy as np
-import awkward
+import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 #from coffea.arrays import Initialize # Not used and gives error
 from coffea import hist, processor
@@ -75,7 +75,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Electron selection
         #e['isGood'] = e.pt.zeros_like()
         e['isGood'] = isElecMVA(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.mvaTTH, e.mvaFall17V2Iso, e.lostHits, e.convVeto, e.tightCharge, minpt=10)
-        leading_e = e[e.pt.argmax()]
+        leading_e = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
         leading_e = leading_e[leading_e.isGood.astype(np.bool)]
 
         # Muon selection
