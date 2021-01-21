@@ -13,18 +13,14 @@ import numpy as np
 from coffea import hist, processor
 from coffea.util import load, save
 
-#import modules.topeft as topeft
 import topeft
 from topcoffea.modules import samples
 
-#nameSamples   = 'samples'
-#coffeapath = './coffeaFiles/'
 outname = 'plotsTopEFT'
 
 nworkers = 8
 
 ### Load samples
-#samplesdict = load(coffeapath+nameSamples+'.coffea')
 samplesdict = samples.main()
 flist = {}; xsec = {}; sow = {}; isData = {}
 for k in samplesdict.keys():

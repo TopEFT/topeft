@@ -9,7 +9,7 @@
   - The dictorionary contains all samples for the form sample1name_[number].root, grouped into processes
   - Reads the number of entries and, according to the present branches, determines if a sample contains data or MC events
 
-  The output is a '.coffea' file with a dictionary containting all the info for each sample.
+  Returns a dictionary containting all the info for each sample
 
   Usage:
     >> python samples.py configFile.cfg
@@ -24,8 +24,6 @@ from coffea.util import save
 basepath = os.path.abspath(__file__).rsplit('/topcoffea/',1)[0]+'/topcoffea/'
 sys.path.append(basepath)
 from topcoffea.modules.fileReader import GetFiles, GetAllInfoFromFile
-
-#outdir  = basepath+'coffeaFiles/'
 
 def FindFileInDir(fname, dname = '.'):
   if not os.path.isfile(dname+'/'+fname):
@@ -110,7 +108,6 @@ def main():
   parser.add_argument('--year','-y'       , default=-1           , help = 'Year')
   parser.add_argument('--options','-o'    , default=''           , help = 'Options to pass to your analysis')
   parser.add_argument('--treeName'        , default='Events'     , help = 'Name of the tree')
-  #parser.add_argument('--outname','--out' , default=outdir+'samples', help = 'Name of the output pickle file')
 
   args = parser.parse_args()
   cfgfile     = args.cfgfile
@@ -122,7 +119,6 @@ def main():
   options     = args.options
   xsec        = args.xsec
   year        = args.year
-  #outname     = args.outname
   treeName    = args.treeName
 
   samplefiles = {}
@@ -171,7 +167,6 @@ def main():
   if args.options    != ''       : options     = args.options
   if args.xsec       != 'xsec'   : xsec        = args.xsec
   if args.year       != -1       : year        = args.year
-  #if args.outname    != ''       : outname     = args.outname
   if args.treeName   != 'Events' : treeName    = args.treeName
   if args.verbose    != 0        : verbose     = int(args.verbose)
   xsecdic = loadxsecdic(xsec, verbose)
@@ -205,10 +200,6 @@ def main():
       for fname in sampdic[sname]['files']: print('     %s'%fname)
 
   return sampdic
-  #if '/' in outname: 
-  #  odir = outname[:outname.rfind('/')+1]
-  #  if not os.path.isdir(odir): os.system('mkdir -p ' + odir)
-  #save(sampdic, outname+'.coffea')
 
 if __name__ == '__main__':
   main()
