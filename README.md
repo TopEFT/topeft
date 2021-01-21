@@ -3,6 +3,16 @@ Top quark analyses using the Coffea framework
 
 This is a developing effort... no complete instructions or test yet!
 
+## Notes about this branch
+
+The purpose of this branch is to make the modifications that will be necessary for using `awkward1`. To set up the environment:  
+```
+conda create coffea-070-test3 python=3.8.3
+conda activate coffea-070rc1-test3
+pip install "coffea==0.7.0rc1"
+conda install -c conda-forge xrootd
+```
+
 ### Contents
 - `analysis`:
    Subfolders with different analyses: creating histograms, applying selections...
