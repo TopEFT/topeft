@@ -30,5 +30,5 @@ If necessary, first run `unset PYTHONPATH` to avoid conflicts. Then run the foll
 
 ### How to start
 - This directory is set up to be installed as a python package. To install, run `pip install -e .` from the top level directory. The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`.
-- Set up the cfg file you want to use, and run `python moca/samples.py cfg/your_cfg.cfg`. This produces a coffea file (`coffeaFiles/samples.coffea`).
-- Run `analysis/topEFT/run.py`.
+- Set up the cfg file you want to use in the `cfg` directory.
+- Run `analysis/topEFT/run.py cfg/your_cfg.cfg`.
