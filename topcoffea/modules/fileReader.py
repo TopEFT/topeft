@@ -1,4 +1,4 @@
-import os, sys, argparse, uproot, uproot_methods
+import os, sys, argparse, uproot
 
 def isdigit(a):
   ''' Redefinition of str.isdigit() that takes into account negative numbers '''
