@@ -69,6 +69,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         met = events.MET
         e   = events.Electron
         mu  = events.Muon
+        tau = events.Tau
         j   = events.Jet
  
         # Muon selection
