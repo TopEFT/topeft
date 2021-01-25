@@ -116,45 +116,44 @@ class AnalysisProcessor(processor.ProcessorABC):
         # emu
         singe = e [(nElec==1)&(nMuon==1)&(e .pt>-1)]
         singm = mu[(nElec==1)&(nMuon==1)&(mu.pt>-1)]
-        em = singe.cross(singm)
-        emSSmask = (em.i0.charge*em.i1.charge>0)
+        em = ak.cartesian({"e":singe,"m":singm})
+        emSSmask = (em.e.charge*em.m.charge>0)
         emSS = em[emSSmask]
-        nemSS = len(emSS.flatten())
+        nemSS = len(ak.flatten(emSS))
 
         # ee and mumu
         # pt>-1 to preserve jagged dimensions
         ee = e [(nElec==2)&(nMuon==0)&(e.pt>-1)]
         mm = mu[(nElec==0)&(nMuon==2)&(mu.pt>-1)]
 
-        eepairs = ee.distincts()
-        eeSSmask = (eepairs.i0.charge*eepairs.i1.charge>0)
-        eeonZmask  = (np.abs((eepairs.i0+eepairs.i1).mass-91)<15)
+        eepairs = ak.combinations(ee, 2, fields=["e0","e1"])
+        eeSSmask = (eepairs.e0.charge*eepairs.e1.charge>0)
+        eeonZmask  = (np.abs((eepairs.e0+eepairs.e1).mass-91)<15)
         eeoffZmask = (eeonZmask==0)
 
-        mmpairs = mm.distincts()
-        mmSSmask = (mmpairs.i0.charge*mmpairs.i1.charge>0)
-        mmonZmask  = (np.abs((mmpairs.i0+mmpairs.i1).mass-91)<15)
+        mmpairs = ak.combinations(mm, 2, fields=["m0","m1"])
+        mmSSmask = (mmpairs.m0.charge*mmpairs.m1.charge>0)
+        mmonZmask = (np.abs((mmpairs.m0+mmpairs.m1).mass-91)<15)
         mmoffZmask = (mmonZmask==0)
 
         eeSSonZ  = eepairs[eeSSmask &  eeonZmask]
         eeSSoffZ = eepairs[eeSSmask & eeoffZmask]
         mmSSonZ  = mmpairs[mmSSmask &  mmonZmask]
         mmSSoffZ = mmpairs[mmSSmask & mmoffZmask]
-        neeSS = len(eeSSonZ.flatten()) + len(eeSSoffZ.flatten())
-        nmmSS = len(mmSSonZ.flatten()) + len(mmSSoffZ.flatten())
+        neeSS = len(ak.flatten(eeSSonZ)) + len(ak.flatten(eeSSoffZ))
+        nmmSS = len(ak.flatten(mmSSonZ)) + len(ak.flatten(mmSSoffZ))
 
-        #print('Same-sign events [ee, emu, mumu] = [%i, %i, %i]'%(neeSS, nemSS, nmmSS))
+        print('Same-sign events [ee, emu, mumu] = [%i, %i, %i]'%(neeSS, nemSS, nmmSS))
 
         # Cuts
-        eeSSmask   = (eeSSmask[eeSSmask].counts>0)
-        mmSSmask   = (mmSSmask[mmSSmask].counts>0)
-        eeonZmask  = (eeonZmask[eeonZmask].counts>0)
-        eeoffZmask = (eeoffZmask[eeoffZmask].counts>0)
-        mmonZmask  = (mmonZmask[mmonZmask].counts>0)
-        mmoffZmask = (mmoffZmask[mmoffZmask].counts>0)
-        emSSmask    = (emSSmask[emSSmask].counts>0)
+        eeSSmask   = (ak.num(eeSSmask[eeSSmask])>0)
+        mmSSmask   = (ak.num(mmSSmask[mmSSmask])>0)
+        eeonZmask  = (ak.num(eeonZmask[eeonZmask])>0)
+        eeoffZmask = (ak.num(eeoffZmask[eeoffZmask])>0)
+        mmonZmask  = (ak.num(mmonZmask[mmonZmask])>0)
+        mmoffZmask = (ak.num(mmoffZmask[mmoffZmask])>0)
+        emSSmask   = (ak.num(emSSmask[emSSmask])>0)
 
-        # njets
 
         ##################################################################
         ### 3 leptons
