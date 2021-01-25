@@ -76,33 +76,37 @@ class AnalysisProcessor(processor.ProcessorABC):
         #e['isGood'] = e.pt.zeros_like()
         e['isGood'] = isElecMVA(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.mvaTTH, e.mvaFall17V2Iso, e.lostHits, e.convVeto, e.tightCharge, minpt=10)
         leading_e = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
-        leading_e = leading_e[leading_e.isGood.astype(np.bool)]
+        #leading_e = leading_e[leading_e.isGood.astype(np.bool)]`
+        leading_e = leading_e[leading_e.isGood] # Not sure how to do astype with awkward1, but do we actually need it?. Will need to look at this more closely later.
 
         # Muon selection
         mu['isGood'] = isMuonMVA(mu.pt, mu.eta, mu.dxy, mu.dz, mu.miniPFRelIso_all, mu.sip3d, mu.mvaTTH, mu.mediumPromptId, mu.tightCharge, minpt=10)
-        leading_mu = mu[mu.pt.argmax()]
-        leading_mu = leading_mu[leading_mu.isGood.astype(np.bool)]
+        leading_mu = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
+        #leading_mu = leading_mu[leading_mu.isGood.astype(np.bool)]
+        leading_mu = leading_mu[leading_mu.isGood] # Not sure how to do astype with awkward1, but do we actually need it? Will need to look at this more closely later.
         
-        e  =  e[e .isGood.astype(np.bool)]
-        mu = mu[mu.isGood.astype(np.bool)]
-        nElec = e .counts
-        nMuon = mu.counts
+        #e  =  e[e .isGood.astype(np.bool)]
+        #mu = mu[mu.isGood.astype(np.bool)]
+        e  = e[e.isGood]   # Again, not sure about the astype
+        mu = mu[mu.isGood] # Again, not sure about the astype
+        nElec = ak.num(e)
+        nMuon = ak.num(mu)
 
         twoLeps   = (nElec+nMuon) == 2
         threeLeps = (nElec+nMuon) == 3
         twoElec   = (nElec == 2)
         twoMuon   = (nMuon == 2)
-        e0 = e[e.pt.argmax()]
-        m0 = mu[mu.pt.argmax()]
+        e0 = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
+        m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
 
         # Jet selection
         j['isgood']  = isGoodJet(j.pt, j.eta, j.jetId)
         j['isclean'] = isClean(j, e, mu)
         goodJets = j[(j.isclean)&(j.isgood)]
-        njets = goodJets.counts
-        ht = goodJets.pt.sum()
-        j0 = goodJets[goodJets.pt.argmax()]
-        nbtags = goodJets[goodJets.btagDeepFlavB > 0.2770].counts
+        njets = ak.num(goodJets)
+        ht = ak.sum(goodJets.pt,axis=-1)
+        j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
+        nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
 
 
         ##################################################################
