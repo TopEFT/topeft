@@ -18,52 +18,27 @@ def isTightElectronPOG(pt,eta,dxy,dz,tight_id,tightCharge,year):
     mask = ((pt>10)&(abs(eta)<2.5)&(tight_id==4)&(tightCharge)) # Trigger: HLT_Ele27_WPTight_Gsf_v
     return mask
 
-#Return if obj_A is close to obj_B, obj can be lepton or jet.
-def isClean(obj_A, obj_B, drmin=0.4):
-   ABpairs = obj_A.cross(obj_B, nested=True)
-   ABgoodPairs = (ABpairs.i0.delta_r(ABpairs.i1) > drmin).all()
-   return ABgoodPairs
-   
-def isTightJet(pt, eta, jet_id, neHEF, neEmEF, chHEF, chEmEF, nConstituents, jetPtCut=30.0):
-    mask = (pt>jetPtCut) & (abs(eta)<2.4)# & ((jet_id&6)==6)
-    loose = (pt>0)#(neHEF<0.99)&(neEmEF<0.99)&(chEmEF<0.99)&(nConstituents>1)
-    tight = (neHEF<0.9)&(neEmEF<0.9)&(chHEF>0.0)
-    jetMETcorrection = (pt>0)#(neEmEF + chEmEF < 0.9)
-    mask = mask & loose & tight & jetMETcorrection
+def isGoodJet(pt, eta, jet_id, jetPtCut=30):
+    mask = (pt>jetPtCut) & (abs(eta)<2.4) & ((jet_id&2)==2)
     return mask
 
-def isCleanJet(jets, electrons, muons, taus, drmin=0.4):
+def isClean(jets, electrons, muons, drmin=0.4):
   ''' Returns mask to select clean jets '''
   epairs = jets.cross(electrons, nested=True)
   mpairs = jets.cross(muons, nested=True)
-  tpairs = jets.cross(taus, nested=True)
   egoodPairs = (epairs.i0.delta_r(epairs.i1) > drmin).all()
   mgoodPairs = (mpairs.i0.delta_r(mpairs.i1) > drmin).all()
-  tgoodPairs = (tpairs.i0.delta_r(tpairs.i1) > drmin).all()
-  return (egoodPairs) & (mgoodPairs)# & (tgoodPairs)
+  return (egoodPairs) & (mgoodPairs)
 
-def isPresMuon(dxy, dz, sip3D, looseId):
-  mask = (abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(looseId)
-  return mask
-  
-def isTightMuon(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, mediumPrompt, tightCharge, looseId, minpt=10.0):
-  mask = (pt>minpt)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(looseId)#&(miniIso<0.25)#&(mvaTTH>0.90)&(tightCharge==2)&(mediumPrompt)
+def isMuonMVA(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, mediumPrompt, tightCharge, jetDeepB=0, minpt=15):
+  mask = (pt>minpt)&(abs(eta)<2.4)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(miniIso<0.4)&(sip3D<5)&(mvaTTH>0.55)&(mediumPrompt)&(tightCharge==2)&(jetDeepB<0.1522)
   return mask
 
-def isPresElec(pt, eta, dxy, dz, miniIso, sip3D, lostHits, minpt=15.0):
-  mask = (pt>minpt)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(lostHits<=1)#&(eInvMinusPInv>-0.04)&(maskhoe)&(miniIso<0.25)
-  return mask
- 
-def isTightElec(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, elecMVA, lostHits, convVeto, tightCharge, sieie, hoe, eInvMinusPInv, minpt=15.0):
-  maskPOGMVA = ((pt<10)&(abs(eta)<0.8)&(elecMVA>-0.13))|((pt<10)&(abs(eta)>0.8)&(abs(eta)<1.44)&(elecMVA>-0.32))|((pt<10)&(abs(eta)>1.44)&(elecMVA>-0.08))|\
-               ((pt>10)&(abs(eta)<0.8)&(elecMVA>-0.86))|((pt>10)&(abs(eta)>0.8)&(abs(eta)<1.44)&(elecMVA>-0.81))|((pt>10)&(abs(eta)>1.44)&(elecMVA>-0.72))
-  maskSieie  = ((abs(eta)<1.479)&(sieie<0.011))|((abs(eta)>1.479)&(sieie<0.030))
-  maskhoe    = ((abs(eta)<1.479)&(hoe<0.10))|((abs(eta)>1.479)&(hoe<0.07))
-  mask = (pt>minpt)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(lostHits<=1)&\
-         (convVeto)&(maskSieie)#&(maskPOGMVA)&(eInvMinusPInv>-0.04)&(maskhoe)&(miniIso<0.25)#&(mvaTTH>0.90)&(tightCharge==2)
-  return mask
- 
-def isPresTau(pt, eta, dxy, dz, leadTkPtOverTauPt, idAntiMu, idAntiEle, rawIso, idDecayModeNewDMs, minpt=20.0):
-  kinematics = (pt>minpt)&(abs(eta)<2.3)&(dxy<1000.)&(dz<0.2)#&(leadTkPtOverTauPt*pt>0.5)
-  medium = (idAntiMu>0.5)&(idAntiEle>0.5)&(rawIso>0.5)&(idDecayModeNewDMs)
-  return kinematics# & medium
+def isElecMVA(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, elecMVA, lostHits, convVeto, tightCharge, jetDeepB=0, minpt=15):
+  miniIsoCut = 0.085 # Tight
+  mask = (pt>minpt)&(abs(eta)<2.4)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(miniIso<miniIsoCut)&(sip3D<8)&(mvaTTH>0.125)&(elecMVA>0.80)&(jetDeepB<0.1522)&(lostHits<1)&(convVeto)&(tightCharge==2)
+  return mask 
+
+
+   
+
