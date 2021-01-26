@@ -4,7 +4,7 @@ import cloudpickle
 import json
 import pprint
 import numpy as np
-import awkward as ak
+import awkward1 as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 #from coffea.arrays import Initialize # Not used and gives error
 from coffea import hist, processor
@@ -71,7 +71,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu  = events.Muon
         j   = events.Jet
  
-
         # Electron selection
         #e['isGood'] = e.pt.zeros_like()
         e['isGood'] = isElecMVA(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.mvaTTH, e.mvaFall17V2Iso, e.lostHits, e.convVeto, e.tightCharge, minpt=10)
@@ -162,37 +161,47 @@ class AnalysisProcessor(processor.ProcessorABC):
         # eem
         muon_eem = mu[(nElec==2)&(nMuon==1)&(mu.pt>-1)]
         elec_eem =  e[(nElec==2)&(nMuon==1)&( e.pt>-1)]
-        ee_eem   = elec_eem.distincts()
-        ee_eemZmask     = (ee_eem.i0.charge*ee_eem.i1.charge<1)&(np.abs((ee_eem.i0+ee_eem.i1).mass-91)<15)
-        ee_eemOffZmask  = (ee_eem.i0.charge*ee_eem.i1.charge<1)&(np.abs((ee_eem.i0+ee_eem.i1).mass-91)>15)
-        ee_eemZmask     = (ee_eemZmask[ee_eemZmask].counts>0)
-        ee_eemOffZmask  = (ee_eemOffZmask[ee_eemOffZmask].counts>0)
+        ee_eem = ak.combinations(elec_eem, 2, fields=["e0", "e1"])
 
-        eepair_eem     = (ee_eem.i0+ee_eem.i1)
-        trilep_eem     = eepair_eem.cross(muon_eem)
-        trilep_eem     = (trilep_eem.i0+trilep_eem.i1) 
+        ee_eemZmask     = (ee_eem.e0.charge*ee_eem.e1.charge<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91)<15)
+        ee_eemOffZmask  = (ee_eem.e0.charge*ee_eem.e1.charge<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91)>15)
+        ee_eemZmask     = (ak.num(ee_eemZmask[ee_eemZmask])>0)
+        ee_eemOffZmask  = (ak.num(ee_eemOffZmask[ee_eemOffZmask])>0)
+
+        eepair_eem  = (ee_eem.e0+ee_eem.e1)
+        trilep_eem = eepair_eem+muon_eem #ak.cartesian({"e0":ee_eem.e0,"e1":ee_eem.e1, "m":muon_eem})
 
         # mme
         muon_mme = mu[(nElec==1)&(nMuon==2)&(mu.pt>-1)]
         elec_mme =  e[(nElec==1)&(nMuon==2)&( e.pt>-1)]
-        mm_mme   = muon_mme.distincts()
-        mm_mmeZmask     = (mm_mme.i0.charge*mm_mme.i1.charge<1)&(np.abs((mm_mme.i0+mm_mme.i1).mass-91)<15)
-        mm_mmeOffZmask  = (mm_mme.i0.charge*mm_mme.i1.charge<1)&(np.abs((mm_mme.i0+mm_mme.i1).mass-91)>15)
-        mm_mmeZmask     = (mm_mmeZmask[mm_mmeZmask].counts>0)
-        mm_mmeOffZmask  = (mm_mmeOffZmask[mm_mmeOffZmask].counts>0)
+        mm_mme = ak.combinations(muon_mme, 2, fields=["m0", "m1"])
+        mm_mmeZmask     = (mm_mme.m0.charge*mm_mme.m1.charge<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91)<15)
+        mm_mmeOffZmask  = (mm_mme.m0.charge*mm_mme.m1.charge<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91)>15)
+        mm_mmeZmask     = (ak.num(mm_mmeZmask[mm_mmeZmask])>0)
+        mm_mmeOffZmask  = (ak.num(mm_mmeOffZmask[mm_mmeOffZmask])>0)
 
-        mmpair_mme     = (mm_mme.i0+mm_mme.i1)
-        trilep_mme     = mmpair_mme.cross(elec_mme)
-        trilep_mme     = (trilep_mme.i0+trilep_mme.i1)
+        mmpair_mme     = (mm_mme.m0+mm_mme.m1)
+        trilep_mme     = mmpair_mme+elec_mme
+
         mZ_mme  = mmpair_mme.mass
         mZ_eem  = eepair_eem.mass
         m3l_eem = trilep_eem.mass
         m3l_mme = trilep_mme.mass
 
-
         ### eee and mmm
         eee =   e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
         mmm =  mu[(nElec==0)&(nMuon==3)&(mu.pt>-1)] 
+        eee_leps = ak.combinations(eee, 3, fields=["e0", "e1", "e2"])
+        mmm_leps = ak.combinations(mmm, 3, fields=["m0", "m1", "m2"])
+        ee_pairs = ak.combinations(eee, 2, fields=["e0", "e1"])
+        mm_pairs = ak.combinations(mmm, 2, fields=["m0", "m1"])
+
+        mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.charge != mm_pairs.m1.charge)]
+        onZmask_mm = np.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<15, axis=1)
+        eeSFOS_pairs = ee_pairs[(np.abs(ee_pairs.e0.pdgId) == np.abs(ee_pairs.e1.pdgId)) & (ee_pairs.e0.charge != ee_pairs.e1.charge)]
+        onZmask_ee = np.any(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)<15, axis=1)
+
+        '''
         # Create pairs
         ee_pairs = eee.argchoose(2)
         mm_pairs = mmm.argchoose(2)
@@ -208,11 +217,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         offZmask_ee = np.abs((eee[eeOSSFmask.i0] + eee[eeOSSFmask.i1]).mass - 91.2) > 15
         offZmask_mm = np.abs((mmm[mmOSSFmask.i0] + mmm[mmOSSFmask.i1]).mass - 91.2) > 15
 
-        # Create masks
-        eeeOnZmask  = onZmask_ee[onZmask_ee].counts>0
-        eeeOffZmask = offZmask_ee[offZmask_ee].counts>0
-        mmmOnZmask  = onZmask_mm[onZmask_mm].counts>0
-        mmmOffZmask = offZmask_mm[offZmask_mm].counts>0
     
         # Leptons from Z
         eZ0= eee[eeOSSFmask.i0]
@@ -326,8 +330,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['j0eta'] = j0.eta
         varnames['counts'] = np.ones_like(events.MET.pt, dtype=np.int) 
 
+        '''
         # fill Histos
         hout = self.accumulator.identity()
+        '''
         allweights = weights.weight().flatten()
         #hout['dummy'].fill(sample=dataset, dummy=varnames['counts'], weight=np.ones_like(events.MET.pt, dtype=np.int))
         hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=allweights)
@@ -375,7 +381,7 @@ class AnalysisProcessor(processor.ProcessorABC):
               elif var == 'j0pt'  : 
                 if lev == 'base': continue
                 hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-
+        '''
         return hout
 
     def postprocess(self, accumulator):
