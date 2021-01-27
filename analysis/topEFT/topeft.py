@@ -197,9 +197,29 @@ class AnalysisProcessor(processor.ProcessorABC):
         mm_pairs = ak.combinations(mmm, 2, fields=["m0", "m1"])
 
         mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.charge != mm_pairs.m1.charge)]
-        onZmask_mm = np.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<15, axis=1)
+        onZmask_mm = np.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<15, axis=1, keepdims=True)
         eeSFOS_pairs = ee_pairs[(np.abs(ee_pairs.e0.pdgId) == np.abs(ee_pairs.e1.pdgId)) & (ee_pairs.e0.charge != ee_pairs.e1.charge)]
-        onZmask_ee = np.any(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)<15, axis=1)
+        onZmask_ee = np.any(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)<15, axis=1, keepdims=True)
+
+        # Something wrong with these?
+        offZmask_mm = ak.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>15, axis=1, keepdims=True)
+        offZmask_ee = ak.any(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)>15, axis=1, keepdims=True)
+
+        # Do we actually need these?
+        #print("ak.flatten(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)",ak.flatten(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)))
+        eeOSSFmask = eeSFOS_pairs[ak.argmin(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2),axis=-1,keepdims=True)]
+        mmOSSFmask = mmSFOS_pairs[ak.argmin(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2),axis=-1,keepdims=True)]
+
+        # Create masks
+        eeeOnZmask  = (ak.num(onZmask_ee[onZmask_ee])>0)
+        eeeOffZmask = (ak.num(offZmask_ee[offZmask_ee])>0)
+        mmmOnZmask  = (ak.num(onZmask_mm[onZmask_mm])>0)
+        mmmOffZmask = (ak.num(offZmask_mm[offZmask_mm])>0)
+
+        print("ak.num(eee[eeeOnZmask]):",ak.num(eee[eeeOnZmask]))
+        print("ak.num(eee[eeeOffZmask]):",ak.num(eee[eeeOffZmask]))
+        print("ak.num(mmm[mmmOnZmask]):",ak.num(mmm[mmmOnZmask]))
+        print("ak.num(mmm[mmmOffZmask]):",ak.num(mmm[mmmOffZmask]))
 
         '''
         # Create pairs
@@ -217,12 +237,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         offZmask_ee = np.abs((eee[eeOSSFmask.i0] + eee[eeOSSFmask.i1]).mass - 91.2) > 15
         offZmask_mm = np.abs((mmm[mmOSSFmask.i0] + mmm[mmOSSFmask.i1]).mass - 91.2) > 15
 
-    
         # Leptons from Z
         eZ0= eee[eeOSSFmask.i0]
         eZ1= eee[eeOSSFmask.i1]
         mZ0= mmm[mmOSSFmask.i0]
         mZ1= mmm[mmOSSFmask.i1]
+
+        '''
 
         # Leptons from W
         eW = eee[~eeOSSFmask.i0 | ~eeOSSFmask.i1]
@@ -333,7 +354,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         '''
         # fill Histos
         hout = self.accumulator.identity()
-        '''
+        #'''
         allweights = weights.weight().flatten()
         #hout['dummy'].fill(sample=dataset, dummy=varnames['counts'], weight=np.ones_like(events.MET.pt, dtype=np.int))
         hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=allweights)
@@ -381,7 +402,7 @@ class AnalysisProcessor(processor.ProcessorABC):
               elif var == 'j0pt'  : 
                 if lev == 'base': continue
                 hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-        '''
+        #'''
         return hout
 
     def postprocess(self, accumulator):
