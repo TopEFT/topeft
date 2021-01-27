@@ -197,66 +197,43 @@ class AnalysisProcessor(processor.ProcessorABC):
         mm_pairs = ak.combinations(mmm, 2, fields=["m0", "m1"])
 
         mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.charge != mm_pairs.m1.charge)]
-        onZmask_mm = np.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<15, axis=1, keepdims=True)
+        offZmask_mm = ak.all(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>15., axis=1, keepdims=True) & (ak.num(mmSFOS_pairs)>0)
+        onZmask_mm  = ak.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<15., axis=1, keepdims=True)
+      
         eeSFOS_pairs = ee_pairs[(np.abs(ee_pairs.e0.pdgId) == np.abs(ee_pairs.e1.pdgId)) & (ee_pairs.e0.charge != ee_pairs.e1.charge)]
-        onZmask_ee = np.any(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)<15, axis=1, keepdims=True)
+        offZmask_ee = ak.all(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)>15, axis=1, keepdims=True) & (ak.num(eeSFOS_pairs)>0)
+        onZmask_ee  = ak.any(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)<15, axis=1, keepdims=True)
 
-        # Something wrong with these?
-        offZmask_mm = ak.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>15, axis=1, keepdims=True)
-        offZmask_ee = ak.any(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)>15, axis=1, keepdims=True)
-
-        # Do we actually need these?
-        #print("ak.flatten(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)",ak.flatten(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)))
-        eeOSSFmask = eeSFOS_pairs[ak.argmin(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2),axis=-1,keepdims=True)]
-        mmOSSFmask = mmSFOS_pairs[ak.argmin(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2),axis=-1,keepdims=True)]
-
-        # Create masks
+        # Create masks **for event selection**
         eeeOnZmask  = (ak.num(onZmask_ee[onZmask_ee])>0)
         eeeOffZmask = (ak.num(offZmask_ee[offZmask_ee])>0)
         mmmOnZmask  = (ak.num(onZmask_mm[onZmask_mm])>0)
         mmmOffZmask = (ak.num(offZmask_mm[offZmask_mm])>0)
 
-        print("ak.num(eee[eeeOnZmask]):",ak.num(eee[eeeOnZmask]))
-        print("ak.num(eee[eeeOffZmask]):",ak.num(eee[eeeOffZmask]))
-        print("ak.num(mmm[mmmOnZmask]):",ak.num(mmm[mmmOnZmask]))
-        print("ak.num(mmm[mmmOffZmask]):",ak.num(mmm[mmmOffZmask]))
+        print("ak.num(eee[eeeOnZmask]):",len(eeeOnZmask[eeeOnZmask]))
+        print("ak.num(eee[eeeOffZmask]):",len(eeeOffZmask[eeeOffZmask]))
+        print("ak.num(mmm[mmmOnZmask]):",len(mmmOnZmask[mmmOnZmask]))
+        print("ak.num(mmm[mmmOffZmask]):",len(mmmOffZmask[mmmOffZmask]))
 
-        '''
-        # Create pairs
-        ee_pairs = eee.argchoose(2)
-        mm_pairs = mmm.argchoose(2)
-
-        # Select pairs that are SFOS.
-        eeSFOS_pairs = ee_pairs[(np.abs(eee[ee_pairs.i0].pdgId) == np.abs(eee[ee_pairs.i1].pdgId)) & (eee[ee_pairs.i0].charge != eee[ee_pairs.i1].charge)]
-        mmSFOS_pairs = mm_pairs[(np.abs(mmm[mm_pairs.i0].pdgId) == np.abs(mmm[mm_pairs.i1].pdgId)) & (mmm[mm_pairs.i0].charge != mmm[mm_pairs.i1].charge)]
-        # Find the pair with mass closest to Z.
-        eeOSSFmask = eeSFOS_pairs[np.abs((eee[eeSFOS_pairs.i0] + eee[eeSFOS_pairs.i1]).mass - 91.2).argmin()]
-        onZmask_ee = np.abs((eee[eeOSSFmask.i0] + eee[eeOSSFmask.i1]).mass - 91.2) < 15
-        mmOSSFmask = mmSFOS_pairs[np.abs((mmm[mmSFOS_pairs.i0] + mmm[mmSFOS_pairs.i1]).mass - 91.2).argmin()]
-        onZmask_mm = np.abs((mmm[mmOSSFmask.i0] + mmm[mmOSSFmask.i1]).mass - 91.2) < 15
-        offZmask_ee = np.abs((eee[eeOSSFmask.i0] + eee[eeOSSFmask.i1]).mass - 91.2) > 15
-        offZmask_mm = np.abs((mmm[mmOSSFmask.i0] + mmm[mmOSSFmask.i1]).mass - 91.2) > 15
-
-        # Leptons from Z
-        eZ0= eee[eeOSSFmask.i0]
-        eZ1= eee[eeOSSFmask.i1]
-        mZ0= mmm[mmOSSFmask.i0]
-        mZ1= mmm[mmOSSFmask.i1]
-
-        '''
-
-        # Leptons from W
-        eW = eee[~eeOSSFmask.i0 | ~eeOSSFmask.i1]
-        mW = mmm[~mmOSSFmask.i0 | ~mmOSSFmask.i1]
-
-        eZ = eee[eeOSSFmask.i0] + eee[eeOSSFmask.i1]
-        triElec = eZ + eW
-        mZ = mmm[mmOSSFmask.i0] + mmm[mmOSSFmask.i1]
-        triMuon = mZ + mW
-
+        # Now we need to create masks for the leptons in order to select leptons from the Z boson candidate (in onZ categories)
+        Zee = eeSFOS_pairs[ak.argmin(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2),axis=1,keepdims=True)]
+        Zmm = mmSFOS_pairs[ak.argmin(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2),axis=1,keepdims=True)]
+        eZ0= Zee.e0[ak.num(eeSFOS_pairs)>0]
+        eZ1= Zee.e1[ak.num(eeSFOS_pairs)>0]
+        eZ = eZ0+eZ1
+        mZ0= Zmm.m0[ak.num(mmSFOS_pairs)>0]
+        mZ1= Zmm.m1[ak.num(mmSFOS_pairs)>0]
+        mZ = mZ0+mZ1
         mZ_eee  = eZ.mass
-        m3l_eee = triElec.mass
         mZ_mmm  = mZ.mass
+
+        # And for the W boson (not so easy to do without indexes...)
+        #eW = eee[~eeOSSFmask.i0 | ~eeOSSFmask.i1]
+        #mW = mmm[~mmOSSFmask.i0 | ~mmOSSFmask.i1]
+
+        triElec = eee_leps.e0+eee_leps.e1+eee_leps.e2
+        triMuon = mmm_leps.m0+mmm_leps.m1+mmm_leps.m2
+        m3l_eee = triElec.mass
         m3l_mmm = triMuon.mass
     
         # Triggers
@@ -269,12 +246,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         trig_eem  = passTrigger(events,'eem',isData,dataset)
         trig_mme  = passTrigger(events,'mme',isData,dataset)
 
-
         # MET filters
 
         # Weights
         genw = np.ones_like(events['MET_pt']) if isData else events['genWeight']
-        weights = processor.Weights(events.size)
+        weights = processor.Weights(len(events))
+        print('len(events) = ', len(events))
         weights.add('norm',genw if isData else (xsec/sow)*genw)
         eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
 
