@@ -327,13 +327,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['m0eta'] = m0.eta
         varnames['j0pt' ] = j0.pt
         varnames['j0eta'] = j0.eta
-        varnames['counts'] = np.ones_like(events.MET.pt, dtype=np.int) 
+        #varnames['counts'] = np.ones_like(events.MET.pt, dtype=np.int) # It does not like dtype here for some reason... but np.ones_like(events.MET.pt) already seems to be int, so maybe we doon't need the option?
+        print("np.ones_like(events.MET.pt)",np.ones_like(events.MET.pt))
+        varnames['counts'] = np.ones_like(events.MET.pt)
 
-        '''
+
         # fill Histos
         hout = self.accumulator.identity()
-        #'''
-        allweights = weights.weight().flatten()
+        allweights = weights.weight().flatten() # Why does it not complain about .flatten() here?
         #hout['dummy'].fill(sample=dataset, dummy=varnames['counts'], weight=np.ones_like(events.MET.pt, dtype=np.int))
         hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=allweights)
 
@@ -343,20 +344,23 @@ class AnalysisProcessor(processor.ProcessorABC):
             weight = weights.weight()
             cuts = [ch] + [lev]
             cut = selections.all(*cuts)
-            weights_flat = weight[cut].flatten()
+            weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
             weights_ones = np.ones_like(weights_flat, dtype=np.int)
             eftweightsvalues = eftweights[cut] if len(eftweights) > 0 else []
             if var == 'invmass':
               if   ch in ['eeeSSoffZ', 'mmmSSoffZ']: continue
               elif ch in ['eeeSSonZ' , 'mmmSSonZ' ]: continue #values = v[ch]
-              else                                 : values = v[ch][cut].flatten()
+              #else                                 : values = v[ch][cut].flatten()
+              else                                 : values = ak.flatten(v[ch][cut])
               hout['invmass'].fill(sample=dataset, channel=ch, cut=lev, invmass=values, weight=weights_flat)
             elif var == 'm3l': 
               if ch in ['eeSSonZ','eeSSoffZ', 'mmSSonZ', 'mmSSoffZ','emSS', 'eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']: continue
-              values = v[ch][cut].flatten()
+              #values = v[ch][cut].flatten()
+              values = ak.flatten(v[ch][cut])
               hout['m3l'].fill(eftweightsvalues, sample=dataset, channel=ch, cut=lev, m3l=values, weight=weights_flat)
             else:
-              values = v[cut].flatten()
+              #values = v[cut].flatten()
+              values = v[cut] # This is apparently sometimes flat, and sometimes not...
               if   var == 'ht'    : hout[var].fill(eftweightsvalues, ht=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'met'   : hout[var].fill(eftweightsvalues, met=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'njets' : hout[var].fill(eftweightsvalues, njets=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
@@ -366,8 +370,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 if lev == 'base': continue
                 hout[var].fill(eftweightsvalues, j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'e0pt'  : 
+                values = ak.flatten(values)
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
-                hout[var].fill(eftweightsvalues, e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(eftweightsvalues, e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat) # Crashing here, not sure why. Related to values?
               elif var == 'm0pt'  : 
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
                 hout[var].fill(eftweightsvalues, m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
