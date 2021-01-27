@@ -10,6 +10,7 @@ np.seterr(divide='ignore', invalid='ignore', over='ignore')
 from coffea import hist, processor
 from coffea.util import load, save
 from optparse import OptionParser
+from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
 #from topcoffea.modules.corrections import * # Comment this out for now, as it's not used an is giving this error: "AttributeError: 'Model_TH2D_v3' object has no attribute 'edges'"
@@ -210,10 +211,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         mmmOnZmask  = (ak.num(onZmask_mm[onZmask_mm])>0)
         mmmOffZmask = (ak.num(offZmask_mm[offZmask_mm])>0)
 
-        print("ak.num(eee[eeeOnZmask]):",len(eeeOnZmask[eeeOnZmask]))
-        print("ak.num(eee[eeeOffZmask]):",len(eeeOffZmask[eeeOffZmask]))
-        print("ak.num(mmm[mmmOnZmask]):",len(mmmOnZmask[mmmOnZmask]))
-        print("ak.num(mmm[mmmOffZmask]):",len(mmmOffZmask[mmmOffZmask]))
+        print("len(eeeOnZmask[eeeOnZmask]):",len(eeeOnZmask[eeeOnZmask]))
+        print("len(eeeOffZmask[eeeOffZmask]):",len(eeeOffZmask[eeeOffZmask]))
+        print("len(mmmOnZmask[mmmOnZmask]):",len(mmmOnZmask[mmmOnZmask]))
+        print("len(mmmOffZmask[mmmOffZmask]):",len(mmmOffZmask[mmmOffZmask]))
 
         # Now we need to create masks for the leptons in order to select leptons from the Z boson candidate (in onZ categories)
         Zee = eeSFOS_pairs[ak.argmin(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2),axis=1,keepdims=True)]
@@ -256,7 +257,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
 
         # Selections and cuts
-        selections = processor.PackedSelection()
+        selections = PackedSelection()
         channels2LSS = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
         selections.add('eeSSonZ',  (eeonZmask)&(eeSSmask)&(trig_eeSS))
         selections.add('eeSSoffZ', (eeoffZmask)&(eeSSmask)&(trig_eeSS))
@@ -284,11 +285,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add('4j2b',(njets>=4)&(nbtags>=2))
 
         # Variables
-        invMass_eeSSonZ  = ( eeSSonZ.i0+ eeSSonZ.i1).mass
-        invMass_eeSSoffZ = (eeSSoffZ.i0+eeSSoffZ.i1).mass
-        invMass_mmSSonZ  = ( mmSSonZ.i0+ mmSSonZ.i1).mass
-        invMass_mmSSoffZ = (mmSSoffZ.i0+mmSSoffZ.i1).mass
-        invMass_emSS     = (emSS.i0+emSS.i1).mass
+        invMass_eeSSonZ  = ( eeSSonZ.e0+ eeSSonZ.e1).mass
+        invMass_eeSSoffZ = (eeSSoffZ.e0+eeSSoffZ.e1).mass
+        invMass_mmSSonZ  = ( mmSSonZ.m0+ mmSSonZ.m1).mass
+        invMass_mmSSoffZ = (mmSSoffZ.m0+mmSSoffZ.m1).mass
+        invMass_emSS     = (emSS.e+emSS.m).mass
 
         varnames = {}
         varnames['met'] = met.pt
