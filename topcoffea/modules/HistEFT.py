@@ -107,7 +107,7 @@ class HistEFT(coffea.hist.Hist):
       dense_indices = tuple(d.index(values[d.name]) for d in self._axes if isinstance(d, coffea.hist.hist_tools.DenseAxis))
       xy = np.atleast_1d(np.ravel_multi_index(dense_indices, self._dense_shape))
       if len(EFTcoefficients) > 0: 
-        EFTcoefficients = EFTcoefficients.regular()
+        #EFTcoefficients = EFTcoefficients.regular()
         errs = [self.GetErrCoeffs(x) for x in EFTcoefficients]
       for coef in np.transpose(EFTcoefficients):
         #coef = coffea.util._ensure_flat(coef)

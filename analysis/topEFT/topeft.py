@@ -116,7 +116,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # emu
         singe = e [(nElec==1)&(nMuon==1)&(e .pt>-1)]
         singm = mu[(nElec==1)&(nMuon==1)&(mu.pt>-1)]
-        em = ak.cartesian({"e":singe,"m":singm})
+        em = ak.cartesian({"e":singe,"m":singm}, nested=True)
         emSSmask = (em.e.charge*em.m.charge>0)
         emSS = em[emSSmask]
         nemSS = len(ak.flatten(emSS))
@@ -289,7 +289,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         invMass_eeSSoffZ = (eeSSoffZ.e0+eeSSoffZ.e1).mass
         invMass_mmSSonZ  = ( mmSSonZ.m0+ mmSSonZ.m1).mass
         invMass_mmSSoffZ = (mmSSoffZ.m0+mmSSoffZ.m1).mass
-        invMass_emSS     = (emSS.e+emSS.m).mass
+        em_elec = singe[emSSmask]
+        em_muon = singm[emSSmask]
+        invMass_emSS     = (em_elec+em_elec).mass
+        #invMass_emSS     = (emSS.e+emSS.m).mass
 
         varnames = {}
         varnames['met'] = met.pt
@@ -328,9 +331,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['j0pt' ] = j0.pt
         varnames['j0eta'] = j0.eta
         #varnames['counts'] = np.ones_like(events.MET.pt, dtype=np.int) # It does not like dtype here for some reason... but np.ones_like(events.MET.pt) already seems to be int, so maybe we doon't need the option?
-        print("np.ones_like(events.MET.pt)",np.ones_like(events.MET.pt))
         varnames['counts'] = np.ones_like(events.MET.pt)
-
 
         # fill Histos
         hout = self.accumulator.identity()
@@ -348,6 +349,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_ones = np.ones_like(weights_flat, dtype=np.int)
             eftweightsvalues = eftweights[cut] if len(eftweights) > 0 else []
             if var == 'invmass':
+              if ch in ['emSS']: continue
               if   ch in ['eeeSSoffZ', 'mmmSSoffZ']: continue
               elif ch in ['eeeSSonZ' , 'mmmSSonZ' ]: continue #values = v[ch]
               #else                                 : values = v[ch][cut].flatten()
@@ -368,22 +370,33 @@ class AnalysisProcessor(processor.ProcessorABC):
               elif var == 'counts': hout[var].fill(counts=values, sample=dataset, channel=ch, cut=lev, weight=weights_ones)
               elif var == 'j0eta' : 
                 if lev == 'base': continue
+                values = ak.flatten(values)
+                values=np.array(values)
                 hout[var].fill(eftweightsvalues, j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'e0pt'  : 
-                values = ak.flatten(values)
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
+                values = ak.flatten(values)
+                values=np.array(values)
                 hout[var].fill(eftweightsvalues, e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat) # Crashing here, not sure why. Related to values?
               elif var == 'm0pt'  : 
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
+                values = ak.flatten(values)
+                values=np.array(values)
                 hout[var].fill(eftweightsvalues, m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'e0eta' : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
+                values = ak.flatten(values)
+                values=np.array(values)
                 hout[var].fill(eftweightsvalues, e0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'm0eta':
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
+                values = ak.flatten(values)
+                values=np.array(values)
                 hout[var].fill(eftweightsvalues, m0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'j0pt'  : 
                 if lev == 'base': continue
+                values = ak.flatten(values)
+                values=np.array(values)
                 hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
         #'''
         return hout
