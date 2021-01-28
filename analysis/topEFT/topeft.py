@@ -196,6 +196,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         mmm_leps = ak.combinations(mmm, 3, fields=["m0", "m1", "m2"])
         ee_pairs = ak.combinations(eee, 2, fields=["e0", "e1"])
         mm_pairs = ak.combinations(mmm, 2, fields=["m0", "m1"])
+        ee_pairs_index = ak.argcombinations(eee, 2, fields=["e0", "e1"])
+        mm_pairs_index = ak.argcombinations(mmm, 2, fields=["m0", "m1"])
 
         mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.charge != mm_pairs.m1.charge)]
         offZmask_mm = ak.all(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>15., axis=1, keepdims=True) & (ak.num(mmSFOS_pairs)>0)
@@ -217,8 +219,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("len(mmmOffZmask[mmmOffZmask]):",len(mmmOffZmask[mmmOffZmask]))
 
         # Now we need to create masks for the leptons in order to select leptons from the Z boson candidate (in onZ categories)
-        Zee = eeSFOS_pairs[ak.argmin(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2),axis=1,keepdims=True)]
-        Zmm = mmSFOS_pairs[ak.argmin(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2),axis=1,keepdims=True)]
+        ZeeMask = ak.argmin(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2),axis=1,keepdims=True)
+        ZmmMask = ak.argmin(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2),axis=1,keepdims=True)
+  
+        Zee = eeSFOS_pairs[ZeeMask]
+        Zmm = mmSFOS_pairs[ZmmMask]
         eZ0= Zee.e0[ak.num(eeSFOS_pairs)>0]
         eZ1= Zee.e1[ak.num(eeSFOS_pairs)>0]
         eZ = eZ0+eZ1
@@ -229,8 +234,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         mZ_mmm  = mZ.mass
 
         # And for the W boson (not so easy to do without indexes...)
-        #eW = eee[~eeOSSFmask.i0 | ~eeOSSFmask.i1]
-        #mW = mmm[~mmOSSFmask.i0 | ~mmOSSFmask.i1]
+        ZmmIndices = mm_pairs_index[ZmmMask]
+        ZeeIndices = ee_pairs_index[ZeeMask]
+        eW = eee[~ZeeIndices.e0 | ~ZeeIndices.e1]
+        mW = mmm[~ZmmIndices.m0 | ~ZmmIndices.m1]
 
         triElec = eee_leps.e0+eee_leps.e1+eee_leps.e2
         triMuon = mmm_leps.m0+mmm_leps.m1+mmm_leps.m2
