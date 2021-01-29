@@ -107,9 +107,9 @@ def main():
   parser.add_argument('--xsec','-x'       , default='xsec'       , help = 'Cross section')
   parser.add_argument('--year','-y'       , default=-1           , help = 'Year')
   parser.add_argument('--options','-o'    , default=''           , help = 'Options to pass to your analysis')
-  parser.add_argument('--treeName'        , default='Events'     , help = 'Name of the tree')
+  parser.add_argument('--treename'        , default='Events'     , help = 'Name of the tree')
 
-  args = parser.parse_args()
+  args, unknown = parser.parse_known_args()
   cfgfile     = args.cfgfile
   verbose     = args.verbose
   pretend     = args.pretend
@@ -119,7 +119,7 @@ def main():
   options     = args.options
   xsec        = args.xsec
   year        = args.year
-  treeName    = args.treeName
+  treeName    = args.treename
 
   samplefiles = {}
   fileopt = {}
@@ -167,7 +167,7 @@ def main():
   if args.options    != ''       : options     = args.options
   if args.xsec       != 'xsec'   : xsec        = args.xsec
   if args.year       != -1       : year        = args.year
-  if args.treeName   != 'Events' : treeName    = args.treeName
+  if args.treename   != 'Events' : treeName    = args.treename
   if args.verbose    != 0        : verbose     = int(args.verbose)
   xsecdic = loadxsecdic(xsec, verbose)
 
@@ -198,6 +198,7 @@ def main():
       print('   - SumWeights : %i'   %sampdic[sname]['nSumOfWeights'])
       print('   - nFiles     : %i'   %len(sampdic[sname]['files']))
       for fname in sampdic[sname]['files']: print('     %s'%fname)
+  save(sampdic, '.samples.coffea')
 
   return sampdic
 
