@@ -20,7 +20,6 @@ from topcoffea.modules.HistEFT import HistEFT
 # In the future these names will be read from the nanoAOD files
 WCNames = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
 
-
 class AnalysisProcessor(processor.ProcessorABC):
     def __init__(self, samples):
         self._samples = samples
@@ -73,22 +72,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         j   = events.Jet
  
         # Electron selection
-        #e['isGood'] = e.pt.zeros_like()
         e['isGood'] = isElecMVA(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.mvaTTH, e.mvaFall17V2Iso, e.lostHits, e.convVeto, e.tightCharge, minpt=10)
         leading_e = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
-        #leading_e = leading_e[leading_e.isGood.astype(np.bool)]`
-        leading_e = leading_e[leading_e.isGood] # Not sure how to do astype with awkward1, but do we actually need it?. Will need to look at this more closely later.
+        leading_e = leading_e[leading_e.isGood]
 
         # Muon selection
         mu['isGood'] = isMuonMVA(mu.pt, mu.eta, mu.dxy, mu.dz, mu.miniPFRelIso_all, mu.sip3d, mu.mvaTTH, mu.mediumPromptId, mu.tightCharge, minpt=10)
         leading_mu = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
-        #leading_mu = leading_mu[leading_mu.isGood.astype(np.bool)]
-        leading_mu = leading_mu[leading_mu.isGood] # Not sure how to do astype with awkward1, but do we actually need it? Will need to look at this more closely later.
+        leading_mu = leading_mu[leading_mu.isGood]
         
-        #e  =  e[e .isGood.astype(np.bool)]
-        #mu = mu[mu.isGood.astype(np.bool)]
-        e  = e[e.isGood]   # Again, not sure about the astype
-        mu = mu[mu.isGood] # Again, not sure about the astype
+        e  = e[e.isGood]
+        mu = mu[mu.isGood]
         nElec = ak.num(e)
         nMuon = ak.num(mu)
 
@@ -143,7 +137,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         neeSS = len(ak.flatten(eeSSonZ)) + len(ak.flatten(eeSSoffZ))
         nmmSS = len(ak.flatten(mmSSonZ)) + len(ak.flatten(mmSSoffZ))
 
-        print('Same-sign events [ee, emu, mumu] = [%i, %i, %i]'%(neeSS, nemSS, nmmSS))
+        # print('Same-sign events [ee, emu, mumu] = [%i, %i, %i]'%(neeSS, nemSS, nmmSS))
 
         # Cuts
         eeSSmask   = (ak.num(eeSSmask[eeSSmask])>0)
@@ -189,7 +183,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         m3l_eem = trilep_eem.mass
         m3l_mme = trilep_mme.mass
 
-        ### eee and mmm
+        # eee and mmm
         eee =   e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
         mmm =  mu[(nElec==0)&(nMuon==3)&(mu.pt>-1)] 
         eee_leps = ak.combinations(eee, 3, fields=["e0", "e1", "e2"])
@@ -213,11 +207,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         mmmOnZmask  = (ak.num(onZmask_mm[onZmask_mm])>0)
         mmmOffZmask = (ak.num(offZmask_mm[offZmask_mm])>0)
 
-        print("len(eeeOnZmask[eeeOnZmask]):",len(eeeOnZmask[eeeOnZmask]))
-        print("len(eeeOffZmask[eeeOffZmask]):",len(eeeOffZmask[eeeOffZmask]))
-        print("len(mmmOnZmask[mmmOnZmask]):",len(mmmOnZmask[mmmOnZmask]))
-        print("len(mmmOffZmask[mmmOffZmask]):",len(mmmOffZmask[mmmOffZmask]))
-
         # Now we need to create masks for the leptons in order to select leptons from the Z boson candidate (in onZ categories)
         ZeeMask = ak.argmin(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2),axis=1,keepdims=True)
         ZmmMask = ak.argmin(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2),axis=1,keepdims=True)
@@ -233,7 +222,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         mZ_eee  = eZ.mass
         mZ_mmm  = mZ.mass
 
-        # And for the W boson (not so easy to do without indexes...)
+        # And for the W boson
         ZmmIndices = mm_pairs_index[ZmmMask]
         ZeeIndices = ee_pairs_index[ZeeMask]
         eW = eee[~ZeeIndices.e0 | ~ZeeIndices.e1]
@@ -245,7 +234,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         m3l_mmm = triMuon.mass
     
         # Triggers
-        #passTrigger = lambda events, n, m, o : np.ones_like(events['MET_pt'], dtype=np.bool) # XXX
         trig_eeSS = passTrigger(events,'ee',isData,dataset)
         trig_mmSS = passTrigger(events,'mm',isData,dataset)
         trig_emSS = passTrigger(events,'em',isData,dataset)
@@ -259,7 +247,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Weights
         genw = np.ones_like(events['MET_pt']) if isData else events['genWeight']
         weights = processor.Weights(len(events))
-        print('len(events) = ', len(events))
         weights.add('norm',genw if isData else (xsec/sow)*genw)
         eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
 
@@ -334,13 +321,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['m0eta'] = m0.eta
         varnames['j0pt' ] = j0.pt
         varnames['j0eta'] = j0.eta
-        #varnames['counts'] = np.ones_like(events.MET.pt, dtype=np.int) # It does not like dtype here for some reason... but np.ones_like(events.MET.pt) already seems to be int, so maybe we doon't need the option?
         varnames['counts'] = np.ones_like(events.MET.pt)
 
         # fill Histos
         hout = self.accumulator.identity()
         allweights = weights.weight().flatten() # Why does it not complain about .flatten() here?
-        #hout['dummy'].fill(sample=dataset, dummy=varnames['counts'], weight=np.ones_like(events.MET.pt, dtype=np.int))
         hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=allweights)
 
         for var, v in varnames.items():
@@ -353,20 +338,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_ones = np.ones_like(weights_flat, dtype=np.int)
             eftweightsvalues = eftweights[cut] if len(eftweights) > 0 else []
             if var == 'invmass':
-              #if ch in ['emSS']: continue
               if   ch in ['eeeSSoffZ', 'mmmSSoffZ']: continue
               elif ch in ['eeeSSonZ' , 'mmmSSonZ' ]: continue #values = v[ch]
-              #else                                 : values = v[ch][cut].flatten()
               else                                 : values = ak.flatten(v[ch][cut])
               hout['invmass'].fill(sample=dataset, channel=ch, cut=lev, invmass=values, weight=weights_flat)
             elif var == 'm3l': 
               if ch in ['eeSSonZ','eeSSoffZ', 'mmSSonZ', 'mmSSoffZ','emSS', 'eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']: continue
-              #values = v[ch][cut].flatten()
               values = ak.flatten(v[ch][cut])
               hout['m3l'].fill(eftweightsvalues, sample=dataset, channel=ch, cut=lev, m3l=values, weight=weights_flat)
             else:
-              #values = v[cut].flatten()
-              values = v[cut] # This is apparently sometimes flat, and sometimes not...
+              values = v[cut] 
               if   var == 'ht'    : hout[var].fill(eftweightsvalues, ht=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'met'   : hout[var].fill(eftweightsvalues, met=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'njets' : hout[var].fill(eftweightsvalues, njets=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
@@ -375,34 +356,33 @@ class AnalysisProcessor(processor.ProcessorABC):
               elif var == 'j0eta' : 
                 if lev == 'base': continue
                 values = ak.flatten(values)
-                values=np.array(values)
+                values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'e0pt'  : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
                 values = ak.flatten(values)
-                values=np.array(values)
+                values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat) # Crashing here, not sure why. Related to values?
               elif var == 'm0pt'  : 
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
                 values = ak.flatten(values)
-                values=np.array(values)
+                values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'e0eta' : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
                 values = ak.flatten(values)
-                values=np.array(values)
+                values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, e0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'm0eta':
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
                 values = ak.flatten(values)
-                values=np.array(values)
+                values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, m0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'j0pt'  : 
                 if lev == 'base': continue
                 values = ak.flatten(values)
-                values=np.array(values)
+                values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-        #'''
         return hout
 
     def postprocess(self, accumulator):
