@@ -15,6 +15,7 @@
 import coffea
 import numpy as np
 import copy
+import awkward as ak
 from topcoffea.modules.WCFit import WCFit
 from topcoffea.modules.WCPoint import WCPoint
 
@@ -103,12 +104,14 @@ class HistEFT(coffea.hist.Hist):
 
     errs = []
     iCoeff, iErr = 0,0
+    EFTcoefficients = np.asarray(EFTcoefficients)
     if self.dense_dim() > 0:
       dense_indices = tuple(d.index(values[d.name]) for d in self._axes if isinstance(d, coffea.hist.hist_tools.DenseAxis))
       xy = np.atleast_1d(np.ravel_multi_index(dense_indices, self._dense_shape))
       if len(EFTcoefficients) > 0: 
         #EFTcoefficients = EFTcoefficients.regular()
         errs = [self.GetErrCoeffs(x) for x in EFTcoefficients]
+        errs = np.asarray(errs)
       for coef in np.transpose(EFTcoefficients):
         #coef = coffea.util._ensure_flat(coef)
         self.EFTcoeffs[sparse_key][iCoeff][:] += np.bincount(xy, weights=coef, minlength=np.array(self._dense_shape).prod() ).reshape(self._dense_shape)
@@ -122,6 +125,7 @@ class HistEFT(coffea.hist.Hist):
       for coef in np.transpose(EFTcoefficients):
         self.EFTcoeffs[sparse_key][iCoeff] += np.sum(coef)
       # Calculate errs...
+      errs = np.asarray(errs)
       for err in np.transpose(errs):
         self.EFTerrs[sparse_key][iErr][:] += np.sum(err)
     super().fill(**values_orig)
@@ -132,8 +136,8 @@ class HistEFT(coffea.hist.Hist):
       for key in list(self._sumw.keys())[-1:]: self.SetWCFit(key)
       return
     self.WCFit[key] = []
-    bins = np.transpose(self.EFTcoeffs[key]) #np.array((self.EFTcoeffs[key])[:]).transpose()
-    errs = np.array((self.EFTerrs  [key])[:]).transpose()
+    bins = np.transpose(np.asarray(self.EFTcoeffs[key])) #np.array((self.EFTcoeffs[key])[:]).transpose()
+    errs = np.asarray((self.EFTerrs  [key])[:]).transpose()
     ibin = 0
     for fitcoeff, fiterrs in zip(bins, errs):
       self.WCFit[key].append(WCFit(tag='%i'%ibin, names=self._wcnames, coeffs=fitcoeff, errors=fiterrs))
