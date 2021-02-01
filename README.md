@@ -28,7 +28,7 @@ If necessary, first run `unset PYTHONPATH` to avoid conflicts. Then run the foll
 ```
 conda create --name coffea-070rc1-env python=3.8.3
 conda activate coffea-070rc1-env
-pip install "coffea==0.7.0rc1"
+pip install coffea==0.7.0rc1
 conda install -c conda-forge xrootd
 ```
 
