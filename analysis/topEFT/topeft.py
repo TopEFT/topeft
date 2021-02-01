@@ -119,7 +119,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         m0 = mu[mu.pt.argmax()]
 
         # Jet selection
-        j['isGood']  = isTightJet(j.pt_nom, j.eta, j.jetId, j.neHEF, j.neEmEF, j.chHEF, j.chEmEF, j.nConstituents) #j.pt_nom is the skimmed version
+        # Look for corrected pT if exists
+        jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
+        j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, j.neHEF, j.neEmEF, j.chHEF, j.chEmEF, j.nConstituents)
         j['isClean'] = isClean(j, e, drmin=0.4)& isClean(j, mu, drmin=0.4)# & isClean(j, tau, drmin=0.4)
         goodJets = j[(j.isClean)&(j.isGood)]
         njets = goodJets.counts
