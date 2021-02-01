@@ -69,22 +69,43 @@ class AnalysisProcessor(processor.ProcessorABC):
         met = events.MET
         e   = events.Electron
         mu  = events.Muon
+        tau = events.Tau
         j   = events.Jet
  
-        # Electron selection
-        e['isGood'] = isElecMVA(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.mvaTTH, e.mvaFall17V2Iso, e.lostHits, e.convVeto, e.tightCharge, minpt=10)
-        leading_e = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
-        leading_e = leading_e[leading_e.isGood]
-
         # Muon selection
-        mu['isGood'] = isMuonMVA(mu.pt, mu.eta, mu.dxy, mu.dz, mu.miniPFRelIso_all, mu.sip3d, mu.mvaTTH, mu.mediumPromptId, mu.tightCharge, minpt=10)
+        #mu['isGood'] = isMuonMVA(mu.pt, mu.eta, mu.dxy, mu.dz, mu.miniPFRelIso_all, mu.sip3d, mu.mvaTTH, mu.mediumPromptId, mu.tightCharge, minpt=10)
+        mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.looseId)
+        mu['isTight']= isTightMuon(mu.pt, mu.eta, mu.dxy, mu.dz, mu.pfRelIso03_all, mu.sip3d, mu.mvaTTH, mu.mediumPromptId, mu.tightCharge, mu.looseId, minpt=10)
+        mu['isGood'] = mu['isPres'] & mu['isTight']
+
         leading_mu = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
         leading_mu = leading_mu[leading_mu.isGood]
         
-        e  = e[e.isGood]
         mu = mu[mu.isGood]
+        mu_pres = mu[mu.isPres]
+
+        # Electron selection
+        #e['isGood'] = isElecMVA(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.mvaTTH, e.mvaFall17V2Iso, e.lostHits, e.convVeto, e.tightCharge, minpt=10)
+        e['isPres']  = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.lostHits, minpt=15)
+        e['isTight'] = isTightElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.mvaTTH, e.mvaFall17V2Iso, e.lostHits, e.convVeto, e.tightCharge, e.sieie, e.hoe, e.eInvMinusPInv, minpt=15)
+        e['isClean'] = isClean(e, mu, drmin=0.05)
+        e['isGood']  = e['isPres'] & e['isTight'] & e['isClean']
+
+        leading_e = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
+        leading_e = leading_e[leading_e.isGood]
+
+        e  =  e[e .isGood]
+        e_pres = e[e .isPres & e .isClean]
+
+        # Tau selection
+        tau['isPres']  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.leadTkPtOverTauPt, tau.idAntiMu, tau.idAntiEle, tau.rawIso, tau.idDecayModeNewDMs, minpt=20)
+        tau['isClean'] = isClean(tau, e_pres, drmin=0.4) & isClean(tau, mu_pres, drmin=0.4)
+        tau['isGood']  = tau['isPres']# & tau['isClean'], for the moment
+        tau= tau[tau.isGood]
+
         nElec = ak.num(e)
         nMuon = ak.num(mu)
+        nTau  = ak.num(tau)
 
         twoLeps   = (nElec+nMuon) == 2
         threeLeps = (nElec+nMuon) == 3
@@ -94,9 +115,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
 
         # Jet selection
-        j['isgood']  = isGoodJet(j.pt, j.eta, j.jetId)
-        j['isclean'] = isClean(j, e, mu)
-        goodJets = j[(j.isclean)&(j.isgood)]
+        jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
+        j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, j.neHEF, j.neEmEF, j.chHEF, j.chEmEF, j.nConstituents)
+        #j['isgood']  = isGoodJet(j.pt, j.eta, j.jetId)
+        #j['isclean'] = isClean(j, e, mu)
+        j['isClean'] = isClean(j, e, drmin=0.4)& isClean(j, mu, drmin=0.4)# & isClean(j, tau, drmin=0.4)
+        goodJets = j[(j.isClean)&(j.isGood)]
         njets = ak.num(goodJets)
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
@@ -122,12 +146,12 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         eepairs = ak.combinations(ee, 2, fields=["e0","e1"])
         eeSSmask = (eepairs.e0.charge*eepairs.e1.charge>0)
-        eeonZmask  = (np.abs((eepairs.e0+eepairs.e1).mass-91)<15)
+        eeonZmask  = (np.abs((eepairs.e0+eepairs.e1).mass-91.2)<10)
         eeoffZmask = (eeonZmask==0)
 
         mmpairs = ak.combinations(mm, 2, fields=["m0","m1"])
         mmSSmask = (mmpairs.m0.charge*mmpairs.m1.charge>0)
-        mmonZmask = (np.abs((mmpairs.m0+mmpairs.m1).mass-91)<15)
+        mmonZmask = (np.abs((mmpairs.m0+mmpairs.m1).mass-91.2)<10)
         mmoffZmask = (mmonZmask==0)
 
         eeSSonZ  = eepairs[eeSSmask &  eeonZmask]
@@ -137,7 +161,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         neeSS = len(ak.flatten(eeSSonZ)) + len(ak.flatten(eeSSoffZ))
         nmmSS = len(ak.flatten(mmSSonZ)) + len(ak.flatten(mmSSoffZ))
 
-        # print('Same-sign events [ee, emu, mumu] = [%i, %i, %i]'%(neeSS, nemSS, nmmSS))
+        print('Same-sign events [ee, emu, mumu] = [%i, %i, %i]'%(neeSS, nemSS, nmmSS))
 
         # Cuts
         eeSSmask   = (ak.num(eeSSmask[eeSSmask])>0)
@@ -158,8 +182,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         elec_eem =  e[(nElec==2)&(nMuon==1)&( e.pt>-1)]
         ee_eem = ak.combinations(elec_eem, 2, fields=["e0", "e1"])
 
-        ee_eemZmask     = (ee_eem.e0.charge*ee_eem.e1.charge<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91)<15)
-        ee_eemOffZmask  = (ee_eem.e0.charge*ee_eem.e1.charge<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91)>15)
+        ee_eemZmask     = (ee_eem.e0.charge*ee_eem.e1.charge<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91.2)<10)
+        ee_eemOffZmask  = (ee_eem.e0.charge*ee_eem.e1.charge<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91.2)>10)
         ee_eemZmask     = (ak.num(ee_eemZmask[ee_eemZmask])>0)
         ee_eemOffZmask  = (ak.num(ee_eemOffZmask[ee_eemOffZmask])>0)
 
@@ -170,8 +194,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         muon_mme = mu[(nElec==1)&(nMuon==2)&(mu.pt>-1)]
         elec_mme =  e[(nElec==1)&(nMuon==2)&( e.pt>-1)]
         mm_mme = ak.combinations(muon_mme, 2, fields=["m0", "m1"])
-        mm_mmeZmask     = (mm_mme.m0.charge*mm_mme.m1.charge<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91)<15)
-        mm_mmeOffZmask  = (mm_mme.m0.charge*mm_mme.m1.charge<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91)>15)
+        mm_mmeZmask     = (mm_mme.m0.charge*mm_mme.m1.charge<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91.2)<10)
+        mm_mmeOffZmask  = (mm_mme.m0.charge*mm_mme.m1.charge<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91.2)>10)
         mm_mmeZmask     = (ak.num(mm_mmeZmask[mm_mmeZmask])>0)
         mm_mmeOffZmask  = (ak.num(mm_mmeOffZmask[mm_mmeOffZmask])>0)
 
@@ -194,12 +218,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         mm_pairs_index = ak.argcombinations(mmm, 2, fields=["m0", "m1"])
 
         mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.charge != mm_pairs.m1.charge)]
-        offZmask_mm = ak.all(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>15., axis=1, keepdims=True) & (ak.num(mmSFOS_pairs)>0)
-        onZmask_mm  = ak.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<15., axis=1, keepdims=True)
+        offZmask_mm = ak.all(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>10., axis=1, keepdims=True) & (ak.num(mmSFOS_pairs)>0)
+        onZmask_mm  = ak.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<10., axis=1, keepdims=True)
       
         eeSFOS_pairs = ee_pairs[(np.abs(ee_pairs.e0.pdgId) == np.abs(ee_pairs.e1.pdgId)) & (ee_pairs.e0.charge != ee_pairs.e1.charge)]
-        offZmask_ee = ak.all(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)>15, axis=1, keepdims=True) & (ak.num(eeSFOS_pairs)>0)
-        onZmask_ee  = ak.any(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)<15, axis=1, keepdims=True)
+        offZmask_ee = ak.all(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)>10, axis=1, keepdims=True) & (ak.num(eeSFOS_pairs)>0)
+        onZmask_ee  = ak.any(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)<10, axis=1, keepdims=True)
 
         # Create masks **for event selection**
         eeeOnZmask  = (ak.num(onZmask_ee[onZmask_ee])>0)
