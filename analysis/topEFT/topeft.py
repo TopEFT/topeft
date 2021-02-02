@@ -17,6 +17,9 @@ from topcoffea.modules.objects import *
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 
+#import coffea
+#coffea.deprecations_as_errors = True
+
 # In the future these names will be read from the nanoAOD files
 WCNames = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
 
@@ -124,7 +127,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         njets = ak.num(goodJets)
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
-        nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
+        #nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
+        nbtags = ak.num(goodJets[goodJets.btagDeepB > 0.4941])
 
 
         ##################################################################
@@ -270,7 +274,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Weights
         genw = np.ones_like(events['MET_pt']) if isData else events['genWeight']
-        weights = processor.Weights(len(events))
+        weights = coffea.analysis_tools.Weights(len(events))
         weights.add('norm',genw if isData else (xsec/sow)*genw)
         eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
 
@@ -380,32 +384,32 @@ class AnalysisProcessor(processor.ProcessorABC):
               elif var == 'j0eta' : 
                 if lev == 'base': continue
                 values = ak.flatten(values)
-                values=np.asarray(values)
+                #values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'e0pt'  : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
                 values = ak.flatten(values)
-                values=np.asarray(values)
+                #values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat) # Crashing here, not sure why. Related to values?
               elif var == 'm0pt'  : 
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
                 values = ak.flatten(values)
-                values=np.asarray(values)
+                #values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'e0eta' : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
                 values = ak.flatten(values)
-                values=np.asarray(values)
+                #values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, e0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'm0eta':
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
                 values = ak.flatten(values)
-                values=np.asarray(values)
+                #values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, m0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'j0pt'  : 
                 if lev == 'base': continue
                 values = ak.flatten(values)
-                values=np.asarray(values)
+                #values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
         return hout
 
