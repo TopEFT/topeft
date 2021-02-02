@@ -3,6 +3,7 @@ Top quark analyses using the Coffea framework
 
 This is a developing effort... no complete instructions or test yet!
 
+
 ### Contents
 - `analysis`:
    Subfolders with different analyses: creating histograms, applying selections...
@@ -23,10 +24,13 @@ This is a developing effort... no complete instructions or test yet!
 - `setup.py`: File for installing the `topcoffea` package
 
 ### Set up the environment 
-If necessary, first run `unset PYTHONPATH` to avoid conflicts. Then run the following commands to set up the conda environment:  
-`conda create --name coffea-env python=3.8.3`  
-`conda activate coffea-env`  
-`conda install -y -c conda-forge coffea`  
+If necessary, first run `unset PYTHONPATH` to avoid conflicts. Then run the following commands to set up the conda environment:    
+```
+conda create --name coffea-070-env python=3.8.3
+conda activate coffea-070-env
+pip install coffea==0.7.0
+conda install -c conda-forge xrootd
+```
 
 ### How to start
 - This directory is set up to be installed as a python package. To install, run `pip install -e .` from the top level directory. The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`.

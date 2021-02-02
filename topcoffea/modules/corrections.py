@@ -3,7 +3,8 @@
  into coffea format of corrections.
 '''
 
-import uproot, uproot_methods
+#import uproot, uproot_methods
+import uproot
 from coffea import hist, lookup_tools
 import os, sys
 

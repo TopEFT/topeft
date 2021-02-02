@@ -152,7 +152,7 @@ triggersNotForFinalState = {
 }
 
 def passTrigger(df, cat, isData=False, dataName=''):
-  tpass = np.zeros_like(df.MET.pt, dtype=np.bool)
+  tpass = np.zeros_like(np.array(df.MET.pt), dtype=np.bool)
   df = df.HLT
   if not isData: 
     paths = triggersForFinalState[cat]['MC']
