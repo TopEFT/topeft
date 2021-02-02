@@ -3,6 +3,7 @@ import lz4.frame as lz4f
 import cloudpickle
 import json
 import pprint
+import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
@@ -17,7 +18,6 @@ from topcoffea.modules.objects import *
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 
-#import coffea
 #coffea.deprecations_as_errors = True
 
 # In the future these names will be read from the nanoAOD files
