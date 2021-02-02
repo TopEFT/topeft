@@ -26,9 +26,9 @@ This is a developing effort... no complete instructions or test yet!
 ### Set up the environment 
 If necessary, first run `unset PYTHONPATH` to avoid conflicts. Then run the following commands to set up the conda environment:    
 ```
-conda create --name coffea-070rc1-env python=3.8.3
-conda activate coffea-070rc1-env
-pip install coffea==0.7.0rc1
+conda create --name coffea-070-env python=3.8.3
+conda activate coffea-070-env
+pip install coffea==0.7.0
 conda install -c conda-forge xrootd
 ```
 
