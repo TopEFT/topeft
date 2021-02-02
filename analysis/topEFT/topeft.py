@@ -76,6 +76,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         j   = events.Jet
  
         # Muon selection
+
         #mu['isGood'] = isMuonMVA(mu.pt, mu.eta, mu.dxy, mu.dz, mu.miniPFRelIso_all, mu.sip3d, mu.mvaTTH, mu.mediumPromptId, mu.tightCharge, minpt=10)
         mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.looseId)
         mu['isTight']= isTightMuon(mu.pt, mu.eta, mu.dxy, mu.dz, mu.pfRelIso03_all, mu.sip3d, mu.mvaTTH, mu.mediumPromptId, mu.tightCharge, mu.looseId, minpt=10)
@@ -118,6 +119,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
 
         # Jet selection
+
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
         j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, j.neHEF, j.neEmEF, j.chHEF, j.chEmEF, j.nConstituents)
         #j['isgood']  = isGoodJet(j.pt, j.eta, j.jetId)
@@ -129,7 +131,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
         #nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
         nbtags = ak.num(goodJets[goodJets.btagDeepB > 0.4941])
-
 
         ##################################################################
         ### 2 same-sign leptons
@@ -197,6 +198,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # mme
         muon_mme = mu[(nElec==1)&(nMuon==2)&(mu.pt>-1)]
         elec_mme =  e[(nElec==1)&(nMuon==2)&( e.pt>-1)]
+
         mm_mme = ak.combinations(muon_mme, 2, fields=["m0", "m1"])
         mm_mmeZmask     = (mm_mme.m0.charge*mm_mme.m1.charge<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91.2)<10)
         mm_mmeOffZmask  = (mm_mme.m0.charge*mm_mme.m1.charge<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91.2)>10)
@@ -214,6 +216,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # eee and mmm
         eee =   e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
         mmm =  mu[(nElec==0)&(nMuon==3)&(mu.pt>-1)] 
+
         eee_leps = ak.combinations(eee, 3, fields=["e0", "e1", "e2"])
         mmm_leps = ak.combinations(mmm, 3, fields=["m0", "m1", "m2"])
         ee_pairs = ak.combinations(eee, 2, fields=["e0", "e1"])
