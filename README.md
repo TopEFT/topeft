@@ -40,3 +40,28 @@ conda install -y -c conda-forge coffea
 - Run `source setupTH1EFT.sh` to download and compile ROOT files
 - Run `python analysis/topEFT/convert3lEFT.py` to perform conversion of MET
 - See `analysis/topEFT/convert3lEFT.py` for more details
+
+
+### To run the WQ version of `run.py`:
+Set up the environment (only needed once):
+```
+conda create --name topcoffea-env python=3.8.3 conda
+conda activate topcoffea-env
+conda install -y -c conda-forge ndcctools conda-pack dill xrootd coffea
+pip install .
+```
+
+The next step is to run `work_queue_run.py`. Please note that this is still a work in progress, and some of the lines are still hard coded; specifically, `environment-file` and `wrapper` in `executor_args` are hardcoded, so please adjust them accordingly before you run. Also note that `work_queue_run.py` must be run from the directory it is located in, since the `extra-input-files` option of `executor_args` assumes the extra input will be in the current working directory. So from `topcoffea/analysis/topEFT`, you would run:
+```
+conda activate topcoffea-env
+cd analysis/topEFT
+python work_queue_run.py ../../topcoffea/cfg/your_cfg.cfg
+```
+
+Next, submit some workers, e.g.:
+```
+conda activate topcoffea-env
+condor_submit_workers -M ${USER}-workqueue-coffea --cores 4 --memory 4000 --disk 2000 10
+```
+
+Workers terminate themselves after 15 minutes of inactivity.
