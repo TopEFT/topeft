@@ -106,6 +106,34 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau['isClean'] = isClean(tau, e_pres, drmin=0.4) & isClean(tau, mu_pres, drmin=0.4)
         tau['isGood']  = tau['isPres']# & tau['isClean'], for the moment
         tau= tau[tau.isGood]
+        
+        # Stacking electrons with muons
+        lep = ak.with_name(ak.concatenate([e, mu], axis=1), 'PtEtaPhiMCandidate')
+        nLep  = ak.num(lep)
+        
+        # Demo: seperate SFOSonZ for ≥4L channel
+        ch4l = lep[(nLep>=4)&(lep.pt>-1)]
+        llpair = ak.combinations(ch4l, 2, fields=["l0", "l1"])
+        llOnZmask  = (abs(lep.l0.pdgId)==abs(lep.l1.pdgId))&(llpair.l0.charge*llpair.l1.charge<1)&(np.abs((llpair.l0+llpair.l1).mass-91.2)<10)
+        llOffZmask = (llOnZmask==False)
+        
+        # Going back to e and m
+        Elec = len(ak.flatten(lep[abs(lep.pdgId)==11]))
+        Muon = len(ak.flatten(lep[abs(lep.pdgId)==13]))
+            
+        # Object selection
+        m['convVeto'] = ak.astype(ak.zeros_like(m.pt), np.bool)                   #Create a dummy field for the muons
+        lep = ak.with_name(ak.concatenate([e, mu], axis=1), 'PtEtaPhiMCandidate')
+        lep = lep[(abs(lep.pdgId)==11)&(lep.convVeto)]                            #Would return True for e.convVeto==True and False for all muons
+            
+        lep = lep[(nLep>=2)]
+        lep = lep[ak.argsort(lep.conept, axis=-1, ascending=False)]
+        lep = lep[(lep[:, 0].conept > 25) & (lep[:, 1].conept > 15)]
+        l0, l1 = lep[:, 0], lep[:, 1]
+        
+        llmask = (l0.charge*l1.charge>-2)
+        nll = len(llmask)
+        print('FO pairs: %i'%(nll))
 
         nElec = ak.num(e)
         nMuon = ak.num(mu)
