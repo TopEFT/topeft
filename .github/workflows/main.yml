@@ -22,7 +22,7 @@ jobs:
         run: |
           cd tests
           chmod +x ./coffea_check.sh
-         ./coffea_check.sh
+          ./coffea_check.sh
   # Placeholder job for testing the processor, based on build job from https://github.com/bu-cms/bucoffea/blob/master/.github/workflows/pythonpackage.yml
   #build:
   #  runs-on: ubuntu-latest
