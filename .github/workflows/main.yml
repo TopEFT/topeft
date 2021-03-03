@@ -19,28 +19,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
       - name: Test Coffea Build and Install
-        run:
+        run: |
           cd tests
           chmod +x ./coffea_check.sh
          ./coffea_check.sh
   # Placeholder job for testing the processor, based on build job from https://github.com/bu-cms/bucoffea/blob/master/.github/workflows/pythonpackage.yml
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-      - name: Set up Python
-        uses: actions/setup-python@v1
-        with:
-          python-version: 3.7
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          #pip install -r requirements.txt # We will want to use conda for this type of thing?
-      - name: Install package
-        run: |
-          pip install -e .
-      - name: Run processors over test files
-        run: |
-          cd tests
-          ./run_over_testfiles.sh
+  #build:
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #    - name: Checkout repository
+  #      uses: actions/checkout@v2
+  #    - name: Set up Python
+  #      uses: actions/setup-python@v1
+  #      with:
+  #        python-version: 3.7
+  #    - name: Install dependencies
+  #      run: |
+  #        python -m pip install --upgrade pip
+  #        #pip install -r requirements.txt # We will want to use conda for this type of thing?
+  #    - name: Install package
+  #      run: |
+  #        pip install -e .
+  #    - name: Run processors over test files
+  #      run: |
+  #        cd tests
+  #        ./run_over_testfiles.sh
