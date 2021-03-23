@@ -21,9 +21,9 @@
 
 import os, sys
 from coffea.util import save
-basepath = os.path.abspath(__file__).rsplit('/topcoffea/',1)[0]+'/topcoffea/'
-sys.path.append(basepath)
+from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.fileReader import GetFiles, GetAllInfoFromFile
+basepath = topcoffea_path("") # Just want path to topcoffea/topcoffea, not any particular file within it, so just pass "" to the function
 
 def FindFileInDir(fname, dname = '.'):
   if not os.path.isfile(dname+'/'+fname):
