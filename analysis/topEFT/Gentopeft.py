@@ -40,11 +40,25 @@ class AnalysisProcessor(processor.ProcessorABC):
         'm3l'     : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 20, 0, 200)),
         'wleppt'  : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
         'e0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 30, 0, 300)),
+        'e1pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e1pt",   "Second elec $p_{T}$ (GeV)", 30, 0, 300)),
+        'e2pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e2pt",   "Third elec $p_{T}$ (GeV)", 30, 0, 300)),
         'm0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 30, 0, 300)),
+        'm1pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m1pt",   "Second muon $p_{T}$ (GeV)", 30, 0, 300)),
+        'm2pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m2pt",   "Third muon $p_{T}$ (GeV)", 30, 0, 300)),
         'j0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'j1pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j1pt",   "Second jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'j2pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j2pt",   "Third jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'j3pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j3pt",   "Foruth jet  $p_{T}$ (GeV)", 20, 0, 400)),
         'e0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0eta",  "Leading elec $\eta$", 20, -2.5, 2.5)),
+        'e1eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e1eta",  "Second elec $\eta$", 20, -2.5, 2.5)),
+        'e2eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e2eta",  "Third elec $\eta$", 20, -2.5, 2.5)),
         'm0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0eta",  "Leading muon $\eta$", 20, -2.5, 2.5)),
+        'm1eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m1eta",  "Second muon $\eta$", 20, -2.5, 2.5)),
+        'm2eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m2eta",  "Third muon $\eta$", 20, -2.5, 2.5)),
         'j0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0eta",  "Leading jet  $\eta$", 20, -2.5, 2.5)),
+        'j1eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j1eta",  "Second jet  $\eta$", 20, -2.5, 2.5)),
+        'j2eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j2eta",  "Third jet  $\eta$", 20, -2.5, 2.5)),
+        'j3eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j3eta",  "Fourth jet  $\eta$", 20, -2.5, 2.5)),
         'ht'      : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("ht",     "H$_{T}$ (GeV)", 40, 0, 800)),
         })
 
@@ -96,6 +110,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         njets = ak.num(j)
         ht = ak.sum(j.pt,axis=-1)
         j0 = j[ak.argmax(j.pt,axis=-1,keepdims=True)]
+        jets = ak.combinations(j, 4, fields=["j0", "j1", "j2", "j3"])
+        j1 = jets["j1"]
+        j2 = jets["j2"]
+        j3 = jets["j3"]
         nbtags = ak.num(j[abs(j.hadronFlavour)==5])
 
         ##################################################################
@@ -318,6 +336,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['m0eta'] = m0.eta
         varnames['j0pt' ] = j0.pt
         varnames['j0eta'] = j0.eta
+        varnames['j1pt']  = j1.pt
+        varnames['j1eta'] = j1.eta
+        varnames['j2pt']  = j2.pt
+        varnames['j2eta'] = j2.eta
+        varnames['j3pt']  = j3.pt
+        varnames['j3eta'] = j3.eta
         varnames['counts'] = np.ones_like(events.GenMET.pt)
 
         # fill Histos
@@ -380,6 +404,30 @@ class AnalysisProcessor(processor.ProcessorABC):
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'j1pt':
+                if lev == 'base': continue
+                values = ak.flatten(values)
+                hout[var].fill(eftweightsvalues, j1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var =='j1eta':
+                if lev == 'base': continue
+                values = ak.flatten(values)
+                hout[var].fill(eftweightsvalues, j1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var =='j2pt':
+                if lev in ['base', "2jets"]: continue
+                values = ak.flatten(values)
+                hout[var].fill(eftweightsvalues, j2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var =='j2eta':
+                if lev in ['base', "2jets"]: continue
+                values = ak.flatten(values)
+                hout[var].fill(eftweightsvalues, j2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var =='j3pt':
+                if lev in ['base', "2jets"]: continue
+                values = ak.flatten(values)
+                hout[var].fill(eftweightsvalues, j3pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var =='j3eta':
+                if lev in ['base', "2jets"]: continue
+                values = ak.flatten(values)
+                hout[var].fill(eftweightsvalues, j3eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
         return hout
 
     def postprocess(self, accumulator):
