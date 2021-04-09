@@ -103,17 +103,23 @@ class AnalysisProcessor(processor.ProcessorABC):
         twoMuon   = (nMuon == 2)
         e0 = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
         m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
+        elecs = e[ak.argsort(e.pt, ascending=False)]
+        muons = mu[ak.argsort(mu.pt, ascending=False)]
+        e1 = elecs
+        e2 = elecs
+        m1 = muons
+        m2 = muons
 
         # Jet selection
 
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
         njets = ak.num(j)
         ht = ak.sum(j.pt,axis=-1)
+        jets = j[ak.argsort(j.pt, ascending=False)]
         j0 = j[ak.argmax(j.pt,axis=-1,keepdims=True)]
-        jets = ak.combinations(j, 4, fields=["j0", "j1", "j2", "j3"])
-        j1 = jets["j1"]
-        j2 = jets["j2"]
-        j3 = jets["j3"]
+        j1 = jets
+        j2 = jets
+        j3 = jets
         nbtags = ak.num(j[abs(j.hadronFlavour)==5])
 
         ##################################################################
@@ -334,14 +340,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['e0eta'] = e0.eta
         varnames['m0pt' ] = m0.pt
         varnames['m0eta'] = m0.eta
+        varnames['e1pt' ] = e1
+        varnames['e1eta'] = e1
+        varnames['e2pt' ] = e2
+        varnames['e2eta'] = e2
+        varnames['m1pt' ] = m1
+        varnames['m1eta'] = m1
+        varnames['m2pt' ] = m2
+        varnames['m2eta'] = m2
         varnames['j0pt' ] = j0.pt
         varnames['j0eta'] = j0.eta
-        varnames['j1pt']  = j1.pt
-        varnames['j1eta'] = j1.eta
-        varnames['j2pt']  = j2.pt
-        varnames['j2eta'] = j2.eta
-        varnames['j3pt']  = j3.pt
-        varnames['j3eta'] = j3.eta
+        varnames['j1pt']  = j1
+        varnames['j1eta'] = j1
+        varnames['j2pt']  = j2
+        varnames['j2eta'] = j2
+        varnames['j3pt']  = j3
+        varnames['j3eta'] = j3
         varnames['counts'] = np.ones_like(events.GenMET.pt)
 
         # fill Histos
@@ -358,6 +372,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
             weights_ones = np.ones_like(weights_flat, dtype=np.int)
             eftweightsvalues = eftweights[cut] if len(eftweights) > 0 else []
+            #print(len(ak.flatten(j1)))
+            #print(len(cut))
             if var == 'invmass':
               if   ch in ['eeeSSoffZ', 'mmmSSoffZ']: continue
               elif ch in ['eeeSSonZ' , 'mmmSSonZ' ]: continue #values = v[ch]
@@ -405,29 +421,62 @@ class AnalysisProcessor(processor.ProcessorABC):
                 #values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'j1pt':
-                if lev == 'base': continue
-                values = ak.flatten(values)
+                if lev == "base": continue
+                values = values.pt[:,1]
+                #values = ak.flatten(values)
                 hout[var].fill(eftweightsvalues, j1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var =='j1eta':
                 if lev == 'base': continue
-                values = ak.flatten(values)
+                values = values.eta[:,1]
                 hout[var].fill(eftweightsvalues, j1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var =='j2pt':
+              elif var == 'j2pt':
                 if lev in ['base', "2jets"]: continue
-                values = ak.flatten(values)
+                values = values.pt[:,2]
                 hout[var].fill(eftweightsvalues, j2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var =='j2eta':
+              elif var == 'j2eta':
                 if lev in ['base', "2jets"]: continue
-                values = ak.flatten(values)
+                values = values.eta[:,2]
                 hout[var].fill(eftweightsvalues, j2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var =='j3pt':
+              elif var == 'j3pt':
                 if lev in ['base', "2jets"]: continue
-                values = ak.flatten(values)
+                values = values.pt[:,3]
                 hout[var].fill(eftweightsvalues, j3pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var =='j3eta':
+              elif var == 'j3eta':
                 if lev in ['base', "2jets"]: continue
-                values = ak.flatten(values)
+                values = values.eta[:,3]
                 hout[var].fill(eftweightsvalues, j3eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e1pt':
+                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmeSSonZ', 'mmeSSoffZ', 'emSS']: continue
+                values = values.pt[:,1]
+                hout[var].fill(eftweightsvalues, e1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e1eta':
+                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmeSSonZ', 'mmeSSoffZ', 'emSS']: continue
+                values = values.eta[:,1]
+                hout[var].fill(eftweightsvalues, e1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e2pt':
+                if ch in ['eeeSSonZ', 'eeeSSoffZ']:
+                  values = values.pt[:,2]
+                  hout[var].fill(eftweightsvalues, e2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e2eta':
+                if ch in ['eeeSSonZ', 'eeeSSoffZ']:
+                  values = values.eta[:,2]
+                  hout[var].fill(eftweightsvalues, e2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm1pt':
+                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eemSSonZ', 'eemSSoffZ', 'emSS']: continue
+                values = values.pt[:,1]
+                hout[var].fill(eftweightsvalues, m1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm1eta':
+                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eemSSonZ', 'eemSSoffZ', 'emSS']: continue
+                values = values.eta[:,1]
+                hout[var].fill(eftweightsvalues, m1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm2pt':
+                if ch in ['mmmSSonZ', 'mmmSSoffZ']:
+                  values = values.pt[:,2]
+                  hout[var].fill(eftweightsvalues, m2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm2eta':
+                if ch in ['mmmSSonZ', 'mmmSSoffZ']:
+                  values = values.eta[:,2]
+                  hout[var].fill(eftweightsvalues, m2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
         return hout
 
     def postprocess(self, accumulator):
