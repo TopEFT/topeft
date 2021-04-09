@@ -36,3 +36,8 @@ conda install -c conda-forge xrootd
 - This directory is set up to be installed as a python package. To install, run `pip install -e .` from the top level directory. The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`.
 - Set up the cfg file you want to use in the `topcoffea/cfg` directory.
 - Run `analysis/topEFT/run.py topcoffea/cfg/your_cfg.cfg`.
+
+### How to convert HistEFT to TH1EFT
+- The ROOT files must be compiled (`root -q -b Utils/WCFit.h+` and `root -q -b Utils/TH1EFT.cc+`)
+- Run `python analysis/topEFT/convert3lEFT.py` to perform conversion of MET
+- See analysis/topEFT/convert3lEFT.py for more details
