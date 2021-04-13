@@ -13,8 +13,15 @@ import os, sys
 
 from topcoffea.plotter.plotter import plotter
 
-path = 'histos/plotsTopEFT.pkl.gz'
-path2 = 'histos/old_plotsTopEFT.pkl.gz'
+import argparse
+parser = argparse.ArgumentParser(description='You can customize your run')
+parser.add_argument('--filepath1','-i1'   , default='histos/plotsTopEFT.pkl.gz', help = 'path of first file with histograms')
+parser.add_argument('--filepath2','-i2'   , default='histos/second_plotsTopEFT.pkl.gz', help = 'path of second file with histograms')
+parser.add_argument('--outpath','-p'   , default='../www/', help = 'Name of the output directory')
+args = parser.parse_args()
+
+path = args.filepath1
+path2 = args.filepath2
 
 with gzip.open(path) as fin:
   fin2 = gzip.open(path2)
@@ -36,5 +43,5 @@ with gzip.open(path) as fin:
     ax.autoscale(axis='x', tight=True)
     ax.set_ylim(0, None)
     ax.set_xlabel(None)
-    fig.savefig(os.path.join("./plots", thing))
+    fig.savefig(os.path.join(args.outpath, thing))
 
