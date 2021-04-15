@@ -53,9 +53,6 @@ class plotter:
       for k in hin.keys():
         if k in self.hists: self.hists[k]+=hin[k]
         else:               self.hists[k]=hin[k]
-    self.histsData = {}
-    for k in self.hists:
-        self.histsData[k] = self.hists[k]
     self.GroupProcesses()
 
   def SetProcessDic(self, prdic, sampleLabel='sample', processLabel='process'):
@@ -71,26 +68,21 @@ class plotter:
     else:
       for k in groupDic:
         self.prDic[k] = (prdic[k])
-    for keys in self.prDic:
-        print("{}: {}".format(keys, self.prDic[keys]))
 
   def GroupProcesses(self, prdic={}):
     ''' Move from grouping in samples to groping in processes '''
     if prdic != {}: self.SetProcessDic(prdic)
     for k in self.hists.keys(): 
       if len(self.hists[k].identifiers('sample')) == 0: continue
-      self.hists[k] = self.hists[k].group(hist.Cat(self.sampleLabel, self.sampleLabel), hist.Cat(self.processLabel, self.processLabel), self.bkgdic)
-      self.histsData[k] = self.histsData[k].group(hist.Cat(self.sampleLabel, self.sampleLabel), hist.Cat(self.processLabel, self.processLabel), self.prDic)
+      self.hists[k] = self.hists[k].group(hist.Cat(self.sampleLabel, self.sampleLabel), hist.Cat(self.processLabel, self.processLabel), self.prDic)
 
   def SetBkgProcesses(self, bkglist=[]):
     ''' Set the list of background processes '''
     self.bkglist = bkglist
     if isinstance(self.bkglist, str): 
-      self.bkgdic = (self.bkglist.replace(' ', '').split(','))
+      self.bkglist = self.bkglist.replace(' ', '').split(',')
     self.bkgdic = OrderedDict()
-    for b in self.bkglist: self.bkgdic[b] = (self.prDic[b])
-    for b in self.bkgdic:
-        print("BKG {}: {}".format(b, self.bkgdic[b]))
+    for b in self.bkglist: self.bkgdic[b] = b
 
   def SetSignalProcesses(self, siglist=[]):
     ''' Set the list of signal processes '''
@@ -185,34 +177,15 @@ class plotter:
     if isinstance(process, str) and ',' in process: process = process.split(',')
     if isinstance(process, list): 
       prdic = {}
-      for pr in process: 
-         prdic[pr] = pr
-         #print("{}: {}".format(pr, prdic[pr]))
+      for pr in process: prdic[pr] = pr
       h = h.group("process", hist.Cat("process", "process"), prdic)
-    elif isinstance(process, str):
-      h = h[process].sum("process")
-    return h
-
-  def GetHistogramData(self, hname, process, categories=None):
-    ''' Returns a histogram with all categories contracted '''
-    if categories == None: categories = self.categories
-    h = self.histsData[hname]
-    for cat in categories: 
-      h = h.integrate(cat, categories[cat])
-    if isinstance(process, str) and ',' in process: process = process.split(',')
-    if isinstance(process, list): 
-      prdic = {}
-      for pr in process: 
-         prdic[pr] = pr
-         print("Data {}: {}".format(pr, prdic[pr]))
-      h = h.group("process", hist.Cat("process", "process"), prdic)
-    elif isinstance(process, str):
+    elif isinstance(process, str): 
       h = h[process].sum("process")
     return h
 
   def doData(self, hname):
     ''' Check if data histogram exists '''
-    return self.dataName in [str(x) for x in list(self.histsData[hname].identifiers(self.processLabel))] and self.plotData
+    return self.dataName in [str(x) for x in list(self.hists[hname].identifiers(self.processLabel))] and self.plotData
 
   def SetLegend(self, do=True):
     self.doLegend = do
@@ -250,7 +223,6 @@ class plotter:
     # Colors
     from cycler import cycler
     colors = self.GetColors(self.bkglist)
-
     if self.invertStack: 
       _n = len(h.identifiers(overlay))-1
       colors = colors[_n::-1]
@@ -263,16 +235,13 @@ class plotter:
       error_opts = None
       fill_opts  = None
 
-    if self.invertStack and type(h._axes[0])==hist.hist_tools.Cat:  h._axes[0]._sorted.reverse()
+    if self.invertStack and type(h._axes[0])==hist.hist_tools.Cat:  h._axes[0]._sorted.reverse() 
     h = self.GetHistogram(hname, self.bkglist)
     h.scale(1000.*self.lumi)
     hist.plot1d(h, overlay="process", ax=ax, clear=False, stack=self.doStack, density=density, line_opts=None, fill_opts=fill_opts, error_opts=error_opts, binwnorm=binwnorm)
 
-    handles, labels = ax.get_legend_handles_labels()
-    print(labels)
-
     if self.doData(hname):
-      hData = self.GetHistogramData(hname, self.dataName)
+      hData = self.GetHistogram(hname, self.dataName)
       hist.plot1d(hData, ax=ax, clear=False, error_opts=data_err_opts, binwnorm=binwnorm)
       ydata = hData.values(overflow='all')
 
@@ -284,9 +253,6 @@ class plotter:
       leg_anchor=(1., 1.)
       leg_loc='upper left'
       handles, labels = ax.get_legend_handles_labels()
-
-      print(labels)
-
       if self.doData(hname):
         handles = handles[-1:]+handles[:-1]
         labels = ['Data']+labels[:-1]            
@@ -314,7 +280,7 @@ class plotter:
     
     # Save
     os.system('mkdir -p %s'%self.outpath)
-    fig.savefig(os.path.join(self.outpath, hname))
+    fig.savefig(os.path.join(self.outpath, hname+'.png'))
 
   def GetYields(self, var='counts'):
     sumy = 0
@@ -327,7 +293,7 @@ class plotter:
       sumy += y
       dicyields[bkg] = y
     if self.doData(var):
-      hData = self.GetHistogramData(var, self.dataName)
+      hData = self.GetHistogram(var, self.dataName)
       ydata = hData.values(overflow='all')
       ndata = ydata[list(ydata.keys())[0]].sum()
       dicyields['data'] = ndata
