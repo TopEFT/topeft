@@ -16,13 +16,14 @@ from coffea.nanoevents import NanoAODSchema
 
 import topeft
 from topcoffea.modules import samples
+import topeftenv
 
 import argparse
 parser = argparse.ArgumentParser(description='You can customize your run')
 parser.add_argument('cfgfile'           , nargs='?', default=''           , help = 'Config file with dataset names')
 parser.add_argument('--test','-t'       , action='store_true'  , help = 'To perform a test, run over a few events in a couple of chunks')
 parser.add_argument('--nworkers','-n'   , default=8  , help = 'Number of workers')
-parser.add_argument('--chunksize','-s'   , default=500000  , help = 'Number of events per chunk')
+parser.add_argument('--chunksize','-s'   , default=100000  , help = 'Number of events per chunk')
 parser.add_argument('--nchunks','-c'   , default=None  , help = 'You can choose to run only a number of chunks')
 parser.add_argument('--outname','-o'   , default='plotsTopEFT', help = 'Name of the output file with histograms')
 parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the output directory')
@@ -63,18 +64,19 @@ for k in samplesdict.keys():
     
 processor_instance = topeft.AnalysisProcessor(samplesdict)
 
-executor_args = {#'flatten': True, #used for all executors                                                                                                                                                  
-                 'compression': 0, #used for all executors                                                                                                                                                 
+executor_args = {#'flatten': True, #used for all executors
+                 'compression': 0, #used for all executors
                  'cores': 2,
-                 'disk': 1000, #MB                                                                                                                                                                         
-                 'memory': 2000, #MB                                                                                                                                                                       
+                 'disk': 5000, #MB
+                 'memory': 10000, #MB
                  'resource-monitor': True,
-                 'port': 0,
-                 #'environment-file': '/afs/crc.nd.edu/user/j/jlawren6/coffea-070-env.tar.gz',
-                 #'wrapper': '/afs/crc.nd.edu/user/j/jlawren6/miniconda3/envs/coffea-070-env/bin/python_package_run',
-                 'environment-file': '/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/current_topcoffea/topcoffea/test-env.tar.gz',
-                 'wrapper': '/afs/crc.nd.edu/user/k/kmohrman/miniconda3/envs/test-env/bin/python_package_run',
-                 'master-name': 'workqueue-coffea',
+                 'debug-log': 'debug.log',
+                 'transactions-log': 'tr.log',
+                 'stats-log': 'stats.log',
+                 'verbose': False,
+                 'port': [9123,9130],
+                 'environment-file': topeftenv.get_environment(),
+                 'master-name': '{}-workqueue-coffea'.format(os.environ['USER']),
                  'print-stdout': True,
                  'skipbadfiles': True,
                  'schema': NanoAODSchema,
