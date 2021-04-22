@@ -415,6 +415,8 @@ class HistEFT(coffea.hist.Hist):
     """ Set a WC point and evaluate """
     if isinstance(WCPoint, dict):
       wcp = WCPoint(wcp)
+    elif isinstance(wcp, str) and 'EFTrwgt' in wcp:
+      wcp = WCPoint(wcp)
     elif isinstance(wcp, str):
       values = wcp.replace(" ", "").split(',')
       wcp = WCPoint(values, names=self.GetWCnames())
