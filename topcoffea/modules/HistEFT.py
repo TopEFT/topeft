@@ -236,8 +236,10 @@ class HistEFT(coffea.hist.Hist):
           out.EFTerrs  [sparse_key][i] += dense_op(self.EFTerrs  [sparse_key][i])
       else: 
         out.EFTcoeffs[sparse_key]=[]; out.EFTerrs[sparse_key]=[]; 
-        for i in range(self.GetNcoeffs()   ): out.EFTcoeffs[sparse_key].append(np.zeros(shape=self._dense_shape, dtype=self._dtype))
-        for i in range(self.GetNcoeffsErr()): out.EFTerrs  [sparse_key].append(np.zeros(shape=self._dense_shape, dtype=self._dtype))
+        #for i in range(self.GetNcoeffs()   ): out.EFTcoeffs[sparse_key].append(np.zeros(shape=self._dense_shape, dtype=self._dtype))
+        #for i in range(self.GetNcoeffsErr()): out.EFTerrs  [sparse_key].append(np.zeros(shape=self._dense_shape, dtype=self._dtype))
+        for i in range(len(self.EFTcoeffs[sparse_key])): out.EFTcoeffs[sparse_key].append(np.zeros(shape=self._dense_shape, dtype=self._dtype))
+        for i in range(len(self.EFTerrs  [sparse_key])): out.EFTerrs  [sparse_key].append(np.zeros(shape=self._dense_shape, dtype=self._dtype))
         for i in range(len(self.EFTcoeffs[sparse_key])):
           out.EFTcoeffs[sparse_key][i] += dense_op(self.EFTcoeffs[sparse_key][i]).copy()
           out.EFTerrs  [sparse_key][i] += dense_op(self.EFTerrs  [sparse_key][i]).copy()
