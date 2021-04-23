@@ -1,6 +1,7 @@
 #!/bin/bash
 
 echo "Downloading files"
+wget -O Utils/TH1EFT.h https://raw.githubusercontent.com/TopEFT/EFTGenReader/master/EFTHelperUtilities/interface/TH1EFT.h --quiet
 wget -O Utils/TH1EFT.cc https://raw.githubusercontent.com/TopEFT/EFTGenReader/master/EFTHelperUtilities/src/TH1EFT.cc --quiet
 wget -O Utils/WCFit.h https://raw.githubusercontent.com/TopEFT/EFTGenReader/master/EFTHelperUtilities/interface/WCFit.h --quiet
 wget -O Utils/WCPoint.h https://raw.githubusercontent.com/TopEFT/EFTGenReader/master/EFTHelperUtilities/interface/WCPoint.h --quiet
