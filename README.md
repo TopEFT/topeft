@@ -38,6 +38,6 @@ conda install -c conda-forge xrootd
 - Run `analysis/topEFT/run.py topcoffea/cfg/your_cfg.cfg`.
 
 ### How to convert HistEFT to TH1EFT
-- The ROOT files must be compiled (`root -q -b Utils/WCFit.h+` and `root -q -b Utils/TH1EFT.cc+`)
+- Run `source setupTH1EFT.sh` to download and compile ROOT files
 - Run `python analysis/topEFT/convert3lEFT.py` to perform conversion of MET
 - See analysis/topEFT/convert3lEFT.py for more details
