@@ -155,7 +155,11 @@ class HistEFT(coffea.hist.Hist):
       for rkey in right.keys():
         lkey = tuple(self.axis(rax).index(rax[ridx]) for rax, ridx in zip(raxes, rkey))
         if lkey in left:
-          left[lkey] += right[rkey]
+          if isinstance(left[lkey],list):
+            for l,r in zip(left[lkey],right[rkey]):
+              l += r
+          else:
+            left[lkey] += right[rkey]
         else:
           left[lkey] = copy.deepcopy(right[rkey])
 
