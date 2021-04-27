@@ -21,6 +21,7 @@
 
 import os, sys
 from coffea.util import save
+from topcoffea.modules.DASsearch import GetDatasetFromDAS
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.fileReader import GetFiles, GetAllInfoFromFile
 basepath = topcoffea_path("") # Just want path to topcoffea/topcoffea, not any particular file within it, so just pass "" to the function
@@ -108,6 +109,7 @@ def main():
   parser.add_argument('--year','-y'       , default=-1           , help = 'Year')
   parser.add_argument('--options','-o'    , default=''           , help = 'Options to pass to your analysis')
   parser.add_argument('--treename'        , default='Events'     , help = 'Name of the tree')
+  parser.add_argument('--nFiles'          , default=None         , help = 'Number of max files (for the moment, only applies for DAS)')
 
   args, unknown = parser.parse_known_args()
   cfgfile     = args.cfgfile
@@ -155,7 +157,7 @@ def main():
       elif key == 'year'      : year      = int(val)
       elif key == 'treeName'  : treeName  = val
       else:
-        fileopt[key] = options
+        fileopt[key] = ''#options
         if len(lst) >= 3: fileopt[key] += lst[2]
         samplefiles[key] = val
 
@@ -173,13 +175,26 @@ def main():
 
   for sname in samplefiles.keys():
     sampdic[sname] = {}
-    sampdic[sname]['files']      = GetFiles(path, samplefiles[sname])
-    extraOption = GetOptions(path, sampdic[sname]['files'][0].split('/')[-1])
-    sampdic[sname]['options']    = fileopt[sname] + ', ' + extraOption
     sampdic[sname]['xsec']       = xsecdic[sname] if sname in xsecdic.keys() else 1
     sampdic[sname]['year']       = year
     sampdic[sname]['treeName']   = treeName
-    nEvents, nGenEvents, nSumOfWeights, isData = GetAllInfoFromFile(sampdic[sname]['files'], sampdic[sname]['treeName'])
+    if 'DAS' in options:
+      print("ES DAS")
+      dataset = samplefiles[sname]
+      nFiles = int(fileopt[sname]) if fileopt[sname]!='' else None
+      dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector='root://cms-xrd-global.cern.ch/')
+      nEvents, nGenEvents, nSumOfWeights, isData = GetAllInfoFromFile(dicFiles['files'], sampdic[sname]['treeName'])
+      files          = dicFiles['files']
+      nEvents        = dicFiles['events']
+      fileOptions = ''
+    else:
+      print("NO es DAS... options=",options)
+      files = GetFiles(path, samplefiles[sname])
+      nEvents, nGenEvents, nSumOfWeights, isData = GetAllInfoFromFile(files, sampdic[sname]['treeName'])
+      extraOption = GetOptions(path, files[0].split('/')[-1])
+      fileOptions = fileopt[sname]+','+extraOption
+    sampdic[sname]['options']    = fileOptions
+    sampdic[sname]['files']      = files
     sampdic[sname]['nEvents']       = nEvents
     sampdic[sname]['nGenEvents']    = nGenEvents
     sampdic[sname]['nSumOfWeights'] = nSumOfWeights
