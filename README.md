@@ -26,10 +26,9 @@ This is a developing effort... no complete instructions or test yet!
 ### Set up the environment 
 If necessary, first run `unset PYTHONPATH` to avoid conflicts. Then run the following commands to set up the conda environment:    
 ```
-conda create --name coffea-070-env python=3.8.3
-conda activate coffea-070-env
-pip install coffea==0.7.0
-conda install -c conda-forge xrootd
+conda create --name coffea-env python=3.8.3
+conda activate coffea-env
+conda install -y -c conda-forge coffea
 ```
 
 ### How to start
@@ -40,4 +39,4 @@ conda install -c conda-forge xrootd
 ### How to convert HistEFT to TH1EFT
 - Run `source setupTH1EFT.sh` to download and compile ROOT files
 - Run `python analysis/topEFT/convert3lEFT.py` to perform conversion of MET
-- See analysis/topEFT/convert3lEFT.py for more details
+- See `analysis/topEFT/convert3lEFT.py` for more details
