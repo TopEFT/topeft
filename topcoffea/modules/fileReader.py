@@ -45,9 +45,9 @@ def findValidRootfiles(path, sampleName = '', getOnlyNumberedFiles = False, verb
   if len(files) == 0: 
     if retry: files = findValidRootfiles(path, 'Tree_' + sampleName, getOnlyNumberedFiles, verbose, FullPaths, False)
     if len(files) == 0: 
+      print('Is path+sampleName a dir?: ', path+sampleName)
       if os.path.isdir(path+sampleName):
         return GetSampleListInDir(path+sampleName)
-      print ('[ERROR]: Not files "' + sampleName + '" found in: ' + path)
       return []
   return files
 
