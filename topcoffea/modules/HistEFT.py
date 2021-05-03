@@ -129,6 +129,7 @@ class HistEFT(coffea.hist.Hist):
       for err in np.transpose(errs):
         self.EFTerrs[sparse_key][iErr][:] += np.sum(err)
     super().fill(**values_orig)
+    self.SetWCFit()
 
   #######################################################################################
   def SetWCFit(self, key=None):
@@ -181,7 +182,7 @@ class HistEFT(coffea.hist.Hist):
    if key == '': 
      for k in self.EFTcoeffs.keys(): self.DumpFits(k)
      return
-   for fit in (len(self.WCFit[key])):
+   for fit in self.WCFit[key]:
      fit.Dump()
 
   def ScaleFits(self, SF, key=''):
