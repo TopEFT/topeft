@@ -61,8 +61,11 @@ class HistEFT(coffea.hist.Hist):
     if content:
         out._sumw = copy.deepcopy(self._sumw)
         out._sumw2 = copy.deepcopy(self._sumw2)
+        out._sumw_orig  = self._sumw_orig.copy()
+        out._sumw2_orig = self._sumw2_orig.copy()
     out.EFTcoeffs = copy.deepcopy(self.EFTcoeffs)
     out.EFTerrs =  copy.deepcopy(self.EFTerrs)
+    out.WCFit = copy.deepcopy(self.WCFit)
     return out
 
   def identity(self):
