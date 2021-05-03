@@ -45,7 +45,7 @@ class WCFit:
 
   def GetErrorPairs(self):
     """ Returns err_pairs """
-    return err_pairs
+    return self.err_pairs
 
   def GetErrorCoefficients(self):
     """ Returns err_coeffs """
@@ -150,11 +150,11 @@ class WCFit:
     if added_fit.Size() == 0: return
 
     if self.Size() == 0: # We are an empty fit, set all values to those of the added fit
-      self.names      = added_fit.GetNames()
-      self.pairs      = added_fit.GetPairs()
-      self.coeffs     = added_fit.GetCoefficients()
-      self.err_pairs  = added_fit.GetErrorPairs()
-      self.err_coeffs = added_fit.GetErrorCoefficients()
+      self.names      = added_fit.GetNames().copy()
+      self.pairs      = added_fit.GetPairs().copy()
+      self.coeffs     = added_fit.GetCoefficients().copy()
+      self.err_pairs  = added_fit.GetErrorPairs().copy()
+      self.err_coeffs = added_fit.GetErrorCoefficients().copy()
       if len(self.tag) == 0: self.tag = added_fit.GetTag()
       return;
 
