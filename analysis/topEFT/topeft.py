@@ -14,7 +14,7 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
-#from topcoffea.modules.corrections import * # Comment this out for now, as it's not used an is giving this error: "AttributeError: 'Model_TH2D_v3' object has no attribute 'edges'"
+from topcoffea.modules.corrections import SFevaluator
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 
@@ -143,6 +143,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         emSSmask = (em.e.charge*em.m.charge>0)
         emSS = em[emSSmask]
         nemSS = len(ak.flatten(emSS))
+ 
+        year = 2018
+        lepSF_emSS = ak.prod( SFevaluator['ElecRecoSF_%i'%year](e.pt, e.eta) * SFevaluator['ElecLooseSF_%i'%year](e.pt, e.eta) * SFevaluator['ElecLoosettHSF_%i'%year](e.pt, e.eta) * SFevaluator['ElecTightSF_%i'%year](e.pt, e.eta), axis=-1)
+        print('lepSF_emSS = ', lepSF_emSS)
+        print('Reco = ', SFevaluator['ElecRecoSF_%i'%year](e.pt, e.eta))
+        print('Loose = ', SFevaluator['ElecLooseSF_%i'%year](e.pt, e.eta))
+        print('Loose ttH = ', SFevaluator['ElecLoosettHSF_%i'%year](e.pt, e.eta))
+        print('tight = ', SFevaluator['ElecTightSF_%i'%year](e.pt, e.eta))
 
         # ee and mumu
         # pt>-1 to preserve jagged dimensions
