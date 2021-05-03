@@ -349,7 +349,7 @@ class WCFit:
         n1 = self.names[idx_pair[0]]
         n2 = self.names[idx_pair[1]]
         x1 = 1. if n1 == kSMstr else pts[rid].inputs[n1]
-        x2 = 1. if n2 == kSMstr else pts[rid].inputs[n1]
+        x2 = 1. if n2 == kSMstr else pts[rid].inputs[n2]
         A[rid].append(x1*x2)
       b.append(pts[rid].wgt)
     A = np.array(A)
