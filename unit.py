@@ -255,7 +255,7 @@ def test_stats():
     print(f'Passed Checks: {all_chks}/{units}')
     return (all_chks == units)
 
-def test_th1eft():
+def test_histeft():
     chk_str = ''
     unit_chk = True
     all_chks,units = [0]*2
@@ -328,7 +328,7 @@ def test_th1eft():
     units += 1
 
     chk_str = 'Passed' if unit_chk else 'Failed'
-    print('--- UNIT 3 ---')
+    print('--- UNIT 2 ---')
     print('chk_x        : ', chk_pt.GetStrength(wc_name))
     print('expected     : ', expected)
     print('GetBinContent: ', result)
@@ -350,7 +350,7 @@ def test_th1eft():
     units += 1
 
     chk_str = 'Passed' if unit_chk else 'Failed'
-    print('--- UNIT 4 ---')
+    print('--- UNIT 3 ---')
     print('chk_x        : ', chk_pt.GetStrength(wc_name))
     print('expected     : ', expected)
     print('GetBinContent: ', result)
@@ -374,7 +374,7 @@ def test_th1eft():
     units += 1
 
     chk_str = 'Passed' if unit_chk else 'Failed'
-    print('--- UNIT 5 ---')
+    print('--- UNIT 4 ---')
     print('chk_x        : ', chk_pt.GetStrength(wc_name))
     print('expected     : ', expected)
     print('fit_1 + fit_2: ', result)
@@ -392,7 +392,7 @@ def test_th1eft():
     units += 1
 
     chk_str = 'Passed' if unit_chk else 'Failed'
-    print('--- UNIT 6 ---')
+    print('--- UNIT 5 ---')
     print('chk_x        : ', chk_pt.GetStrength(wc_name))
     print('expected     : ', expected)
     print('GetBinContent: ', result)
@@ -418,19 +418,40 @@ def test_th1eft():
     units += 1
 
     chk_str = 'Passed' if unit_chk else 'Failed'
-    print('--- UNIT 7 ---')
+    print('--- UNIT 6 ---')
     print('chk_x        : ', chk_pt.GetStrength(wc_name))
     print('expected     : ', expected)
     print('GetBinContent: ', result)
     print('test: ', chk_str)
     print('--------------\n')
     
-    chk_x = 0.75    # Needs to be w/e chk_x was before UNIT 7
+    chk_x = 0.75    # Needs to be w/e chk_x was before UNIT 6
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
     chk_pt.SetStrength(wc_name,chk_x)
 
     # Next check that the h_base was unaffected when we scaled h_new
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
+    result = list(h_base.values().values())[0][0]
+
+    unit_chk = abs(result - expected) < tolerance
+    all_chks += unit_chk
+    units += 1
+
+    chk_str = 'Passed' if unit_chk else 'Failed'
+    print('--- UNIT 7 ---')
+    print('chk_x        : ', chk_pt.GetStrength(wc_name))
+    print('expected     : ', expected)
+    print('GetBinContent: ', result)
+    print('test: ', chk_str)
+    print('--------------\n')
+
+    # Check HistEFT.add()
+    expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
+    chk_x = 0.975    # Needs to be w/e chk_x was before UNIT 6
+    chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
+    chk_pt.SetStrength(wc_name,chk_x)
+    expected += fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
+    h_base.add(h_new)
     result = list(h_base.values().values())[0][0]
 
     unit_chk = abs(result - expected) < tolerance
@@ -445,29 +466,8 @@ def test_th1eft():
     print('test: ', chk_str)
     print('--------------\n')
 
-    # Check HistEFT.add()
-    expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
-    chk_x = 0.975    # Needs to be w/e chk_x was before UNIT 7
-    chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
-    chk_pt.SetStrength(wc_name,chk_x)
-    expected += fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
-    h_base.add(h_new)
-    result = list(h_base.values().values())[0][0]
-
-    unit_chk = abs(result - expected) < tolerance
-    all_chks += unit_chk
-    units += 1
-
-    chk_str = 'Passed' if unit_chk else 'Failed'
-    print('--- UNIT 9 ---')
-    print('chk_x        : ', chk_pt.GetStrength(wc_name))
-    print('expected     : ', expected)
-    print('GetBinContent: ', result)
-    print('test: ', chk_str)
-    print('--------------\n')
-
     # Check HistEFT.add() reweight
-    chk_x = 0.75    # Needs to be w/e chk_x was before UNIT 7
+    chk_x = 0.75    # Needs to be w/e chk_x was before UNIT 6
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
     chk_pt.SetStrength(wc_name,chk_x)
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
@@ -480,7 +480,7 @@ def test_th1eft():
     units += 1
 
     chk_str = 'Passed' if unit_chk else 'Failed'
-    print('--- UNIT 10 ---')
+    print('--- UNIT 9 ---')
     print('chk_x        : ', chk_pt.GetStrength(wc_name))
     print('expected     : ', expected)
     print('GetBinContent: ', result)
@@ -501,13 +501,10 @@ def run_unit_tests():
     all_chks = test_stats() and all_chks
     print()
 
-    all_chks = test_th1eft() and all_chks
+    all_chks = test_histeft() and all_chks
     print()
 
-    if all_chks:
-        print('All unit tests completed successfully!')
-    else:
-        print('Some unit tests failed!')
+    print('All unit tests completed successfully!') if all_chks else print('Some unit tests failed!')
 
     return
 
