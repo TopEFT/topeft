@@ -178,7 +178,6 @@ class HistEFT(coffea.hist.Hist):
     add_dict(self._sumw, other._sumw)
     add_dict(self.EFTcoeffs, other.EFTcoeffs)
     add_dict(self.EFTerrs, other.EFTerrs)
-    self.WCFit.update(other.WCFit)
     self.SetWCFit()
     return self
 
