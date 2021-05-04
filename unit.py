@@ -466,6 +466,27 @@ def test_th1eft():
     print('test: ', chk_str)
     print('--------------\n')
 
+    # Check HistEFT.add() reweight
+    chk_x = 0.75    # Needs to be w/e chk_x was before UNIT 7
+    chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
+    chk_pt.SetStrength(wc_name,chk_x)
+    expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
+    expected += fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
+    h_base.Eval(chk_pt)
+    result = list(h_base.values().values())[0][0]
+
+    unit_chk = abs(result - expected) < tolerance
+    all_chks += unit_chk
+    units += 1
+
+    chk_str = 'Passed' if unit_chk else 'Failed'
+    print('--- UNIT 10 ---')
+    print('chk_x        : ', chk_pt.GetStrength(wc_name))
+    print('expected     : ', expected)
+    print('GetBinContent: ', result)
+    print('test: ', chk_str)
+    print('--------------\n')
+
     ###########################
 
     print(f'Passed Checks: {all_chks}/{units}')
