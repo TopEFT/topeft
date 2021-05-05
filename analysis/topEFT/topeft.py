@@ -14,7 +14,7 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator
+from topcoffea.modules.corrections import SFevaluator, GetLeptonSF
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 
@@ -145,12 +145,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         nemSS = len(ak.flatten(emSS))
  
         year = 2018
-        lepSF_emSS = ak.prod( SFevaluator['ElecRecoSF_%i'%year](e.pt, e.eta) * SFevaluator['ElecLooseSF_%i'%year](e.pt, e.eta) * SFevaluator['ElecLoosettHSF_%i'%year](e.pt, e.eta) * SFevaluator['ElecTightSF_%i'%year](e.pt, e.eta), axis=-1)
+        #lepSF_emSS = np.multiply(ak.prod(SFevaluator['MuonLooseSF_%i'%year](mu.pt, mu.eta) * SFevaluator['MuonTightSF_%i'%year](mu.pt, mu.eta), axis=-1) , ak.prod(SFevaluator['ElecRecoSF_%i'%year](e.pt, e.eta) * SFevaluator['ElecLooseSF_%i'%year](e.pt, e.eta) * SFevaluator['ElecLoosettHSF_%i'%year](e.pt, e.eta) * SFevaluator['ElecTightSF_%i'%year](e.pt, e.eta), axis=-1))
+        lepSF_emSS = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', 0, 0, None, year)
         print('lepSF_emSS = ', lepSF_emSS)
-        print('Reco = ', SFevaluator['ElecRecoSF_%i'%year](e.pt, e.eta))
-        print('Loose = ', SFevaluator['ElecLooseSF_%i'%year](e.pt, e.eta))
-        print('Loose ttH = ', SFevaluator['ElecLoosettHSF_%i'%year](e.pt, e.eta))
-        print('tight = ', SFevaluator['ElecTightSF_%i'%year](e.pt, e.eta))
 
         # ee and mumu
         # pt>-1 to preserve jagged dimensions
@@ -173,7 +170,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         mmSSoffZ = mmpairs[mmSSmask & mmoffZmask]
         neeSS = len(ak.flatten(eeSSonZ)) + len(ak.flatten(eeSSoffZ))
         nmmSS = len(ak.flatten(mmSSonZ)) + len(ak.flatten(mmSSoffZ))
-
+        
+        lepSF_eeSS = GetLeptonSF(eepairs.e0.pt, eepairs.e0.eta, 'e', eepairs.e1.pt, eepairs.e1.eta, 'e', 0, 0, None, year)
+        lepSF_mumuSS = GetLeptonSF(mmpairs.m0.pt, mmpairs.m0.eta, 'm', mmpairs.m1.pt, mmpairs.m1.eta, 'm', 0, 0, None, year)
+        print('lepSF_eeSS = ', lepSF_eeSS)
+        print('lepSF_mumuSS = ', lepSF_mumuSS)
+        
         print('Same-sign events [ee, emu, mumu] = [%i, %i, %i]'%(neeSS, nemSS, nmmSS))
 
         # Cuts
@@ -203,6 +205,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         eepair_eem  = (ee_eem.e0+ee_eem.e1)
         trilep_eem = eepair_eem+muon_eem #ak.cartesian({"e0":ee_eem.e0,"e1":ee_eem.e1, "m":muon_eem})
 
+        lepSF_eem = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', mu.pt, mu.eta, 'm', year)
+        print('lepSF_eem = ', lepSF_eem)
+
         # mme
         muon_mme = mu[(nElec==1)&(nMuon==2)&(mu.pt>-1)]
         elec_mme =  e[(nElec==1)&(nMuon==2)&( e.pt>-1)]
@@ -220,6 +225,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         mZ_eem  = eepair_eem.mass
         m3l_eem = trilep_eem.mass
         m3l_mme = trilep_mme.mass
+        
+        lepSF_mme = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', e.pt, e.eta, 'e', year)
+        print('lepSF_mme = ', lepSF_mme)
 
         # eee and mmm
         eee =   e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
@@ -232,6 +240,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         ee_pairs_index = ak.argcombinations(eee, 2, fields=["e0", "e1"])
         mm_pairs_index = ak.argcombinations(mmm, 2, fields=["m0", "m1"])
 
+
+        lepSF_eee = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year)
+        lepSF_mmm = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year)
+        print('lepSF_eee = ', lepSF_eee)
+        print('lepSF_mmm = ', lepSF_mmm)
+        
         mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.charge != mm_pairs.m1.charge)]
         offZmask_mm = ak.all(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>10., axis=1, keepdims=True) & (ak.num(mmSFOS_pairs)>0)
         onZmask_mm  = ak.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<10., axis=1, keepdims=True)
