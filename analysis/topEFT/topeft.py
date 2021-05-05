@@ -351,7 +351,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['m0eta'] = m0.eta
         varnames['j0pt' ] = j0.pt
         varnames['j0eta'] = j0.eta
-        varnames['counts'] = np.ones_like(events.MET.pt)
+        varnames['counts'] = np.ones_like(events['event'])
 
         # fill Histos
         hout = self.accumulator.identity()
