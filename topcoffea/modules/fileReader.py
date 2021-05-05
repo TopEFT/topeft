@@ -164,7 +164,7 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
     f = uproot.open(fname)
     t = f[treeName]
     isData = not 'genWeight' in t#.keys()
-    nEvents = len(t['MET_pt'])
+    nEvents = len(t['event'].array())
     ## Method 1: from histograms
     if 'Count' in f and False:
       hc = f['Count']
@@ -178,7 +178,7 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
       if nSumOfWeights == 0: 
         nSumOfWeights = nGenEvents
     # Method 2: from 'Runs' tree
-    elif 'Runs' in f:
+    elif (('Runs' in f) & (not isData)):
       r = f['Runs']
       genEventSumw  = 'genEventSumw'  if 'genEventSumw'  in r else 'genEventSumw_'
       genEventCount = 'genEventCount' if 'genEventCount' in r else 'genEventCount_'
