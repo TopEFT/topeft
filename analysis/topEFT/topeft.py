@@ -16,7 +16,7 @@ from coffea.analysis_tools import PackedSelection
 from topcoffea.modules.objects import *
 from topcoffea.modules.corrections import SFevaluator, GetLeptonSF
 from topcoffea.modules.selection import *
-from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.HistEFT import HistEFT, EFTHelper
 
 #coffea.deprecations_as_errors = True
 
@@ -24,7 +24,7 @@ from topcoffea.modules.HistEFT import HistEFT
 WCNames = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
 
 class AnalysisProcessor(processor.ProcessorABC):
-    def __init__(self, samples):
+    def __init__(self, samples, do_errors=False):
         self._samples = samples
 
         # Create the histograms
@@ -48,6 +48,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         'ht'      : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("ht",     "H$_{T}$ (GeV)", 40, 0, 800)),
         })
 
+        self._eft_helper = EFTHelper(WCNames)
+        self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
+        
     @property
     def accumulator(self):
         return self._accumulator
@@ -304,7 +307,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         weights['mme'].add('lepSF_mme', lepSF_mme)
         weights['eem'].add('lepSF_eem', lepSF_eem)
 
-        eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
+        # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
+        eft_coeffs = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else None
+        eft_w2_coeffs = self._eft_helper.calc_w2_coeffs(eft_coeffs) if self._do_errors else None
 
         # Selections and cuts
         selections = PackedSelection()
@@ -382,7 +387,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # fill Histos
         hout = self.accumulator.identity()
         normweights = weights['all'].weight().flatten() # Why does it not complain about .flatten() here?
-        hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=normweights)
+        hout['SumOfEFTweights'].fill(sample=dataset, SumOfEFTweights=varnames['counts'], weight=normweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
         for var, v in varnames.items():
          for ch in channels2LSS+channels3L:
@@ -392,7 +397,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             cut = selections.all(*cuts)
             weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
             weights_ones = np.ones_like(weights_flat, dtype=np.int)
-            eftweightsvalues = eftweights[cut] if len(eftweights) > 0 else []
+            eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
+            eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
             if var == 'invmass':
               if   ch in ['eeeSSoffZ', 'mmmSSoffZ']: continue
               elif ch in ['eeeSSonZ' , 'mmmSSonZ' ]: continue #values = v[ch]
@@ -401,44 +407,44 @@ class AnalysisProcessor(processor.ProcessorABC):
             elif var == 'm3l': 
               if ch in ['eeSSonZ','eeSSoffZ', 'mmSSonZ', 'mmSSoffZ','emSS', 'eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']: continue
               values = ak.flatten(v[ch][cut])
-              hout['m3l'].fill(eftweightsvalues, sample=dataset, channel=ch, cut=lev, m3l=values, weight=weights_flat)
+              hout['m3l'].fill(sample=dataset, channel=ch, cut=lev, m3l=values, weight=weights_flat,eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
             else:
               values = v[cut] 
-              if   var == 'ht'    : hout[var].fill(eftweightsvalues, ht=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'met'   : hout[var].fill(eftweightsvalues, met=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'njets' : hout[var].fill(eftweightsvalues, njets=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'nbtags': hout[var].fill(eftweightsvalues, nbtags=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              if   var == 'ht'    : hout[var].fill(ht=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
+              elif var == 'met'   : hout[var].fill(met=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
+              elif var == 'njets' : hout[var].fill(njets=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
+              elif var == 'nbtags': hout[var].fill(nbtags=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'counts': hout[var].fill(counts=values, sample=dataset, channel=ch, cut=lev, weight=weights_ones)
               elif var == 'j0eta' : 
                 if lev == 'base': continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'e0pt'  : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat) # Crashing here, not sure why. Related to values?
+                hout[var].fill(e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut) # Crashing here, not sure why. Related to values?
               elif var == 'm0pt'  : 
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'e0eta' : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, e0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(e0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'm0eta':
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, m0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(m0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'j0pt'  : 
                 if lev == 'base': continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
         return hout
 
     def postprocess(self, accumulator):
