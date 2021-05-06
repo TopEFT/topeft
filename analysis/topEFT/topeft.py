@@ -14,7 +14,7 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
-#from topcoffea.modules.corrections import * # Comment this out for now, as it's not used an is giving this error: "AttributeError: 'Model_TH2D_v3' object has no attribute 'edges'"
+from topcoffea.modules.corrections import SFevaluator, GetLeptonSF
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 
@@ -77,7 +77,6 @@ class AnalysisProcessor(processor.ProcessorABC):
  
         # Muon selection
 
-        #mu['isGood'] = isMuonMVA(mu.pt, mu.eta, mu.dxy, mu.dz, mu.miniPFRelIso_all, mu.sip3d, mu.mvaTTH, mu.mediumPromptId, mu.tightCharge, minpt=10)
         mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.looseId)
         mu['isTight']= isTightMuon(mu.pt, mu.eta, mu.dxy, mu.dz, mu.pfRelIso03_all, mu.sip3d, mu.mvaTTH, mu.mediumPromptId, mu.tightCharge, mu.looseId, minpt=10)
         mu['isGood'] = mu['isPres'] & mu['isTight']
@@ -89,7 +88,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu_pres = mu[mu.isPres]
 
         # Electron selection
-        #e['isGood'] = isElecMVA(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.mvaTTH, e.mvaFall17V2Iso, e.lostHits, e.convVeto, e.tightCharge, minpt=10)
         e['isPres']  = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.lostHits, minpt=15)
         e['isTight'] = isTightElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.mvaTTH, e.mvaFall17V2Iso, e.lostHits, e.convVeto, e.tightCharge, e.sieie, e.hoe, e.eInvMinusPInv, minpt=15)
         e['isClean'] = isClean(e, mu, drmin=0.05)
@@ -143,6 +141,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         emSSmask = (em.e.charge*em.m.charge>0)
         emSS = em[emSSmask]
         nemSS = len(ak.flatten(emSS))
+ 
+        year = 2018
+        lepSF_emSS = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year)
 
         # ee and mumu
         # pt>-1 to preserve jagged dimensions
@@ -165,7 +166,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         mmSSoffZ = mmpairs[mmSSmask & mmoffZmask]
         neeSS = len(ak.flatten(eeSSonZ)) + len(ak.flatten(eeSSoffZ))
         nmmSS = len(ak.flatten(mmSSonZ)) + len(ak.flatten(mmSSoffZ))
-
+        
+        lepSF_eeSS = GetLeptonSF(eepairs.e0.pt, eepairs.e0.eta, 'e', eepairs.e1.pt, eepairs.e1.eta, 'e', year=year)
+        lepSF_mumuSS = GetLeptonSF(mmpairs.m0.pt, mmpairs.m0.eta, 'm', mmpairs.m1.pt, mmpairs.m1.eta, 'm', year=year)
+        
         print('Same-sign events [ee, emu, mumu] = [%i, %i, %i]'%(neeSS, nemSS, nmmSS))
 
         # Cuts
@@ -195,6 +199,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         eepair_eem  = (ee_eem.e0+ee_eem.e1)
         trilep_eem = eepair_eem+muon_eem #ak.cartesian({"e0":ee_eem.e0,"e1":ee_eem.e1, "m":muon_eem})
 
+        lepSF_eem = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', mu.pt, mu.eta, 'm', year)
+
         # mme
         muon_mme = mu[(nElec==1)&(nMuon==2)&(mu.pt>-1)]
         elec_mme =  e[(nElec==1)&(nMuon==2)&( e.pt>-1)]
@@ -212,6 +218,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         mZ_eem  = eepair_eem.mass
         m3l_eem = trilep_eem.mass
         m3l_mme = trilep_mme.mass
+        
+        lepSF_mme = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', e.pt, e.eta, 'e', year)
 
         # eee and mmm
         eee =   e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
@@ -224,6 +232,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         ee_pairs_index = ak.argcombinations(eee, 2, fields=["e0", "e1"])
         mm_pairs_index = ak.argcombinations(mmm, 2, fields=["m0", "m1"])
 
+
+        lepSF_eee = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year)
+        lepSF_mmm = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year)
+        
         mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.charge != mm_pairs.m1.charge)]
         offZmask_mm = ak.all(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>10., axis=1, keepdims=True) & (ak.num(mmSFOS_pairs)>0)
         onZmask_mm  = ak.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<10., axis=1, keepdims=True)
@@ -277,8 +289,21 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Weights
         genw = np.ones_like(events['MET_pt']) if isData else events['genWeight']
-        weights = coffea.analysis_tools.Weights(len(events))
-        weights.add('norm',genw if isData else (xsec/sow)*genw)
+
+        ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
+        weights = {}
+        for r in ['all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme']:
+          weights[r] = coffea.analysis_tools.Weights(len(events))
+          weights[r].add('norm',genw if isData else (xsec/sow)*genw)
+
+        weights['ee'].add('lepSF_eeSS', lepSF_eeSS)
+        weights['em'].add('lepSF_emSS', lepSF_emSS)
+        weights['mm'].add('lepSF_mmSS', lepSF_mumuSS)
+        weights['eee'].add('lepSF_eee', lepSF_eee)
+        weights['mmm'].add('lepSF_mmm', lepSF_mmm)
+        weights['mme'].add('lepSF_mme', lepSF_mme)
+        weights['eem'].add('lepSF_eem', lepSF_eem)
+
         eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
 
         # Selections and cuts
@@ -356,13 +381,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # fill Histos
         hout = self.accumulator.identity()
-        allweights = weights.weight().flatten() # Why does it not complain about .flatten() here?
-        hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=allweights)
+        normweights = weights['all'].weight().flatten() # Why does it not complain about .flatten() here?
+        hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=normweights)
 
         for var, v in varnames.items():
          for ch in channels2LSS+channels3L:
           for lev in levels:
-            weight = weights.weight()
+            weight = weights[ ch[:3] if (ch.startswith('eee') or ch.startswith('mmm') or ch.startswith('eem') or ch.startswith('mme')) else ch[:2]].weight()
             cuts = [ch] + [lev]
             cut = selections.all(*cuts)
             weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
