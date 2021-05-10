@@ -16,6 +16,7 @@ from coffea.nanoevents import NanoAODSchema
 
 import topeft
 from topcoffea.modules import samples
+from topcoffea.modules import fileReader
 
 import argparse
 parser = argparse.ArgumentParser(description='You can customize your run')
@@ -58,12 +59,20 @@ else:
 
 flist = {}; xsec = {}; sow = {}; isData = {}
 for k in samplesdict.keys():
+  samplesdict[k]['WCnames'] = fileReader.GetListOfWCs(samplesdict[k]['files'][0])
   flist[k] = samplesdict[k]['files']
   xsec[k]  = samplesdict[k]['xsec']
   sow[k]   = samplesdict[k]['nSumOfWeights']
   isData[k]= samplesdict[k]['isData']
 
-processor_instance = topeft.AnalysisProcessor(samplesdict,do_errors)
+# Check that all datasets have the same list of WCs
+for i,k in enumerate(samplesdict.keys()):
+  if i == 0:
+    wc_lst = samplesdict[k]['WCnames']
+  if wc_lst != samplesdict[k]['WCnames']:
+    raise Exception("Not all of the datasets have the same list of WCs.")
+
+processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors)
 
 # Run the processor and get the output
 tstart = time.time()
