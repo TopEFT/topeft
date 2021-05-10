@@ -23,6 +23,8 @@ def fval(xvals = [], svals = []):
     #print()
     return y
 
+########################### WCFit unit tests ###########################
+
 def test_wcfit():
     chk_str = ''
 
@@ -105,6 +107,8 @@ def test_wcfit():
 
     print(f'Passed Checks: {all_chks}/{units}')
     return (all_chks == units)
+
+########################### Stats unit tests ###########################
 
 def test_stats():
     chk_str = ''
@@ -255,6 +259,8 @@ def test_stats():
     print(f'Passed Checks: {all_chks}/{units}')
     return (all_chks == units)
 
+########################### HistEFT unit tests ###########################
+
 def test_histeft():
     chk_str = ''
     unit_chk = True
@@ -288,6 +294,7 @@ def test_histeft():
 
     chk_x = 1.5
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
+    chk_arr = np.array([chk_x,0]) # CtG=chk_x, ctZ=0
     chk_pt = WCPoint(f'EFTrwgt0_{wc_name}_{chk_x}',0.0)
 
     print('Running unit tests for HistEFT class')
@@ -296,11 +303,10 @@ def test_histeft():
 
     h_base = HistEFT("h_base", wc_names[1::], hist.Cat("sample", "sample"), hist.Bin("n",  "", 1, 0, 1))
 
-    #h_base.Fill(0.5,1.0,fit_1)
     val=ak.Array([0.5])
     eftval = ak.Array([0.0002579])
     sconst = sconst + sconst
-    h_base.fill(ak.Array([sconst]), n=val, sample='test', weight=np.ones_like(val))
+    h_base.fill(n=val, sample='test', weight=np.ones_like(val), eft_coeff=[ak.Array(sconst)])
 
     expected = 1.0
     result = list(h_base.values().values())[0][0]
@@ -318,7 +324,7 @@ def test_histeft():
 
     ###########################
 
-    h_base.Eval(chk_pt)
+    h_base.set_wilson_coefficients(chk_arr)
 
     expected = fit_1.EvalPoint(chk_pt)
     result = list(h_base.values().values())[0][0]
@@ -339,8 +345,9 @@ def test_histeft():
 
     chk_x = 0.75
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
+    chk_arr = np.array([chk_x,0]) # CtG=chk_x, ctZ=0
     chk_pt.SetStrength(wc_name,chk_x)
-    h_base.Eval(chk_pt)
+    h_base.set_wilson_coefficients(chk_arr)
 
     expected = fit_1.EvalPoint(chk_pt)
     result = list(h_base.values().values())[0][0]
@@ -359,9 +366,8 @@ def test_histeft():
 
     ###########################
 
-    #h_base.Fill(0.5,1.0,fit_2)
-    h_base.fill([ak.Array(sconst)*2], n=val, sample='test', weight=np.ones_like(val))
-    h_base.Eval(chk_pt)
+    h_base.fill(n=val, sample='test', weight=np.ones_like(val), eft_coeff=[ak.Array(sconst)*2])
+    h_base.set_wilson_coefficients(chk_arr)
 
     # First make sure the original WCFits weren't messed with
     expected = chk_y + 2*chk_y
@@ -405,9 +411,10 @@ def test_histeft():
 
     chk_x = 0.975
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
+    chk_arr = np.array([chk_x,0]) # CtG=chk_x, ctZ=0
     chk_pt.SetStrength(wc_name,chk_x)
     
-    h_new.Eval(chk_pt)
+    h_new.set_wilson_coefficients(chk_arr)
 
     # First check that h_new has the right value
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
@@ -427,6 +434,7 @@ def test_histeft():
     
     chk_x = 0.75    # Needs to be w/e chk_x was before UNIT 6
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
+    chk_arr = np.array([chk_x,0]) # CtG=chk_x, ctZ=0
     chk_pt.SetStrength(wc_name,chk_x)
 
     # Next check that the h_base was unaffected when we scaled h_new
@@ -449,6 +457,7 @@ def test_histeft():
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
     chk_x = 0.975    # Needs to be w/e chk_x was before UNIT 6
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
+    chk_arr = np.array([chk_x,0]) # CtG=chk_x, ctZ=0
     chk_pt.SetStrength(wc_name,chk_x)
     expected += fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
     h_base.add(h_new)
@@ -469,10 +478,11 @@ def test_histeft():
     # Check HistEFT.add() reweight
     chk_x = 0.75    # Needs to be w/e chk_x was before UNIT 6
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
+    chk_arr = np.array([chk_x,0]) # CtG=chk_x, ctZ=0
     chk_pt.SetStrength(wc_name,chk_x)
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
     expected += fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
-    h_base.Eval(chk_pt)
+    h_base.set_wilson_coefficients(chk_arr)
     result = list(h_base.values().values())[0][0]
 
     unit_chk = abs(result - expected) < tolerance
