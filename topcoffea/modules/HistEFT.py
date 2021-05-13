@@ -94,9 +94,10 @@ class HistEFT(coffea.hist.Hist):
 
     # Check if we're actually doing all this EFT stuff or not
     if eft_coeff is None:
-      # But wait.  Does this spare bin look like it's got EFT coefficients stored in it?
-      if len(np.atleast_1d(self._sumw[sparse_key]).shape) != len(self._dense_shape):
-        raise ValueError("Attempt to fill an EFT bin with non-EFT events.")
+      # But wait.  Does this sparse bin look like it's got EFT coefficients stored in it?
+      if sparse_key in self._sumw:
+        if len(np.atleast_1d(self._sumw[sparse_key]).shape) != len(self._dense_shape):
+          raise ValueError("Attempt to fill an EFT bin with non-EFT events.")
       super().fill(**values)
       return
 
@@ -426,8 +427,8 @@ class HistEFT(coffea.hist.Hist):
             _sumw2 = self._sumw2[sparse_key]
         else:
           if is_eft_bin:
-            # Set really tiny error bars
-            _sumw2 = 1e-30*np.ones_like(_sumw)
+            # Set really tiny error bars (e.g. one one-millionth the size of the average bin)
+            _sumw2 = np.full_like(_sumw,1e-30*np.mean(_sumw))
           else:
             _sumw2 = _sumw
         w2 = view_dim(_sumw2)
