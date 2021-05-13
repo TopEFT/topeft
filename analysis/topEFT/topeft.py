@@ -308,8 +308,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         weights['eem'].add('lepSF_eem', lepSF_eem)
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
-        eft_coeffs = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else None
-        eft_w2_coeffs = self._eft_helper.calc_w2_coeffs(eft_coeffs) if self._do_errors else None
+        # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
+        eft_coeffs = events['EFTfitCoefficients'].to_numpy() if hasattr(events, "EFTfitCoefficients") else None
+        eft_w2_coeffs = self._eft_helper.calc_w2_coeffs(eft_coeffs) if (self._do_errors and eft_coeffs is not None) else None
 
         # Selections and cuts
         selections = PackedSelection()

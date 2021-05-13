@@ -64,9 +64,6 @@ class HistEFT(coffea.hist.Hist):
     # If we're not filling with EFT coefficients, just do the normal coffea.hist.Hist.fill().
     eft_coeff = values.pop("eft_coeff",None)
 
-    # We want this as a numpy array
-    eft_coeff = np.asarray(eft_coeff)
-
     # First, let's pull out the weight and handle that.
     weight = values.pop("weight", None)
     if isinstance(weight, (ak.Array, np.ndarray)):
@@ -104,6 +101,9 @@ class HistEFT(coffea.hist.Hist):
       return
 
     # OK then, we're doing this with EFT coefficients.    
+
+    # We want this as a numpy array
+    eft_coeff = np.asarray(eft_coeff)
 
     # Check that we have the right number of coefficients
     if self._ncoeffs != eft_coeff.shape[1]:
