@@ -446,12 +446,10 @@ def test_histeft():
     print('--------------\n')
 
     # Check HistEFT.add()
-    expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
-    chk_x = 0.975    # Needs to be w/e chk_x was before UNIT 6
-    chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
-    chk_pt.SetStrength(wc_name,chk_x)
-    expected += fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
+    expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt) #fits for h_base
+    expected += fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt) #fits for h_new
     h_base.add(h_new)
+    h_base.Eval(chk_pt) #evaluate h_base at chk_pt
     result = list(h_base.values().values())[0][0]
 
     unit_chk = abs(result - expected) < tolerance

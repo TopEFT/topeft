@@ -12,34 +12,50 @@
 
 import os, sys, subprocess
 
-# Check and load voms certificate
-def HasVomsProxy():
-  return True
-  #process = subprocess.Popen('voms-proxy-info', stdout=subprocess.PIPE)
-  #output, error = process.communicate()
-  #output=str(output)
-  #l = [int(x) for x in output[output.find('timeleft'):].split('\n')[0].replace(' ', '').replace('\\n', '').replace("'", "").split(':')[1:]]
-  #return (not l == [0]*len(l))
+das_env = None
+das_OK = False
 
-if not HasVomsProxy():
-  print('[DASsearch] Please, load your voms proxy...')
-  os.system('voms-proxy-init -voms cms')
-if not HasVomsProxy():
-  print('[DASsearch] Error loading voms proxy...')
-  exit()
+def CheckDasEnv():
+  """Checks whether we have an environment we can use for DAS."""
+  # First just check to see whether the dasgoclient is in the path
+  try:
+    res = subprocess.run('which dasgoclient',shell=True,capture_output=True,check=True)
+    # If this didn't raise an exception, we're good!
+    das_OK = True
+    return
+  except:
+    # dasgoclient's not in the path.  Can we guess where it is?
+    if os.path.isfile('/cvmfs/cms.cern.ch/common/dasgoclient'):
+      # Found it!  I'm just adding this to the path because it's the only command we're calling.
+      das_env = {'PATH':'/cvmfs/cms.cern.ch/common'}
+      das_OK = True
+      return
 
-# Check if dasgoclient is available
-if not os.path.isfile('/cvmfs/cms.cern.ch/common/dasgoclient'):
-  print('[DASsearch] Hmmm... dasgoclient seems not to be available in "/cvmfs/cms.cern.ch/common/dasgoclient"...')
-  exit()
+  # If we get here, we can't use DAS in this environment.  Better get the user's attention
+  raise RuntimeError('Not able to use DAS in this environment.  Check that DAS is available in the path or CVMFS.')
+  
+  
+def RunDasGoClientCommand(dataset, mode='dataset', do_json=False):
 
-def GetDasGoClientCommand(opt=''):
-  ''' Get dasgoclient command '''
-  command = '/cvmfs/cms.cern.ch/common/dasgoclient --query="%s dataset =%s" %s'
-  mode='dataset' if not 'file' in opt.lower() else 'file'
-  extropt = '' if not 'json' in opt.lower() else ' -json'
-  command = command%(mode, '%s', extropt)
-  return command
+  if not das_OK:
+    CheckDasEnv()
+
+    command = 'dasgoclient --query="{} dataset={}"'.format(mode,dataset)
+    if do_json:
+      command += ' -json'
+
+    try:
+      res = subprocess.run(command, shell=True, capture_output=True, check=True, text=True)
+      return res.stdout
+    except subprocess.CalledProcessError as e:
+      print('Non-Zero exit code from dasasgoclient',file=sys.stderr)
+      print('stdout:\n{}'.format(e.stdout))
+      print('stderr:\n{}'.format(e.stderr))
+      raise
+    except:
+      print('Problem trying to use dasgoclient',file=sys.stderr)
+      raise
+    
 
 def ReadDatasetsFromFile(fname):
   ''' Read datasets from a file with dataset names '''
@@ -82,8 +98,7 @@ def GetFilesFromDatasets(datasets, nFiles=None, withRedirector='', verbose=False
     for d in datasets: files[d] = GetFilesFromDatasets(d)
     return files
   else:
-    command = GetDasGoClientCommand('file')
-    match = os.popen(command%datasets).read()
+    match = RunDasGoClientCommand(datasets,mode='file')
     if match.endswith('\n'): match=match[:-1]
     match = match.replace(' ', '').split('\n')
     if withRedirector != '':
@@ -99,8 +114,7 @@ def GetDatasetNumbers(dataset, options='', verbose=0):
   dic = {'events' : 0, 'nfiles' : 0, 'size' : 0}
   if not isinstance(dataset, list): dataset=[dataset]
   for d in dataset:
-    command = GetDasGoClientCommand('json')
-    match = os.popen(command%d).read()
+    match = RunDasGoClientCommand(d, do_json=True)
     match = match.replace('\n', '').replace('null', '""')
     l = eval(match)
     fdic = GetEvDic(l)
@@ -129,9 +143,7 @@ def GetFilesInDataset(dataset, nFiles=1, withRedirector='', verbose=0):
   dic = {'events' : 0, 'nfiles' : 0, 'size' : 0, 'files' : []}
   if not isinstance(dataset, list): dataset=[dataset]
   for d in dataset:
-    command = GetDasGoClientCommand('filejson')
-    match = os.popen(command%d).read()
-    #match = match.replace('\n', '').replace('null', '""')
+    match = RunDasGoClientCommand(d,mode='file',do_json=True)
     match = match.replace('\n', '').replace('null', '""')
     l = eval(match)
     nf = 0
