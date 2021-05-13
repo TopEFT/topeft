@@ -133,7 +133,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         bJetSF = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour)
         bJetSF_up = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour,sys=1)
         bJetSF_down = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour,sys=-1)
-        
+        print(bJetSF)
         
         ##################################################################
         ### 2 same-sign leptons
