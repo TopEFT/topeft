@@ -416,14 +416,14 @@ class HistEFT(coffea.hist.Hist):
       if is_eft_bin:
         _sumw = self._eft_helper.calc_eft_weights(self._sumw[sparse_key],self._wcs)
       else:
-        _sumw = self._sumw
+        _sumw = self._sumw[sparse_key]
 
       if sumw2:
         if self._sumw2 is not None:
           if is_eft_bin:
             _sumw2 = self._eft_helper.calc_eft_w2(self._sumw2[sparse_key],self._wcs)
           else:
-            _sumw2 = self._sumw2
+            _sumw2 = self._sumw2[sparse_key]
         else:
           if is_eft_bin:
             # Set really tiny error bars
