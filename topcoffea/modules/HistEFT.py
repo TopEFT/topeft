@@ -227,7 +227,7 @@ class HistEFT(coffea.hist.Hist):
     def add_dict(left, right):
       for rkey in right.keys():
         lkey = tuple(self.axis(rax).index(rax[ridx]) for rax, ridx in zip(raxes, rkey))
-        if lkey in left:
+        if lkey in left and left[lkey] is not None:
           # Checking to make sure we don't accidentally try to sum a regular and EFT bin
           if self.dense_dim() > 0:
             if left[lkey].shape != right[rkey].shape:
