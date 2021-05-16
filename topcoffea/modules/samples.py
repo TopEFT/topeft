@@ -182,7 +182,8 @@ def main():
       print("ES DAS")
       dataset = samplefiles[sname]
       nFiles = int(fileopt[sname]) if fileopt[sname]!='' else None
-      dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector='root://cms-xrd-global.cern.ch/')
+      #dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector='root://cms-xrd-global.cern.ch/')
+      dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector=path)
       nEvents, nGenEvents, nSumOfWeights, isData = GetAllInfoFromFile(dicFiles['files'], sampdic[sname]['treeName'])
       files          = dicFiles['files']
       nEvents        = dicFiles['events']
