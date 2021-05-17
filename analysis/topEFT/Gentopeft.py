@@ -14,7 +14,7 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetLeptonSF
+#from topcoffea.modules.corrections import * # Comment this out for now, as it's not used an is giving this error: "AttributeError: 'Model_TH2D_v3' object has no attribute 'edges'"
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 
@@ -40,11 +40,25 @@ class AnalysisProcessor(processor.ProcessorABC):
         'm3l'     : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 20, 0, 200)),
         'wleppt'  : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
         'e0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 30, 0, 300)),
+        'e1pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e1pt",   "Second elec $p_{T}$ (GeV)", 30, 0, 300)),
+        'e2pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e2pt",   "Third elec $p_{T}$ (GeV)", 30, 0, 300)),
         'm0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 30, 0, 300)),
+        'm1pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m1pt",   "Second muon $p_{T}$ (GeV)", 30, 0, 300)),
+        'm2pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m2pt",   "Third muon $p_{T}$ (GeV)", 30, 0, 300)),
         'j0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'j1pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j1pt",   "Second jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'j2pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j2pt",   "Third jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'j3pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j3pt",   "Foruth jet  $p_{T}$ (GeV)", 20, 0, 400)),
         'e0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0eta",  "Leading elec $\eta$", 20, -2.5, 2.5)),
+        'e1eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e1eta",  "Second elec $\eta$", 20, -2.5, 2.5)),
+        'e2eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e2eta",  "Third elec $\eta$", 20, -2.5, 2.5)),
         'm0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0eta",  "Leading muon $\eta$", 20, -2.5, 2.5)),
+        'm1eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m1eta",  "Second muon $\eta$", 20, -2.5, 2.5)),
+        'm2eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m2eta",  "Third muon $\eta$", 20, -2.5, 2.5)),
         'j0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0eta",  "Leading jet  $\eta$", 20, -2.5, 2.5)),
+        'j1eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j1eta",  "Second jet  $\eta$", 20, -2.5, 2.5)),
+        'j2eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j2eta",  "Third jet  $\eta$", 20, -2.5, 2.5)),
+        'j3eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j3eta",  "Fourth jet  $\eta$", 20, -2.5, 2.5)),
         'ht'      : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("ht",     "H$_{T}$ (GeV)", 40, 0, 800)),
         })
 
@@ -68,43 +82,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         for d in datasets: 
           if d in dataset: dataset = dataset.split('_')[0] 
 
-        # Initialize objects
-        met = events.MET
-        e   = events.Electron
-        mu  = events.Muon
-        tau = events.Tau
-        j   = events.Jet
- 
-        # Muon selection
-
-        mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.looseId)
-        mu['isTight']= isTightMuon(mu.pt, mu.eta, mu.dxy, mu.dz, mu.pfRelIso03_all, mu.sip3d, mu.mvaTTH, mu.mediumPromptId, mu.tightCharge, mu.looseId, minpt=10)
-        mu['isGood'] = mu['isPres'] & mu['isTight']
+        # Inittialize objects
+        met = events.GenMET
+        e = events.GenPart[abs(events.GenPart.pdgId)==11]
+        mu = events.GenPart[abs(events.GenPart.pdgId)==13]
+        tau = events.GenPart[abs(events.GenPart.pdgId)==15]
+        j = events.GenJet
 
         leading_mu = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
-        leading_mu = leading_mu[leading_mu.isGood]
-        
-        mu = mu[mu.isGood]
-        mu_pres = mu[mu.isPres]
-
-        # Electron selection
-        e['isPres']  = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.lostHits, minpt=15)
-        e['isTight'] = isTightElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.mvaTTH, e.mvaFall17V2Iso, e.lostHits, e.convVeto, e.tightCharge, e.sieie, e.hoe, e.eInvMinusPInv, minpt=15)
-        e['isClean'] = isClean(e, mu, drmin=0.05)
-        e['isGood']  = e['isPres'] & e['isTight'] & e['isClean']
 
         leading_e = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
-        leading_e = leading_e[leading_e.isGood]
 
-        e  =  e[e .isGood]
-        e_pres = e[e .isPres & e .isClean]
-
-        # Tau selection
-        tau['isPres']  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.leadTkPtOverTauPt, tau.idAntiMu, tau.idAntiEle, tau.rawIso, tau.idDecayModeNewDMs, minpt=20)
-        tau['isClean'] = isClean(tau, e_pres, drmin=0.4) & isClean(tau, mu_pres, drmin=0.4)
-        tau['isGood']  = tau['isPres']# & tau['isClean'], for the moment
-        tau= tau[tau.isGood]
-        
         nElec = ak.num(e)
         nMuon = ak.num(mu)
         nTau  = ak.num(tau)
@@ -115,19 +103,24 @@ class AnalysisProcessor(processor.ProcessorABC):
         twoMuon   = (nMuon == 2)
         e0 = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
         m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
-        
+        elecs = e[ak.argsort(e.pt, ascending=False)]
+        muons = mu[ak.argsort(mu.pt, ascending=False)]
+        e1 = elecs
+        e2 = elecs
+        m1 = muons
+        m2 = muons
+
         # Jet selection
+
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
-        j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, j.neHEF, j.neEmEF, j.chHEF, j.chEmEF, j.nConstituents)
-        #j['isgood']  = isGoodJet(j.pt, j.eta, j.jetId)
-        #j['isclean'] = isClean(j, e, mu)
-        j['isClean'] = isClean(j, e, drmin=0.4)& isClean(j, mu, drmin=0.4)# & isClean(j, tau, drmin=0.4)
-        goodJets = j[(j.isClean)&(j.isGood)]
-        njets = ak.num(goodJets)
-        ht = ak.sum(goodJets.pt,axis=-1)
-        j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
-        #nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
-        nbtags = ak.num(goodJets[goodJets.btagDeepB > 0.4941])
+        njets = ak.num(j)
+        ht = ak.sum(j.pt,axis=-1)
+        jets = j[ak.argsort(j.pt, ascending=False)]
+        j0 = j[ak.argmax(j.pt,axis=-1,keepdims=True)]
+        j1 = jets
+        j2 = jets
+        j3 = jets
+        nbtags = ak.num(j[abs(j.hadronFlavour)==5])
 
         ##################################################################
         ### 2 same-sign leptons
@@ -137,12 +130,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         singe = e [(nElec==1)&(nMuon==1)&(e .pt>-1)]
         singm = mu[(nElec==1)&(nMuon==1)&(mu.pt>-1)]
         em = ak.cartesian({"e":singe,"m":singm})
-        emSSmask = (em.e.charge*em.m.charge>0)
+        emSSmask = (em.e.pdgId*em.m.pdgId>0)
         emSS = em[emSSmask]
         nemSS = len(ak.flatten(emSS))
- 
-        year = 2018
-        lepSF_emSS = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year)
 
         # ee and mumu
         # pt>-1 to preserve jagged dimensions
@@ -150,12 +140,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         mm = mu[(nElec==0)&(nMuon==2)&(mu.pt>-1)]
 
         eepairs = ak.combinations(ee, 2, fields=["e0","e1"])
-        eeSSmask = (eepairs.e0.charge*eepairs.e1.charge>0)
+        eeSSmask = (eepairs.e0.pdgId*eepairs.e1.pdgId>0)
         eeonZmask  = (np.abs((eepairs.e0+eepairs.e1).mass-91.2)<10)
         eeoffZmask = (eeonZmask==0)
 
         mmpairs = ak.combinations(mm, 2, fields=["m0","m1"])
-        mmSSmask = (mmpairs.m0.charge*mmpairs.m1.charge>0)
+        mmSSmask = (mmpairs.m0.pdgId*mmpairs.m1.pdgId>0)
         mmonZmask = (np.abs((mmpairs.m0+mmpairs.m1).mass-91.2)<10)
         mmoffZmask = (mmonZmask==0)
 
@@ -165,10 +155,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         mmSSoffZ = mmpairs[mmSSmask & mmoffZmask]
         neeSS = len(ak.flatten(eeSSonZ)) + len(ak.flatten(eeSSoffZ))
         nmmSS = len(ak.flatten(mmSSonZ)) + len(ak.flatten(mmSSoffZ))
-        
-        lepSF_eeSS = GetLeptonSF(eepairs.e0.pt, eepairs.e0.eta, 'e', eepairs.e1.pt, eepairs.e1.eta, 'e', year=year)
-        lepSF_mumuSS = GetLeptonSF(mmpairs.m0.pt, mmpairs.m0.eta, 'm', mmpairs.m1.pt, mmpairs.m1.eta, 'm', year=year)
-        
+
         print('Same-sign events [ee, emu, mumu] = [%i, %i, %i]'%(neeSS, nemSS, nmmSS))
 
         # Cuts
@@ -190,23 +177,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         elec_eem =  e[(nElec==2)&(nMuon==1)&( e.pt>-1)]
         ee_eem = ak.combinations(elec_eem, 2, fields=["e0", "e1"])
 
-        ee_eemZmask     = (ee_eem.e0.charge*ee_eem.e1.charge<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91.2)<10)
-        ee_eemOffZmask  = (ee_eem.e0.charge*ee_eem.e1.charge<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91.2)>10)
+        ee_eemZmask     = (ee_eem.e0.pdgId*ee_eem.e1.pdgId<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91.2)<10)
+        ee_eemOffZmask  = (ee_eem.e0.pdgId*ee_eem.e1.pdgId<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91.2)>10)
         ee_eemZmask     = (ak.num(ee_eemZmask[ee_eemZmask])>0)
         ee_eemOffZmask  = (ak.num(ee_eemOffZmask[ee_eemOffZmask])>0)
 
         eepair_eem  = (ee_eem.e0+ee_eem.e1)
         trilep_eem = eepair_eem+muon_eem #ak.cartesian({"e0":ee_eem.e0,"e1":ee_eem.e1, "m":muon_eem})
 
-        lepSF_eem = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', mu.pt, mu.eta, 'm', year)
-
         # mme
         muon_mme = mu[(nElec==1)&(nMuon==2)&(mu.pt>-1)]
         elec_mme =  e[(nElec==1)&(nMuon==2)&( e.pt>-1)]
 
         mm_mme = ak.combinations(muon_mme, 2, fields=["m0", "m1"])
-        mm_mmeZmask     = (mm_mme.m0.charge*mm_mme.m1.charge<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91.2)<10)
-        mm_mmeOffZmask  = (mm_mme.m0.charge*mm_mme.m1.charge<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91.2)>10)
+        mm_mmeZmask     = (mm_mme.m0.pdgId*mm_mme.m1.pdgId<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91.2)<10)
+        mm_mmeOffZmask  = (mm_mme.m0.pdgId*mm_mme.m1.pdgId<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91.2)>10)
         mm_mmeZmask     = (ak.num(mm_mmeZmask[mm_mmeZmask])>0)
         mm_mmeOffZmask  = (ak.num(mm_mmeOffZmask[mm_mmeOffZmask])>0)
 
@@ -217,8 +202,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         mZ_eem  = eepair_eem.mass
         m3l_eem = trilep_eem.mass
         m3l_mme = trilep_mme.mass
-        
-        lepSF_mme = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', e.pt, e.eta, 'e', year)
 
         # eee and mmm
         eee =   e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
@@ -231,15 +214,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         ee_pairs_index = ak.argcombinations(eee, 2, fields=["e0", "e1"])
         mm_pairs_index = ak.argcombinations(mmm, 2, fields=["m0", "m1"])
 
-
-        lepSF_eee = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year)
-        lepSF_mmm = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year)
-        
-        mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.charge != mm_pairs.m1.charge)]
+        mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.pdgId != mm_pairs.m1.pdgId)]
         offZmask_mm = ak.all(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>10., axis=1, keepdims=True) & (ak.num(mmSFOS_pairs)>0)
         onZmask_mm  = ak.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<10., axis=1, keepdims=True)
       
-        eeSFOS_pairs = ee_pairs[(np.abs(ee_pairs.e0.pdgId) == np.abs(ee_pairs.e1.pdgId)) & (ee_pairs.e0.charge != ee_pairs.e1.charge)]
+        eeSFOS_pairs = ee_pairs[(np.abs(ee_pairs.e0.pdgId) == np.abs(ee_pairs.e1.pdgId)) & (ee_pairs.e0.pdgId != ee_pairs.e1.pdgId)]
         offZmask_ee = ak.all(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)>10, axis=1, keepdims=True) & (ak.num(eeSFOS_pairs)>0)
         onZmask_ee  = ak.any(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)<10, axis=1, keepdims=True)
 
@@ -288,21 +267,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Weights
         genw = np.ones_like(events['MET_pt']) if isData else events['genWeight']
-
-        ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
-        weights = {}
-        for r in ['all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme']:
-          weights[r] = coffea.analysis_tools.Weights(len(events))
-          weights[r].add('norm',genw if isData else (xsec/sow)*genw)
-
-        weights['ee'].add('lepSF_eeSS', lepSF_eeSS)
-        weights['em'].add('lepSF_emSS', lepSF_emSS)
-        weights['mm'].add('lepSF_mmSS', lepSF_mumuSS)
-        weights['eee'].add('lepSF_eee', lepSF_eee)
-        weights['mmm'].add('lepSF_mmm', lepSF_mmm)
-        weights['mme'].add('lepSF_mme', lepSF_mme)
-        weights['eem'].add('lepSF_eem', lepSF_eem)
-
+        weights = coffea.analysis_tools.Weights(len(events))
+        weights.add('norm',genw if isData else (xsec/sow)*genw)
         eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
 
         # Selections and cuts
@@ -374,24 +340,40 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['e0eta'] = e0.eta
         varnames['m0pt' ] = m0.pt
         varnames['m0eta'] = m0.eta
+        varnames['e1pt' ] = e1
+        varnames['e1eta'] = e1
+        varnames['e2pt' ] = e2
+        varnames['e2eta'] = e2
+        varnames['m1pt' ] = m1
+        varnames['m1eta'] = m1
+        varnames['m2pt' ] = m2
+        varnames['m2eta'] = m2
         varnames['j0pt' ] = j0.pt
         varnames['j0eta'] = j0.eta
-        varnames['counts'] = np.ones_like(events['event'])
+        varnames['j1pt']  = j1
+        varnames['j1eta'] = j1
+        varnames['j2pt']  = j2
+        varnames['j2eta'] = j2
+        varnames['j3pt']  = j3
+        varnames['j3eta'] = j3
+        varnames['counts'] = np.ones_like(events.GenMET.pt)
 
         # fill Histos
         hout = self.accumulator.identity()
-        normweights = weights['all'].weight().flatten() # Why does it not complain about .flatten() here?
-        hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=normweights)
+        allweights = weights.weight().flatten() # Why does it not complain about .flatten() here?
+        hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=allweights)
 
         for var, v in varnames.items():
          for ch in channels2LSS+channels3L:
           for lev in levels:
-            weight = weights[ ch[:3] if (ch.startswith('eee') or ch.startswith('mmm') or ch.startswith('eem') or ch.startswith('mme')) else ch[:2]].weight()
+            weight = weights.weight()
             cuts = [ch] + [lev]
             cut = selections.all(*cuts)
             weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
             weights_ones = np.ones_like(weights_flat, dtype=np.int)
             eftweightsvalues = eftweights[cut] if len(eftweights) > 0 else []
+            #print(len(ak.flatten(j1)))
+            #print(len(cut))
             if var == 'invmass':
               if   ch in ['eeeSSoffZ', 'mmmSSoffZ']: continue
               elif ch in ['eeeSSonZ' , 'mmmSSonZ' ]: continue #values = v[ch]
@@ -402,7 +384,7 @@ class AnalysisProcessor(processor.ProcessorABC):
               values = ak.flatten(v[ch][cut])
               hout['m3l'].fill(eftweightsvalues, sample=dataset, channel=ch, cut=lev, m3l=values, weight=weights_flat)
             else:
-              values = v[cut] 
+              values = v[cut]
               if   var == 'ht'    : hout[var].fill(eftweightsvalues, ht=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'met'   : hout[var].fill(eftweightsvalues, met=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
               elif var == 'njets' : hout[var].fill(eftweightsvalues, njets=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
@@ -438,6 +420,63 @@ class AnalysisProcessor(processor.ProcessorABC):
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'j1pt':
+                if lev == "base": continue
+                values = values.pt[:,1]
+                #values = ak.flatten(values)
+                hout[var].fill(eftweightsvalues, j1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var =='j1eta':
+                if lev == 'base': continue
+                values = values.eta[:,1]
+                hout[var].fill(eftweightsvalues, j1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'j2pt':
+                if lev in ['base', "2jets"]: continue
+                values = values.pt[:,2]
+                hout[var].fill(eftweightsvalues, j2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'j2eta':
+                if lev in ['base', "2jets"]: continue
+                values = values.eta[:,2]
+                hout[var].fill(eftweightsvalues, j2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'j3pt':
+                if lev in ['base', "2jets"]: continue
+                values = values.pt[:,3]
+                hout[var].fill(eftweightsvalues, j3pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'j3eta':
+                if lev in ['base', "2jets"]: continue
+                values = values.eta[:,3]
+                hout[var].fill(eftweightsvalues, j3eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e1pt':
+                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmeSSonZ', 'mmeSSoffZ', 'emSS']: continue
+                values = values.pt[:,1]
+                hout[var].fill(eftweightsvalues, e1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e1eta':
+                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmeSSonZ', 'mmeSSoffZ', 'emSS']: continue
+                values = values.eta[:,1]
+                hout[var].fill(eftweightsvalues, e1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e2pt':
+                if ch in ['eeeSSonZ', 'eeeSSoffZ']:
+                  values = values.pt[:,2]
+                  hout[var].fill(eftweightsvalues, e2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'e2eta':
+                if ch in ['eeeSSonZ', 'eeeSSoffZ']:
+                  values = values.eta[:,2]
+                  hout[var].fill(eftweightsvalues, e2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm1pt':
+                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eemSSonZ', 'eemSSoffZ', 'emSS']: continue
+                values = values.pt[:,1]
+                hout[var].fill(eftweightsvalues, m1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm1eta':
+                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eemSSonZ', 'eemSSoffZ', 'emSS']: continue
+                values = values.eta[:,1]
+                hout[var].fill(eftweightsvalues, m1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm2pt':
+                if ch in ['mmmSSonZ', 'mmmSSoffZ']:
+                  values = values.pt[:,2]
+                  hout[var].fill(eftweightsvalues, m2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              elif var == 'm2eta':
+                if ch in ['mmmSSonZ', 'mmmSSoffZ']:
+                  values = values.eta[:,2]
+                  hout[var].fill(eftweightsvalues, m2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
         return hout
 
     def postprocess(self, accumulator):

@@ -33,7 +33,7 @@ class WCFit:
 
   def GetNames(self):
     """ A vector of all non-zero WCs in the fit (includes 'sm') """
-    return this.names
+    return self.names
 
   def GetPairs(self):
     """ A vector of (ordered) indicies, indicating the WC names of the pairs in the quadratic function """
@@ -45,7 +45,7 @@ class WCFit:
 
   def GetErrorPairs(self):
     """ Returns err_pairs """
-    return err_pairs
+    return self.err_pairs
 
   def GetErrorCoefficients(self):
     """ Returns err_coeffs """
@@ -150,11 +150,11 @@ class WCFit:
     if added_fit.Size() == 0: return
 
     if self.Size() == 0: # We are an empty fit, set all values to those of the added fit
-      self.names      = added_fit.GetNames()
-      self.pairs      = added_fit.GetPairs()
-      self.coeffs     = added_fit.GetCoefficients()
-      self.err_pairs  = added_fit.GetErrorPairs()
-      self.err_coeffs = added_fit.GetErrorCoefficients()
+      self.names      = added_fit.GetNames().copy()
+      self.pairs      = added_fit.GetPairs().copy()
+      self.coeffs     = added_fit.GetCoefficients().copy()
+      self.err_pairs  = added_fit.GetErrorPairs().copy()
+      self.err_coeffs = added_fit.GetErrorCoefficients().copy()
       if len(self.tag) == 0: self.tag = added_fit.GetTag()
       return;
 
@@ -182,6 +182,53 @@ class WCFit:
     self.err_pairs.clear()
     self.err_coeffs.clear()
 
+  def Serialize(self):
+    """ Serialize WCFit {coeffs: numbers} and {err_coeffs: numbers} to JSON """
+    '''
+    ss1 = ''.ljust(10)
+    ss2 = self.tag.ljust(10)
+    dcoeff = {}
+    derr = {}
+    for i in range(self.Size()):
+      idx_pair = self.pairs[i]
+      n1 = self.names[idx_pair[0]]
+      n2 = self.names[idx_pair[1]]
+      key = (n1+'*'+n2)
+      dcoeff.setdefault(key, []).append(self.coeffs[i])
+    for i in range(self.ErrSize()):
+      err_pair = self.err_pairs[i]
+      idx_pair = self.pairs[err_pair[0]]; n1 = self.names[idx_pair[0]]; n2 = self.names[idx_pair[1]]
+      idx_pair = self.pairs[err_pair[1]]; n3 = self.names[idx_pair[0]]; n4 = self.names[idx_pair[1]]
+      key = '*'.join([n1,n2,n3,n4])
+      derr.setdefault(key, []).append(self.err_coeffs[i])
+    '''
+    lnames = [(i,j) for i in self.names for j in self.names]
+    dcoeff = [[p, self.coeffs[self.pairs.index(p)]] for p in self.pairs]
+    derr = [[p, self.err_coeffs[self.err_pairs.index(p)]] for p in self.err_pairs]
+    #f = open('serial.json','a')
+    #f.write(self.GetTag()+'\n')
+    d = {'tag': self.GetTag(),\
+          'names': self.names,\
+          'coeffs': dcoeff,\
+          'errs': derr}
+    return d
+    '''
+    import json
+    f.write(json.dumps(d)+'\n')
+    del json
+    f.write(str(self.names)+'\n')
+    f.write(str(lnames)+'\n')
+    f.write(str(dcoeff)+'\n')
+    f.write(str(derr)+'\n')
+    '''
+    #for i in range(self.Size()):
+    #    s = self.names[lnames[i][0]] + '*' + self.names[lname[i][1]]
+    #    p = [self.pairs[i], self.coeffs[i]]
+    #    dcoeff[s] = p
+    #dcoeff = dict(zip(lnames,list(zip(self.pairs, self.coeffs))))
+    #derr = dict(zip(lnames,list(zip(self.err_pairs, self.err_coeffs))))
+    return dcoeff, derr
+
   def Save(self, fpath, append=False):
     """ Save the fit to a text file """
     if not append: print('Producing fitparams table...')
@@ -195,9 +242,41 @@ class WCFit:
       ss2 += ('%g'%self.coeffs[i]).ljust(15)
 
     outf = open(fpath, 'a+' if append else 'w')
-    outf.write(ss1+'\n'+ss2)
+    outf.write(ss1+'\n'+ss2+'\n')
     outf.close()
     self.Dump(append)
+
+  def SaveErr(self, fpath, append=False):
+    """ Save the fit errors to a text file """
+    if not append: print('Producing fitparams table...')
+    ss1 = ''.ljust(10)
+    ss2 = self.tag.ljust(10)
+    for i in range(self.ErrSize()):
+      err_pair = self.err_pairs[i]
+      idx_pair = self.pairs[err_pair[0]]; n1 = self.names[idx_pair[0]]; n2 = self.names[idx_pair[1]]
+      idx_pair = self.pairs[err_pair[1]]; n3 = self.names[idx_pair[0]]; n4 = self.names[idx_pair[1]]
+      ss1 += '*'.join([n1,n2,n3,n4]).ljust(15)
+      ss2 += ('%g'%self.err_coeffs[i]).ljust(15)
+
+    outf = open(fpath, 'a+' if append else 'w')
+    outf.write(ss1+'\n'+ss2+'\n')
+    outf.close()
+    self.DumpErr(append)
+
+  def DumpErr(self, max_cols=10):
+    ss1 = ''.ljust(10)
+    ss2 = self.tag.ljust(10)
+    for i in range(self.ErrSize()):
+      if i >= max_cols:
+        ss1 += ' ...'; ss2 += ' ...'
+        break
+      err_pair = self.err_pairs[i]
+      idx_pair = self.pairs[err_pair[0]]; n1 = self.names[idx_pair[0]]; n2 = self.names[idx_pair[1]]
+      idx_pair = self.pairs[err_pair[1]]; n3 = self.names[idx_pair[0]]; n4 = self.names[idx_pair[1]]
+      ss1 += '*'.join([n1,n2,n3,n4]).ljust(15)
+      ss2 += ('%g'%self.err_coeffs[i]).ljust(15)
+    print(ss1)
+    print(ss2)
 
 
   def Dump(self, append=False, max_cols=10, wc_name=''):
@@ -270,7 +349,7 @@ class WCFit:
         n1 = self.names[idx_pair[0]]
         n2 = self.names[idx_pair[1]]
         x1 = 1. if n1 == kSMstr else pts[rid].inputs[n1]
-        x2 = 1. if n2 == kSMstr else pts[rid].inputs[n1]
+        x2 = 1. if n2 == kSMstr else pts[rid].inputs[n2]
         A[rid].append(x1*x2)
       b.append(pts[rid].wgt)
     A = np.array(A)

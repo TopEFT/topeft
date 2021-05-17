@@ -20,8 +20,12 @@ def findValidRootfiles(path, sampleName = '', getOnlyNumberedFiles = False, verb
       #  files += findValidRootfiles(path, 'Tree_'+s, getOnlyNumberedFiles, verbose, FullPaths)
     return files
   ### Files from a T2 !!
-  if path.startswith('root') and 'global.cern.ch'  or 'ndcms.crc.nd.edu' in path: 
+  if path.startswith('root'):
+    if not sampleName.endswith('.root'): sampleName+='.root'
+    print('Ok, file in T2...\nReturning: ', [path+sampleName] if FullPaths else [sampleName])
     return [path+sampleName] if FullPaths else [sampleName]
+  elif path.upper().startswith('DAS'):
+    return GetFileListFromDataset(sampleName, True)
   if not path[-1] == '/': path += '/'
   if verbose: print(' >> Looking for files in path: ' + path)
   for f in os.listdir(path):
@@ -41,14 +45,15 @@ def findValidRootfiles(path, sampleName = '', getOnlyNumberedFiles = False, verb
   if len(files) == 0: 
     if retry: files = findValidRootfiles(path, 'Tree_' + sampleName, getOnlyNumberedFiles, verbose, FullPaths, False)
     if len(files) == 0: 
+      print('Is path+sampleName a dir?: ', path+sampleName)
       if os.path.isdir(path+sampleName):
         return GetSampleListInDir(path+sampleName)
-      print ('[ERROR]: Not files "' + sampleName + '" found in: ' + path)
       return []
   return files
 
 def GetFiles(path, name, verbose = False):
   ''' Get all rootfiles in path for a given process name'''
+  print('Getting files for path and name = [%s, %s]'%(path, name))
   return findValidRootfiles(path, name, False, verbose, FullPaths = True)
 
 def GetNGenEvents(fname):
@@ -161,6 +166,7 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
       nSumOfWeights += iS
     return [nEvents, nGenEvents, nSumOfWeights, isData]
   elif isinstance(fname, str):
+    print('Opening with uproot: ', fname)
     f = uproot.open(fname)
     t = f[treeName]
     isData = not 'genWeight' in t#.keys()
@@ -243,6 +249,7 @@ def main():
  pr.add_argument('-i','--inspect', action='store_true', help='Print branches')
  pr.add_argument('-t','--treeName', default='Events', help='Name of the tree')
  pr.add_argument('-c','--cfg', default='tempsamples', help='Name of the output cfg file')
+ pr.add_argument('-o','--options', default='', help='Options')
  pr.add_argument('-p','--prod','--prodName', default='', help='Name of the production')
  pr.add_argument('-v','--verbose', action='store_true', help='Verbose')
  pr.add_argument('-x','--xsec', '--xsecfile', default='cfg/xsec.cfg', help='xsec file')
@@ -262,6 +269,7 @@ def main():
    path, sample, n = guessPathAndName(path)
 
    if sample == '': 
+     # Only one path is given... reading files in path and doing nothing
      d = getDicFiles(path)
      for c in d:
        print(' >> ' + c + ': ', d[c])
@@ -341,8 +349,6 @@ def CreateCfgFromCrabOutput(dirname, prodname, out='samples', xsecfile='cfg/xsec
   for d, s in zip(dirs, samples):
     f.write('%s : %s\n'%(s, d))
   print('Created file: %s'%out)
-
-##############################################
 
 if __name__ == '__main__':
   main()

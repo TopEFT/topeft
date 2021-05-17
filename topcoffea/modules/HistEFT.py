@@ -61,8 +61,12 @@ class HistEFT(coffea.hist.Hist):
     if content:
         out._sumw = copy.deepcopy(self._sumw)
         out._sumw2 = copy.deepcopy(self._sumw2)
+        if hasattr(self,'_sumw_orig'): 
+            out._sumw_orig  = self._sumw_orig.copy()
+            out._sumw2_orig = self._sumw2_orig.copy()
     out.EFTcoeffs = copy.deepcopy(self.EFTcoeffs)
     out.EFTerrs =  copy.deepcopy(self.EFTerrs)
+    out.WCFit = copy.deepcopy(self.WCFit)
     return out
 
   def identity(self):
@@ -129,6 +133,7 @@ class HistEFT(coffea.hist.Hist):
       for err in np.transpose(errs):
         self.EFTerrs[sparse_key][iErr][:] += np.sum(err)
     super().fill(**values_orig)
+    self.SetWCFit()
 
   #######################################################################################
   def SetWCFit(self, key=None):
@@ -155,7 +160,11 @@ class HistEFT(coffea.hist.Hist):
       for rkey in right.keys():
         lkey = tuple(self.axis(rax).index(rax[ridx]) for rax, ridx in zip(raxes, rkey))
         if lkey in left:
-          left[lkey] += right[rkey]
+          if isinstance(left[lkey],list):
+            for l,r in zip(left[lkey],right[rkey]):
+              l += r
+          else:
+            left[lkey] += right[rkey]
         else:
           left[lkey] = copy.deepcopy(right[rkey])
 
@@ -170,6 +179,7 @@ class HistEFT(coffea.hist.Hist):
     add_dict(self._sumw, other._sumw)
     add_dict(self.EFTcoeffs, other.EFTcoeffs)
     add_dict(self.EFTerrs, other.EFTerrs)
+    self.SetWCFit()
     return self
 
   def DumpFits(self, key=''):
@@ -177,7 +187,7 @@ class HistEFT(coffea.hist.Hist):
    if key == '': 
      for k in self.EFTcoeffs.keys(): self.DumpFits(k)
      return
-   for fit in (len(self.WCFit[key])):
+   for fit in self.WCFit[key]:
      fit.Dump()
 
   def ScaleFits(self, SF, key=''):
@@ -236,8 +246,10 @@ class HistEFT(coffea.hist.Hist):
           out.EFTerrs  [sparse_key][i] += dense_op(self.EFTerrs  [sparse_key][i])
       else: 
         out.EFTcoeffs[sparse_key]=[]; out.EFTerrs[sparse_key]=[]; 
-        for i in range(self.GetNcoeffs()   ): out.EFTcoeffs[sparse_key].append(np.zeros(shape=self._dense_shape, dtype=self._dtype))
-        for i in range(self.GetNcoeffsErr()): out.EFTerrs  [sparse_key].append(np.zeros(shape=self._dense_shape, dtype=self._dtype))
+        #for i in range(self.GetNcoeffs()   ): out.EFTcoeffs[sparse_key].append(np.zeros(shape=self._dense_shape, dtype=self._dtype))
+        #for i in range(self.GetNcoeffsErr()): out.EFTerrs  [sparse_key].append(np.zeros(shape=self._dense_shape, dtype=self._dtype))
+        for i in range(len(self.EFTcoeffs[sparse_key])): out.EFTcoeffs[sparse_key].append(np.zeros(shape=self._dense_shape, dtype=self._dtype))
+        for i in range(len(self.EFTerrs  [sparse_key])): out.EFTerrs  [sparse_key].append(np.zeros(shape=self._dense_shape, dtype=self._dtype))
         for i in range(len(self.EFTcoeffs[sparse_key])):
           out.EFTcoeffs[sparse_key][i] += dense_op(self.EFTcoeffs[sparse_key][i]).copy()
           out.EFTerrs  [sparse_key][i] += dense_op(self.EFTerrs  [sparse_key][i]).copy()
@@ -414,6 +426,8 @@ class HistEFT(coffea.hist.Hist):
   def Eval(self, wcp=None):
     """ Set a WC point and evaluate """
     if isinstance(WCPoint, dict):
+      wcp = WCPoint(wcp)
+    elif isinstance(wcp, str) and 'EFTrwgt' in wcp:
       wcp = WCPoint(wcp)
     elif isinstance(wcp, str):
       values = wcp.replace(" ", "").split(',')
