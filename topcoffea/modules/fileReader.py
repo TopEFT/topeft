@@ -89,7 +89,7 @@ def GetEntries(fname, treeName = 'Events'):
   elif isinstance(fname, str):
     f = uproot.open(fname)
     t = f[treeName]
-    return len(t['MET_pt'])
+    return t.num_entries
   else: print('[ERROR] [GetEntries]: wrong input')
 
 def GuessIsData(fname):
@@ -170,7 +170,7 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
     f = uproot.open(fname)
     t = f[treeName]
     isData = not 'genWeight' in t#.keys()
-    nEvents = int(t['MET_pt'].num_entries)
+    nEvents = t.num_entries
     ## Method 1: from histograms
     if 'Count' in f and False:
       hc = f['Count']
@@ -184,7 +184,7 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
       if nSumOfWeights == 0: 
         nSumOfWeights = nGenEvents
     # Method 2: from 'Runs' tree
-    elif 'Runs' in f:
+    elif (('Runs' in f) & (not isData)):
       r = f['Runs']
       genEventSumw  = 'genEventSumw'  if 'genEventSumw'  in r else 'genEventSumw_'
       genEventCount = 'genEventCount' if 'genEventCount' in r else 'genEventCount_'
