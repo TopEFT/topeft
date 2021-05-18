@@ -14,15 +14,15 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetLeptonSF, GetBTagSF
+from topcoffea.modules.corrections import SFevaluator, GetLeptonSF, GetBTagSF, jet_factory
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 
 #coffea.deprecations_as_errors = True
 
 # In the future these names will be read from the nanoAOD files
-WCNames = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
-
+#WCNames = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
+WCNames=[]
 class AnalysisProcessor(processor.ProcessorABC):
     def __init__(self, samples):
         self._samples = samples
@@ -118,8 +118,38 @@ class AnalysisProcessor(processor.ProcessorABC):
         m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
 
         # Jet selection
-
+        
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
+        
+        ### Jet energy corrections
+        
+        if isData==False:
+            j["pt_raw"]=(1 - j.rawFactor)*j.pt
+            j["mass_raw"]=(1 - j.rawFactor)*j.mass
+            j["pt_gen"]=ak.values_astype(ak.fill_none(j.matched_gen.pt, 0), np.float32)
+            j["rho"]= ak.broadcast_arrays(events.fixedGridRhoFastjetAll, j.pt)[0]
+            events_cache = events.caches[0]
+            corrected_jets = jet_factory.build(j, lazy_cache=events_cache)
+            #print('jet pt: ',j.pt)
+            #print('cor pt: ',corrected_jets.pt)
+            #print('jes up: ',corrected_jets.JES_jes.up.pt)
+            #print('jes down: ',corrected_jets.JES_jes.down.pt)
+            #print(ak.fields(corrected_jets))
+            '''
+            # SYSTEMATICS
+            jets = corrected_jets
+            if(self.jetSyst == 'JERUp'):
+                jets = corrected_jets.JER.up
+            elif(self.jetSyst == 'JERDown'):
+                jets = corrected_jets.JER.down
+            elif(self.jetSyst == 'JESUp'):
+                jets = corrected_jets.JES_jes.up
+            elif(self.jetSyst == 'JESDown'):
+                jets = corrected_jets.JES_jes.down
+            '''
+        
+        
+        
         j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, j.neHEF, j.neEmEF, j.chHEF, j.chEmEF, j.nConstituents)
         #j['isgood']  = isGoodJet(j.pt, j.eta, j.jetId)
         #j['isclean'] = isClean(j, e, mu)
@@ -128,13 +158,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         njets = ak.num(goodJets)
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
-        #nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
-        nbtags = ak.num(goodJets[goodJets.btagDeepB > 0.4941])
+        nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2783]) #2018 (2017: 0.3040)
         
         bJetSF = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour)
         bJetSF_up = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour,sys=1)
         bJetSF_down = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour,sys=-1)
-        print(bJetSF)
+        
        
         ##################################################################
         ### 2 same-sign leptons
@@ -258,7 +287,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         lepSF_mmm_up = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year, sys=1)
         lepSF_eee_down = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year, sys=-1)
         lepSF_mmm_down = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year, sys=-1)
-        
         mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.charge != mm_pairs.m1.charge)]
         offZmask_mm = ak.all(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>10., axis=1, keepdims=True) & (ak.num(mmSFOS_pairs)>0)
         onZmask_mm  = ak.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<10., axis=1, keepdims=True)
@@ -329,7 +357,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         for r in ['all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme', '4l']:
           weights[r] = coffea.analysis_tools.Weights(len(events))
           weights[r].add('norm',genw if isData else (xsec/sow)*genw)
-
+        
         weights['ee'].add('lepSF_eeSS', lepSF_eeSS, lepSF_eeSS_up, lepSF_eeSS_down)
         weights['em'].add('lepSF_emSS', lepSF_emSS,lepSF_emSS_up, lepSF_emSS_down)
         weights['mm'].add('lepSF_mmSS', lepSF_mumuSS, lepSF_mumuSS_up, lepSF_mumuSS_down)
@@ -337,7 +365,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         weights['mmm'].add('lepSF_mmm', lepSF_mmm, lepSF_mmm_up, lepSF_mmm_down)
         weights['mme'].add('lepSF_mme', lepSF_mme, lepSF_mme_up, lepSF_mme_down)
         weights['eem'].add('lepSF_eem', lepSF_eem, lepSF_eem_up, lepSF_eem_down)
-
+        
         eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
 
         # Selections and cuts

@@ -10,6 +10,8 @@ import os, sys
 from topcoffea.modules.paths import topcoffea_path
 import numpy as np
 import awkward as ak
+from coffea.jetmet_tools import FactorizedJetCorrector, JetCorrectionUncertainty
+from coffea.jetmet_tools import JECStack, CorrectedJetsFactory
 
 basepathFromTTH = 'data/fromTTH/lepSF/'
 
@@ -138,17 +140,36 @@ def GetLeptonSF(pt1, eta1, type1, pt2, eta2, type2, pt3=None, eta3=None, type3=N
 ################################################################
 extBtagSF = lookup_tools.extractor()
 extBtagSF.add_weight_sets(["BTag_2016 * %s"%topcoffea_path("data/btagSF/DeepFlav_2016.csv")])
-extBtagSF.add_weight_sets(["BTag_2017 * %s"%topcoffea_path("data/btagSF/DeepFlav_2017.csv")])
-extBtagSF.add_weight_sets(["BTag_2018 * %s"%topcoffea_path("data/btagSF/DeepFlav_2018.csv")])
+extBtagSF.add_weight_sets(["BTag_2017 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL17_v2.csv")])#DeepFlav_2017.csv")])
+extBtagSF.add_weight_sets(["BTag_2018 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL18_V2.csv")])#DeepFlav_2018.csv")])
 extBtagSF.finalize()
 SFevaluatorBtag = extBtagSF.make_evaluator()
 
 def GetBTagSF(eta, pt, flavor, year=2018, sys=0):
-  if   sys==0:  SF=SFevaluatorBtag['BTag_%ibtagsf_1_mujets_central_0'%year](eta,pt,flavor)
-  elif sys==1:  SF=SFevaluatorBtag['BTag_%ibtagsf_1_mujets_up_0'%year](eta,pt,flavor)
-  elif sys==-1: SF=SFevaluatorBtag['BTag_%ibtagsf_1_mujets_down_0'%year](eta,pt,flavor)
+  if   sys==0:  SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_central_0'%year](eta,pt,flavor)
+  elif sys==1:  SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_up_0'%year](eta,pt,flavor)
+  elif sys==-1: SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_down_0'%year](eta,pt,flavor)
   return (SF)
 
+###### JEC corrections (2018)
+##############################################
+extJEC = lookup_tools.extractor()
+extJEC.add_weight_sets(["* * topcoffea/data/JEC/Summer19UL18_V5_MC_L2Relative_AK4PFchs.txt","* * topcoffea/data/JEC/Summer19UL18_V5_MC_L2Residual_AK4PFchs.txt","* * topcoffea/data/JEC/Summer19UL18_V5_MC_L1FastJet_AK4PFchs.txt","* * topcoffea/data/JEC/Summer19UL18_V5_MC_L3Absolute_AK4PFchs.txt","* * topcoffea/data/JEC/Summer19UL18_V5_MC_L1RC_AK4PFchs.txt","* * topcoffea/data/JEC/Summer19UL18_V5_MC_Uncertainty_AK4PFchs.junc.txt","* * topcoffea/data/JEC/Summer19UL18_V5_MC_L2L3Residual_AK4PFchs.txt"])
+extJEC.finalize()
+JECevaluator = extJEC.make_evaluator()
+jec_names = ["Summer19UL18_V5_MC_L2Relative_AK4PFchs","Summer19UL18_V5_MC_L2Residual_AK4PFchs","Summer19UL18_V5_MC_L1FastJet_AK4PFchs","Summer19UL18_V5_MC_L3Absolute_AK4PFchs","Summer19UL18_V5_MC_L1RC_AK4PFchs","Summer19UL18_V5_MC_Uncertainty_AK4PFchs","Summer19UL18_V5_MC_L2L3Residual_AK4PFchs"] 
+jec_inputs = {name: JECevaluator[name] for name in jec_names}
+jec_stack = JECStack(jec_inputs)
+name_map = jec_stack.blank_name_map
+name_map['JetPt'] = 'pt'
+name_map['JetMass'] = 'mass'
+name_map['JetEta'] = 'eta'
+name_map['JetA'] = 'area'
+name_map['ptGenJet'] = 'pt_gen'
+name_map['ptRaw'] = 'pt_raw'
+name_map['massRaw'] = 'mass_raw'
+name_map['Rho'] = 'rho'
+jet_factory = CorrectedJetsFactory(name_map, jec_stack)
 # test
 #val = evaluator['MuonTightSF_2016'](np.array([1.2, 0.3]),np.array([24.5, 51.3]))
 #print('val = ', val)
