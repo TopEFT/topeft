@@ -51,7 +51,7 @@ conda install -y -c conda-forge ndcctools conda-pack dill xrootd coffea
 pip install .
 ```
 
-The next step is to run `work_queue_run.py`. Please note that this is still a work in progress, and some of the lines are still hard coded; specifically, `environment-file` and `wrapper` in `executor_args` are hardcoded, so please adjust them accordingly before you run. Also note that `work_queue_run.py` must be run from the directory it is located in, since the `extra-input-files` option of `executor_args` assumes the extra input will be in the current working directory. So from `topcoffea/analysis/topEFT`, you would run:
+The next step is to run `work_queue_run.py`. Please note that `work_queue_run.py` must be run from the directory it is located in, since the `extra-input-files` option of `executor_args` assumes the extra input will be in the current working directory. So from `topcoffea/analysis/topEFT`, you would run:
 ```
 conda activate topcoffea-env
 cd analysis/topEFT
