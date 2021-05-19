@@ -14,7 +14,7 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetLeptonSF, GetBTagSF, jet_factory
+from topcoffea.modules.corrections import SFevaluator, GetLeptonSF, GetBTagSF, jet_factory, GetBtagEff
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 
@@ -176,15 +176,15 @@ class AnalysisProcessor(processor.ProcessorABC):
           bJetEff_dataUp = bJetEff*bJetSFUp
           bJetEff_dataDo = bJetEff*bJetSFDo
    
-          pMC     = ak.prod(bJetEff       [isBtagJets], axis=-1) * ak.prod((1-bJetEff       [isNotBtagged]), axis=-1)
-          pData   = ak.prod(bJetEff_data  [isBtagJets], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagged]), axis=-1)
-          pDataUp = ak.prod(bJetEff_dataUp[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagged]), axis=-1)
-          pDataDo = ak.prod(bJetEff_dataDo[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagged]), axis=-1)
+          pMC     = ak.prod(bJetEff       [isBtagJets], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJets]), axis=-1)
+          pData   = ak.prod(bJetEff_data  [isBtagJets], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJets]), axis=-1)
+          pDataUp = ak.prod(bJetEff_dataUp[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJets]), axis=-1)
+          pDataDo = ak.prod(bJetEff_dataDo[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJets]), axis=-1)
 
           pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
           btagSF   = pData  /pMC
           btagSFUp = pDataUp/pMC
-          btagSFDo = pDataDp/pMC
+          btagSFDo = pDataUp/pMC
 
         ##################################################################
         ### 2 same-sign leptons
