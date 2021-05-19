@@ -16,6 +16,7 @@ from coffea.nanoevents import NanoAODSchema
 
 import Gentopeft
 from topcoffea.modules import samples
+from topcoffea.modules import fileReader
 
 import argparse
 parser = argparse.ArgumentParser(description='You can customize your run')
@@ -27,6 +28,7 @@ parser.add_argument('--nchunks','-c'   , default=None  , help = 'You can choose 
 parser.add_argument('--outname','-o'   , default='plotsTopEFT', help = 'Name of the output file with histograms')
 parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the output directory')
 parser.add_argument('--treename'   , default='Events', help = 'Name of the tree inside the files')
+parser.add_argument('--do-errors', action='store_true', help = 'Save the w**2 coefficients')
 
 args = parser.parse_args()
 cfgfile    = args.cfgfile
@@ -37,6 +39,7 @@ nchunks    = int(args.nchunks) if not args.nchunks is None else args.nchunks
 outname    = args.outname
 outpath    = args.outpath
 treename   = args.treename
+do_errors = args.do_errors
 
 if dotest:
   nchunks = 2
@@ -56,16 +59,24 @@ else:
 
 flist = {}; xsec = {}; sow = {}; isData = {}
 for k in samplesdict.keys():
+  samplesdict[k]['WCnames'] = fileReader.GetListOfWCs(samplesdict[k]['files'][0])
   flist[k] = samplesdict[k]['files']
   xsec[k]  = samplesdict[k]['xsec']
   sow[k]   = samplesdict[k]['nSumOfWeights']
   isData[k]= samplesdict[k]['isData']
 
-processor_instance = Gentopeft.AnalysisProcessor(samplesdict)
+# Check that all datasets have the same list of WCs
+for i,k in enumerate(samplesdict.keys()):
+  if i == 0:
+    wc_lst = samplesdict[k]['WCnames']
+  if wc_lst != samplesdict[k]['WCnames']:
+    raise Exception("Not all of the datasets have the same list of WCs.")
+
+processor_instance = Gentopeft.AnalysisProcessor(samplesdict,wc_lst,do_errors)
 
 # Run the processor and get the output
 tstart = time.time()
-output = processor.run_uproot_job(flist, treename=treename, processor_instance=processor_instance, executor=processor.futures_executor, executor_args={"schema": NanoAODSchema,'workers': nworkers, 'pre_workers': 1}, chunksize=chunksize, maxchunks=nchunks)
+output = processor.run_uproot_job(flist, treename=treename, processor_instance=processor_instance, executor=processor.iterative_executor, executor_args={"schema": NanoAODSchema,'workers': nworkers, 'pre_workers': 1}, chunksize=chunksize, maxchunks=nchunks)
 dt = time.time() - tstart
 
 nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))

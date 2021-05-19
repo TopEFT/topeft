@@ -16,7 +16,7 @@ from topcoffea.plotter.plotter import plotter
 import argparse
 parser = argparse.ArgumentParser(description='You can customize your run')
 parser.add_argument('--filepath1','-i1'   , default='histos/plotsTopEFT.pkl.gz', help = 'path of first file with histograms')
-parser.add_argument('--filepath2','-i2'   , default='histos/second_plotsTopEFT.pkl.gz', help = 'path of second file with histograms')
+parser.add_argument('--filepath2','-i2'   , default='histos/central_plotsTopEFT.pkl.gz', help = 'path of second file with histograms')
 parser.add_argument('--outpath','-p'   , default='../www/', help = 'Name of the output directory')
 args = parser.parse_args()
 
@@ -38,8 +38,8 @@ with gzip.open(path) as fin:
     for cat in categories: 
       h = h.integrate(cat, categories[cat])
       h2 = h2.integrate(cat, categories[cat])
-    hist.plot1d(h, overlay="sample", ax=ax, clear=False)
-    hist.plot1d(h2, overlay="sample", ax=ax, clear=False)
+    hist.plot1d(h, overlay="sample", ax=ax, clear=False, density=True)
+    hist.plot1d(h2, overlay="sample", ax=ax, clear=False, density=True)
     ax.autoscale(axis='x', tight=True)
     ax.set_ylim(0, None)
     ax.set_xlabel(None)
