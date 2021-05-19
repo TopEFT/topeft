@@ -10,6 +10,8 @@ import os, sys
 from topcoffea.modules.paths import topcoffea_path
 import numpy as np
 import awkward as ak
+import gzip
+import pickle
 
 basepathFromTTH = 'data/fromTTH/lepSF/'
 
@@ -136,6 +138,71 @@ def GetLeptonSF(pt1, eta1, type1, pt2, eta2, type2, pt3=None, eta3=None, type3=N
 
 ###### Btag scale factors
 ################################################################
+# Hard-coded to DeepJet algorithm, medium WP
+
+# MC efficiencies
+def GetMCeffFunc(WP='medium', flav='b', year=2018):
+  pathToBtagMCeff = topcoffea_path('data/btagSF/btagMCeff_%i.pkl.gz'%year)
+  hists = {}
+  with gzip.open(pathToBtagMCeff) as fin:
+    hin = pickle.load(fin)
+    for k in hin.keys():
+      if k in hists: hists[k]+=hin[k]
+      else:          hists[k]=hin[k]
+  h = hists['jetpteta']
+  '''
+  hnumb = h.integrate('WP', WP).integrate('Flav','b')
+  hdenb = h.integrate('WP', 'all').integrate('Flav','b')
+  edges = [ np.array([0.,4.,5.]), hnumb.axis('pt').edges(), hnumb.axis('abseta').edges()]
+  valuesden = []
+  valuesnum = []
+  for flav in ['l', 'c', 'b']:
+    hnum = h.integrate('WP', WP).integrate('Flav',flav)
+    hden = h.integrate('WP', 'all').integrate('Flav',flav)
+    valuesnum.append(hnum.values()[()])
+    valuesden.append(hden.values()[()])
+  valuesnum=np.array(valuesnum)
+  valuesden=np.array(valuesden)
+  getnum = lookup_tools.dense_lookup.dense_lookup(valuesnum, edges)
+  getden = lookup_tools.dense_lookup.dense_lookup(valuesden, edges)
+  print('vals = ', valuesnum) 
+  print('edges = ', edges)
+  #values = [['b', 'c', 'l'], hnum.values()[()]]
+  #getnum = lookup_tools.dense_lookup.dense_lookup(hnum.values()[()], [hnum.axis('pt').edges(), hnum.axis('abseta').edges()])
+  #getden = lookup_tools.dense_lookup.dense_lookup(hden.values()[()], [hnum.axis('pt').edges(), hnum.axis('abseta').edges()])
+  '''
+  hnum = h.integrate('WP', WP)
+  values = hnum.values()
+  print('vals = ', values) 
+  edges = [hnum.axis('Flav').edges(), hnum.axis('pt').edges(), hnum.axis('abseta').edges()]
+  fun = lambda pt, abseta, flav : getnum(flav,pt,abseta)#/getden(flav,pt,abseta)
+  print('edges = ', edges)
+  return fun
+
+f=GetMCeffFunc('medium')
+
+print('l = ', f(0, 40, 2.1))
+print('l = ', f(4, 40, 2.1))
+print('l = ', f(5, 40, 2.1))
+
+'''
+# Load SF (2017 and 2016 need to be added...)
+GetMCeffBtagFunctions = {}
+GetMCeffBtagb = {}; GetMCeffMisTagl = {}; GetMCeffMisTagc = {}
+for flav in ['b', 'l', 'c']:
+  GetMCeffBtagFunctions[flav] = {}
+  for year in [2018]:
+    GetMCeffBtagFunctions[flav][year] = GetMCeffFunc('medium', flav, year)
+
+def GetMCeffBtag(eta, pt, flav='b', year=2018):
+  if   flav == 'b': fun = GetMCeffBtagb[year]
+  elif flav == 'c': fun = GetMCeffMisTagl[year]
+  elif flav == 'l': fun = GetMCeffMisTagl[year]
+  else:
+    print('WARNING: wrong flavor "%s"'%flav)
+    return GetMCeffBtagb(pt, np.abs(eta))
+  return fun(pt, np.abs(eta))
+'''
 extBtagSF = lookup_tools.extractor()
 extBtagSF.add_weight_sets(["BTag_2016 * %s"%topcoffea_path("data/btagSF/DeepFlav_2016.csv")])
 extBtagSF.add_weight_sets(["BTag_2017 * %s"%topcoffea_path("data/btagSF/DeepFlav_2017.csv")])
