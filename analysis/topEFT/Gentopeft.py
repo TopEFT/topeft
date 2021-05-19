@@ -14,53 +14,56 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
-#from topcoffea.modules.corrections import * # Comment this out for now, as it's not used an is giving this error: "AttributeError: 'Model_TH2D_v3' object has no attribute 'edges'"
+from topcoffea.modules.corrections import SFevaluator, GetLeptonSF
 from topcoffea.modules.selection import *
-from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.HistEFT import HistEFT, EFTHelper
 
 #coffea.deprecations_as_errors = True
 
 # In the future these names will be read from the nanoAOD files
-WCNames = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
+#WCNames = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
 
 class AnalysisProcessor(processor.ProcessorABC):
-    def __init__(self, samples):
+    def __init__(self, samples, wc_names_lst=[], do_errors=False):
         self._samples = samples
 
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
         self._accumulator = processor.dict_accumulator({
-        'SumOfEFTweights'  : HistEFT("SumOfWeights", WCNames, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
+        'SumOfEFTweights'  : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
         'dummy'   : hist.Hist("Dummy" , hist.Cat("sample", "sample"), hist.Bin("dummy", "Number of events", 1, 0, 1)),
         'counts'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("counts", "Counts", 1, 0, 2)),
         'invmass' : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut","cut"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
-        'njets'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("njets",  "Jet multiplicitu ", 10, 0, 10)),
-        'nbtags'  : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("nbtags", "btag multiplicitu ", 5, 0, 5)),
-        'met'     : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
-        'm3l'     : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 20, 0, 200)),
-        'wleppt'  : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
-        'e0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 30, 0, 300)),
-        'e1pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e1pt",   "Second elec $p_{T}$ (GeV)", 30, 0, 300)),
-        'e2pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e2pt",   "Third elec $p_{T}$ (GeV)", 30, 0, 300)),
-        'm0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 30, 0, 300)),
-        'm1pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m1pt",   "Second muon $p_{T}$ (GeV)", 30, 0, 300)),
-        'm2pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m2pt",   "Third muon $p_{T}$ (GeV)", 30, 0, 300)),
-        'j0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 20, 0, 400)),
-        'j1pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j1pt",   "Second jet  $p_{T}$ (GeV)", 20, 0, 400)),
-        'j2pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j2pt",   "Third jet  $p_{T}$ (GeV)", 20, 0, 400)),
-        'j3pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j3pt",   "Foruth jet  $p_{T}$ (GeV)", 20, 0, 400)),
-        'e0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0eta",  "Leading elec $\eta$", 20, -2.5, 2.5)),
-        'e1eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e1eta",  "Second elec $\eta$", 20, -2.5, 2.5)),
-        'e2eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e2eta",  "Third elec $\eta$", 20, -2.5, 2.5)),
-        'm0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0eta",  "Leading muon $\eta$", 20, -2.5, 2.5)),
-        'm1eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m1eta",  "Second muon $\eta$", 20, -2.5, 2.5)),
-        'm2eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m2eta",  "Third muon $\eta$", 20, -2.5, 2.5)),
-        'j0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0eta",  "Leading jet  $\eta$", 20, -2.5, 2.5)),
-        'j1eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j1eta",  "Second jet  $\eta$", 20, -2.5, 2.5)),
-        'j2eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j2eta",  "Third jet  $\eta$", 20, -2.5, 2.5)),
-        'j3eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j3eta",  "Fourth jet  $\eta$", 20, -2.5, 2.5)),
-        'ht'      : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("ht",     "H$_{T}$ (GeV)", 40, 0, 800)),
+        'njets'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10)),
+        'nbtags'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)),
+        'met'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
+        'm3l'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 20, 0, 200)),
+        'wleppt'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
+        'e0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 30, 0, 300)),
+        'e1pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e1pt",   "Second elec $p_{T}$ (GeV)", 30, 0, 300)),
+        'e2pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e2pt",   "Third elec $p_{T}$ (GeV)", 30, 0, 300)),
+        'm0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 30, 0, 300)),
+        'm1pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m1pt",   "Second muon $p_{T}$ (GeV)", 30, 0, 300)),
+        'm2pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m2pt",   "Third muon $p_{T}$ (GeV)", 30, 0, 300)),
+        'j0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'j1pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j1pt",   "Second jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'j2pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j2pt",   "Third jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'j3pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j3pt",   "Foruth jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'e0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e0eta",  "Leading elec $\eta$", 20, -2.5, 2.5)),
+        'e1eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e1eta",  "Second elec $\eta$", 20, -2.5, 2.5)),
+        'e2eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("e2eta",  "Third elec $\eta$", 20, -2.5, 2.5)),
+        'm0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m0eta",  "Leading muon $\eta$", 20, -2.5, 2.5)),
+        'm1eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m1eta",  "Second muon $\eta$", 20, -2.5, 2.5)),
+        'm2eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("m2eta",  "Third muon $\eta$", 20, -2.5, 2.5)),
+        'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0eta",  "Leading jet  $\eta$", 20, -2.5, 2.5)),
+        'j1eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j1eta",  "Second jet  $\eta$", 20, -2.5, 2.5)),
+        'j2eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j2eta",  "Third jet  $\eta$", 20, -2.5, 2.5)),
+        'j3eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j3eta",  "Fourth jet  $\eta$", 20, -2.5, 2.5)),
+        'ht'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("ht",     "H$_{T}$ (GeV)", 40, 0, 800)),
         })
+
+        self._eft_helper = EFTHelper(wc_names_lst)
+        self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
 
     @property
     def accumulator(self):
@@ -134,6 +137,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         emSS = em[emSSmask]
         nemSS = len(ak.flatten(emSS))
 
+        year = 2018
+        lepSF_emSS = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year)
+
         # ee and mumu
         # pt>-1 to preserve jagged dimensions
         ee = e [(nElec==2)&(nMuon==0)&(e.pt>-1)]
@@ -155,6 +161,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         mmSSoffZ = mmpairs[mmSSmask & mmoffZmask]
         neeSS = len(ak.flatten(eeSSonZ)) + len(ak.flatten(eeSSoffZ))
         nmmSS = len(ak.flatten(mmSSonZ)) + len(ak.flatten(mmSSoffZ))
+
+        lepSF_eeSS = GetLeptonSF(eepairs.e0.pt, eepairs.e0.eta, 'e', eepairs.e1.pt, eepairs.e1.eta, 'e', year=year)
+        lepSF_mumuSS = GetLeptonSF(mmpairs.m0.pt, mmpairs.m0.eta, 'm', mmpairs.m1.pt, mmpairs.m1.eta, 'm', year=year)
 
         print('Same-sign events [ee, emu, mumu] = [%i, %i, %i]'%(neeSS, nemSS, nmmSS))
 
@@ -185,6 +194,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         eepair_eem  = (ee_eem.e0+ee_eem.e1)
         trilep_eem = eepair_eem+muon_eem #ak.cartesian({"e0":ee_eem.e0,"e1":ee_eem.e1, "m":muon_eem})
 
+        lepSF_eem = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', mu.pt, mu.eta, 'm', year)
+
         # mme
         muon_mme = mu[(nElec==1)&(nMuon==2)&(mu.pt>-1)]
         elec_mme =  e[(nElec==1)&(nMuon==2)&( e.pt>-1)]
@@ -203,6 +214,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         m3l_eem = trilep_eem.mass
         m3l_mme = trilep_mme.mass
 
+        lepSF_mme = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', e.pt, e.eta, 'e', year)
+
         # eee and mmm
         eee =   e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
         mmm =  mu[(nElec==0)&(nMuon==3)&(mu.pt>-1)] 
@@ -213,6 +226,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         mm_pairs = ak.combinations(mmm, 2, fields=["m0", "m1"])
         ee_pairs_index = ak.argcombinations(eee, 2, fields=["e0", "e1"])
         mm_pairs_index = ak.argcombinations(mmm, 2, fields=["m0", "m1"])
+
+        lepSF_eee = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year)
+        lepSF_mmm = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year)
 
         mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.pdgId != mm_pairs.m1.pdgId)]
         offZmask_mm = ak.all(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>10., axis=1, keepdims=True) & (ak.num(mmSFOS_pairs)>0)
@@ -267,9 +283,25 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Weights
         genw = np.ones_like(events['MET_pt']) if isData else events['genWeight']
-        weights = coffea.analysis_tools.Weights(len(events))
-        weights.add('norm',genw if isData else (xsec/sow)*genw)
-        eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
+
+        ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
+        weights = {}
+        for r in ['all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme']:
+          weights[r] = coffea.analysis_tools.Weights(len(events))
+          weights[r].add('norm',genw if isData else (xsec/sow)*genw)
+
+        weights['ee'].add('lepSF_eeSS', lepSF_eeSS)
+        weights['em'].add('lepSF_emSS', lepSF_emSS)
+        weights['mm'].add('lepSF_mmSS', lepSF_mumuSS)
+        weights['eee'].add('lepSF_eee', lepSF_eee)
+        weights['mmm'].add('lepSF_mmm', lepSF_mmm)
+        weights['mme'].add('lepSF_mme', lepSF_mme)
+        weights['eem'].add('lepSF_eem', lepSF_eem)
+
+        # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
+        # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
+        eft_coeffs = ak.to_numpy(events['EFTfitCoefficients']) if hasattr(events, "EFTfitCoefficients") else None
+        eft_w2_coeffs = self._eft_helper.calc_w2_coeffs(eft_coeffs) if (self._do_errors and eft_coeffs is not None) else None
 
         # Selections and cuts
         selections = PackedSelection()
@@ -360,20 +392,19 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # fill Histos
         hout = self.accumulator.identity()
-        allweights = weights.weight().flatten() # Why does it not complain about .flatten() here?
-        hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=allweights)
+        normweights = weights['all'].weight().flatten() # Why does it not complain about .flatten() here?
+        hout['SumOfEFTweights'].fill(sample=dataset, SumOfEFTweights=varnames['counts'], weight=normweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
         for var, v in varnames.items():
          for ch in channels2LSS+channels3L:
           for lev in levels:
-            weight = weights.weight()
+            weight = weights[ ch[:3] if (ch.startswith('eee') or ch.startswith('mmm') or ch.startswith('eem') or ch.startswith('mme')) else ch[:2]].weight()
             cuts = [ch] + [lev]
             cut = selections.all(*cuts)
             weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
             weights_ones = np.ones_like(weights_flat, dtype=np.int)
-            eftweightsvalues = eftweights[cut] if len(eftweights) > 0 else []
-            #print(len(ak.flatten(j1)))
-            #print(len(cut))
+            eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
+            eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
             if var == 'invmass':
               if   ch in ['eeeSSoffZ', 'mmmSSoffZ']: continue
               elif ch in ['eeeSSonZ' , 'mmmSSonZ' ]: continue #values = v[ch]
@@ -382,101 +413,101 @@ class AnalysisProcessor(processor.ProcessorABC):
             elif var == 'm3l': 
               if ch in ['eeSSonZ','eeSSoffZ', 'mmSSonZ', 'mmSSoffZ','emSS', 'eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']: continue
               values = ak.flatten(v[ch][cut])
-              hout['m3l'].fill(eftweightsvalues, sample=dataset, channel=ch, cut=lev, m3l=values, weight=weights_flat)
+              hout['m3l'].fill(sample=dataset, channel=ch, cut=lev, m3l=values, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
             else:
               values = v[cut]
-              if   var == 'ht'    : hout[var].fill(eftweightsvalues, ht=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'met'   : hout[var].fill(eftweightsvalues, met=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'njets' : hout[var].fill(eftweightsvalues, njets=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
-              elif var == 'nbtags': hout[var].fill(eftweightsvalues, nbtags=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+              if   var == 'ht'    : hout[var].fill(ht=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
+              elif var == 'met'   : hout[var].fill(met=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
+              elif var == 'njets' : hout[var].fill(njets=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
+              elif var == 'nbtags': hout[var].fill(nbtags=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'counts': hout[var].fill(counts=values, sample=dataset, channel=ch, cut=lev, weight=weights_ones)
               elif var == 'j0eta' : 
                 if lev == 'base': continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(j0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'e0pt'  : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat) # Crashing here, not sure why. Related to values?
+                hout[var].fill(e0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut) 
               elif var == 'm0pt'  : 
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(m0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'e0eta' : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, e0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(e0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'm0eta':
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, m0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(m0eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'j0pt'  : 
                 if lev == 'base': continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(j0pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'j1pt':
                 if lev == "base": continue
                 values = values.pt[:,1]
                 #values = ak.flatten(values)
-                hout[var].fill(eftweightsvalues, j1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(j1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var =='j1eta':
                 if lev == 'base': continue
                 values = values.eta[:,1]
-                hout[var].fill(eftweightsvalues, j1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(j1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'j2pt':
                 if lev in ['base', "2jets"]: continue
                 values = values.pt[:,2]
-                hout[var].fill(eftweightsvalues, j2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(j2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'j2eta':
                 if lev in ['base', "2jets"]: continue
                 values = values.eta[:,2]
-                hout[var].fill(eftweightsvalues, j2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(j2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'j3pt':
                 if lev in ['base', "2jets"]: continue
                 values = values.pt[:,3]
-                hout[var].fill(eftweightsvalues, j3pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(j3pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'j3eta':
                 if lev in ['base', "2jets"]: continue
                 values = values.eta[:,3]
-                hout[var].fill(eftweightsvalues, j3eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(j3eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'e1pt':
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmeSSonZ', 'mmeSSoffZ', 'emSS']: continue
                 values = values.pt[:,1]
-                hout[var].fill(eftweightsvalues, e1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(e1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'e1eta':
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmeSSonZ', 'mmeSSoffZ', 'emSS']: continue
                 values = values.eta[:,1]
-                hout[var].fill(eftweightsvalues, e1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(e1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'e2pt':
                 if ch in ['eeeSSonZ', 'eeeSSoffZ']:
                   values = values.pt[:,2]
-                  hout[var].fill(eftweightsvalues, e2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                  hout[var].fill(e2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'e2eta':
                 if ch in ['eeeSSonZ', 'eeeSSoffZ']:
                   values = values.eta[:,2]
-                  hout[var].fill(eftweightsvalues, e2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                  hout[var].fill(e2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'm1pt':
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eemSSonZ', 'eemSSoffZ', 'emSS']: continue
                 values = values.pt[:,1]
-                hout[var].fill(eftweightsvalues, m1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(m1pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'm1eta':
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eemSSonZ', 'eemSSoffZ', 'emSS']: continue
                 values = values.eta[:,1]
-                hout[var].fill(eftweightsvalues, m1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                hout[var].fill(m1eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'm2pt':
                 if ch in ['mmmSSonZ', 'mmmSSoffZ']:
                   values = values.pt[:,2]
-                  hout[var].fill(eftweightsvalues, m2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                  hout[var].fill(m2pt=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
               elif var == 'm2eta':
                 if ch in ['mmmSSonZ', 'mmmSSoffZ']:
                   values = values.eta[:,2]
-                  hout[var].fill(eftweightsvalues, m2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat)
+                  hout[var].fill(m2eta=values, sample=dataset, channel=ch, cut=lev, weight=weights_flat, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
         return hout
 
     def postprocess(self, accumulator):
