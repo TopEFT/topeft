@@ -107,7 +107,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau['isClean'] = isClean(tau, e_pres, drmin=0.4) & isClean(tau, mu_pres, drmin=0.4)
         tau['isGood']  = tau['isPres']# & tau['isClean'], for the moment
         tau= tau[tau.isGood]
-
+        
         nElec = ak.num(e)
         nMuon = ak.num(mu)
         nTau  = ak.num(tau)
@@ -118,9 +118,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         twoMuon   = (nMuon == 2)
         e0 = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
         m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
-
+        
         # Jet selection
-
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
         j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, j.neHEF, j.neEmEF, j.chHEF, j.chEmEF, j.nConstituents)
         #j['isgood']  = isGoodJet(j.pt, j.eta, j.jetId)
@@ -383,7 +382,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['m0eta'] = m0.eta
         varnames['j0pt' ] = j0.pt
         varnames['j0eta'] = j0.eta
-        varnames['counts'] = np.ones_like(events.MET.pt)
+        varnames['counts'] = np.ones_like(events['event'])
 
         # fill Histos
         hout = self.accumulator.identity()
