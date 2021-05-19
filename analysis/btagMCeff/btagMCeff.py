@@ -32,6 +32,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         'jetpt'  : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("pt",  "Jet p_{T} (GeV) ", 40, 0, 800)),
         'jeteta' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("eta", "Jet eta", 25, -2.5, 2.5)),
         'jetpteta' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("pt",  "Jet p_{T} (GeV) ", [20, 30, 60, 120]), hist.Bin("abseta", "Jet eta", [0, 1, 1.8, 2.4])),
+        'jetptetaflav' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Bin("pt",  "Jet p_{T} (GeV) ", [20, 30, 60, 120]), hist.Bin("abseta", "Jet eta", [0, 1, 1.8, 2.4]), hist.Bin("flav", "Flavor", [0, 4, 5]) ),
         })
 
     @property
@@ -113,7 +114,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         normweights = weights.weight().flatten() 
         #hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=normweights)
 
-        print('hadronflav = ', goodJets.hadronFlavour)
         flavSelection = {'b': (np.abs(goodJets.hadronFlavour) == 5), 'c': (np.abs(goodJets.hadronFlavour) == 4), 'l': (np.abs(goodJets.hadronFlavour) <= 3) }
 
         WP = {'all' : -999., 'loose': 0.0490, 'medium': 0.2783, 'tight': 0.7100}
@@ -128,10 +128,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             pts     = ak.flatten(selectjets.pt)
             etas    = ak.flatten(selectjets.eta)
             absetas = ak.flatten(np.abs(selectjets.eta))
+            flavarray = np.zeros_like(pts) if jetype == 'l' else (np.ones_like(pts)*(4 if jetype=='c' else 5))
             weights =  np.ones_like(pts)
             hout['jetpt'].fill(WP=wp, Flav=jetype,  pt=pts, weight=weights)
             hout['jeteta'].fill(WP=wp, Flav=jetype,  eta=etas, weight=weights)
             hout['jetpteta'].fill(WP=wp, Flav=jetype,  pt=pts, abseta=absetas, weight=weights)
+            hout['jetptetaflav'].fill(WP=wp, pt=pts, abseta=absetas, flav=flavarray, weight=weights)
     
         return hout
 
