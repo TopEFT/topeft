@@ -129,11 +129,25 @@ class AnalysisProcessor(processor.ProcessorABC):
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
         #nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
-        nbtags = ak.num(goodJets[goodJets.btagDeepB > 0.4941])
+        btagwp = 0.4941
+        isBtagJets = (goodJets.btagDeepB > btagwp)
+        isNotBtagJets = np.invert(isBtagJets)
+        nbtags = ak.num(goodJets[isBtagJets])
         
-        bJetSF = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour)
-        bJetSF_up = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour,sys=1)
-        bJetSF_down = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour,sys=-1)
+        # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
+        bJetSF   = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour)
+        bJetSFUp = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour,sys=1)
+        bJetSFDo = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour,sys=-1)
+        bJetEff  = GetBtagEff(goodJets.pt, goodJets.eta, goodJets.hadronFlavour)
+        bJetEff_data   = bJetEff*bJetSF
+        bJetEff_dataUp = bJetEff*bJetSFUp
+        bJetEff_dataDo = bJetEff*bJetSFDo
+   
+        pMC     = ak.prod(bJetEff       [isBtagJets], axis=-1) * ak.prod((1-bJetEff       [isNotBtagged]), axis=-1)
+        pData   = ak.prod(bJetEff_data  [isBtagJets], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagged]), axis=-1)
+        pDataUp = ak.prod(bJetEff_dataUp[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagged]), axis=-1)
+        pDataDo = ak.prod(bJetEff_dataDo[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagged]), axis=-1)
+
         print(bJetSF)
        
         ##################################################################
@@ -250,7 +264,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         mm_pairs = ak.combinations(mmm, 2, fields=["m0", "m1"])
         ee_pairs_index = ak.argcombinations(eee, 2, fields=["e0", "e1"])
         mm_pairs_index = ak.argcombinations(mmm, 2, fields=["m0", "m1"])
-
 
         lepSF_eee = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year)
         lepSF_mmm = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year)
