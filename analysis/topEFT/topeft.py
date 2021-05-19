@@ -14,15 +14,15 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetLeptonSF, GetBTagSF
+from topcoffea.modules.corrections import SFevaluator, GetLeptonSF, GetBTagSF, jet_factory
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 
 #coffea.deprecations_as_errors = True
 
 # In the future these names will be read from the nanoAOD files
-WCNames = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
-
+#WCNames = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
+WCNames=[]
 class AnalysisProcessor(processor.ProcessorABC):
     def __init__(self, samples):
         self._samples = samples
@@ -32,21 +32,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._accumulator = processor.dict_accumulator({
         'SumOfEFTweights'  : HistEFT("SumOfWeights", WCNames, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
         'dummy'   : hist.Hist("Dummy" , hist.Cat("sample", "sample"), hist.Bin("dummy", "Number of events", 1, 0, 1)),
-        'counts'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("counts", "Counts", 1, 0, 2)),
-        'invmass' : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
-        'njets'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10)),
-        'nbtags'  : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)),
-        'met'     : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
-        'm3l'     : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 20, 0, 200)),
-        'wleppt'  : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
-        'e0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 30, 0, 300)),
-        'm0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 30, 0, 300)),
-        'j0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 20, 0, 400)),
-        'e0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("e0eta",  "Leading elec $\eta$", 20, -2.5, 2.5)),
-        'm0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("m0eta",  "Leading muon $\eta$", 20, -2.5, 2.5)),
-        'j0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("j0eta",  "Leading jet  $\eta$", 20, -2.5, 2.5)),
-        'ht'      : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("ht",     "H$_{T}$ (GeV)", 40, 0, 800)),
-        'njetsnbtags' : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)), 
+        'counts'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Bin("counts", "Counts", 1, 0, 2)),
+        'invmass' : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
+        'njets'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10)),
+        'nbtags'  : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)),
+        'met'     : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
+        'm3l'     : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 20, 0, 200)),
+        'wleppt'  : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
+        'e0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 30, 0, 300)),
+        'm0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 30, 0, 300)),
+        'j0pt'    : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 20, 0, 400)),
+        'e0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("e0eta",  "Leading elec $\eta$", 20, -2.5, 2.5)),
+        'm0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m0eta",  "Leading muon $\eta$", 20, -2.5, 2.5)),
+        'j0eta'   : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0eta",  "Leading jet  $\eta$", 20, -2.5, 2.5)),
+        'ht'      : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ht",     "H$_{T}$ (GeV)", 40, 0, 800)),
+        'njetsnbtags' : HistEFT("Events", WCNames, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)), 
         })
 
     @property
@@ -118,8 +118,37 @@ class AnalysisProcessor(processor.ProcessorABC):
         m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
 
         # Jet selection
-
+        
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
+        
+        ### Jet energy corrections
+        if not isData:
+          j["pt_raw"]=(1 - j.rawFactor)*j.pt
+          j["mass_raw"]=(1 - j.rawFactor)*j.mass
+          j["pt_gen"]=ak.values_astype(ak.fill_none(j.matched_gen.pt, 0), np.float32)
+          j["rho"]= ak.broadcast_arrays(events.fixedGridRhoFastjetAll, j.pt)[0]
+          events_cache = events.caches[0]
+          corrected_jets = jet_factory.build(j, lazy_cache=events_cache)
+          #print('jet pt: ',j.pt)
+          #print('cor pt: ',corrected_jets.pt)
+          #print('jes up: ',corrected_jets.JES_jes.up.pt)
+          #print('jes down: ',corrected_jets.JES_jes.down.pt)
+          #print(ak.fields(corrected_jets))
+          '''
+          # SYSTEMATICS
+          jets = corrected_jets
+          if(self.jetSyst == 'JERUp'):
+            jets = corrected_jets.JER.up
+          elif(self.jetSyst == 'JERDown'):
+            jets = corrected_jets.JER.down
+          elif(self.jetSyst == 'JESUp'):
+            jets = corrected_jets.JES_jes.up
+          elif(self.jetSyst == 'JESDown'):
+            jets = corrected_jets.JES_jes.down
+          '''
+        
+        
+        
         j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, j.neHEF, j.neEmEF, j.chHEF, j.chEmEF, j.nConstituents)
         #j['isgood']  = isGoodJet(j.pt, j.eta, j.jetId)
         #j['isclean'] = isClean(j, e, mu)
@@ -135,21 +164,28 @@ class AnalysisProcessor(processor.ProcessorABC):
         nbtags = ak.num(goodJets[isBtagJets])
         
         # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
-        bJetSF   = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour)
-        bJetSFUp = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour,sys=1)
-        bJetSFDo = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour,sys=-1)
-        bJetEff  = GetBtagEff(goodJets.pt, goodJets.eta, goodJets.hadronFlavour)
-        bJetEff_data   = bJetEff*bJetSF
-        bJetEff_dataUp = bJetEff*bJetSFUp
-        bJetEff_dataDo = bJetEff*bJetSFDo
+        btagSF   = np.ones_like(ht)
+        btagSFUp = np.ones_like(ht)
+        btagSFDo = np.ones_like(ht)
+        if not isData:
+          bJetSF   = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour)
+          bJetSFUp = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour,sys=1)
+          bJetSFDo = GetBTagSF(goodJets.pt, goodJets.eta, goodJets.hadronFlavour,sys=-1)
+          bJetEff  = GetBtagEff(goodJets.pt, goodJets.eta, goodJets.hadronFlavour)
+          bJetEff_data   = bJetEff*bJetSF
+          bJetEff_dataUp = bJetEff*bJetSFUp
+          bJetEff_dataDo = bJetEff*bJetSFDo
    
-        pMC     = ak.prod(bJetEff       [isBtagJets], axis=-1) * ak.prod((1-bJetEff       [isNotBtagged]), axis=-1)
-        pData   = ak.prod(bJetEff_data  [isBtagJets], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagged]), axis=-1)
-        pDataUp = ak.prod(bJetEff_dataUp[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagged]), axis=-1)
-        pDataDo = ak.prod(bJetEff_dataDo[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagged]), axis=-1)
+          pMC     = ak.prod(bJetEff       [isBtagJets], axis=-1) * ak.prod((1-bJetEff       [isNotBtagged]), axis=-1)
+          pData   = ak.prod(bJetEff_data  [isBtagJets], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagged]), axis=-1)
+          pDataUp = ak.prod(bJetEff_dataUp[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagged]), axis=-1)
+          pDataDo = ak.prod(bJetEff_dataDo[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagged]), axis=-1)
 
-        print(bJetSF)
-       
+          pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
+          btagSF   = pData  /pMC
+          btagSFUp = pDataUp/pMC
+          btagSFDo = pDataDp/pMC
+
         ##################################################################
         ### 2 same-sign leptons
         ##################################################################
@@ -163,10 +199,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         nemSS = len(ak.flatten(emSS))
  
         year = 2018
-        lepSF_emSS = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year)
-        lepSF_emSS_up = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year, sys=1)
+        lepSF_emSS      = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year)
+        lepSF_emSS_up   = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year, sys=1)
         lepSF_emSS_down = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year, sys=-1)
-        
         
         # ee and mumu
         # pt>-1 to preserve jagged dimensions
@@ -271,7 +306,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         lepSF_mmm_up = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year, sys=1)
         lepSF_eee_down = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year, sys=-1)
         lepSF_mmm_down = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year, sys=-1)
-        
         mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.charge != mm_pairs.m1.charge)]
         offZmask_mm = ak.all(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>10., axis=1, keepdims=True) & (ak.num(mmSFOS_pairs)>0)
         onZmask_mm  = ak.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<10., axis=1, keepdims=True)
@@ -342,15 +376,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         for r in ['all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme', '4l']:
           weights[r] = coffea.analysis_tools.Weights(len(events))
           weights[r].add('norm',genw if isData else (xsec/sow)*genw)
-
-        weights['ee'].add('lepSF_eeSS', lepSF_eeSS, lepSF_eeSS_up, lepSF_eeSS_down)
-        weights['em'].add('lepSF_emSS', lepSF_emSS,lepSF_emSS_up, lepSF_emSS_down)
-        weights['mm'].add('lepSF_mmSS', lepSF_mumuSS, lepSF_mumuSS_up, lepSF_mumuSS_down)
-        weights['eee'].add('lepSF_eee', lepSF_eee, lepSF_eee_up, lepSF_eee_down)
-        weights['mmm'].add('lepSF_mmm', lepSF_mmm, lepSF_mmm_up, lepSF_mmm_down)
-        weights['mme'].add('lepSF_mme', lepSF_mme, lepSF_mme_up, lepSF_mme_down)
-        weights['eem'].add('lepSF_eem', lepSF_eem, lepSF_eem_up, lepSF_eem_down)
-
+          weights[r].add('btagSF', btagSF, btagSFUp, btagSFDo)
+        
+        weights['ee'].add('lepSF', lepSF_eeSS, lepSF_eeSS_up, lepSF_eeSS_down)
+        weights['em'].add('lepSF', lepSF_emSS,lepSF_emSS_up, lepSF_emSS_down)
+        weights['mm'].add('lepSF', lepSF_mumuSS, lepSF_mumuSS_up, lepSF_mumuSS_down)
+        weights['eee'].add('lepSF', lepSF_eee, lepSF_eee_up, lepSF_eee_down)
+        weights['mmm'].add('lepSF', lepSF_mmm, lepSF_mmm_up, lepSF_mmm_down)
+        weights['mme'].add('lepSF', lepSF_mme, lepSF_mme_up, lepSF_mme_down)
+        weights['eem'].add('lepSF', lepSF_eem, lepSF_eem_up, lepSF_eem_down)
+        
         eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
 
         # Selections and cuts
@@ -430,68 +465,88 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['j0eta'] = j0.eta
         varnames['counts'] = np.ones_like(events.MET.pt)
 
+        # systematics
+        systList = []
+        if isData==False:
+          systList = ['nominal','lepSFUp','lepSFDown','btagSFUp', 'btagSFDown']
+        else:
+          systList = ['noweight']
         # fill Histos
         hout = self.accumulator.identity()
         normweights = weights['all'].weight().flatten() # Why does it not complain about .flatten() here?
         hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=normweights)
-
-        for var, v in varnames.items():
-         for ch in channels2LSS+channels3L+['4l']:
-          for sumcharge in ['ch+', 'ch-']:
-           for lev in levels:
-            weight = weights['all'].weight() if isData else weights[ ch[:3] if (ch.startswith('eee') or ch.startswith('mmm') or ch.startswith('eem') or ch.startswith('mme')) else ch[:2]].weight()
-            cuts = [ch] + [lev] + [sumcharge]
-            cut = selections.all(*cuts)
-            weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
-            weights_ones = np.ones_like(weights_flat, dtype=np.int)
-            eftweightsvalues = eftweights[cut] if len(eftweights) > 0 else []
-            if var == 'invmass':
+    
+        for syst in systList:
+         for var, v in varnames.items():
+          for ch in channels2LSS+channels3L+['4l']:
+           for sumcharge in ['ch+', 'ch-']:
+            for lev in levels:
+             #find the event weight to be used when filling the histograms    
+             weightSyst = syst
+             #in the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
+             if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
+              weightSyst = None # no weight systematic for these variations
+             if ch=='4l': 
+               weightSyst = None # Lepton SF for 4l to be added
+             if syst=='noweight':
+                weight = np.ones(len(events)) # for data
+             else:
+              # call weights.weight() with the name of the systematic to be varied
+              weight = weights['all'].weight(weightSyst) if isData else weights[ ch[:3] if (ch.startswith('eee') or ch.startswith('mmm') or ch.startswith('eem') or ch.startswith('mme')) else ch[:2]].weight(weightSyst)
+             cuts = [ch] + [lev] + [sumcharge]
+             cut = selections.all(*cuts)
+             weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
+             weights_ones = np.ones_like(weights_flat, dtype=np.int)
+             eftweightsvalues = eftweights[cut] if len(eftweights) > 0 else []
+             
+             # filling histos
+             if var == 'invmass':
               if   ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ', '4l']: continue
               else                                 : values = ak.flatten(v[ch][cut])
-              hout['invmass'].fill(eftweightsvalues, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, invmass=values, weight=weights_flat)
-            elif var == 'm3l': 
+              hout['invmass'].fill(eftweightsvalues, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, invmass=values, weight=weights_flat, systematic=syst)
+             elif var == 'm3l': 
               if ch in ['eeSSonZ','eeSSoffZ', 'mmSSonZ', 'mmSSoffZ','emSS', 'eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ', '4l']: continue
               values = ak.flatten(v[ch][cut])
-              hout['m3l'].fill(eftweightsvalues, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, m3l=values, weight=weights_flat)
-            else:
+              hout['m3l'].fill(eftweightsvalues, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, m3l=values, weight=weights_flat, systematic=syst)
+             else:
               values = v[cut] 
-              if   var == 'ht'    : hout[var].fill(eftweightsvalues, ht=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat)
-              elif var == 'met'   : hout[var].fill(eftweightsvalues, met=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat)
-              elif var == 'njets' : hout[var].fill(eftweightsvalues, njets=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat)
+              if   var == 'ht'    : hout[var].fill(eftweightsvalues, ht=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              elif var == 'met'   : hout[var].fill(eftweightsvalues, met=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              elif var == 'njets' : hout[var].fill(eftweightsvalues, njets=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'nbtags': 
-                hout[var].fill(eftweightsvalues, nbtags=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat)
-                hout['njetsnbtags'].fill(eftweightsvalues, njets=varnames['njets'][cut], nbtags=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat)
-              elif var == 'counts': hout[var].fill(counts=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_ones)
+                hout[var].fill(eftweightsvalues, nbtags=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                hout['njetsnbtags'].fill(eftweightsvalues, njets=varnames['njets'][cut], nbtags=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              elif var == 'counts': hout[var].fill(counts=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_ones, systematic=syst)
               elif var == 'j0eta' : 
                 if lev == 'base': continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, j0eta=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat)
+                hout[var].fill(eftweightsvalues, j0eta=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'e0pt'  : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', '4l']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, e0pt=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat) # Crashing here, not sure why. Related to values?
+                hout[var].fill(eftweightsvalues, e0pt=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst) # Crashing here, not sure why. Related to values?
               elif var == 'm0pt'  : 
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', '4l']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, m0pt=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat)
+                hout[var].fill(eftweightsvalues, m0pt=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'e0eta' : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', '4l']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, e0eta=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat)
+                hout[var].fill(eftweightsvalues, e0eta=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'm0eta':
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', '4l']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, m0eta=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat)
+                hout[var].fill(eftweightsvalues, m0eta=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'j0pt'  : 
                 if lev == 'base': continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat)
+                hout[var].fill(eftweightsvalues, j0pt=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
         return hout
 
     def postprocess(self, accumulator):
