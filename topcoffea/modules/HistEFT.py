@@ -248,27 +248,8 @@ class HistEFT(coffea.hist.Hist):
     else:
       add_dict(self._sumw2, other._sumw2)
     add_dict(self._sumw, other._sumw)
-    add_dict(self.EFTcoeffs, other.EFTcoeffs)
-    add_dict(self.EFTerrs, other.EFTerrs)
-    if len(self.EFTcoeffs) > 0: self.SetWCFit()
-    return self
+    return self 
 
-  def DumpFits(self, key=''):
-   """ Display all the fit parameters for all bins """
-   if key == '': 
-     for k in self.EFTcoeffs.keys(): self.DumpFits(k)
-     return
-   for fit in self.WCFit[key]:
-     fit.Dump()
-
-  def ScaleFits(self, SF, key=''):
-   """ Scale all the fits by some amount """
-   if key == '': 
-     for k in self.EFTcoeffs.keys(): self.ScaleFits(SF, k)
-     return
-   for fit in self.WCFit[key]:
-     fit.Scale(SF)  
- 
   def __getitem__(self, keys):
     """ Extended from parent class """
     if not isinstance(keys, tuple): keys = (keys,)
@@ -557,3 +538,4 @@ class HistEFT(coffea.hist.Hist):
       raise NotImplementedError("Scale dense dimension by a factor")
     else:
       raise TypeError("Could not interpret scale factor")
+
