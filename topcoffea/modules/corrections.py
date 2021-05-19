@@ -149,66 +149,29 @@ def GetMCeffFunc(WP='medium', flav='b', year=2018):
     for k in hin.keys():
       if k in hists: hists[k]+=hin[k]
       else:          hists[k]=hin[k]
-  h = hists['jetpteta']
-  '''
-  hnumb = h.integrate('WP', WP).integrate('Flav','b')
-  hdenb = h.integrate('WP', 'all').integrate('Flav','b')
-  edges = [ np.array([0.,4.,5.]), hnumb.axis('pt').edges(), hnumb.axis('abseta').edges()]
-  valuesden = []
-  valuesnum = []
-  for flav in ['l', 'c', 'b']:
-    hnum = h.integrate('WP', WP).integrate('Flav',flav)
-    hden = h.integrate('WP', 'all').integrate('Flav',flav)
-    valuesnum.append(hnum.values()[()])
-    valuesden.append(hden.values()[()])
-  valuesnum=np.array(valuesnum)
-  valuesden=np.array(valuesden)
-  getnum = lookup_tools.dense_lookup.dense_lookup(valuesnum, edges)
-  getden = lookup_tools.dense_lookup.dense_lookup(valuesden, edges)
-  print('vals = ', valuesnum) 
-  print('edges = ', edges)
-  #values = [['b', 'c', 'l'], hnum.values()[()]]
-  #getnum = lookup_tools.dense_lookup.dense_lookup(hnum.values()[()], [hnum.axis('pt').edges(), hnum.axis('abseta').edges()])
-  #getden = lookup_tools.dense_lookup.dense_lookup(hden.values()[()], [hnum.axis('pt').edges(), hnum.axis('abseta').edges()])
-  '''
+  h = hists['jetptetaflav']
   hnum = h.integrate('WP', WP)
-  values = hnum.values()
-  print('vals = ', values) 
-  edges = [hnum.axis('Flav').edges(), hnum.axis('pt').edges(), hnum.axis('abseta').edges()]
-  fun = lambda pt, abseta, flav : getnum(flav,pt,abseta)#/getden(flav,pt,abseta)
-  print('edges = ', edges)
+  hden = h.integrate('WP', 'all')
+  getnum = lookup_tools.dense_lookup.dense_lookup(hnum.values(overflow='over')[()], [hnum.axis('pt').edges(), hnum.axis('abseta').edges(), hnum.axis('flav').edges()])
+  getden = lookup_tools.dense_lookup.dense_lookup(hden.values(overflow='over')[()], [hden.axis('pt').edges(), hnum.axis('abseta').edges(), hden.axis('flav').edges()])
+  values = hnum.values(overflow='over')[()]
+  edges = [hnum.axis('pt').edges(), hnum.axis('abseta').edges(), hnum.axis('flav').edges()]
+  fun = lambda pt, abseta, flav : getnum(pt,abseta,flav)/getden(pt,abseta,flav)
   return fun
 
-f=GetMCeffFunc('medium')
 
-print('l = ', f(0, 40, 2.1))
-print('l = ', f(4, 40, 2.1))
-print('l = ', f(5, 40, 2.1))
-
-'''
-# Load SF (2017 and 2016 need to be added...)
-GetMCeffBtagFunctions = {}
-GetMCeffBtagb = {}; GetMCeffMisTagl = {}; GetMCeffMisTagc = {}
-for flav in ['b', 'l', 'c']:
-  GetMCeffBtagFunctions[flav] = {}
-  for year in [2018]:
-    GetMCeffBtagFunctions[flav][year] = GetMCeffFunc('medium', flav, year)
-
-def GetMCeffBtag(eta, pt, flav='b', year=2018):
-  if   flav == 'b': fun = GetMCeffBtagb[year]
-  elif flav == 'c': fun = GetMCeffMisTagl[year]
-  elif flav == 'l': fun = GetMCeffMisTagl[year]
-  else:
-    print('WARNING: wrong flavor "%s"'%flav)
-    return GetMCeffBtagb(pt, np.abs(eta))
-  return fun(pt, np.abs(eta))
-'''
 extBtagSF = lookup_tools.extractor()
 extBtagSF.add_weight_sets(["BTag_2016 * %s"%topcoffea_path("data/btagSF/DeepFlav_2016.csv")])
 extBtagSF.add_weight_sets(["BTag_2017 * %s"%topcoffea_path("data/btagSF/DeepFlav_2017.csv")])
 extBtagSF.add_weight_sets(["BTag_2018 * %s"%topcoffea_path("data/btagSF/DeepFlav_2018.csv")])
 extBtagSF.finalize()
 SFevaluatorBtag = extBtagSF.make_evaluator()
+
+# For the moment, efficiencies for 2018
+MCeffFunc = GetMCeffFunc('medium', 2018)
+
+def GetBtagEff(eta, pt, flavor, year=2018):
+  return MCeffFunc(pt, eta, flavor)
 
 def GetBTagSF(eta, pt, flavor, year=2018, sys=0):
   if   sys==0:  SF=SFevaluatorBtag['BTag_%ibtagsf_1_mujets_central_0'%year](eta,pt,flavor)
