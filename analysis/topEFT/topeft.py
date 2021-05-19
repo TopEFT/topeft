@@ -107,7 +107,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau['isClean'] = isClean(tau, e_pres, drmin=0.4) & isClean(tau, mu_pres, drmin=0.4)
         tau['isGood']  = tau['isPres']# & tau['isClean'], for the moment
         tau= tau[tau.isGood]
-        
+
         nElec = ak.num(e)
         nMuon = ak.num(mu)
         nTau  = ak.num(tau)
@@ -118,7 +118,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         twoMuon   = (nMuon == 2)
         e0 = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
         m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
-        
+
         # Jet selection
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
         j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, j.neHEF, j.neEmEF, j.chHEF, j.chEmEF, j.nConstituents)
