@@ -23,14 +23,14 @@ extLepSF = lookup_tools.extractor()
 
 # Electron reco
 extLepSF.add_weight_sets(["ElecRecoSFb20_2016 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'reco/elec/2016/el_scaleFactors_gsf_ptLt20.root')])
-extLepSF.add_weight_sets(["ElecRecoSFg20_2016 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'reco/elec/2016/el_scaleFactors_gsf_ptGt20.root')])
+extLepSF.add_weight_sets(["ElecRecoSF_2016 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'reco/elec/2016/el_scaleFactors_gsf_ptGt20.root')])
 extLepSF.add_weight_sets(["ElecRecoSFb20_2017 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'reco/elec/2017/el_scaleFactors_gsf_ptLt20.root')])
-extLepSF.add_weight_sets(["ElecRecoSFg20_2017 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'reco/elec/2017/el_scaleFactors_gsf_ptGt20.root')])
+extLepSF.add_weight_sets(["ElecRecoSF_2017 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'reco/elec/2017/el_scaleFactors_gsf_ptGt20.root')])
 extLepSF.add_weight_sets(["ElecRecoSF_2018 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'reco/elec/2018/el_scaleFactors_gsf.root')])
 extLepSF.add_weight_sets(["ElecRecoSFb20_2016_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'reco/elec/2016/el_scaleFactors_gsf_ptLt20.root')])
-extLepSF.add_weight_sets(["ElecRecoSFg20_2016_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'reco/elec/2016/el_scaleFactors_gsf_ptGt20.root')])
+extLepSF.add_weight_sets(["ElecRecoSF_2016_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'reco/elec/2016/el_scaleFactors_gsf_ptGt20.root')])
 extLepSF.add_weight_sets(["ElecRecoSFb20_2017_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'reco/elec/2017/el_scaleFactors_gsf_ptLt20.root')])
-extLepSF.add_weight_sets(["ElecRecoSFg20_2017_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'reco/elec/2017/el_scaleFactors_gsf_ptGt20.root')])
+extLepSF.add_weight_sets(["ElecRecoSF_2017_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'reco/elec/2017/el_scaleFactors_gsf_ptGt20.root')])
 extLepSF.add_weight_sets(["ElecRecoSF_2018_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'reco/elec/2018/el_scaleFactors_gsf.root')])
 
 # Electron loose
@@ -161,7 +161,7 @@ def GetMCeffFunc(WP='medium', flav='b', year=2018):
   fun = lambda pt, abseta, flav : getnum(pt,abseta,flav)/getden(pt,abseta,flav)
   return fun
 
-
+# Efficiencies and SFs for UL only available for 2017 and 2018
 extBtagSF = lookup_tools.extractor()
 extBtagSF.add_weight_sets(["BTag_2016 * %s"%topcoffea_path("data/btagSF/DeepFlav_2016.csv")])
 extBtagSF.add_weight_sets(["BTag_2017 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL17_v2.csv")])#DeepFlav_2017.csv")])
@@ -169,11 +169,12 @@ extBtagSF.add_weight_sets(["BTag_2018 * %s"%topcoffea_path("data/btagSF/UL/DeepJ
 extBtagSF.finalize()
 SFevaluatorBtag = extBtagSF.make_evaluator()
 
-# For the moment, efficiencies for 2018
-MCeffFunc = GetMCeffFunc('medium', 2018)
+MCeffFunc_2018 = GetMCeffFunc('medium', 2018)
+MCeffFunc_2017 = GetMCeffFunc('medium', 2017)
 
 def GetBtagEff(eta, pt, flavor, year=2018):
-  return MCeffFunc(pt, eta, flavor)
+  if year==2017: return MCeffFunc_2017(pt, eta, flavor)
+  else         : return MCeffFunc_2018(pt, eta, flavor)
 
 def GetBTagSF(eta, pt, flavor, year=2018, sys=0):
   if   sys==0:  SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_central_0'%year](eta,pt,flavor)

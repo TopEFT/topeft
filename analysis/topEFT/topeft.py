@@ -174,7 +174,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           bJetSF   = GetBTagSF(abseta, pt, flav)
           bJetSFUp = GetBTagSF(abseta, pt, flav, sys=1)
           bJetSFDo = GetBTagSF(abseta, pt, flav, sys=-1)
-          bJetEff  = GetBtagEff(abseta, pt, flav)
+          bJetEff  = GetBtagEff(abseta, pt, flav, year)
           bJetEff_data   = bJetEff*bJetSF
           bJetEff_dataUp = bJetEff*bJetSFUp
           bJetEff_dataDo = bJetEff*bJetSFDo
@@ -201,7 +201,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         emSS = em[emSSmask]
         nemSS = len(ak.flatten(emSS))
  
-        year = 2018
         lepSF_emSS      = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year)
         lepSF_emSS_up   = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year, sys=1)
         lepSF_emSS_down = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year, sys=-1)
