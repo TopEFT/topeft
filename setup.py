@@ -14,6 +14,10 @@ setuptools.setup(
             "data/fromTTH/fliprates/*.root",
             "data/fromTTH/lepSF/*/*/*.root",
             "data/fromTTH/lepSF/*/*/*/*.root",
+            "data/JEC/*.txt",
+            "data/btagSF/UL/*.pkl.gz",
+            "data/btagSF/UL/*.csv",
+            "data/btagSF/*.csv",
         ],
     }
 )

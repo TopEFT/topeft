@@ -144,7 +144,7 @@ def GetLeptonSF(pt1, eta1, type1, pt2, eta2, type2, pt3=None, eta3=None, type3=N
 
 # MC efficiencies
 def GetMCeffFunc(WP='medium', flav='b', year=2018):
-  pathToBtagMCeff = topcoffea_path('data/btagSF/btagMCeff_%i.pkl.gz'%year)
+  pathToBtagMCeff = topcoffea_path('data/btagSF/UL/btagMCeff_%i.pkl.gz'%year)
   hists = {}
   with gzip.open(pathToBtagMCeff) as fin:
     hin = pickle.load(fin)
