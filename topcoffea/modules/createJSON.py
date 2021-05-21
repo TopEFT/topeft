@@ -133,7 +133,7 @@ def main():
     elif ',' in outname:outname = sample.replace(' ', '').split(',')[0]
   if not outname.endswith('.json'): outname += '.json'
   with open(outname, 'w') as outfile:
-    json.dump(sampdic, outfile)
+    json.dump(sampdic, outfile, indent=2)
     print('>> New json file: %s'%outname)
 
 if __name__ == '__main__':
