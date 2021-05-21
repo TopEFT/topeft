@@ -26,6 +26,7 @@ from topcoffea.modules.HistEFT import HistEFT, EFTHelper
 class AnalysisProcessor(processor.ProcessorABC):
     def __init__(self, samples, wc_names_lst=[], do_errors=False):
         self._samples = samples
+        self._wc_names_lst = wc_names_lst
 
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
@@ -371,7 +372,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # MET filters
 
         # Weights
-        genw = np.ones_like(events['MET_pt']) if isData else events['genWeight']
+        genw = np.ones_like(events['MET_pt']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
 
         ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights = {}
