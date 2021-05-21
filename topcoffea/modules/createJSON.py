@@ -92,6 +92,7 @@ def main():
       xsec = xsecdic[xsecName]
     else:
       print('Setting xsec=1 for dataset %s'%xsecName)
+      xsec = 1
 
   sampdic = {}
   sampdic['xsec']       = xsec
@@ -137,81 +138,4 @@ def main():
 
 if __name__ == '__main__':
   main()
-
-'''
-  samplefiles = {}
-  fileopt = {}
-  xsecdic = {}
-  sampdic = {}
-
-  if not os.path.isfile(cfgfile) and os.path.isfile(cfgfile+'.cfg'): cfgfile+='.cfg'
-  f = open(cfgfile)
-  lines = f.readlines()
-  for l in lines:
-    l = l.replace(' ', '')
-    l = l.replace('\n', '')
-    if l.startswith('#'): continue
-    if '#' in l: l = l.split('#')[0]
-    if l == '': continue
-    if l.endswith(':'): l = l[:-1]
-    if not ':' in l:
-      if l in ['path', 'verbose', 'pretend', 'test', 'options', 'xsec', 'year', 'treeName']: continue
-      else: samplefiles[l]=l
-    else:
-      lst = l.split(':')
-      key = lst[0]
-      val = lst[1] if lst[1] != '' else lst[0]
-      if   key == 'pretend'   : pretend   = 1
-      elif key == 'verbose'   : verbose   = int(val) if val.isdigit() else 1
-      elif key == 'test'      : dotest    = 1
-      elif key == 'path'      :
-        path      = val
-        if len(lst) > 2: 
-          for v in lst[2:]: path += ':'+v
-      elif key == 'options'   : options   = val
-      elif key == 'xsec'      : xsec      = val
-      elif key == 'year'      : year      = int(val)
-      elif key == 'treeName'  : treeName  = val
-      else:
-        fileopt[key] = ''#options
-        if len(lst) >= 3: fileopt[key] += lst[2]
-        samplefiles[key] = val
-
-  # Re-assign arguments...
-  aarg = sys.argv
-  if '--pretend' in aarg or '-p' in aarg : pretend     = args.pretend
-  if '--test'    in aarg or '-t' in aarg : dotest      = args.test
-  if args.path       != ''       : path        = args.path
-  if args.options    != ''       : options     = args.options
-  if args.xsec       != 'xsec'   : xsec        = args.xsec
-  if args.year       != -1       : year        = args.year
-  if args.treename   != 'Events' : treeName    = args.treename
-  if args.verbose    != 0        : verbose     = int(args.verbose)
-  xsecdic = loadxsecdic(xsec, verbose)
-
-  for sname in samplefiles.keys():
-    sampdic[sname] = {}
-    sampdic[sname]['xsec']       = xsecdic[sname] if sname in xsecdic.keys() else 1
-    sampdic[sname]['year']       = year
-    sampdic[sname]['treeName']   = treeName
-    if 'DAS' in options:
-      dataset = samplefiles[sname]
-      nFiles = int(fileopt[sname]) if fileopt[sname]!='' else None
-      #dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector='root://cms-xrd-global.cern.ch/')
-      dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector=path)
-      nEvents, nGenEvents, nSumOfWeights, isData = GetAllInfoFromFile(dicFiles['files'], sampdic[sname]['treeName'])
-      files          = dicFiles['files']
-      nEvents        = dicFiles['events']
-      fileOptions = ''
-    else:
-      files = GetFiles(path, samplefiles[sname])
-      nEvents, nGenEvents, nSumOfWeights, isData = GetAllInfoFromFile(files, sampdic[sname]['treeName'])
-      fileOptions = fileopt[sname]
-    sampdic[sname]['options']    = fileOptions
-    sampdic[sname]['files']      = files
-    sampdic[sname]['nEvents']       = nEvents
-    sampdic[sname]['nGenEvents']    = nGenEvents
-    sampdic[sname]['nSumOfWeights'] = nSumOfWeights
-    sampdic[sname]['isData']        = isData
-'''
 
