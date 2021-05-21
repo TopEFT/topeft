@@ -179,7 +179,6 @@ def main():
     sampdic[sname]['year']       = year
     sampdic[sname]['treeName']   = treeName
     if 'DAS' in options:
-      print("ES DAS")
       dataset = samplefiles[sname]
       nFiles = int(fileopt[sname]) if fileopt[sname]!='' else None
       #dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector='root://cms-xrd-global.cern.ch/')
@@ -189,7 +188,6 @@ def main():
       nEvents        = dicFiles['events']
       fileOptions = ''
     else:
-      print("NO es DAS... options=",options)
       files = GetFiles(path, samplefiles[sname])
       nEvents, nGenEvents, nSumOfWeights, isData = GetAllInfoFromFile(files, sampdic[sname]['treeName'])
       extraOption = GetOptions(path, files[0].split('/')[-1])

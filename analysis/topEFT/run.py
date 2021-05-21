@@ -57,13 +57,29 @@ else:
   print('Execute as [path]/run.py [path]/samples.cfg')
   exit()
 
-flist = {}; xsec = {}; sow = {}; isData = {}
-for k in samplesdict.keys():
-  samplesdict[k]['WCnames'] = fileReader.GetListOfWCs(samplesdict[k]['files'][0])
-  flist[k] = samplesdict[k]['files']
-  xsec[k]  = samplesdict[k]['xsec']
-  sow[k]   = samplesdict[k]['nSumOfWeights']
-  isData[k]= samplesdict[k]['isData']
+flist = {};  #xsec = {}; sow = {}; isData = {}; year = {}
+for sname in samplesdict.keys():
+  samplesdict[sname]['WCnames'] = fileReader.GetListOfWCs(samplesdict[sname]['files'][0])
+  flist[sname] = samplesdict[sname]['files']
+  #xsec[k]  = samplesdict[k]['xsec']
+  #sow[k]   = samplesdict[k]['nSumOfWeights']
+  #isData[k]= samplesdict[k]['isData']
+  #year[k]  = samplesdict[k]['year']
+
+  # Print file info
+  print('>> '+sname)
+  print('   - isData?    : %s'   %('YES' if samplesdict[sname]['isData'] else 'NO'))
+  print('   - year       : %i'   %samplesdict[sname]['year'])
+  print('   - xsec       : %1.3f'%samplesdict[sname]['xsec'])
+  print('   - options    : %s'   %samplesdict[sname]['options'])
+  print('   - tree       : %s'   %samplesdict[sname]['treeName'])
+  print('   - nEvents    : %i'   %samplesdict[sname]['nEvents'])
+  print('   - nGenEvents : %i'   %samplesdict[sname]['nGenEvents'])
+  print('   - SumWeights : %i'   %samplesdict[sname]['nSumOfWeights'])
+  print('   - nFiles     : %i'   %len(samplesdict[sname]['files']))
+  for fname in samplesdict[sname]['files']: print('     %s'%fname)
+ 
+
 
 # Check that all datasets have the same list of WCs
 for i,k in enumerate(samplesdict.keys()):
