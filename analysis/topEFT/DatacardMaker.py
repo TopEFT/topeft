@@ -40,8 +40,9 @@ class HistoReader():
         '''
         Load pickle file into hist dictionary
         '''
-        with gzip.open(self.fin) as self.fin:
-            self.hists = pickle.load(self.fin)
+        print(f'Loading {self.fin}')
+        with gzip.open(self.fin) as fin:
+            self.hists = pickle.load(fin)
         self.coeffs = self.hists['njets']._wcnames
         self.coeffs = ['ctlTi', 'ctq1', 'ctq8', 'cQq83', 'cQq81', 'cQlMi', 'cbW', 'cpQ3', 'ctei', 'cQei', 'ctW', 'cpQM', 'ctlSi', 'ctZ', 'cQl3i', 'ctG', 'cQq13', 'cQq11', 'cptb', 'ctli', 'ctp', 'cpt']
 
@@ -51,25 +52,33 @@ class HistoReader():
         Files are stored in the ``histos`` dir and start with ``tmp_``
         These files are deleted in the next stage
         '''
+        print(f'Making relish from the pickle file')
+        print('.', end='', flush=True)
         wcs = self.buildWCString(self.coeffs)
+        print('.', end='', flush=True)
         #Get list of samples and cut levels from histograms
         self.samples = list({k[0]:0 for k in self.hists['njets'].values().keys()})
         self.levels = list({k[2]:0 for k in self.hists['njets'].values().keys()})
         #Integrate out channels
+        print('.', end='', flush=True)
         plots = [[self.hists[var].integrate('channel', ch) for ch in self.channels.values()] for var in self.var]
         [[h.scale(1e13) for h in plot] for plot in plots] #Hack for small test samples
         for cut in self.levels:
+            print('.', end='', flush=True)
             for ivar,var in enumerate(self.var):
                 if cut == 'base': continue
+                print('.', end='', flush=True)
                 #Integrate out jet cuts
                 cutplots = [h.integrate('cut', cut) for h in plots[ivar]]
                 for ch in self.channels.keys():
                     #Create the temp ROOT file
+                    print('.', end='', flush=True)
                     fname = f'histos/tmp_ttx_multileptons-{ch}_{cut}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{ch}_{cut}_{var}.root'
                     fout = uproot3.recreate(fname)
                     #Scale each plot to the SM
                     [h.set_wilson_coefficients(np.zeros(h._nwc)) for h in plots[ivar]] #optimized HistEFT
                     for proc,h in zip(self.samples, cutplots):
+                        print('.', end='', flush=True)
                         h = h.integrate('sample', proc)
                         #Integrate out processes
                         pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
@@ -104,6 +113,7 @@ class HistoReader():
                                     fout[pname+name] = hist.export1d(h_mix)
         
                 fout.close()
+        print('.')
 
     def buildWCString(self, wc):
         '''
@@ -145,9 +155,12 @@ class HistoReader():
         ``S+L_i+Q_i`` sets ``WC_i=1`` and the rest to ``0``
         ``S+L_i+L_j+Q_i+Q_j+2 M_IJ`` set ``WC_i=1``, ``WC_j=1`` and the rest to ``0``
         '''
+        print(f'Making the datacard')
         for cut in self.levels:
             for ivar,var in enumerate(self.var):
                 if cut == 'base': continue
+                print(f'Category: {cut}')
+                print(f'Variable: {var}')
                 for ch in self.channels.keys():
                     #Open temp ROOT file
                     fname = f'histos/tmp_ttx_multileptons-{ch}_{cut}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{ch}_{cut}_{var}.root'
@@ -161,6 +174,7 @@ class HistoReader():
                     fname = f'histos/ttx_multileptons-{ch}_{cut}.root' if var == 'njets' else f'histos/ttx_multileptons-{ch}_{cut}_{var}.root'
                     fout = TFile(fname, 'recreate')
                     for proc in self.samples:
+                        print(f'Process: {self.rename[proc]}')
                         signalcount=0; bkgcount=0; iproc = {}; allyields = {'data_obs' : 1.}
                         name = 'data_obs'
                         data_obs = d_hists[name]
@@ -179,6 +193,7 @@ class HistoReader():
                         for n,wc in enumerate(self.coeffs):
                             name = '_'.join([pname[:-1],'lin',wc])
                             if name not in d_hists:
+                                print(f'Histogram {name} not found!')
                                 continue
                             h_lin = d_hists[name]
                             signalcount -= 1
@@ -193,6 +208,7 @@ class HistoReader():
                             h_lin.Scale(-2)
                             name = '_'.join([pname[:-1],'quad',wc])
                             if name not in d_hists:
+                                print(f'Histogram {name} not found!')
                                 continue
                             h_quad = d_hists[name]
                             h_quad.Add(h_sm)
@@ -207,17 +223,18 @@ class HistoReader():
                                     allyields[name] = 0.
 
                             for wc2 in [self.coeffs[w2] for w2 in range(n)]:
-                                 name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
-                                 if name not in d_hists:
-                                     continue
-                                 h_mix = d_hists[name]
-                                 if h_mix.Integral() > self.tolerance:
-                                     h_mix.SetDirectory(fout)
-                                     h_mix.Write()
-                                     iproc[name] = signalcount
-                                     allyields[name] = h_mix.Integral()
-                                     if allyields[name] < 0:
-                                         allyields[name] = 0.
+                                name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
+                                if name not in d_hists:
+                                    print(f'Histogram {name} not found!')
+                                    continue
+                                h_mix = d_hists[name]
+                                if h_mix.Integral() > self.tolerance:
+                                    h_mix.SetDirectory(fout)
+                                    h_mix.Write()
+                                    iproc[name] = signalcount
+                                    allyields[name] = h_mix.Integral()
+                                    if allyields[name] < 0:
+                                        allyields[name] = 0.
 
                     #Write datacard
                     cat = '_'.join([ch, cut]) if var == 'njets' else '_'.join([ch, cut, var])
