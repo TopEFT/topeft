@@ -185,7 +185,7 @@ def GetBTagSF(eta, pt, flavor, year=2018, sys=0):
 ###### JEC corrections (2018)
 ##############################################
 extJEC = lookup_tools.extractor()
-extJEC.add_weight_sets(["* * topcoffea/data/JEC/Summer19UL18_V5_MC_L2Relative_AK4PFchs.txt","* * topcoffea/data/JEC/Summer19UL18_V5_MC_L2Residual_AK4PFchs.txt","* * topcoffea/data/JEC/Summer19UL18_V5_MC_L1FastJet_AK4PFchs.txt","* * topcoffea/data/JEC/Summer19UL18_V5_MC_L3Absolute_AK4PFchs.txt","* * topcoffea/data/JEC/Summer19UL18_V5_MC_L1RC_AK4PFchs.txt","* * topcoffea/data/JEC/Summer19UL18_V5_MC_Uncertainty_AK4PFchs.junc.txt","* * topcoffea/data/JEC/Summer19UL18_V5_MC_L2L3Residual_AK4PFchs.txt"])
+extJEC.add_weight_sets(["* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L2Relative_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L2Residual_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L1FastJet_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L3Absolute_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L1RC_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_Uncertainty_AK4PFchs.junc.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L2L3Residual_AK4PFchs.txt')])
 extJEC.finalize()
 JECevaluator = extJEC.make_evaluator()
 jec_names = ["Summer19UL18_V5_MC_L2Relative_AK4PFchs","Summer19UL18_V5_MC_L2Residual_AK4PFchs","Summer19UL18_V5_MC_L1FastJet_AK4PFchs","Summer19UL18_V5_MC_L3Absolute_AK4PFchs","Summer19UL18_V5_MC_L1RC_AK4PFchs","Summer19UL18_V5_MC_Uncertainty_AK4PFchs","Summer19UL18_V5_MC_L2L3Residual_AK4PFchs"] 
