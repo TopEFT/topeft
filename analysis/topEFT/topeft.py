@@ -372,7 +372,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # MET filters
 
         # Weights
-        genw = np.ones_like(events['MET_pt']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
+        genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
 
         ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights = {}
