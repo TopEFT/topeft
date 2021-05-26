@@ -193,7 +193,7 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
     f = uproot.open(fname)
     t = f[treeName]
     isData = not 'genWeight' in t#.keys()
-    nEvents = t.num_entries
+    nEvents = int(t.num_entries)
     ## Method 1: from histograms
     if 'Count' in f and False:
       hc = f['Count']
@@ -247,7 +247,7 @@ def IsVarInTree(fname, var, treeName = 'Events'):
     return False
   f = uproot.open(fname)
   t = f[treeName]
-  return 'var' in t.keys()
+  return var in t.keys()
 
 def GetValOfVarInTree(fname, var, treeName = 'Events'):
   ''' Check the value of a var in a tree '''
@@ -372,6 +372,13 @@ def CreateCfgFromCrabOutput(dirname, prodname, out='samples', xsecfile='cfg/xsec
   for d, s in zip(dirs, samples):
     f.write('%s : %s\n'%(s, d))
   print('Created file: %s'%out)
+
+def GetWCnames(files, treeName='Events'):
+  ''' To be done: function to fetch WC names from nanoAOD sample '''
+  if isinstance(files, list): fname = files[0]
+  return []
+  
+
 
 if __name__ == '__main__':
   main()
