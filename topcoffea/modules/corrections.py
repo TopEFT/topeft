@@ -15,6 +15,8 @@ import pickle
 from coffea.jetmet_tools import FactorizedJetCorrector, JetCorrectionUncertainty
 from coffea.jetmet_tools import JECStack, CorrectedJetsFactory
 
+from coffea.btag_tools.btagscalefactor import BTagScaleFactor
+
 basepathFromTTH = 'data/fromTTH/lepSF/'
 
 ###### Lepton scale factors
@@ -162,12 +164,16 @@ def GetMCeffFunc(WP='medium', flav='b', year=2018):
   return fun
 
 # Efficiencies and SFs for UL only available for 2017 and 2018
-extBtagSF = lookup_tools.extractor()
-extBtagSF.add_weight_sets(["BTag_2016 * %s"%topcoffea_path("data/btagSF/DeepFlav_2016.csv")])
-extBtagSF.add_weight_sets(["BTag_2017 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL17_v2.csv")])#DeepFlav_2017.csv")])
-extBtagSF.add_weight_sets(["BTag_2018 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL18_V2.csv")])#DeepFlav_2018.csv")])
-extBtagSF.finalize()
-SFevaluatorBtag = extBtagSF.make_evaluator()
+#extBtagSF = lookup_tools.extractor()
+#extBtagSF.add_weight_sets(["BTag_2016 * %s"%topcoffea_path("data/btagSF/DeepFlav_2016.csv")])
+#extBtagSF.add_weight_sets(["BTag_2017 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL17_v2.csv")])#DeepFlav_2017.csv")])
+#extBtagSF.add_weight_sets(["BTag_2018 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL18_V2.csv")])#DeepFlav_2018.csv")])
+#extBtagSF.finalize()
+#SFevaluatorBtag = extBtagSF.make_evaluator()
+
+# Try using BTagScaleFactor
+SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18_V2.csv"),"MEDIUM") # Not sure if "MEDIUM" is what we want here, but just putting it in as a placeholder to see if this works
+#SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18_V2.csv"),"MEDIUM","comb,comb,comb") # 'comb,comb,incl' is the default argument, but raises an error on 103 of coffea/btag_tools/btagscalefactor.py
 
 MCeffFunc_2018 = GetMCeffFunc('medium', 2018)
 MCeffFunc_2017 = GetMCeffFunc('medium', 2017)
@@ -177,9 +183,12 @@ def GetBtagEff(eta, pt, flavor, year=2018):
   else         : return MCeffFunc_2018(pt, eta, flavor)
 
 def GetBTagSF(eta, pt, flavor, year=2018, sys=0):
-  if   sys==0:  SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_central_0'%year](eta,pt,flavor)
-  elif sys==1:  SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_up_0'%year](eta,pt,flavor)
-  elif sys==-1: SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_down_0'%year](eta,pt,flavor)
+  #if   sys==0:  SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_central_0'%year](eta,pt,flavor)
+  #elif sys==1:  SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_up_0'%year](eta,pt,flavor)
+  #elif sys==-1: SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_down_0'%year](eta,pt,flavor)
+  if sys==0:    SF=SFevaluatorBtag.eval("central",flavor,eta,pt)
+  elif sys==1:  SF=SFevaluatorBtag.eval("up",flavor,eta,pt)
+  elif sys==-1: SF=SFevaluatorBtag.eval("down",flavor,eta,pt)
   return (SF)
 
 ###### JEC corrections (2018)
