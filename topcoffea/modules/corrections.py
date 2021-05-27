@@ -172,8 +172,11 @@ def GetMCeffFunc(WP='medium', flav='b', year=2018):
 #SFevaluatorBtag = extBtagSF.make_evaluator()
 
 # Try using BTagScaleFactor
+# Using examples from:
+#     - bucoffe: https://github.com/bu-cms/bucoffea/blob/master/bucoffea/helpers/weights.py#L173-L186
+#     - Processor from data analysis school: https://github.com/kmohrman/TTGamma_LongExercise/blob/main/ttgamma/processor.py#L25
 SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18_V2.csv"),"MEDIUM") # Not sure if "MEDIUM" is what we want here, but just putting it in as a placeholder to see if this works
-#SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18_V2.csv"),"MEDIUM","comb,comb,comb") # 'comb,comb,incl' is the default argument, but raises an error on 103 of coffea/btag_tools/btagscalefactor.py
+#SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18_V2.csv"),"MEDIUM","comb,comb,comb") # 'comb,comb,incl' is the default methods argument, but raises an error in coffea/btag_tools/btagscalefactor.py
 
 MCeffFunc_2018 = GetMCeffFunc('medium', 2018)
 MCeffFunc_2017 = GetMCeffFunc('medium', 2017)
