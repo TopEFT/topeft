@@ -29,7 +29,7 @@ class HistoReader():
         self.ch2lss = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
         self.ch3l = ['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ', 'eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ']
         self.levels = ['base', '2jets', '4jets', '4j1b', '4j2b']
-        self.channels = {'2lss': self.ch2lss, '3l': self.ch3l}
+        self.channels = {'2lss': self.ch2lss, '3l': self.ch3l, '4l': '4l'}
         self.outf = "EFT_MultiDim_Datacard_combine.txt"
         self.fin = infile
         self.var = ['njets', 'ht']
@@ -46,6 +46,12 @@ class HistoReader():
         self.coeffs = self.hists['njets']._wcnames
         self.coeffs = ['cpt', 'ctp', 'cptb', 'cQlMi', 'cQq81', 'cQq11', 'cQl3i', 'ctq8', 'ctlTi', 'ctq1', 'ctli', 'cQq13', 'cbW', 'cpQM', 'cpQ3', 'ctei', 'cQei', 'ctW', 'ctlSi', 'cQq83', 'ctZ', 'ctG']
 
+        #Get list of samples and cut levels from histograms
+        self.samples = list({k[0]:0 for k in self.hists['njets'].values().keys()})
+        self.levels = list({k[2]:0 for k in self.hists['njets'].values().keys()})
+        self.charge = list({k[3]:0 for k in self.hists['njets'].values().keys()})
+        self.syst = list({k[4]:0 for k in self.hists['njets'].values().keys()})
+
     def relish(self):
         '''
         Create temporary ROOT files from pickle file
@@ -56,63 +62,68 @@ class HistoReader():
         print('.', end='', flush=True)
         wcs = self.buildWCString(self.coeffs)
         print('.', end='', flush=True)
-        #Get list of samples and cut levels from histograms
-        self.samples = list({k[0]:0 for k in self.hists['njets'].values().keys()})
-        self.levels = list({k[2]:0 for k in self.hists['njets'].values().keys()})
         #Integrate out channels
         print('.', end='', flush=True)
-        plots = [[self.hists[var].integrate('channel', ch) for ch in self.channels.values()] for var in self.var]
+        plots = [[self.hists[var].integrate('channel', chan) for chan in self.channels.values()] for var in self.var]
         [[h.scale(1e13) for h in plot] for plot in plots] #Hack for small test samples
         for cut in self.levels:
             print('.', end='', flush=True)
-            for ivar,var in enumerate(self.var):
-                if cut == 'base': continue
-                print('.', end='', flush=True)
-                #Integrate out jet cuts
-                cutplots = [h.integrate('cut', cut) for h in plots[ivar]]
-                for ch in self.channels.keys():
-                    #Create the temp ROOT file
-                    print('.', end='', flush=True)
-                    fname = f'histos/tmp_ttx_multileptons-{ch}_{cut}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{ch}_{cut}_{var}.root'
-                    fout = uproot3.recreate(fname)
-                    #Scale each plot to the SM
-                    [h.set_wilson_coefficients(np.zeros(h._nwc)) for h in plots[ivar]] #optimized HistEFT
-                    for proc,h in zip(self.samples, cutplots):
+            for syst in self.syst:
+                if syst != 'nominal': continue
+                for ch in self.charge:
+                    for ivar,var in enumerate(self.var):
+                        if cut == 'base': continue
                         print('.', end='', flush=True)
-                        h = h.integrate('sample', proc)
-                        #Integrate out processes
-                        pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
-                        if var == 'njets': h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7,8]))
-                        #Save the SM plot
-                        h_sm = h.copy()
-                        h_sm.set_wilson_coefficients(np.zeros(h._nwc))
-                        fout[pname+'sm'] = hist.export1d(h_sm)
-                        #Asimov data: data_obs = MC at SM (all WCs = 0)
-                        fout['data_obs'] = hist.export1d(h_sm)
-                        
-                        h_lin = h.copy(); h_quad = []; h_mix = []
-                        yields = []
-                        for wc,name,wcpt in wcs:
-                            #Scale plot to the WCPoint
-                            w = wcpt.buildMatrix(self.coeffs)
-                            #Handle linear and quadratic terms
-                            if 'lin' in name:
-                                h_lin = h.copy()
-                                h_lin.set_wilson_coefficients(w)
-                                if np.sum(h_lin.values()[()]) > self.tolerance:
-                                    fout[pname+name] = hist.export1d(h_lin)
-                            elif 'quad' in name and 'mix' not in name:
-                                h_quad = h.copy()
-                                h_quad.set_wilson_coefficients(w)
-                                if np.sum(h_quad.values()[()]) > self.tolerance:
-                                    fout[pname+name] = hist.export1d(h_quad)
-                            else:
-                                h_mix = h.copy()
-                                h_mix.set_wilson_coefficients(w)
-                                if np.sum(h_mix.values()[()]) > self.tolerance:
-                                    fout[pname+name] = hist.export1d(h_mix)
+                        #Integrate out jet cuts
+                        #print([h.values() for h in plots[ivar]])
+                        cutplots = [h.integrate('cut', cut).integrate('systematic', syst).integrate('sumcharge', ch) for h in plots[ivar]]
+                        #print([h.values() for h in cutplots])
+                        if syst == 'nominal': sys = ''
+                        else: sys = '_'+syst
+                        charge = 'p' if ch == 'ch+' else 'm'
+                        for chan in self.channels.keys():
+                            #Create the temp ROOT file
+                            print('.', end='', flush=True)
+                            fname = f'histos/tmp_ttx_multileptons-{chan}_{cut}_{charge}{sys}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{chan}_{cut}_{charge}{sys}_{var}.root'
+                            fout = uproot3.recreate(fname)
+                            #Scale each plot to the SM
+                            [h.set_wilson_coefficients(np.zeros(h._nwc)) for h in plots[ivar]] #optimized HistEFT
+                            for proc,h in zip(self.samples, cutplots):
+                                print('.', end='', flush=True)
+                                h = h.integrate('sample', proc)
+                                #Integrate out processes
+                                pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
+                                if var == 'njets': h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7,8]))
+                                #Save the SM plot
+                                h_sm = h.copy()
+                                h_sm.set_wilson_coefficients(np.zeros(h._nwc))
+                                fout[pname+'sm'] = hist.export1d(h_sm)
+                                #Asimov data: data_obs = MC at SM (all WCs = 0)
+                                fout['data_obs'] = hist.export1d(h_sm)
+                                
+                                h_lin = h.copy(); h_quad = []; h_mix = []
+                                yields = []
+                                for wc,name,wcpt in wcs:
+                                    #Scale plot to the WCPoint
+                                    w = wcpt.buildMatrix(self.coeffs)
+                                    #Handle linear and quadratic terms
+                                    if 'lin' in name:
+                                        h_lin = h.copy()
+                                        h_lin.set_wilson_coefficients(w)
+                                        if np.sum(h_lin.values()[()]) > self.tolerance:
+                                            fout[pname+name] = hist.export1d(h_lin)
+                                    elif 'quad' in name and 'mix' not in name:
+                                        h_quad = h.copy()
+                                        h_quad.set_wilson_coefficients(w)
+                                        if np.sum(h_quad.values()[()]) > self.tolerance:
+                                            fout[pname+name] = hist.export1d(h_quad)
+                                    else:
+                                        h_mix = h.copy()
+                                        h_mix.set_wilson_coefficients(w)
+                                        if np.sum(h_mix.values()[()]) > self.tolerance:
+                                            fout[pname+name] = hist.export1d(h_mix)
         
-                fout.close()
+                        fout.close()
         print('.')
 
     def buildWCString(self, wc):
@@ -157,116 +168,128 @@ class HistoReader():
         '''
         print(f'Making the datacard')
         for cut in self.levels:
-            for ivar,var in enumerate(self.var):
-                if cut == 'base': continue
-                print(f'Category: {cut}')
-                print(f'Variable: {var}')
-                for ch in self.channels.keys():
-                    #Open temp ROOT file
-                    fname = f'histos/tmp_ttx_multileptons-{ch}_{cut}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{ch}_{cut}_{var}.root'
-                    fin = TFile(fname)
-                    d_hists = {k.GetName(): fin.Get(k.GetName()) for k in fin.GetListOfKeys()}
-                    [h.SetDirectory(0) for h in d_hists.values()]
-                    fin.Close()
-                    os.system(f'rm {fname}')
-                    #Delete temp ROOT file
-                    #Create the ROOT file
-                    fname = f'histos/ttx_multileptons-{ch}_{cut}.root' if var == 'njets' else f'histos/ttx_multileptons-{ch}_{cut}_{var}.root'
-                    fout = TFile(fname, 'recreate')
-                    for proc in self.samples:
-                        p = self.rename[proc] if proc in self.rename else proc
-                        print(f'Process: {p}')
-                        signalcount=0; bkgcount=0; iproc = {}; allyields = {'data_obs' : 1.}
-                        name = 'data_obs'
-                        data_obs = d_hists[name]
-                        if name not in d_hists:
-                            continue
-                        data_obs.SetDirectory(fout)
-                        data_obs.Write()
-                        allyields[name] = data_obs.Integral()
-                        pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
-                        name = '_'.join([pname[:-1],'sm'])
-                        if name not in d_hists:
-                            continue
-                        h_sm = d_hists[name]
-                        h_sm.SetDirectory(fout)
-                        h_sm.Write()
-                        for n,wc in enumerate(self.coeffs):
-                            name = '_'.join([pname[:-1],'lin',wc])
-                            if name not in d_hists:
-                                print(f'Histogram {name} not found!')
-                                continue
-                            h_lin = d_hists[name]
-                            signalcount -= 1
-                            if h_lin.Integral() > self.tolerance:
-                                h_lin.SetDirectory(fout)
-                                h_lin.Write()
-                                iproc[name] = signalcount
-                                allyields[name] = h_lin.Integral()
-                                if allyields[name] < 0:
-                                    allyields[name] = 0.
-
-                            h_lin.Scale(-2)
-                            name = '_'.join([pname[:-1],'quad',wc])
-                            if name not in d_hists:
-                                print(f'Histogram {name} not found!')
-                                continue
-                            h_quad = d_hists[name]
-                            h_quad.Add(h_sm)
-                            h_quad.Add(h_lin)
-                            h_quad.Scale(0.5)
-                            if h_quad.Integral() > self.tolerance:
-                                h_quad.SetDirectory(fout)
-                                h_quad.Write()
-                                iproc[name] = signalcount
-                                allyields[name] = h_quad.Integral()
-                                if allyields[name] < 0:
-                                    allyields[name] = 0.
-
-                            for wc2 in [self.coeffs[w2] for w2 in range(n)]:
-                                name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
+            for syst in self.syst:
+                if syst != 'nominal': continue
+                print(f'Systematic: {syst}')
+                for ch in self.charge:
+                    print(f'Charge: {ch}')
+                    for ivar,var in enumerate(self.var):
+                        if cut == 'base': continue
+                        print(f'Category: {cut}')
+                        print(f'Variable: {var}')
+                        if syst == 'nominal': sys = ''
+                        else: sys = '_'+syst
+                        charge = 'p' if ch == 'ch+' else 'm'
+                        for chan in self.channels.keys():
+                            #Open temp ROOT file
+                            fname = f'histos/tmp_ttx_multileptons-{chan}_{cut}_{charge}{sys}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{chan}_{cut}_{charge}{sys}_{var}.root'
+                            fin = TFile(fname)
+                            d_hists = {k.GetName(): fin.Get(k.GetName()) for k in fin.GetListOfKeys()}
+                            [h.SetDirectory(0) for h in d_hists.values()]
+                            fin.Close()
+                            #os.system(f'rm {fname}')
+                            #Delete temp ROOT file
+                            #Create the ROOT file
+                            fname = f'histos/ttx_multileptons-{chan}_{cut}_{charge}{sys}.root' if var == 'njets' else f'histos/ttx_multileptons-{chan}_{cut}_{charge}{sys}_{var}.root'
+                            fout = TFile(fname, 'recreate')
+                            for proc in self.samples:
+                                p = self.rename[proc] if proc in self.rename else proc
+                                print(f'Process: {p}')
+                                signalcount=0; bkgcount=0; iproc = {}; allyields = {'data_obs' : 1.}
+                                name = 'data_obs'
+                                data_obs = d_hists[name]
                                 if name not in d_hists:
-                                    print(f'Histogram {name} not found!')
                                     continue
-                                h_mix = d_hists[name]
-                                if h_mix.Integral() > self.tolerance:
-                                    h_mix.SetDirectory(fout)
-                                    h_mix.Write()
-                                    iproc[name] = signalcount
-                                    allyields[name] = h_mix.Integral()
-                                    if allyields[name] < 0:
-                                        allyields[name] = 0.
+                                data_obs.SetDirectory(fout)
+                                data_obs.Write()
+                                allyields[name] = data_obs.Integral()
+                                pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
+                                name = '_'.join([pname[:-1],'sm'])
+                                if name not in d_hists:
+                                    continue
+                                h_sm = d_hists[name]
+                                h_sm.SetDirectory(fout)
+                                h_sm.Write()
+                                for n,wc in enumerate(self.coeffs):
+                                    name = '_'.join([pname[:-1],'lin',wc])
+                                    if name not in d_hists:
+                                        print(f'Histogram {name} not found!')
+                                        continue
+                                    h_lin = d_hists[name]
+                                    signalcount -= 1
+                                    if h_lin.Integral() > self.tolerance:
+                                        h_lin.SetDirectory(fout)
+                                        h_lin.Write()
+                                        iproc[name] = signalcount
+                                        allyields[name] = h_lin.Integral()
+                                        if allyields[name] < 0:
+                                            allyields[name] = 0.
 
-                    #Write datacard
-                    cat = '_'.join([ch, cut]) if var == 'njets' else '_'.join([ch, cut, var])
-                    datacard = open("histos/ttx_multileptons-%s.txt"%cat, "w"); 
-                    datacard.write("shapes *        * ttx_multileptons-%s.root $PROCESS $PROCESS_$SYSTEMATIC\n" % cat)
-                    cat = 'bin_'+cat
-                    datacard.write('##----------------------------------\n')
-                    datacard.write('bin         %s\n' % cat)
-                    datacard.write('observation %s\n' % allyields['data_obs'])
-                    datacard.write('##----------------------------------\n')
-                    klen = max([7, len(cat)]+[len(p) for p in iproc.keys()])
-                    kpatt = " %%%ds "  % klen
-                    fpatt = " %%%d.%df " % (klen,np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])))#3)
-                    #npatt = "%%-%ds " % max([len('process')]+map(len,nuisances))
-                    npatt = "%%-%ds " % max([len('process')])
-                    datacard.write('##----------------------------------\n')
-                    procs = iproc.keys()
-                    datacard.write((npatt % 'bin    ')+(" "*6)+(" ".join([kpatt % cat      for p in procs]))+"\n")
-                    datacard.write((npatt % 'process')+(" "*6)+(" ".join([kpatt % p        for p in procs]))+"\n")
-                    datacard.write((npatt % 'process')+(" "*6)+(" ".join([kpatt % iproc[p] for p in procs]))+"\n")
-                    datacard.write((npatt % 'rate   ')+(" "*6)+(" ".join([fpatt % allyields[p] for p in procs]))+"\n")
-                    datacard.write('##----------------------------------\n')
+                                    h_lin.Scale(-2)
+                                    name = '_'.join([pname[:-1],'quad',wc])
+                                    if name not in d_hists:
+                                        print(f'Histogram {name} not found!')
+                                        continue
+                                    h_quad = d_hists[name]
+                                    h_quad.Add(h_sm)
+                                    h_quad.Add(h_lin)
+                                    h_quad.Scale(0.5)
+                                    if h_quad.Integral() > self.tolerance:
+                                        h_quad.SetDirectory(fout)
+                                        h_quad.Write()
+                                        iproc[name] = signalcount
+                                        allyields[name] = h_quad.Integral()
+                                        if allyields[name] < 0:
+                                            allyields[name] = 0.
+
+                                    for wc2 in [self.coeffs[w2] for w2 in range(n)]:
+                                        name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
+                                        if name not in d_hists:
+                                            print(f'Histogram {name} not found!')
+                                            continue
+                                        h_mix = d_hists[name]
+                                        if h_mix.Integral() > self.tolerance:
+                                            h_mix.SetDirectory(fout)
+                                            h_mix.Write()
+                                            iproc[name] = signalcount
+                                            allyields[name] = h_mix.Integral()
+                                            if allyields[name] < 0:
+                                                allyields[name] = 0.
+
+                            #Write datacard
+                            if syst == 'nominal':
+                                cat = '_'.join([chan, cut, charge]) if var == 'njets' else '_'.join([chan, cut, charge, var])
+                            else:
+                                cat = '_'.join([chan, cut, charge, syst]) if var == 'njets' else '_'.join([chan, cut, charge, syst, var])
+                            datacard = open("histos/ttx_multileptons-%s.txt"%cat, "w"); 
+                            datacard.write("shapes *        * ttx_multileptons-%s.root $PROCESS $PROCESS_$SYSTEMATIC\n" % cat)
+                            cat = 'bin_'+cat
+                            datacard.write('##----------------------------------\n')
+                            datacard.write('bin         %s\n' % cat)
+                            datacard.write('observation %s\n' % allyields['data_obs'])
+                            datacard.write('##----------------------------------\n')
+                            klen = max([7, len(cat)]+[len(p) for p in iproc.keys()])
+                            kpatt = " %%%ds "  % klen
+                            fpatt = " %%%d.%df " % (klen,np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])))#3)
+                            #npatt = "%%-%ds " % max([len('process')]+map(len,nuisances))
+                            npatt = "%%-%ds " % max([len('process')])
+                            datacard.write('##----------------------------------\n')
+                            procs = iproc.keys()
+                            datacard.write((npatt % 'bin    ')+(" "*6)+(" ".join([kpatt % cat      for p in procs]))+"\n")
+                            datacard.write((npatt % 'process')+(" "*6)+(" ".join([kpatt % p        for p in procs]))+"\n")
+                            datacard.write((npatt % 'process')+(" "*6)+(" ".join([kpatt % iproc[p] for p in procs]))+"\n")
+                            datacard.write((npatt % 'rate   ')+(" "*6)+(" ".join([fpatt % allyields[p] for p in procs]))+"\n")
+                            datacard.write('##----------------------------------\n')
         
-                fout.Close()
+                        fout.Close()
 
 if __name__ == '__main__':
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/plotsTopEFT_nanoOnly_lobster_20210426_1006.pkl.gz')
-    hr = HistoReader('histos/plotsTopEFT.pkl.gz')
+    #hr = HistoReader('histos/plotsTopEFT.pkl.gz')
+    hr = HistoReader('histos/ttH_top19001_1file.pkl.gz')
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/optimized-histeft/plotsTopEFT_private_UL17_10files.pkl.gz')
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/optimized-histeft/plotsTopEFT_private_top19001-1files.pkl.gz')
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/plotsTopEFT_central_UL17_5_files_each.pkl.gz')
     hr.read()
-    hr.relish()
+    #hr.relish()
     hr.makeCard()
