@@ -489,6 +489,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add('1bm',      (nElec+nMuon>=2)&(nbtagsm==1))
         selections.add('2+bm',     (nElec+nMuon>=2)&(nbtagsm>=2))
 
+        selections.add('1bj', (nbtags==1))
+        selections.add('2bj', (nbtags>=2))
+
         # Variables
         invMass_eeSSonZ  = ( eeSSonZ.e0+ eeSSonZ.e1).mass
         invMass_eeSSoffZ = (eeSSoffZ.e0+eeSSoffZ.e1).mass
