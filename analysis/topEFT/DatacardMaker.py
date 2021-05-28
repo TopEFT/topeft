@@ -44,7 +44,7 @@ class HistoReader():
         with gzip.open(self.fin) as fin:
             self.hists = pickle.load(fin)
         self.coeffs = self.hists['njets']._wcnames
-        self.coeffs = ['ctlTi', 'ctq1', 'ctq8', 'cQq83', 'cQq81', 'cQlMi', 'cbW', 'cpQ3', 'ctei', 'cQei', 'ctW', 'cpQM', 'ctlSi', 'ctZ', 'cQl3i', 'ctG', 'cQq13', 'cQq11', 'cptb', 'ctli', 'ctp', 'cpt']
+        self.coeffs = ['cpt', 'ctp', 'cptb', 'cQlMi', 'cQq81', 'cQq11', 'cQl3i', 'ctq8', 'ctlTi', 'ctq1', 'ctli', 'cQq13', 'cbW', 'cpQM', 'cpQ3', 'ctei', 'cQei', 'ctW', 'ctlSi', 'cQq83', 'ctZ', 'ctG']
 
     def relish(self):
         '''
@@ -174,7 +174,8 @@ class HistoReader():
                     fname = f'histos/ttx_multileptons-{ch}_{cut}.root' if var == 'njets' else f'histos/ttx_multileptons-{ch}_{cut}_{var}.root'
                     fout = TFile(fname, 'recreate')
                     for proc in self.samples:
-                        print(f'Process: {self.rename[proc]}')
+                        p = self.rename[proc] if proc in self.rename else proc
+                        print(f'Process: {p}')
                         signalcount=0; bkgcount=0; iproc = {}; allyields = {'data_obs' : 1.}
                         name = 'data_obs'
                         data_obs = d_hists[name]
@@ -262,9 +263,9 @@ class HistoReader():
 
 if __name__ == '__main__':
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/plotsTopEFT_nanoOnly_lobster_20210426_1006.pkl.gz')
-    #hr = HistoReader('histos/plotsTopEFT.pkl.gz')
+    hr = HistoReader('histos/plotsTopEFT.pkl.gz')
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/optimized-histeft/plotsTopEFT_private_UL17_10files.pkl.gz')
-    hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/optimized-histeft/plotsTopEFT_private_top19001-1files.pkl.gz')
+    #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/optimized-histeft/plotsTopEFT_private_top19001-1files.pkl.gz')
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/plotsTopEFT_central_UL17_5_files_each.pkl.gz')
     hr.read()
     hr.relish()
