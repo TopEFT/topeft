@@ -51,16 +51,40 @@ if dotest:
 
 ### Load samples from json
 samplesdict = {}
+allJsonFiles = []
+allInputFiles = []
 if   isinstance(jsonFiles, str) and ',' in jsonFiles: jsonFiles = jsonFiles.replace(' ', '').split(',')
 elif isinstance(jsonFiles, str)                     : jsonFiles = [jsonFiles]
-allJsonFiles = []
 for jsonFile in jsonFiles:
   if os.path.isdir(jsonFile):
     if not jsonFile.endswith('/'): jsonFile+='/'
     for f in os.path.listdir(jsonFile):
-      if f.endswith('.json'): allJsonFiles.append(jsonFile+f)
+      if f.endswith('.json'): allInputFiles.append(jsonFile+f)
   else:
-    allJsonFiles.append(jsonFile)
+    allInputFiles.append(jsonFile)
+
+# Read from cfg files
+for f in allInputFiles:
+  if not os.path.isfile(f):
+    print('[WARNING] Input file "%s% not found!'%f)
+    continue
+  if f.endswith('.json'): 
+    allJsonFiles.append(f)
+  else:
+    # Open cfg files
+    with open(f) as fin:
+      print(' >> Reading json from cfg file...')
+      lines = fin.readlines()
+      for l in lines:
+        if '#' in l: l=l[:l.find('#')]
+        l = l.replace(' ', '').replace('\n', '')
+        if l == '': continue
+        if ',' in l:
+          l = l.split(',')
+          for nl in l:
+            allJsonFiles.append(l)
+        else:
+          allJsonFiles.append(l)
 
 for jsonFile in allJsonFiles:
   sampleName = jsonFile if not '/' in jsonFile else jsonFile[jsonFile.rfind('/')+1:]
