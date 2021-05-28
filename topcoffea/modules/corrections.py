@@ -75,7 +75,7 @@ extLepSF.finalize()
 SFevaluator = extLepSF.make_evaluator()
 
 
-def GetLeptonSF(pt1, eta1, type1, pt2, eta2, type2, pt3=None, eta3=None, type3=None, year=2018, sys=0):
+def GetLeptonSF(pt1, eta1, type1, pt2, eta2, type2, pt3=None, eta3=None, type3=None, pt4=None, eta4=None, type4=None, year=2018, sys=0):
   if sys==0:
     if type1 == 'm':
         SF1 = ak.prod(SFevaluator['MuonLooseSF_%i'%year](np.abs(eta1), pt1) * SFevaluator['MuonTightSF_%i'%year](np.abs(eta1), pt1), axis=-1)
@@ -94,8 +94,15 @@ def GetLeptonSF(pt1, eta1, type1, pt2, eta2, type2, pt3=None, eta3=None, type3=N
     elif type3 == 'e':
         SF3 = ak.prod(SFevaluator['ElecRecoSF_%i'%year](eta3, pt3) * SFevaluator['ElecLooseSF_%i'%year](np.abs(eta3), pt3) * SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta3), pt3) * SFevaluator['ElecTightSF_%i'%year](np.abs(eta3), pt3), axis=-1)
     else: print(type3, ' is not a valid type. Valid types: "m" , "e" or None')
-    if type3!=None:
+    if type3!=None and type4==None:
         return( np.multiply(SF3, np.multiply(SF1,SF2)))
+    if type4 == 'm':
+        SF4 = ak.prod(SFevaluator['MuonLooseSF_%i'%year](np.abs(eta4), pt4) * SFevaluator['MuonTightSF_%i'%year](np.abs(eta4), pt4), axis=-1)
+    elif type4 == 'e':
+        SF4 = ak.prod(SFevaluator['ElecRecoSF_%i'%year](eta4, pt4) * SFevaluator['ElecLooseSF_%i'%year](np.abs(eta4), pt4) * SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta4), pt4) * SFevaluator['ElecTightSF_%i'%year](np.abs(eta4), pt4), axis=-1)
+    else: print(type4, ' is not a valid type. Valid types: "m" , "e" or None')
+    if type4!=None:
+        return( np.multiply(SF4,np.multiply(SF3, np.multiply(SF1,SF2))))
   elif sys==1:
     if type1 == 'm':
         SF1 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta1), pt1)+SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta1), pt1) + SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta1), pt1)), axis=-1)
@@ -114,8 +121,15 @@ def GetLeptonSF(pt1, eta1, type1, pt2, eta2, type2, pt3=None, eta3=None, type3=N
     elif type3 == 'e':
         SF3 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta3, pt3) + SFevaluator['ElecRecoSF_%i_er'%year](eta3, pt3)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta3), pt3) + SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta3), pt3) + SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta3), pt3) + SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta3), pt3)), axis=-1)
     else: print(type3, ' is not a valid type. Valid types: "m" , "e" or None')
-    if type3!=None:
+    if type3!=None and type4==None:
         return( np.multiply(SF3, np.multiply(SF1,SF2)))
+    if type4 == 'm':
+        SF4 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta4), pt4)+SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta4), pt4)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta4), pt4) + SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta4), pt4)), axis=-1)
+    elif type4 == 'e':
+        SF4 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta4, pt4) + SFevaluator['ElecRecoSF_%i_er'%year](eta4, pt4)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta4), pt4) + SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta4), pt4)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta4), pt4) + SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta4), pt4)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta4), pt4) + SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta4), pt4)), axis=-1)
+    else: print(type4, ' is not a valid type. Valid types: "m" , "e" or None')
+    if type4!=None:
+        return( np.multiply(SF4,np.multiply(SF3, np.multiply(SF1,SF2))))
   elif sys==-1:
     if type1 == 'm':
         SF1 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta1), pt1)-SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta1), pt1) - SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta1), pt1)), axis=-1)
@@ -134,8 +148,15 @@ def GetLeptonSF(pt1, eta1, type1, pt2, eta2, type2, pt3=None, eta3=None, type3=N
     elif type3 == 'e':
         SF3 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta3, pt3) - SFevaluator['ElecRecoSF_%i_er'%year](eta3, pt3)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta3), pt3) - SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta3), pt3) - SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta3), pt3) - SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta3), pt3)), axis=-1)
     else: print(type3, ' is not a valid type. Valid types: "m" , "e" or None')
-    if type3!=None:
+    if type3!=None and type4==None:
         return( np.multiply(SF3, np.multiply(SF1,SF2)))
+    if type4 == 'm':
+        SF4 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta4), pt4)-SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta4), pt4)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta4), pt4) - SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta4), pt4)), axis=-1)
+    elif type4 == 'e':
+        SF4 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta4, pt4) - SFevaluator['ElecRecoSF_%i_er'%year](eta4, pt4)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta4), pt4) - SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta4), pt4)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta4), pt4) - SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta4), pt4)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta4), pt4) - SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta4), pt4)), axis=-1)
+    else: print(type4, ' is not a valid type. Valid types: "m" , "e" or None')
+    if type4!=None:
+        return( np.multiply(SF4,np.multiply(SF3, np.multiply(SF1,SF2))))
 
 
 ###### Btag scale factors
