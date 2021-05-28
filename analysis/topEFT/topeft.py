@@ -483,8 +483,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add('4j1b',(njets>=4)&(nbtags>=1))
         selections.add('4j2b',(njets>=4)&(nbtags>=2))
 
-        selections.add('1bj', (nbtags==1))
-        selections.add('2bj', (nbtags>=2))
+        selections.add('1b', (nbtags==1))
+        selections.add('2b', (nbtags>=2))
 
         # Variables
         invMass_eeSSonZ  = ( eeSSonZ.e0+ eeSSonZ.e1).mass
@@ -548,7 +548,7 @@ class AnalysisProcessor(processor.ProcessorABC):
          for var, v in varnames.items():
           for ch in channels2LSS+channels3L+channels4L:
            for sumcharge in ['ch+', 'ch-']:
-            for nbjet in ['1bj', '2bj']:
+            for nbjet in ['1b', '2b']:
               for lev in levels:
                #find the event weight to be used when filling the histograms    
                weightSyst = syst
