@@ -50,7 +50,8 @@ class HistoReader():
         self.samples = list({k[0]:0 for k in self.hists['njets'].values().keys()})
         self.levels = list({k[2]:0 for k in self.hists['njets'].values().keys()})
         self.charge = list({k[3]:0 for k in self.hists['njets'].values().keys()})
-        self.syst = list({k[4]:0 for k in self.hists['njets'].values().keys()})
+        self.nbjets = list({k[4]:0 for k in self.hists['njets'].values().keys()})
+        self.syst = list({k[5]:0 for k in self.hists['njets'].values().keys()})
 
     def relish(self):
         '''
@@ -64,19 +65,18 @@ class HistoReader():
         print('.', end='', flush=True)
         #Integrate out channels
         print('.', end='', flush=True)
-        plots = [[self.hists[var].integrate('channel', chan) for chan in self.channels.values()] for var in self.var]
+        plots = [[self.hists[var].integrate('channel', chan).integrate('cut', 'base') for chan in self.channels.values()] for var in self.var]
         [[h.scale(1e13) for h in plot] for plot in plots] #Hack for small test samples
-        for cut in self.levels:
+        for nbjet in self.nbjets:
             print('.', end='', flush=True)
             for syst in self.syst:
                 if syst != 'nominal': continue
                 for ch in self.charge:
                     for ivar,var in enumerate(self.var):
-                        if cut == 'base': continue
                         print('.', end='', flush=True)
                         #Integrate out jet cuts
                         #print([h.values() for h in plots[ivar]])
-                        cutplots = [h.integrate('cut', cut).integrate('systematic', syst).integrate('sumcharge', ch) for h in plots[ivar]]
+                        nbjetplots = [h.integrate('nbjet', nbjet).integrate('systematic', syst).integrate('sumcharge', ch) for h in plots[ivar]]
                         #print([h.values() for h in cutplots])
                         if syst == 'nominal': sys = ''
                         else: sys = '_'+syst
@@ -84,11 +84,11 @@ class HistoReader():
                         for chan in self.channels.keys():
                             #Create the temp ROOT file
                             print('.', end='', flush=True)
-                            fname = f'histos/tmp_ttx_multileptons-{chan}_{cut}_{charge}{sys}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{chan}_{cut}_{charge}{sys}_{var}.root'
+                            fname = f'histos/tmp_ttx_multileptons-{chan}_{charge}_{nbjet}{sys}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{chan}_{charge}_{nbjet}{sys}_{var}.root'
                             fout = uproot3.recreate(fname)
                             #Scale each plot to the SM
                             [h.set_wilson_coefficients(np.zeros(h._nwc)) for h in plots[ivar]] #optimized HistEFT
-                            for proc,h in zip(self.samples, cutplots):
+                            for proc,h in zip(self.samples, nbjetplots):
                                 print('.', end='', flush=True)
                                 h = h.integrate('sample', proc)
                                 #Integrate out processes
@@ -167,22 +167,21 @@ class HistoReader():
         ``S+L_i+L_j+Q_i+Q_j+2 M_IJ`` set ``WC_i=1``, ``WC_j=1`` and the rest to ``0``
         '''
         print(f'Making the datacard')
-        for cut in self.levels:
+        for nbjet in self.nbjets:
             for syst in self.syst:
                 if syst != 'nominal': continue
                 print(f'Systematic: {syst}')
                 for ch in self.charge:
                     print(f'Charge: {ch}')
                     for ivar,var in enumerate(self.var):
-                        if cut == 'base': continue
-                        print(f'Category: {cut}')
+                        print(f'Category: {nbjet}')
                         print(f'Variable: {var}')
                         if syst == 'nominal': sys = ''
                         else: sys = '_'+syst
                         charge = 'p' if ch == 'ch+' else 'm'
                         for chan in self.channels.keys():
                             #Open temp ROOT file
-                            fname = f'histos/tmp_ttx_multileptons-{chan}_{cut}_{charge}{sys}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{chan}_{cut}_{charge}{sys}_{var}.root'
+                            fname = f'histos/tmp_ttx_multileptons-{chan}_{charge}_{nbjet}{sys}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{chan}_{charge}_{nbjet}{sys}_{var}.root'
                             fin = TFile(fname)
                             d_hists = {k.GetName(): fin.Get(k.GetName()) for k in fin.GetListOfKeys()}
                             [h.SetDirectory(0) for h in d_hists.values()]
@@ -190,7 +189,7 @@ class HistoReader():
                             #os.system(f'rm {fname}')
                             #Delete temp ROOT file
                             #Create the ROOT file
-                            fname = f'histos/ttx_multileptons-{chan}_{cut}_{charge}{sys}.root' if var == 'njets' else f'histos/ttx_multileptons-{chan}_{cut}_{charge}{sys}_{var}.root'
+                            fname = f'histos/ttx_multileptons-{chan}_{charge}_{nbjet}{sys}.root' if var == 'njets' else f'histos/ttx_multileptons-{chan}_{charge}_{nbjet}{sys}_{var}.root'
                             fout = TFile(fname, 'recreate')
                             for proc in self.samples:
                                 p = self.rename[proc] if proc in self.rename else proc
@@ -258,9 +257,9 @@ class HistoReader():
 
                             #Write datacard
                             if syst == 'nominal':
-                                cat = '_'.join([chan, cut, charge]) if var == 'njets' else '_'.join([chan, cut, charge, var])
+                                cat = '_'.join([chan, nbjet, charge]) if var == 'njets' else '_'.join([chan, nbjet, charge, var])
                             else:
-                                cat = '_'.join([chan, cut, charge, syst]) if var == 'njets' else '_'.join([chan, cut, charge, syst, var])
+                                cat = '_'.join([chan, nbjet, charge, syst]) if var == 'njets' else '_'.join([chan, nbjet, charge, syst, var])
                             datacard = open("histos/ttx_multileptons-%s.txt"%cat, "w"); 
                             datacard.write("shapes *        * ttx_multileptons-%s.root $PROCESS $PROCESS_$SYSTEMATIC\n" % cat)
                             cat = 'bin_'+cat
@@ -291,5 +290,5 @@ if __name__ == '__main__':
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/optimized-histeft/plotsTopEFT_private_top19001-1files.pkl.gz')
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/plotsTopEFT_central_UL17_5_files_each.pkl.gz')
     hr.read()
-    #hr.relish()
+    hr.relish()
     hr.makeCard()
