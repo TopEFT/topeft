@@ -27,9 +27,10 @@ class HistoReader():
         self.bkglist = ['Nonprompt', 'Other', 'DY',  'ttH', 'WZ', 'ZZ', 'ttZ', 'ttW']
         self.coeffs = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb','cQq13','cQq83','cQq11','ctq1','cQq81','ctq8']
         self.ch2lss = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
-        self.ch3l = ['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ', 'eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ']
+        self.ch3l = ['eemSSoffZ', 'mmeSSoffZ', 'eeeSSoffZ', 'mmmSSoffZ']
+        self.ch3lsfz = ['eemSSonZ', 'mmeSSonZ', 'eeeSSonZ', 'mmmSSonZ', 'mmmSSoffZ']
         self.levels = ['base', '2jets', '4jets', '4j1b', '4j2b']
-        self.channels = {'2lss': self.ch2lss, '3l': self.ch3l, '4l': '4l'}
+        self.channels = {'2lss': self.ch2lss, '3l': self.ch3l, '3l_sfz': self.ch3lsfz, '4l': '4l'}
         self.outf = "EFT_MultiDim_Datacard_combine.txt"
         self.fin = infile
         self.var = ['njets', 'ht']
@@ -257,9 +258,9 @@ class HistoReader():
 
                             #Write datacard
                             if syst == 'nominal':
-                                cat = '_'.join([chan, nbjet, charge]) if var == 'njets' else '_'.join([chan, nbjet, charge, var])
+                                cat = '_'.join([chan, charge, nbjet]) if var == 'njets' else '_'.join([chan, charge, nbjet, var])
                             else:
-                                cat = '_'.join([chan, nbjet, charge, syst]) if var == 'njets' else '_'.join([chan, nbjet, charge, syst, var])
+                                cat = '_'.join([chan, charge, nbjet, syst]) if var == 'njets' else '_'.join([chan, charge, nbjet, syst, var])
                             datacard = open("histos/ttx_multileptons-%s.txt"%cat, "w"); 
                             datacard.write("shapes *        * ttx_multileptons-%s.root $PROCESS $PROCESS_$SYSTEMATIC\n" % cat)
                             cat = 'bin_'+cat
@@ -285,7 +286,8 @@ class HistoReader():
 if __name__ == '__main__':
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/plotsTopEFT_nanoOnly_lobster_20210426_1006.pkl.gz')
     #hr = HistoReader('histos/plotsTopEFT.pkl.gz')
-    hr = HistoReader('histos/ttH_top19001_1file.pkl.gz')
+    hr = HistoReader('histos/ttH_top19001.pkl.gz')
+    #hr = HistoReader('histos/ttH_top19001_1file.pkl.gz')
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/optimized-histeft/plotsTopEFT_private_UL17_10files.pkl.gz')
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/optimized-histeft/plotsTopEFT_private_top19001-1files.pkl.gz')
     #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/plotsTopEFT_central_UL17_5_files_each.pkl.gz')
