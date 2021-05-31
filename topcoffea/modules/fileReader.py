@@ -20,8 +20,12 @@ def findValidRootfiles(path, sampleName = '', getOnlyNumberedFiles = False, verb
       #  files += findValidRootfiles(path, 'Tree_'+s, getOnlyNumberedFiles, verbose, FullPaths)
     return files
   ### Files from a T2 !!
-  if path.startswith('root') and 'global.cern.ch'  or 'ndcms.crc.nd.edu' in path: 
+  if path.startswith('root'):
+    if not sampleName.endswith('.root'): sampleName+='.root'
+    print('Ok, file in T2...\nReturning: ', [path+sampleName] if FullPaths else [sampleName])
     return [path+sampleName] if FullPaths else [sampleName]
+  elif path.upper().startswith('DAS'):
+    return GetFileListFromDataset(sampleName, True)
   if not path[-1] == '/': path += '/'
   if verbose: print(' >> Looking for files in path: ' + path)
   for f in os.listdir(path):
@@ -41,15 +45,39 @@ def findValidRootfiles(path, sampleName = '', getOnlyNumberedFiles = False, verb
   if len(files) == 0: 
     if retry: files = findValidRootfiles(path, 'Tree_' + sampleName, getOnlyNumberedFiles, verbose, FullPaths, False)
     if len(files) == 0: 
+      print('Is path+sampleName a dir?: ', path+sampleName)
       if os.path.isdir(path+sampleName):
         return GetSampleListInDir(path+sampleName)
-      print ('[ERROR]: Not files "' + sampleName + '" found in: ' + path)
       return []
   return files
 
 def GetFiles(path, name, verbose = False):
   ''' Get all rootfiles in path for a given process name'''
+  print('Getting files for path and name = [%s, %s]'%(path, name))
   return findValidRootfiles(path, name, False, verbose, FullPaths = True)
+
+def GetListOfWCs(fname):
+  ''' Retruns a list of the WC names from WCnames, (retruns [] if not an EFT sample) '''
+  wc_names_lst = []
+  tree = uproot.open(f'{fname}:Events')
+  if 'WCnames' not in tree.keys():
+    wc_names_lst = []
+  else:
+    wc_info = tree['WCnames'].array(entry_stop=1)[0]
+    for idx,i in enumerate(wc_info):
+      h = hex(i)[2:]                                 # Get rid of the first two characters
+      wc_fragment = bytes.fromhex(h).decode('utf-8') # From: https://stackoverflow.com/questions/3283984/decode-hex-string-in-python-3
+      # The WC names that are longer than 4 letters are too long to be encoded in a 64-bit integer:
+      #   - They're instead stored in two subsequent entries in the list
+      #   - This means that the decoded names in wc_info go like this [... 'ctlT' , '-i' ...]
+      #   - The leading '-' indicates the given fragment is the trailing end of the previous WC name
+      #   - The following logic is supposed to put those fragments back together into the WC name
+      if not wc_fragment.startswith("-"):
+        wc_names_lst.append(wc_fragment)
+      else:
+        leftover = wc_fragment[1:]                    # This leftover part of the WC goes with the previous one (but get rid of leading '-')
+        wc_names_lst[-1] = wc_names_lst[-1]+leftover  # So append this trailing fragment to the leading framgenet to reconstruct the WC name
+  return wc_names_lst
 
 def GetNGenEvents(fname):
   ''' Returns number of events from the 'Count' histograms '''
@@ -84,7 +112,7 @@ def GetEntries(fname, treeName = 'Events'):
   elif isinstance(fname, str):
     f = uproot.open(fname)
     t = f[treeName]
-    return len(t['MET_pt'])
+    return t.num_entries
   else: print('[ERROR] [GetEntries]: wrong input')
 
 def GuessIsData(fname):
@@ -161,10 +189,11 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
       nSumOfWeights += iS
     return [nEvents, nGenEvents, nSumOfWeights, isData]
   elif isinstance(fname, str):
+    print('Opening with uproot: ', fname)
     f = uproot.open(fname)
     t = f[treeName]
     isData = not 'genWeight' in t#.keys()
-    nEvents = len(t['MET_pt'])
+    nEvents = int(t.num_entries)
     ## Method 1: from histograms
     if 'Count' in f and False:
       hc = f['Count']
@@ -178,7 +207,7 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
       if nSumOfWeights == 0: 
         nSumOfWeights = nGenEvents
     # Method 2: from 'Runs' tree
-    elif 'Runs' in f:
+    elif (('Runs' in f) & (not isData)):
       r = f['Runs']
       genEventSumw  = 'genEventSumw'  if 'genEventSumw'  in r else 'genEventSumw_'
       genEventCount = 'genEventCount' if 'genEventCount' in r else 'genEventCount_'
@@ -218,7 +247,7 @@ def IsVarInTree(fname, var, treeName = 'Events'):
     return False
   f = uproot.open(fname)
   t = f[treeName]
-  return 'var' in t.keys()
+  return var in t.keys()
 
 def GetValOfVarInTree(fname, var, treeName = 'Events'):
   ''' Check the value of a var in a tree '''
@@ -243,6 +272,7 @@ def main():
  pr.add_argument('-i','--inspect', action='store_true', help='Print branches')
  pr.add_argument('-t','--treeName', default='Events', help='Name of the tree')
  pr.add_argument('-c','--cfg', default='tempsamples', help='Name of the output cfg file')
+ pr.add_argument('-o','--options', default='', help='Options')
  pr.add_argument('-p','--prod','--prodName', default='', help='Name of the production')
  pr.add_argument('-v','--verbose', action='store_true', help='Verbose')
  pr.add_argument('-x','--xsec', '--xsecfile', default='cfg/xsec.cfg', help='xsec file')
@@ -262,6 +292,7 @@ def main():
    path, sample, n = guessPathAndName(path)
 
    if sample == '': 
+     # Only one path is given... reading files in path and doing nothing
      d = getDicFiles(path)
      for c in d:
        print(' >> ' + c + ': ', d[c])
@@ -342,7 +373,12 @@ def CreateCfgFromCrabOutput(dirname, prodname, out='samples', xsecfile='cfg/xsec
     f.write('%s : %s\n'%(s, d))
   print('Created file: %s'%out)
 
-##############################################
+def GetWCnames(files, treeName='Events'):
+  ''' To be done: function to fetch WC names from nanoAOD sample '''
+  if isinstance(files, list): fname = files[0]
+  return []
+  
+
 
 if __name__ == '__main__':
   main()

@@ -163,3 +163,41 @@ def passTrigger(df, cat, isData=False, dataName=''):
     for path in passTriggers: tpass = tpass| df[path]
     for path in notPassTriggers: tpass = (tpass)&(df[path]==0)
   return tpass
+
+def triggerFor4l(df, nMuon, nElec, isData, dataName=''):
+  is4lmask = ((nElec+nMuon)>=4)
+  is4l0m = (is4lmask)&(nMuon==0)
+  is4l1m = (is4lmask)&(nMuon==1)
+  is4l2m = (is4lmask)&(nMuon==2)
+  is4l3m = (is4lmask)&(nMuon==3)
+  is4l4m = (is4lmask)&(nMuon>=4)
+  trig4l0m = passTrigger(df, 'eeee', isData, dataName)
+  trig4l1m = passTrigger(df, 'eeem', isData, dataName)
+  trig4l2m = passTrigger(df, 'eemm', isData, dataName)
+  trig4l3m = passTrigger(df, 'mmme', isData, dataName)
+  trig4l4m = passTrigger(df, 'mmmm', isData, dataName)
+  trigMask = ( ( (is4l0m)&(trig4l0m) )|( (is4l1m)&(trig4l1m) )|( (is4l2m)&(trig4l2m) )|( (is4l3m)&(trig4l3m) )|( (is4l4m)&(trig4l4m) ) )
+  return trigMask
+
+##################################################################################
+### Fake rates
+
+import uproot
+from coffea import hist, lookup_tools
+import os, sys
+from topcoffea.modules.paths import topcoffea_path
+import awkward as ak
+
+extFakeRates = lookup_tools.extractor()
+basepathFromTTH = 'data/fromTTH/fakerate/'
+
+# Electron reco
+#histoName = ''
+#for leptype in ['el', 'mu']:
+#  for year in [2016, 2017, 2018]:
+#    hname = 'FR_mva090_mu_data_comb' if leptype == 'mu' else 'FR_mva090_el_data_comb_NC'
+#    extFakeRates.add_weight_sets( ["fr_%s_%i %s %s"%(leptype, year, hname, topcoffea_path(basepathFromTTH+'fr_%i.root'%year) )] ) # pt, abs(eta)
+
+
+#extFakeRates.finalize()
+#FRevaluatior = extFakeRates.make_evaluator()
