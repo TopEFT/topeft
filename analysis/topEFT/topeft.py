@@ -161,8 +161,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
         #nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
-        if year == 2017: btagwp = 0.3040
-        else: btagwp = 0.2783
+        if year == 2017: btagwp = 0.3040 #WP medium
+        else: btagwp = 0.2783 #WP medium
         isBtagJets = (goodJets.btagDeepB > btagwp)
         isNotBtagJets = np.invert(isBtagJets)
         nbtags = ak.num(goodJets[isBtagJets])
@@ -563,11 +563,11 @@ class AnalysisProcessor(processor.ProcessorABC):
              
              # filling histos
              if var == 'invmass':
-              if   ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ','eeee','eeem','eemm','mmme','mmmm']: continue
+              if   ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ'] or channels4L: continue
               else                                 : values = ak.flatten(v[ch][cut])
               hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, invmass=values, weight=weights_flat, systematic=syst)
              elif var == 'm3l': 
-              if ch in ['eeSSonZ','eeSSoffZ', 'mmSSonZ', 'mmSSoffZ','emSS', 'eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ', 'eeee','eeem','eemm','mmme','mmmm']: continue
+              if ch in channels2LSS or ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ'] or channels4L: continue
               values = ak.flatten(v[ch][cut])
               hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, m3l=values, weight=weights_flat, systematic=syst)
              else:

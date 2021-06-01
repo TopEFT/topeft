@@ -75,87 +75,87 @@ extLepSF.finalize()
 SFevaluator = extLepSF.make_evaluator()
 
 
-def GetLeptonSF(pt1, eta1, type1, pt2, eta2, type2, pt3=None, eta3=None, type3=None, pt4=None, eta4=None, type4=None, year=2018, sys=0):
+def GetLeptonSF(pt1, eta1, flavor1, pt2, eta2, flavor2, pt3=None, eta3=None, flavor3=None, pt4=None, eta4=None, flavor4=None, year=2018, sys=0):
   if sys==0:
-    if type1 == 'm':
+    if flavor1 == 'm':
         SF1 = ak.prod(SFevaluator['MuonLooseSF_%i'%year](np.abs(eta1), pt1) * SFevaluator['MuonTightSF_%i'%year](np.abs(eta1), pt1), axis=-1)
-    elif type1 == 'e':
+    elif flavor1 == 'e':
         SF1 = ak.prod(SFevaluator['ElecRecoSF_%i'%year](eta1, pt1) * SFevaluator['ElecLooseSF_%i'%year](np.abs(eta1), pt1) * SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta1), pt1) * SFevaluator['ElecTightSF_%i'%year](np.abs(eta1), pt1), axis=-1)
-    else: print(type1, ' is not a valid type. Valid types: "m" or "e"')
-    if type2 == 'm':
+    else: print(flavor1, ' is not a valid flavor. Valid flavors: "m" or "e"')
+    if flavor2 == 'm':
         SF2 = ak.prod(SFevaluator['MuonLooseSF_%i'%year](np.abs(eta2), pt2) * SFevaluator['MuonTightSF_%i'%year](np.abs(eta2), pt2), axis=-1)
-    elif type2 == 'e':
+    elif flavor2 == 'e':
         SF2 = ak.prod(SFevaluator['ElecRecoSF_%i'%year](eta2, pt2) * SFevaluator['ElecLooseSF_%i'%year](np.abs(eta2), pt2) * SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta2), pt2) * SFevaluator['ElecTightSF_%i'%year](np.abs(eta2), pt2), axis=-1)
-    else: print(type2, ' is not a valid type. Valid types: "m" or "e"')
-    if type3==None:
+    else: print(flavor2, ' is not a valid flavor. Valid flavors: "m" or "e"')
+    if flavor3==None:
         return( np.multiply(SF1,SF2) )
-    elif type3 == 'm':
+    elif flavor3 == 'm':
         SF3 = ak.prod(SFevaluator['MuonLooseSF_%i'%year](np.abs(eta3), pt3) * SFevaluator['MuonTightSF_%i'%year](np.abs(eta3), pt3), axis=-1)
-    elif type3 == 'e':
+    elif flavor3 == 'e':
         SF3 = ak.prod(SFevaluator['ElecRecoSF_%i'%year](eta3, pt3) * SFevaluator['ElecLooseSF_%i'%year](np.abs(eta3), pt3) * SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta3), pt3) * SFevaluator['ElecTightSF_%i'%year](np.abs(eta3), pt3), axis=-1)
-    else: print(type3, ' is not a valid type. Valid types: "m" , "e" or None')
-    if type3!=None and type4==None:
+    else: print(flavor3, ' is not a valid flavor. Valid flavors: "m" , "e" or None')
+    if flavor3!=None and flavor4==None:
         return( np.multiply(SF3, np.multiply(SF1,SF2)))
-    if type4 == 'm':
+    if flavor4 == 'm':
         SF4 = ak.prod(SFevaluator['MuonLooseSF_%i'%year](np.abs(eta4), pt4) * SFevaluator['MuonTightSF_%i'%year](np.abs(eta4), pt4), axis=-1)
-    elif type4 == 'e':
+    elif flavor4 == 'e':
         SF4 = ak.prod(SFevaluator['ElecRecoSF_%i'%year](eta4, pt4) * SFevaluator['ElecLooseSF_%i'%year](np.abs(eta4), pt4) * SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta4), pt4) * SFevaluator['ElecTightSF_%i'%year](np.abs(eta4), pt4), axis=-1)
-    else: print(type4, ' is not a valid type. Valid types: "m" , "e" or None')
-    if type4!=None:
+    else: print(flavor4, ' is not a valid flavor. Valid flavors: "m" , "e" or None')
+    if flavor4!=None:
         return( np.multiply(SF4,np.multiply(SF3, np.multiply(SF1,SF2))))
   elif sys==1:
-    if type1 == 'm':
+    if flavor1 == 'm':
         SF1 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta1), pt1)+SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta1), pt1) + SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta1), pt1)), axis=-1)
-    elif type1 == 'e':
+    elif flavor1 == 'e':
         SF1 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta1, pt1) + SFevaluator['ElecRecoSF_%i_er'%year](eta1, pt1)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta1), pt1) + SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta1), pt1) + SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta1), pt1) + SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta1), pt1)), axis=-1)
-    else: print(type1, ' is not a valid type. Valid types: "m" or "e"')
-    if type2 == 'm':
+    else: print(flavor1, ' is not a valid flavor. Valid flavors: "m" or "e"')
+    if flavor2 == 'm':
         SF2 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta2), pt2)+SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta2), pt2)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta2), pt2) + SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta2), pt2)), axis=-1)
-    elif type2 == 'e':
+    elif flavor2 == 'e':
         SF2 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta2, pt2) + SFevaluator['ElecRecoSF_%i_er'%year](eta2, pt2)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta2), pt2) + SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta2), pt2)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta2), pt2) + SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta2), pt2)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta2), pt2) + SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta2), pt2)), axis=-1)
-    else: print(type2, ' is not a valid type. Valid types: "m" or "e"')
-    if type3==None:
+    else: print(flavor2, ' is not a valid flavor. Valid flavors: "m" or "e"')
+    if flavor3==None:
         return( np.multiply(SF1,SF2) )
-    if type3 == 'm':
+    if flavor3 == 'm':
         SF3 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta3), pt3)+SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta3), pt3) + SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta3), pt3)), axis=-1)
-    elif type3 == 'e':
+    elif flavor3 == 'e':
         SF3 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta3, pt3) + SFevaluator['ElecRecoSF_%i_er'%year](eta3, pt3)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta3), pt3) + SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta3), pt3) + SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta3), pt3) + SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta3), pt3)), axis=-1)
-    else: print(type3, ' is not a valid type. Valid types: "m" , "e" or None')
-    if type3!=None and type4==None:
+    else: print(flavor3, ' is not a valid flavor. Valid flavors: "m" , "e" or None')
+    if flavor3!=None and flavor4==None:
         return( np.multiply(SF3, np.multiply(SF1,SF2)))
-    if type4 == 'm':
+    if flavor4 == 'm':
         SF4 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta4), pt4)+SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta4), pt4)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta4), pt4) + SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta4), pt4)), axis=-1)
-    elif type4 == 'e':
+    elif flavor4 == 'e':
         SF4 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta4, pt4) + SFevaluator['ElecRecoSF_%i_er'%year](eta4, pt4)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta4), pt4) + SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta4), pt4)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta4), pt4) + SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta4), pt4)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta4), pt4) + SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta4), pt4)), axis=-1)
-    else: print(type4, ' is not a valid type. Valid types: "m" , "e" or None')
-    if type4!=None:
+    else: print(flavor4, ' is not a valid flavor. Valid flavors: "m" , "e" or None')
+    if flavor4!=None:
         return( np.multiply(SF4,np.multiply(SF3, np.multiply(SF1,SF2))))
   elif sys==-1:
-    if type1 == 'm':
+    if flavor1 == 'm':
         SF1 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta1), pt1)-SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta1), pt1) - SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta1), pt1)), axis=-1)
-    elif type1 == 'e':
+    elif flavor1 == 'e':
         SF1 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta1, pt1) - SFevaluator['ElecRecoSF_%i_er'%year](eta1, pt1)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta1), pt1) - SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta1), pt1) - SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta1), pt1) - SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta1), pt1)), axis=-1)
-    else: print(type1, ' is not a valid type. Valid types: "m" or "e"')
-    if type2 == 'm':
+    else: print(flavor1, ' is not a valid flavor. Valid flavors: "m" or "e"')
+    if flavor2 == 'm':
         SF2 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta2), pt2)-SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta2), pt2)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta2), pt2) - SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta2), pt2)), axis=-1)
-    elif type2 == 'e':
+    elif flavor2 == 'e':
         SF2 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta2, pt2) - SFevaluator['ElecRecoSF_%i_er'%year](eta2, pt2)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta2), pt2) - SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta2), pt2)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta2), pt2) - SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta2), pt2)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta2), pt2) - SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta2), pt2)), axis=-1)
-    else: print(type2, ' is not a valid type. Valid types: "m" or "e"')
-    if type3==None:
+    else: print(flavor2, ' is not a valid flavor. Valid flavors: "m" or "e"')
+    if flavor3==None:
         return( np.multiply(SF1,SF2) )
-    if type3 == 'm':
+    if flavor3 == 'm':
         SF3 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta3), pt3)-SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta3), pt3) - SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta3), pt3)), axis=-1)
-    elif type3 == 'e':
+    elif flavor3 == 'e':
         SF3 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta3, pt3) - SFevaluator['ElecRecoSF_%i_er'%year](eta3, pt3)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta3), pt3) - SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta3), pt3) - SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta3), pt3) - SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta3), pt3)), axis=-1)
-    else: print(type3, ' is not a valid type. Valid types: "m" , "e" or None')
-    if type3!=None and type4==None:
+    else: print(flavor3, ' is not a valid flavor. Valid flavors: "m" , "e" or None')
+    if flavor3!=None and flavor4==None:
         return( np.multiply(SF3, np.multiply(SF1,SF2)))
-    if type4 == 'm':
+    if flavor4 == 'm':
         SF4 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta4), pt4)-SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta4), pt4)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta4), pt4) - SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta4), pt4)), axis=-1)
-    elif type4 == 'e':
+    elif flavor4 == 'e':
         SF4 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta4, pt4) - SFevaluator['ElecRecoSF_%i_er'%year](eta4, pt4)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta4), pt4) - SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta4), pt4)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta4), pt4) - SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta4), pt4)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta4), pt4) - SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta4), pt4)), axis=-1)
-    else: print(type4, ' is not a valid type. Valid types: "m" , "e" or None')
-    if type4!=None:
+    else: print(flavor4, ' is not a valid flavor. Valid flavors: "m" , "e" or None')
+    if flavor4!=None:
         return( np.multiply(SF4,np.multiply(SF3, np.multiply(SF1,SF2))))
 
 
