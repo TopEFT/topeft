@@ -26,6 +26,7 @@ from topcoffea.modules.HistEFT import HistEFT, EFTHelper
 class AnalysisProcessor(processor.ProcessorABC):
     def __init__(self, samples, wc_names_lst=[], do_errors=False):
         self._samples = samples
+        self._wc_names_lst = wc_names_lst
 
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
@@ -172,9 +173,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isData:
           pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
           bJetSF   = GetBTagSF(abseta, pt, flav)
+          print(bJetSF)
           bJetSFUp = GetBTagSF(abseta, pt, flav, sys=1)
           bJetSFDo = GetBTagSF(abseta, pt, flav, sys=-1)
-          bJetEff  = GetBtagEff(abseta, pt, flav)
+          bJetEff  = GetBtagEff(abseta, pt, flav, year)
           bJetEff_data   = bJetEff*bJetSF
           bJetEff_dataUp = bJetEff*bJetSFUp
           bJetEff_dataDo = bJetEff*bJetSFDo
@@ -200,11 +202,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         emSSmask = (em.e.charge*em.m.charge>0)
         emSS = em[emSSmask]
         nemSS = len(ak.flatten(emSS))
- 
-        year = 2018
-        lepSF_emSS      = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year)
-        lepSF_emSS_up   = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year, sys=1)
-        lepSF_emSS_down = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year, sys=-1)
+
+        lepSF_emSS      = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year)
+        lepSF_emSS_up   = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year, sys=1)
+        lepSF_emSS_down = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year, sys=-1)
+
         # ee and mumu
         # pt>-1 to preserve jagged dimensions
         ee = e [(nElec==2)&(nMuon==0)&(e.pt>-1)]
@@ -414,7 +416,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # MET filters
 
         # Weights
-        genw = np.ones_like(events['MET_pt']) if isData else events['genWeight']
+        genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
 
         ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights = {}
