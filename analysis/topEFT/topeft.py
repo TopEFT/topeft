@@ -161,7 +161,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
         #nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
-        btagwp = 0.4941
+        if year == 2017: btagwp = 0.3040
+        else: btagwp = 0.2783
         isBtagJets = (goodJets.btagDeepB > btagwp)
         isNotBtagJets = np.invert(isBtagJets)
         nbtags = ak.num(goodJets[isBtagJets])
