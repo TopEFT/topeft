@@ -53,6 +53,11 @@ class HistoReader():
         self.charge = list({k[3]:0 for k in self.hists['njets'].values().keys()})
         self.nbjets = list({k[4]:0 for k in self.hists['njets'].values().keys()})
         self.syst = list({k[5]:0 for k in self.hists['njets'].values().keys()})
+        self.hsow = self.hists['SumOfEFTweights']
+        self.hsow = self.hsow.sum('sample')
+        self.hsow.set_wilson_coefficients(np.zeros(self.hsow._nwc))
+        self.smsow = self.hsow.values()[()][0]
+        self.lumi = 1000*59.7
 
     def relish(self):
         '''
@@ -67,7 +72,7 @@ class HistoReader():
         #Integrate out channels
         print('.', end='', flush=True)
         plots = [[self.hists[var].integrate('channel', chan).integrate('cut', 'base') for chan in self.channels.values()] for var in self.var]
-        [[h.scale(1e13) for h in plot] for plot in plots] #Hack for small test samples
+        [[h.scale(self.lumi/self.smsow) for h in plot] for plot in plots] #Hack for small test samples
         for nbjet in self.nbjets:
             print('.', end='', flush=True)
             for syst in self.syst:
@@ -96,30 +101,30 @@ class HistoReader():
                                 pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
                                 if var == 'njets': h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7,8]))
                                 #Save the SM plot
-                                h_sm = h.copy()
+                                h_sm = h#.copy()
                                 h_sm.set_wilson_coefficients(np.zeros(h._nwc))
                                 fout[pname+'sm'] = hist.export1d(h_sm)
                                 #Asimov data: data_obs = MC at SM (all WCs = 0)
                                 fout['data_obs'] = hist.export1d(h_sm)
                                 
-                                h_lin = h.copy(); h_quad = []; h_mix = []
+                                h_lin = h; h_quad = []; h_mix = []
                                 yields = []
                                 for wc,name,wcpt in wcs:
                                     #Scale plot to the WCPoint
                                     w = wcpt.buildMatrix(self.coeffs)
                                     #Handle linear and quadratic terms
                                     if 'lin' in name:
-                                        h_lin = h.copy()
+                                        h_lin = h#.copy()
                                         h_lin.set_wilson_coefficients(w)
                                         if np.sum(h_lin.values()[()]) > self.tolerance:
                                             fout[pname+name] = hist.export1d(h_lin)
                                     elif 'quad' in name and 'mix' not in name:
-                                        h_quad = h.copy()
+                                        h_quad = h#.copy()
                                         h_quad.set_wilson_coefficients(w)
                                         if np.sum(h_quad.values()[()]) > self.tolerance:
                                             fout[pname+name] = hist.export1d(h_quad)
                                     else:
-                                        h_mix = h.copy()
+                                        h_mix = h#.copy()
                                         h_mix.set_wilson_coefficients(w)
                                         if np.sum(h_mix.values()[()]) > self.tolerance:
                                             fout[pname+name] = hist.export1d(h_mix)
