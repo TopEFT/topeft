@@ -120,7 +120,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         twoMuon   = (nMuon == 2)
         e0 = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
         m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
-        
+
         # Jet selection
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
         
@@ -173,7 +173,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isData:
           pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
           bJetSF   = GetBTagSF(abseta, pt, flav)
-          print(bJetSF)
           bJetSFUp = GetBTagSF(abseta, pt, flav, sys=1)
           bJetSFDo = GetBTagSF(abseta, pt, flav, sys=-1)
           bJetEff  = GetBtagEff(abseta, pt, flav, year)
@@ -357,7 +356,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # 4lep cat
         is4lmask = ((nElec+nMuon)>=4)
-        is5lmask = ((nElec+nMuon)>=5)
         muon_4l = mu[(is4lmask)&(mu.pt>-1)]
         elec_4l =  e[(is4lmask)&( e.pt>-1)]
         # selecting 4 leading leptons
@@ -465,7 +463,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add('mmmSSoffZ',  (mmmOffZmask)&(trig_mmm))
         
         channels4L =['eeee','eeem','eemm','mmme','mmmm']
-        #selections.add('5l', (is5lmask)&(trig_4l))
         selections.add('eeee',((nElec4l==4)&(nMuon4l==0))&(trig_4l))
         selections.add('eeem',((nElec4l==3)&(nMuon4l==1))&(trig_4l))
         selections.add('eemm',((nElec4l==2)&(nMuon4l==2))&(trig_4l))
@@ -548,7 +545,6 @@ class AnalysisProcessor(processor.ProcessorABC):
              #in the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
              if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
               weightSyst = None # no weight systematic for these variations
-             #if ch=='5l': weightSyst=None
              if syst=='noweight':
                 weight = np.ones(len(events)) # for data
              else:
@@ -556,7 +552,6 @@ class AnalysisProcessor(processor.ProcessorABC):
               if ch in channels3L: ch_w= ch[:3]
               elif ch in channels2LSS: ch_w =ch[:2]
               else: ch_w=ch
-              #weight = weights['all'].weight(weightSyst) if isData else weights[ ch[:3] if (ch.startswith('eee') or ch.startswith('mmm') or ch.startswith('eem') or ch.startswith('mme')) else ch[:2]].weight(weightSyst)
               weight = weights['all'].weight(weightSyst) if isData else weights[ch_w].weight(weightSyst)
              cuts = [ch] + [lev] + [sumcharge]
              cut = selections.all(*cuts)
