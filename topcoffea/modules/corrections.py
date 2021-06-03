@@ -185,8 +185,8 @@ def GetMCeffFunc(WP='medium', flav='b', year=2018):
 # Efficiencies and SFs for UL only available for 2017 and 2018
 extBtagSF = lookup_tools.extractor()
 extBtagSF.add_weight_sets(["BTag_2016 * %s"%topcoffea_path("data/btagSF/DeepFlav_2016.csv")])
-extBtagSF.add_weight_sets(["BTag_2017 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL17_v2.csv")])#DeepFlav_2017.csv")])
-extBtagSF.add_weight_sets(["BTag_2018 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL18_V2.csv")])#DeepFlav_2018.csv")])
+extBtagSF.add_weight_sets(["BTag_2017 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL17.csv")])#DeepFlav_2017.csv")])
+extBtagSF.add_weight_sets(["BTag_2018 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL18.csv")])#DeepFlav_2018.csv")])
 extBtagSF.finalize()
 SFevaluatorBtag = extBtagSF.make_evaluator()
 
