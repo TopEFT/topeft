@@ -16,7 +16,8 @@ from coffea.analysis_tools import PackedSelection
 from topcoffea.modules.objects import *
 from topcoffea.modules.corrections import SFevaluator, GetLeptonSF, GetBTagSF, jet_factory, GetBtagEff
 from topcoffea.modules.selection import *
-from topcoffea.modules.HistEFT import HistEFT, EFTHelper
+from topcoffea.modules.HistEFT import HistEFT
+import topcoffea.modules.eft_helper as efth
 
 #coffea.deprecations_as_errors = True
 
@@ -50,7 +51,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         'njetsnbtags' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)), 
         })
 
-        self._eft_helper = EFTHelper(wc_names_lst)
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
         
@@ -442,7 +442,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
         eft_coeffs = ak.to_numpy(events['EFTfitCoefficients']) if hasattr(events, "EFTfitCoefficients") else None
-        eft_w2_coeffs = self._eft_helper.calc_w2_coeffs(eft_coeffs) if (self._do_errors and eft_coeffs is not None) else None
+        eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs) if (self._do_errors and eft_coeffs is not None) else None
 
         # Selections and cuts
         selections = PackedSelection()
