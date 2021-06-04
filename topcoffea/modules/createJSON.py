@@ -32,7 +32,7 @@
 
     3)
     MC:
-    >> python createJSON.py [DAS_dataset] --DAS --sampleName TTTo2L2Nu --xsec topcoffea/cfg/xsec.cfg
+    >> python createJSON.py [DAS_dataset] --DAS --sampleName TTTo2L2Nu --xsec topcoffea/cfg/xsec.cfg --prefix root://your.favorite.redirector/
     Data:
     >> python createJSON.py [DAS_dataset] --DAS --sampleName DoubleMuon_2017 --isData --year 2017
 
@@ -113,7 +113,7 @@ def main():
   # 3) Search files in DAS dataset
   else:
     dataset = path
-    dicfiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector=prefix)
+    dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector=prefix)
     files = [f[len(prefix):] for f in dicFiles['files']]
     filesWithPrefix = dicFiles['files']
 
