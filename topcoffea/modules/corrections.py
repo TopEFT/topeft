@@ -14,7 +14,6 @@ import gzip
 import pickle
 from coffea.jetmet_tools import FactorizedJetCorrector, JetCorrectionUncertainty
 from coffea.jetmet_tools import JECStack, CorrectedJetsFactory
-
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 
 basepathFromTTH = 'data/fromTTH/lepSF/'
