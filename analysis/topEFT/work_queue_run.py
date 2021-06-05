@@ -21,7 +21,8 @@ import topeftenv
 
 import argparse
 parser = argparse.ArgumentParser(description='You can customize your run')
-parser.add_argument('cfgfile'          , nargs='?', default=''           , help = 'Config file with dataset names')
+parser.add_argument('jsonFiles'           , nargs='?', default=''           , help = 'Json file(s) containing files and metadata')
+parser.add_argument('--prefix', '-r'     , nargs='?', default=''           , help = 'Prefix or redirector to look for the files')
 parser.add_argument('--test','-t'      , action='store_true'  , help = 'To perform a test, run over a few events in a couple of chunks')
 parser.add_argument('--nworkers','-n'  , default=8  , help = 'Number of workers')
 parser.add_argument('--chunksize','-s' , default=100000  , help = 'Number of events per chunk')
@@ -32,7 +33,8 @@ parser.add_argument('--treename'       , default='Events', help = 'Name of the t
 parser.add_argument('--do-errors'      , action='store_true', help = 'Save the w**2 coefficients')
 
 args = parser.parse_args()
-cfgfile    = args.cfgfile
+jsonFiles  = args.jsonFiles
+prefix     = args.prefix
 dotest     = args.test
 nworkers   = int(args.nworkers)
 chunksize  = int(args.chunksize)
@@ -48,23 +50,69 @@ if dotest:
   nworkers = 1
   print('Running a fast test with %i workers, %i chunks of %i events'%(nworkers, nchunks, chunksize))
 
-### Load samples                                                                                                                                                                                           
-if cfgfile != '':
-  samplesdict = samples.main()
-elif os.path.isfile('.samples.coffea'):
-  print('Using samples form .samples.coffea')
-  samplesdict = load('.samples.coffea')
-else:
-  print('Execute as [path]/run.py [path]/samples.cfg')
-  exit()
-  
-flist = {}; xsec = {}; sow = {}; isData = {}
-for k in samplesdict.keys():
-  samplesdict[k]['WCnames'] = fileReader.GetListOfWCs(samplesdict[k]['files'][0])
-  flist[k] = samplesdict[k]['files']
-  xsec[k]  = samplesdict[k]['xsec']
-  sow[k]   = samplesdict[k]['nSumOfWeights']
-  isData[k]= samplesdict[k]['isData']
+### Load samples from json
+samplesdict = {}
+allJsonFiles = []
+allInputFiles = []
+if   isinstance(jsonFiles, str) and ',' in jsonFiles: jsonFiles = jsonFiles.replace(' ', '').split(',')
+elif isinstance(jsonFiles, str)                     : jsonFiles = [jsonFiles]
+for jsonFile in jsonFiles:
+  if os.path.isdir(jsonFile):
+    if not jsonFile.endswith('/'): jsonFile+='/'
+    for f in os.path.listdir(jsonFile):
+      if f.endswith('.json'): allInputFiles.append(jsonFile+f)
+  else:
+    allInputFiles.append(jsonFile)
+
+# Read from cfg files
+for f in allInputFiles:
+  if not os.path.isfile(f):
+    print('[WARNING] Input file "%s% not found!'%f)
+    continue
+  if f.endswith('.json'): 
+    allJsonFiles.append(f)
+  else:
+    with open(f) as fin:
+      print(' >> Reading json from cfg file...')
+      lines = fin.readlines()
+      for l in lines:
+        if '#' in l: l=l[:l.find('#')]
+        l = l.replace(' ', '').replace('\n', '')
+        if l == '': continue
+        if ',' in l:
+          l = l.split(',')
+          for nl in l:
+            allJsonFiles.append(l)
+        else:
+          allJsonFiles.append(l)
+
+for jsonFile in allJsonFiles:
+  sampleName = jsonFile if not '/' in jsonFile else jsonFile[jsonFile.rfind('/')+1:]
+  if sampleName.endswith('.json'): sampleName = jsonFile[:-5]
+  with open(jsonFile) as jf:
+    samplesdict[sampleName] = json.load(jf)
+
+flist = {};
+for sname in samplesdict.keys():
+  flist[sname] = [(prefix+f) for f in samplesdict[sname]['files']]
+  samplesdict[sname]['year'] = int(samplesdict[sname]['year'])
+  samplesdict[sname]['xsec'] = float(samplesdict[sname]['xsec'])
+  samplesdict[sname]['nEvents'] = int(samplesdict[sname]['nEvents'])
+  samplesdict[sname]['nGenEvents'] = int(samplesdict[sname]['nGenEvents'])
+  samplesdict[sname]['nSumOfWeights'] = float(samplesdict[sname]['nSumOfWeights'])
+
+  # Print file info
+  print('>> '+sname)
+  print('   - isData?    : %s'   %('YES' if samplesdict[sname]['isData'] else 'NO'))
+  print('   - year       : %i'   %samplesdict[sname]['year'])
+  print('   - xsec       : %f'   %samplesdict[sname]['xsec'])
+  print('   - options    : %s'   %samplesdict[sname]['options'])
+  print('   - tree       : %s'   %samplesdict[sname]['treeName'])
+  print('   - nEvents    : %i'   %samplesdict[sname]['nEvents'])
+  print('   - nGenEvents : %i'   %samplesdict[sname]['nGenEvents'])
+  print('   - SumWeights : %i'   %samplesdict[sname]['nSumOfWeights'])
+  print('   - nFiles     : %i'   %len(samplesdict[sname]['files']))
+  for fname in samplesdict[sname]['files']: print('     %s'%fname)
 
 # Check that all datasets have the same list of WCs
 for i,k in enumerate(samplesdict.keys()):
@@ -89,16 +137,14 @@ executor_args = {#'flatten': True, #used for all executors
                  'environment-file': topeftenv.get_environment(),
                  'master-name': '{}-workqueue-coffea'.format(os.environ['USER']),
                  'print-stdout': True,
-                 'skipbadfiles': True,
+                 'skipbadfiles': False,
                  'schema': NanoAODSchema,
-                 #'extra-input-files': ["topeft.py"]
-                 'extra-input-files': ["topeft.py", os.path.join('/tmp', "x509up_u{}".format(os.getuid())) ] # Fix from Ben for accessing files on hadoop
+                 'extra-input-files': ["topeft.py"]
 }
 
 # Run the processor and get the output                                                                                                                                                                     
 tstart = time.time()
 output = processor.run_uproot_job(flist, treename=treename, processor_instance=processor_instance, executor=processor.work_queue_executor, executor_args=executor_args, chunksize=chunksize, maxchunks=nchunks)
-#output = processor.run_uproot_job(flist, treename=treename, processor_instance=processor_instance, executor=processor.work_queue_executor, executor_args=executor_args, chunksize=chunksize, maxchunks=nchunks, extra-input-files=["topeft.py"])
 dt = time.time() - tstart
 
 nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
