@@ -2,6 +2,7 @@
   "xsec": 0.2151,
   "year": "2018",
   "treeName": "Events",
+  "histAxisName": "ttHJet_privateUL18",
   "options": "",
   "WCnames": [
     "cpt",
