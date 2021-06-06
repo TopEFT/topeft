@@ -47,10 +47,10 @@ from topcoffea.modules.DASsearch import GetDatasetFromDAS
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.fileReader import GetFiles, GetAllInfoFromFile, GetListOfWCs
 from topcoffea.modules.samples import loadxsecdic
-basepath = topcoffea_path("") # Just want path to topcoffea/topcoffea, not any particular file within it, so just pass "" to the function
+import argparse
+import json
 
 def main():
-  import argparse
   parser = argparse.ArgumentParser(description='Create json file with list of samples and metadata')
   parser.add_argument('path'              , default=''           , help = 'Path to directory or DAS dataset')
   parser.add_argument('--prefix','-p'     , default=''           , help = 'Prefix to add to the path (e.g. redirector)')
@@ -59,6 +59,7 @@ def main():
   parser.add_argument('--xsecName'        , default=''           , help = 'Name in cross section .cfg (only if different from sampleName)')
   parser.add_argument('--year','-y'       , default=-1           , help = 'Year')
   parser.add_argument('--treename'        , default='Events'     , help = 'Name of the tree')
+  parser.add_argument('--histAxisName'    , default=''           , help = 'Name for the samples axis of the coffea hist')
 
   parser.add_argument('--DAS'             , action='store_true'  , help = 'Search files from DAS dataset')
   parser.add_argument('--nFiles'          , default=None         , help = 'Number of max files (for the moment, only applies for DAS)')
@@ -69,18 +70,19 @@ def main():
 
   args, unknown = parser.parse_known_args()
   #cfgfile     = args.cfgfile
-  path        = args.path
-  prefix      = args.prefix
-  sample      = args.sampleName
-  xsec        = args.xsec
-  xsecName    = args.xsecName
-  year        = args.year
-  options     = args.options
-  treeName    = args.treename
-  outname     = args.outname
-  isDAS       = args.DAS
-  nFiles      = int(args.nFiles) if not args.nFiles is None else None
-  verbose     = args.verbose
+  path         = args.path
+  prefix       = args.prefix
+  sample       = args.sampleName
+  xsec         = args.xsec
+  xsecName     = args.xsecName
+  year         = args.year
+  options      = args.options
+  treeName     = args.treename
+  histAxisName = args.histAxisName
+  outname      = args.outname
+  isDAS        = args.DAS
+  nFiles       = int(args.nFiles) if not args.nFiles is None else None
+  verbose      = args.verbose
 
   # Get the xsec for the dataset
   if xsecName == '': xsecName = sample
@@ -95,10 +97,11 @@ def main():
       xsec = 1
 
   sampdic = {}
-  sampdic['xsec']       = xsec
-  sampdic['year']       = year
-  sampdic['treeName']   = treeName
-  sampdic['options']    = options
+  sampdic['xsec']         = xsec
+  sampdic['year']         = year
+  sampdic['treeName']     = treeName
+  sampdic['histAxisName'] = histAxisName
+  sampdic['options']      = options
 
   # 1) Search files with name 'sample' or 'sample1, sample2...' in path
   if not isDAS:
@@ -126,7 +129,6 @@ def main():
   sampdic['nSumOfWeights'] = nSumOfWeights
   sampdic['isData']        = isData
 
-  import json
   if outname == '':
     outname = sample
     if   isinstance(outname, list): outname = outname[0]

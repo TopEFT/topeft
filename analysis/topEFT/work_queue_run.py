@@ -103,15 +103,16 @@ for sname in samplesdict.keys():
 
   # Print file info
   print('>> '+sname)
-  print('   - isData?    : %s'   %('YES' if samplesdict[sname]['isData'] else 'NO'))
-  print('   - year       : %i'   %samplesdict[sname]['year'])
-  print('   - xsec       : %f'   %samplesdict[sname]['xsec'])
-  print('   - options    : %s'   %samplesdict[sname]['options'])
-  print('   - tree       : %s'   %samplesdict[sname]['treeName'])
-  print('   - nEvents    : %i'   %samplesdict[sname]['nEvents'])
-  print('   - nGenEvents : %i'   %samplesdict[sname]['nGenEvents'])
-  print('   - SumWeights : %i'   %samplesdict[sname]['nSumOfWeights'])
-  print('   - nFiles     : %i'   %len(samplesdict[sname]['files']))
+  print('   - isData?      : %s'   %('YES' if samplesdict[sname]['isData'] else 'NO'))
+  print('   - year         : %i'   %samplesdict[sname]['year'])
+  print('   - xsec         : %f'   %samplesdict[sname]['xsec'])
+  print('   - histAxisName : %s'   %samplesdict[sname]['histAxisName'])
+  print('   - options      : %s'   %samplesdict[sname]['options'])
+  print('   - tree         : %s'   %samplesdict[sname]['treeName'])
+  print('   - nEvents      : %i'   %samplesdict[sname]['nEvents'])
+  print('   - nGenEvents   : %i'   %samplesdict[sname]['nGenEvents'])
+  print('   - SumWeights   : %i'   %samplesdict[sname]['nSumOfWeights'])
+  print('   - nFiles       : %i'   %len(samplesdict[sname]['files']))
   for fname in samplesdict[sname]['files']: print('     %s'%fname)
 
 # Check that all datasets have the same list of WCs
