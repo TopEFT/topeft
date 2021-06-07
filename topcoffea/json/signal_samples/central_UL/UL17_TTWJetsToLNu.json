@@ -1,7 +1,8 @@
 {
   "xsec": 0.2043,
-  "year": -1,
+  "year": "2017",
   "treeName": "Events",
+  "histAxisName": "ttW_centralUL17",
   "options": "",
   "WCnames": [],
   "files": [
