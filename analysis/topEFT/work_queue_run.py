@@ -89,10 +89,9 @@ executor_args = {#'flatten': True, #used for all executors
                  'environment-file': topeftenv.get_environment(),
                  'master-name': '{}-workqueue-coffea'.format(os.environ['USER']),
                  'print-stdout': True,
-                 'skipbadfiles': True,
+                 'skipbadfiles': False,
                  'schema': NanoAODSchema,
-                 #'extra-input-files': ["topeft.py"]
-                 'extra-input-files': ["topeft.py", os.path.join('/tmp', "x509up_u{}".format(os.getuid())) ] # Fix from Ben for accessing files on hadoop
+                 'extra-input-files': ["topeft.py"]
 }
 
 # Run the processor and get the output                                                                                                                                                                     
