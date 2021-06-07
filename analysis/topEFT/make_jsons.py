@@ -327,11 +327,12 @@ def main():
 
     out_dir_private_UL = os.path.join(topcoffea_path("json"),"signal_samples/private_UL/")
     out_dir_central_UL = os.path.join(topcoffea_path("json"),"signal_samples/central_UL/")
+    out_dir_central_2017 = os.path.join(topcoffea_path("json"),"signal_samples/central_2017/")
 
     #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL18_dict,"/hadoop","2018",out_dir_private_UL)
 
     make_jsons_for_dict_of_samples(central_UL17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
-    make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
+    make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
 
 main()
