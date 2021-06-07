@@ -26,6 +26,7 @@ from topcoffea.modules.HistEFT import HistEFT, EFTHelper
 class AnalysisProcessor(processor.ProcessorABC):
     def __init__(self, samples, wc_names_lst=[], do_errors=False):
         self._samples = samples
+        self._wc_names_lst = wc_names_lst
 
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
@@ -161,7 +162,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
         #nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
-        btagwp = 0.4941
+        if year == 2017: btagwp = 0.3040 #WP medium
+        else: btagwp = 0.2783 #WP medium
         isBtagJets = (goodJets.btagDeepB > btagwp)
         isNotBtagJets = np.invert(isBtagJets)
         nbtags = ak.num(goodJets[isBtagJets])
@@ -202,10 +204,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         emSS = em[emSSmask]
         nemSS = len(ak.flatten(emSS))
  
-        lepSF_emSS      = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year)
-        lepSF_emSS_up   = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year, sys=1)
-        lepSF_emSS_down = GetLeptonSF(mu.pt, mu.eta, 'm', e.pt, e.eta, 'e', year=year, sys=-1)
-        
+        year = 2018
+        lepSF_emSS      = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year)
+        lepSF_emSS_up   = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year, sys=1)
+        lepSF_emSS_down = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year, sys=-1)
         # ee and mumu
         # pt>-1 to preserve jagged dimensions
         ee = e [(nElec==2)&(nMuon==0)&(e.pt>-1)]
@@ -266,9 +268,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         eepair_eem  = (ee_eem.e0+ee_eem.e1)
         trilep_eem = eepair_eem+muon_eem #ak.cartesian({"e0":ee_eem.e0,"e1":ee_eem.e1, "m":muon_eem})
 
-        lepSF_eem = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', mu.pt, mu.eta, 'm', year)
-        lepSF_eem_up = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', mu.pt, mu.eta, 'm', year, sys=1)
-        lepSF_eem_down = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', mu.pt, mu.eta, 'm', year, sys=-1)
+        lepSF_eem = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', muon_eem.pt, muon_eem.eta, 'm', year)
+        lepSF_eem_up = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', muon_eem.pt, muon_eem.eta, 'm', year, sys=1)
+        lepSF_eem_down = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', muon_eem.pt, muon_eem.eta, 'm', year, sys=-1)
 
         # mme
         muon_mme = mu[(nElec==1)&(nMuon==2)&(mu.pt>-1)]
@@ -288,9 +290,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         m3l_eem = trilep_eem.mass
         m3l_mme = trilep_mme.mass
         
-        lepSF_mme = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', e.pt, e.eta, 'e', year)
-        lepSF_mme_up = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', e.pt, e.eta, 'e', year, sys=1)
-        lepSF_mme_down = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', e.pt, e.eta, 'e', year, sys=-1)
+        lepSF_mme = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', elec_mme.pt, elec_mme.eta, 'e', year)
+        lepSF_mme_up = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', elec_mme.pt, elec_mme.eta, 'e', year, sys=1)
+        lepSF_mme_down = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', elec_mme.pt, elec_mme.eta, 'e', year, sys=-1)
 
         # eee and mmm
         eee =   e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
@@ -358,6 +360,48 @@ class AnalysisProcessor(processor.ProcessorABC):
         is4lmask = ((nElec+nMuon)>=4)
         muon_4l = mu[(is4lmask)&(mu.pt>-1)]
         elec_4l =  e[(is4lmask)&( e.pt>-1)]
+        # selecting 4 leading leptons
+        leptons=ak.concatenate([e,mu], axis=-1)
+        leptons_sorted=leptons[ak.argsort(leptons.pt, axis=-1,ascending=False)]
+        lep4l=leptons_sorted[:,0:4]
+        e4l=lep4l[abs(lep4l.pdgId)==11]
+        mu4l=lep4l[abs(lep4l.pdgId)==13]
+        nElec4l=ak.num(e4l)
+        nMuon4l=ak.num(mu4l)
+       
+        #eemm
+        muon_eemm = mu4l[(nElec4l==2)&(nMuon4l==2)&(mu4l.pt>-1)]
+        elec_eemm =  e4l[(nElec4l==2)&(nMuon4l==2)&( e4l.pt>-1)]
+        ee_eemm = ak.combinations(elec_eemm, 2, fields=["e0", "e1"])
+        mm_eemm = ak.combinations(muon_eemm, 2, fields=["m0", "m1"])
+        lepSF_eemm = GetLeptonSF(ee_eemm.e0.pt, ee_eemm.e0.eta, 'e', ee_eemm.e1.pt, ee_eemm.e1.eta, 'e', mm_eemm.m0.pt, mm_eemm.m0.eta, 'm',mm_eemm.m1.pt, mm_eemm.m1.eta, 'm', year)
+        lepSF_eemm_up = GetLeptonSF(ee_eemm.e0.pt, ee_eemm.e0.eta, 'e', ee_eemm.e1.pt, ee_eemm.e1.eta, 'e', mm_eemm.m0.pt, mm_eemm.m0.eta, 'm',mm_eemm.m1.pt, mm_eemm.m1.eta, 'm', year, sys=1)
+        lepSF_eemm_down = GetLeptonSF(ee_eemm.e0.pt, ee_eemm.e0.eta, 'e', ee_eemm.e1.pt, ee_eemm.e1.eta, 'e', mm_eemm.m0.pt, mm_eemm.m0.eta, 'm',mm_eemm.m1.pt, mm_eemm.m1.eta, 'm', year, sys=-1)
+        #eeem
+        muon_eeem = mu4l[(nElec4l==3)&(nMuon4l==1)&(mu4l.pt>-1)]
+        elec_eeem =  e4l[(nElec4l==3)&(nMuon4l==1)&( e4l.pt>-1)]
+        eee_eeem = ak.combinations(elec_eeem, 3, fields=["e0", "e1", "e2"])
+        lepSF_eeem = GetLeptonSF(eee_eeem.e0.pt, eee_eeem.e0.eta, 'e', eee_eeem.e1.pt, eee_eeem.e1.eta, 'e', eee_eeem.e2.pt, eee_eeem.e2.eta, 'e',muon_eeem.pt, muon_eeem.eta, 'm', year)
+        lepSF_eeem_up = GetLeptonSF(eee_eeem.e0.pt, eee_eeem.e0.eta, 'e', eee_eeem.e1.pt, eee_eeem.e1.eta, 'e', eee_eeem.e2.pt, eee_eeem.e2.eta, 'e',muon_eeem.pt, muon_eeem.eta, 'm', year, sys=1)
+        lepSF_eeem_down = GetLeptonSF(eee_eeem.e0.pt, eee_eeem.e0.eta, 'e', eee_eeem.e1.pt, eee_eeem.e1.eta, 'e', eee_eeem.e2.pt, eee_eeem.e2.eta, 'e',muon_eeem.pt, muon_eeem.eta, 'm', year, sys=-1)
+        #mmme
+        muon_mmme = mu4l[(nElec4l==1)&(nMuon4l==3)&(mu4l.pt>-1)]
+        elec_mmme =  e4l[(nElec4l==1)&(nMuon4l==3)&( e4l.pt>-1)]
+        mmm_mmme = ak.combinations(muon_eeem, 3, fields=["m0", "m1", "m2"])
+        lepSF_mmme = GetLeptonSF(mmm_mmme.m0.pt, mmm_mmme.m0.eta, 'm', mmm_mmme.m1.pt, mmm_mmme.m1.eta, 'm', mmm_mmme.m2.pt, mmm_mmme.m2.eta, 'm',elec_mmme.pt, elec_mmme.eta, 'e', year)
+        lepSF_mmme_up = GetLeptonSF(mmm_mmme.m0.pt, mmm_mmme.m0.eta, 'm', mmm_mmme.m1.pt, mmm_mmme.m1.eta, 'm', mmm_mmme.m2.pt, mmm_mmme.m2.eta, 'm',elec_mmme.pt, elec_mmme.eta, 'e', year, sys=1)
+        lepSF_mmme_down = GetLeptonSF(mmm_mmme.m0.pt, mmm_mmme.m0.eta, 'm', mmm_mmme.m1.pt, mmm_mmme.m1.eta, 'm', mmm_mmme.m2.pt, mmm_mmme.m2.eta, 'm',elec_mmme.pt, elec_mmme.eta, 'e', year, sys=-1)
+        #mmmm and eeee
+        muon_mmmm = mu4l[(nElec4l==0)&(nMuon4l==4)&(mu4l.pt>-1)]
+        elec_eeee =  e4l[(nElec4l==4)&(nMuon4l==0)&( e4l.pt>-1)]
+        eeee = ak.combinations(elec_eeee, 4, fields=["e0", "e1", "e2","e3"])
+        mmmm = ak.combinations(muon_mmmm, 4, fields=["m0", "m1", "m2","m3"])
+        lepSF_mmmm = GetLeptonSF(mmmm.m0.pt, mmmm.m0.eta, 'm', mmmm.m1.pt, mmmm.m1.eta, 'm', mmmm.m2.pt, mmmm.m2.eta, 'm', mmmm.m3.pt, mmmm.m3.eta, 'm', year)
+        lepSF_mmmm_up = GetLeptonSF(mmmm.m0.pt, mmmm.m0.eta, 'm', mmmm.m1.pt, mmmm.m1.eta, 'm', mmmm.m2.pt, mmmm.m2.eta, 'm', mmmm.m3.pt, mmmm.m3.eta, 'm', year, sys=1)
+        lepSF_mmmm_down = GetLeptonSF(mmmm.m0.pt, mmmm.m0.eta, 'm', mmmm.m1.pt, mmmm.m1.eta, 'm', mmmm.m2.pt, mmmm.m2.eta, 'm', mmmm.m3.pt, mmmm.m3.eta, 'm', year, sys=-1)
+        lepSF_eeee = GetLeptonSF(eeee.e0.pt, eeee.e0.eta, 'e', eeee.e1.pt, eeee.e1.eta, 'e', eeee.e2.pt, eeee.e2.eta, 'e', eeee.e3.pt, eeee.e3.eta, 'e', year)
+        lepSF_eeee_up = GetLeptonSF(eeee.e0.pt, eeee.e0.eta, 'e', eeee.e1.pt, eeee.e1.eta, 'e', eeee.e2.pt, eeee.e2.eta, 'e', eeee.e3.pt, eeee.e3.eta, 'e', year, sys=1)
+        lepSF_eeee_down = GetLeptonSF(eeee.e0.pt, eeee.e0.eta, 'e', eeee.e1.pt, eeee.e1.eta, 'e', eeee.e2.pt, eeee.e2.eta, 'e', eeee.e3.pt, eeee.e3.eta, 'e', year, sys=-1)
 
         # Triggers
         trig_eeSS = passTrigger(events,'ee',isData,dataset)
@@ -372,11 +416,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # MET filters
 
         # Weights
-        genw = np.ones_like(events['MET_pt']) if isData else events['genWeight']
+        genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
 
         ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights = {}
-        for r in ['all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme', '4l']:
+        for r in ['all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme', 'eeee','eeem','eemm','mmme','mmmm']:
           weights[r] = coffea.analysis_tools.Weights(len(events))
           weights[r].add('norm',genw if isData else (xsec/sow)*genw)
           weights[r].add('btagSF', btagSF, btagSFUp, btagSFDo)
@@ -388,6 +432,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         weights['mmm'].add('lepSF', lepSF_mmm, lepSF_mmm_up, lepSF_mmm_down)
         weights['mme'].add('lepSF', lepSF_mme, lepSF_mme_up, lepSF_mme_down)
         weights['eem'].add('lepSF', lepSF_eem, lepSF_eem_up, lepSF_eem_down)
+        weights['eeee'].add('lepSF', lepSF_eeee, lepSF_eeee_up, lepSF_eeee_down)
+        weights['mmmm'].add('lepSF', lepSF_mmmm, lepSF_mmmm_up, lepSF_mmmm_down)
+        weights['mmme'].add('lepSF', lepSF_mmme, lepSF_mmme_up, lepSF_mmme_down)
+        weights['eeem'].add('lepSF', lepSF_eeem, lepSF_eeem_up, lepSF_eeem_down)
+        weights['eemm'].add('lepSF', lepSF_eemm, lepSF_eemm_up, lepSF_eemm_down)
         
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
@@ -414,8 +463,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add('eeeSSoffZ',  (eeeOffZmask)&(trig_eee))
         selections.add('mmmSSonZ',   (mmmOnZmask)&(trig_mmm))
         selections.add('mmmSSoffZ',  (mmmOffZmask)&(trig_mmm))
-
-        selections.add('4l', (is4lmask)&(trig_4l))
+        
+        channels4L =['eeee','eeem','eemm','mmme','mmmm']
+        selections.add('eeee',((nElec4l==4)&(nMuon4l==0))&(trig_4l))
+        selections.add('eeem',((nElec4l==3)&(nMuon4l==1))&(trig_4l))
+        selections.add('eemm',((nElec4l==2)&(nMuon4l==2))&(trig_4l))
+        selections.add('mmme',((nElec4l==1)&(nMuon4l==3))&(trig_4l))
+        selections.add('mmmm',((nElec4l==0)&(nMuon4l==4))&(trig_4l))
+        
         selections.add('ch+', (sumcharge>0))
         selections.add('ch-', (sumcharge<0))
 
@@ -484,7 +539,7 @@ class AnalysisProcessor(processor.ProcessorABC):
     
         for syst in systList:
          for var, v in varnames.items():
-          for ch in channels2LSS+channels3L+['4l']:
+          for ch in channels2LSS+channels3L+channels4L:
            for sumcharge in ['ch+', 'ch-']:
             for lev in levels:
              #find the event weight to be used when filling the histograms    
@@ -492,13 +547,14 @@ class AnalysisProcessor(processor.ProcessorABC):
              #in the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
              if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
               weightSyst = None # no weight systematic for these variations
-             if ch=='4l': 
-               weightSyst = None # Lepton SF for 4l to be added
              if syst=='noweight':
                 weight = np.ones(len(events)) # for data
              else:
               # call weights.weight() with the name of the systematic to be varied
-              weight = weights['all'].weight(weightSyst) if isData else weights[ ch[:3] if (ch.startswith('eee') or ch.startswith('mmm') or ch.startswith('eem') or ch.startswith('mme')) else ch[:2]].weight(weightSyst)
+              if ch in channels3L: ch_w= ch[:3]
+              elif ch in channels2LSS: ch_w =ch[:2]
+              else: ch_w=ch
+              weight = weights['all'].weight(weightSyst) if isData else weights[ch_w].weight(weightSyst)
              cuts = [ch] + [lev] + [sumcharge]
              cut = selections.all(*cuts)
              weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
@@ -508,11 +564,11 @@ class AnalysisProcessor(processor.ProcessorABC):
              
              # filling histos
              if var == 'invmass':
-              if   ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ', '4l']: continue
+              if   ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ'] or channels4L: continue
               else                                 : values = ak.flatten(v[ch][cut])
               hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, invmass=values, weight=weights_flat, systematic=syst)
              elif var == 'm3l': 
-              if ch in ['eeSSonZ','eeSSoffZ', 'mmSSonZ', 'mmSSoffZ','emSS', 'eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ', '4l']: continue
+              if ch in channels2LSS or ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ'] or channels4L: continue
               values = ak.flatten(v[ch][cut])
               hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, m3l=values, weight=weights_flat, systematic=syst)
              else:
@@ -530,22 +586,22 @@ class AnalysisProcessor(processor.ProcessorABC):
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'e0pt'  : 
-                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', '4l']: continue
+                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ','mmmm']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst) # Crashing here, not sure why. Related to values?
               elif var == 'm0pt'  : 
-                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', '4l']: continue
+                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'e0eta' : 
-                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', '4l']: continue
+                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmmm']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'm0eta':
-                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', '4l']: continue
+                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
