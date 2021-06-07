@@ -2,6 +2,7 @@
   "xsec": 1,
   "year": "2017",
   "treeName": "Events",
+  "histAxisName": "ttllJet_TOP19001",
   "options": "",
   "WCnames": [
     "ctW",
