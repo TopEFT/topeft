@@ -128,7 +128,7 @@ def n_quartic_terms(n_wc):
 
 
 @numba.njit
-def calc_w2_coeffs(q_coeffs):
+def calc_w2_coeffs(q_coeffs, dtype=np.float64):
     """Calculate the quartic coefficients for calculating the w**2 value (needed for histogram errors.
 
     Args: 
@@ -146,7 +146,7 @@ def calc_w2_coeffs(q_coeffs):
 
     n_quad = q_coeffs.shape[-1]
     n_wc = n_wc_from_quad(n_quad)
-    w2_coeffs = np.zeros((q_coeffs.shape[:-1])+(n_quartic_terms(n_wc),))
+    w2_coeffs = np.zeros((q_coeffs.shape[:-1])+(n_quartic_terms(n_wc),),dtype)
 
     # Storage for the factors to multiply these coefficients
     factors = np.zeros(4)
