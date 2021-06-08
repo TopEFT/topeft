@@ -172,15 +172,24 @@ class plotter:
     ''' Returns a histogram with all categories contracted '''
     if categories == None: categories = self.categories
     h = self.hists[hname]
+    sow = self.hists['SumOfEFTweights']
     for cat in categories: 
       h = h.integrate(cat, categories[cat])
+      sow = sow.integrate(cat, categories[cat])
     if isinstance(process, str) and ',' in process: process = process.split(',')
     if isinstance(process, list): 
       prdic = {}
       for pr in process: prdic[pr] = pr
       h = h.group("process", hist.Cat("process", "process"), prdic)
+      sow = sow.group("process", hist.Cat("process", "process"), prdic)
     elif isinstance(process, str): 
       h = h[process].sum("process")
+      sow = sow[process].sum("process")
+    nwc = sow._nwc
+    if nwc > 0:
+        sow.set_wilson_coefficients(np.zeros(nwc))
+        sow = np.sum(sow.values()[()])
+        h.scale(1. / sow) # Divie EFT samples by sum of weights at SM
     return h
 
   def doData(self, hname):
