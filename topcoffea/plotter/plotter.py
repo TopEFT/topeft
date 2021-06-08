@@ -175,7 +175,6 @@ class plotter:
     sow = self.hists['SumOfEFTweights']
     for cat in categories: 
       h = h.integrate(cat, categories[cat])
-      sow = sow.integrate(cat, categories[cat])
     if isinstance(process, str) and ',' in process: process = process.split(',')
     if isinstance(process, list): 
       prdic = {}
@@ -188,7 +187,7 @@ class plotter:
     nwc = sow._nwc
     if nwc > 0:
         sow.set_wilson_coefficients(np.zeros(nwc))
-        sow = np.sum(sow.values()[()])
+        sow = np.sum(list(sow.values().values()))
         h.scale(1. / sow) # Divie EFT samples by sum of weights at SM
     return h
 
