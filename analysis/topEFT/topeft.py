@@ -423,6 +423,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         weights = {}
         for r in ['all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme', 'eeee','eeem','eemm','mmme','mmmm']:
           weights[r] = coffea.analysis_tools.Weights(len(events))
+          if len(self._wc_names_lst) > 0: sow = 1. # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
           weights[r].add('norm',genw if isData else (xsec/sow)*genw)
           weights[r].add('btagSF', btagSF, btagSFUp, btagSFDo)
         
