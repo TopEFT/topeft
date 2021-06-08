@@ -27,7 +27,7 @@ if __name__ == '__main__':
   parser.add_argument('--test','-t'       , action='store_true'  , help = 'To perform a test, run over a few events in a couple of chunks')
   parser.add_argument('--pretend'        , action='store_true'  , help = 'Read json files but, not execute the analysis')
   parser.add_argument('--nworkers','-n'   , default=8  , help = 'Number of workers')
-  parser.add_argument('--chunksize','-s'   , default=500000  , help = 'Number of events per chunk')
+  parser.add_argument('--chunksize','-s'   , default=100000  , help = 'Number of events per chunk')
   parser.add_argument('--nchunks','-c'   , default=None  , help = 'You can choose to run only a number of chunks')
   parser.add_argument('--outname','-o'   , default='plotsTopEFT', help = 'Name of the output file with histograms')
   parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the output directory')
