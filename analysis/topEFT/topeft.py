@@ -538,7 +538,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # fill Histos
         hout = self.accumulator.identity()
         normweights = weights['all'].weight().flatten() # Why does it not complain about .flatten() here?
-        sowweights = ones_like(normweights) if len(self._wc_names_lst)>0 else normweights
+        sowweights = np.ones_like(normweights) if len(self._wc_names_lst)>0 else normweights
         hout['SumOfEFTweights'].fill(sample=dataset, SumOfEFTweights=varnames['counts'], weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
     
         for syst in systList:
