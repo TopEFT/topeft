@@ -1,18 +1,13 @@
 # This file is essentially a wrapper for createJSON.py:
-#   - It runs createJSON.py for each batch of the private UL samples, and moves the resulting json file to the topcoffea/json/signal_samples directory
+#   - It runs createJSON.py for each sample that you include in a dictionary, and moves the resulting json file to the directory you specify
 #   - If the private NAOD has to be remade, the version numbers should be updated in the dictionaries here, then just rerun the script to remake the jsons
 
 import subprocess
 import os
 from topcoffea.modules.paths import topcoffea_path
 
-TEST_UL17_dict = {
-    "UL17_ttHJet_b1_TEST" : {
-        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v2/nAOD_step_ttHJet_all22WCsStartPtCheckdim6TopMay20GST_run0",
-        "histAxisName" : "test_axis_name",
-        "xsecName" : "ttHnobb",
-    }
-}
+
+########### Private UL signal samples ###########
 
 private_UL17_dict = {
 
@@ -212,13 +207,73 @@ private_UL16APV_dict = {
     "UL16APV_tttt_b1"     : "",
 }
 
+
+########### TOP-19-001 samples (locally at ND on /scratch365) ###########
+
+private_2017_dict = {
+    #"2017_ttHJet" : {
+    #    "path" : "",
+    #    "histAxisName": "ttH_private2017",
+    #    "xsecName": "ttHnobb",
+    #},
+    #"2017_ttlnuJet" : {
+    #    "path" : "",
+    #    "histAxisName": "ttlnu_private2017",
+    #    "xsecName": "TTWJetsToLNu",
+    #},
+    "2017_ttllJet" : {
+        "path" : "/scratch365/kmohrman/mc_files/TOP-19-001/ttll/",
+        "histAxisName": "ttll_TOP-19-001",
+        "xsecName": "TTZToLLNuNu_M_10",
+    },
+    #"2017_tllqJet" : {
+    #    "path" : "",
+    #    "histAxisName": "tllq_private2017",
+    #    "xsecName": "tZq",
+    #},
+}
+
+
+########### Central signal samples ###########
+
+central_2017_correctnPartonsInBorn_dict = {
+    "2017_TTZToLLNuNu_M_10_correctnPartonsInBorn" : {
+        "path" : "/TTZToLLNuNu_M-10_TuneCP5_PSweights_correctnPartonsInBorn_13TeV-amcatnlo-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "ttZ_central2017_correctnPartonsInBorn",
+        "xsecName" : "tZq",
+    }
+}
+
+central_2017_dict = {
+    "2017_ttHnobb" : {
+        "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "ttH_central2017",
+        "xsecName": "ttHnobb",
+    },
+    "2017_TTWJetsToLNu" : {
+        "path" : "/TTWJetsToLNu_TuneCP5_PSweights_13TeV-amcatnloFXFX-madspin-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "ttW_central2017",
+        "xsecName": "TTWJetsToLNu",
+    },
+    "2017_TTZToLLNuNu_M_10" : {
+        "path" : "/TTZToLLNuNu_M-10_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "ttZ_central2017",
+        "xsecName": "TTZToLLNuNu_M_10",
+    },
+    "2017_tZq" : {
+        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIIFall17NanoAOD-PU2017_12Apr2018_94X_mc2017_realistic_v14-v1/NANOAODSIM",
+        "histAxisName": "tZq_central2017",
+        "xsecName": "tZq",
+    },
+}
+
 central_UL17_dict = {
-    "UL17_ttHnobb"          : {
+    "UL17_ttHnobb" : {
         "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
         "histAxisName": "ttH_centralUL17",
         "xsecName": "ttHnobb",
     },
-    "UL17_TTWJetsToLNu"     : {
+    "UL17_TTWJetsToLNu" : {
         "path" : "/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
         "histAxisName": "ttW_centralUL17",
         "xsecName": "TTWJetsToLNu",
@@ -228,50 +283,38 @@ central_UL17_dict = {
         "histAxisName": "ttZ_centralUL17",
         "xsecName": "TTZToLLNuNu_M_10",
     },
-    "UL17_tZq"              : {
+    "UL17_tZq" : {
         "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer19UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
         "histAxisName": "tZq_centralUL17",
         "xsecName": "tZq",
     },
 }
 
-central_2017_dict = {
-    "2017_ttHnobb" : {
-        "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM",
-        "histAxisName": "ttH_central2017",
+central_UL18_dict = {
+    "UL18_ttHnobb" : {
+        "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
+        "histAxisName": "ttH_centralUL18",
         "xsecName": "ttHnobb",
     },
-    "2017_TTWJetsToLNu"  : {
-        "path" : "/TTWJetsToLNu_TuneCP5_PSweights_13TeV-amcatnloFXFX-madspin-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM",
-        "histAxisName": "ttW_central2017",
+    "UL18_TTWJetsToLNu" : {
+        "path" : "/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
+        "histAxisName": "ttW_centralUL18",
         "xsecName": "TTWJetsToLNu",
     },
-    "2017_TTZToLLNuNu_M_10"   : {
-        "path" : "/TTZToLLNuNu_M-10_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM",
-        "histAxisName": "ttZ_central2017",
+    "UL18_TTZToLLNuNu_M_10" : {
+        "path" : "/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
+        "histAxisName": "ttZ_centralUL18",
         "xsecName": "TTZToLLNuNu_M_10",
     },
-    "2017_tZq"   : {
-        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIIFall17NanoAOD-PU2017_12Apr2018_94X_mc2017_realistic_v14-v1/NANOAODSIM",
-        "histAxisName": "tZq_central2017",
+    "UL18_tZq" : {
+        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer19UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
+        "histAxisName": "tZq_centralUL18",
         "xsecName": "tZq",
     },
 }
 
-# Maps a sample name to a name in xsec.cfg
-def find_xsec_name(sample_name):
-    name_map = {
-        "ttH"   : "ttHnobb",
-        "ttlnu" : "TTWJetsToLNu",
-        "ttll"  : "TTZToLLNuNu_M_10",
-        "tllq"  : "tZq",
-        "tHq"   : "tHq",
-        "tttt"  : "tttt",
-    }
-    for process_name,xsec_name in name_map.items():
-        if process_name in sample_name:
-            xsec_name_match = xsec_name
-            return xsec_name
+
+########### Functions for makign the jsons ###########
 
 # Wrapper for createJSON.py
 def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,on_das=False):
@@ -316,23 +359,27 @@ def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False
         print("\tpath:",path,"\n\thistAxisName:",hist_axis_name,"\n\txsecName",xsec_name,"\n\tout name:",out_name,"\n\tout dir:",out_dir)
 
 
+# Uncomment the make_jsons_for_dict_of_samples() lines for the jsons you want to make/remake
 def main():
 
-    # Local example
-    #sample_dir = "/scratch365/kmohrman/mc_files/all_17_18_with_subdirs/ttH_top19001/"
-    #sample_name = "Tree_ttH"
-    #sample_yr = "2017"
-    #xsec_name = "TTTo2L2Nu"
-    #make_json(sample_dir,sample_name,sample_yr,xsec_name)
+    # Specify some output dirs
+    out_dir_private_UL     = os.path.join(topcoffea_path("json"),"signal_samples/private_UL/")
+    out_dir_top19001_local = os.path.join(topcoffea_path("json"),"signal_samples/private_top19001_local")
+    out_dir_central_UL     = os.path.join(topcoffea_path("json"),"signal_samples/central_UL/")
+    out_dir_central_2017   = os.path.join(topcoffea_path("json"),"signal_samples/central_2017/")
 
-    out_dir_private_UL = os.path.join(topcoffea_path("json"),"signal_samples/private_UL/")
-    out_dir_central_UL = os.path.join(topcoffea_path("json"),"signal_samples/central_UL/")
-    out_dir_central_2017 = os.path.join(topcoffea_path("json"),"signal_samples/central_2017/")
-
+    # Private UL
     #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL18_dict,"/hadoop","2018",out_dir_private_UL)
 
-    make_jsons_for_dict_of_samples(central_UL17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
-    make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
+    # TOP-19-001 ttll
+    #make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
+
+    # Central
+    #make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
+    #make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
+    #make_jsons_for_dict_of_samples(central_UL17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
+    make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
+
 
 main()

@@ -1,0 +1,26 @@
+{
+  "xsec": 0.2043,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "ttW_centralUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/2199231D-1758-7D4A-A7D0-9F2EFAF2D282.root",
+    "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/F6946CF9-C2B5-0B4B-A65D-E1DC9A28EC8E.root",
+    "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/F6592808-CFA1-584A-A6C6-F520EB316CC2.root",
+    "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/D65DCFB4-F395-554F-AD4B-C7C394337805.root",
+    "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/4B175725-2311-6F4B-A2F1-87D10B36CFD7.root",
+    "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/46993C05-DF0A-5642-9F03-9268CAE078F0.root",
+    "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/8AD4A1EF-2B1A-5A4B-9377-9C3CB280FD4E.root",
+    "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/5D1C876A-6C63-A24C-8139-3FC193D1FB63.root",
+    "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/8C070B2F-C808-5C4F-A3A0-01ADEB4F47B5.root",
+    "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/3F56D487-486B-6946-8C22-ACBED75CC029.root",
+    "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/2E17F120-073C-9F4F-9B56-9B5FF2D44FDA.root",
+    "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/6ED7BE38-DD29-CF43-9255-6065197C71EB.root"
+  ],
+  "nEvents": 10522657,
+  "nGenEvents": 3527174.9575676406,
+  "nSumOfWeights": 10522657,
+  "isData": false
+}
