@@ -24,6 +24,7 @@ parser = argparse.ArgumentParser(description='You can customize your run')
 parser.add_argument('jsonFiles'           , nargs='?', default=''           , help = 'Json file(s) containing files and metadata')
 parser.add_argument('--prefix', '-r'     , nargs='?', default=''           , help = 'Prefix or redirector to look for the files')
 parser.add_argument('--test','-t'      , action='store_true'  , help = 'To perform a test, run over a few events in a couple of chunks')
+parser.add_argument('--pretend'        , action='store_true'  , help = 'Read json files but, not execute the analysis')
 parser.add_argument('--nworkers','-n'  , default=8  , help = 'Number of workers')
 parser.add_argument('--chunksize','-s' , default=100000  , help = 'Number of events per chunk')
 parser.add_argument('--nchunks','-c'   , default=None  , help = 'You can choose to run only a number of chunks')
@@ -41,6 +42,7 @@ chunksize  = int(args.chunksize)
 nchunks    = int(args.nchunks) if not args.nchunks is None else args.nchunks
 outname    = args.outname
 outpath    = args.outpath
+pretend    = args.pretend
 treename   = args.treename
 do_errors  = args.do_errors
 
@@ -52,8 +54,15 @@ if dotest:
 
 ### Load samples from json
 samplesdict = {}
-allJsonFiles = []
 allInputFiles = []
+
+def LoadJsonToSampleName(jsonFile, prefix):
+ sampleName = jsonFile if not '/' in jsonFile else jsonFile[jsonFile.rfind('/')+1:]
+ if sampleName.endswith('.json'): sampleName = sampleName[:-5]
+ with open(jsonFile) as jf:
+   samplesdict[sampleName] = json.load(jf)
+   samplesdict[sampleName]['redirector'] = prefix
+
 if   isinstance(jsonFiles, str) and ',' in jsonFiles: jsonFiles = jsonFiles.replace(' ', '').split(',')
 elif isinstance(jsonFiles, str)                     : jsonFiles = [jsonFiles]
 for jsonFile in jsonFiles:
@@ -69,8 +78,10 @@ for f in allInputFiles:
   if not os.path.isfile(f):
     print('[WARNING] Input file "%s% not found!'%f)
     continue
+  # This input file is a json file, not a cfg
   if f.endswith('.json'): 
-    allJsonFiles.append(f)
+    LoadJsonToSampleName(f, prefix)
+  # Open cfg files
   else:
     with open(f) as fin:
       print(' >> Reading json from cfg file...')
@@ -82,19 +93,16 @@ for f in allInputFiles:
         if ',' in l:
           l = l.split(',')
           for nl in l:
-            allJsonFiles.append(l)
+            if not os.path.isfile(l): prefix = nl
+            else: LoadJsonToSampleName(nl, prefix)
         else:
-          allJsonFiles.append(l)
-
-for jsonFile in allJsonFiles:
-  sampleName = jsonFile if not '/' in jsonFile else jsonFile[jsonFile.rfind('/')+1:]
-  if sampleName.endswith('.json'): sampleName = jsonFile[:-5]
-  with open(jsonFile) as jf:
-    samplesdict[sampleName] = json.load(jf)
+          if not os.path.isfile(l): prefix = l
+          else: LoadJsonToSampleName(l, prefix)
 
 flist = {};
 for sname in samplesdict.keys():
-  flist[sname] = [(prefix+f) for f in samplesdict[sname]['files']]
+  redirector = samplesdict[sname]['redirector']
+  flist[sname] = [(redirector+f) for f in samplesdict[sname]['files']]
   samplesdict[sname]['year'] = int(samplesdict[sname]['year'])
   samplesdict[sname]['xsec'] = float(samplesdict[sname]['xsec'])
   samplesdict[sname]['nEvents'] = int(samplesdict[sname]['nEvents'])
@@ -112,8 +120,13 @@ for sname in samplesdict.keys():
   print('   - nEvents      : %i'   %samplesdict[sname]['nEvents'])
   print('   - nGenEvents   : %i'   %samplesdict[sname]['nGenEvents'])
   print('   - SumWeights   : %i'   %samplesdict[sname]['nSumOfWeights'])
+  print('   - Prefix       : %s'   %samplesdict[sname]['redirector'])
   print('   - nFiles       : %i'   %len(samplesdict[sname]['files']))
   for fname in samplesdict[sname]['files']: print('     %s'%fname)
+
+if pretend:
+  print('pretending...')
+  exit()
 
 # Check that all datasets have the same list of WCs
 for i,k in enumerate(samplesdict.keys()):
@@ -121,7 +134,7 @@ for i,k in enumerate(samplesdict.keys()):
     wc_lst = samplesdict[k]['WCnames']
   if wc_lst != samplesdict[k]['WCnames']:
     raise Exception("Not all of the datasets have the same list of WCs.")
-    
+
 processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors)
 
 executor_args = {#'flatten': True, #used for all executors
