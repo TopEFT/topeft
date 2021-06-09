@@ -13,6 +13,18 @@ import os, sys
 
 from topcoffea.plotter.plotter import plotter
 
+import argparse
+parser = argparse.ArgumentParser(description='You can customize your run')
+parser.add_argument('--year', '-y', default=2018                            , help = 'Run year to access lumi')
+parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
+args = parser.parse_args()
+year  = args.year
+lumiJson  = args.lumiJson
+
+with open(lumiJson) as jf:
+  lumi = json.load(jf)
+  lumi = lumi[year]
+
 path = 'histos/plotsTopEFT.pkl.gz'
 
 processDic = {
@@ -63,7 +75,7 @@ colors = [colordic[k] for k in bkglist]
 
 
 def Draw(var, categories, label=''):
-  plt = plotter(path, prDic=processDic, bkgList=bkglist)
+  plt = plotter(path, prDic=processDic, bkgList=bkglist, lumi=lumi)
   plt.plotData = True
   plt.SetColors(colors)
   plt.SetCategories(categories)
