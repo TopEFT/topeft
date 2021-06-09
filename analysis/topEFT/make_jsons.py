@@ -189,22 +189,70 @@ private_UL18_dict = {
 
 private_UL16_dict = {
 
-    "UL16_ttHJet_b1"   : "",
-    "UL16_ttllJet_b1"  : "",
-    "UL16_ttlnuJet_b1" : "",
-    "UL16_tllq_b1"     : "",
-    "UL16_tHq_b1"      : "",
-    "UL16_tttt_b1"     : "",
+    "UL16_ttHJet_b1"   : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16/Round1/Batch1/naodOnly_step/v1/nAOD_step_ttHJet_all22WCsStartPtCheckdim6TopMay20GST_run0",
+        "histAxisName": "ttHJet_privateUL16",
+        "xsecName": "ttHnobb",
+    },
+    "UL16_ttlnuJet_b1" : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16/Round1/Batch1/naodOnly_step/v1/nAOD_step_ttlnuJet_all22WCsStartPtCheckdim6TopMay20GST_run0",
+        "histAxisName": "ttlnuJet_privateUL16",
+        "xsecName": "TTWJetsToLNu",
+    },
+    "UL16_ttllJet_b1"  : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16/Round1/Batch1/naodOnly_step/v1/nAOD_step_ttllNuNuJetNoHiggs_all22WCsStartPtCheckdim6TopMay20GST_run0",
+        "histAxisName": "ttllJet_privateUL16",
+        "xsecName": "TTZToLLNuNu_M_10",
+    },
+    "UL16_tllq_b1"     : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16/Round1/Batch1/naodOnly_step/v1/nAOD_step_tllq4fNoSchanWNoHiggs0p_all22WCsStartPtCheckV2dim6TopMay20GST_run0",
+        "histAxisName": "tllq_privateUL16",
+        "xsecName": "tZq",
+    },
+    "UL16_tHq_b1"      : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16/Round1/Batch1/naodOnly_step/v1/nAOD_step_tHq4f_all22WCsStartPtCheckdim6TopMay20GST_run0",
+        "histAxisName": "tHq_privateUL16",
+        "xsecName": "tHq",
+    },
+    "UL16_tttt_b1"     : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16/Round1/Batch1/naodOnly_step/v1/nAOD_step_tttt_FourtopsMay3v1_run0",
+        "histAxisName": "tttt_privateUL16",
+        "xsecName": "tttt",
+    },
 }
 
 private_UL16APV_dict = {
 
-    "UL16APV_ttHJet_b1"   : "",
-    "UL16APV_ttllJet_b1"  : "",
-    "UL16APV_ttlnuJet_b1" : "",
-    "UL16APV_tllq_b1"     : "",
-    "UL16APV_tHq_b1"      : "",
-    "UL16APV_tttt_b1"     : "",
+    "UL16APV_ttHJet_b1"   : {
+        "path" : "",
+        "histAxisName": "ttHJet_privateUL16APV",
+        "xsecName": "ttHnobb",
+    },
+    "UL16APV_ttlnuJet_b1" : {
+        "path" : "",
+        "histAxisName": "ttlnuJet_privateUL16APV",
+        "xsecName": "TTWJetsToLNu",
+    },
+    "UL16APV_ttllJet_b1"  : {
+        "path" : "",
+        "histAxisName": "ttllJet_privateUL16APV",
+        "xsecName": "TTZToLLNuNu_M_10",
+    },
+    "UL16APV_tllq_b1"     : {
+        "path" : "",
+        "histAxisName": "tllq_privateUL16APV",
+        "xsecName": "tZq",
+    },
+    "UL16APV_tHq_b1"      : {
+        "path" : "",
+        "histAxisName": "tHq_privateUL16APV",
+        "xsecName": "tHq",
+    },
+    "UL16APV_tttt_b1"     : {
+        "path" : "",
+        "histAxisName": "tttt_privateUL16APV",
+        "xsecName": "tttt",
+    },
 }
 
 
@@ -371,6 +419,7 @@ def main():
     # Private UL
     #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL18_dict,"/hadoop","2018",out_dir_private_UL)
+    make_jsons_for_dict_of_samples(private_UL16_dict,"/hadoop","2016",out_dir_private_UL)
 
     # TOP-19-001 ttll
     #make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
@@ -379,7 +428,7 @@ def main():
     #make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
     #make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
-    make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
+    #make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
 
 
 main()
