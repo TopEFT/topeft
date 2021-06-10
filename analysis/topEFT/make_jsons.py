@@ -282,6 +282,7 @@ private_2017_dict = {
 }
 
 
+
 ########### Central signal samples ###########
 
 central_2017_correctnPartonsInBorn_dict = {
@@ -361,6 +362,15 @@ central_UL18_dict = {
     },
 }
 
+########### TESTING ########### 
+
+test_dict = {
+    "test_dy_sample" : {
+        "path" : "/store/user/jrgonzal/nanoAODcrab/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/mc2017_28apr2021_DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/210427_231758/0000/",
+        "histAxisName": "central_DY",
+        "xsecName" : "DYJetsToLL_M_50_MLM", # Not sure if this is actually the right xsec, I just picked one of the DY ones
+    }
+}
 
 ########### Functions for makign the jsons ###########
 
@@ -419,7 +429,7 @@ def main():
     # Private UL
     #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL18_dict,"/hadoop","2018",out_dir_private_UL)
-    make_jsons_for_dict_of_samples(private_UL16_dict,"/hadoop","2016",out_dir_private_UL)
+    #make_jsons_for_dict_of_samples(private_UL16_dict,"/hadoop","2016",out_dir_private_UL)
 
     # TOP-19-001 ttll
     #make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
@@ -429,6 +439,9 @@ def main():
     #make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
+
+    # Testing finding list of files with xrdfs ls
+    make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
 
 
 main()

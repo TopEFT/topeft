@@ -1,4 +1,5 @@
 import os, sys, argparse, uproot
+import subprocess
 
 def isdigit(a):
   ''' Redefinition of str.isdigit() that takes into account negative numbers '''
@@ -21,9 +22,26 @@ def findValidRootfiles(path, sampleName = '', getOnlyNumberedFiles = False, verb
     return files
   ### Files from a T2 !!
   if path.startswith('root'):
-    if not sampleName.endswith('.root'): sampleName+='.root'
-    print('Ok, file in T2...\nReturning: ', [path+sampleName] if FullPaths else [sampleName])
-    return [path+sampleName] if FullPaths else [sampleName]
+
+    # Not sure which case this was used for
+    #if not sampleName.endswith('.root'): sampleName+='.root'
+
+    # Let's try to get the list of files using xrdfs ls
+    if not sampleName.endswith('.root'):
+      root_files_full_paths = []
+      redirector = path.split("/store")[0] # The redirector should be everything up to the /store
+      sample_name = path.split(redirector)[1:][0] # The path should be everything after the redirector
+      root_files = (subprocess.run(["xrdfs",redirector,"ls",sample_name],capture_output=True,text=True)).stdout.splitlines() # Get all the files in the dir
+      for f in root_files:
+        if not f.endswith('.root'): continue # Skip anything that's not a root file
+        f = redirector+f
+        root_files_full_paths.append(f)
+      return root_files_full_paths
+
+    else:
+      print('Ok, file in T2...\nReturning: ', [path+sampleName] if FullPaths else [sampleName])
+      return [path+sampleName] if FullPaths else [sampleName]
+
   elif path.upper().startswith('DAS'):
     return GetFileListFromDataset(sampleName, True)
   if not path[-1] == '/': path += '/'
