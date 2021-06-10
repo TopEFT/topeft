@@ -74,6 +74,7 @@ class plotter:
     if prdic != {}: self.SetProcessDic(prdic)
     for k in self.hists.keys(): 
       if len(self.hists[k].identifiers('sample')) == 0: continue
+      if k == 'SumOfEFTweights': continue
       self.hists[k] = self.hists[k].group(hist.Cat(self.sampleLabel, self.sampleLabel), hist.Cat(self.processLabel, self.processLabel), self.prDic)
 
   def SetBkgProcesses(self, bkglist=[]):
@@ -172,7 +173,6 @@ class plotter:
     ''' Returns a histogram with all categories contracted '''
     if categories == None: categories = self.categories
     h = self.hists[hname]
-    sow = self.hists['SumOfEFTweights']
     for cat in categories: 
       h = h.integrate(cat, categories[cat])
     if isinstance(process, str) and ',' in process: process = process.split(',')
@@ -180,14 +180,13 @@ class plotter:
       prdic = {}
       for pr in process: prdic[pr] = pr
       h = h.group("process", hist.Cat("process", "process"), prdic)
-      sow = sow.group("process", hist.Cat("process", "process"), prdic)
     elif isinstance(process, str): 
       h = h[process].sum("process")
-      sow = sow[process].sum("process")
+    sow = self.hists['SumOfEFTweights']
     nwc = sow._nwc
     if nwc > 0:
         sow.set_wilson_coefficients(np.zeros(nwc))
-        sow = np.sum(list(sow.values().values()))
+        sow = np.sum(sow.sum('sample').values()[()])
         h.scale(1. / sow) # Divie EFT samples by sum of weights at SM
     return h
 
