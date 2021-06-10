@@ -18,6 +18,8 @@ setuptools.setup(
             "data/btagSF/UL/*.pkl.gz",
             "data/btagSF/UL/*.csv",
             "data/btagSF/*.csv",
+            "json/*.json",
+            "json/signal_samples/*.json"
         ],
     }
 )
