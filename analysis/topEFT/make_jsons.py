@@ -259,26 +259,31 @@ private_UL16APV_dict = {
 ########### TOP-19-001 samples (locally at ND on /scratch365) ###########
 
 private_2017_dict = {
-    #"2017_ttHJet" : {
-    #    "path" : "",
-    #    "histAxisName": "ttH_private2017",
-    #    "xsecName": "ttHnobb",
-    #},
-    #"2017_ttlnuJet" : {
-    #    "path" : "",
-    #    "histAxisName": "ttlnu_private2017",
-    #    "xsecName": "TTWJetsToLNu",
-    #},
-    "2017_ttllJet" : {
-        "path" : "/scratch365/kmohrman/mc_files/TOP-19-001/ttll/",
-        "histAxisName": "ttll_TOP-19-001",
-        "xsecName": "TTZToLLNuNu_M_10",
+    "2017_ttHJet" : {
+        "path" : "/scratch365/kmohrman/mc_files/TOP-19-001/ttH/",
+        "histAxisName": "ttH_private2017",
+        "xsecName": "ttHnobb",
     },
-    #"2017_tllqJet" : {
-    #    "path" : "",
-    #    "histAxisName": "tllq_private2017",
-    #    "xsecName": "tZq",
+    "2017_ttlnuJet" : {
+        "path" : "/scratch365/kmohrman/mc_files/TOP-19-001/ttlnu/",
+        "histAxisName": "ttlnu_private2017",
+        "xsecName": "TTWJetsToLNu",
+    },
+    #"2017_ttllJet" : {
+    #    "path" : "/scratch365/kmohrman/mc_files/TOP-19-001/ttll/",
+    #    "histAxisName": "ttll_TOP-19-001",
+    #    "xsecName": "TTZToLLNuNu_M_10",
     #},
+    "2017_tllqJet" : {
+        "path" : "/scratch365/kmohrman/mc_files/TOP-19-001/tllq/",
+        "histAxisName": "tllq_private2017",
+        "xsecName": "tZq",
+    },
+    "2017_tHqJet" : {
+        "path" : "/scratch365/kmohrman/mc_files/TOP-19-001/tHq/",
+        "histAxisName": "tHq_private2017",
+        "xsecName": "tHq",
+    },
 }
 
 
@@ -432,7 +437,7 @@ def main():
     #make_jsons_for_dict_of_samples(private_UL16_dict,"/hadoop","2016",out_dir_private_UL)
 
     # TOP-19-001 ttll
-    #make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
+    make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
 
     # Central
     #make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
@@ -441,7 +446,7 @@ def main():
     #make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
 
     # Testing finding list of files with xrdfs ls
-    make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
+    #make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
 
 
 main()
