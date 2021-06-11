@@ -17,24 +17,23 @@
   3) Dataset published in DAS
      
   Inputs:
-  - Is data?
   - year
   - cross section (or file to read the cross section + name in file)
 
   - tree name ('Events' by default)
 
-  Usage:
+  Example Usage:
     1) and 2)
     MC:
     >> python createJSON.py [path] --prefix "root:/REDIRECTOR/" --sampleName "ttllnunu0, ttllnunu1" --xsec topcoffea/cfg/xsec.cfg --xsecName TTTo2L2Nu  --year 2018
     Data:
-    >> python createJSON.py [path] --prefix "root:/REDIRECTOR/" --sampleName MuonEG_2018 --isData --year 2018
+    >> python createJSON.py [path] --prefix "root:/REDIRECTOR/" --sampleName MuonEG_2018 --year 2018
 
     3)
     MC:
     >> python createJSON.py [DAS_dataset] --DAS --sampleName TTTo2L2Nu --xsec topcoffea/cfg/xsec.cfg --prefix root://your.favorite.redirector/
     Data:
-    >> python createJSON.py [DAS_dataset] --DAS --sampleName DoubleMuon_2017 --isData --year 2017
+    >> python createJSON.py [DAS_dataset] --DAS --sampleName DoubleMuon_2017 --year 2017
 
   Note: the "--xsecName TTTo2L2Nu" argument is only needed if sampleName does not exist in topcoffea/cfg/xsec.cfg
 
