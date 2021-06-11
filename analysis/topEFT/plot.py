@@ -15,17 +15,17 @@ from topcoffea.plotter.plotter import plotter
 
 import argparse
 parser = argparse.ArgumentParser(description='You can customize your run')
-parser.add_argument('--year', '-y', default=2018                            , help = 'Run year to access lumi')
+parser.add_argument('--year',     '-y', default='2018'                         , help = 'Run year to access lumi')
 parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
+parser.add_argument('--path',     '-p', default='histos/plotsTopEFT.pkl.gz'    , help = 'Path to pkl file')
 args = parser.parse_args()
 year  = args.year
 lumiJson  = args.lumiJson
+path  = args.path
 
 with open(lumiJson) as jf:
   lumi = json.load(jf)
   lumi = lumi[year]
-
-path = 'histos/plotsTopEFT.pkl.gz'
 
 processDic = {
   'Nonprompt' : 'TTTo2L2Nu,tW_noFullHad, tbarW_noFullHad, WJetsToLNu_MLM, WWTo2L2Nu',
@@ -66,9 +66,11 @@ ch3l = ['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ','eeeSSonZ', 'eeeSSoffZ'
 ch2lss = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
 categories = {
  'channel' : ch3l,#['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ','eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ'],#'eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS'],
- 'cut' : ['2jets', '4jets','4j1b', '4j2b'],#['base', '2jets', '4jets', '4j1b', '4j2b'],
+ 'cut' : 'base',#['2jets', '4jets','4j1b', '4j2b'],#['base', '2jets', '4jets', '4j1b', '4j2b'],
  #'Zcat' : ['onZ', 'offZ'],
  #'lepCat' : ['3l'],
+ 'sumcharge': ['ch+','ch-'],
+ 'systematic': 'nominal'
 }
 
 colors = [colordic[k] for k in bkglist]
@@ -83,4 +85,4 @@ def Draw(var, categories, label=''):
   plt.Stack(var, xtit='', ytit='')
   plt.PrintYields('counts')
 
-Draw('met', categories, '3 leptons')
+Draw('njets', categories, '3 leptons')
