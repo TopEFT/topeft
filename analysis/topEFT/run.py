@@ -33,6 +33,7 @@ if __name__ == '__main__':
   parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the output directory')
   parser.add_argument('--treename'   , default='Events', help = 'Name of the tree inside the files')
   parser.add_argument('--do-errors', action='store_true', help = 'Save the w**2 coefficients')
+  parser.add_argument('--do-systs', action='store_true', help = 'Run over systematic samples (takes longer)')
 
   args = parser.parse_args()
   jsonFiles  = args.jsonFiles
@@ -46,6 +47,7 @@ if __name__ == '__main__':
   pretend    = args.pretend
   treename   = args.treename
   do_errors = args.do_errors
+  do_systs  = args.do_systs
 
   if dotest:
     nchunks = 2
@@ -136,7 +138,7 @@ if __name__ == '__main__':
     if wc_lst != samplesdict[k]['WCnames']:
       raise Exception("Not all of the datasets have the same list of WCs.")
  
-  processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors)
+  processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors,do_systs)
 
   # Run the processor and get the output
   tstart = time.time()

@@ -24,7 +24,7 @@ from topcoffea.modules.HistEFT import HistEFT, EFTHelper
 #wc_names_lst= ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
 
 class AnalysisProcessor(processor.ProcessorABC):
-    def __init__(self, samples, wc_names_lst=[], do_errors=False):
+    def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False):
         self._samples = samples
         self._wc_names_lst = wc_names_lst
 
@@ -52,6 +52,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         self._eft_helper = EFTHelper(wc_names_lst)
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
+        self._do_systematics = do_systematics # Whether to process systematic samples
         
     @property
     def accumulator(self):
@@ -529,7 +530,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         # systematics
         systList = []
         if isData==False:
-          systList = ['nominal','lepSFUp','lepSFDown','btagSFUp', 'btagSFDown']
+          systList = ['nominal']
+          if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown']
         else:
           systList = ['noweight']
         # fill Histos
