@@ -157,7 +157,7 @@ def GetFilesInDataset(dataset, nFiles=1, withRedirector='', verbose=0):
     dic['nfiles'] = len(dic['files'])
     return dic
 
-def GetDatasetFromDAS(dataset, nFiles=None, options='', withRedirector='', verbose=0):
+def GetDatasetFromDAS(dataset, nFiles=None, options='', withRedirector='', includeRedirector=True, verbose=0):
   ''' Get full dataset, all files: GetDatasetFromDAS(dataset, withRedirector='root://cms-xrd-global.cern.ch/')    
       Get full dataset, n files  : GetDatasetFromDAS(dataset, nFiles, withRedirector='root://cms-xrd-global.cern.ch/')    
       Get info for just n files  : GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector='root://cms-xrd-global.cern.ch/') '''
@@ -169,6 +169,9 @@ def GetDatasetFromDAS(dataset, nFiles=None, options='', withRedirector='', verbo
   else:
     # Check event numbers for the full dataset
     dic = GetFilesInDataset(dataset, nFiles, withRedirector, verbose)
+  print(dic['files'])
+  #if not includeRedirector: dic['files'] = [f[len(withRedirector):] ] dic['files']
+  
   return dic
 
 
@@ -191,9 +194,10 @@ def main():
   dataset     = args.dataset
   options     = args.options
 
+  CheckDasEnv()
   datasets = ReadDatasetsFromFile(dataset)
-  if   options == '': CheckDatasets(datasets)
-  elif options in ['file', 'files']: GetFilesFromDatasets(datasets, verbose=True)
+  #if   options == '': CheckDatasets(datasets)
+  if options in ['file', 'files']: GetFilesFromDatasets(datasets, verbose=True)
   else : GetDatasetNumbers(datasets, options, verbose=True)
 
 if __name__ == '__main__':

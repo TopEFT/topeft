@@ -1,0 +1,13 @@
+{
+  "xsec": 0.0758, 
+  "year": "2017", 
+  "treeName": "Events", 
+  "histAxisName": "tllq_TOP19001",
+  "options": "", 
+  "WCnames": ["ctW", "ctp", "cpQM", "ctli", "cQei", "ctZ", "cQlMi", "cQl3i", "ctG", "ctlTi", "cbW", "cpQ3", "ctei", "cpt", "ctlSi", "cptb"], 
+  "files": ["/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq1_0.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq1_1.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq1_2.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq1_3.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq1_4.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_0.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_1.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_10.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_11.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_12.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_2.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_3.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_4.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_5.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_6.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_7.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_8.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq2_9.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq3_0.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq3_1.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq3_2.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq3_3.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq3_4.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq3_5.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq3_6.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq3_7.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq3_8.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq3_9.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq4_0.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq4_1.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq4_2.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq4_3.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq4_4.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq4_5.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq4_6.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq4_7.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq4_8.root", "/store/user/jrgonzal/NANOAODEFT/merged/Tree_tllq4_9.root"], 
+  "nEvents": 16980500, 
+  "nGenEvents": 48295054.0, 
+  "nSumOfWeights": 48708000, 
+  "isData": false
+}
