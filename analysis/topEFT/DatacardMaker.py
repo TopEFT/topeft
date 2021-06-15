@@ -10,9 +10,10 @@ import os
 from ROOT import TFile, TH1D
 
 class HistoReader():
-    def __init__(self, infile='', central=False):
+    def __init__(self, infile='', analysisList=[], central=False):
         self.hists = {}
-        self.rename = {'tZq': 'tllq', 'ttZ': 'ttll', 'ttW': 'ttlnu', 'ttGJets': 'convs', 'WZ': 'Diboson', 'WWW': 'Triboson', 'ttHnobb': 'ttH'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
+        self.analysisList = analysisList
+        self.rename = {'tZq': 'tllq', 'ttZ': 'ttll', 'ttW': 'ttlnu', 'ttGJets': 'convs', 'WZ': 'Diboson', 'WWW': 'Triboson', 'ttHnobb': 'ttH', 'ttHJet_privateUL17': 'ttH'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.processDic = {
           'Nonprompt' : 'TTTo2L2Nu,tW_noFullHad, tbarW_noFullHad, WJetsToLNu_MLM, WWTo2L2Nu',
           'DY' : 'DYJetsToLL_M_10to50_MLM, DYJetsToLL_M_50_a',
@@ -34,7 +35,7 @@ class HistoReader():
         self.outf = "EFT_MultiDim_Datacard_combine.txt"
         self.fin = infile
         self.var = ['njets', 'ht']
-        self.tolerance = 0.0001
+        self.tolerance = 0.001
 
 
     def read(self):
@@ -271,7 +272,7 @@ class HistoReader():
                             cat = 'bin_'+cat
                             datacard.write('##----------------------------------\n')
                             datacard.write('bin         %s\n' % cat)
-                            datacard.write('observation %s\n' % allyields['data_obs'])
+                            datacard.write('observation %%.%df\n' % np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])) % allyields['data_obs'])
                             datacard.write('##----------------------------------\n')
                             klen = max([7, len(cat)]+[len(p) for p in iproc.keys()])
                             kpatt = " %%%ds "  % klen
