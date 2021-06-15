@@ -289,13 +289,14 @@ class HistoReader():
                         fout.Close()
 
 if __name__ == '__main__':
-    #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/plotsTopEFT_nanoOnly_lobster_20210426_1006.pkl.gz')
-    #hr = HistoReader('histos/plotsTopEFT.pkl.gz')
-    hr = HistoReader('histos/ttH_top19001.pkl.gz')
-    #hr = HistoReader('histos/ttH_top19001_1file.pkl.gz')
-    #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/optimized-histeft/plotsTopEFT_private_UL17_10files.pkl.gz')
-    #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/optimized-histeft/plotsTopEFT_private_top19001-1files.pkl.gz')
-    #hr = HistoReader('/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/hist_pkl_files/plotsTopEFT_central_UL17_5_files_each.pkl.gz')
+    import argparse
+    parser = argparse.ArgumentParser(description='You can select which file to run over')
+    parser.add_argument('pklfile'           , nargs='?', default=''           , help = 'Pickle file with histograms')
+    args = parser.parse_args()
+    pklfile    = args.pklfile
+    if pklfile == '':
+        raise Exception('Please specify a pkl file!')
+    hr = HistoReader(pklfile)
     hr.read()
     hr.relish()
     hr.makeCard()
