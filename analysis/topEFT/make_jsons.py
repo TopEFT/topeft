@@ -224,32 +224,32 @@ private_UL16_dict = {
 private_UL16APV_dict = {
 
     "UL16APV_ttHJet_b1"   : {
-        "path" : "",
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16APV/Round1/Batch1/naodOnly_step/v1/nAOD_step_ttHJet_all22WCsStartPtCheckdim6TopMay20GST_run0",
         "histAxisName": "ttHJet_privateUL16APV",
         "xsecName": "ttHnobb",
     },
     "UL16APV_ttlnuJet_b1" : {
-        "path" : "",
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16APV/Round1/Batch1/naodOnly_step/v1/nAOD_step_ttlnuJet_all22WCsStartPtCheckdim6TopMay20GST_run0",
         "histAxisName": "ttlnuJet_privateUL16APV",
         "xsecName": "TTWJetsToLNu",
     },
     "UL16APV_ttllJet_b1"  : {
-        "path" : "",
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16APV/Round1/Batch1/naodOnly_step/v1/nAOD_step_ttllNuNuJetNoHiggs_all22WCsStartPtCheckdim6TopMay20GST_run0",
         "histAxisName": "ttllJet_privateUL16APV",
         "xsecName": "TTZToLLNuNu_M_10",
     },
     "UL16APV_tllq_b1"     : {
-        "path" : "",
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16APV/Round1/Batch1/naodOnly_step/v1/nAOD_step_tllq4fNoSchanWNoHiggs0p_all22WCsStartPtCheckV2dim6TopMay20GST_run0",
         "histAxisName": "tllq_privateUL16APV",
         "xsecName": "tZq",
     },
     "UL16APV_tHq_b1"      : {
-        "path" : "",
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16APV/Round1/Batch1/naodOnly_step/v1/nAOD_step_tHq4f_all22WCsStartPtCheckdim6TopMay20GST_run0",
         "histAxisName": "tHq_privateUL16APV",
         "xsecName": "tHq",
     },
     "UL16APV_tttt_b1"     : {
-        "path" : "",
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16APV/Round1/Batch1/naodOnly_step/v1/nAOD_step_tttt_FourtopsMay3v1_run0",
         "histAxisName": "tttt_privateUL16APV",
         "xsecName": "tttt",
     },
@@ -269,11 +269,11 @@ private_2017_dict = {
         "histAxisName": "ttlnu_private2017",
         "xsecName": "TTWJetsToLNu",
     },
-    #"2017_ttllJet" : {
-    #    "path" : "/scratch365/kmohrman/mc_files/TOP-19-001/ttll/",
-    #    "histAxisName": "ttll_TOP-19-001",
-    #    "xsecName": "TTZToLLNuNu_M_10",
-    #},
+    "2017_ttllJet" : {
+        "path" : "/scratch365/kmohrman/mc_files/TOP-19-001/ttll/",
+        "histAxisName": "ttll_private2017",
+        "xsecName": "TTZToLLNuNu_M_10",
+    },
     "2017_tllqJet" : {
         "path" : "/scratch365/kmohrman/mc_files/TOP-19-001/tllq/",
         "histAxisName": "tllq_private2017",
@@ -435,9 +435,10 @@ def main():
     #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL18_dict,"/hadoop","2018",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL16_dict,"/hadoop","2016",out_dir_private_UL)
+    make_jsons_for_dict_of_samples(private_UL16APV_dict,"/hadoop","2016APV",out_dir_private_UL) # Not sure what we need here for the year, can remake the JSONs later to update when we have SFs etc set up for 2016 stuff (right now I think it's mostly just 18)
 
     # TOP-19-001 ttll
-    make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
+    #make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
 
     # Central
     #make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
