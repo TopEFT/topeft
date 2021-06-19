@@ -35,7 +35,7 @@ processDic = {
   'ZZ' : 'ZZTo2L2Nu,ZZTo2L2Q,ZZTo4L',
   'ttW': 'TTWJetsToLNu',
   'ttZ': 'TTZToLL_M_1to10,TTZToLLNuNu_M_10_a',
-  'ttH' : 'ttHJet_privateUL17,ttHnobb,tHq',
+  'ttH' : 'ttHnobb,tHq',
   'data' : 'EGamma, SingleMuon, DoubleMuon',
 }
 bkglist = ['Nonprompt', 'Other', 'DY',  'ttH', 'WZ', 'ZZ', 'ttZ', 'ttW']
@@ -77,7 +77,7 @@ colors = [colordic[k] for k in bkglist]
 
 
 def Draw(var, categories, label=''):
-  plt = plotter(path, prDic=processDic, bkgList={'ttH':'ttH'}, lumi=lumi)
+  plt = plotter(path, prDic=processDic, bkgList=bkglist, lumi=lumi)
   plt.plotData = True
   plt.SetColors(colors)
   plt.SetCategories(categories)
@@ -86,4 +86,3 @@ def Draw(var, categories, label=''):
   plt.PrintYields('counts')
 
 Draw('njets', categories, '3 leptons')
-Draw('counts', categories, '3 leptons')
