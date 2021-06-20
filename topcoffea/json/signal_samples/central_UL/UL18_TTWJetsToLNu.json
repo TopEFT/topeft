@@ -20,7 +20,7 @@
     "/store/mc/RunIISummer20UL18NanoAODv2/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/6ED7BE38-DD29-CF43-9255-6065197C71EB.root"
   ],
   "nEvents": 10522657,
-  "nGenEvents": 3527174.9575676406,
-  "nSumOfWeights": 10522657,
+  "nGenEvents": 10522657,
+  "nSumOfWeights": 3527174.9575676406,
   "isData": false
 }

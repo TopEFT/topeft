@@ -39,7 +39,7 @@
     "/store/mc/RunIISummer20UL17NanoAODv2/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/30000/5B1C5A25-73C7-1646-AE6A-8EA3A9DEA852.root"
   ],
   "nEvents": 9804430,
-  "nGenEvents": 9237547.4827734,
-  "nSumOfWeights": 9804430,
+  "nGenEvents": 9804430,
+  "nSumOfWeights": 9237547.4827734,
   "isData": false
 }
