@@ -14,7 +14,7 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetLeptonSF, GetBTagSF, jet_factory, GetBtagEff
+from topcoffea.modules.corrections import SFevaluator, GetLeptonSF, GetBTagSF, jet_factory, GetBtagEff, GetPUSF
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT, EFTHelper
 
@@ -425,7 +425,8 @@ class AnalysisProcessor(processor.ProcessorABC):
           weights[r] = coffea.analysis_tools.Weights(len(events))
           weights[r].add('norm',genw if isData else (xsec/sow)*genw)
           weights[r].add('btagSF', btagSF, btagSFUp, btagSFDo)
-        
+          weights[r].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
+
         weights['ee'].add('lepSF', lepSF_eeSS, lepSF_eeSS_up, lepSF_eeSS_down)
         weights['em'].add('lepSF', lepSF_emSS,lepSF_emSS_up, lepSF_emSS_down)
         weights['mm'].add('lepSF', lepSF_mumuSS, lepSF_mumuSS_up, lepSF_mumuSS_down)
@@ -531,7 +532,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         systList = []
         if isData==False:
           systList = ['nominal']
-          if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown']
+          if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown', 'PUUp', 'PUDown']
         else:
           systList = ['noweight']
         # fill Histos
