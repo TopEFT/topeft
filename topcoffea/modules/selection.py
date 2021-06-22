@@ -217,4 +217,5 @@ for year in ['2016', '2016APV', '2017', '2018']:
 extChargeFlips.finalize()
 ChargeFlipsEvaluator = extChargeFlips.make_evaluator()
 
-
+def GetChargeFlipRate(pt, abseta, year):
+  return ChargeFlipsEvaluator['fr_%s'%str(year)](pt, abseta)
