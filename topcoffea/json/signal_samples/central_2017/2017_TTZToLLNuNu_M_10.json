@@ -82,7 +82,7 @@
     "/store/mc/RunIIFall17NanoAODv7/TTZToLLNuNu_M-10_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/120000/C1370958-E890-EB44-AA49-2161EC1F1531.root"
   ],
   "nEvents": 11035000,
-  "nGenEvents": 2680798.6351310373,
-  "nSumOfWeights": 11035000,
+  "nGenEvents": 11035000,
+  "nSumOfWeights": 2680798.6351310373,
   "isData": false
 }

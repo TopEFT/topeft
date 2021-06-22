@@ -107,7 +107,7 @@ def main():
   parser.add_argument('--sample','-s'     , default=''           , help = 'Sample(s) to process')
   parser.add_argument('--xsec','-x'       , default='xsec'       , help = 'Cross section')
   parser.add_argument('--year','-y'       , default=-1           , help = 'Year')
-  parser.add_argument('--options','-o'    , default=''           , help = 'Options to pass to your analysis')
+  parser.add_argument('--options'         , default=''           , help = 'Options to pass to your analysis')
   parser.add_argument('--treename'        , default='Events'     , help = 'Name of the tree')
   parser.add_argument('--nFiles'          , default=None         , help = 'Number of max files (for the moment, only applies for DAS)')
 

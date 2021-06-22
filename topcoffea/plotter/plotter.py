@@ -74,6 +74,7 @@ class plotter:
     if prdic != {}: self.SetProcessDic(prdic)
     for k in self.hists.keys(): 
       if len(self.hists[k].identifiers('sample')) == 0: continue
+      if k == 'SumOfEFTweights': continue
       self.hists[k] = self.hists[k].group(hist.Cat(self.sampleLabel, self.sampleLabel), hist.Cat(self.processLabel, self.processLabel), self.prDic)
 
   def SetBkgProcesses(self, bkglist=[]):
@@ -181,6 +182,12 @@ class plotter:
       h = h.group("process", hist.Cat("process", "process"), prdic)
     elif isinstance(process, str): 
       h = h[process].sum("process")
+    sow = self.hists['SumOfEFTweights']
+    nwc = sow._nwc
+    if nwc > 0:
+        sow.set_wilson_coefficients(np.zeros(nwc))
+        sow = np.sum(sow.sum('sample').values()[()])
+        h.scale(1. / sow) # Divie EFT samples by sum of weights at SM
     return h
 
   def doData(self, hname):
@@ -238,6 +245,8 @@ class plotter:
     if self.invertStack and type(h._axes[0])==hist.hist_tools.Cat:  h._axes[0]._sorted.reverse() 
     h = self.GetHistogram(hname, self.bkglist)
     h.scale(1000.*self.lumi)
+    y = h.integrate("process").values(overflow='all')
+    y = y[list(y.keys())[0]].sum()
     hist.plot1d(h, overlay="process", ax=ax, clear=False, stack=self.doStack, density=density, line_opts=None, fill_opts=fill_opts, error_opts=error_opts, binwnorm=binwnorm)
 
     if self.doData(hname):
