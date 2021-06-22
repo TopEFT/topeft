@@ -201,3 +201,20 @@ basepathFromTTH = 'data/fromTTH/fakerate/'
 
 #extFakeRates.finalize()
 #FRevaluatior = extFakeRates.make_evaluator()
+
+
+### Charge flips
+pathToChargeFlips = topcoffea_path('data/fromTTH/fliprates/')
+flipFileName = lambda year : pathToChargeFlips+"ElectronChargeMisIdRates_era%s_2020Feb13.root"%str(year)[:4]
+fliphname = 'chargeMisId'
+# pt, abseta
+
+extChargeFlips = lookup_tools.extractor()
+
+for year in ['2016', '2016APV', '2017', '2018']:
+  extChargeFlips.add_weight_sets(['fr_%s %s %s'%(year, fliphname, flipFileName(year))])
+
+extChargeFlips.finalize()
+ChargeFlipsEvaluator = extChargeFlips.make_evaluator()
+
+
