@@ -164,11 +164,18 @@ class AnalysisProcessor(processor.ProcessorABC):
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
         #nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
-        if year == 2017: btagwp = 0.3040 #WP medium
-        else: btagwp = 0.2783 #WP medium
-        isBtagJets = (goodJets.btagDeepB > btagwp)
-        isNotBtagJets = np.invert(isBtagJets)
-        nbtags = ak.num(goodJets[isBtagJets])
+        # Loose DeepJet WP
+        if year == 2017: btagwpl = 0.0532 #WP loose 
+        else: btagwpl = 0.0490 #WP loose 
+        isBtagJetsLoose = (goodJets.btagDeepB > btagwpl)
+        isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
+        nbtagsl = ak.num(goodJets[isBtagJetsLoose])
+        # Medium DeepJet WP
+        if year == 2017: btagwpm = 0.3040 #WP medium
+        else: btagwpm = 0.2783 #WP medium
+        isBtagJetsMedium = (goodJets.btagDeepB > btagwpm)
+        isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
+        nbtagsm = ak.num(goodJets[isBtagJetsMedium])
         
         # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
         btagSF   = np.ones_like(ht)
@@ -184,10 +191,10 @@ class AnalysisProcessor(processor.ProcessorABC):
           bJetEff_dataUp = bJetEff*bJetSFUp
           bJetEff_dataDo = bJetEff*bJetSFDo
    
-          pMC     = ak.prod(bJetEff       [isBtagJets], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJets]), axis=-1)
-          pData   = ak.prod(bJetEff_data  [isBtagJets], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJets]), axis=-1)
-          pDataUp = ak.prod(bJetEff_dataUp[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJets]), axis=-1)
-          pDataDo = ak.prod(bJetEff_dataDo[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJets]), axis=-1)
+          pMC     = ak.prod(bJetEff       [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJetsMedium]), axis=-1)
+          pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
+          pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
+          pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)
 
           pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
           btagSF   = pData  /pMC
@@ -480,11 +487,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add('base', (nElec+nMuon>=2))
         selections.add('2jets',(njets>=2))
         selections.add('4jets',(njets>=4))
-        selections.add('4j1b',(njets>=4)&(nbtags>=1))
-        selections.add('4j2b',(njets>=4)&(nbtags>=2))
+        selections.add('4j1b',(njets>=4)&(nbtagsm>=1))
+        selections.add('4j2b',(njets>=4)&(nbtagsm>=2))
 
-        selections.add('1b', (nbtags==1))
-        selections.add('2b', (nbtags>=2))
+        # Loose DeepJet
+        selections.add('1bl', (nbtagsl==1))
+        selections.add('1+bl', (nbtagsl>=1))
+        selections.add('2bl', (nbtagsl==2)) #probably not needed
+        selections.add('2+bl', (nbtagsl>=2))
+        # Medium DeepJet
+        selections.add('1bm', (nbtagsm==1))
+        selections.add('1+bm', (nbtagsm>=1))
+        selections.add('2bm', (nbtagsm==2)) #probably not needed
+        selections.add('2+bm', (nbtagsm>=2))
 
         # Variables
         invMass_eeSSonZ  = ( eeSSonZ.e0+ eeSSonZ.e1).mass
@@ -548,7 +563,7 @@ class AnalysisProcessor(processor.ProcessorABC):
          for var, v in varnames.items():
           for ch in channels2LSS+channels3L+channels4L:
            for sumcharge in ['ch+', 'ch-']:
-            for nbjet in ['1b', '2b']:
+            for nbjet in ['1bl', '1+bl', '2bl', '2+bl', '1bm', '1+bm', '2bm', '2+bm']:
               for lev in levels:
                #find the event weight to be used when filling the histograms    
                weightSyst = syst
