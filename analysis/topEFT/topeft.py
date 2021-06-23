@@ -491,15 +491,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add('4j2b',(njets>=4)&(nbtagsm>=2))
 
         # Loose DeepJet
-        selections.add('1bl', (nbtagsl==1))
-        selections.add('1+bl', (nbtagsl>=1))
-        selections.add('2bl', (nbtagsl==2)) #probably not needed
-        selections.add('2+bl', (nbtagsl>=2))
+        #selections.add('1bl', (nbtagsl==1))
+        #selections.add('1+bl', (nbtagsl>=1))
+        #selections.add('2bl', (nbtagsl==2)) #probably not needed
+        #selections.add('2+bl', (nbtagsl>=2))
         # Medium DeepJet
+        #selections.add('1bm', (nbtagsm==1))
+        #selections.add('1+bm', (nbtagsm>=1))
+        #selections.add('2bm', (nbtagsm==2)) #probably not needed
+        #selections.add('2+bm', (nbtagsm>=2))
+        #selections.add('1+bm2+bml', (nbtagsm>=1 and ((nbtagsm+nbtagsl)>=2))
+        selections.add('1+bm2+bl', ((nbtagsm>=1)&(nbtagsl>=2)))
         selections.add('1bm', (nbtagsm==1))
-        selections.add('1+bm', (nbtagsm>=1))
-        selections.add('2bm', (nbtagsm==2)) #probably not needed
-        selections.add('2+bm', (nbtagsm>=2))
+        selections.add('2bm', (nbtagsm==2))
 
         # Variables
         invMass_eeSSonZ  = ( eeSSonZ.e0+ eeSSonZ.e1).mass
@@ -564,7 +568,8 @@ class AnalysisProcessor(processor.ProcessorABC):
          for var, v in varnames.items():
           for ch in channels2LSS+channels3L+channels4L:
            for sumcharge in ['ch+', 'ch-']:
-            for nbjet in ['1bl', '1+bl', '2bl', '2+bl', '1bm', '1+bm', '2bm', '2+bm']:
+            #for nbjet in ['1bl', '1+bl', '2bl', '2+bl', '1bm', '1+bm', '2bm', '2+bm']:
+            for nbjet in ['1+bm2+bl','1bm','2bm']:
               for lev in levels:
                #find the event weight to be used when filling the histograms    
                weightSyst = syst
