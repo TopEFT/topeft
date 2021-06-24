@@ -485,6 +485,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         levels = ['base', '2jets', '4jets', '4j1b', '4j2b']
         selections.add('base', (nElec+nMuon>=2))
+        selections.add('2b', ((nElec+nMuon>=2) and (nbtagsm+nbtagsl)>=2))
         selections.add('2jets',(njets>=2))
         selections.add('4jets',(njets>=4))
         selections.add('4j1b',(njets>=4)&(nbtagsm>=1))

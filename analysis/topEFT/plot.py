@@ -70,6 +70,7 @@ categories = {
  #'Zcat' : ['onZ', 'offZ'],
  #'lepCat' : ['3l'],
  'sumcharge': ['ch+','ch-'],
+ 'nbjet': ['1+bm2+bl'],
  'systematic': 'nominal'
 }
 
