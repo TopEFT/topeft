@@ -80,7 +80,6 @@ def get_short_name(long_name):
     ret_name = None
     for short_name,long_name_lst in PROC_MAP.items():
         if long_name in long_name_lst:
-            print("here!!!",long_name,short_name)
             ret_name = short_name
             break
     return ret_name
@@ -151,6 +150,7 @@ def get_yield(h,proc,cat_lst=None):
     #print("\nIn get_yields()")
     if cat_lst is not None:
         h = h.integrate(axis_name,cats_lst)
+        # I don't want to use the function like this right now, but don't want to deleate this in case we want it in the future
         print("I don't think we should be here !!!")
         raise Exception
     #h_vals = h[proc].values(overflow='all')
@@ -200,10 +200,13 @@ def get_yld_dict(hin_dict,year):
     yld_dict = {}
     proc_lst = get_cat_lables(hin_dict,"sample")
     for proc in proc_lst:
-        yld_dict[proc] = {}
+        proc_name_short = get_short_name(proc)
+        #yld_dict[proc] = {}
+        yld_dict[proc_name_short] = {}
         for cat,cuts_dict in CATEGORIES.items():
             yld = get_scaled_yield(hin_dict,year,proc,cat)
-            yld_dict[proc][cat]= yld
+            #yld_dict[proc][cat]= yld
+            yld_dict[proc_name_short][cat]= yld
     return yld_dict
 
 
@@ -247,6 +250,7 @@ def print_latex_yield_table(year,hin_dict1,hin_dict2=None):
         print("\\caption{}")
         print("\\begin{tabular}{cccccccccc}") # Hard coded :(
         print(format_header(cat_lst))
+
         proc_lst = get_cat_lables(hin_dict,"sample")
         #for proc in proc_lst:
         for ptag,ptag_lst in PROC_MAP.items():
@@ -267,6 +271,7 @@ def print_latex_yield_table(year,hin_dict1,hin_dict2=None):
                     yld = round(yld,2)
                     print("&",yld,end=' ')
                 print("\\\ ")
+
         print("\\hline")
         print("\\end{tabular}")
         print("\\end{table}")
@@ -276,6 +281,7 @@ def print_latex_yield_table(year,hin_dict1,hin_dict2=None):
     #print_table(CAT_LST,hin_dict2,year)
     print_end()
 
+# Takes yield dicts (i.e. what get_yld_dict() returns) and prints it
 def print_yld_dicts(ylds_central_dict,ylds_private_dict):
 
     for proc_name_short in list(PROC_MAP.keys()):
@@ -314,26 +320,18 @@ def main():
     hin_dict = get_hist_from_pkl(fpath_cuts_centralUl17_test)
     hin_dict_private = get_hist_from_pkl(fpath_cuts_privateUl17_test)
 
+    ylds_central_dict = get_yld_dict(hin_dict,"2017")
+    ylds_private_dict = get_yld_dict(hin_dict_private,"2017")
+
     # Print out info about the hists
     #print_hist_info(hin_dict)
     #exit()
 
-    proc_lst = get_cat_lables(hin_dict,"sample")
-
-    '''
-    for proc in proc_lst:
-        print(f"\n{proc}")
-        for cat,cuts_dict in CATEGORIES.items():
-            yld = get_scaled_yield(hin_dict,"2017",proc,cat)
-            print("\t",cat,":",yld)
-    '''
-
+    # Print latex table
     #print_latex_yield_table("2017",hin_dict,hin_dict_private)
     #print_latex_yield_table("2017",hin_dict)
 
-    ylds_central_dict = get_yld_dict(hin_dict,"2017")
-    ylds_private_dict = get_yld_dict(hin_dict_private,"2017")
-
+    # Print out yield dicts
     print_yld_dicts(ylds_central_dict,ylds_private_dict)
 
 main()
