@@ -15,21 +15,6 @@ PROC_MAP = {
     "tHq" : ["tHq_privateUL17"],
 }
 
-PROC_MAP_CENTRAL = {
-    "ttlnu" : ["ttW_centralUL17"],
-    "ttll"  : ["ttZ_centralUL17"],
-    "ttH"   : ["ttH_centralUL17"],
-    "tllq"  : ["tZq_centralUL17"],
-}
-
-PROC_MAP_PRIVATE = {
-    "ttlnu" : ["ttlnuJet_privateUL17"],
-    "ttll"  : ["ttllJet_privateUL17"],
-    "ttH"   : ["ttHJet_privateUL17"],
-    "tllq"  : ["tllq_privateUL17"],
-    "tHq"   : ["tHq_privateUL17"],
-}
-
 ch_3l_onZ = ["eemSSonZ", "mmeSSonZ", "eeeSSonZ", "mmmSSonZ"]
 ch_3l_offZ = ["eemSSoffZ", "mmeSSoffZ", "eeeSSoffZ", "mmmSSoffZ"]
 ch_2lss = ["eeSSonZ", "eeSSoffZ", "mmSSonZ", "mmSSoffZ", "emSS"]
@@ -86,13 +71,44 @@ CATEGORIES = {
     },
 }
 
+######### Functions for getting process names from PROC_MAP #########
+
+# What this function does:
+#   - Takes a full process name (i.e. the name of the category on the samples axis)
+#   - Then loops through PROC_MAP and returns the short (i.e. standard) version of the process name
+def get_short_name(long_name):
+    ret_name = None
+    for short_name,long_name_lst in PROC_MAP.items():
+        if long_name in long_name_lst:
+            print("here!!!",long_name,short_name)
+            ret_name = short_name
+            break
+    return ret_name
+
+# What this function does:
+#   - Takes a list of full process names (i.e. all of the categories on samples axis) and a key from PROC_MAP
+#   - Returns the long (i.e. the name of the cateogry in the smples axis) corresponding to the short name
+def get_long_name(long_name_lst_in,short_name_in):
+    ret_name = None
+    for long_name in PROC_MAP[short_name_in]:
+        for long_name_in in long_name_lst_in:
+            if long_name_in == long_name:
+                ret_name = long_name
+    return ret_name
+
+
+######### General functions #########
+
+# Get percent difference
 def pdiff(a,b):
     #p = (float(a)-float(b))/((float(a)+float(b))/2)
-    if b == 0:
-        return None
+    if ((a is None) or (b is None)):
+        p = None
+    elif b == 0:
+        p = None
     else:
         p = (float(a)-float(b))/float(b)
-        return p
+    return p
 
 # Get the dictionary of hists from the pkl file (that the processor outputs)
 def get_hist_from_pkl(path_to_pkl):
@@ -107,7 +123,7 @@ def get_lumi(year):
        lumi = lumi[year]
     return lumi
 
-# Takes a hist (from the pkl file) and an axis name, retrun the list of categories for that axis
+# Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, retrun the list of categories for that axis
 def get_cat_lables(hin_dict,axis,h_name=None):
     cats = []
     if h_name is None: h_name = "njets" # Guess a hist that we usually have
@@ -117,12 +133,15 @@ def get_cat_lables(hin_dict,axis,h_name=None):
                 cats.append(cat.name)
     return cats
 
-# Takes a histogram and a dictionary, integrates out the categories listed in the dictionry
+# Takes a histogram and a dictionary that specifies categories, integrates out the categories listed in the dictionry
 def integrate_out_cats(h,cuts_dict):
     h_ret = h
     for axis_name,cat_lst in cuts_dict.items():
         h_ret = h_ret.integrate(axis_name,cat_lst)
     return h_ret
+
+
+######### Functions specifically for getting yields #########
 
 # Sum all the values of a hist 
 #    - The hist you pass should have two axes (all other should already be integrated out)
@@ -137,30 +156,14 @@ def get_yield(h,proc,cat_lst=None):
     #h_vals = h[proc].values(overflow='all')
     h_vals = h[proc].values(overflow='over')
     #h_vals = h[proc].values()
-    #print("proc:",proc)
-    #print("\th_vals:",h_vals)
     for i,(k,v) in enumerate(h_vals.items()):
         v_sum = v.sum()
         if i > 0: raise Exception("Why is i greater than 0? Something is not what you thought it was.")
-    #print("\tSum of vals:",v_sum)
     return v_sum
 
-# Print out all the info about all the axes in a hist
-def check_hist_info(path):
-
-    if type(path) is str:
-        hin_dict = get_hist_from_pkl(path)
-    else:
-        hin_dict = path
-
-    h_name = "njets"
-    #h_name = "SumOfEFTweights"
-    for i in range(len(hin_dict[h_name].axes())):
-        print(f"\n{i} Aaxis name:",hin_dict[h_name].axes()[i].name)
-        for cat in hin_dict[h_name].axes()[i].identifiers():
-            print(cat)
-
-# Really just a wrapper for get_yield()
+# This is really just a wrapper for get_yield(). Note:
+#   - This fucntion now also rebins the njets hists
+#   - Maybe that does not belong in this function
 def get_scaled_yield(hin_dict,year,proc,cat):
 
     #h = hin_dict["ht"]
@@ -169,14 +172,12 @@ def get_scaled_yield(hin_dict,year,proc,cat):
     h = integrate_out_cats(h,CATEGORIES[cat])
     h = h.integrate("cut","base").integrate("systematic","nominal")
 
-    #print("pre:",h[proc].values())
     if '2l' in cat:
         h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7,8,9,10]))
     elif '3l' in cat:
         h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5,6,7,8,9,10]))
     elif '4l' in cat: 
         h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5,6,7,8,9,10]))
-    #print("post:",h[proc].values())
 
     lumi = 1000.0*get_lumi(year)
     h_sow = hin_dict["SumOfEFTweights"]
@@ -189,12 +190,40 @@ def get_scaled_yield(hin_dict,year,proc,cat):
         #print("Sum of weights:",sow)
 
     yld = lumi*get_yield(h,proc)
-    #print("\tN events:",yld)
-    #print("\t",yld)
     return yld
 
-# Make a latex table for the yields
-def make_latex_yield_table(year,hin_dict1,hin_dict2=None):
+# This function:
+#   - Takes as input a hist dict (i.e. what the processor outptus)
+#   - Retruns a dictionary of yields for the categories in CATEGORIES
+#   - Making use of get_scaled_yield()
+def get_yld_dict(hin_dict,year):
+    yld_dict = {}
+    proc_lst = get_cat_lables(hin_dict,"sample")
+    for proc in proc_lst:
+        yld_dict[proc] = {}
+        for cat,cuts_dict in CATEGORIES.items():
+            yld = get_scaled_yield(hin_dict,year,proc,cat)
+            yld_dict[proc][cat]= yld
+    return yld_dict
+
+
+######### Functions that just print out information #########
+
+# Print out all the info about all the axes in a hist
+def print_hist_info(path):
+
+    if type(path) is str: hin_dict = get_hist_from_pkl(path)
+    else: hin_dict = path
+
+    h_name = "njets"
+    #h_name = "SumOfEFTweights"
+    for i in range(len(hin_dict[h_name].axes())):
+        print(f"\n{i} Aaxis name:",hin_dict[h_name].axes()[i].name)
+        for cat in hin_dict[h_name].axes()[i].identifiers():
+            print(cat)
+
+# Print a latex table for the yields
+def print_latex_yield_table(year,hin_dict1,hin_dict2=None):
 
     def format_header(cat_lst):
         s = "\\hline "
@@ -247,16 +276,31 @@ def make_latex_yield_table(year,hin_dict1,hin_dict2=None):
     #print_table(CAT_LST,hin_dict2,year)
     print_end()
 
-def get_yld_dict(hin_dict,year):
-    yld_dict = {}
-    proc_lst = get_cat_lables(hin_dict,"sample")
-    for proc in proc_lst:
-        yld_dict[proc] = {}
-        for cat,cuts_dict in CATEGORIES.items():
-            yld = get_scaled_yield(hin_dict,year,proc,cat)
-            yld_dict[proc][cat]= yld
-    return yld_dict
+def print_yld_dicts(ylds_central_dict,ylds_private_dict):
 
+    for proc_name_short in list(PROC_MAP.keys()):
+
+        proc_name_private = get_long_name(ylds_private_dict.keys(),proc_name_short)
+        proc_name_central = get_long_name(ylds_central_dict.keys(),proc_name_short)
+        print(f"\nProcess: {proc_name_short} (private: {proc_name_private}, central: {proc_name_central})")
+
+        for cat_name in CAT_LST:
+            print("\n    Category:",cat_name)
+
+            yld_central = None
+            yld_private = None
+            if proc_name_central is not None:
+                yld_central = ylds_central_dict[proc_name_central][cat_name]
+            if proc_name_private is not None:
+                yld_private = ylds_private_dict[proc_name_private][cat_name]
+
+            p = pdiff(yld_private,yld_central)
+
+            print("\tYields:",yld_private,yld_central)
+            print("\tPerc diff:",p)
+
+
+######### The main() function #########
 
 def main():
 
@@ -266,23 +310,13 @@ def main():
     #fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUl17_ttH-ttll.pkl.gz"
     fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_allButtHq4t.pkl.gz"
 
-    hin_dict = get_hist_from_pkl(fpath_default)
-    #hin_dict = get_hist_from_pkl(fpath_cuts_centralUl17_test)
-    #hin_dict_private = get_hist_from_pkl(fpath_cuts_privateUl17_test)
-
-    ###
-    # From Brent:
-    #hists = hin_dict_private
-    #ch2lss = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
-    #x = 1000 * 41.3 * hists['njets'].rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7])).integrate('channel', ch2lss).integrate('cut', 'base').integrate('sumcharge', 'ch+').integrate('nbjet', '1+bm2+bl').integrate('systematic', 'nominal').integrate('sample', 'ttHJet_privateUL17').values(overflow='over')[()].sum() / hists['SumOfEFTweights'].sum('sample').values()[()].sum()
-    #print("Value:",x)
-    #exit()
-    ###
-
+    #hin_dict = get_hist_from_pkl(fpath_default)
+    hin_dict = get_hist_from_pkl(fpath_cuts_centralUl17_test)
+    hin_dict_private = get_hist_from_pkl(fpath_cuts_privateUl17_test)
 
     # Print out info about the hists
-    check_hist_info(hin_dict)
-    exit()
+    #print_hist_info(hin_dict)
+    #exit()
 
     proc_lst = get_cat_lables(hin_dict,"sample")
 
@@ -294,20 +328,13 @@ def main():
             print("\t",cat,":",yld)
     '''
 
-    #make_latex_yield_table("2017",hin_dict,hin_dict_private)
-    #make_latex_yield_table("2017",hin_dict)
+    #print_latex_yield_table("2017",hin_dict,hin_dict_private)
+    #print_latex_yield_table("2017",hin_dict)
 
     ylds_central_dict = get_yld_dict(hin_dict,"2017")
     ylds_private_dict = get_yld_dict(hin_dict_private,"2017")
 
-    for ptag in list(PROC_MAP_CENTRAL.keys()):
-        print("\n",ptag)
-        for cat_name in CAT_LST:
-            print("\n",cat_name)
-            yld_central = ylds_central_dict[PROC_MAP_CENTRAL[ptag][0]][cat_name]
-            yld_private = ylds_private_dict[PROC_MAP_PRIVATE[ptag][0]][cat_name]
-            print("\t",yld_private,yld_central)
-            p = pdiff(yld_private,yld_central)
-            print("\t",p)
+    print_yld_dicts(ylds_central_dict,ylds_private_dict)
 
 main()
+
