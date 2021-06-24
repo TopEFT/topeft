@@ -48,6 +48,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0eta",  "Leading jet  $\eta$", 30, -3.0, 3.0)),
         'ht'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ht",     "H$_{T}$ (GeV)", 50, 0, 1000)),
         'njetsnbtags' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)), 
+        'nVtx'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nVtx",     "PU", 60, 0, 60)),
         })
 
         self._eft_helper = EFTHelper(wc_names_lst)
@@ -425,7 +426,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           weights[r] = coffea.analysis_tools.Weights(len(events))
           weights[r].add('norm',genw if isData else (xsec/sow)*genw)
           weights[r].add('btagSF', btagSF, btagSFUp, btagSFDo)
-          weights[r].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
+          #weights[r].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
 
         weights['ee'].add('lepSF', lepSF_eeSS, lepSF_eeSS_up, lepSF_eeSS_down)
         weights['em'].add('lepSF', lepSF_emSS,lepSF_emSS_up, lepSF_emSS_down)
@@ -527,12 +528,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['j0pt' ] = j0.pt
         varnames['j0eta'] = j0.eta
         varnames['counts'] = np.ones_like(events['event'])
-
+        varnames['nVtx'] = events.PV.npvs
         # systematics
         systList = []
         if isData==False:
           systList = ['nominal']
-          if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown', 'PUUp', 'PUDown']
+          if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown']#, 'PUUp', 'PUDown']
         else:
           systList = ['noweight']
         # fill Histos
@@ -577,6 +578,7 @@ class AnalysisProcessor(processor.ProcessorABC):
              else:
               values = v[cut] 
               if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              elif var == 'nVtx'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nVtx=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'nbtags': 

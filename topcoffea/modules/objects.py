@@ -24,11 +24,11 @@ def isClean(obj_A, obj_B, drmin=0.4):
    return ABgoodPairs
    
 def isTightJet(pt, eta, jet_id, neHEF, neEmEF, chHEF, chEmEF, nConstituents, jetPtCut=30.0):
-    mask = (pt>jetPtCut) & (abs(eta)<2.4)# & ((jet_id&6)==6)
-    loose = (pt>0)#(neHEF<0.99)&(neEmEF<0.99)&(chEmEF<0.99)&(nConstituents>1)
+    mask = (pt>jetPtCut) & (abs(eta)<2.4) & ((jet_id&6)==6)
+    loose = (pt>0)&(neHEF<0.99)&(neEmEF<0.99)&(chEmEF<0.99)&(nConstituents>1)
     tight = (neHEF<0.9)&(neEmEF<0.9)&(chHEF>0.0)
-    jetMETcorrection = (pt>0)#(neEmEF + chEmEF < 0.9)
-    mask = mask & loose & tight & jetMETcorrection
+    jetMETcorrection = (pt>0)&(neEmEF + chEmEF < 0.9)
+    #mask = mask & loose & tight & jetMETcorrection
     return mask
 
 def isClean(obj_A, obj_B, drmin=0.4):
@@ -88,11 +88,11 @@ def isPresMuon(dxy, dz, sip3D, looseId):
   return mask
   
 def isTightMuon(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, mediumPrompt, tightCharge, looseId, minpt=10.0):
-  mask = (pt>minpt)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(looseId)#&(miniIso<0.25)#&(mvaTTH>0.90)&(tightCharge==2)&(mediumPrompt)
+  mask = (pt>minpt)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(looseId)&(mvaTTH>0.90)&(miniIso<0.25)&(tightCharge==2)&(mediumPrompt)
   return mask
 
 def isPresElec(pt, eta, dxy, dz, miniIso, sip3D, lostHits, minpt=15.0):
-  mask = (pt>minpt)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(lostHits<=1)#&(eInvMinusPInv>-0.04)&(maskhoe)&(miniIso<0.25)
+  mask = (pt>minpt)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(lostHits<=1)
   return mask
  
 def isTightElec(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, elecMVA, lostHits, convVeto, tightCharge, sieie, hoe, eInvMinusPInv, minpt=15.0):
@@ -101,11 +101,11 @@ def isTightElec(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, elecMVA, lostHits, con
   maskSieie  = ((abs(eta)<1.479)&(sieie<0.011))|((abs(eta)>1.479)&(sieie<0.030))
   maskhoe    = ((abs(eta)<1.479)&(hoe<0.10))|((abs(eta)>1.479)&(hoe<0.07))
   mask = (pt>minpt)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(lostHits<=1)&\
-         (convVeto)&(maskSieie)#&(maskPOGMVA)&(eInvMinusPInv>-0.04)&(maskhoe)&(miniIso<0.25)#&(mvaTTH>0.90)&(tightCharge==2)
+         (convVeto)&(maskSieie)&(mvaTTH>0.9)&(maskPOGMVA)&(eInvMinusPInv>-0.04)&(maskhoe)&(miniIso<0.25)&(tightCharge==2)
   return mask
  
 def isPresTau(pt, eta, dxy, dz, leadTkPtOverTauPt, idAntiMu, idAntiEle, rawIso, idDecayModeNewDMs, minpt=20.0):
-  kinematics = (pt>minpt)&(abs(eta)<2.3)&(dxy<1000.)&(dz<0.2)#&(leadTkPtOverTauPt*pt>0.5)
+  kinematics = (pt>minpt)&(abs(eta)<2.3)&(dxy<1000.)&(dz<0.2)&(leadTkPtOverTauPt*pt>0.5)
   medium = (idAntiMu>0.5)&(idAntiEle>0.5)&(rawIso>0.5)&(idDecayModeNewDMs)
   return kinematics# & medium
 
@@ -142,3 +142,4 @@ def tightSelElec(clean_and_FO_selection_TTH, mvaTTH):
 
 def tightSelMuon(clean_and_FO_selection_TTH, mediumId, mvaTTH):
   return (clean_and_FO_selection_TTH) & (mediumId>0) & (mvaTTH > 0.85)
+  return kinematics & medium
