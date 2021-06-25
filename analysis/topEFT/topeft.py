@@ -49,7 +49,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         'm0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("nbjet", "nbjet"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m0eta",  "Leading muon $\eta$", 30, -3.0, 3.0)),
         'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("nbjet", "nbjet"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0eta",  "Leading jet  $\eta$", 30, -3.0, 3.0)),
         'ht'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("nbjet", "nbjet"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ht",     "H$_{T}$ (GeV)", 50, 0, 1000)),
-        'njetsnbtags' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("nbjet", "nbjet"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)), 
         })
 
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
@@ -488,8 +487,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Loose DeepJet
         selections.add('1+bm2+bl', ((nbtagsm>=1)&(nbtagsl>=2)))
-        selections.add('1bm', (nbtagsm==1))
-        selections.add('2+bm', (nbtagsm>=2))
+        selections.add('1bm',      (nbtagsm==1))
+        selections.add('2+bm',     (nbtagsm>=2))
 
         # Variables
         invMass_eeSSonZ  = ( eeSSonZ.e0+ eeSSonZ.e1).mass
@@ -499,11 +498,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         invMass_emSS     = (emSS.e+emSS.m).mass
 
         varnames = {}
-        varnames['met'] = met.pt
-        varnames['ht'] = ht
-        varnames['njets'] = njets
-        varnames['nbtagsm'] = nbtagsm
-        varnames['nbtagsl'] = nbtagsl
+        varnames['met']     = met.pt
+        varnames['ht']      = ht
+        varnames['njets']   = njets
         varnames['invmass'] = {
           'eeSSonZ'   : invMass_eeSSonZ,
           'eeSSoffZ'  : invMass_eeSSoffZ,
@@ -529,12 +526,12 @@ class AnalysisProcessor(processor.ProcessorABC):
           'mmmSSonZ'  : m3l_mmm,
           'mmmSSoffZ' : m3l_mmm,
         }
-        varnames['e0pt' ] = e0.pt
-        varnames['e0eta'] = e0.eta
-        varnames['m0pt' ] = m0.pt
-        varnames['m0eta'] = m0.eta
-        varnames['j0pt' ] = j0.pt
-        varnames['j0eta'] = j0.eta
+        varnames['e0pt' ]  = e0.pt
+        varnames['e0eta']  = e0.eta
+        varnames['m0pt' ]  = m0.pt
+        varnames['m0eta']  = m0.eta
+        varnames['j0pt' ]  = j0.pt
+        varnames['j0eta']  = j0.eta
         varnames['counts'] = np.ones_like(events['event'])
 
         # systematics
@@ -588,15 +585,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, nbjet=nbjet, m3l=values, weight=weights_flat, systematic=syst)
                else:
                 values = v[cut] 
+                # These all look identical, do we need if/else here?
                 if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, nbjet=nbjet, weight=weights_flat, systematic=syst)
                 elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, nbjet=nbjet, weight=weights_flat, systematic=syst)
                 elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, nbjet=nbjet, weight=weights_flat, systematic=syst)
-                elif var == 'nbtags': 
-                  hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, nbjet=nbjet, weight=weights_flat, systematic=syst)
-                  hout['njetsnbtags'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=varnames['njets'][cut], nbtagsm=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, nbjet=nbjet, weight=weights_flat, systematic=syst)
-                elif var == 'nbtagsl': 
-                  hout['nbtags'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, nbjet=nbjet, weight=weights_flat, systematic=syst)
-                  hout['njetsnbtags'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=varnames['njets'][cut], nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, nbjet=nbjet, weight=weights_flat, systematic=syst)
+                elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, nbjet=nbjet, weight=weights_flat, systematic=syst)
                 elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, nbjet=nbjet, weight=weights_ones, systematic=syst)
                 elif var == 'j0eta' : 
                   if lev == 'base': continue
