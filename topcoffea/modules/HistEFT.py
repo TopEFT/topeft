@@ -20,7 +20,7 @@ import numbers
 
 from coffea.hist.hist_tools import DenseAxis
 
-from topcoffea.modules.EFTHelper import EFTHelper
+import topcoffea.modules.eft_helper as efth
 
 class HistEFT(coffea.hist.Hist):
 
@@ -29,10 +29,9 @@ class HistEFT(coffea.hist.Hist):
     if isinstance(wcnames, str) and ',' in wcnames: wcnames = wcnames.replace(' ', '').split(',')
     n = len(wcnames) if isinstance(wcnames, list) else wcnames
     self._wcnames = wcnames
-    self._eft_helper = EFTHelper(wcnames)
     self._nwc = n
-    self._ncoeffs = self._eft_helper.get_w_coeffs()
-    self._nerrcoeffs = self._eft_helper.get_w2_coeffs()
+    self._ncoeffs = efth.n_quad_terms(n)
+    self._nerrcoeffs = efth.n_quartic_terms(n)
     self._wcs = np.zeros(n)
     
     super().__init__(label, *axes, **kwargs)
@@ -466,7 +465,7 @@ class HistEFT(coffea.hist.Hist):
         is_eft_bin = isinstance(self._sumw[sparse_key],np.ndarray)
 
       if is_eft_bin:
-        _sumw = self._eft_helper.calc_eft_weights(self._sumw[sparse_key],self._wcs)
+        _sumw = efth.calc_eft_weights(self._sumw[sparse_key],self._wcs)
       else:
         _sumw = self._sumw[sparse_key]
 
@@ -474,7 +473,7 @@ class HistEFT(coffea.hist.Hist):
         if self._sumw2 is not None:
             if is_eft_bin:
               if self._sumw2[sparse_key] is not None:
-                _sumw2 = self._eft_helper.calc_eft_w2(self._sumw2[sparse_key],self._wcs)  
+                _sumw2 = efth.calc_eft_w2(self._sumw2[sparse_key],self._wcs)  
               else:
                 # Set really tiny error bars (e.g. one one-millionth the size of the average bin)
                 _sumw2 = np.full_like(_sumw,1e-30*np.mean(_sumw))
