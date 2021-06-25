@@ -9,10 +9,10 @@ CAT_LST = ["cat_2lss_p","cat_2lss_m","cat_3l_1b_offZ_p","cat_3l_1b_offZ_m","cat_
 
 PROC_MAP = {
     "ttlnu" : ["ttW_centralUL17","ttlnu_private2017","ttlnuJet_privateUL17","ttlnuJet_privateUL18"],
-    "ttll" : ["ttZ_centralUL17","ttll_TOP-19-001","ttllJet_privateUL17","ttllJet_privateUL18"],
-    "ttH" : ["ttH_centralUL17","ttH_private2017","ttHJet_privateUL17","ttHJet_privateUL18"],
-    "tllq" : ["tZq_centralUL17","tllq_private2017","tllq_privateUL17","tllq_privateUL18"],
-    "tHq" : ["tHq_privateUL17"],
+    "ttll"  : ["ttZ_centralUL17","ttll_TOP-19-001","ttllJet_privateUL17","ttllJet_privateUL18"],
+    "ttH"   : ["ttH_centralUL17","ttH_private2017","ttHJet_privateUL17","ttHJet_privateUL18"],
+    "tllq"  : ["tZq_centralUL17","tllq_private2017","tllq_privateUL17","tllq_privateUL18"],
+    "tHq"   : ["tHq_privateUL17"],
 }
 
 ch_3l_onZ = ["eemSSonZ", "mmeSSonZ", "eeeSSonZ", "mmmSSonZ"]
@@ -66,7 +66,7 @@ CATEGORIES = {
 
     "cat_4l" : {
         "channel": ch_4l,
-        "sumcharge": ["ch+","ch-"],
+        "sumcharge": ["ch+","ch-","ch0"],
         "nbjet": ["1+bm2+bl"],
     },
 }
@@ -173,19 +173,14 @@ def get_pdiff_between_nested_dicts(dict1,dict2):
 #    - The hist you pass should have two axes (all other should already be integrated out)
 #    - The two axes should be the samples axis, and the dense axis (e.g. ht)
 #    - You pass a process name, and we select just that category from the sample axis
-def get_yield(h,proc,cat_lst=None):
+def get_yield(h,proc):
     #print("\nIn get_yields()")
-    if cat_lst is not None:
-        h = h.integrate(axis_name,cats_lst)
-        # I don't want to use the function like this right now, but don't want to deleate this in case we want it in the future
-        print("I don't think we should be here !!!")
-        raise Exception
     #h_vals = h[proc].values(overflow='all')
     h_vals = h[proc].values(overflow='over')
     #h_vals = h[proc].values()
     for i,(k,v) in enumerate(h_vals.items()):
         v_sum = v.sum()
-        if i > 0: raise Exception("Why is i greater than 0? Something is not what you thought it was.")
+        if i > 0: raise Exception("Why is i greater than 0? The hist is not what this function is expecting. Exiting...")
     return v_sum
 
 # This is really just a wrapper for get_yield(). Note:
@@ -253,7 +248,6 @@ def print_hist_info(path):
             print(cat)
 
 # Print a latex table for the yields
-#def print_latex_yield_table(year,hin_dict1,hin_dict2=None):
 def print_latex_yield_table(yld_dict,tag,print_begin_info=False,print_end_info=False):
 
     def format_header(cat_lst):
@@ -317,35 +311,36 @@ def print_yld_dicts(ylds_dict,tag):
 
 def main():
 
+    # Paths to the input pkl files
     fpath_default  = "histos/plotsTopEFT.pkl.gz"
-    #fpath_cuts_privateUl17_test = "histos/plotsTopEFT_privateUL17_ttH-ttll-b1.pkl.gz"
-    fpath_cuts_privateUl17_test = "histos/plotsTopEFT_privateUL17_allBut4t_b1.pkl.gz"
-    #fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUl17_ttH-ttll.pkl.gz"
-    fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_allButtHq4t.pkl.gz"
+    fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_fix4l.pkl.gz"
+    fpath_cuts_privateUl17_test = "histos/plotsTopEFT_privateUL17_fix4l.pkl.gz"
 
+    # Get the histograms from the files
     #hin_dict = get_hist_from_pkl(fpath_default)
-    hin_dict = get_hist_from_pkl(fpath_cuts_centralUl17_test)
+    hin_dict_central = get_hist_from_pkl(fpath_cuts_centralUl17_test)
     hin_dict_private = get_hist_from_pkl(fpath_cuts_privateUl17_test)
 
-    ylds_central_dict = get_yld_dict(hin_dict,"2017")
+    ylds_central_dict = get_yld_dict(hin_dict_central,"2017")
     ylds_private_dict = get_yld_dict(hin_dict_private,"2017")
 
     # Get percent differenes
     pdiff_dict = get_pdiff_between_nested_dicts(ylds_private_dict,ylds_central_dict)
 
     # Print out yields and percent differences
-    #print_yld_dicts(ylds_central_dict,"Central UL17 yields")
-    #print_yld_dicts(ylds_private_dict,"Private UL17 yields")
-    #print_yld_dicts(pdiff_dict,"Percent diff between private and central")
+    print_yld_dicts(ylds_central_dict,"Central UL17 yields")
+    print_yld_dicts(ylds_private_dict,"Private UL17 yields")
+    print_yld_dicts(pdiff_dict,"Percent diff between private and central")
+
+    # Print latex table
+    #print_latex_yield_table(ylds_central_dict,"Testing",print_begin_info=True,print_end_info=True)
+    print_latex_yield_table(ylds_central_dict,"Central UL17",print_begin_info=True)
+    print_latex_yield_table(ylds_private_dict,"Private UL17")
+    print_latex_yield_table(pdiff_dict,"Percent diff between central and private UL17: (private-central)/private",print_end_info=True)
 
     # Print out info about the hists
     #print_hist_info(hin_dict)
     #exit()
-
-    # Print latex table
-    print_latex_yield_table(ylds_central_dict,"Central UL17",print_begin_info=True)
-    print_latex_yield_table(ylds_private_dict,"Private UL17")
-    print_latex_yield_table(pdiff_dict,"Percent diff between central and private UL17: (private-central)/private",print_end_info=True)
 
 
 main()
