@@ -253,7 +253,8 @@ def print_hist_info(path):
             print(cat)
 
 # Print a latex table for the yields
-def print_latex_yield_table(year,hin_dict1,hin_dict2=None):
+#def print_latex_yield_table(year,hin_dict1,hin_dict2=None):
+def print_latex_yield_table(yld_dict,tag,print_begin_info=False,print_end_info=False):
 
     def format_header(cat_lst):
         s = "\\hline "
@@ -272,21 +273,15 @@ def print_latex_yield_table(year,hin_dict1,hin_dict2=None):
     def print_end():
         print("\\end{document}")
 
-    def print_table(cat_lst,hin_dict,year):
+    def print_table(proc_lst,cat_lst):
+        tabular_info = "c"*(len(cat_lst)+1)
         print("\\begin{table}[hbtp!]")
-        print("\\caption{}")
-        print("\\begin{tabular}{cccccccccc}") # Hard coded :(
+        print(f"\\caption{{{tag}}}") # Need to escape the "{" with another "{"
+        print(f"\\begin{{tabular}}{{{tabular_info}}}")
         print(format_header(cat_lst))
 
-        proc_lst = get_cat_lables(hin_dict,"sample")
-        #for proc in proc_lst:
-        for ptag,ptag_lst in PROC_MAP.items():
-            proc = None
-            for p in proc_lst:
-                if p in ptag_lst:
-                    proc = p
-                    break
-            if proc is None:
+        for proc in proc_lst:
+            if proc not in yld_dict.keys():
                 print("\\rule{0pt}{3ex} ","-",end=' ')
                 for cat in cat_lst:
                     print("&","-",end=' ')
@@ -294,8 +289,8 @@ def print_latex_yield_table(year,hin_dict1,hin_dict2=None):
             else:
                 print("\\rule{0pt}{3ex} ",proc.replace("_"," "),end=' ')
                 for cat in cat_lst:
-                    yld = get_scaled_yield(hin_dict,year,proc,cat)
-                    yld = round(yld,2)
+                    yld = yld_dict[proc][cat]
+                    if yld is not None: yld = round(yld,2)
                     print("&",yld,end=' ')
                 print("\\\ ")
 
@@ -303,10 +298,9 @@ def print_latex_yield_table(year,hin_dict1,hin_dict2=None):
         print("\\end{tabular}")
         print("\\end{table}")
 
-    print_begin()
-    print_table(CAT_LST,hin_dict1,year)
-    #print_table(CAT_LST,hin_dict2,year)
-    print_end()
+    if print_begin_info: print_begin()
+    print_table(PROC_MAP.keys(),CAT_LST)
+    if print_end_info: print_end()
 
 # Takes yield dicts (i.e. what get_yld_dict() returns) and prints it
 def print_yld_dicts(ylds_dict,tag):
@@ -340,17 +334,18 @@ def main():
     pdiff_dict = get_pdiff_between_nested_dicts(ylds_private_dict,ylds_central_dict)
 
     # Print out yields and percent differences
-    print_yld_dicts(ylds_central_dict,"Central UL17 yields")
-    print_yld_dicts(ylds_private_dict,"Private UL17 yields")
-    print_yld_dicts(pdiff_dict,"Percent diff between private and central")
+    #print_yld_dicts(ylds_central_dict,"Central UL17 yields")
+    #print_yld_dicts(ylds_private_dict,"Private UL17 yields")
+    #print_yld_dicts(pdiff_dict,"Percent diff between private and central")
 
     # Print out info about the hists
     #print_hist_info(hin_dict)
     #exit()
 
     # Print latex table
-    #print_latex_yield_table("2017",hin_dict,hin_dict_private)
-    #print_latex_yield_table("2017",hin_dict)
+    print_latex_yield_table(ylds_central_dict,"Central UL17",print_begin_info=True)
+    print_latex_yield_table(ylds_private_dict,"Private UL17")
+    print_latex_yield_table(pdiff_dict,"Percent diff between central and private UL17: (private-central)/private",print_end_info=True)
 
 
 main()
