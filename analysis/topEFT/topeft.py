@@ -481,6 +481,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         
         selections.add('ch+', (sumcharge>0))
         selections.add('ch-', (sumcharge<0))
+        selections.add('ch0', (sumcharge==0))
 
         levels = ['base']
         selections.add('base', (nElec+nMuon>=2))
@@ -550,8 +551,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         for syst in systList:
          for var, v in varnames.items():
           for ch in channels2LSS+channels3L+channels4L:
-           for sumcharge in ['ch+', 'ch-']:
-            #for nbjet in ['1bl', '1+bl', '2bl', '2+bl', '1bm', '1+bm', '2bm', '2+bm']:
+           for sumcharge in ['ch+', 'ch-', 'ch0']:
             for nbjet in ['1+bm2+bl','1bm','2+bm']:
               for lev in levels:
                #find the event weight to be used when filling the histograms    
