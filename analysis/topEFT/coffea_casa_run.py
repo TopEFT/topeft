@@ -14,7 +14,11 @@ from coffea import hist, processor
 from coffea.util import load, save
 from coffea.nanoevents import NanoAODSchema
 
-import topeft
+#import sys
+#sys.path.append('./analysis/topEFT/')
+from analysis.topEFT import topeft
+
+from analysis.topEFT import topeft
 from topcoffea.modules import samples
 from topcoffea.modules import fileReader
 
@@ -75,7 +79,7 @@ if __name__ == '__main__':
         if f.endswith('.json'): allInputFiles.append(jsonFile+f)
     else:
       allInputFiles.append(jsonFile)
-
+    
   # Read from cfg files
   for f in allInputFiles:
     if not os.path.isfile(f):
@@ -142,7 +146,7 @@ if __name__ == '__main__':
 
   # Run the processor and get the output
   tstart = time.time()
-  processor_instance = topcoffea.analysis.topEFT.topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors)
+  processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors)
 
   from dask.distributed import Client, Worker, WorkerPlugin
   import os, shutil
