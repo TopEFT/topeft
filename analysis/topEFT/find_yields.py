@@ -99,7 +99,7 @@ def get_long_name(long_name_lst_in,short_name_in):
 ######### General functions #########
 
 # Get percent difference
-def pdiff(a,b):
+def get_pdiff(a,b):
     #p = (float(a)-float(b))/((float(a)+float(b))/2)
     if ((a is None) or (b is None)):
         p = None
@@ -138,6 +138,33 @@ def integrate_out_cats(h,cuts_dict):
     for axis_name,cat_lst in cuts_dict.items():
         h_ret = h_ret.integrate(axis_name,cat_lst)
     return h_ret
+
+
+# Get the percent difference between values in nested dictionary of the format:
+#   dict1 = {
+#       k1 : {
+#           subk1 : v1
+#       }
+#   }
+def get_pdiff_between_nested_dicts(dict1,dict2):
+
+    ret_dict = {}
+    for k1 in dict1.keys():
+
+        if k1 in dict2.keys():
+            ret_dict[k1] = {}
+            for subk1 in dict1[k1].keys():
+                if subk1 not in dict2[k1].keys():
+                    raise Exception("These dictionaries do not have the same structure, exiting...")
+                v1 = dict1[k1][subk1]
+                v2 = dict2[k1][subk1]
+                pdiff = get_pdiff(v1,v2)
+                ret_dict[k1][subk1] = pdiff
+        else:
+            print(f"Warning, key {k1} is not in both dictionaries, continuing...")
+            continue
+
+    return ret_dict
 
 
 ######### Functions specifically for getting yields #########
@@ -282,28 +309,14 @@ def print_latex_yield_table(year,hin_dict1,hin_dict2=None):
     print_end()
 
 # Takes yield dicts (i.e. what get_yld_dict() returns) and prints it
-def print_yld_dicts(ylds_central_dict,ylds_private_dict):
+def print_yld_dicts(ylds_dict,tag):
+    print(f"\n---{tag}---\n")
+    for proc in ylds_dict.keys():
+        print(proc)
+        for cat in ylds_dict[proc].keys():
+            print(f"    {cat}")
+            print("\t",ylds_dict[proc][cat])
 
-    for proc_name_short in list(PROC_MAP.keys()):
-
-        proc_name_private = get_long_name(ylds_private_dict.keys(),proc_name_short)
-        proc_name_central = get_long_name(ylds_central_dict.keys(),proc_name_short)
-        print(f"\nProcess: {proc_name_short} (private: {proc_name_private}, central: {proc_name_central})")
-
-        for cat_name in CAT_LST:
-            print("\n    Category:",cat_name)
-
-            yld_central = None
-            yld_private = None
-            if proc_name_central is not None:
-                yld_central = ylds_central_dict[proc_name_central][cat_name]
-            if proc_name_private is not None:
-                yld_private = ylds_private_dict[proc_name_private][cat_name]
-
-            p = pdiff(yld_private,yld_central)
-
-            print("\tYields:",yld_private,yld_central)
-            print("\tPerc diff:",p)
 
 
 ######### The main() function #########
@@ -323,6 +336,14 @@ def main():
     ylds_central_dict = get_yld_dict(hin_dict,"2017")
     ylds_private_dict = get_yld_dict(hin_dict_private,"2017")
 
+    # Get percent differenes
+    pdiff_dict = get_pdiff_between_nested_dicts(ylds_private_dict,ylds_central_dict)
+
+    # Print out yields and percent differences
+    print_yld_dicts(ylds_central_dict,"Central UL17 yields")
+    print_yld_dicts(ylds_private_dict,"Private UL17 yields")
+    print_yld_dicts(pdiff_dict,"Percent diff between private and central")
+
     # Print out info about the hists
     #print_hist_info(hin_dict)
     #exit()
@@ -331,8 +352,6 @@ def main():
     #print_latex_yield_table("2017",hin_dict,hin_dict_private)
     #print_latex_yield_table("2017",hin_dict)
 
-    # Print out yield dicts
-    print_yld_dicts(ylds_central_dict,ylds_private_dict)
 
 main()
 
