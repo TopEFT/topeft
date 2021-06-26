@@ -246,7 +246,7 @@ class plotter:
     h = self.GetHistogram(hname, self.bkglist)
     h.scale(1000.*self.lumi)
     y = h.integrate("process").values(overflow='all')
-    y = y[list(y.keys())[0]].sum()
+    if y == {}: return #process not found
     hist.plot1d(h, overlay="process", ax=ax, clear=False, stack=self.doStack, density=density, line_opts=None, fill_opts=fill_opts, error_opts=error_opts, binwnorm=binwnorm)
 
     if self.doData(hname):
@@ -289,7 +289,7 @@ class plotter:
     
     # Save
     os.system('mkdir -p %s'%self.outpath)
-    fig.savefig(os.path.join(self.outpath, hname+'.png'))
+    fig.savefig(os.path.join(self.outpath, hname+'_'.join(self.region.split())+'.png'))
 
   def GetYields(self, var='counts'):
     sumy = 0
@@ -298,6 +298,7 @@ class plotter:
     h.scale(1000.*self.lumi)
     for bkg in self.bkglist:
       y = h[bkg].integrate("process").values(overflow='all')
+      if y == {}: continue #process not found
       y = y[list(y.keys())[0]].sum()
       sumy += y
       dicyields[bkg] = y
@@ -335,6 +336,7 @@ class plotter:
     dic = {}
     for k in self.multicategories.keys():
       self.SetCategories(self.multicategories[k])
+      if k not in dic: continue
       dic[k] = self.GetYields(var)
     # header
     header = ''

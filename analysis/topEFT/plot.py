@@ -30,12 +30,12 @@ with open(lumiJson) as jf:
 processDic = {
   'Nonprompt' : 'TTTo2L2Nu,tW_noFullHad, tbarW_noFullHad, WJetsToLNu_MLM, WWTo2L2Nu',
   'DY' : 'DYJetsToLL_M_10to50_MLM, DYJetsToLL_M_50_a',
-  'Other': 'WWW,WZG,WWZ,WZZ,ZZZ,tttt,ttWW,ttWZ,ttZH,ttZZ,ttHH,tZq,TTG',
+  'Other': 'WWW,WZG,WWZ,WZZ,ZZZ,tttt,ttWW,ttWZ,ttZH,ttZZ,ttHH,tZq,TTG,tllq_privateUL17',
   'WZ' : 'WZTo2L2Q,WZTo3LNu',
   'ZZ' : 'ZZTo2L2Nu,ZZTo2L2Q,ZZTo4L',
-  'ttW': 'TTWJetsToLNu',
-  'ttZ': 'TTZToLL_M_1to10,TTZToLLNuNu_M_10_a',
-  'ttH' : 'ttHnobb,tHq',
+  'ttW': 'TTWJetsToLNu,ttlnuJet_privateUL17',
+  'ttZ': 'TTZToLL_M_1to10,TTZToLLNuNu_M_10_a,ttllJet_privateUL17',
+  'ttH' : 'ttHnobb,tHq,tHq_privateUL17,ttHJet_privateUL17',
   'data' : 'EGamma, SingleMuon, DoubleMuon',
 }
 bkglist = ['Nonprompt', 'Other', 'DY',  'ttH', 'WZ', 'ZZ', 'ttZ', 'ttW']
@@ -62,18 +62,6 @@ colordic ={
   'WJets' : '#00065b',
 }
 
-ch3l = ['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ','eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ']
-ch2lss = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
-categories = {
- 'channel' : ch3l,#['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ','eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ'],#'eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS'],
- 'cut' : 'base',#['2jets', '4jets','4j1b', '4j2b'],#['base', '2jets', '4jets', '4j1b', '4j2b'],
- #'Zcat' : ['onZ', 'offZ'],
- #'lepCat' : ['3l'],
- 'sumcharge': ['ch+','ch-'],
- 'nbjet': ['1+bm2+bl'],
- 'systematic': 'nominal'
-}
-
 colors = [colordic[k] for k in bkglist]
 
 
@@ -86,4 +74,87 @@ def Draw(var, categories, label=''):
   plt.Stack(var, xtit='', ytit='')
   plt.PrintYields('counts')
 
-Draw('njets', categories, '3 leptons')
+ch2lss = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
+ch3l = ['eemSSoffZ', 'mmeSSoffZ', 'eeeSSoffZ', 'mmmSSoffZ']
+ch3lsfz = ['eemSSonZ', 'mmeSSonZ', 'eeeSSonZ', 'mmmSSonZ']
+ch4l =['eeee', 'eeem', 'eemm', 'mmme', 'mmmm']
+categories = {
+ 'channel' : ch2lss,
+ 'cut' : 'base',
+ 'sumcharge': 'ch+',
+ 'nbjet': '1+bm2+bl',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '2 leptons p 2b')
+
+categories = {
+ 'channel' : ch2lss,
+ 'cut' : 'base',
+ 'sumcharge': 'ch-',
+ 'nbjet': '1+bm2+bl',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '2 leptons m 2b')
+
+categories = {
+ 'channel' : ch3l,
+ 'cut' : 'base',
+ 'sumcharge': 'ch+',
+ 'nbjet': '1bm',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '3 leptons  p 1b')
+    
+categories = {
+ 'channel' : ch3l,
+ 'cut' : 'base',
+ 'sumcharge': 'ch-',
+ 'nbjet': '1bm',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '3 leptons  m 1b')
+
+categories = {
+ 'channel' : ch3l,
+ 'cut' : 'base',
+ 'sumcharge': 'ch+',
+ 'nbjet': '2+bm',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '3 leptons p 2b')
+
+categories = {
+ 'channel' : ch3l,
+ 'cut' : 'base',
+ 'sumcharge': 'ch-',
+ 'nbjet': '2+bm',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '3 leptons p 2b')
+
+categories = {
+ 'channel' : ch3lsfz,
+ 'cut' : 'base',
+ 'sumcharge': ['ch+','ch-'],
+ 'nbjet': '1bm',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '3 leptons  Z ')
+
+categories = {
+ 'channel' : ch3lsfz,
+ 'cut' : 'base',
+ 'sumcharge': ['ch+','ch-'],
+ 'nbjet': '2+bm',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '3 leptons Z 2b')
+
+categories = {
+ 'channel' : ch4l,
+ 'cut' : 'base',
+ 'sumcharge': ['ch+','ch0','ch-'],
+ 'nbjet': '1+bm2+bl',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '4 leptons 2b')
