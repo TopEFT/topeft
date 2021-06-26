@@ -139,7 +139,7 @@ categories = {
  'nbjet': '1bm',
  'systematic': 'nominal'
 }
-Draw('njets', categories, '3 leptons  Z ')
+Draw('njets', categories, '3 leptons  Z 1b')
 
 categories = {
  'channel' : ch3lsfz,
