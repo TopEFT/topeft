@@ -289,7 +289,7 @@ class plotter:
     
     # Save
     os.system('mkdir -p %s'%self.outpath)
-    fig.savefig(os.path.join(self.outpath, hname+'_'.join(self.region.split())+'.png'))
+    fig.savefig(os.path.join(self.outpath, hname+'_'+'_'.join(self.region.split())+'.png'))
 
   def GetYields(self, var='counts'):
     sumy = 0
