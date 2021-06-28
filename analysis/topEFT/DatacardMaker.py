@@ -7,14 +7,15 @@ import uproot3
 import numpy as np
 import os
 import re
+import json
 
 from ROOT import TFile, TH1D
 
 class HistoReader():
-    def __init__(self, infile='', analysisList=[], central=False):
+    def __init__(self, infile='', analysisList=[], central=False, year=2018, lumiJson='topcoffea/json/lumi.json'):
         self.hists = {}
         self.analysisList = analysisList
-        self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll', 'ttll_TOP-19-001': 'ttll', 'ttW': 'ttlnu', 'ttlnu_privateUL17': 'ttlnu', 'ttGJets': 'convs', 'WZ': 'Diboson', 'WWW': 'Triboson', 'ttHnobb': 'ttH', 'ttHJet_privateUL17': 'ttH', 'ttH_TOP-19-001': 'ttH', 'tHq_privateUL17': 'tHq', "tHq_privateUL17": "tHq", "tllq_privateUL17": "tllq", "ttHJet_privateUL17": "ttH", "ttllJet_privateUL17": "ttll", "ttlnuJet_privateUL17": "ttlnu"} #Used to rename things like ttZ to ttll and ttHnobb to ttH
+        self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll', 'ttll_TOP-19-001': 'ttll', 'ttW': 'ttlnu', 'ttGJets': 'convs', 'WZ': 'Diboson', 'WWW': 'Triboson', 'ttHnobb': 'ttH', 'ttH_TOP-19-001': 'ttH', "tHq_privateUL17": "tHq", "tllq_privateUL17": "tllq", "ttHJet_privateUL17": "ttH", "ttllJet_privateUL17": "ttll", "ttlnuJet_privateUL17": "ttlnu"} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.processDic = {
           'Nonprompt' : 'TTTo2L2Nu,tW_noFullHad, tbarW_noFullHad, WJetsToLNu_MLM, WWTo2L2Nu',
           'DY' : 'DYJetsToLL_M_10to50_MLM, DYJetsToLL_M_50_a',
@@ -59,10 +60,13 @@ class HistoReader():
         self.nbjets = list({k[4]:0 for k in self.hists['njets'].values().keys()})
         self.syst = list({k[5]:0 for k in self.hists['njets'].values().keys()})
         self.hsow = self.hists['SumOfEFTweights']
-        self.hsow = self.hsow.sum('sample')
+        #self.hsow = self.hsow.sum('sample')
         self.hsow.set_wilson_coefficients(np.zeros(self.hsow._nwc))
-        self.smsow = self.hsow.values()[()][0]
-        self.lumi = 1000*59.7
+        self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples}
+        with open(lumiJson) as jf:
+            lumi = json.load(jf)
+            lumi = lumi[year]
+        self.lumi = 1000*lumi
 
     def relish(self):
         '''
@@ -198,16 +202,26 @@ class HistoReader():
         for proc in self.samples:
             #if 'ttH_private2017' in proc: continue
             #if 'tllq' in proc: continue
-            #print(channel,charge,nbjet,proc,variable)
+            print(channel,charge,nbjet,proc,variable)
             #print('.', end='', flush=True)
-            h_base = h.integrate('sample', proc)
-            if h_base == {}: continue
             #Integrate out processes
+            h_base = h.integrate('sample', proc)
+            if h_base == {}:
+                print(f'Issue with {proc}')
+                continue
+            nwc = self.hsow._nwc
+            if nwc > 0:
+                #self.hsow.set_wilson_coefficients(np.zeros(nwc))
+                #sow = self.hsow.integrate('sample', proc)
+                #sow = np.sum(sow.values()[()])
+                #h_base.scale(self.lumi/sow)
+                h_base.scale(self.lumi/self.smsow[proc])
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             if variable == 'njets':
                 if '2l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7]))
                 elif '3l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5]))
                 elif '4l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4]))
+            print(proc,h_base.values()[()].sum())
             #Save the SM plot
             h_sm = h_base#.copy()
             h_sm.set_wilson_coefficients(np.zeros(h_base._nwc))
@@ -226,7 +240,7 @@ class HistoReader():
                     h_lin.set_wilson_coefficients(w)
                     if np.sum(h_lin.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_lin)
-                        if 'ttH' in pname or True:
+                        if 'ttH' in pname or True: #FIXME
                             if variable == 'njets':
                                 if isinstance(charge, str):
                                     cat = '_'.join([channel, charge, ])  
@@ -458,26 +472,36 @@ class HistoReader():
         #fname = f'histos/ttx_multileptons-{chan}_{charge}_{nbjet}{sys}.root' if var == 'njets' else f'histos/ttx_multileptons-{chan}_{charge}_{nbjet}{sys}_{var}.root'
         fout = TFile(fname, 'recreate')
         signalcount=0; bkgcount=0; iproc = {}; systMap = {}; allyields = {'data_obs' : 0.}
+        data_obs = []
         for proc in self.samples:
+            #if 'ttH' not in proc: continue
             p = self.rename[proc] if proc in self.rename else proc
             print(f'Process: {p}')
-            name = 'data_obs'
-            data_obs = d_hists[name]
+            name = p+'_sm'
+            #name = 'data_obs' #FIXME
+            if proc == self.samples[0]:
+                data_obs = d_hists[p+'_sm'].Clone()
+                #data_obs = d_hists[name].Clone() #FIXME
             if data_obs.Integral() == 0.: continue
             if name not in d_hists:
                 print(f'{name} not found!')
                 continue
             if name not in d_hists:
                 continue
-            allyields[name] += data_obs.Integral()
+            print(f'{proc},{d_hists[name].GetName()=},{d_hists[name].Integral()=}')
+            allyields['data_obs'] += data_obs.Integral()
+            #allyields[name] += data_obs.Integral() #FIXME
             if proc != self.samples[0]:
-                fout.Delete('data_obs;1')
-                data_obs.Scale(allyields[name] / data_obs.Integral())
+                #data_obs.Scale(allyields[name] / data_obs.Integral())
+                data_obs.Add(d_hists[p+'_sm'])
+                #data_obs.Add(d_hists[name])
+            print(f'{proc},{data_obs.Integral()=},{allyields["data_obs"]=}')
             asimov = np.random.poisson(int(data_obs.Integral()))
             #allyields[name] = asimov
             #data_obs.Scale(asimov / data_obs.Integral())
             data_obs.SetDirectory(fout)
-            data_obs.Write()
+            if proc == self.samples[-1]:
+                data_obs.Write()
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             name = '_'.join([pname[:-1],'sm'])
             if name not in d_hists:
@@ -581,22 +605,25 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='You can select which file to run over')
     parser.add_argument('pklfile'           , nargs='?', default=''           , help = 'Pickle file with histograms')
+    parser.add_argument('--year',     '-y', default='2018'                         , help = 'Run year to access lumi')
+    parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
     args = parser.parse_args()
-    pklfile    = args.pklfile
+    pklfile  = args.pklfile
+    year = args.year
+    lumiJson = args.lumiJson
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
-    hr = HistoReader(pklfile)
+    hr = HistoReader(pklfile, year, lumiJson)
     hr.read()
     hr.buildWCString()
     hr.analyzeChannel(channel='2lss', cuts='base', charges='ch+', nbjet='1+bm2+bl', systematics='nominal', variable='njets')
     hr.analyzeChannel(channel='2lss', cuts='base', charges='ch-', nbjet='1+bm2+bl', systematics='nominal', variable='njets')
     hr.analyzeChannel(channel='3l', cuts='base', charges='ch+', nbjet='1bm', systematics='nominal', variable='njets')
     hr.analyzeChannel(channel='3l', cuts='base', charges='ch-', nbjet='1bm', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l', cuts='base', charges='ch+', nbjet='2bm', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l', cuts='base', charges='ch-', nbjet='2bm', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l_sfz', cuts='base', charges=['ch+','ch-'], nbjet='2bm', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='4l', cuts='base', charges='ch+', nbjet='1+bm2+bl', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='4l', cuts='base', charges='ch-', nbjet='1+bm2+bl', systematics='nominal', variable='njets')
+    hr.analyzeChannel(channel='3l', cuts='base', charges='ch+', nbjet='2+bm', systematics='nominal', variable='njets')
+    hr.analyzeChannel(channel='3l', cuts='base', charges='ch-', nbjet='2+bm', systematics='nominal', variable='njets')
+    hr.analyzeChannel(channel='3l_sfz', cuts='base', charges=['ch+','ch-'], nbjet='2+bm', systematics='nominal', variable='njets')
+    hr.analyzeChannel(channel='4l', cuts='base', charges=['ch+','ch0','ch-'], nbjet='1+bm2+bl', systematics='nominal', variable='njets')
     quit()
     hr.relish()
     hr.makeCard()
