@@ -80,81 +80,72 @@ ch3lsfz = ['eemSSonZ', 'mmeSSonZ', 'eeeSSonZ', 'mmmSSonZ']
 ch4l =['eeee', 'eeem', 'eemm', 'mmme', 'mmmm']
 categories = {
  'channel' : ch2lss,
- 'cut' : 'base',
+ 'cut': '1+bm2+bl',
  'sumcharge': 'ch+',
- 'nbjet': '1+bm2+bl',
  'systematic': 'nominal'
 }
 Draw('njets', categories, '2 leptons p 2b')
 
 categories = {
  'channel' : ch2lss,
- 'cut' : 'base',
+ 'cut': '1+bm2+bl',
  'sumcharge': 'ch-',
- 'nbjet': '1+bm2+bl',
  'systematic': 'nominal'
 }
 Draw('njets', categories, '2 leptons m 2b')
 
 categories = {
  'channel' : ch3l,
- 'cut' : 'base',
+ 'cut': '1bm',
  'sumcharge': 'ch+',
- 'nbjet': '1bm',
  'systematic': 'nominal'
 }
 Draw('njets', categories, '3 leptons  p 1b')
     
 categories = {
  'channel' : ch3l,
- 'cut' : 'base',
+ 'cut': '1bm',
  'sumcharge': 'ch-',
- 'nbjet': '1bm',
  'systematic': 'nominal'
 }
 Draw('njets', categories, '3 leptons  m 1b')
 
 categories = {
  'channel' : ch3l,
- 'cut' : 'base',
+ 'cut': '2+bm',
  'sumcharge': 'ch+',
- 'nbjet': '2+bm',
  'systematic': 'nominal'
 }
 Draw('njets', categories, '3 leptons p 2b')
 
 categories = {
  'channel' : ch3l,
- 'cut' : 'base',
+ 'cut': '2+bm',
  'sumcharge': 'ch-',
- 'nbjet': '2+bm',
  'systematic': 'nominal'
 }
 Draw('njets', categories, '3 leptons p 2b')
 
 categories = {
  'channel' : ch3lsfz,
- 'cut' : 'base',
+ 'cut': '1bm',
  'sumcharge': ['ch+','ch-'],
- 'nbjet': '1bm',
  'systematic': 'nominal'
 }
 Draw('njets', categories, '3 leptons  Z 1b')
 
 categories = {
  'channel' : ch3lsfz,
- 'cut' : 'base',
+ 'cut': '2+bm',
  'sumcharge': ['ch+','ch-'],
- 'nbjet': '2+bm',
  'systematic': 'nominal'
 }
 Draw('njets', categories, '3 leptons Z 2b')
 
 categories = {
  'channel' : ch4l,
- 'cut' : 'base',
+ 'cut': '1+bm2+bl',
  'sumcharge': ['ch+','ch0','ch-'],
- 'nbjet': '1+bm2+bl',
  'systematic': 'nominal'
 }
 Draw('njets', categories, '4 leptons 2b')
