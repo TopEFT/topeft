@@ -24,50 +24,50 @@ CATEGORIES = {
     "cat_2lss_p" : {
         "channel": ch_2lss,
         "sumcharge": ["ch+"],
-        "nbjet": ["1+bm2+bl"],
+        "cut": ["1+bm2+bl"],
     },
     "cat_2lss_m" : {
         "channel": ch_2lss,
         "sumcharge": ["ch-"],
-        "nbjet": ["1+bm2+bl"],
+        "cut": ["1+bm2+bl"],
     },
 
     "cat_3l_1b_onZ" : {
         "channel": ch_3l_onZ,
         "sumcharge": ["ch+","ch-"],
-        "nbjet": ["1bm"],
+        "cut": ["1bm"],
     },
     "cat_3l_1b_offZ_p" : {
         "channel": ch_3l_offZ,
         "sumcharge": ["ch+"],
-        "nbjet": ["1bm"],
+        "cut": ["1bm"],
     },
     "cat_3l_1b_offZ_m" : {
         "channel": ch_3l_offZ,
         "sumcharge": ["ch-"],
-        "nbjet": ["1bm"],
+        "cut": ["1bm"],
     },
 
     "cat_3l_2b_onZ" : {
         "channel": ch_3l_onZ,
         "sumcharge": ["ch+","ch-"],
-        "nbjet": ["2+bm"],
+        "cut": ["2+bm"],
     },
     "cat_3l_2b_offZ_p" : {
         "channel": ch_3l_offZ,
         "sumcharge": ["ch+"],
-        "nbjet": ["2+bm"],
+        "cut": ["2+bm"],
     },
     "cat_3l_2b_offZ_m" : {
         "channel": ch_3l_offZ,
         "sumcharge": ["ch-"],
-        "nbjet": ["2+bm"],
+        "cut": ["2+bm"],
     },
 
     "cat_4l" : {
         "channel": ch_4l,
         "sumcharge": ["ch+","ch-","ch0"],
-        "nbjet": ["1+bm2+bl"],
+        "cut": ["1+bm2+bl"],
     },
 }
 
@@ -192,7 +192,7 @@ def get_scaled_yield(hin_dict,year,proc,cat):
     h = hin_dict["njets"]
 
     h = integrate_out_cats(h,CATEGORIES[cat])
-    h = h.integrate("cut","base").integrate("systematic","nominal")
+    h = h.integrate("systematic","nominal")
 
     if '2l' in cat:
         h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7,8,9,10]))
@@ -317,14 +317,12 @@ def main():
     fpath_cuts_privateUl17_test = "histos/plotsTopEFT_privateUL17_fix4l.pkl.gz"
 
     # Get the histograms from the files
-    #hin_dict = get_hist_from_pkl(fpath_default)
     hin_dict_central = get_hist_from_pkl(fpath_cuts_centralUl17_test)
     hin_dict_private = get_hist_from_pkl(fpath_cuts_privateUl17_test)
 
+    # Get the yield dictionaries and percent difference
     ylds_central_dict = get_yld_dict(hin_dict_central,"2017")
     ylds_private_dict = get_yld_dict(hin_dict_private,"2017")
-
-    # Get percent differenes
     pdiff_dict = get_pdiff_between_nested_dicts(ylds_private_dict,ylds_central_dict)
 
     # Print out yields and percent differences
@@ -333,15 +331,14 @@ def main():
     print_yld_dicts(pdiff_dict,"Percent diff between private and central")
 
     # Print latex table
-    #print_latex_yield_table(ylds_central_dict,"Testing",print_begin_info=True,print_end_info=True)
     print_latex_yield_table(ylds_central_dict,"Central UL17",print_begin_info=True)
     print_latex_yield_table(ylds_private_dict,"Private UL17")
     print_latex_yield_table(pdiff_dict,"Percent diff between central and private UL17: (private-central)/private",print_end_info=True)
 
     # Print out info about the hists
+    #print_yld_dicts(get_yld_dict(hin_dict,"2017"),"test dict")
     #print_hist_info(hin_dict)
     #exit()
 
-
-main()
-
+if __name__ == "__main__":
+    main()
