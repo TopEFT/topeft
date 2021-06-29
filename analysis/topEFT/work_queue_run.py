@@ -129,7 +129,7 @@ processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors)
 
 executor_args = {#'flatten': True, #used for all executors
                  'compression': 0, #used for all executors
-                 'cores': 2,
+                 'cores': 1,
                  'disk': 5000, #MB
                  'memory': 10000, #MB
                  'resource-monitor': True,
