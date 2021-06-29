@@ -75,6 +75,49 @@ extLepSF.add_weight_sets(["MuonTightSF_2018_er EGamma_SF2D_error %s"%topcoffea_p
 extLepSF.finalize()
 SFevaluator = extLepSF.make_evaluator()
 
+def AttachMuonSF(muons, year=2018):
+  '''
+    Description:
+      Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the muons array passed to this function. These
+      values correspond to the nominal, up, and down muon scalefactor values respectively.
+  '''
+  eta = np.abs(muons.eta)
+  pt = muons.pt
+
+  loose_sf  = SFevaluator['MuonLooseSF_{year}'.format(year=year)](eta,pt)
+  loose_err = SFevaluator['MuonLooseSF_{year}_er'.format(year=year)](eta,pt)
+
+  tight_sf  = SFevaluator['MuonTightSF_{year}'.format(year=year)](eta,pt)
+  tight_err = SFevaluator['MuonTightSF_{year}_er'.format(year=year)](eta,pt)
+
+  muons['sf_nom'] = loose_sf * tight_sf
+  muons['sf_hi']  = (loose_sf + loose_err) * (tight_sf + tight_err)
+  muons['sf_lo']  = (loose_sf - loose_err) * (tight_sf - tight_err)
+
+def AttachElectronSF(electrons, year=2018):
+  '''
+    Description:
+      Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the electrons array passed to this function. These
+      values correspond to the nominal, up, and down electron scalefactor values respectively.
+  '''
+  eta = np.abs(electrons.eta)
+  pt = electrons.pt
+
+  reco_sf          = SFevaluator['ElecRecoSF_{year}'.format(year=year)](eta,pt)
+  reco_sf_err      = SFevaluator['ElecRecoSF_{year}_er'.format(year=year)](eta,pt)
+
+  loose_sf         = SFevaluator['ElecLooseSF_{year}'.format(year=year)](eta,pt)
+  loose_sf_err     = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](eta,pt)
+
+  loose_ttH_sf     = SFevaluator['ElecLoosettHSF_{year}'.format(year=year)](eta,pt)
+  loose_ttH_sf_err = SFevaluator['ElecLoosettHSF_{year}_er'.format(year=year)](eta,pt)
+
+  tight_sf         = SFevaluator['ElecTightSF_{year}'.format(year=year)](eta,pt)
+  tight_sf_err     = SFevaluator['ElecTightSF_{year}_er'.format(year=year)](eta,pt)
+
+  electrons['sf_nom'] = reco_sf * loose_sf * loose_ttH_sf * tight_sf
+  electrons['sf_hi']  = (reco_sf + reco_sf_err) * (loose_sf + loose_sf_err) * (loose_ttH_sf + loose_ttH_sf_err) * (tight_sf + tight_sf_err)
+  electrons['sf_lo']  = (reco_sf - reco_sf_err) * (loose_sf - loose_sf_err) * (loose_ttH_sf - loose_ttH_sf_err) * (tight_sf - tight_sf_err)
 
 def GetLeptonSF(pt1, eta1, flavor1, pt2, eta2, flavor2, pt3=None, eta3=None, flavor3=None, pt4=None, eta4=None, flavor4=None, year=2018, sys=0):
   if sys==0:
