@@ -202,7 +202,7 @@ class HistoReader():
         for proc in self.samples:
             #if 'ttH_private2017' in proc: continue
             #if 'tllq' in proc: continue
-            print(channel,charge,nbjet,proc,variable)
+            #print(channel,charge,nbjet,proc,variable)
             #print('.', end='', flush=True)
             #Integrate out processes
             h_base = h.integrate('sample', proc)
@@ -221,7 +221,6 @@ class HistoReader():
                 if '2l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7]))
                 elif '3l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5]))
                 elif '4l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4]))
-            print(proc,h_base.values()[()].sum())
             #Save the SM plot
             h_sm = h_base#.copy()
             h_sm.set_wilson_coefficients(np.zeros(h_base._nwc))
@@ -455,9 +454,9 @@ class HistoReader():
                 cat = '_'.join([channel, nbjet])  
         else:
             if isinstance(charge, str):
-                '_'.join([channel, charge, nbjet, variable])
+                cat = '_'.join([channel, charge, nbjet, variable])
             else:
-                '_'.join([channel, nbjet, variable])
+                cat = '_'.join([channel, nbjet, variable])
         #Open temp ROOT file
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         #fname = f'histos/tmp_ttx_multileptons-{chan}_{charge}_{nbjet}{sys}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{chan}_{charge}_{nbjet}{sys}_{var}.root'
@@ -477,41 +476,43 @@ class HistoReader():
             #if 'ttH' not in proc: continue
             p = self.rename[proc] if proc in self.rename else proc
             print(f'Process: {p}')
-            name = p+'_sm'
-            #name = 'data_obs' #FIXME
-            if proc == self.samples[0]:
-                data_obs = d_hists[p+'_sm'].Clone()
-                #data_obs = d_hists[name].Clone() #FIXME
-            if data_obs.Integral() == 0.: continue
+            name = 'data_obs' #FIXME
             if name not in d_hists:
                 print(f'{name} not found!')
                 continue
-            if name not in d_hists:
-                continue
-            print(f'{proc},{d_hists[name].GetName()=},{d_hists[name].Integral()=}')
-            allyields['data_obs'] += data_obs.Integral()
-            #allyields[name] += data_obs.Integral() #FIXME
-            if proc != self.samples[0]:
-                #data_obs.Scale(allyields[name] / data_obs.Integral())
-                data_obs.Add(d_hists[p+'_sm'])
-                #data_obs.Add(d_hists[name])
-            print(f'{proc},{data_obs.Integral()=},{allyields["data_obs"]=}')
+            if proc == self.samples[0]:
+                data_obs = d_hists[p+'_sm'].Clone('data_obs')
+            else:
+                data_obs += d_hists[p+'_sm'].Clone('data_obs')
+            allyields[name] += data_obs.Integral() #FIXME
+            #print(f'{proc},{data_obs.Integral()=},{allyields["data_obs"]=}')
             asimov = np.random.poisson(int(data_obs.Integral()))
             #allyields[name] = asimov
-            #data_obs.Scale(asimov / data_obs.Integral())
             data_obs.SetDirectory(fout)
             if proc == self.samples[-1]:
+                data_obs.Scale(allyields['data_obs'] / data_obs.Integral())
                 data_obs.Write()
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
-            name = '_'.join([pname[:-1],'sm'])
+            #name = '_'.join([pname[:-1],'sm'])
+            name = pname + 'sm'
             if name not in d_hists:
                 print(f'{name} not found!')
                 continue
             h_sm = d_hists[name]
             h_sm.SetDirectory(fout)
             h_sm.Write()
+            if h_sm.Integral() > self.tolerance:
+                h_sm.SetDirectory(fout)
+                h_sm.Write()
+                signalcount -= 1
+                iproc[name] = signalcount
+                allyields[name] = h_sm.Integral()
+                print(f'{name} {signalcount} {iproc[name]} {allyields[name]}')
+                if allyields[name] < 0:
+                    allyields[name] = 0.
             for n,wc in enumerate(self.coeffs):
                 name = '_'.join([pname[:-1],'lin',wc])
+                print(name)
                 if name not in d_hists:
                     print(f'Histogram {name} not found!')
                     continue
@@ -525,21 +526,21 @@ class HistoReader():
                     signalcount -= 1
                     iproc[name] = signalcount
                     allyields[name] = h_lin.Integral()
-                    #print(f'{name}_{cat} {iproc[name]} {allyields[name]}')
+                    print(f'{name} {signalcount} {iproc[name]} {allyields[name]}')
                     if allyields[name] < 0:
                         allyields[name] = 0.
 
-                    for s in self.syst_terms:
-                        if s in systMap:
-                            systMap[s].append(proc)
-                        else:
-                            systMap[s] = [proc]
-                        h_sys = data_obs.Clone(name)
-                        h_sys.Scale(1/h_sys.Integral())
-                        h_sys.SetDirectory(fout)
-                        h_sys.Write()
-                        h_lin.Scale(-2)
-                        name = '_'.join([pname[:-1],'quad',wc])
+                    #for s in self.syst_terms:
+                    #    if s in systMap:
+                    #        systMap[s].append(proc)
+                    #    else:
+                    #        systMap[s] = [proc]
+                    #    h_sys = data_obs.Clone(name)
+                    #    #h_sys.Scale(1/h_sys.Integral())
+                    #    h_sys.SetDirectory(fout)
+                    #    h_sys.Write()
+                    #    h_lin.Scale(-2)
+                name = '_'.join([pname[:-1],'quad',wc])
                 if name not in d_hists:
                     print(f'Histogram {name} not found!')
                     continue
@@ -553,6 +554,7 @@ class HistoReader():
                     signalcount -= 1
                     iproc[name] = signalcount
                     allyields[name] = h_quad.Integral()
+                    print(f'{name} {signalcount} {iproc[name]} {allyields[name]}')
                     if allyields[name] < 0:
                         allyields[name] = 0.
 
@@ -568,6 +570,7 @@ class HistoReader():
                         signalcount -= 1
                         iproc[name] = signalcount
                         allyields[name] = h_mix.Integral()
+                        print(f'{name} {signalcount} {iproc[name]} {allyields[name]}')
                         if allyields[name] < 0:
                             allyields[name] = 0.
 
