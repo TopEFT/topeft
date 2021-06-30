@@ -98,6 +98,3 @@ To install this package:
 - Run `text2workspace.py ttx_multileptons-2lss_m_2b.txt   -o wps.root -P EFTFit.Fitter.AnomalousCouplingEFTNegative:analiticAnomalousCouplingEFTNegative  --X-allow-no-background` to generate the workspace file
 - Run combine
   - Example `combineTool.py  wps.root -M MultiDimFit --algo grid -t -1 --setParameters  ctW=0,ctp=0,cpQM=0,ctli=0,cQei=0,ctZ=0,cQlMi=0,cQl3i=0,ctG=0,ctlTi=0,cbW=0,cpQ3=0,ctei=0,cpt=0,ctlSi=0,cptb=0,cQq13=0,cQq83=0,cQq11=0,ctq1=0,cQq81=0,ctq8=0,r=1 -P ctW --freezeParameters ctG,ctp,cpQM,ctli,cQei,ctZ,cQlMi,cQl3i,ctlTi,cbW,cpQ3,ctei,cpt,ctlSi,cptb,cQq13,cQq83,cQq11,ctq1,cQq81,ctq8,r --setParameterRanges ctW=-6,6 --trackParameters cQei --points 200 --job-mode condor --split-point 20`
-- Example usage: ``
-- Run `python analysis/topEFT/convert3lEFT.py` to perform conversion of MET
-- See `analysis/topEFT/convert3lEFT.py` for more details
