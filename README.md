@@ -65,7 +65,7 @@ The workers will terminate themselves after 15 minutes of inactivity.
 
 ### How to fit the results
 #### CMSSW
-Install CMSSW_10_2_13 *OUTSIDE OF YOUR TOPCOFFEA DIR AND NOT IN CONDA*
+Install CMSSW_10_2_13 ***OUTSIDE OF YOUR TOPCOFFEA DIR AND NOT IN CONDA***
 
     `export SCRAM_ARCH=slc7_amd64_gcc630`
     `scramv1 project CMSSW_10_2_13`
