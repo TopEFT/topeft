@@ -68,7 +68,7 @@ The workers will terminate themselves after 15 minutes of inactivity.
 Install CMSSW_10_2_13 ***OUTSIDE OF YOUR TOPCOFFEA DIR AND NOT IN CONDA***
 ```
 export SCRAM_ARCH=slc7_amd64_gcc700
-cmsrel CMSSW_10_2_13
+scram project CMSSW CMSSW_10_2_13
 cd CMSSW_10_2_13/src
 scram b -j8
 ```
@@ -99,7 +99,9 @@ scram b -j8
 ```
 
 #### Fitting
+##### In TopCoffea
 - Run `python analysis/topEFT/DatacardMaker.py` (see `analysis/topEFT/README.md` for details)
+##### In CMSSW
 - Enter `CMSSW_10_2_13/src/EFTFit/Fitter/test` (wherever you have it installed) and run `cmsenv` to initialize CMSSW
 - Copy all .txt and .root files created by `python analysis/topEFT/DatacardMaker.py` (in the `histos` directory of your TopCoffea ananlyzer)
 - Run `combineCards.py ttx_multileptons-* > combinedcard.txt` to merge them all into one txt file
