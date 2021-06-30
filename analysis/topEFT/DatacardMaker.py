@@ -12,7 +12,7 @@ import json
 from ROOT import TFile, TH1D
 
 class HistoReader():
-    def __init__(self, infile='', analysisList=[], central=False, year=2018, lumiJson='topcoffea/json/lumi.json'):
+    def __init__(self, infile='', analysisList=[], central=False, year=2018, lumiJson='topcoffea/json/lumi.json', do_nuisance=False):
         self.hists = {}
         self.analysisList = analysisList
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll', 'ttll_TOP-19-001': 'ttll', 'ttW': 'ttlnu', 'ttGJets': 'convs', 'WZ': 'Diboson', 'WWW': 'Triboson', 'ttHnobb': 'ttH', 'ttH_TOP-19-001': 'ttH', "tHq_privateUL17": "tHq", "tllq_privateUL17": "tllq", "ttHJet_privateUL17": "ttH", "ttllJet_privateUL17": "ttll", "ttlnuJet_privateUL17": "ttlnu"} #Used to rename things like ttZ to ttll and ttHnobb to ttH
@@ -41,6 +41,7 @@ class HistoReader():
         self.fin = infile
         self.var = ['njets', 'ht']
         self.tolerance = 0.001
+        self.do_nuisance = do_nuisance
 
 
     def read(self):
@@ -211,15 +212,18 @@ class HistoReader():
         for proc in self.samples:
             p = self.rename[proc] if proc in self.rename else proc
             print(f'Process: {p}')
-            name = 'data_obs' #FIXME
+            name = 'data_obs'
             if name not in d_hists:
                 print(f'{name} not found!')
                 continue
+            '''
+            These lines are for testing only, and create Asimov data based on all processes provided
+            '''
             if proc == self.samples[0]:
                 data_obs = d_hists[p+'_sm'].Clone('data_obs')
             else:
                 data_obs += d_hists[p+'_sm'].Clone('data_obs')
-            allyields[name] += data_obs.Integral() #FIXME
+            allyields[name] += data_obs.Integral()
             asimov = np.random.poisson(int(data_obs.Integral()))
             data_obs.SetDirectory(fout)
             if proc == self.samples[-1]:
@@ -315,9 +319,11 @@ class HistoReader():
         datacard.write((npatt % 'process')+(" "*6)+(" ".join([kpatt % iproc[p] for p in procs]))+"\n")
         datacard.write((npatt % 'rate   ')+(" "*6)+(" ".join([fpatt % allyields[p] for p in procs]))+"\n")
         datacard.write('##----------------------------------\n')
-        for name in nuisances:
-            systEff = dict((p,"1" if p in systMap[name] else "-") for p in procs)
-            datacard.write(('%s %5s' % (npatt % name,'shape')) + " ".join([kpatt % systEff[p]  for p in procs]) +"\n")
+        # Uncomment for nuisance parameter testing, or final nuisance paramter values
+        if self.do_nuisance:
+            for name in nuisances:
+                systEff = dict((p,"1" if p in systMap[name] else "-") for p in procs)
+                datacard.write(('%s %5s' % (npatt % name,'shape')) + " ".join([kpatt % systEff[p]  for p in procs]) +"\n")
         
         fout.Close()
 
@@ -362,13 +368,15 @@ if __name__ == '__main__':
     parser.add_argument('pklfile'           , nargs='?', default=''           , help = 'Pickle file with histograms')
     parser.add_argument('--year',     '-y', default='2018'                         , help = 'Run year to access lumi')
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
+    parser.add_argument('--do-nuisance',    action='store_true', help = 'Include nuisance parameters')
     args = parser.parse_args()
     pklfile  = args.pklfile
     year = args.year
     lumiJson = args.lumiJson
+    do_nuisance = args.do_nuisance
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
-    hr = HistoReader(pklfile, year, lumiJson)
+    hr = HistoReader(pklfile, year, lumiJson, do_nuisance)
     hr.read()
     hr.buildWCString()
     hr.analyzeChannel(channel='2lss', cuts='base', charges='ch+', nbjet='1+bm2+bl', systematics='nominal', variable='njets')
