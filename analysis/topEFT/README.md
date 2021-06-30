@@ -25,6 +25,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 ### Other scripts
 
 * `convert3lEFT.py`:
+    - [Depreciated] Will remove once the Datacard Maker is ready
 
 * `drawSliders.py`:
 
