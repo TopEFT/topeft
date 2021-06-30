@@ -82,7 +82,10 @@ This package is designed to be used with the cms-govner CombineHarvester fork. I
 Currently working with tag `v8.2.0`:
 
 ```
+git clone https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git HiggsAnalysis/CombinedLimit
+cd HiggsAnalysis/CombinedLimit/
 git checkout v8.2.0
+cd -
 scram b -j8
 ```
 
