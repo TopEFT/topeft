@@ -33,23 +33,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
         self._accumulator = processor.dict_accumulator({
-        'SumOfEFTweights'  : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2), dtype=self._dtype),
-        'dummy'   : hist.Hist("Dummy" , hist.Cat("sample", "sample"), hist.Bin("dummy", "Number of events", 1, 0, 1), dtype=self._dtype),
-        'counts'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Bin("counts", "Counts", 1, 0, 2), dtype=self._dtype),
-        'invmass' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200), dtype=self._dtype),
-        'njets'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10), dtype=self._dtype),
-        'nbtags'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5), dtype=self._dtype),
-        'met'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("met",    "MET (GeV)", 40, 0, 400), dtype=self._dtype),
-        'm3l'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 20, 0, 200), dtype=self._dtype),
-        'wleppt'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200), dtype=self._dtype),
-        'e0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 30, 0, 300), dtype=self._dtype),
-        'm0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 30, 0, 300), dtype=self._dtype),
-        'j0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 20, 0, 400), dtype=self._dtype),
-        'e0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("e0eta",  "Leading elec $\eta$", 20, -2.5, 2.5), dtype=self._dtype),
-        'm0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m0eta",  "Leading muon $\eta$", 20, -2.5, 2.5), dtype=self._dtype),
-        'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0eta",  "Leading jet  $\eta$", 20, -2.5, 2.5), dtype=self._dtype),
-        'ht'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ht",     "H$_{T}$ (GeV)", 40, 0, 800), dtype=self._dtype),
-        'njetsnbtags' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5), dtype=self._dtype), 
+        'SumOfEFTweights'  : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
+        'dummy'   : hist.Hist("Dummy" , hist.Cat("sample", "sample"), hist.Bin("dummy", "Number of events", 1, 0, 1)),
+        'counts'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Bin("counts", "Counts", 1, 0, 2)),
+        'invmass' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
+        'njets'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10)),
+        'nbtags'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)),
+        'met'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
+        'm3l'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 50, 0, 500)),
+        'wleppt'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
+        'e0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 25, 0, 500)),
+        'm0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 25, 0, 500)),
+        'j0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 25, 0, 500)),
+        'e0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("e0eta",  "Leading elec $\eta$", 30, -3.0, 3.0)),
+        'm0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m0eta",  "Leading muon $\eta$", 30, -3.0, 3.0)),
+        'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0eta",  "Leading jet  $\eta$", 30, -3.0, 3.0)),
+        'ht'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ht",     "H$_{T}$ (GeV)", 50, 0, 1000)),
         })
 
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
@@ -164,11 +163,18 @@ class AnalysisProcessor(processor.ProcessorABC):
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
         #nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
-        if year == 2017: btagwp = 0.3040 #WP medium
-        else: btagwp = 0.2783 #WP medium
-        isBtagJets = (goodJets.btagDeepB > btagwp)
-        isNotBtagJets = np.invert(isBtagJets)
-        nbtags = ak.num(goodJets[isBtagJets])
+        # Loose DeepJet WP
+        if year == 2017: btagwpl = 0.0532 #WP loose 
+        else: btagwpl = 0.0490 #WP loose 
+        isBtagJetsLoose = (goodJets.btagDeepB > btagwpl)
+        isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
+        nbtagsl = ak.num(goodJets[isBtagJetsLoose])
+        # Medium DeepJet WP
+        if year == 2017: btagwpm = 0.3040 #WP medium
+        else: btagwpm = 0.2783 #WP medium
+        isBtagJetsMedium = (goodJets.btagDeepB > btagwpm)
+        isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
+        nbtagsm = ak.num(goodJets[isBtagJetsMedium])
         
         # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
         btagSF   = np.ones_like(ht)
@@ -184,10 +190,10 @@ class AnalysisProcessor(processor.ProcessorABC):
           bJetEff_dataUp = bJetEff*bJetSFUp
           bJetEff_dataDo = bJetEff*bJetSFDo
    
-          pMC     = ak.prod(bJetEff       [isBtagJets], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJets]), axis=-1)
-          pData   = ak.prod(bJetEff_data  [isBtagJets], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJets]), axis=-1)
-          pDataUp = ak.prod(bJetEff_dataUp[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJets]), axis=-1)
-          pDataDo = ak.prod(bJetEff_dataDo[isBtagJets], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJets]), axis=-1)
+          pMC     = ak.prod(bJetEff       [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJetsMedium]), axis=-1)
+          pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
+          pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
+          pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)
 
           pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
           btagSF   = pData  /pMC
@@ -446,7 +452,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
         # Selections and cuts
-        selections = PackedSelection()
+        selections = PackedSelection()#(dtype='uint64')
         channels2LSS = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
         selections.add('eeSSonZ',  (eeonZmask)&(eeSSmask)&(trig_eeSS))
         selections.add('eeSSoffZ', (eeoffZmask)&(eeSSmask)&(trig_eeSS))
@@ -475,13 +481,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         
         selections.add('ch+', (sumcharge>0))
         selections.add('ch-', (sumcharge<0))
+        selections.add('ch0', (sumcharge==0))
 
-        levels = ['base', '2jets', '4jets', '4j1b', '4j2b']
-        selections.add('base', (nElec+nMuon>=2))
-        selections.add('2jets',(njets>=2))
-        selections.add('4jets',(njets>=4))
-        selections.add('4j1b',(njets>=4)&(nbtags>=1))
-        selections.add('4j2b',(njets>=4)&(nbtags>=2))
+        levels = ['base', '1+bm2+bl', '1bm', '2+bm']
+        selections.add('base',     (nElec+nMuon>=2))
+        selections.add('1+bm2+bl', (nElec+nMuon>=2)&((nbtagsm>=1)&(nbtagsl>=2)))
+        selections.add('1bm',      (nElec+nMuon>=2)&(nbtagsm==1))
+        selections.add('2+bm',     (nElec+nMuon>=2)&(nbtagsm>=2))
 
         # Variables
         invMass_eeSSonZ  = ( eeSSonZ.e0+ eeSSonZ.e1).mass
@@ -491,10 +497,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         invMass_emSS     = (emSS.e+emSS.m).mass
 
         varnames = {}
-        varnames['met'] = met.pt
-        varnames['ht'] = ht
-        varnames['njets'] = njets
-        varnames['nbtags'] = nbtags
+        varnames['met']     = met.pt
+        varnames['ht']      = ht
+        varnames['njets']   = njets
         varnames['invmass'] = {
           'eeSSonZ'   : invMass_eeSSonZ,
           'eeSSoffZ'  : invMass_eeSSoffZ,
@@ -520,12 +525,12 @@ class AnalysisProcessor(processor.ProcessorABC):
           'mmmSSonZ'  : m3l_mmm,
           'mmmSSoffZ' : m3l_mmm,
         }
-        varnames['e0pt' ] = e0.pt
-        varnames['e0eta'] = e0.eta
-        varnames['m0pt' ] = m0.pt
-        varnames['m0eta'] = m0.eta
-        varnames['j0pt' ] = j0.pt
-        varnames['j0eta'] = j0.eta
+        varnames['e0pt' ]  = e0.pt
+        varnames['e0eta']  = e0.eta
+        varnames['m0pt' ]  = m0.pt
+        varnames['m0eta']  = m0.eta
+        varnames['j0pt' ]  = j0.pt
+        varnames['j0eta']  = j0.eta
         varnames['counts'] = np.ones_like(events['event'])
 
         # systematics
@@ -539,12 +544,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         hout = self.accumulator.identity()
         normweights = weights['all'].weight().flatten() # Why does it not complain about .flatten() here?
         sowweights = np.ones_like(normweights) if len(self._wc_names_lst)>0 else normweights
-        hout['SumOfEFTweights'].fill(sample=dataset, SumOfEFTweights=varnames['counts'], weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout['SumOfEFTweights'].fill(sample=histAxisName, SumOfEFTweights=varnames['counts'], weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
     
         for syst in systList:
          for var, v in varnames.items():
           for ch in channels2LSS+channels3L+channels4L:
-           for sumcharge in ['ch+', 'ch-']:
+           for sumcharge in ['ch+', 'ch-', 'ch0']:
             for lev in levels:
              #find the event weight to be used when filling the histograms    
              weightSyst = syst
@@ -577,12 +582,11 @@ class AnalysisProcessor(processor.ProcessorABC):
               hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, m3l=values, weight=weights_flat, systematic=syst)
              else:
               values = v[cut] 
+              # These all look identical, do we need if/else here?
               if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'nbtags': 
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-                hout['njetsnbtags'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=varnames['njets'][cut], nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_ones, systematic=syst)
               elif var == 'j0eta' : 
                 if lev == 'base': continue
