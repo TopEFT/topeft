@@ -66,11 +66,13 @@ The workers will terminate themselves after 15 minutes of inactivity.
 ### How to fit the results
 #### CMSSW
 Install CMSSW_10_2_13 ***OUTSIDE OF YOUR TOPCOFFEA DIR AND NOT IN CONDA***
+```
+export SCRAM_ARCH=slc7_amd64_gcc700
+cmsrel CMSSW_10_2_13
+cd CMSSW_10_2_13/src
+scram b -j8
+```
 
-    `export SCRAM_ARCH=slc7_amd64_gcc630`
-    `scramv1 project CMSSW_10_2_13`
-    `cd CMSSW_10_2_13/src`
-    `scram b -j8`
 #### EFTFit
 This repository holds all of the custom files needed to run a proper EFT fit on the Govner TopEFT datacards.
 
@@ -79,16 +81,19 @@ This package is designed to be used with the cms-govner CombineHarvester fork. I
 
 Currently working with tag `v8.2.0`:
 
-    `git checkout v8.2.0`
-    `scram b -j8`
+```
+git checkout v8.2.0
+scram b -j8
+```
 
 Otherwise, this package should be compatible with most CMSSW releases. It still requires the HiggsCombineTool package though. See https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit/wiki/gettingstarted#for-end-users-that-dont-need-to-commit-or-do-any-development
 
 To install this package:
-
-    `cd $CMSSW_BASE/src/`
-    `git clone https://github.com/cms-govner/EFTFit.git EFTFit`
-    `scram b -j8`
+```
+cd $CMSSW_BASE/src/
+git clone https://github.com/cms-govner/EFTFit.git EFTFit
+scram b -j8
+```
 
 #### Fitting
 - Run `python analysis/topEFT/DatacardMaker.py` (see `analysis/topEFT/README.md` for details)
