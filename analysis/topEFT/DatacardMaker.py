@@ -68,88 +68,6 @@ class HistoReader():
             lumi = lumi[year]
         self.lumi = 1000*lumi
 
-    def relish(self):
-        '''
-        Create temporary ROOT files from pickle file
-        Files are stored in the ``histos`` dir and start with ``tmp_``
-        These files are deleted in the next stage
-        '''
-        print(f'Making relish from the pickle file')
-        print('.', end='', flush=True)
-        wcs = self.buildWCString(self.coeffs)
-        print('.', end='', flush=True)
-        #Integrate out channels
-        print('.', end='', flush=True)
-        plots = [[self.hists[var].integrate('channel', chan).integrate('cut', 'base') for chan in self.channels.values()] for var in self.var]
-        [[h.scale(self.lumi/self.smsow) for h in plot] for plot in plots] #Hack for small test samples
-        for nbjet in self.nbjets:
-            print('.', end='', flush=True)
-            for syst in self.syst:
-                if syst != 'nominal': continue
-                for ch in self.charge:
-                    for ivar,var in enumerate(self.var):
-                        print('.', end='', flush=True)
-                        #Integrate out jet cuts
-                        #print([h.values() for h in plots[ivar]])
-                        nbjetplots = [h.integrate('nbjet', nbjet).integrate('systematic', syst).integrate('sumcharge', ch) for h in plots[ivar]]
-                        #print([h.values() for h in cutplots])
-                        if syst == 'nominal': sys = ''
-                        else: sys = '_'+syst
-                        charge = 'p' if ch == 'ch+' else 'm'
-                        for chan in self.channels.keys():
-                            #Create the temp ROOT file
-                            print('.', end='', flush=True)
-                            fname = f'histos/tmp_ttx_multileptons-{chan}_{charge}_{nbjet}{sys}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{chan}_{charge}_{nbjet}{sys}_{var}.root'
-                            fout = uproot3.recreate(fname)
-                            #Scale each plot to the SM
-                            [h.set_wilson_coefficients(np.zeros(h._nwc)) for h in plots[ivar]] #optimized HistEFT
-                            for proc,h in zip(self.samples, nbjetplots):
-                                #if 'ttH_private2017' in proc: continue
-                                if 'tllq' in proc: continue
-                                print(chan,ch,nbjet,proc,var)
-                                print('.', end='', flush=True)
-                                h_base = h.integrate('sample', proc)
-                                #Integrate out processes
-                                pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
-                                if var == 'njets':
-                                    if '2l' in chan: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7]))
-                                    elif '3l' in chan: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5]))
-                                    elif '4l' in chan: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4]))
-                                #Save the SM plot
-                                h_sm = h_base#.copy()
-                                h_sm.set_wilson_coefficients(np.zeros(h_base._nwc))
-                                fout[pname+'sm'] = hist.export1d(h_sm)
-                                #Asimov data: data_obs = MC at SM (all WCs = 0)
-                                fout['data_obs'] = hist.export1d(h_sm)
-                                
-                                h_lin = h_base; h_quad = []; h_mix = []
-                                yields = []
-                                for wc,name,wcpt in wcs:
-                                    #Scale plot to the WCPoint
-                                    w = wcpt.buildMatrix(self.coeffs)
-                                    #Handle linear and quadratic terms
-                                    if 'lin' in name:
-                                        h_lin = h_base#.copy()
-                                        h_lin.set_wilson_coefficients(w)
-                                        if np.sum(h_lin.values()[()]) > self.tolerance:
-                                            fout[pname+name] = hist.export1d(h_lin)
-                                            if 'ttH' in pname or True:
-                                                cat = '_'.join([chan, charge, nbjet]) if var == 'njets' else '_'.join([chan, charge, nbjet, var])
-                                                print(f'Writing {cat} {pname+name} with {np.sum(h_lin.values()[()])}')
-                                    elif 'quad' in name and 'mix' not in name:
-                                        h_quad = h_base#.copy()
-                                        h_quad.set_wilson_coefficients(w)
-                                        if np.sum(h_quad.values()[()]) > self.tolerance:
-                                            fout[pname+name] = hist.export1d(h_quad)
-                                    else:
-                                        h_mix = h_base#.copy()
-                                        h_mix.set_wilson_coefficients(w)
-                                        if np.sum(h_mix.values()[()]) > self.tolerance:
-                                            fout[pname+name] = hist.export1d(h_mix)
-        
-                        fout.close()
-        print('.')
-
     def analyzeChannel(self, channel='2lss', cuts='base', charges=['ch+','ch-'], nbjet='1b', systematics='nominal', variable='njets'):
         if isinstance(channel, str) and channel not in self.channels:
            raise Exception(f'{channel} not found in self.channels!')
@@ -267,172 +185,6 @@ class HistoReader():
         #print('.')
         self.makeCardLevel(channel=channel, cuts=cuts, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
 
-    def buildWCString(self, wc=''):
-        '''
-        Builds a set of WC strings
-        Linear terms (single WC set to 1)
-        Quadratic terms (pair of WCs set to 2)
-        '''
-        if wc == '': wc = self.coeffs
-        wcpt = []
-        if len(wc)==0:
-            wcpt = None
-        #Case for a single wc
-        elif isinstance(wc, str):
-            wcpt.append([wc, f'lin_{wc}', WCPoint(f'EFTrwgt0_{wc}_{1}')])
-        elif len(wc)==1:
-            wcpt.append([wc, f'lin_{wc[0]}', WCPoint(f'EFTrwgt0_{wc[0]}_{1}')])
-        #Case for 2+ wcs
-        else:
-            pairs = [[wc[w1],wc[w2]] for w1 in range(len(wc)) for w2 in range(0, w1+1)]
-            wcpt = []
-            lin = []
-            quad = []
-            mixed = []
-            #linear terms
-            for n,w in enumerate(wc):
-                wcpt.append([w, f'lin_{w}', WCPoint(f'EFTrwgt0_{w}_{1}')])
-            #quadratic terms
-                for m,w in enumerate([[w,wc[w2]] for w2 in range(0, n+1)]):
-                    wc1 = w[0]
-                    wc2 = w[1]
-                    if(wc1==wc2):  wcpt.append([[wc1,wc2], f'quad_{wc1}', WCPoint(f'EFTrwgt0_{wc1}_{2}')])
-                    else: wcpt.append([[wc1,wc2], f'quad_mixed_{wc1}_{wc2}', WCPoint(f'EFTrwgt0_{wc1}_{1}_{wc2}_{2}')])
-        self.wcs = wcpt
-        return wcpt
-
-    def makeCard(self):
-        '''
-        Create datacard files from temp uproot outputs
-        Creates histograms for ``combine``:
-        ``S`` is theSM
-        ``S+L_i+Q_i`` sets ``WC_i=1`` and the rest to ``0``
-        ``S+L_i+L_j+Q_i+Q_j+2 M_IJ`` set ``WC_i=1``, ``WC_j=1`` and the rest to ``0``
-        '''
-        print(f'Making the datacard')
-        for nbjet in self.nbjets:
-            for syst in self.syst:
-                if syst != 'nominal': continue
-                print(f'Systematic: {syst}')
-                for ch in self.charge:
-                    print(f'Charge: {ch}')
-                    for ivar,var in enumerate(self.var):
-                        print(f'Category: {nbjet}')
-                        print(f'Variable: {var}')
-                        if syst == 'nominal': sys = ''
-                        else: sys = '_'+syst
-                        charge = 'p' if ch == 'ch+' else 'm'
-                        for chan in self.channels.keys():
-                            #Open temp ROOT file
-                            fname = f'histos/tmp_ttx_multileptons-{chan}_{charge}_{nbjet}{sys}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{chan}_{charge}_{nbjet}{sys}_{var}.root'
-                            fin = TFile(fname)
-                            d_hists = {k.GetName(): fin.Get(k.GetName()) for k in fin.GetListOfKeys()}
-                            [h.SetDirectory(0) for h in d_hists.values()]
-                            fin.Close()
-                            #os.system(f'rm {fname}')
-                            #Delete temp ROOT file
-                            #Create the ROOT file
-                            fname = f'histos/ttx_multileptons-{chan}_{charge}_{nbjet}{sys}.root' if var == 'njets' else f'histos/ttx_multileptons-{chan}_{charge}_{nbjet}{sys}_{var}.root'
-                            fout = TFile(fname, 'recreate')
-                            signalcount=0; bkgcount=0; iproc = {}; allyields = {'data_obs' : 1.}
-                            for proc in self.samples:
-                                p = self.rename[proc] if proc in self.rename else proc
-                                print(f'Process: {p}')
-                                name = 'data_obs'
-                                data_obs = d_hists[name]
-                                if name not in d_hists:
-                                    continue
-                                allyields[name] += data_obs.Integral()
-                                print(allyields[name])
-                                if proc != self.samples[0]:
-                                    fout.Delete('data_obs;1')
-                                    data_obs.Scale(allyields[name] / data_obs.Integral())
-                                data_obs.SetDirectory(fout)
-                                data_obs.Write()
-                                pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
-                                name = '_'.join([pname[:-1],'sm'])
-                                if name not in d_hists:
-                                    continue
-                                h_sm = d_hists[name]
-                                h_sm.SetDirectory(fout)
-                                h_sm.Write()
-                                for n,wc in enumerate(self.coeffs):
-                                    name = '_'.join([pname[:-1],'lin',wc])
-                                    if name not in d_hists:
-                                        print(f'Histogram {name} not found!')
-                                        continue
-                                    h_lin = d_hists[name]
-                                    if 'ttH' in name:
-                                        cat = '_'.join([chan, charge, nbjet]) if var == 'njets' else '_'.join([chan, charge, nbjet, var])
-                                        #print(f'Reading {cat} {name} with {h_lin.Integral()}')
-                                    signalcount -= 1
-                                    if h_lin.Integral() > self.tolerance:
-                                        h_lin.SetDirectory(fout)
-                                        h_lin.Write()
-                                        iproc[name] = signalcount
-                                        allyields[name] = h_lin.Integral()
-                                        if allyields[name] < 0:
-                                            allyields[name] = 0.
-
-                                    h_lin.Scale(-2)
-                                    name = '_'.join([pname[:-1],'quad',wc])
-                                    if name not in d_hists:
-                                        print(f'Histogram {name} not found!')
-                                        continue
-                                    h_quad = d_hists[name]
-                                    h_quad.Add(h_sm)
-                                    h_quad.Add(h_lin)
-                                    h_quad.Scale(0.5)
-                                    if h_quad.Integral() > self.tolerance:
-                                        h_quad.SetDirectory(fout)
-                                        h_quad.Write()
-                                        iproc[name] = signalcount
-                                        allyields[name] = h_quad.Integral()
-                                        if allyields[name] < 0:
-                                            allyields[name] = 0.
-
-                                    for wc2 in [self.coeffs[w2] for w2 in range(n)]:
-                                        name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
-                                        if name not in d_hists:
-                                            print(f'Histogram {name} not found!')
-                                            continue
-                                        h_mix = d_hists[name]
-                                        if h_mix.Integral() > self.tolerance:
-                                            h_mix.SetDirectory(fout)
-                                            h_mix.Write()
-                                            iproc[name] = signalcount
-                                            allyields[name] = h_mix.Integral()
-                                            if allyields[name] < 0:
-                                                allyields[name] = 0.
-
-                            #Write datacard
-                            if syst == 'nominal':
-                                cat = '_'.join([chan, charge, nbjet]) if var == 'njets' else '_'.join([chan, charge, nbjet, var])
-                            else:
-                                cat = '_'.join([chan, charge, nbjet, syst]) if var == 'njets' else '_'.join([chan, charge, nbjet, syst, var])
-                            #print(f'{cat=}\n{iproc=}\n{allyields=}')
-                            datacard = open("histos/ttx_multileptons-%s.txt"%cat, "w"); 
-                            datacard.write("shapes *        * ttx_multileptons-%s.root $PROCESS $PROCESS_$SYSTEMATIC\n" % cat)
-                            cat = 'bin_'+cat
-                            datacard.write('##----------------------------------\n')
-                            datacard.write('bin         %s\n' % cat)
-                            datacard.write('observation %%.%df\n' % np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])) % allyields['data_obs'])
-                            datacard.write('##----------------------------------\n')
-                            klen = max([7, len(cat)]+[len(p[0]) for p in iproc.keys()])
-                            kpatt = " %%%ds "  % klen
-                            fpatt = " %%%d.%df " % (klen,np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])))#3)
-                            #npatt = "%%-%ds " % max([len('process')]+map(len,nuisances))
-                            npatt = "%%-%ds " % max([len('process')])
-                            datacard.write('##----------------------------------\n')
-                            procs = iproc.keys()
-                            datacard.write((npatt % 'bin    ')+(" "*6)+(" ".join([kpatt % cat      for p in procs]))+"\n")
-                            datacard.write((npatt % 'process')+(" "*6)+(" ".join([kpatt % p        for p in procs]))+"\n")
-                            datacard.write((npatt % 'process')+(" "*6)+(" ".join([kpatt % iproc[p] for p in procs]))+"\n")
-                            datacard.write((npatt % 'rate   ')+(" "*6)+(" ".join([fpatt % allyields[p] for p in procs]))+"\n")
-                            datacard.write('##----------------------------------\n')
-        
-                        fout.Close()
-
     def makeCardLevel(self, channel='2lss', cuts='base', charges=['ch+','ch-'], nbjet='1b', systematics='nominal', variable='njets'):
         '''
         Create datacard files from temp uproot outputs
@@ -441,6 +193,22 @@ class HistoReader():
         ``S+L_i+Q_i`` sets ``WC_i=1`` and the rest to ``0``
         ``S+L_i+L_j+Q_i+Q_j+2 M_IJ`` set ``WC_i=1``, ``WC_j=1`` and the rest to ``0``
         '''
+        def processSyst(hist, systMap,fout):
+            for s in self.syst_terms:
+                if s in systMap:
+                    systMap[s].append(name)
+                else:
+                    systMap[s] = [name]
+                '''
+                This part is a hack to inject fact systematics for testing only!
+                '''
+                h_sys = data_obs.Clone(name+'_'+s+'Up')
+                h_sys.Scale(1.1/h_sys.Integral())
+                h_sys.SetDirectory(fout)
+                h_sys.Write()
+                h_sys.SetName(h_sys.GetName().replace('Up', 'Down'))
+                h_sys.Scale(0.9/h_sys.Integral())
+                h_sys.Write()
         print(f'Making the datacard')
         if isinstance(charges, str): charge = charges
         else: charge = ''
@@ -507,46 +275,32 @@ class HistoReader():
                 signalcount -= 1
                 iproc[name] = signalcount
                 allyields[name] = h_sm.Integral()
-                print(f'{name} {signalcount} {iproc[name]} {allyields[name]}')
                 if allyields[name] < 0:
                     allyields[name] = 0.
+                processSyst(h_sm, systMap,fout)
             for n,wc in enumerate(self.coeffs):
                 name = '_'.join([pname[:-1],'lin',wc])
-                print(name)
                 if name not in d_hists:
                     print(f'Histogram {name} not found!')
                     continue
                 h_lin = d_hists[name]
-                #if 'ttH' in name:
-                #    #cat = '_'.join([chan, charge, nbjet]) if var == 'njets' else '_'.join([chan, charge, nbjet, var])
-                #    print(f'Reading {cat} {name} with {h_lin.Integral()}')
                 if h_lin.Integral() > self.tolerance:
                     h_lin.SetDirectory(fout)
                     h_lin.Write()
                     signalcount -= 1
                     iproc[name] = signalcount
                     allyields[name] = h_lin.Integral()
-                    print(f'{name} {signalcount} {iproc[name]} {allyields[name]}')
                     if allyields[name] < 0:
                         allyields[name] = 0.
 
-                    #for s in self.syst_terms:
-                    #    if s in systMap:
-                    #        systMap[s].append(proc)
-                    #    else:
-                    #        systMap[s] = [proc]
-                    #    h_sys = data_obs.Clone(name)
-                    #    #h_sys.Scale(1/h_sys.Integral())
-                    #    h_sys.SetDirectory(fout)
-                    #    h_sys.Write()
-                    #    h_lin.Scale(-2)
+                    processSyst(h_lin, systMap,fout)
                 name = '_'.join([pname[:-1],'quad',wc])
                 if name not in d_hists:
                     print(f'Histogram {name} not found!')
                     continue
                 h_quad = d_hists[name]
+                h_quad.Add(h_lin, -2)
                 h_quad.Add(h_sm)
-                h_quad.Add(h_lin)
                 h_quad.Scale(0.5)
                 if h_quad.Integral() > self.tolerance:
                     h_quad.SetDirectory(fout)
@@ -554,9 +308,9 @@ class HistoReader():
                     signalcount -= 1
                     iproc[name] = signalcount
                     allyields[name] = h_quad.Integral()
-                    print(f'{name} {signalcount} {iproc[name]} {allyields[name]}')
                     if allyields[name] < 0:
                         allyields[name] = 0.
+                    processSyst(h_quad, systMap,fout)
 
                 for wc2 in [self.coeffs[w2] for w2 in range(n)]:
                     name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
@@ -570,9 +324,9 @@ class HistoReader():
                         signalcount -= 1
                         iproc[name] = signalcount
                         allyields[name] = h_mix.Integral()
-                        print(f'{name} {signalcount} {iproc[name]} {allyields[name]}')
                         if allyields[name] < 0:
                             allyields[name] = 0.
+                        processSyst(h_mix, systMap,fout)
 
         #Write datacard
         if systematics != 'nominal':
@@ -604,6 +358,41 @@ class HistoReader():
         
         fout.Close()
 
+    def buildWCString(self, wc=''):
+        '''
+        Builds a set of WC strings
+        Linear terms (single WC set to 1)
+        Quadratic terms (pair of WCs set to 2)
+        '''
+        if wc == '': wc = self.coeffs
+        wcpt = []
+        if len(wc)==0:
+            wcpt = None
+        #Case for a single wc
+        elif isinstance(wc, str):
+            wcpt.append([wc, f'lin_{wc}', WCPoint(f'EFTrwgt0_{wc}_{1}')])
+        elif len(wc)==1:
+            wcpt.append([wc, f'lin_{wc[0]}', WCPoint(f'EFTrwgt0_{wc[0]}_{1}')])
+        #Case for 2+ wcs
+        else:
+            pairs = [[wc[w1],wc[w2]] for w1 in range(len(wc)) for w2 in range(0, w1+1)]
+            wcpt = []
+            lin = []
+            quad = []
+            mixed = []
+            #linear terms
+            for n,w in enumerate(wc):
+                wcpt.append([w, f'lin_{w}', WCPoint(f'EFTrwgt0_{w}_{1}')])
+            #quadratic terms
+                for m,w in enumerate([[w,wc[w2]] for w2 in range(0, n+1)]):
+                    wc1 = w[0]
+                    wc2 = w[1]
+                    if(wc1==wc2):  wcpt.append([[wc1,wc2], f'quad_{wc1}', WCPoint(f'EFTrwgt0_{wc1}_{2}')])
+                    else: wcpt.append([[wc1,wc2], f'quad_mixed_{wc1}_{wc2}', WCPoint(f'EFTrwgt0_{wc1}_{1}_{wc2}_{1}')])
+        self.wcs = wcpt
+        return wcpt
+
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='You can select which file to run over')
@@ -627,6 +416,3 @@ if __name__ == '__main__':
     hr.analyzeChannel(channel='3l', cuts='base', charges='ch-', nbjet='2+bm', systematics='nominal', variable='njets')
     hr.analyzeChannel(channel='3l_sfz', cuts='base', charges=['ch+','ch-'], nbjet='2+bm', systematics='nominal', variable='njets')
     hr.analyzeChannel(channel='4l', cuts='base', charges=['ch+','ch0','ch-'], nbjet='1+bm2+bl', systematics='nominal', variable='njets')
-    quit()
-    hr.relish()
-    hr.makeCard()
