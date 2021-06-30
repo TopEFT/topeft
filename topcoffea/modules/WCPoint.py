@@ -5,7 +5,6 @@
 """
 
 from math import sqrt
-import numpy as np
 
 class WCPoint:
 
@@ -17,7 +16,6 @@ class WCPoint:
     inputs = _str.split('_');
     for i in range(0,len(inputs),2):
       label = inputs[i]
-      self.wclist.append(label)
       val = float(inputs[i+1])
       self.inputs[label] = val
     #print('labels = [%i]: '%len(self.inputs.keys()), self.inputs.keys())
@@ -81,7 +79,6 @@ class WCPoint:
     self.wgt = 0;
     self.tag = '';
     self.idnum = 0
-    self.wclist = []
     # It can be a miniAOD branch name...
     if isinstance(brname, str) and brname.startswith('EFT'): 
       self.ParseRwgtId(brname)
@@ -104,11 +101,3 @@ class WCPoint:
       for n,v in zip(names, values):
         self.inputs[n] = v
     self.wgt = float(wgt)
-
-  def buildMatrix(self, wcs):
-    #43.3 µs ± 658 ns per loop (mean ± std. dev. of 7 runs, 10000 loops each)
-    tmp = np.zeros_like(wcs, dtype=float)
-    tab = {k: v for k,v in zip(wcs,tmp)}
-    wc = (self.inputs[k] if k in self.wclist else tab[k] for k in wcs)
-    return np.fromiter(wc, dtype=float)
-
