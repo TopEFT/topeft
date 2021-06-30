@@ -122,13 +122,12 @@ class HistoReader():
             
             h_lin = h_base; h_quad = []; h_mix = []
             yields = []
-            for wc,name,wcpt,wl in self.wcs:
+            for name,wcpt in self.wcs:
                 #Scale plot to the WCPoint
-                #w = wcpt.buildMatrix(self.coeffs)
                 #Handle linear and quadratic terms
                 if 'lin' in name:
                     h_lin = h_base#.copy()
-                    h_lin.set_wilson_coefficients(wl)
+                    h_lin.set_wilson_coefficients(wcpt)
                     if np.sum(h_lin.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_lin)
                         if 'ttH' in pname or True: #FIXME
@@ -144,12 +143,12 @@ class HistoReader():
                                     '_'.join([channel, maxb, variable])
                 elif 'quad' in name and 'mix' not in name:
                     h_quad = h_base#.copy()
-                    h_quad.set_wilson_coefficients(wl)
+                    h_quad.set_wilson_coefficients(wcpt)
                     if np.sum(h_quad.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_quad)
                 else:
                     h_mix = h_base#.copy()
-                    h_mix.set_wilson_coefficients(wl)
+                    h_mix.set_wilson_coefficients(wcpt)
                     if np.sum(h_mix.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_mix)
         
@@ -339,17 +338,15 @@ class HistoReader():
             wcpt = None
         #Case for a single wc
         elif isinstance(wc, str):
-            wcpt.append([wc, f'lin_{wc}', WCPoint(f'EFTrwgt0_{wc}_{1}')])
             wl = {k:0 for k in self.coeffs}
             wl[wc] = 1.
             wl = np.array(list(wl.values()))
-            wcpt[-1].append(wl)
+            wcpt.append([f'lin_{wc}', wl])
         elif len(wc)==1:
-            wcpt.append([wc, f'lin_{wc[0]}', WCPoint(f'EFTrwgt0_{wc[0]}_{1}')])
             wl = {k:0 for k in self.coeffs}
             wl[wc] = 1.
             wl = np.array(list(wl.values()))
-            wcpt[-1].append(wl)
+            wcpt.append([f'lin_{wc}', wl])
         #Case for 2+ wcs
         else:
             pairs = [[wc[w1],wc[w2]] for w1 in range(len(wc)) for w2 in range(0, w1+1)]
@@ -359,24 +356,22 @@ class HistoReader():
             mixed = []
             #linear terms
             for n,w in enumerate(wc):
-                wcpt.append([w, f'lin_{w}', WCPoint(f'EFTrwgt0_{w}_{1}')])
                 wl = {k:0 for k in self.coeffs}
                 wl[w] = 1.
                 wl = np.array(list(wl.values()))
-                wcpt[-1].append(wl)
+                wcpt.append([f'lin_{w}', wl])
             #quadratic terms
                 for m,w in enumerate([[w,wc[w2]] for w2 in range(0, n+1)]):
                     wc1 = w[0]
                     wc2 = w[1]
-                    if(wc1==wc2):  wcpt.append([[wc1,wc2], f'quad_{wc1}', WCPoint(f'EFTrwgt0_{wc1}_{2}')])
-                    else: wcpt.append([[wc1,wc2], f'quad_mixed_{wc1}_{wc2}', WCPoint(f'EFTrwgt0_{wc1}_{1}_{wc2}_{1}')])
                     wl = {k:0 for k in self.coeffs}
                     if(wc1==wc2):
                         wl[wc1] = 2.
                     else:
                         wl[wc1] = 1.; wl[wc2] = 1.;
                     wl = np.array(list(wl.values()))
-                    wcpt[-1].append(wl)
+                    if(wc1==wc2):  wcpt.append([f'quad_{wc1}', wl])
+                    else: wcpt.append([f'quad_mixed_{wc1}_{wc2}', wl])
         self.wcs     = wcpt
         return wcpt
 
