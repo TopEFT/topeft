@@ -63,7 +63,41 @@ condor_submit_workers -M ${USER}-workqueue-coffea --cores 4 --memory 4000 --disk
 The workers will terminate themselves after 15 minutes of inactivity.
 
 
-### How to convert HistEFT to TH1EFT
-- Run `source setupTH1EFT.sh` to download and compile ROOT files
+### How to fit the results
+#### CMSSW
+Install CMSSW_10_2_13 *OUTSIDE OF YOUR TOPCOFFEA DIR AND NOT IN CONDA*
+
+    `export SCRAM_ARCH=slc7_amd64_gcc630`
+    `scramv1 project CMSSW_10_2_13`
+    `cd CMSSW_10_2_13/src`
+    `scram b -j8`
+#### EFTFit
+This repository holds all of the custom files needed to run a proper EFT fit on the Govner TopEFT datacards.
+
+##### Set up Repo
+This package is designed to be used with the cms-govner CombineHarvester fork. Install within the same CMSSW release. See https://github.com/cms-govner/CombineHarvester
+
+Currently working with tag `v8.2.0`:
+
+    `git checkout v8.2.0`
+    `scram b -j8`
+
+Otherwise, this package should be compatible with most CMSSW releases. It still requires the HiggsCombineTool package though. See https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit/wiki/gettingstarted#for-end-users-that-dont-need-to-commit-or-do-any-development
+
+To install this package:
+
+    `cd $CMSSW_BASE/src/`
+    `git clone https://github.com/cms-govner/EFTFit.git EFTFit`
+    `scram b -j8`
+
+#### Fitting
+- Run `python analysis/topEFT/DatacardMaker.py` (see `analysis/topEFT/README.md` for details)
+- Enter `CMSSW_10_2_13/src/EFTFit/Fitter/test` (wherever you have it installed) and run `cmsenv` to initialize CMSSW
+- Copy all .txt and .root files created by `python analysis/topEFT/DatacardMaker.py` (in the `histos` directory of your TopCoffea ananlyzer)
+- Run `combineCards.py ttx_multileptons-* > combinedcard.txt` to merge them all into one txt file
+- Run `text2workspace.py ttx_multileptons-2lss_m_2b.txt   -o wps.root -P EFTFit.Fitter.AnomalousCouplingEFTNegative:analiticAnomalousCouplingEFTNegative  --X-allow-no-background` to generate the workspace file
+- Run combine
+  - Example `combineTool.py  wps.root -M MultiDimFit --algo grid -t -1 --setParameters  ctW=0,ctp=0,cpQM=0,ctli=0,cQei=0,ctZ=0,cQlMi=0,cQl3i=0,ctG=0,ctlTi=0,cbW=0,cpQ3=0,ctei=0,cpt=0,ctlSi=0,cptb=0,cQq13=0,cQq83=0,cQq11=0,ctq1=0,cQq81=0,ctq8=0,r=1 -P ctW --freezeParameters ctG,ctp,cpQM,ctli,cQei,ctZ,cQlMi,cQl3i,ctlTi,cbW,cpQ3,ctei,cpt,ctlSi,cptb,cQq13,cQq83,cQq11,ctq1,cQq81,ctq8,r --setParameterRanges ctW=-6,6 --trackParameters cQei --points 200 --job-mode condor --split-point 20`
+- Example usage: ``
 - Run `python analysis/topEFT/convert3lEFT.py` to perform conversion of MET
 - See `analysis/topEFT/convert3lEFT.py` for more details
