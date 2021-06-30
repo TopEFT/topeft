@@ -6,6 +6,9 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 * `genPlot.py`:
 
 * `plot.py`:
+    - Make sure all the names in `histAxisName` in the json files are listed in `plot.py` under processDic and/or bkglist as needed
+      - Example to get `histAxisName` from private TOP-19-001 json files: `grep topcoffea/json/signal_samples/private_top19001_local/*Jet*.json -e histAxisName | sed 's/^.*: "//g' | sed 's/",//g'`
+    - Example usage: `python analysis/topEFT/plot.py -p histos/ttH_private_UL17_cuts_levels.pkl.gz -y 2017`
 
 ### Wrappers for processors
 
