@@ -60,7 +60,6 @@ class HistoReader():
         self.nbjets = list({k[4]:0 for k in self.hists['njets'].values().keys()})
         self.syst = list({k[5]:0 for k in self.hists['njets'].values().keys()})
         self.hsow = self.hists['SumOfEFTweights']
-        #self.hsow = self.hsow.sum('sample')
         self.hsow.set_wilson_coefficients(np.zeros(self.hsow._nwc))
         self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples}
         with open(lumiJson) as jf:
@@ -75,32 +74,15 @@ class HistoReader():
            print(self.channels.keys())
            print([[ch, ch in self.channels.keys()] for ch in channel])
            raise Exception(f'At least one channel in {channels} is not found in self.channels!')
-        #if isinstance(channel, str): channel = [channel]
-        #print('channel',self.hists[variable].integrate('channel', self.channels[channel]).values())
-        #print('cut',self.hists[variable].integrate('channel', self.channels[channel]).integrate('cut', cuts).values())
-        #print('charge',self.hists[variable].integrate('channel', self.channels[channel]).integrate('cut', cuts).integrate('sumcharge', charges).values())
-        #print('bjet',self.hists[variable].integrate('channel', self.channels[channel]).integrate('cut', cuts).integrate('sumcharge', charges).integrate('nbjet', nbjet).values())
-        #print('syst',self.hists[variable].integrate('channel', self.channels[channel]).integrate('cut', cuts).integrate('sumcharge', charges).integrate('nbjet', nbjet).integrate('systematic', systematics).values())
         h = self.hists[variable].integrate('channel', self.channels[channel]).integrate('cut', cuts).integrate('sumcharge', charges).integrate('nbjet', nbjet).integrate('systematic', systematics)
-        #print(f'h = self.hists[\'{variable}\'].integrate(\'channel\', {self.channels[channel]}).integrate(\'cut\', \'{cuts}\').integrate(\'sumcharge\', \'{charges}\').integrate(\'nbjet\', \'{nbjet}\').integrate(\'systematic\', \'{systematics}\')')
-        #print(h.values())
-        #Create the temp ROOT file
-        #print('.', end='', flush=True)
         all_str = ' '.join([f'{v}' for v in locals().values() if v != self.hists])
         all_str = f'{channel} {cuts} {charges} {nbjet} {systematics} {variable}'
         print(f'Making relish from the pickle file for {all_str}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
-        #Delete temp ROOT file
         charge = 'p' if charge == 'ch+' else 'm'
         result = [e for e in re.split("[^0-9]", nbjet) if e != '']
         maxb = str(max(map(int, result))) + 'b'
-        #maxb = 0
-        #if len(nbjet) > 2: # check for cases like `1+bm2+bl`
-        #    for c in nbjet:
-        #        if c.isgigit() and int(c) > maxb: maxb = int(c)  
-        #else:
-        #    maxb = int(nbjet[0]) # cases like `2b`
         if systematics == 'nominal': sys = ''
         else: sys = '_'+systematics
         if variable == 'njets':
@@ -114,14 +96,9 @@ class HistoReader():
             else:
                 '_'.join([channel, maxb, variable])
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
-        #fname = f'histos/tmp_ttx_multileptons-{channel}{charge}_{nbjet}{sys}.root' if variable == 'njets' else f'histos/tmp_ttx_multileptons-{channel}{charge}_{nbjet}{sys}_{variable}.root'
         fout = uproot3.recreate(fname)
         #Scale each plot to the SM
         for proc in self.samples:
-            #if 'ttH_private2017' in proc: continue
-            #if 'tllq' in proc: continue
-            #print(channel,charge,nbjet,proc,variable)
-            #print('.', end='', flush=True)
             #Integrate out processes
             h_base = h.integrate('sample', proc)
             if h_base == {}:
@@ -129,10 +106,6 @@ class HistoReader():
                 continue
             nwc = self.hsow._nwc
             if nwc > 0:
-                #self.hsow.set_wilson_coefficients(np.zeros(nwc))
-                #sow = self.hsow.integrate('sample', proc)
-                #sow = np.sum(sow.values()[()])
-                #h_base.scale(self.lumi/sow)
                 h_base.scale(self.lumi/self.smsow[proc])
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             if variable == 'njets':
@@ -168,8 +141,6 @@ class HistoReader():
                                     '_'.join([channel, charge, maxb, variable])
                                 else:
                                     '_'.join([channel, maxb, variable])
-                            #cat = '_'.join([channel, charge, maxb]) if variable == 'njets' else '_'.join([channel, charge, maxb, variable])
-                            #print(f'Writing {cat} {pname+name} with {np.sum(h_lin.values()[()])}')
                 elif 'quad' in name and 'mix' not in name:
                     h_quad = h_base#.copy()
                     h_quad.set_wilson_coefficients(w)
@@ -182,7 +153,6 @@ class HistoReader():
                         fout[pname+name] = hist.export1d(h_mix)
         
         fout.close()
-        #print('.')
         self.makeCardLevel(channel=channel, cuts=cuts, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
 
     def makeCardLevel(self, channel='2lss', cuts='base', charges=['ch+','ch-'], nbjet='1b', systematics='nominal', variable='njets'):
@@ -227,7 +197,6 @@ class HistoReader():
                 cat = '_'.join([channel, nbjet, variable])
         #Open temp ROOT file
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
-        #fname = f'histos/tmp_ttx_multileptons-{chan}_{charge}_{nbjet}{sys}.root' if var == 'njets' else f'histos/tmp_ttx_multileptons-{chan}_{charge}_{nbjet}{sys}_{var}.root'
         fin = TFile(fname)
         d_hists = {k.GetName(): fin.Get(k.GetName()) for k in fin.GetListOfKeys()}
         [h.SetDirectory(0) for h in d_hists.values()]
@@ -236,12 +205,10 @@ class HistoReader():
         os.system(f'rm {fname}')
         #Create the ROOT file
         fname = f'histos/ttx_multileptons-{cat}.root'
-        #fname = f'histos/ttx_multileptons-{chan}_{charge}_{nbjet}{sys}.root' if var == 'njets' else f'histos/ttx_multileptons-{chan}_{charge}_{nbjet}{sys}_{var}.root'
         fout = TFile(fname, 'recreate')
         signalcount=0; bkgcount=0; iproc = {}; systMap = {}; allyields = {'data_obs' : 0.}
         data_obs = []
         for proc in self.samples:
-            #if 'ttH' not in proc: continue
             p = self.rename[proc] if proc in self.rename else proc
             print(f'Process: {p}')
             name = 'data_obs' #FIXME
@@ -253,15 +220,12 @@ class HistoReader():
             else:
                 data_obs += d_hists[p+'_sm'].Clone('data_obs')
             allyields[name] += data_obs.Integral() #FIXME
-            #print(f'{proc},{data_obs.Integral()=},{allyields["data_obs"]=}')
             asimov = np.random.poisson(int(data_obs.Integral()))
-            #allyields[name] = asimov
             data_obs.SetDirectory(fout)
             if proc == self.samples[-1]:
                 data_obs.Scale(allyields['data_obs'] / data_obs.Integral())
                 data_obs.Write()
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
-            #name = '_'.join([pname[:-1],'sm'])
             name = pname + 'sm'
             if name not in d_hists:
                 print(f'{name} not found!')
@@ -281,7 +245,7 @@ class HistoReader():
             for n,wc in enumerate(self.coeffs):
                 name = '_'.join([pname[:-1],'lin',wc])
                 if name not in d_hists:
-                    print(f'Histogram {name} not found!')
+                    print(f'Histogram {name} not found! Probably below the tolerance. If so, ignore this message!')
                     continue
                 h_lin = d_hists[name]
                 if h_lin.Integral() > self.tolerance:
@@ -296,7 +260,7 @@ class HistoReader():
                     processSyst(h_lin, systMap,fout)
                 name = '_'.join([pname[:-1],'quad',wc])
                 if name not in d_hists:
-                    print(f'Histogram {name} not found!')
+                    print(f'Histogram {name} not found! Probably below the tolerance. If so, ignore this message!')
                     continue
                 h_quad = d_hists[name]
                 h_quad.Add(h_lin, -2)
@@ -315,7 +279,7 @@ class HistoReader():
                 for wc2 in [self.coeffs[w2] for w2 in range(n)]:
                     name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
                     if name not in d_hists:
-                        print(f'Histogram {name} not found!')
+                        print(f'Histogram {name} not found! Probably below the tolerance. If so, ignore this message!')
                         continue
                     h_mix = d_hists[name]
                     if h_mix.Integral() > self.tolerance:
@@ -331,7 +295,6 @@ class HistoReader():
         #Write datacard
         if systematics != 'nominal':
             cat = cat + '_' + systematics
-        #print(f'{cat=}\n{iproc=}\n{allyields=}')
         nuisances = [syst for syst in systMap]
         datacard = open("histos/ttx_multileptons-%s.txt"%cat, "w"); 
         datacard.write("shapes *        * ttx_multileptons-%s.root $PROCESS $PROCESS_$SYSTEMATIC\n" % cat)
@@ -343,8 +306,8 @@ class HistoReader():
         klen = max([7, len(cat)]+[len(p[0]) for p in iproc.keys()])
         kpatt = " %%%ds "  % klen
         fpatt = " %%%d.%df " % (klen,np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])))#3)
-        #npatt = "%%-%ds " % max([len('process')]+map(len,nuisances))
-        npatt = "%%-%ds " % max([len('process')])
+        npatt = "%%-%ds " % max([len('process')]+list(map(len,nuisances)))
+        #npatt = "%%-%ds " % max([len('process')])
         datacard.write('##----------------------------------\n')
         procs = iproc.keys()
         datacard.write((npatt % 'bin    ')+(" "*6)+(" ".join([kpatt % cat      for p in procs]))+"\n")
