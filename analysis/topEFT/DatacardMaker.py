@@ -58,8 +58,8 @@ class HistoReader():
         self.samples = list({k[0]:0 for k in self.hists['njets'].values().keys()})
         self.levels = list({k[2]:0 for k in self.hists['njets'].values().keys()})
         self.charge = list({k[3]:0 for k in self.hists['njets'].values().keys()})
-        self.nbjets = list({k[4]:0 for k in self.hists['njets'].values().keys()})
-        self.syst = list({k[5]:0 for k in self.hists['njets'].values().keys()})
+        #self.nbjets = list({k[4]:0 for k in self.hists['njets'].values().keys()})
+        self.syst = list({k[4]:0 for k in self.hists['njets'].values().keys()})
         self.hsow = self.hists['SumOfEFTweights']
         self.hsow.set_wilson_coefficients(np.zeros(self.hsow._nwc))
         self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples}
@@ -68,21 +68,21 @@ class HistoReader():
             lumi = lumi[year]
         self.lumi = 1000*lumi
 
-    def analyzeChannel(self, channel='2lss', cuts='base', charges=['ch+','ch-'], nbjet='1b', systematics='nominal', variable='njets'):
+    def analyzeChannel(self, channel='2lss', cuts='2+bm', charges=['ch+','ch-'], systematics='nominal', variable='njets'):
         if isinstance(channel, str) and channel not in self.channels:
            raise Exception(f'{channel} not found in self.channels!')
         if isinstance(channel, list) and not all(ch in self.channels for ch in self.channels.keys()):
            print(self.channels.keys())
            print([[ch, ch in self.channels.keys()] for ch in channel])
            raise Exception(f'At least one channel in {channels} is not found in self.channels!')
-        h = self.hists[variable].integrate('channel', self.channels[channel]).integrate('cut', cuts).integrate('sumcharge', charges).integrate('nbjet', nbjet).integrate('systematic', systematics)
+        h = self.hists[variable].integrate('channel', self.channels[channel]).integrate('cut', cuts).integrate('sumcharge', charges).integrate('systematic', systematics)
         all_str = ' '.join([f'{v}' for v in locals().values() if v != self.hists])
-        all_str = f'{channel} {cuts} {charges} {nbjet} {systematics} {variable}'
+        all_str = f'{channel} {cuts} {charges} {systematics} {variable}'
         print(f'Making relish from the pickle file for {all_str}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
         charge = 'p' if charge == 'ch+' else 'm'
-        result = [e for e in re.split("[^0-9]", nbjet) if e != '']
+        result = [e for e in re.split("[^0-9]", cuts) if e != '']
         maxb = str(max(map(int, result))) + 'b'
         if systematics == 'nominal': sys = ''
         else: sys = '_'+systematics
@@ -122,13 +122,13 @@ class HistoReader():
             
             h_lin = h_base; h_quad = []; h_mix = []
             yields = []
-            for wc,name,wcpt in self.wcs:
+            for wc,name,wcpt,wl in self.wcs:
                 #Scale plot to the WCPoint
-                w = wcpt.buildMatrix(self.coeffs)
+                #w = wcpt.buildMatrix(self.coeffs)
                 #Handle linear and quadratic terms
                 if 'lin' in name:
                     h_lin = h_base#.copy()
-                    h_lin.set_wilson_coefficients(w)
+                    h_lin.set_wilson_coefficients(wl)
                     if np.sum(h_lin.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_lin)
                         if 'ttH' in pname or True: #FIXME
@@ -144,19 +144,19 @@ class HistoReader():
                                     '_'.join([channel, maxb, variable])
                 elif 'quad' in name and 'mix' not in name:
                     h_quad = h_base#.copy()
-                    h_quad.set_wilson_coefficients(w)
+                    h_quad.set_wilson_coefficients(wl)
                     if np.sum(h_quad.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_quad)
                 else:
                     h_mix = h_base#.copy()
-                    h_mix.set_wilson_coefficients(w)
+                    h_mix.set_wilson_coefficients(wl)
                     if np.sum(h_mix.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_mix)
         
         fout.close()
         self.makeCardLevel(channel=channel, cuts=cuts, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
 
-    def makeCardLevel(self, channel='2lss', cuts='base', charges=['ch+','ch-'], nbjet='1b', systematics='nominal', variable='njets'):
+    def makeCardLevel(self, channel='2lss', cuts='base', charges=['ch+','ch-'], nbjet='2+bm', systematics='nominal', variable='njets'):
         '''
         Create datacard files from temp uproot outputs
         Creates histograms for ``combine``:
@@ -340,8 +340,16 @@ class HistoReader():
         #Case for a single wc
         elif isinstance(wc, str):
             wcpt.append([wc, f'lin_{wc}', WCPoint(f'EFTrwgt0_{wc}_{1}')])
+            wl = {k:0 for k in self.coeffs}
+            wl[wc] = 1.
+            wl = np.array(list(wl.values()))
+            wcpt[-1].append(wl)
         elif len(wc)==1:
             wcpt.append([wc, f'lin_{wc[0]}', WCPoint(f'EFTrwgt0_{wc[0]}_{1}')])
+            wl = {k:0 for k in self.coeffs}
+            wl[wc] = 1.
+            wl = np.array(list(wl.values()))
+            wcpt[-1].append(wl)
         #Case for 2+ wcs
         else:
             pairs = [[wc[w1],wc[w2]] for w1 in range(len(wc)) for w2 in range(0, w1+1)]
@@ -352,13 +360,24 @@ class HistoReader():
             #linear terms
             for n,w in enumerate(wc):
                 wcpt.append([w, f'lin_{w}', WCPoint(f'EFTrwgt0_{w}_{1}')])
+                wl = {k:0 for k in self.coeffs}
+                wl[w] = 1.
+                wl = np.array(list(wl.values()))
+                wcpt[-1].append(wl)
             #quadratic terms
                 for m,w in enumerate([[w,wc[w2]] for w2 in range(0, n+1)]):
                     wc1 = w[0]
                     wc2 = w[1]
                     if(wc1==wc2):  wcpt.append([[wc1,wc2], f'quad_{wc1}', WCPoint(f'EFTrwgt0_{wc1}_{2}')])
                     else: wcpt.append([[wc1,wc2], f'quad_mixed_{wc1}_{wc2}', WCPoint(f'EFTrwgt0_{wc1}_{1}_{wc2}_{1}')])
-        self.wcs = wcpt
+                    wl = {k:0 for k in self.coeffs}
+                    if(wc1==wc2):
+                        wl[wc1] = 2.
+                    else:
+                        wl[wc1] = 1.; wl[wc2] = 1.;
+                    wl = np.array(list(wl.values()))
+                    wcpt[-1].append(wl)
+        self.wcs     = wcpt
         return wcpt
 
 
@@ -379,11 +398,11 @@ if __name__ == '__main__':
     hr = HistoReader(pklfile, year, lumiJson, do_nuisance)
     hr.read()
     hr.buildWCString()
-    hr.analyzeChannel(channel='2lss', cuts='base', charges='ch+', nbjet='1+bm2+bl', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='2lss', cuts='base', charges='ch-', nbjet='1+bm2+bl', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l', cuts='base', charges='ch+', nbjet='1bm', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l', cuts='base', charges='ch-', nbjet='1bm', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l', cuts='base', charges='ch+', nbjet='2+bm', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l', cuts='base', charges='ch-', nbjet='2+bm', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l_sfz', cuts='base', charges=['ch+','ch-'], nbjet='2+bm', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='4l', cuts='base', charges=['ch+','ch0','ch-'], nbjet='1+bm2+bl', systematics='nominal', variable='njets')
+    hr.analyzeChannel(channel='2lss', cuts='1+bm2+bl', charges='ch+', systematics='nominal', variable='njets')
+    hr.analyzeChannel(channel='2lss', cuts='1+bm2+bl', charges='ch-', systematics='nominal', variable='njets')
+    hr.analyzeChannel(channel='3l', cuts='1bm', charges='ch+', systematics='nominal', variable='njets')
+    hr.analyzeChannel(channel='3l', cuts='1bm', charges='ch-', systematics='nominal', variable='njets')
+    hr.analyzeChannel(channel='3l', cuts='2+bm', charges='ch+', systematics='nominal', variable='njets')
+    hr.analyzeChannel(channel='3l', cuts='2+bm', charges='ch-', systematics='nominal', variable='njets')
+    hr.analyzeChannel(channel='3l_sfz', cuts='2+bm', charges=['ch+','ch-'], systematics='nominal', variable='njets')
+    hr.analyzeChannel(channel='4l', cuts='1+bm2+bl', charges=['ch+','ch0','ch-'], systematics='nominal', variable='njets')
