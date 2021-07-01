@@ -11,35 +11,18 @@ import json
 
 from ROOT import TFile, TH1D
 
-class HistoReader():
-    def __init__(self, infile='', analysisList=[], central=False, year=2018, lumiJson='topcoffea/json/lumi.json', do_nuisance=False):
+class DatacardMaker():
+    def __init__(self, infile='', year=2018, lumiJson='topcoffea/json/lumi.json', do_nuisance=False):
         self.hists = {}
-        self.analysisList = analysisList
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll', 'ttll_TOP-19-001': 'ttll', 'ttW': 'ttlnu', 'ttGJets': 'convs', 'WZ': 'Diboson', 'WWW': 'Triboson', 'ttHnobb': 'ttH', 'ttH_TOP-19-001': 'ttH', "tHq_privateUL17": "tHq", "tllq_privateUL17": "tllq", "ttHJet_privateUL17": "ttH", "ttllJet_privateUL17": "ttll", "ttlnuJet_privateUL17": "ttlnu"} #Used to rename things like ttZ to ttll and ttHnobb to ttH
-        self.processDic = {
-          'Nonprompt' : 'TTTo2L2Nu,tW_noFullHad, tbarW_noFullHad, WJetsToLNu_MLM, WWTo2L2Nu',
-          'DY' : 'DYJetsToLL_M_10to50_MLM, DYJetsToLL_M_50_a',
-          'Other': 'WWW,WZG,WWZ,WZZ,ZZZ,tttt,ttWW,ttWZ,ttZH,ttZZ,ttHH,tZq,TTG',
-          'WZ' : 'WZTo2L2Q,WZTo3LNu',
-          'ZZ' : 'ZZTo2L2Nu,ZZTo2L2Q,ZZTo4L',
-          'ttW': 'TTWJetsToLNu',
-          'ttZ': 'TTZToLL_M_1to10,TTZToLLNuNu_M_10_a',
-          'ttH' : 'ttHnobb,tHq',
-          'data' : 'EGamma, SingleMuon, DoubleMuon',
-        }
-        self.bkglist = ['Nonprompt', 'Other', 'DY',  'ttH', 'WZ', 'ZZ', 'ttZ', 'ttW']
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
-        self.coeffs = ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb','cQq13','cQq83','cQq11','ctq1','cQq81','ctq8']
-        self.coeffs = ['cpt', 'ctp', 'cptb', 'cQlMi', 'cQq81', 'cQq11', 'cQl3i', 'ctq8', 'ctlTi', 'ctq1', 'ctli', 'cQq13', 'cbW', 'cpQM', 'cpQ3', 'ctei', 'cQei', 'ctW', 'ctlSi', 'cQq83', 'ctZ', 'ctG']
         self.ch2lss = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
         self.ch3l = ['eemSSoffZ', 'mmeSSoffZ', 'eeeSSoffZ', 'mmmSSoffZ']
         self.ch3lsfz = ['eemSSonZ', 'mmeSSonZ', 'eeeSSonZ', 'mmmSSonZ', 'mmmSSoffZ']
         self.ch4l =['eeee','eeem','eemm','mmme','mmmm']
         self.levels = ['base', '2jets', '4jets', '4j1b', '4j2b']
         self.channels = {'2lss': self.ch2lss, '3l': self.ch3l, '3l_sfz': self.ch3lsfz, '4l': self.ch4l}
-        self.outf = "EFT_MultiDim_Datacard_combine.txt"
         self.fin = infile
-        self.var = ['njets', 'ht']
         self.tolerance = 0.001
         self.do_nuisance = do_nuisance
 
@@ -52,13 +35,11 @@ class HistoReader():
         with gzip.open(self.fin) as fin:
             self.hists = pickle.load(fin)
         self.coeffs = self.hists['njets']._wcnames
-        self.coeffs = ['cpt', 'ctp', 'cptb', 'cQlMi', 'cQq81', 'cQq11', 'cQl3i', 'ctq8', 'ctlTi', 'ctq1', 'ctli', 'cQq13', 'cbW', 'cpQM', 'cpQ3', 'ctei', 'cQei', 'ctW', 'ctlSi', 'cQq83', 'ctZ', 'ctG']
 
         #Get list of samples and cut levels from histograms
         self.samples = list({k[0]:0 for k in self.hists['njets'].values().keys()})
         self.levels = list({k[2]:0 for k in self.hists['njets'].values().keys()})
         self.charge = list({k[3]:0 for k in self.hists['njets'].values().keys()})
-        #self.nbjets = list({k[4]:0 for k in self.hists['njets'].values().keys()})
         self.syst = list({k[4]:0 for k in self.hists['njets'].values().keys()})
         self.hsow = self.hists['SumOfEFTweights']
         self.hsow.set_wilson_coefficients(np.zeros(self.hsow._nwc))
@@ -110,7 +91,7 @@ class HistoReader():
                 h_base.scale(self.lumi/self.smsow[proc])
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             if variable == 'njets':
-                if '2l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7]))
+                if   '2l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7]))
                 elif '3l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5]))
                 elif '4l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4]))
             #Save the SM plot
@@ -130,17 +111,16 @@ class HistoReader():
                     h_lin.set_wilson_coefficients(wcpt)
                     if np.sum(h_lin.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_lin)
-                        if 'ttH' in pname or True: #FIXME
-                            if variable == 'njets':
-                                if isinstance(charge, str):
-                                    cat = '_'.join([channel, charge, ])  
-                                else:
-                                    cat = '_'.join([channel, maxb])  
+                        if variable == 'njets':
+                            if isinstance(charge, str):
+                                cat = '_'.join([channel, charge, ])  
                             else:
-                                if isinstance(charge, str):
-                                    '_'.join([channel, charge, maxb, variable])
-                                else:
-                                    '_'.join([channel, maxb, variable])
+                                cat = '_'.join([channel, maxb])  
+                        else:
+                            if isinstance(charge, str):
+                                '_'.join([channel, charge, maxb, variable])
+                            else:
+                                '_'.join([channel, maxb, variable])
                 elif 'quad' in name and 'mix' not in name:
                     h_quad = h_base#.copy()
                     h_quad.set_wilson_coefficients(wcpt)
@@ -390,7 +370,7 @@ if __name__ == '__main__':
     do_nuisance = args.do_nuisance
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
-    hr = HistoReader(pklfile, year, lumiJson, do_nuisance)
+    hr = DatacardMaker(pklfile, year, lumiJson, do_nuisance)
     hr.read()
     hr.buildWCString()
     hr.analyzeChannel(channel='2lss', cuts='1+bm2+bl', charges='ch+', systematics='nominal', variable='njets')

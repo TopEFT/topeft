@@ -105,10 +105,10 @@ scram b -j8
 
 #### Fitting
 ##### In TopCoffea
-- Run `python analysis/topEFT/DatacardMaker.py` (see `analysis/topEFT/README.md` for details)
+- Run `python analysis/topEFT/datacard_maker.py` (see `analysis/topEFT/README.md` for details)
 ##### In CMSSW
 - Enter `CMSSW_10_2_13/src/EFTFit/Fitter/test` (wherever you have it installed) and run `cmsenv` to initialize CMSSW
-- Copy all .txt and .root files created by `python analysis/topEFT/DatacardMaker.py` (in the `histos` directory of your TopCoffea ananlyzer)
+- Copy all .txt and .root files created by `python analysis/topEFT/datacard_maker.py` (in the `histos` directory of your TopCoffea ananlyzer)
 - Run `combineCards.py ttx_multileptons-* > combinedcard.txt` to merge them all into one txt file
 - Run `text2workspace.py ttx_multileptons-2lss_m_2b.txt   -o wps.root -P EFTFit.Fitter.AnomalousCouplingEFTNegative:analiticAnomalousCouplingEFTNegative  --X-allow-no-background` to generate the workspace file
 - Run combine
