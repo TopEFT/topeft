@@ -1,6 +1,7 @@
 import gzip
 import json
 import pickle
+import numpy as np
 from coffea import hist
 #from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
@@ -13,6 +14,7 @@ PROC_MAP = {
     "ttH"   : ["ttH_centralUL17","ttH_private2017","ttHJet_privateUL17","ttHJet_privateUL18"],
     "tllq"  : ["tZq_centralUL17","tllq_private2017","tllq_privateUL17","tllq_privateUL18"],
     "tHq"   : ["tHq_privateUL17"],
+    "tttt"  : ["tttt_privateUL17"],
 }
 
 ch_3l_onZ = ["eemSSonZ", "mmeSSonZ", "eeeSSonZ", "mmmSSonZ"]
@@ -140,10 +142,11 @@ def integrate_out_cats(h,cuts_dict):
     return h_ret
 
 
-# Get the percent difference between values in nested dictionary of the format:
-#   dict1 = {
-#       k1 : {
-#           subk1 : v1
+# Get the percent difference between values in nested dictionary of the following format.
+# Returns a dictionary in the same formate (cuttently does not propagate errors, just returns None)
+#   dict = {
+#       k : {
+#           subk : (val,err)
 #       }
 #   }
 def get_pdiff_between_nested_dicts(dict1,dict2):
@@ -156,10 +159,10 @@ def get_pdiff_between_nested_dicts(dict1,dict2):
             for subk1 in dict1[k1].keys():
                 if subk1 not in dict2[k1].keys():
                     raise Exception("These dictionaries do not have the same structure, exiting...")
-                v1 = dict1[k1][subk1]
-                v2 = dict2[k1][subk1]
+                v1,e1 = dict1[k1][subk1]
+                v2,e1 = dict2[k1][subk1]
                 pdiff = get_pdiff(v1,v2)
-                ret_dict[k1][subk1] = pdiff
+                ret_dict[k1][subk1] = (pdiff,None)
         else:
             print(f"Warning, key {k1} is not in both dictionaries, continuing...")
             continue
@@ -176,12 +179,15 @@ def get_pdiff_between_nested_dicts(dict1,dict2):
 def get_yield(h,proc):
     #print("\nIn get_yields()")
     #h_vals = h[proc].values(overflow='all')
-    h_vals = h[proc].values(overflow='over')
+    #h_vals = h[proc].values(overflow='over')
     #h_vals = h[proc].values()
+    h_vals = h[proc].values(sumw2=True,overflow='over')
     for i,(k,v) in enumerate(h_vals.items()):
-        v_sum = v.sum()
+        v_sum = v[0].sum()
+        e_sum = v[1].sum()
         if i > 0: raise Exception("Why is i greater than 0? The hist is not what this function is expecting. Exiting...")
-    return v_sum
+    e_sum = np.sqrt(e_sum)
+    return (v_sum,e_sum)
 
 # This is really just a wrapper for get_yield(). Note:
 #   - This fucntion now also rebins the njets hists
@@ -206,13 +212,18 @@ def get_scaled_yield(hin_dict,year,proc,cat):
     nwc = h_sow._nwc
 
     if nwc > 0:
-        sow = get_yield(h_sow,proc)
-        h.scale(1.0/sow) # Divide EFT samples by sum of weights at SM
+        sow_val , sow_err = get_yield(h_sow,proc)
+        h.scale(1.0/sow_val) # Divide EFT samples by sum of weights at SM
         #print("Num of WCs:",nwc)
         #print("Sum of weights:",sow)
 
-    yld = lumi*get_yield(h,proc)
-    return yld
+    #yld = lumi*get_yield(h,proc)
+    #return yld
+    h.scale(lumi)
+    return get_yield(h,proc)
+    #yld_val , yld_err = get_yield(h,proc)
+    #yld_val = yld_val*lumi
+    #return (yld_val,yld_err)
 
 # This function:
 #   - Takes as input a hist dict (i.e. what the processor outptus)
@@ -226,9 +237,8 @@ def get_yld_dict(hin_dict,year):
         #yld_dict[proc] = {}
         yld_dict[proc_name_short] = {}
         for cat,cuts_dict in CATEGORIES.items():
-            yld = get_scaled_yield(hin_dict,year,proc,cat)
-            #yld_dict[proc][cat]= yld
-            yld_dict[proc_name_short][cat]= yld
+            #yld = get_scaled_yield(hin_dict,year,proc,cat)
+            yld_dict[proc_name_short][cat]= get_scaled_yield(hin_dict,year,proc,cat)
     return yld_dict
 
 
@@ -248,7 +258,7 @@ def print_hist_info(path):
             print(cat)
 
 # Print a latex table for the yields
-def print_latex_yield_table(yld_dict,tag,print_begin_info=False,print_end_info=False):
+def print_latex_yield_table(yld_dict,tag,print_begin_info=False,print_end_info=False,print_errs=False):
 
     def format_header(cat_lst):
         s = "\\hline "
@@ -261,7 +271,7 @@ def print_latex_yield_table(yld_dict,tag,print_begin_info=False,print_end_info=F
 
     def print_begin():
         print("\\documentclass[10pt]{article}")
-        print("\\usepackage[margin=0.1in]{geometry}")
+        print("\\usepackage[margin=0.05in]{geometry}")
         print("\\begin{document}")
 
     def print_end():
@@ -270,6 +280,7 @@ def print_latex_yield_table(yld_dict,tag,print_begin_info=False,print_end_info=F
     def print_table(proc_lst,cat_lst):
         tabular_info = "c"*(len(cat_lst)+1)
         print("\\begin{table}[hbtp!]")
+        print("\\setlength\\tabcolsep{5pt}")
         print(f"\\caption{{{tag}}}") # Need to escape the "{" with another "{"
         print(f"\\begin{{tabular}}{{{tabular_info}}}")
         print(format_header(cat_lst))
@@ -283,9 +294,13 @@ def print_latex_yield_table(yld_dict,tag,print_begin_info=False,print_end_info=F
             else:
                 print("\\rule{0pt}{3ex} ",proc.replace("_"," "),end=' ')
                 for cat in cat_lst:
-                    yld = yld_dict[proc][cat]
+                    yld , err = yld_dict[proc][cat]
                     if yld is not None: yld = round(yld,2)
-                    print("&",yld,end=' ')
+                    if err is not None: err = round(err,2)
+                    if print_errs:
+                        print("&",yld,"$\pm$",err,end=' ')
+                    else:
+                        print("&",yld,end=' ')
                 print("\\\ ")
 
         print("\\hline")
@@ -297,13 +312,20 @@ def print_latex_yield_table(yld_dict,tag,print_begin_info=False,print_end_info=F
     if print_end_info: print_end()
 
 # Takes yield dicts (i.e. what get_yld_dict() returns) and prints it
-def print_yld_dicts(ylds_dict,tag):
-    print(f"\n---{tag}---\n")
+def print_yld_dicts(ylds_dict,tag,show_errs=False):
+    print(f"\n--- {tag} ---\n")
     for proc in ylds_dict.keys():
         print(proc)
         for cat in ylds_dict[proc].keys():
             print(f"    {cat}")
-            print("\t",ylds_dict[proc][cat])
+            val , err = ylds_dict[proc][cat]
+            if show_errs:
+                #print(f"\t{val} +- {err}")
+                print(f"\t{val} +- {err} -> {err/val}")
+            else:
+                #print("\t",ylds_dict[proc][cat])
+                #print("\t",ylds_dict[proc][cat][0])
+                print(f"\t{val}")
 
 
 
@@ -316,6 +338,7 @@ def main():
     fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_fix4l.pkl.gz"
     fpath_cuts_privateUl17_test = "histos/plotsTopEFT_privateUL17_fix4l.pkl.gz"
 
+    #'''
     # Get the histograms from the files
     hin_dict_central = get_hist_from_pkl(fpath_cuts_centralUl17_test)
     hin_dict_private = get_hist_from_pkl(fpath_cuts_privateUl17_test)
@@ -331,12 +354,30 @@ def main():
     print_yld_dicts(pdiff_dict,"Percent diff between private and central")
 
     # Print latex table
-    print_latex_yield_table(ylds_central_dict,"Central UL17",print_begin_info=True)
+    print_latex_yield_table(ylds_central_dict,"Central UL17",print_begin_info=True,print_errs=True)
     print_latex_yield_table(ylds_private_dict,"Private UL17")
     print_latex_yield_table(pdiff_dict,"Percent diff between central and private UL17: (private-central)/private",print_end_info=True)
+    #'''
 
+    '''
     # Print out info about the hists
+    #hin_dict = get_hist_from_pkl("histos/tttt_c8s1000-orig.pkl.gz")
+    #hin_dict = get_hist_from_pkl("histos/tttt-ttlnu_c8s1000-after.pkl.gz")
+    #hin_dict = get_hist_from_pkl("histos/plotsTopEFT_privateUL17_withtttt.pkl.gz")
+    hin_dict = get_hist_from_pkl(fpath_cuts_centralUl17_test)
+    hin_dict2 = get_hist_from_pkl(fpath_cuts_privateUl17_test)
+    #hin_dict = get_hist_from_pkl(fpath_default)
+    #print_yld_dicts(get_yld_dict(hin_dict,"2017"),"test dict",show_errs=True)
+
     #print_yld_dicts(get_yld_dict(hin_dict,"2017"),"test dict")
+    #print(get_yld_dict(hin_dict,"2017"))
+    #print_latex_yield_table(get_yld_dict(hin_dict,"2017"),"test",print_begin_info=True,print_end_info=True,print_errs=True)
+
+    pd = get_pdiff_between_nested_dicts(get_yld_dict(hin_dict2,"2017"),get_yld_dict(hin_dict,"2017"))
+    print(pd)
+    print_latex_yield_table(pd,"test")
+
+    '''
     #print_hist_info(hin_dict)
     #exit()
 
