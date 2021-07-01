@@ -131,7 +131,7 @@ executor_args = {#'flatten': True, #used for all executors
                  'compression': 0, #used for all executors
                  'cores': 1,
                  'disk': 5000, #MB
-                 'memory': 10000, #MB
+                 'memory': 7000, #MB
                  'resource-monitor': True,
                  'debug-log': 'debug.log',
                  'transactions-log': 'tr.log',
