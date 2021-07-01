@@ -13,8 +13,8 @@ PROC_MAP = {
     "ttll"  : ["ttZ_centralUL17","ttll_TOP-19-001","ttllJet_privateUL17","ttllJet_privateUL18"],
     "ttH"   : ["ttH_centralUL17","ttH_private2017","ttHJet_privateUL17","ttHJet_privateUL18"],
     "tllq"  : ["tZq_centralUL17","tllq_private2017","tllq_privateUL17","tllq_privateUL18"],
-    "tHq"   : ["tHq_privateUL17"],
-    "tttt"  : ["tttt_privateUL17"],
+    "tHq"   : ["tHq_central2017","tHq_privateUL17"],
+    "tttt"  : ["tttt_central2017","tttt_privateUL17"],
 }
 
 ch_3l_onZ = ["eemSSonZ", "mmeSSonZ", "eeeSSonZ", "mmmSSonZ"]
@@ -141,6 +141,13 @@ def integrate_out_cats(h,cuts_dict):
         h_ret = h_ret.integrate(axis_name,cat_lst)
     return h_ret
 
+# Takes a histogram and a bin, rebins the njets axis to consist of only that bin (all other bins combined into under/overvlow)
+def rebin_njets(h,bin_val):
+    if not isinstance(bin_val,int):
+        raise Exception(f"Need to pass an int to this function, got a {type(bin_val)} instead. Exiting...")
+    h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [bin_val,bin_val+1]))
+    return h
+
 # Get the percent difference between values in nested dictionary of the following format.
 # Returns a dictionary in the same formate (cuttently does not propagate errors, just returns None)
 #   dict = {
@@ -195,11 +202,11 @@ def get_scaled_yield(hin_dict,year,proc,cat):
     h = h.integrate("systematic","nominal")
 
     if '2l' in cat:
-        h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7,8,9,10]))
+        h = rebin_njets(h,4)
     elif '3l' in cat:
-        h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5,6,7,8,9,10]))
+        h = rebin_njets(h,2)
     elif '4l' in cat: 
-        h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5,6,7,8,9,10]))
+        h = rebin_njets(h,2)
 
     lumi = 1000.0*get_lumi(year)
     h_sow = hin_dict["SumOfEFTweights"]
@@ -322,13 +329,15 @@ def main():
     # Paths to the input pkl files
     fpath_default  = "histos/plotsTopEFT.pkl.gz"
     fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_fix4l.pkl.gz"
+    #fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_all-UL-but-TTTT-THQ.pkl.gz"
     fpath_cuts_privateUl17_test = "histos/plotsTopEFT_privateUL17_fix4l.pkl.gz"
-    fpath_witherrors = "histos/test_privateUL17_1c_doerrors.pkl.gz"
+    #fpath_witherrors = "histos/test_privateUL17_1c_doerrors.pkl.gz"
 
     # Get the histograms from the files
     hin_dict_central = get_hist_from_pkl(fpath_cuts_centralUl17_test)
     hin_dict_private = get_hist_from_pkl(fpath_cuts_privateUl17_test)
 
+    #'''
     # Get the yield dictionaries and percent difference
     ylds_central_dict = get_yld_dict(hin_dict_central,"2017")
     ylds_private_dict = get_yld_dict(hin_dict_private,"2017")
@@ -337,12 +346,14 @@ def main():
     # Print out yields and percent differences
     print_yld_dicts(ylds_central_dict,"Central UL17 yields")
     print_yld_dicts(ylds_private_dict,"Private UL17 yields")
-    print_yld_dicts(pdiff_dict,"Percent diff between private and central")
+    #print_yld_dicts(pdiff_dict,"Percent diff between private and central")
 
     # Print latex table
     print_latex_yield_table(ylds_central_dict,"Central UL17",print_begin_info=True,print_errs=True)
     print_latex_yield_table(ylds_private_dict,"Private UL17")
     print_latex_yield_table(pdiff_dict,"Percent diff between central and private UL17: (private-central)/private",print_end_info=True)
+    #'''
+
 
     '''
     # Print out info about the hists
