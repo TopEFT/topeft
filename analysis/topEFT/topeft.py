@@ -44,9 +44,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         'wleppt'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
         'e0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 25, 0, 500)),
         'm0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 25, 0, 500)),
+        'l0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("l0pt",   "Leading lep $p_{T}$ (GeV)", 25, 0, 500)),
         'j0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 25, 0, 500)),
         'e0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("e0eta",  "Leading elec $\eta$", 30, -3.0, 3.0)),
         'm0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m0eta",  "Leading muon $\eta$", 30, -3.0, 3.0)),
+        'l0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("l0eta",  "Leading lep $\eta$", 30, -3.0, 3.0)),
         'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0eta",  "Leading jet  $\eta$", 30, -3.0, 3.0)),
         'ht'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ht",     "H$_{T}$ (GeV)", 50, 0, 1000)),
         })
@@ -82,35 +84,31 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau = events.Tau
         j   = events.Jet
  
-        # Muon selection
-
-        mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.looseId)
-        mu['isTight']= isTightMuon(mu.pt, mu.eta, mu.dxy, mu.dz, mu.pfRelIso03_all, mu.sip3d, mu.mvaTTH, mu.mediumPromptId, mu.tightCharge, mu.looseId, minpt=10)
-        mu['isGood'] = mu['isPres'] & mu['isTight']
-
-        leading_mu = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
-        leading_mu = leading_mu[leading_mu.isGood]
+        e['idEmu'] = ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
+        e['conept'] = coneptElec(e.pt, e.mvaTTH, e.jetRelIso)
+        mu['conept'] = coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
+        e['btagDeepB'] = ak.fill_none(e.matched_jet.btagDeepB, -99)
+        mu['btagDeepB'] = ak.fill_none(mu.matched_jet.btagDeepB, -99)
         
-        mu = mu[mu.isGood]
-        mu_pres = mu[mu.isPres]
+        # Muon selection
+        mu['isFO'] = isFOMuon(mu.pt, mu.conept, mu.btagDeepB, mu.mvaTTH, mu.jetRelIso, year=2018)
+        mu['isTight']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
+        mu = mu[mu.isFO]
 
         # Electron selection
-        e['isPres']  = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.lostHits, minpt=15)
-        e['isTight'] = isTightElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.mvaTTH, e.mvaFall17V2Iso, e.lostHits, e.convVeto, e.tightCharge, e.sieie, e.hoe, e.eInvMinusPInv, minpt=15)
-        e['isClean'] = isClean(e, mu, drmin=0.05)
-        e['isGood']  = e['isPres'] & e['isTight'] & e['isClean']
-
-        leading_e = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
-        leading_e = leading_e[leading_e.isGood]
-
-        e  =  e[e .isGood]
-        e_pres = e[e .isPres & e .isClean]
+        e['isFO']  = isFOElec(e.conept, e.btagDeepB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year=2018)
+        e['isTight'] = tightSelElec(e.isFO, e.mvaTTH)
+        e  =  e[e .isFO]
+        #e_pres = e[e .isPres & e .isClean]
 
         # Tau selection
         tau['isPres']  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.leadTkPtOverTauPt, tau.idAntiMu, tau.idAntiEle, tau.rawIso, tau.idDecayModeNewDMs, minpt=20)
-        tau['isClean'] = isClean(tau, e_pres, drmin=0.4) & isClean(tau, mu_pres, drmin=0.4)
+        #tau['isClean'] = isClean(tau, e_pres, drmin=0.4) & isClean(tau, mu_pres, drmin=0.4)
         tau['isGood']  = tau['isPres']# & tau['isClean'], for the moment
         tau= tau[tau.isGood]
+
+        lep_FO = ak.with_name(ak.concatenate([e, mu], axis=1), 'PtEtaPhiMCandidate')
+        l0 = lep_FO[ak.argmax(lep_FO.pt,axis=-1,keepdims=True)]
 
         nElec = ak.num(e)
         nMuon = ak.num(mu)
@@ -152,13 +150,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             jets = corrected_jets.JES_jes.down
           '''
         
+        j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, jetPtCut=30.)
+        j = j[j.isGood]
+        #j['isClean'] = isClean(j, e, drmin=0.4)& isClean(j, mu, drmin=0.4)# & isClean(j, tau, drmin=0.4)
+
+        tmp = ak.cartesian([ak.local_index(j.pt), lep_FO.jetIdx], nested=True)
+        ak.any(tmp.slot0 == tmp.slot1, axis=-1)
+        j_new = j[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)]
         
-        
-        j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, j.neHEF, j.neEmEF, j.chHEF, j.chEmEF, j.nConstituents)
-        #j['isgood']  = isGoodJet(j.pt, j.eta, j.jetId)
-        #j['isclean'] = isClean(j, e, mu)
-        j['isClean'] = isClean(j, e, drmin=0.4)& isClean(j, mu, drmin=0.4)# & isClean(j, tau, drmin=0.4)
-        goodJets = j[(j.isClean)&(j.isGood)]
+        goodJets = j_new
         njets = ak.num(goodJets)
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
@@ -211,6 +211,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         emSSmask = (em.e.charge*em.m.charge>0)
         emSS = em[emSSmask]
         nemSS = len(ak.flatten(emSS))
+
+        emOSmask = (em.e.charge*em.m.charge<0)
+        emOS = em[emOSmask]
+        nemOS = len(ak.flatten(emOS))
  
         lepSF_emSS      = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year)
         lepSF_emSS_up   = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year, sys=1)
@@ -224,11 +228,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         eepairs = ak.combinations(ee, 2, fields=["e0","e1"])
         eeSSmask = (eepairs.e0.charge*eepairs.e1.charge>0)
+        eeOSmask = (eepairs.e0.charge*eepairs.e1.charge<0)
         eeonZmask  = (np.abs((eepairs.e0+eepairs.e1).mass-91.2)<10)
         eeoffZmask = (eeonZmask==0)
 
         mmpairs = ak.combinations(mm, 2, fields=["m0","m1"])
         mmSSmask = (mmpairs.m0.charge*mmpairs.m1.charge>0)
+        mmOSmask = (mmpairs.m0.charge*mmpairs.m1.charge<0)
         mmonZmask = (np.abs((mmpairs.m0+mmpairs.m1).mass-91.2)<10)
         mmoffZmask = (mmonZmask==0)
 
@@ -238,6 +244,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         mmSSoffZ = mmpairs[mmSSmask & mmoffZmask]
         neeSS = len(ak.flatten(eeSSonZ)) + len(ak.flatten(eeSSoffZ))
         nmmSS = len(ak.flatten(mmSSonZ)) + len(ak.flatten(mmSSoffZ))
+
+        eeOSonZ  = eepairs[eeOSmask &  eeonZmask]
+        eeOSoffZ = eepairs[eeOSmask & eeoffZmask]
+        mmOSonZ  = mmpairs[mmOSmask &  mmonZmask]
+        mmOSoffZ = mmpairs[mmOSmask & mmoffZmask]
+        eeOS = eepairs[eeOSmask]
+        mmOS = mmpairs[mmOSmask]
+        neeOS = len(ak.flatten(eeOS))
+        nmmOS = len(ak.flatten(mmOS))
         
         lepSF_eeSS = GetLeptonSF(eepairs.e0.pt, eepairs.e0.eta, 'e', eepairs.e1.pt, eepairs.e1.eta, 'e', year=year)
         lepSF_mumuSS = GetLeptonSF(mmpairs.m0.pt, mmpairs.m0.eta, 'm', mmpairs.m1.pt, mmpairs.m1.eta, 'm', year=year)
@@ -257,6 +272,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         mmoffZmask = (ak.num(mmoffZmask[mmoffZmask])>0)
         emSSmask   = (ak.num(emSSmask[emSSmask])>0)
 
+        eeOSmask   = (ak.num(eeOSmask[eeOSmask])>0)
+        mmOSmask   = (ak.num(mmOSmask[mmOSmask])>0)
+        emOSmask   = (ak.num(emOSmask[emOSmask])>0)
+
+        CR2LSSjetmask = ((njets==1)|(njets==2)) & (nbtagsm == 1)
+        CR2LSSlepmask = (eeSSmask) | (mmSSmask) | (emSSmask)
+        CR2LSSmask = (CR2LSSjetmask) & (CR2LSSlepmask)
+
+        CRttbarmask = (emOSmask) & (njets == 2) & (nbtagsm == 2)
+        CRZmask = (((eeOSmask)) | ((mmOSmask))) & (nbtagsm == 0)
 
         ##################################################################
         ### 3 leptons
@@ -358,6 +383,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         m3l_eee = triElec.mass
         m3l_mmm = triMuon.mass
 
+        CR3Ljetmask = (njets>=1) & (nbtagsm==0)
+        CR3Llepmask = (eeeOnZmask) | (eeeOffZmask) | (mmmOnZmask) | (mmmOffZmask) | (ee_eemZmask) | (ee_eemOffZmask) | (mm_mmeZmask) | (mm_mmeOffZmask)
+        CR3Lmask = (CR3Ljetmask) & (CR3Llepmask)    
+
 
         ##################################################################
         ### >=4 leptons
@@ -422,6 +451,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # MET filters
 
+        # Tight Selection
+        isTight = (ak.singletons(ak.num(lep_FO[lep_FO.isTight==False]))==0)
+
         # Weights
         genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
 
@@ -452,13 +484,20 @@ class AnalysisProcessor(processor.ProcessorABC):
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
         # Selections and cuts
-        selections = PackedSelection()#(dtype='uint64')
+        selections = PackedSelection(dtype='uint64')
         channels2LSS = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
         selections.add('eeSSonZ',  (eeonZmask)&(eeSSmask)&(trig_eeSS))
         selections.add('eeSSoffZ', (eeoffZmask)&(eeSSmask)&(trig_eeSS))
         selections.add('mmSSonZ',  (mmonZmask)&(mmSSmask)&(trig_mmSS))
         selections.add('mmSSoffZ', (mmoffZmask)&(mmSSmask)&(trig_mmSS))
         selections.add('emSS',     (emSSmask)&(trig_emSS))
+
+        channels2LOS = ['eeOSonZ', 'eeOSoffZ', 'mmOSonZ', 'mmOSoffZ', 'emOS']
+        selections.add('eeOSonZ',  (eeonZmask)&(eeOSmask)&(trig_eeSS))
+        selections.add('eeOSoffZ', (eeoffZmask)&(eeOSmask)&(trig_eeSS))
+        selections.add('mmOSonZ',  (mmonZmask)&(mmOSmask)&(trig_mmSS))
+        selections.add('mmOSoffZ', (mmoffZmask)&(mmOSmask)&(trig_mmSS))
+        selections.add('emOS',     (emOSmask)&(trig_emSS))
 
         channels3L = ['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ']
         selections.add('eemSSonZ',   (ee_eemZmask)&(trig_eem))
@@ -483,11 +522,18 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add('ch-', (sumcharge<0))
         selections.add('ch0', (sumcharge==0))
 
-        levels = ['base', '1+bm2+bl', '1bm', '2+bm']
-        selections.add('base',     (nElec+nMuon>=2))
-        selections.add('1+bm2+bl', (nElec+nMuon>=2)&((nbtagsm>=1)&(nbtagsl>=2)))
-        selections.add('1bm',      (nElec+nMuon>=2)&(nbtagsm==1))
-        selections.add('2+bm',     (nElec+nMuon>=2)&(nbtagsm>=2))
+        levels = ['base', '1+bm2+bl', '1bm', '2+bm', 'CR2L', 'CR3L']#, 'CRttbar', 'CRZ', 'app']
+        selections.add('base',     (nElec+nMuon>=2)&(isTight))
+        selections.add('1+bm2+bl', (nElec+nMuon>=2)&((nbtagsm>=1)&(nbtagsl>=2))&(isTight))
+        selections.add('1bm',      (nElec+nMuon>=2)&(nbtagsm==1)&(isTight))
+        selections.add('2+bm',     (nElec+nMuon>=2)&(nbtagsm>=2)&(isTight))
+
+        selections.add('CR2L', (CR2LSSmask)&(isTight))
+        selections.add('CR3L', (CR3Lmask)&(isTight))
+        selections.add('CRttbar', (CRttbarmask)&(isTight))
+        selections.add('CRZ', (CRZmask)&(isTight))
+
+        selections.add('app', (isTight==False))
 
         # Variables
         invMass_eeSSonZ  = ( eeSSonZ.e0+ eeSSonZ.e1).mass
@@ -495,6 +541,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         invMass_mmSSonZ  = ( mmSSonZ.m0+ mmSSonZ.m1).mass
         invMass_mmSSoffZ = (mmSSoffZ.m0+mmSSoffZ.m1).mass
         invMass_emSS     = (emSS.e+emSS.m).mass
+
+        invMass_eeOSonZ  = ( eeOSonZ.e0+ eeOSonZ.e1).mass
+        invMass_eeOSoffZ = (eeOSoffZ.e0+eeOSoffZ.e1).mass
+        invMass_mmOSonZ  = ( mmOSonZ.m0+ mmOSonZ.m1).mass
+        invMass_mmOSoffZ = (mmOSoffZ.m0+mmOSoffZ.m1).mass
+        invMass_emOS     = (emOS.e+emOS.m).mass
 
         varnames = {}
         varnames['met']     = met.pt
@@ -506,6 +558,11 @@ class AnalysisProcessor(processor.ProcessorABC):
           'mmSSonZ'   : invMass_mmSSonZ,
           'mmSSoffZ'  : invMass_mmSSoffZ,
           'emSS'      : invMass_emSS,
+          'eeOSonZ'   : invMass_eeOSonZ,
+          'eeOSoffZ'  : invMass_eeOSoffZ,
+          'mmOSonZ'   : invMass_mmOSonZ,
+          'mmOSoffZ'  : invMass_mmOSoffZ,
+          'emOS'      : invMass_emOS,
           'eemSSonZ'  : mZ_eem,
           'eemSSoffZ' : mZ_eem,
           'mmeSSonZ'  : mZ_mme,
@@ -529,6 +586,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['e0eta']  = e0.eta
         varnames['m0pt' ]  = m0.pt
         varnames['m0eta']  = m0.eta
+        varnames['l0pt']  = l0.pt
+        varnames['l0eta'] = l0.eta
         varnames['j0pt' ]  = j0.pt
         varnames['j0eta']  = j0.eta
         varnames['counts'] = np.ones_like(events['event'])
@@ -548,7 +607,7 @@ class AnalysisProcessor(processor.ProcessorABC):
     
         for syst in systList:
          for var, v in varnames.items():
-          for ch in channels2LSS+channels3L+channels4L:
+          for ch in channels2LSS+channels2LOS+channels3L+channels4L:
            for sumcharge in ['ch+', 'ch-', 'ch0']:
             for lev in levels:
              #find the event weight to be used when filling the histograms    
@@ -562,6 +621,7 @@ class AnalysisProcessor(processor.ProcessorABC):
               # call weights.weight() with the name of the systematic to be varied
               if ch in channels3L: ch_w= ch[:3]
               elif ch in channels2LSS: ch_w =ch[:2]
+              elif ch in channels2LOS: ch_w =ch[:2]
               else: ch_w=ch
               weight = weights['all'].weight(weightSyst) if isData else weights[ch_w].weight(weightSyst)
              cuts = [ch] + [lev] + [sumcharge]
@@ -577,7 +637,7 @@ class AnalysisProcessor(processor.ProcessorABC):
               else                                 : values = ak.flatten(v[ch][cut])
               hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, invmass=values, weight=weights_flat, systematic=syst)
              elif var == 'm3l': 
-              if ((ch in channels2LSS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
+              if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
               values = ak.flatten(v[ch][cut])
               hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, m3l=values, weight=weights_flat, systematic=syst)
              else:
@@ -589,32 +649,40 @@ class AnalysisProcessor(processor.ProcessorABC):
               elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_ones, systematic=syst)
               elif var == 'j0eta' : 
-                if lev == 'base': continue
+                if lev in ['base', 'CRZ']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'e0pt'  : 
-                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ','mmmm']: continue
+                if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ','mmmm']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst) # Crashing here, not sure why. Related to values?
               elif var == 'm0pt'  : 
-                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
+                if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              elif var == 'l0pt'  : 
+                values = ak.flatten(values)
+                #values=np.asarray(values)
+                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'e0eta' : 
-                if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmmm']: continue
+                if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmmm']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'm0eta':
-                if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
+                if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              elif var == 'l0eta'  : 
+                values = ak.flatten(values)
+                #values=np.asarray(values)
+                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'j0pt'  : 
-                if lev == 'base': continue
+                if lev in ['base', 'CRZ']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)

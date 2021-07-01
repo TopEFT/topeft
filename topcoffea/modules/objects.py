@@ -23,12 +23,8 @@ def isClean(obj_A, obj_B, drmin=0.4):
    ABgoodPairs = (ABpairs.i0.delta_r(ABpairs.i1) > drmin).all()
    return ABgoodPairs
    
-def isTightJet(pt, eta, jet_id, neHEF, neEmEF, chHEF, chEmEF, nConstituents, jetPtCut=30.0):
-    mask = (pt>jetPtCut) & (abs(eta)<2.4) & ((jet_id&6)==6)
-    loose = (pt>0)&(neHEF<0.99)&(neEmEF<0.99)&(chEmEF<0.99)&(nConstituents>1)
-    tight = (neHEF<0.9)&(neEmEF<0.9)&(chHEF>0.0)
-    jetMETcorrection = (pt>0)&(neEmEF + chEmEF < 0.9)
-    mask = mask & loose & tight & jetMETcorrection
+def isTightJet(pt, eta, jet_id, jetPtCut=25.0):
+    mask = (pt>jetPtCut) & (abs(eta)<2.4) & ((jet_id&2)==2)
     return mask
 
 def isClean(obj_A, obj_B, drmin=0.4):
@@ -99,7 +95,7 @@ def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mva
   bTagCut = 0.3093 if year==2016 else 0.3033 if year==2017 else 0.2770
   return (conept>10) & (jetBTagDeepFlav<bTagCut) & (ttH_idEmu_cuts_E3 & convVeto & lostHits == 0) & (mvaTTH>0.80) | ((mvaFall17V2noIso_WP80) & (jetRelIso < 0.70))
 
-def isFOMuon(pt, conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, mvaTTH, jetRelIso, year=2018):
+def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTH, jetRelIso, year=2018):
   bTagCut = 0.3093 if year==2016 else 0.3033 if year==2017 else 0.2770
   return (conept>10) & (jetBTagDeepFlav<bTagCut) & (mvaTTH>0.85) | ((jetBTagDeepFlav < smoothBFlav(0.9*pt*1+jetRelIso, 20, 45, year)) & (jetRelIso < 0.50))
 
