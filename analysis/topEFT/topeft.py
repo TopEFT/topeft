@@ -522,7 +522,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add('ch-', (sumcharge<0))
         selections.add('ch0', (sumcharge==0))
 
-        levels = ['base', '1+bm2+bl', '1bm', '2+bm', 'CR2L', 'CR3L']#, 'CRttbar', 'CRZ', 'app']
+        levels = ['base', '1+bm2+bl', '1bm', '2+bm', 'CR2L', 'CR3L', 'CRttbar', 'CRZ', 'app']
         selections.add('base',     (nElec+nMuon>=2)&(isTight))
         selections.add('1+bm2+bl', (nElec+nMuon>=2)&((nbtagsm>=1)&(nbtagsl>=2))&(isTight))
         selections.add('1bm',      (nElec+nMuon>=2)&(nbtagsm==1)&(isTight))
@@ -649,7 +649,7 @@ class AnalysisProcessor(processor.ProcessorABC):
               elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_ones, systematic=syst)
               elif var == 'j0eta' : 
-                if lev in ['base', 'CRZ']: continue
+                if lev in ['base', 'CRZ', 'app']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
@@ -682,7 +682,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'j0pt'  : 
-                if lev in ['base', 'CRZ']: continue
+                if lev in ['base', 'CRZ', 'app']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
