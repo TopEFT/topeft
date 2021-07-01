@@ -141,7 +141,6 @@ def integrate_out_cats(h,cuts_dict):
         h_ret = h_ret.integrate(axis_name,cat_lst)
     return h_ret
 
-
 # Get the percent difference between values in nested dictionary of the following format.
 # Returns a dictionary in the same formate (cuttently does not propagate errors, just returns None)
 #   dict = {
@@ -177,10 +176,6 @@ def get_pdiff_between_nested_dicts(dict1,dict2):
 #    - The two axes should be the samples axis, and the dense axis (e.g. ht)
 #    - You pass a process name, and we select just that category from the sample axis
 def get_yield(h,proc):
-    #print("\nIn get_yields()")
-    #h_vals = h[proc].values(overflow='all')
-    #h_vals = h[proc].values(overflow='over')
-    #h_vals = h[proc].values()
     h_vals = h[proc].values(sumw2=True,overflow='over')
     for i,(k,v) in enumerate(h_vals.items()):
         v_sum = v[0].sum()
@@ -194,7 +189,6 @@ def get_yield(h,proc):
 #   - Maybe that does not belong in this function
 def get_scaled_yield(hin_dict,year,proc,cat):
 
-    #h = hin_dict["ht"]
     h = hin_dict["njets"]
 
     h = integrate_out_cats(h,CATEGORIES[cat])
@@ -213,17 +207,13 @@ def get_scaled_yield(hin_dict,year,proc,cat):
 
     if nwc > 0:
         sow_val , sow_err = get_yield(h_sow,proc)
-        h.scale(1.0/sow_val) # Divide EFT samples by sum of weights at SM
+        h.scale(1.0/sow_val) # Divide EFT samples by sum of weights at SM, ignore error propagation for now
+        print("sow_val,sow_err",sow_val,sow_err,"->",sow_err/sow_val)
         #print("Num of WCs:",nwc)
         #print("Sum of weights:",sow)
 
-    #yld = lumi*get_yield(h,proc)
-    #return yld
     h.scale(lumi)
     return get_yield(h,proc)
-    #yld_val , yld_err = get_yield(h,proc)
-    #yld_val = yld_val*lumi
-    #return (yld_val,yld_err)
 
 # This function:
 #   - Takes as input a hist dict (i.e. what the processor outptus)
@@ -234,10 +224,8 @@ def get_yld_dict(hin_dict,year):
     proc_lst = get_cat_lables(hin_dict,"sample")
     for proc in proc_lst:
         proc_name_short = get_short_name(proc)
-        #yld_dict[proc] = {}
         yld_dict[proc_name_short] = {}
         for cat,cuts_dict in CATEGORIES.items():
-            #yld = get_scaled_yield(hin_dict,year,proc,cat)
             yld_dict[proc_name_short][cat]= get_scaled_yield(hin_dict,year,proc,cat)
     return yld_dict
 
@@ -323,8 +311,6 @@ def print_yld_dicts(ylds_dict,tag,show_errs=False):
                 #print(f"\t{val} +- {err}")
                 print(f"\t{val} +- {err} -> {err/val}")
             else:
-                #print("\t",ylds_dict[proc][cat])
-                #print("\t",ylds_dict[proc][cat][0])
                 print(f"\t{val}")
 
 
@@ -337,8 +323,8 @@ def main():
     fpath_default  = "histos/plotsTopEFT.pkl.gz"
     fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_fix4l.pkl.gz"
     fpath_cuts_privateUl17_test = "histos/plotsTopEFT_privateUL17_fix4l.pkl.gz"
+    fpath_witherrors = "histos/test_privateUL17_1c_doerrors.pkl.gz"
 
-    #'''
     # Get the histograms from the files
     hin_dict_central = get_hist_from_pkl(fpath_cuts_centralUl17_test)
     hin_dict_private = get_hist_from_pkl(fpath_cuts_privateUl17_test)
@@ -357,7 +343,6 @@ def main():
     print_latex_yield_table(ylds_central_dict,"Central UL17",print_begin_info=True,print_errs=True)
     print_latex_yield_table(ylds_private_dict,"Private UL17")
     print_latex_yield_table(pdiff_dict,"Percent diff between central and private UL17: (private-central)/private",print_end_info=True)
-    #'''
 
     '''
     # Print out info about the hists
@@ -373,11 +358,11 @@ def main():
     #print(get_yld_dict(hin_dict,"2017"))
     #print_latex_yield_table(get_yld_dict(hin_dict,"2017"),"test",print_begin_info=True,print_end_info=True,print_errs=True)
 
-    pd = get_pdiff_between_nested_dicts(get_yld_dict(hin_dict2,"2017"),get_yld_dict(hin_dict,"2017"))
-    print(pd)
-    print_latex_yield_table(pd,"test")
-
+    #pd = get_pdiff_between_nested_dicts(get_yld_dict(hin_dict2,"2017"),get_yld_dict(hin_dict,"2017"))
+    #print(pd)
+    #print_latex_yield_table(pd,"test")
     '''
+
     #print_hist_info(hin_dict)
     #exit()
 
