@@ -286,32 +286,35 @@ def print_hist_info(path):
 # Print a latex table for the yields (assumes the rows are PROC_MAP.keys())
 def print_latex_yield_table(yld_dict,col_order_lst,tag,print_begin_info=False,print_end_info=False,print_errs=False,column_variable="cats"):
 
-    def format_header(cat_lst):
+    def format_header(column_lst):
         s = "\\hline "
-        for i,cat in enumerate(cat_lst):
-            cat = cat.replace("_"," ")
-            cat = cat.replace("cat","")
-            s = s + " & " + cat
+        for i,col in enumerate(column_lst):
+            col = col.replace("_"," ")
+            col = col.replace("cat","")
+            s = s + " & " + col
         s = s + " \\\\ \\hline"
         return s
 
     def print_begin():
+        print("\n")
         print("\\documentclass[10pt]{article}")
         print("\\usepackage[margin=0.05in]{geometry}")
         print("\\begin{document}")
 
     def print_end():
         print("\\end{document}")
+        print("\n")
 
     def print_table(proc_lst,cat_lst,columns):
-        tabular_info = "c"*(len(cat_lst)+1)
         print("\\begin{table}[hbtp!]")
         print("\\setlength\\tabcolsep{5pt}")
         print(f"\\caption{{{tag}}}") # Need to escape the "{" with another "{"
-        print(f"\\begin{{tabular}}{{{tabular_info}}}")
+
 
         # Print categories as columns
         if columns == "cats":
+            tabular_info = "c"*(len(cat_lst)+1)
+            print(f"\\begin{{tabular}}{{{tabular_info}}}")
             print(format_header(cat_lst))
             for proc in proc_lst:
                 if proc not in yld_dict.keys():
@@ -333,6 +336,8 @@ def print_latex_yield_table(yld_dict,col_order_lst,tag,print_begin_info=False,pr
 
         # Print processes as columns
         if columns == "procs":
+            tabular_info = "c"*(len(proc_lst)+1)
+            print(f"\\begin{{tabular}}{{{tabular_info}}}")
             print(format_header(proc_lst))
             for cat in cat_lst:
                 print("\\rule{0pt}{3ex} ",cat.replace("_"," "),end=' ')
@@ -371,6 +376,27 @@ def print_yld_dicts(ylds_dict,tag,show_errs=False):
             else:
                 print(f"\t{val}")
 
+# This function:
+#    - Takes as input a yld dict
+#    - Sums ylds over processes to find total for each cat
+#    - Rreturns a dict with the same structure, where the vals are the cat's fractional contribution to the total
+def find_relative_contributions(yld_dict):
+
+    sum_dict = {}
+    for proc in yld_dict.keys():
+        for cat in yld_dict[proc].keys():
+            if cat not in sum_dict.keys(): sum_dict[cat] = 0
+            yld,err = yld_dict[proc][cat]
+            sum_dict[cat] = sum_dict[cat] + yld
+
+    ret_dict = {}
+    for proc in yld_dict.keys():
+        ret_dict[proc] = {}
+        for cat in yld_dict[proc].keys():
+            yld,err = yld_dict[proc][cat]
+            ret_dict[proc][cat] = (yld/sum_dict[cat],None) # No propagation of errors
+
+    return ret_dict
 
 
 ######### The main() function #########
@@ -403,10 +429,15 @@ def main():
     print_latex_yield_table(ylds_private_dict,CAT_LST,"Private UL17")
     print_latex_yield_table(pdiff_dict,CAT_LST,"Percent diff between central and private UL17: (private-central)/private",print_end_info=True)
 
-    ### Testing the jets cat stuff ###
-    ylds_central_dict_test_jets = get_yld_dict(hin_dict_central,"2017","3l")
-    print_yld_dicts(ylds_central_dict_test_jets,"test jets")
-    print_latex_yield_table(ylds_central_dict_test_jets,ylds_central_dict_test_jets["ttH"].keys(),"jets test",print_begin_info=True,print_end_info=True,column_variable="procs")
+
+    ###### Print info for the jet cats ######
+    for lep_cat in JET_BINS.keys():
+        print("lep_cat:",lep_cat)
+        ylds_private_dict_jets = get_yld_dict(hin_dict_private,"2017",lep_cat)
+        #print_yld_dicts(ylds_central_dict_test_jets,"Test")
+        print_latex_yield_table(ylds_private_dict_jets,ylds_private_dict_jets["ttH"].keys(),"Private UL17 with jet cats",print_begin_info=True,print_end_info=True,column_variable="procs")
+        relative_contributions = find_relative_contributions(ylds_private_dict_jets)
+        print_latex_yield_table(relative_contributions,relative_contributions["ttH"].keys(),"Relative contributions",print_begin_info=True,print_end_info=True,column_variable="procs")
 
     #print_hist_info(hin_dict)
     #exit()
