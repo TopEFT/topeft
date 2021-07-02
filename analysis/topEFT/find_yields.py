@@ -17,6 +17,12 @@ PROC_MAP = {
     "tttt"  : ["tttt_central2017","tttt_privateUL17"],
 }
 
+JET_BINS = {
+    "2lss" : [4,5,6,7],
+    "3l"   : [2,3,4,5],
+    "4l"   : [2,3,4],
+}
+
 ch_3l_onZ = ["eemSSonZ", "mmeSSonZ", "eeeSSonZ", "mmmSSonZ"]
 ch_3l_offZ = ["eemSSoffZ", "mmeSSoffZ", "eeeSSoffZ", "mmmSSoffZ"]
 ch_2lss = ["eeSSonZ", "eeSSoffZ", "mmSSonZ", "mmSSoffZ", "emSS"]
@@ -182,8 +188,8 @@ def get_pdiff_between_nested_dicts(dict1,dict2):
 #    - The hist you pass should have two axes (all other should already be integrated out)
 #    - The two axes should be the samples axis, and the dense axis (e.g. ht)
 #    - You pass a process name, and we select just that category from the sample axis
-def get_yield(h,proc):
-    h_vals = h[proc].values(sumw2=True,overflow='over')
+def get_yield(h,proc,overflow_str="none"):
+    h_vals = h[proc].values(sumw2=True,overflow=overflow_str)
     for i,(k,v) in enumerate(h_vals.items()):
         v_sum = v[0].sum()
         e_sum = v[1].sum()
@@ -202,18 +208,20 @@ def select_hist_for_ana_cat(h,cat_dict,njet):
 # This is really just a wrapper for get_yield(). Note:
 #   - This fucntion now also rebins the njets hists
 #   - Maybe that does not belong in this function
-def get_scaled_yield(hin_dict,year,proc,cat):
+def get_scaled_yield(hin_dict,year,proc,cat,njets_cat):
 
     h = hin_dict["njets"]
 
-    if '2l' in cat: 
-        minjet = 4
-    elif '3l' in cat:
-        minjet = 2
-    elif '4l' in cat: 
-        minjet = 2
+    if isinstance(njets_cat,str):
+        njet = JET_BINS[njets_cat][0]
+        overflow_str = "over"
+        print("here,str:",njets_cat,JET_BINS[njets_cat][0])
+    elif isinstance(njets_cat,int):
+        njet = njets_cat
+        overflow_str = "none"
+        print("here,in:",njet)
 
-    h = select_hist_for_ana_cat(h,CATEGORIES[cat],minjet)
+    h = select_hist_for_ana_cat(h,CATEGORIES[cat],njet)
 
     lumi = 1000.0*get_lumi(year)
     h_sow = hin_dict["SumOfEFTweights"]
@@ -227,7 +235,7 @@ def get_scaled_yield(hin_dict,year,proc,cat):
         #print("Sum of weights:",sow)
 
     h.scale(lumi)
-    return get_yield(h,proc)
+    return get_yield(h,proc,overflow_str)
 
 # This function:
 #   - Takes as input a hist dict (i.e. what the processor outptus)
@@ -240,7 +248,11 @@ def get_yld_dict(hin_dict,year):
         proc_name_short = get_short_name(proc)
         yld_dict[proc_name_short] = {}
         for cat,cuts_dict in CATEGORIES.items():
-            yld_dict[proc_name_short][cat]= get_scaled_yield(hin_dict,year,proc,cat)
+            if "2lss" in cat: njet_cat = "2lss"
+            elif "3l" in cat: njet_cat = "3l"
+            elif "4l" in cat: njet_cat = "4l"
+            print("cat,njetcat",cat,njet_cat)
+            yld_dict[proc_name_short][cat]= get_scaled_yield(hin_dict,year,proc,cat,njet_cat)
     return yld_dict
 
 
