@@ -208,7 +208,6 @@ class DatacardMaker():
                 allyields[name] = data_obs.Integral()
                 data_obs.Scale(allyields['data_obs'] / data_obs.Integral())
                 data_obs.Write()
-            print(f'{d_hists[p+"_sm"].Integral()=} {allyields[name]=}')
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             name = pname + 'sm'
             if name not in d_hists:
