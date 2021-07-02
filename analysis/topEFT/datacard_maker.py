@@ -207,6 +207,10 @@ class DatacardMaker():
             asimov = np.random.poisson(int(data_obs.Integral()))
             data_obs.SetDirectory(fout)
             if proc == self.samples[-1]:
+                xmin = data_obs.GetXaxis().GetXmin()
+                xmax = data_obs.GetXaxis().GetXmax()
+                xwidth = data_obs.GetXaxis().GetBinWidth(1)
+                data_obs.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
                 allyields[name] = data_obs.Integral()
                 data_obs.Scale(allyields['data_obs'] / data_obs.Integral())
                 data_obs.Write()
