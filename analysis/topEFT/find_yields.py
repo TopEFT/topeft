@@ -284,7 +284,7 @@ def print_hist_info(path):
             print(cat)
 
 # Print a latex table for the yields (assumes the rows are PROC_MAP.keys())
-def print_latex_yield_table(yld_dict,col_order_lst,tag,print_begin_info=False,print_end_info=False,print_errs=False):
+def print_latex_yield_table(yld_dict,col_order_lst,tag,print_begin_info=False,print_end_info=False,print_errs=False,column_variable="cats"):
 
     def format_header(cat_lst):
         s = "\\hline "
@@ -303,30 +303,50 @@ def print_latex_yield_table(yld_dict,col_order_lst,tag,print_begin_info=False,pr
     def print_end():
         print("\\end{document}")
 
-    def print_table(proc_lst,cat_lst):
+    def print_table(proc_lst,cat_lst,columns):
         tabular_info = "c"*(len(cat_lst)+1)
         print("\\begin{table}[hbtp!]")
         print("\\setlength\\tabcolsep{5pt}")
         print(f"\\caption{{{tag}}}") # Need to escape the "{" with another "{"
         print(f"\\begin{{tabular}}{{{tabular_info}}}")
-        print(format_header(cat_lst))
 
-        for proc in proc_lst:
-            if proc not in yld_dict.keys():
-                print("\\rule{0pt}{3ex} ","-",end=' ')
-                for cat in cat_lst:
-                    print("&","-",end=' ')
-                print("\\\ ")
-            else:
-                print("\\rule{0pt}{3ex} ",proc.replace("_"," "),end=' ')
-                for cat in cat_lst:
-                    yld , err = yld_dict[proc][cat]
-                    if yld is not None: yld = round(yld,2)
-                    if err is not None: err = round(err,2)
-                    if print_errs:
-                        print("&",yld,"$\pm$",err,end=' ')
+        # Print categories as columns
+        if columns == "cats":
+            print(format_header(cat_lst))
+            for proc in proc_lst:
+                if proc not in yld_dict.keys():
+                    print("\\rule{0pt}{3ex} ","-",end=' ')
+                    for cat in cat_lst:
+                        print("&","-",end=' ')
+                    print("\\\ ")
+                else:
+                    print("\\rule{0pt}{3ex} ",proc.replace("_"," "),end=' ')
+                    for cat in cat_lst:
+                        yld , err = yld_dict[proc][cat]
+                        if yld is not None: yld = round(yld,2)
+                        if err is not None: err = round(err,2)
+                        if print_errs:
+                            print("&",yld,"$\pm$",err,end=' ')
+                        else:
+                            print("&",yld,end=' ')
+                    print("\\\ ")
+
+        # Print processes as columns
+        if columns == "procs":
+            print(format_header(proc_lst))
+            for cat in cat_lst:
+                print("\\rule{0pt}{3ex} ",cat.replace("_"," "),end=' ')
+                for proc in proc_lst:
+                    if proc not in yld_dict.keys():
+                        print("& - ",end=' ')
                     else:
-                        print("&",yld,end=' ')
+                        yld , err = yld_dict[proc][cat]
+                        if yld is not None: yld = round(yld,2)
+                        if err is not None: err = round(err,2)
+                        if print_errs:
+                            print("&",yld,"$\pm$",err,end=' ')
+                        else:
+                            print("&",yld,end=' ')
                 print("\\\ ")
 
         print("\\hline")
@@ -334,7 +354,7 @@ def print_latex_yield_table(yld_dict,col_order_lst,tag,print_begin_info=False,pr
         print("\\end{table}")
 
     if print_begin_info: print_begin()
-    print_table(PROC_MAP.keys(),col_order_lst)
+    print_table(PROC_MAP.keys(),col_order_lst,columns=column_variable)
     if print_end_info: print_end()
 
 # Takes yield dicts (i.e. what get_yld_dict() returns) and prints it
@@ -384,9 +404,9 @@ def main():
     print_latex_yield_table(pdiff_dict,CAT_LST,"Percent diff between central and private UL17: (private-central)/private",print_end_info=True)
 
     ### Testing the jets cat stuff ###
-    ylds_central_dict_test_jets = get_yld_dict(hin_dict_central,"2017","4l")
+    ylds_central_dict_test_jets = get_yld_dict(hin_dict_central,"2017","3l")
     print_yld_dicts(ylds_central_dict_test_jets,"test jets")
-    print_latex_yield_table(ylds_central_dict_test_jets,ylds_central_dict_test_jets["ttH"].keys(),"jets test",print_begin_info=True,print_end_info=False,print_errs=True)
+    print_latex_yield_table(ylds_central_dict_test_jets,ylds_central_dict_test_jets["ttH"].keys(),"jets test",print_begin_info=True,print_end_info=True,column_variable="procs")
 
     #print_hist_info(hin_dict)
     #exit()
