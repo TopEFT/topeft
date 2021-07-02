@@ -142,7 +142,7 @@ def integrate_out_cats(h,cuts_dict):
     return h_ret
 
 # Takes a histogram and a bin, rebins the njets axis to consist of only that bin (all other bins combined into under/overvlow)
-def rebin_njets(h,bin_val):
+def select_njet_bin(h,bin_val):
     if not isinstance(bin_val,int):
         raise Exception(f"Need to pass an int to this function, got a {type(bin_val)} instead. Exiting...")
     h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [bin_val,bin_val+1]))
@@ -191,6 +191,14 @@ def get_yield(h,proc):
     e_sum = np.sqrt(e_sum)
     return (v_sum,e_sum)
 
+# Uses integrate_out_cats() and select_njet_bin() to return h for a particular analysis cateogry
+#def get_h_for_cat(h,cat_dict,njet):
+def select_hist_for_ana_cat(h,cat_dict,njet):
+    h_ret = integrate_out_cats(h,cat_dict)
+    h_ret = h_ret.integrate("systematic","nominal") # For now anyway...
+    h_ret = select_njet_bin(h_ret,njet)
+    return h_ret
+
 # This is really just a wrapper for get_yield(). Note:
 #   - This fucntion now also rebins the njets hists
 #   - Maybe that does not belong in this function
@@ -198,15 +206,14 @@ def get_scaled_yield(hin_dict,year,proc,cat):
 
     h = hin_dict["njets"]
 
-    h = integrate_out_cats(h,CATEGORIES[cat])
-    h = h.integrate("systematic","nominal")
-
-    if '2l' in cat:
-        h = rebin_njets(h,4)
+    if '2l' in cat: 
+        minjet = 4
     elif '3l' in cat:
-        h = rebin_njets(h,2)
+        minjet = 2
     elif '4l' in cat: 
-        h = rebin_njets(h,2)
+        minjet = 2
+
+    h = select_hist_for_ana_cat(h,CATEGORIES[cat],minjet)
 
     lumi = 1000.0*get_lumi(year)
     h_sow = hin_dict["SumOfEFTweights"]
@@ -215,7 +222,7 @@ def get_scaled_yield(hin_dict,year,proc,cat):
     if nwc > 0:
         sow_val , sow_err = get_yield(h_sow,proc)
         h.scale(1.0/sow_val) # Divide EFT samples by sum of weights at SM, ignore error propagation for now
-        print("sow_val,sow_err",sow_val,sow_err,"->",sow_err/sow_val)
+        #print("sow_val,sow_err",sow_val,sow_err,"->",sow_err/sow_val)
         #print("Num of WCs:",nwc)
         #print("Sum of weights:",sow)
 
