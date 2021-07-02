@@ -202,12 +202,13 @@ class DatacardMaker():
                 data_obs = d_hists[p+'_sm'].Clone('data_obs')
             else:
                 data_obs += d_hists[p+'_sm'].Clone('data_obs')
-            allyields[name] += data_obs.Integral()
             asimov = np.random.poisson(int(data_obs.Integral()))
             data_obs.SetDirectory(fout)
             if proc == self.samples[-1]:
+                allyields[name] = data_obs.Integral()
                 data_obs.Scale(allyields['data_obs'] / data_obs.Integral())
                 data_obs.Write()
+            print(f'{d_hists[p+"_sm"].Integral()=} {allyields[name]=}')
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             name = pname + 'sm'
             if name not in d_hists:
