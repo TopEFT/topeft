@@ -208,18 +208,16 @@ def select_hist_for_ana_cat(h,cat_dict,njet):
 # This is really just a wrapper for get_yield(). Note:
 #   - This fucntion now also rebins the njets hists
 #   - Maybe that does not belong in this function
-def get_scaled_yield(hin_dict,year,proc,cat,njets_cat):
+def get_scaled_yield(hin_dict,year,proc,cat,njets_cat,overflow_str):
 
     h = hin_dict["njets"]
 
     if isinstance(njets_cat,str):
         njet = JET_BINS[njets_cat][0]
-        overflow_str = "over"
-        print("here,str:",njets_cat,JET_BINS[njets_cat][0])
     elif isinstance(njets_cat,int):
         njet = njets_cat
-        overflow_str = "none"
-        print("here,in:",njet)
+    else:
+        raise Exception(f"Wrong type, expected str or int, but got a {type(njets_cat)}, exiting...")
 
     h = select_hist_for_ana_cat(h,CATEGORIES[cat],njet)
 
@@ -237,11 +235,14 @@ def get_scaled_yield(hin_dict,year,proc,cat,njets_cat):
     h.scale(lumi)
     return get_yield(h,proc,overflow_str)
 
+
 # This function:
 #   - Takes as input a hist dict (i.e. what the processor outptus)
 #   - Retruns a dictionary of yields for the categories in CATEGORIES
 #   - Making use of get_scaled_yield()
-def get_yld_dict(hin_dict,year):
+#   - If you pass a key from JET_BINS for yields_for_njets_cats, will make a dict of yields for all the jet bins in that lep cat
+def get_yld_dict(hin_dict,year,yields_for_njets_cats=None):
+
     yld_dict = {}
     proc_lst = get_cat_lables(hin_dict,"sample")
     for proc in proc_lst:
@@ -251,8 +252,19 @@ def get_yld_dict(hin_dict,year):
             if "2lss" in cat: njet_cat = "2lss"
             elif "3l" in cat: njet_cat = "3l"
             elif "4l" in cat: njet_cat = "4l"
-            print("cat,njetcat",cat,njet_cat)
-            yld_dict[proc_name_short][cat]= get_scaled_yield(hin_dict,year,proc,cat,njet_cat)
+
+            # We want to sum over the jet bins, and look at all of the let cats
+            if yields_for_njets_cats is None:
+                yld_dict[proc_name_short][cat] = get_scaled_yield(hin_dict,year,proc,cat,njet_cat,overflow_str="over")
+
+            # We want to look at all the jet bins in the give lep cat
+            elif yields_for_njets_cats == njet_cat:
+                for njet in JET_BINS[njet_cat]:
+                    if njet == max(JET_BINS[njet_cat]): include_overflow = "over"
+                    else: include_overflow = "none"
+                    cat_name_full = cat+"_"+str(njet)+"j"
+                    yld_dict[proc_name_short][cat_name_full] = get_scaled_yield(hin_dict,year,proc,cat,njet,overflow_str=include_overflow)
+
     return yld_dict
 
 
@@ -271,8 +283,8 @@ def print_hist_info(path):
         for cat in hin_dict[h_name].axes()[i].identifiers():
             print(cat)
 
-# Print a latex table for the yields
-def print_latex_yield_table(yld_dict,tag,print_begin_info=False,print_end_info=False,print_errs=False):
+# Print a latex table for the yields (assumes the rows are PROC_MAP.keys())
+def print_latex_yield_table(yld_dict,col_order_lst,tag,print_begin_info=False,print_end_info=False,print_errs=False):
 
     def format_header(cat_lst):
         s = "\\hline "
@@ -322,7 +334,7 @@ def print_latex_yield_table(yld_dict,tag,print_begin_info=False,print_end_info=F
         print("\\end{table}")
 
     if print_begin_info: print_begin()
-    print_table(PROC_MAP.keys(),CAT_LST)
+    print_table(PROC_MAP.keys(),col_order_lst)
     if print_end_info: print_end()
 
 # Takes yield dicts (i.e. what get_yld_dict() returns) and prints it
@@ -356,7 +368,6 @@ def main():
     hin_dict_central = get_hist_from_pkl(fpath_cuts_centralUl17_test)
     hin_dict_private = get_hist_from_pkl(fpath_cuts_privateUl17_test)
 
-    #'''
     # Get the yield dictionaries and percent difference
     ylds_central_dict = get_yld_dict(hin_dict_central,"2017")
     ylds_private_dict = get_yld_dict(hin_dict_private,"2017")
@@ -368,30 +379,14 @@ def main():
     #print_yld_dicts(pdiff_dict,"Percent diff between private and central")
 
     # Print latex table
-    print_latex_yield_table(ylds_central_dict,"Central UL17",print_begin_info=True,print_errs=True)
-    print_latex_yield_table(ylds_private_dict,"Private UL17")
-    print_latex_yield_table(pdiff_dict,"Percent diff between central and private UL17: (private-central)/private",print_end_info=True)
-    #'''
+    print_latex_yield_table(ylds_central_dict,CAT_LST,"Central UL17",print_begin_info=True,print_errs=True)
+    print_latex_yield_table(ylds_private_dict,CAT_LST,"Private UL17")
+    print_latex_yield_table(pdiff_dict,CAT_LST,"Percent diff between central and private UL17: (private-central)/private",print_end_info=True)
 
-
-    '''
-    # Print out info about the hists
-    #hin_dict = get_hist_from_pkl("histos/tttt_c8s1000-orig.pkl.gz")
-    #hin_dict = get_hist_from_pkl("histos/tttt-ttlnu_c8s1000-after.pkl.gz")
-    #hin_dict = get_hist_from_pkl("histos/plotsTopEFT_privateUL17_withtttt.pkl.gz")
-    hin_dict = get_hist_from_pkl(fpath_cuts_centralUl17_test)
-    hin_dict2 = get_hist_from_pkl(fpath_cuts_privateUl17_test)
-    #hin_dict = get_hist_from_pkl(fpath_default)
-    #print_yld_dicts(get_yld_dict(hin_dict,"2017"),"test dict",show_errs=True)
-
-    #print_yld_dicts(get_yld_dict(hin_dict,"2017"),"test dict")
-    #print(get_yld_dict(hin_dict,"2017"))
-    #print_latex_yield_table(get_yld_dict(hin_dict,"2017"),"test",print_begin_info=True,print_end_info=True,print_errs=True)
-
-    #pd = get_pdiff_between_nested_dicts(get_yld_dict(hin_dict2,"2017"),get_yld_dict(hin_dict,"2017"))
-    #print(pd)
-    #print_latex_yield_table(pd,"test")
-    '''
+    ### Testing the jets cat stuff ###
+    ylds_central_dict_test_jets = get_yld_dict(hin_dict_central,"2017","4l")
+    print_yld_dicts(ylds_central_dict_test_jets,"test jets")
+    print_latex_yield_table(ylds_central_dict_test_jets,ylds_central_dict_test_jets["ttH"].keys(),"jets test",print_begin_info=True,print_end_info=False,print_errs=True)
 
     #print_hist_info(hin_dict)
     #exit()
