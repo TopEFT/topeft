@@ -21,9 +21,6 @@ import topcoffea.modules.eft_helper as efth
 
 #coffea.deprecations_as_errors = True
 
-# In the future these names will be read from the nanoAOD files
-#wc_names_lst= ['ctW', 'ctp', 'cpQM', 'ctli', 'cQei', 'ctZ', 'cQlMi', 'cQl3i', 'ctG', 'ctlTi', 'cbW', 'cpQ3', 'ctei', 'cpt', 'ctlSi', 'cptb']
-
 class AnalysisProcessor(processor.ProcessorABC):
     def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, dtype=np.float32):
         self._samples = samples
@@ -449,6 +446,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
         eft_coeffs = ak.to_numpy(events['EFTfitCoefficients']) if hasattr(events, "EFTfitCoefficients") else None
+        if eft_coeffs is not None:
+            # Check to see if the ordering of WCs for this sample matches what want
+            if self._samples[dataset]['WCnames'] != self._wc_names_lst:
+                eft_coeffs = efth.remap_coeffs(self._samples[dataset]['WCnames'], self._wc_names_lst, eft_coeffs)
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
         # Selections and cuts
