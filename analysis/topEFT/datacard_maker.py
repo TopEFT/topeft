@@ -42,7 +42,7 @@ class DatacardMaker():
         self.charge = list({k[3]:0 for k in self.hists['njets'].values().keys()})
         self.syst = list({k[4]:0 for k in self.hists['njets'].values().keys()})
         self.hsow = self.hists['SumOfEFTweights']
-        self.hsow.set_wilson_coefficients(np.zeros(self.hsow._nwc))
+        self.hsow.set_sm()
         self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples}
         with open(lumiJson) as jf:
             lumi = json.load(jf)
@@ -96,7 +96,7 @@ class DatacardMaker():
                 elif '4l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4]))
             #Save the SM plot
             h_sm = h_base#.copy()
-            h_sm.set_wilson_coefficients(np.zeros(h_base._nwc))
+            h_sm.set_sm()
             fout[pname+'sm'] = hist.export1d(h_sm)
             #Asimov data: data_obs = MC at SM (all WCs = 0)
             fout['data_obs'] = hist.export1d(h_sm)
@@ -108,7 +108,7 @@ class DatacardMaker():
                 #Handle linear and quadratic terms
                 if 'lin' in name:
                     h_lin = h_base#.copy()
-                    h_lin.set_wilson_coefficients(wcpt)
+                    h_lin.set_wilson_coeff_from_array(wcpt)
                     if np.sum(h_lin.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_lin)
                         if variable == 'njets':
@@ -123,12 +123,12 @@ class DatacardMaker():
                                 '_'.join([channel, maxb, variable])
                 elif 'quad' in name and 'mix' not in name:
                     h_quad = h_base#.copy()
-                    h_quad.set_wilson_coefficients(wcpt)
+                    h_quad.set_wilson_coeff_from_array(wcpt)
                     if np.sum(h_quad.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_quad)
                 else:
                     h_mix = h_base#.copy()
-                    h_mix.set_wilson_coefficients(wcpt)
+                    h_mix.set_wilson_coeff_from_array(wcpt)
                     if np.sum(h_mix.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_mix)
         
