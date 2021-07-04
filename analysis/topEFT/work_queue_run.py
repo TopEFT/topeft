@@ -130,16 +130,16 @@ if len(wc_lst) == 0:
     wc_lst.append(wc)
 
 if len(wc_lst) > 0:
-    # Yes, why not have the output be in correct English?
-    if len(wc_lst) == 1:
-      wc_print = wc_lst[0]
-    elif len(wc_lst) == 2:
-      wc_print = wc_lst[0] + ' and ' + wc_lst[1]
-    else:
-      wc_print = ', '.join(wc_lst[:-1]) + ', and ' + wc_lst[-1]
-    print('Wilson Coefficients: {}.'.format(wc_print))
-  else:
-    print('No Wilson coefficients specified')
+ # Yes, why not have the output be in correct English?
+ if len(wc_lst) == 1:
+  wc_print = wc_lst[0]
+ elif len(wc_lst) == 2:
+  wc_print = wc_lst[0] + ' and ' + wc_lst[1]
+ else:
+  wc_print = ', '.join(wc_lst[:-1]) + ', and ' + wc_lst[-1]
+  print('Wilson Coefficients: {}.'.format(wc_print))
+else:
+ print('No Wilson coefficients specified')
 
 processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors,do_systs)
 
