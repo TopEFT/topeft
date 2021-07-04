@@ -234,7 +234,7 @@ def get_diff_between_nested_dicts(dict1,dict2,difftype):
                 if difftype == "percent_diff":
                     ret_diff = get_pdiff(v1,v2)
                 elif difftype == "absolute_diff":
-                    ret_diff == v1 - v2
+                    ret_diff = v1 - v2
                 else:
                     raise Exception(f"Unknown diff type: {difftype}. Exiting...")
 
@@ -285,11 +285,28 @@ def get_scaled_yield(hin_dict,year,proc,cat,njets_cat,overflow_str):
 
     h = select_hist_for_ana_cat(h,CATEGORIES[cat],njet)
 
+    # Reweight h (TODO: This part will need to be cleaned up.. should we pass the wc point to  this function?)
+    if h._nwc == 22:
+        print("22 WCs")
+        wc_vals = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22])
+    if h._nwc == 26:
+        if h._wcnames[-1] == "cQQ1":
+            print("26 WCs, sample came from mix-and-match-wc branch branch")
+            wc_vals = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,0,0,0,0]) # If comparing against a 22 WC sample
+            #wc_vals = np.array([1,2,4,22,21,6,7,9,12,13,18,15,17,14,24,20,25,26,8,11,10,5,3,16,19,23]) # To match the tttt WCs order on master branch
+        if h._wcnames[-1] == "ctW":
+            print("26 WCs, sample came from master branch")
+            wc_vals = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26])
+            #wc_vals = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,0,0,0,0]) # If comparing against a 22 WC sample
+    h.set_wilson_coefficients(wc_vals)
+    #h.set_wilson_coefficients([0]*h._nwc) # Reweight to the SM
+
     lumi = 1000.0*get_lumi(year)
     h_sow = hin_dict["SumOfEFTweights"]
     nwc = h_sow._nwc
 
     if nwc > 0:
+        h_sow.set_wilson_coefficients([0]*h._nwc)
         sow_val , sow_err = get_yield(h_sow,proc)
         h.scale(1.0/sow_val) # Divide EFT samples by sum of weights at SM, ignore error propagation for now
         #print("sow_val,sow_err",sow_val,sow_err,"->",sow_err/sow_val)
@@ -428,18 +445,28 @@ def print_latex_yield_table(yld_dict,col_order_lst,tag,print_begin_info=False,pr
     if print_end_info: print_end()
 
 # Takes yield dicts (i.e. what get_yld_dict() returns) and prints it
-def print_yld_dicts(ylds_dict,tag,show_errs=False):
+def print_yld_dicts(ylds_dict,tag,show_errs=False,tolerance=None):
     print(f"\n--- {tag} ---\n")
     for proc in ylds_dict.keys():
         print(proc)
         for cat in ylds_dict[proc].keys():
             print(f"    {cat}")
             val , err = ylds_dict[proc][cat]
-            if show_errs:
-                #print(f"\t{val} +- {err}")
-                print(f"\t{val} +- {err} -> {err/val}")
+
+            # We don't want to check if the val is small
+            if tolerance is None:
+                if show_errs:
+                    #print(f"\t{val} +- {err}")
+                    print(f"\t{val} +- {err} -> {err/val}")
+                else:
+                    print(f"\t{val}")
+
+            # We want to check if the val is small
             else:
-                print(f"\t{val}")
+                if abs(val) < abs(tolerance): # If these are differences between yields, coudl be negative
+                    print(f"\t{val}")
+                else:
+                    print(f"\t{val} -> NOTE: This is larger than tolerance ({tolerance})!")
 
 # This function:
 #    - Takes as input a yld dict
@@ -468,10 +495,13 @@ def comp_ylds(hin_dict1,hin_dict2,year1,year2,str1,str2):
 
     ylds_dict1 = get_yld_dict(hin_dict1,year1)
     ylds_dict2 = get_yld_dict(hin_dict2,year2)
+
     pdiff_dict = get_diff_between_nested_dicts(ylds_dict1,ylds_dict2,difftype="percent_diff")
+    diff_dict  = get_diff_between_nested_dicts(ylds_dict1,ylds_dict2,difftype="absolute_diff")
 
     print_yld_dicts(ylds_dict1,str1)
     print_yld_dicts(ylds_dict2,str2)
+    print_yld_dicts(diff_dict,"Diff between dicts",tolerance=1e-9)
 
     print_latex_yield_table(ylds_dict1,CAT_LST,str1,print_begin_info=True)
     print_latex_yield_table(ylds_dict2,CAT_LST,str2)
@@ -482,18 +512,32 @@ def comp_ylds(hin_dict1,hin_dict2,year1,year2,str1,str2):
 
 def main():
 
+    # TODO: This main() has gotten super messy, will need to clean it up
+
     # Paths to the input pkl files
     fpath_default  = "histos/plotsTopEFT.pkl.gz"
+
     fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_all-UL-but-TTTT-THQ.pkl.gz"
     fpath_cuts_privateUl17_test = "histos/plotsTopEFT_privateUL17_all.pkl.gz"
     #fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_fix4l.pkl.gz"
     #fpath_cuts_privateUl17_test = "histos/plotsTopEFT_privateUL17_fix4l.pkl.gz"
+    fpath_kevin = "/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/topcoffea_mix-and-match-wc/topcoffea/analysis/topEFT/histos/plotsTopEFT_privateUL17_all.pkl.gz" # From Keivn's mix-and-match-wc branch
+
+    # The dicts of 5 procs and tttt seperately
+    fpath_test = "histos/plotsTopEFT_privateUL17_all-but-tttt.pkl.gz"
+    #fpath_test = "histos/plotsTopEFT_privateUL17_tttt.pkl.gz"
+    hin_test = get_hist_from_pkl(fpath_test)
 
     # Get the histograms from the files
     hin_dict_central = get_hist_from_pkl(fpath_cuts_centralUl17_test)
     hin_dict_private = get_hist_from_pkl(fpath_cuts_privateUl17_test)
+    hin_dict_kevin = get_hist_from_pkl(fpath_kevin)
 
-    comp_ylds(hin_dict_private,hin_dict_central,"2017","2017","Private UL17","Central UL17")
+
+    #comp_ylds(hin_dict_private,hin_dict_central,"2017","2017","Private UL17","Central UL17") # The comparison in the notes
+
+    #comp_ylds(hin_dict_private,hin_dict_kevin,"2017","2017","privateUL17","privateUL17 mixandmatchwc") # Compare sample from Kevin's branch with sample where I appended zeros (so only look at SM)
+    comp_ylds(hin_dict_kevin,hin_test,"2017","2017","privateUL17","privateUL17 test")
 
     '''
     # Get the yield dictionaries and percent difference
