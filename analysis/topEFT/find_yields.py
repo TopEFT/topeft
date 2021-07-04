@@ -79,6 +79,64 @@ CATEGORIES = {
     },
 }
 
+TOP19001_YLDS = {
+    "ttlnu" : {
+        "cat_2lss_p" : (81.1,None),
+        "cat_2lss_m" : (44.0,None),
+        "cat_3l_1b_offZ_p" : (16.6,None),
+        "cat_3l_1b_offZ_m" : (9.1,None),
+        "cat_3l_2b_offZ_p" : (12.1,None),
+        "cat_3l_2b_offZ_m" : (6.7,None),
+        "cat_3l_1b_onZ" : (3.4,None),
+        "cat_3l_2b_onZ" : (2.5,None),
+        "cat_4l" : (0.0,None),
+    },
+    "ttll"  : {
+        "cat_2lss_p" : (22.6,None),
+        "cat_2lss_m" : (22.5,None),
+        "cat_3l_1b_offZ_p" : (14.2,None),
+        "cat_3l_1b_offZ_m" : (14.7,None),
+        "cat_3l_2b_offZ_p" : (10.1,None),
+        "cat_3l_2b_offZ_m" : (9.4,None),
+        "cat_3l_1b_onZ" : (106.5,None),
+        "cat_3l_2b_onZ" : (70.9,None),
+        "cat_4l" : (10.4,None),
+    },
+    "ttH"   : {
+        "cat_2lss_p" : (28.6,None),
+        "cat_2lss_m" : (27.9,None),
+        "cat_3l_1b_offZ_p" : (8.5,None),
+        "cat_3l_1b_offZ_m" : (8.1,None),
+        "cat_3l_2b_offZ_p" : (5.5,None),
+        "cat_3l_2b_offZ_m" : (5.6,None),
+        "cat_3l_1b_onZ" : (3.5,None),
+        "cat_3l_2b_onZ" : (2.4,None),
+        "cat_4l" : (1.1,None),
+    },
+    "tllq"  : {
+        "cat_2lss_p" : (2.9,None),
+        "cat_2lss_m" : (1.7,None),
+        "cat_3l_1b_offZ_p" : (3.8,None),
+        "cat_3l_1b_offZ_m" : (1.9,None),
+        "cat_3l_2b_offZ_p" : (1.3,None),
+        "cat_3l_2b_offZ_m" : (0.6,None),
+        "cat_3l_1b_onZ" : (42.1,None),
+        "cat_3l_2b_onZ" : (14.1,None),
+        "cat_4l" : (0.0,None),
+    },
+    "tHq"   : {
+        "cat_2lss_p" : (0.9,None),
+        "cat_2lss_m" : (0.5,None),
+        "cat_3l_1b_offZ_p" : (0.3,None),
+        "cat_3l_1b_offZ_m" : (0.2,None),
+        "cat_3l_2b_offZ_p" : (0.2,None),
+        "cat_3l_2b_offZ_m" : (0.1,None),
+        "cat_3l_1b_onZ" : (0.1,None),
+        "cat_3l_2b_onZ" : (0.1,None),
+        "cat_4l" : (0.0,None),
+    },
+}
+
 ######### Functions for getting process names from PROC_MAP #########
 
 # What this function does:
@@ -154,14 +212,14 @@ def select_njet_bin(h,bin_val):
     h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [bin_val,bin_val+1]))
     return h
 
-# Get the percent difference between values in nested dictionary of the following format.
+# Get the difference between values in nested dictionary, currently can get either percent diff, or absolute diff
 # Returns a dictionary in the same formate (cuttently does not propagate errors, just returns None)
 #   dict = {
 #       k : {
 #           subk : (val,err)
 #       }
 #   }
-def get_pdiff_between_nested_dicts(dict1,dict2):
+def get_diff_between_nested_dicts(dict1,dict2,difftype):
 
     ret_dict = {}
     for k1 in dict1.keys():
@@ -170,13 +228,19 @@ def get_pdiff_between_nested_dicts(dict1,dict2):
             ret_dict[k1] = {}
             for subk1 in dict1[k1].keys():
                 if subk1 not in dict2[k1].keys():
-                    raise Exception("These dictionaries do not have the same structure, exiting...")
+                    raise Exception("These dictionaries do not have the same structure. Exiting...")
                 v1,e1 = dict1[k1][subk1]
                 v2,e1 = dict2[k1][subk1]
-                pdiff = get_pdiff(v1,v2)
-                ret_dict[k1][subk1] = (pdiff,None)
+                if difftype == "percent_diff":
+                    ret_diff = get_pdiff(v1,v2)
+                elif difftype == "absolute_diff":
+                    ret_diff == v1 - v2
+                else:
+                    raise Exception(f"Unknown diff type: {difftype}. Exiting...")
+
+                ret_dict[k1][subk1] = (ret_diff,None)
         else:
-            print(f"Warning, key {k1} is not in both dictionaries, continuing...")
+            print(f"WARNING, key {k1} is not in both dictionaries. Continuing...")
             continue
 
     return ret_dict
@@ -309,6 +373,7 @@ def print_latex_yield_table(yld_dict,col_order_lst,tag,print_begin_info=False,pr
         print("\\begin{table}[hbtp!]")
         print("\\setlength\\tabcolsep{5pt}")
         print(f"\\caption{{{tag}}}") # Need to escape the "{" with another "{"
+        print("\\smallskip")
 
 
         # Print categories as columns
@@ -398,6 +463,20 @@ def find_relative_contributions(yld_dict):
 
     return ret_dict
 
+# Convenience function for printing out two sets of yields and percent differene
+def comp_ylds(hin_dict1,hin_dict2,year1,year2,str1,str2):
+
+    ylds_dict1 = get_yld_dict(hin_dict1,year1)
+    ylds_dict2 = get_yld_dict(hin_dict2,year2)
+    pdiff_dict = get_diff_between_nested_dicts(ylds_dict1,ylds_dict2,difftype="percent_diff")
+
+    print_yld_dicts(ylds_dict1,str1)
+    print_yld_dicts(ylds_dict2,str2)
+
+    print_latex_yield_table(ylds_dict1,CAT_LST,str1,print_begin_info=True)
+    print_latex_yield_table(ylds_dict2,CAT_LST,str2)
+    print_latex_yield_table(pdiff_dict,CAT_LST,f"Percent diff between central {str1} and {str2}",print_end_info=True)
+
 
 ######### The main() function #########
 
@@ -405,19 +484,22 @@ def main():
 
     # Paths to the input pkl files
     fpath_default  = "histos/plotsTopEFT.pkl.gz"
-    fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_fix4l.pkl.gz"
-    #fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_all-UL-but-TTTT-THQ.pkl.gz"
-    fpath_cuts_privateUl17_test = "histos/plotsTopEFT_privateUL17_fix4l.pkl.gz"
-    #fpath_witherrors = "histos/test_privateUL17_1c_doerrors.pkl.gz"
+    fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_all-UL-but-TTTT-THQ.pkl.gz"
+    fpath_cuts_privateUl17_test = "histos/plotsTopEFT_privateUL17_all.pkl.gz"
+    #fpath_cuts_centralUl17_test = "histos/plotsTopEFT_centralUL17_fix4l.pkl.gz"
+    #fpath_cuts_privateUl17_test = "histos/plotsTopEFT_privateUL17_fix4l.pkl.gz"
 
     # Get the histograms from the files
     hin_dict_central = get_hist_from_pkl(fpath_cuts_centralUl17_test)
     hin_dict_private = get_hist_from_pkl(fpath_cuts_privateUl17_test)
 
+    comp_ylds(hin_dict_private,hin_dict_central,"2017","2017","Private UL17","Central UL17")
+
+    '''
     # Get the yield dictionaries and percent difference
     ylds_central_dict = get_yld_dict(hin_dict_central,"2017")
     ylds_private_dict = get_yld_dict(hin_dict_private,"2017")
-    pdiff_dict = get_pdiff_between_nested_dicts(ylds_private_dict,ylds_central_dict)
+    pdiff_dict = get_diff_between_nested_dicts(ylds_private_dict,ylds_central_dict,difftype="percent_diff")
 
     # Print out yields and percent differences
     print_yld_dicts(ylds_central_dict,"Central UL17 yields")
@@ -428,16 +510,17 @@ def main():
     print_latex_yield_table(ylds_central_dict,CAT_LST,"Central UL17",print_begin_info=True,print_errs=True)
     print_latex_yield_table(ylds_private_dict,CAT_LST,"Private UL17")
     print_latex_yield_table(pdiff_dict,CAT_LST,"Percent diff between central and private UL17: (private-central)/private",print_end_info=True)
+    '''
 
 
-    ###### Print info for the jet cats ######
-    for lep_cat in JET_BINS.keys():
-        print("lep_cat:",lep_cat)
-        ylds_private_dict_jets = get_yld_dict(hin_dict_private,"2017",lep_cat)
-        #print_yld_dicts(ylds_central_dict_test_jets,"Test")
-        print_latex_yield_table(ylds_private_dict_jets,ylds_private_dict_jets["ttH"].keys(),"Private UL17 with jet cats",print_begin_info=True,print_end_info=True,column_variable="procs")
-        relative_contributions = find_relative_contributions(ylds_private_dict_jets)
-        print_latex_yield_table(relative_contributions,relative_contributions["ttH"].keys(),"Relative contributions",print_begin_info=True,print_end_info=True,column_variable="procs")
+    ####### Print info for the jet cats ######
+    #for lep_cat in JET_BINS.keys():
+    #    print("lep_cat:",lep_cat)
+    #    ylds_private_dict_jets = get_yld_dict(hin_dict_private,"2017",lep_cat)
+    #    #print_yld_dicts(ylds_central_dict_test_jets,"Test")
+    #    print_latex_yield_table(ylds_private_dict_jets,ylds_private_dict_jets["ttH"].keys(),"Private UL17 with jet cats",print_begin_info=True,print_end_info=True,column_variable="procs")
+    #    relative_contributions = find_relative_contributions(ylds_private_dict_jets)
+    #    print_latex_yield_table(relative_contributions,relative_contributions["ttH"].keys(),"Relative contributions",print_begin_info=True,print_end_info=True,column_variable="procs")
 
     #print_hist_info(hin_dict)
     #exit()
