@@ -94,12 +94,14 @@ for f in allInputFiles:
           else: LoadJsonToSampleName(l, prefix)
 
 flist = {};
+nevts_total = 0
 for sname in samplesdict.keys():
   redirector = samplesdict[sname]['redirector']
   flist[sname] = [(redirector+f) for f in samplesdict[sname]['files']]
   samplesdict[sname]['year'] = int(samplesdict[sname]['year'])
   samplesdict[sname]['xsec'] = float(samplesdict[sname]['xsec'])
   samplesdict[sname]['nEvents'] = int(samplesdict[sname]['nEvents'])
+  nevts_total += samplesdict[sname]['nEvents']
   samplesdict[sname]['nGenEvents'] = int(samplesdict[sname]['nGenEvents'])
   samplesdict[sname]['nSumOfWeights'] = float(samplesdict[sname]['nSumOfWeights'])
 
@@ -147,7 +149,7 @@ executor_args = {#'flatten': True, #used for all executors
                  'compression': 0, #used for all executors
                  'cores': 1,
                  'disk': 5000, #MB
-                 'memory': 10000, #MB
+                 'memory': 4000, #MB
                  'resource-monitor': True,
                  'debug-log': 'debug.log',
                  'transactions-log': 'tr.log',
@@ -166,6 +168,8 @@ executor_args = {#'flatten': True, #used for all executors
 tstart = time.time()
 output = processor.run_uproot_job(flist, treename=treename, processor_instance=processor_instance, executor=processor.work_queue_executor, executor_args=executor_args, chunksize=chunksize, maxchunks=nchunks)
 dt = time.time() - tstart
+
+print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
 
 nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
 nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
