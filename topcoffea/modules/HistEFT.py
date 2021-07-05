@@ -53,9 +53,34 @@ class HistEFT(coffea.hist.Hist):
       else:
         self._sumw2[key] = self._sumw[key].copy()
             
-  def set_wilson_coefficients(self,values):
-    """Set the WC values used to evaluate the bin contents of this histogram"""
+  def set_wilson_coeff_from_array(self, values):
+    """Set the WC values used to evaluate the bin contents of this histogram to the contents of 
+       an array where the elements are ordered according to the order defined by wcnames.
+    """
     self._wcs = np.asarray(values).copy()
+
+  def set_sm(self):
+    """Conveniece method to set the WC values to SM (all zero)"""
+    self._wcs = np.zeros(self._nwc)
+    
+  def set_wilson_coefficients(self, **values):
+    """Set the WC values used to evaluate the bin contents of this histogram
+       where the WCs are specified as keyword arguments.  Any WCs not listed are set to zero.
+    """
+    self.set_sm()
+    for key in values:
+      try:
+        index = self._wcnames.index(key)
+        self._wcs[index] = values[key]
+      except ValueError:
+        msg = 'This HistEFT does not know about the "{}" Wilson coefficient.  '.format(key)
+        if self._nwc == 0:
+          msg += 'There are no Wilson coefficients defined for this HistEFT.'
+        else:
+          wc_string = ', '.join(self._wcnames)
+          part1, _, part2 = wc_string.rpartition(', ')
+          msg += ('Defined Wilson coefficients: '+part1 + ', and ' + part2+'.')
+        raise LookupError(msg)
 
   def copy(self, content=True):
     """ Copy """
