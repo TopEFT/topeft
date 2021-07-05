@@ -3,6 +3,7 @@
 
 import numpy as np
 import numba
+from numba.typed import List
 import math
 
 @numba.njit
@@ -203,4 +204,63 @@ def calc_eft_w2(quartic_coeffs_unique, wc_values):
         out += quartic_coeffs_unique[...,i]*wcs[factors[0]]*wcs[factors[1]]*wcs[factors[2]]*wcs[factors[3]]
 
     return out
-            
+
+def remap_coeffs(current_list, target_list, coeffs):
+    """Remaps the quadratic fit coefficients to the appropriate order desired for filling a HistEFT.
+    
+    Args:
+        current_list: The list of WC names for this sample
+        target_list: The list of WC names needed to fill the HistEFT
+        coeffs: The numpy array of coefficients to remap.  Assume that the last index corresponds to the WC names.
+
+    Returns the fit coefficient values in the ordering defined by
+    target_list.  The fit coefficients for any WCs in current_list that
+    are omitted from target_list are dropped.  The fit coefficients
+    corresponding to any WCs in target_list that don't appear in
+    current_list are set to zero.
+    """
+
+    # Numba doesn't like Python lists,  Need them as numba typed lists.
+    cl = List()
+    cl.append('SM')
+    for c in current_list:
+        cl.append(c)
+
+    tl = List()
+    tl.append('SM')
+    for t in target_list:
+        tl.append(t)
+
+    # The actual logic is inside this compiled code
+    return _remap_coeffs(cl, tl, coeffs)
+    
+
+@numba.njit
+def _remap_coeffs(current_list, target_list, coeffs):
+    # Step one: Define the coefficient mapping
+    target_indices = np.zeros(len(target_list),np.int8) # Assuming we have a model with fewer than 256 WCs.  No flavor anarchy here!
+    for i, wc in enumerate(target_list):
+        try:
+            target_indices[i] = current_list.index(wc)
+        except:
+            target_indices[i] = -1
+
+    # Next, loop over the WC pairs from the target_list and figure out
+    # which entry (if any) in the coefficient list they correspond to.
+    # Any target_indices value that is negative indicates that value
+    # should be filled with zero.
+    remapped_coeffs = np.zeros(coeffs.shape[0:-1]+(n_quad_terms(len(target_list)-1),))
+
+    ind = 0
+    for i in range(len(target_list)):
+        mapped_i = target_indices[i]
+        for j in range(i+1):
+            mapped_j = target_indices[j]
+            # We initialized the values to zero at the start, so we
+            # can skip the ones with negative indices here.
+            if mapped_i >= 0 and mapped_j >= 0:
+                k = quadratic_factors_to_term(sorted((mapped_i,mapped_j),reverse=True))
+                remapped_coeffs[...,ind] = coeffs[...,k]
+            ind +=1
+
+    return remapped_coeffs
