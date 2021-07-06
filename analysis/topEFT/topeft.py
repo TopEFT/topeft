@@ -119,24 +119,23 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # SyncCheck: Two FO leptons (conePt > 25, conePt > 15)
         l_fo_conept_sorted = lep_FO[ak.argsort(lep_FO.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
-        l_fo_conept_sorted = l_fo_conept_sorted[ak.num(l_fo_conept_sorted)>=2] # Make sure at least 2 l
-        j_sync             = j[ak.num(l_fo_conept_sorted)==2] # Get rid of events from the jet collection too. Probably there's a better way to keep track of this.
-        l_fo_conept_sorted = l_fo_conept_sorted[(l_fo_conept_sorted[:,0].conept > 25.0) & (l_fo_conept_sorted[:,1].conept > 15.0)]
-        j_sync             = j_sync[(l_fo_conept_sorted[:,0].conept > 25.0) & (l_fo_conept_sorted[:,1].conept > 15.0)] # Get rid of events from the jet collection too. Probably there's a better way to keep track of this.
-        print("Number of 2 FO lep events:",ak.num(l_fo_conept_sorted,axis=0))
+        l_fo_pt_mask = ak.any(l_fo_conept_sorted[:,0:1].conept > 25.0, axis=1) & ak.any(l_fo_conept_sorted[:,1:2].conept > 15.0, axis=1)
+        print("Number of 2 FO lep events:",ak.num(l_fo_conept_sorted[l_fo_pt_mask],axis=0))
 
         # SyncCheck: Two FO leptons (conePt > 25, conePt > 15), with SS, and a njet > 1 (with j.pt > 25)
-        j_mask = ak.flatten(j_sync[ak.argmax(j_sync.pt,axis=-1,keepdims=True)].pt > 25.0)
-        ss_mask = ((l_fo_conept_sorted[:,0].charge*l_fo_conept_sorted[:,1].charge)==1)
-        l_fo_conept_sorted = l_fo_conept_sorted[ss_mask & j_mask]
-        print("Number of 2 FO lep events (with j0.pt>25):",ak.num(l_fo_conept_sorted,axis=0))
+        l_fo_conept_sorted_charge = l_fo_conept_sorted.charge # Get array of charges
+        l_fo_conept_sorted_charge = ak.pad_none(l_fo_conept_sorted_charge,2,axis=1) # Pad
+        l_fo_conept_sorted_charge = ak.fill_none(l_fo_conept_sorted_charge,0) # With 0s
+        ss_mask     = (l_fo_conept_sorted_charge[:,0]*l_fo_conept_sorted_charge[:,1] == 1)
+        j_mask      = ak.flatten(j[ak.argmax(j.pt,axis=-1,keepdims=True)].pt > 25.0)
+        n_fo_2_mask = ak.num(l_fo_conept_sorted)==2
+        print("Number of 2 FO lep events (with j0.pt>25):",ak.num(l_fo_conept_sorted[l_fo_pt_mask & ss_mask & j_mask],axis=0)) # Do we also want n_fo_2_mask here?
 
         # SyncCheck: Two tight leptons (conePt > 25, conePt > 15)
         l_tight = l = ak.concatenate([e[e['isTight']],mu[mu['isTight']]],axis=1)
         l_tight_conept_sorted = l_tight[ak.argsort(l_tight.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
-        l_tight_conept_sorted = l_tight_conept_sorted[ak.num(l_tight_conept_sorted)>=2]
-        l_tight_conept_sorted = l_tight_conept_sorted[(l_tight_conept_sorted[:,0].conept > 25.0) & (l_tight_conept_sorted[:,1].conept > 15.0)]
-        print("Number of 2 tight lep events:",ak.num(l_tight_conept_sorted,axis=0))
+        l_tight_pt_mask = ak.any(l_tight_conept_sorted[:,0:1].conept > 25.0, axis=1) & ak.any(l_tight_conept_sorted[:,1:2].conept > 15.0, axis=1)
+        print("Number of 2 tight lep events:",ak.num(l_tight_conept_sorted[l_tight_pt_mask],axis=0))
 
         print("\n--- End of print statements for the sync check---\n")
         ###### End SyncTest code ######
