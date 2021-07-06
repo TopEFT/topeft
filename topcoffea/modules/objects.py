@@ -87,7 +87,7 @@ def coneptElec(pt, mvaTTH, jetRelIso):
   return cone_pT
 
 def coneptMuon(pt, mvaTTH, jetRelIso, mediumId):
-  cone_pT = pt* (mvaTTH>0.80)
+  cone_pT = pt* (mvaTTH>0.85)
   cone_pT = cone_pT + (0.90 * pt * (1 + jetRelIso))* ((mediumId<=0) | (mvaTTH<=0.85))
   return cone_pT
 

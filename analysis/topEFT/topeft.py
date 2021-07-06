@@ -88,14 +88,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu['btagDeepB'] = ak.fill_none(mu.matched_jet.btagDeepB, -99)
         
         # Muon selection
+        mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.looseId)
         mu['isFO'] = isFOMuon(mu.pt, mu.conept, mu.btagDeepB, mu.mvaTTH, mu.jetRelIso, year=2018)
         mu['isTight']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
-        mu = mu[mu.isFO]
+        mu = mu[mu.isFO & mu.isPres]
 
         # Electron selection
+        e['isPres'] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.lostHits)
         e['isFO']  = isFOElec(e.conept, e.btagDeepB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year=2018)
         e['isTight'] = tightSelElec(e.isFO, e.mvaTTH)
-        e  =  e[e .isFO]
+        e  =  e[e.isFO & e.isPres]
         #e_pres = e[e .isPres & e .isClean]
 
         # Tau selection
@@ -129,7 +131,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ss_mask     = (l_fo_conept_sorted_charge[:,0]*l_fo_conept_sorted_charge[:,1] == 1)
         j_mask      = ak.flatten(j[ak.argmax(j.pt,axis=-1,keepdims=True)].pt > 25.0)
         n_fo_2_mask = ak.num(l_fo_conept_sorted)==2
-        print("Number of 2 FO lep events (with j0.pt>25):",ak.num(l_fo_conept_sorted[l_fo_pt_mask & ss_mask & j_mask],axis=0)) # Do we also want n_fo_2_mask here?
+        print("Number of 2 FO lep events (with j0.pt>25):",ak.num(l_fo_conept_sorted[l_fo_pt_mask & ss_mask & j_mask & n_fo_2_mask],axis=0))
 
         # SyncCheck: Two tight leptons (conePt > 25, conePt > 15)
         l_tight = l = ak.concatenate([e[e['isTight']],mu[mu['isTight']]],axis=1)
