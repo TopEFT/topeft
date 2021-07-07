@@ -78,7 +78,7 @@ def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
 def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
   wploose = (0.0614, 0.0521, 0.0494)
   wpmedium = (0.3093, 0.3033, 0.2770)
-  x = np.minimum(np.maximum(0, jetpt - ptmin)/(ptmax-ptmin), 1)
+  x = np.minimum(np.maximum(0, jetpt - ptmin)/(ptmax-ptmin), 1.0)
   return x*wploose[year-2016]*scale_loose + (1-x)*wpmedium[year-2016]
 
 def coneptElec(pt, mvaTTH, jetRelIso):
@@ -91,13 +91,20 @@ def coneptMuon(pt, mvaTTH, jetRelIso, mediumId):
   cone_pT = cone_pT + (0.90 * pt * (1 + jetRelIso))* ((mediumId<=0) | (mvaTTH<=0.85))
   return cone_pT
 
-def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mvaTTH, jetRelIso, mvaFall17V2noIso_WP80, year=2018):
+def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mvaTTH, jetRelIso, mvaFall17V2noIso_WP80, year):
   bTagCut = 0.3093 if year==2016 else 0.3033 if year==2017 else 0.2770
-  return (conept>10) & (jetBTagDeepFlav<bTagCut) & (ttH_idEmu_cuts_E3 & convVeto & lostHits == 0) & (mvaTTH>0.80) | ((mvaFall17V2noIso_WP80) & (jetRelIso < 0.70))
+  ptReq      = (conept>10)
+  btabReq    = (jetBTagDeepFlav<bTagCut)
+  qualityReq = (ttH_idEmu_cuts_E3 & convVeto & lostHits==0)
+  mvaReq     = ((mvaTTH>0.80) | ((mvaFall17V2noIso_WP80) & (jetRelIso<0.70)))
+  return (conept>10) & (jetBTagDeepFlav<bTagCut) & (ttH_idEmu_cuts_E3 & convVeto & lostHits == 0) & ((mvaTTH>0.80) | ((mvaFall17V2noIso_WP80) & (jetRelIso < 0.70)))
 
-def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTH, jetRelIso, year=2018):
+def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTH, jetRelIso, year):
   bTagCut = 0.3093 if year==2016 else 0.3033 if year==2017 else 0.2770
-  return (conept>10) & (jetBTagDeepFlav<bTagCut) & (mvaTTH>0.85) | ((jetBTagDeepFlav < smoothBFlav(0.9*pt*1+jetRelIso, 20, 45, year)) & (jetRelIso < 0.50))
+  ptReq   = (conept>10)
+  btagReq = (jetBTagDeepFlav<bTagCut)
+  mvaReq  = ((mvaTTH>0.85) | ((jetBTagDeepFlav<smoothBFlav(0.9*pt*1+jetRelIso,20,45,year)) & (jetRelIso < 0.50)))
+  return ptReq & btagReq & mvaReq
 
 def tightSelElec(clean_and_FO_selection_TTH, mvaTTH):
   return (clean_and_FO_selection_TTH) & (mvaTTH > 0.80)
