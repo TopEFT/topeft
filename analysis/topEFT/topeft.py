@@ -91,14 +91,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.looseId, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu['isFO'] = isFOMuon(mu.pt, mu.conept, mu.btagDeepB, mu.mvaTTH, mu.jetRelIso, year)
         mu['isTight']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
-        mu = mu[mu.isFO & mu.isPres]
+        n_m_pres = len(ak.flatten(mu[mu.isPres]))
+        #mu = mu[mu.isPres & mu.isFO & mu.isTight]
+        mu = mu[mu.isPres & mu.isFO]
 
         # Electron selection
         e['isPres'] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
         e['isFO']  = isFOElec(e.conept, e.btagDeepB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
         e['isTight'] = tightSelElec(e.isFO, e.mvaTTH)
-        e  =  e[e.isFO & e.isPres]
-        #e_pres = e[e .isPres & e .isClean]
+        n_e_pres = len(ak.flatten(e[e.isPres]))
+        #e  =  e[e.isPres & e.isFO & e.isTight]
+        e  =  e[e.isPres & e.isFO]
 
         # Tau selection
         tau['isPres']  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.leadTkPtOverTauPt, tau.idAntiMu, tau.idAntiEle, tau.rawIso, tau.idDecayModeNewDMs, minpt=20)
@@ -114,10 +117,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("\n--- Print statements for the sync check ---\n")
 
         # SyncCheck: Number of tight and fo e and m
-        print("Number of fo e    :",len(ak.flatten(e)))
-        print("Number of tight e :",len(ak.flatten(e[e.isTight])))
-        print("Number of fo m    :",len(ak.flatten(mu)))
-        print("Number of tight m :",len(ak.flatten(mu[mu.isTight])))
+        print("Number of pres e  :", n_e_pres)
+        print("Number of pres m  :", n_m_pres)
+        print("Number of fo e    :", len(ak.flatten(e)))
+        print("Number of fo m    :", len(ak.flatten(mu)))
+        print("Number of tight e :", len(ak.flatten(e[e.isTight])))
+        print("Number of tight m :", len(ak.flatten(mu[mu.isTight])))
 
         # SyncCheck: Two FO leptons (conePt > 25, conePt > 15)
         l_fo_conept_sorted = lep_FO[ak.argsort(lep_FO.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
