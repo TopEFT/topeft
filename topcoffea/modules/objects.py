@@ -45,8 +45,8 @@ def isCleanJet(jets, electrons, muons, taus, drmin=0.4):
   jetTauMask = ak.fill_none(jetTauDR > drmin, True)
   return (jetEleMask & jetMuMask & jetTauMask)
 
-def isPresMuon(dxy, dz, sip3D, looseId, eta, pt, miniRelIso):
-  mask = (abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(looseId)&(abs(eta)<2.4)&(pt>5)&(miniRelIso<0.4)
+def isPresMuon(dxy, dz, sip3D, eta, pt, miniRelIso):
+  mask = (abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(abs(eta)<2.4)&(pt>5)&(miniRelIso<0.4)
   return mask
   
 def isTightMuon(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, mediumPrompt, tightCharge, looseId, minpt=10.0):

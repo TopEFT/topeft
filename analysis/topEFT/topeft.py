@@ -88,7 +88,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu['btagDeepB'] = ak.fill_none(mu.matched_jet.btagDeepB, -99)
         
         # Muon selection
-        mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.looseId, mu.eta, mu.pt, mu.miniPFRelIso_all)
+        mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu['isFO'] = isFOMuon(mu.pt, mu.conept, mu.btagDeepB, mu.mvaTTH, mu.jetRelIso, year)
         mu['isTight']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
         n_m_pres = len(ak.flatten(mu[mu.isPres]))
