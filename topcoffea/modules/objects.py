@@ -45,16 +45,16 @@ def isCleanJet(jets, electrons, muons, taus, drmin=0.4):
   jetTauMask = ak.fill_none(jetTauDR > drmin, True)
   return (jetEleMask & jetMuMask & jetTauMask)
 
-def isPresMuon(dxy, dz, sip3D, looseId):
-  mask = (abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(looseId)
+def isPresMuon(dxy, dz, sip3D, looseId, eta, pt, miniRelIso):
+  mask = (abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(looseId)&(abs(eta)<2.4)&(pt>5)&(miniRelIso<0.4)
   return mask
   
 def isTightMuon(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, mediumPrompt, tightCharge, looseId, minpt=10.0):
   mask = (pt>minpt)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(looseId)&(miniIso<0.25)&(mvaTTH>0.90)&(tightCharge==2)&(mediumPrompt)
   return mask
 
-def isPresElec(pt, eta, dxy, dz, miniIso, sip3D, lostHits, minpt=15.0):
-  mask = (pt>minpt)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(lostHits<=1)#&(eInvMinusPInv>-0.04)&(maskhoe)&(miniIso<0.25)
+def isPresElec(pt, eta, dxy, dz, miniIso, sip3D, eleId):
+  mask = (pt>7)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(miniIso<0.4)&(sip3D<8)&(eleId)
   return mask
  
 def isTightElec(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, elecMVA, lostHits, convVeto, tightCharge, sieie, hoe, eInvMinusPInv, minpt=15.0):

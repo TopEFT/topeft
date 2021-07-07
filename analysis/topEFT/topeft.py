@@ -88,13 +88,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu['btagDeepB'] = ak.fill_none(mu.matched_jet.btagDeepB, -99)
         
         # Muon selection
-        mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.looseId)
+        mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.looseId, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu['isFO'] = isFOMuon(mu.pt, mu.conept, mu.btagDeepB, mu.mvaTTH, mu.jetRelIso, year=2018)
         mu['isTight']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
         mu = mu[mu.isFO & mu.isPres]
 
         # Electron selection
-        e['isPres'] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.lostHits)
+        e['isPres'] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
         e['isFO']  = isFOElec(e.conept, e.btagDeepB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year=2018)
         e['isTight'] = tightSelElec(e.isFO, e.mvaTTH)
         e  =  e[e.isFO & e.isPres]
