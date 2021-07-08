@@ -87,8 +87,8 @@ def coneptElec(pt, mvaTTH, jetRelIso):
   return cone_pT
 
 def coneptMuon(pt, mvaTTH, jetRelIso, mediumId):
-  cone_pT = pt* (mvaTTH>0.85)
-  cone_pT = cone_pT + (0.90 * pt * (1 + jetRelIso))* ((mediumId<=0) | (mvaTTH<=0.85))
+  cone_pT = pt*((mvaTTH>0.85) & (mediumId>0))
+  cone_pT = cone_pT + (0.90 * pt * (1 + jetRelIso)) * ((mediumId<=0) | (mvaTTH<=0.85))
   return cone_pT
 
 def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mvaTTH, jetRelIso, mvaFall17V2noIso_WP80, year):
