@@ -84,12 +84,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         e['idEmu'] = ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
         e['conept'] = coneptElec(e.pt, e.mvaTTH, e.jetRelIso)
         mu['conept'] = coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
-        e['btagDeepB'] = ak.fill_none(e.matched_jet.btagDeepB, -99)
-        mu['btagDeepB'] = ak.fill_none(mu.matched_jet.btagDeepB, -99)
+        e['btagDeepFlavB'] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
+        mu['btagDeepFlavB'] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
         
         # Muon selection
         mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-        mu['isFO'] = isFOMuon(mu.pt, mu.conept, mu.btagDeepB, mu.mvaTTH, mu.jetRelIso, year)
+        mu['isFO'] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTH, mu.jetRelIso, year)
         mu['isTight']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
         n_m_pres = len(ak.flatten(mu[mu.isPres]))
         #mu = mu[mu.isPres & mu.isFO & mu.isTight]
@@ -97,7 +97,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Electron selection
         e['isPres'] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
-        e['isFO']  = isFOElec(e.conept, e.btagDeepB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
+        e['isFO']  = isFOElec(e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
         e['isTight'] = tightSelElec(e.isFO, e.mvaTTH)
         n_e_pres = len(ak.flatten(e[e.isPres]))
         #e  =  e[e.isPres & e.isFO & e.isTight]
