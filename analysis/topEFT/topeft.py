@@ -346,7 +346,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         is4lmask = ((nElec+nMuon)>=4)
         muon_4l  = mu[(is4lmask)&(mu.pt>-1)]
         elec_4l  =  e[(is4lmask)&( e.pt>-1)]
-        
+
         # selecting 4 leading leptons
         leptons = ak.concatenate([e,mu], axis=-1)
         leptons_sorted = leptons[ak.argsort(leptons.pt, axis=-1,ascending=False)]
@@ -355,28 +355,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu4l    = lep4l[abs(lep4l.pdgId)==13]
         nElec4l = ak.num(e4l)
         nMuon4l = ak.num(mu4l)
-       
-        #eemm
-        # muon_eemm = mu4l[(nElec4l==2)&(nMuon4l==2)&(mu4l.pt>-1)]
-        # elec_eemm =  e4l[(nElec4l==2)&(nMuon4l==2)&( e4l.pt>-1)]
-        # ee_eemm = ak.combinations(elec_eemm, 2, fields=["e0", "e1"])
-        # mm_eemm = ak.combinations(muon_eemm, 2, fields=["m0", "m1"])
-
-        #eeem
-        # muon_eeem = mu4l[(nElec4l==3)&(nMuon4l==1)&(mu4l.pt>-1)]
-        # elec_eeem =  e4l[(nElec4l==3)&(nMuon4l==1)&( e4l.pt>-1)]
-        # eee_eeem = ak.combinations(elec_eeem, 3, fields=["e0", "e1", "e2"])
-
-        #mmme
-        # muon_mmme = mu4l[(nElec4l==1)&(nMuon4l==3)&(mu4l.pt>-1)]
-        # elec_mmme =  e4l[(nElec4l==1)&(nMuon4l==3)&( e4l.pt>-1)]
-        # mmm_mmme = ak.combinations(muon_mmme, 3, fields=["m0", "m1", "m2"])
-
-        #mmmm and eeee
-        # muon_mmmm = mu4l[(nElec4l==0)&(nMuon4l==4)&(mu4l.pt>-1)]
-        # elec_eeee =  e4l[(nElec4l==4)&(nMuon4l==0)&( e4l.pt>-1)]
-        # eeee = ak.combinations(elec_eeee, 4, fields=["e0", "e1", "e2","e3"])
-        # mmmm = ak.combinations(muon_mmmm, 4, fields=["m0", "m1", "m2","m3"])
 
         # Triggers
         trig_eeSS = passTrigger(events,'ee',isData,dataset)
