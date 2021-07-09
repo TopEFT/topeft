@@ -160,10 +160,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("Number of 2 FO lep events (with j0.pt>25):",ak.num(l_fo_conept_sorted[l_fo_pt_mask & ss_mask & j_mask],axis=0))
 
         # SyncCheck: Two tight leptons (conePt > 25, conePt > 15) # TODO: Fix
-        #l_tight = ak.concatenate([e.isTightLep,mu.isTightLep],axis=1)
-        l_tight_conept_sorted = l_tight[ak.argsort(l_tight.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
-        l_tight_pt_mask = ak.any(l_tight_conept_sorted[:,0:1].conept > 25.0, axis=1) & ak.any(l_tight_conept_sorted[:,1:2].conept > 15.0, axis=1)
-        print("Number of 2 tight lep events:",ak.num(l_tight_conept_sorted[l_tight_pt_mask],axis=0))
+        l_tight_pt_mask = (ak.any(l_fo_conept_sorted[:,0:1].isTightLep, axis=1) & ak.any(l_fo_conept_sorted[:,1:2].isTightLep, axis=1))
+        print("Number of 2 tight lep events:",ak.num(l_fo_conept_sorted[l_fo_pt_mask & l_tight_pt_mask],axis=0))
 
         print("\n--- End of print statements for the sync check---\n")
         ###### End SyncTest code ######

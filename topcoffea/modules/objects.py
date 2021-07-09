@@ -106,7 +106,7 @@ def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mva
   bTagCut = 0.3093 if year==2016 else 0.3033 if year==2017 else 0.2770
   ptReq      = (conept>10)
   btabReq    = (jetBTagDeepFlav<bTagCut)
-  qualityReq = (ttH_idEmu_cuts_E3 & convVeto & lostHits==0)
+  qualityReq = (ttH_idEmu_cuts_E3 & convVeto & (lostHits==0))
   mvaReq     = ((mvaTTH>0.80) | ((mvaFall17V2noIso_WP80) & (jetRelIso<0.70)))
   return ptReq & btabReq & qualityReq & mvaReq
 
@@ -114,7 +114,7 @@ def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTH, jetRelIso, year):
   bTagCut = 0.3093 if year==2016 else 0.3033 if year==2017 else 0.2770
   ptReq   = (conept>10)
   btagReq = (jetBTagDeepFlav<bTagCut)
-  mvaReq  = ((mvaTTH>0.85) | ((jetBTagDeepFlav<smoothBFlav(0.9*pt*1+jetRelIso,20,45,year)) & (jetRelIso < 0.50)))
+  mvaReq  = ((mvaTTH>0.85) | ((jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (jetRelIso < 0.50)))
   return ptReq & btagReq & mvaReq
 
 def tightSelElec(clean_and_FO_selection_TTH, mvaTTH):
