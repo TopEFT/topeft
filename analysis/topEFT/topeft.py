@@ -117,34 +117,23 @@ class AnalysisProcessor(processor.ProcessorABC):
         ###### Stuff for the SyncCheck ######
         print("\n--- Print statements for the sync check ---\n")
 
-        # This is crazy
-        print("\nloose")
-        for idx,x in enumerate(e.isLooseE):
-        #for idx,x in enumerate(isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)):
-        #for idx,x in enumerate(e['isLoose']):
-            print("x",x)
-            if idx==8: break
-
-
         # SyncCheck: Number of objects
-        print("Number of loose e  :", len(ak.flatten(e[e.isPres & e.isLooseE])))
-        print("Number of loose m  :", len(ak.flatten(mu[mu.isPres & mu.isLooseM])))
         print("Number of pres e  :", len(ak.flatten(e[e.isPres])))
         print("Number of pres m  :", len(ak.flatten(mu[mu.isPres])))
+        print("Number of loose e :", len(ak.flatten(e[e.isPres & e.isLooseE])))
+        print("Number of loose m :", len(ak.flatten(mu[mu.isPres & mu.isLooseM])))
         print("Number of fo e    :", len(ak.flatten(e_fo)))
         print("Number of fo m    :", len(ak.flatten(m_fo)))
         print("Number of tight e :", len(ak.flatten(e_tight)))
         print("Number of tight m :", len(ak.flatten(m_tight)))
 
         # SyncCheck: Two FO leptons (conePt > 25, conePt > 15)
-        #l_fo_conept_sorted = lep_FO[ak.argsort(lep_FO.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
         l_fo_pt_mask = ak.any(l_fo_conept_sorted[:,0:1].conept > 25.0, axis=1) & ak.any(l_fo_conept_sorted[:,1:2].conept > 15.0, axis=1)
         ee_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
         mm_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
         em_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
         me_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
-        print("l_fo_pt_mask",l_fo_pt_mask)
         print("Number of 2 FO l  events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask],axis=0))
         print("Number of 2 FO e  events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & ee_mask],axis=0))
         print("Number of 2 FO m  events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & mm_mask],axis=0))
@@ -166,9 +155,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("\n--- End of print statements for the sync check---\n")
         ###### End SyncTest code ######
 
-        # Also super weird, why does it crash with "ValueError: ak.to_numpy cannot convert 'None' values to np.ma.MaskedArray unless the 'allow_missing' parameter is set to True" if I do e.g. e_tmp = e[e.isPres & e.isFO], and try to use that in concatenate
-        e =  e[e.isPres & e.isFO]
-        mu = mu[mu.isPres & mu.isFO]
+        e =  e[e.isPres & e.isLooseE & e.isFO]
+        mu = mu[mu.isPres & mu.isLooseM & mu.isFO]
         lep_FO = ak.with_name(ak.concatenate([e,mu], axis=1), 'PtEtaPhiMCandidate')
         l0 = lep_FO[ak.argmax(lep_FO.pt,axis=-1,keepdims=True)]
 
@@ -176,10 +164,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         nMuon = ak.num(mu)
         nTau  = ak.num(tau)
 
-        twoLeps   = (nElec+nMuon) == 2
-        threeLeps = (nElec+nMuon) == 3
-        twoElec   = (nElec == 2)
-        twoMuon   = (nMuon == 2)
         e0 = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
         m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
 
