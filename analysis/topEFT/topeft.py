@@ -86,21 +86,23 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu['conept'] = coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
         e['btagDeepFlavB'] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
         mu['btagDeepFlavB'] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
-        
+
         # Muon selection
         mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
+        mu['isLoose'] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
         mu['isFO'] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTH, mu.jetRelIso, year)
         mu['isTight']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
         n_m_pres = len(ak.flatten(mu[mu.isPres]))
-        #mu = mu[mu.isPres & mu.isFO & mu.isTight]
+        n_m_loose = len(ak.flatten(mu[mu.isPres & mu.isLoose]))
         mu = mu[mu.isPres & mu.isFO]
 
         # Electron selection
         e['isPres'] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
+        e['isLoose'] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
         e['isFO']  = isFOElec(e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
         e['isTight'] = tightSelElec(e.isFO, e.mvaTTH)
         n_e_pres = len(ak.flatten(e[e.isPres]))
-        #e  =  e[e.isPres & e.isFO & e.isTight]
+        n_e_loose = len(ak.flatten(e[e.isPres & e.isLoose]))
         e  =  e[e.isPres & e.isFO]
 
         # Tau selection
@@ -117,6 +119,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("\n--- Print statements for the sync check ---\n")
 
         # SyncCheck: Number of tight and fo e and m
+        print("Number of loose e  :", n_e_loose)
+        print("Number of loose m  :", n_m_loose)
         print("Number of pres e  :", n_e_pres)
         print("Number of pres m  :", n_m_pres)
         print("Number of fo e    :", len(ak.flatten(e)))
@@ -127,7 +131,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         # SyncCheck: Two FO leptons (conePt > 25, conePt > 15)
         l_fo_conept_sorted = lep_FO[ak.argsort(lep_FO.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
         l_fo_pt_mask = ak.any(l_fo_conept_sorted[:,0:1].conept > 25.0, axis=1) & ak.any(l_fo_conept_sorted[:,1:2].conept > 15.0, axis=1)
-        print("Number of 2 FO lep events:",ak.num(l_fo_conept_sorted[l_fo_pt_mask],axis=0))
+        ee_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
+        mm_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
+        em_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
+        me_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
+        print("l_fo_pt_mask",l_fo_pt_mask)
+        print("Number of 2 FO l  events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask],axis=0))
+        print("Number of 2 FO e  events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & ee_mask],axis=0))
+        print("Number of 2 FO m  events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & mm_mask],axis=0))
+        print("Number of 2 FO em events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & (em_mask | me_mask)],axis=0))
 
         # SyncCheck: Two FO leptons (conePt > 25, conePt > 15), with SS, and a njet > 1 (with j.pt > 25)
         l_fo_conept_sorted_charge = l_fo_conept_sorted.charge # Get array of charges
@@ -136,10 +148,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         ss_mask     = (l_fo_conept_sorted_charge[:,0]*l_fo_conept_sorted_charge[:,1] == 1)
         j_mask      = ak.flatten(j[ak.argmax(j.pt,axis=-1,keepdims=True)].pt > 25.0)
         n_fo_2_mask = ak.num(l_fo_conept_sorted)==2
-        print("Number of 2 FO lep events (with j0.pt>25):",ak.num(l_fo_conept_sorted[l_fo_pt_mask & ss_mask & j_mask & n_fo_2_mask],axis=0))
+        print("Number of 2 FO lep events (with j0.pt>25):",ak.num(l_fo_conept_sorted[l_fo_pt_mask & ss_mask & j_mask],axis=0))
 
         # SyncCheck: Two tight leptons (conePt > 25, conePt > 15)
-        l_tight = l = ak.concatenate([e[e['isTight']],mu[mu['isTight']]],axis=1)
+        #l_tight = ak.concatenate([e[e['isTight']],mu[mu['isTight']]],axis=1)
+        l_tight = ak.concatenate([e[e.isTight],mu[mu.isTight]],axis=1)
         l_tight_conept_sorted = l_tight[ak.argsort(l_tight.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
         l_tight_pt_mask = ak.any(l_tight_conept_sorted[:,0:1].conept > 25.0, axis=1) & ak.any(l_tight_conept_sorted[:,1:2].conept > 15.0, axis=1)
         print("Number of 2 tight lep events:",ak.num(l_tight_conept_sorted[l_tight_pt_mask],axis=0))

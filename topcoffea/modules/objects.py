@@ -45,6 +45,12 @@ def isCleanJet(jets, electrons, muons, taus, drmin=0.4):
   jetTauMask = ak.fill_none(jetTauDR > drmin, True)
   return (jetEleMask & jetMuMask & jetTauMask)
 
+def isLooseElec(miniPFRelIso_all,sip3d,lostHits):
+  return (miniPFRelIso_all<0.4) & (sip3d<8) & (lostHits<=1)
+
+def isLooseMuon(miniPFRelIso_all,sip3d,looseId):
+  return (miniPFRelIso_all<0.4) & (sip3d<8) & (looseId)
+
 def isPresMuon(dxy, dz, sip3D, eta, pt, miniRelIso):
   mask = (abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(abs(eta)<2.4)&(pt>5)&(miniRelIso<0.4)
   return mask
@@ -71,7 +77,6 @@ def isPresTau(pt, eta, dxy, dz, leadTkPtOverTauPt, idAntiMu, idAntiEle, rawIso, 
   medium = (idAntiMu>0.5)&(idAntiEle>0.5)&(rawIso>0.5)&(idDecayModeNewDMs)
   return kinematics & medium
 
-
 def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
   return (hoe<(0.10-0.00*(abs(eta+deltaEtaSC)>1.479))) & (eInvMinusPInv>-0.04) & (sieie<(0.011+0.019*(abs(eta+deltaEtaSC)>1.479)))
 
@@ -97,7 +102,8 @@ def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mva
   btabReq    = (jetBTagDeepFlav<bTagCut)
   qualityReq = (ttH_idEmu_cuts_E3 & convVeto & lostHits==0)
   mvaReq     = ((mvaTTH>0.80) | ((mvaFall17V2noIso_WP80) & (jetRelIso<0.70)))
-  return (conept>10) & (jetBTagDeepFlav<bTagCut) & (ttH_idEmu_cuts_E3 & convVeto & lostHits == 0) & ((mvaTTH>0.80) | ((mvaFall17V2noIso_WP80) & (jetRelIso < 0.70)))
+  return ptReq & btabReq & qualityReq & mvaReq
+  #return (conept>10) & (jetBTagDeepFlav<bTagCut) & (ttH_idEmu_cuts_E3 & convVeto & lostHits == 0) & ((mvaTTH>0.80) | ((mvaFall17V2noIso_WP80) & (jetRelIso < 0.70)))
 
 def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTH, jetRelIso, year):
   bTagCut = 0.3093 if year==2016 else 0.3033 if year==2017 else 0.2770
