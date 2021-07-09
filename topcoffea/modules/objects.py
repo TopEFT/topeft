@@ -46,6 +46,12 @@ def isCleanJet(jets, electrons, muons, taus, drmin=0.4):
   return (jetEleMask & jetMuMask & jetTauMask)
 
 def isLooseElec(miniPFRelIso_all,sip3d,lostHits):
+  for idx,x in enumerate((miniPFRelIso_all<0.4) & (sip3d<8) & (lostHits<=1)):
+    print(x)
+    if idx==8: break
+  #for idx,x in enumerate(lostHits<=1):
+    #print(x)
+    #if idx==8: break
   return (miniPFRelIso_all<0.4) & (sip3d<8) & (lostHits<=1)
 
 def isLooseMuon(miniPFRelIso_all,sip3d,looseId):
@@ -103,7 +109,6 @@ def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mva
   qualityReq = (ttH_idEmu_cuts_E3 & convVeto & lostHits==0)
   mvaReq     = ((mvaTTH>0.80) | ((mvaFall17V2noIso_WP80) & (jetRelIso<0.70)))
   return ptReq & btabReq & qualityReq & mvaReq
-  #return (conept>10) & (jetBTagDeepFlav<bTagCut) & (ttH_idEmu_cuts_E3 & convVeto & lostHits == 0) & ((mvaTTH>0.80) | ((mvaFall17V2noIso_WP80) & (jetRelIso < 0.70)))
 
 def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTH, jetRelIso, year):
   bTagCut = 0.3093 if year==2016 else 0.3033 if year==2017 else 0.2770

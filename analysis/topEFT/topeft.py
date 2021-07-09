@@ -89,21 +89,16 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Muon selection
         mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-        mu['isLoose'] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
+        mu['isLooseM'] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
         mu['isFO'] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTH, mu.jetRelIso, year)
-        mu['isTight']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
-        n_m_pres = len(ak.flatten(mu[mu.isPres]))
-        n_m_loose = len(ak.flatten(mu[mu.isPres & mu.isLoose]))
-        mu = mu[mu.isPres & mu.isFO]
+        ##mu['isTight']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH) # NOTE this already exists!!!???
+        mu['isTightLep']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
 
         # Electron selection
         e['isPres'] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
-        e['isLoose'] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
+        e['isLooseE'] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
         e['isFO']  = isFOElec(e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
-        e['isTight'] = tightSelElec(e.isFO, e.mvaTTH)
-        n_e_pres = len(ak.flatten(e[e.isPres]))
-        n_e_loose = len(ak.flatten(e[e.isPres & e.isLoose]))
-        e  =  e[e.isPres & e.isFO]
+        e['isTightLep'] = tightSelElec(e.isFO, e.mvaTTH)
 
         # Tau selection
         tau['isPres']  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.leadTkPtOverTauPt, tau.idAntiMu, tau.idAntiEle, tau.rawIso, tau.idDecayModeNewDMs, minpt=20)
@@ -111,25 +106,39 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau['isGood']  = tau['isPres']# & tau['isClean'], for the moment
         tau= tau[tau.isGood]
 
-        lep_FO = ak.with_name(ak.concatenate([e, mu], axis=1), 'PtEtaPhiMCandidate')
-        l0 = lep_FO[ak.argmax(lep_FO.pt,axis=-1,keepdims=True)]
+        m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
+        e_fo = e[e.isPres & e.isLooseE & e.isFO]
+        l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
 
+        m_tight = mu[mu.isPres & mu.isLooseM & mu.isFO & mu.isTightLep]
+        e_tight = e[e.isPres & e.isLooseE & e.isFO & e.isTightLep]
+        l_tight = ak.with_name(ak.concatenate([e_tight, m_tight], axis=1), 'PtEtaPhiMCandidate')
 
         ###### Stuff for the SyncCheck ######
         print("\n--- Print statements for the sync check ---\n")
 
-        # SyncCheck: Number of tight and fo e and m
-        print("Number of loose e  :", n_e_loose)
-        print("Number of loose m  :", n_m_loose)
-        print("Number of pres e  :", n_e_pres)
-        print("Number of pres m  :", n_m_pres)
-        print("Number of fo e    :", len(ak.flatten(e)))
-        print("Number of fo m    :", len(ak.flatten(mu)))
-        print("Number of tight e :", len(ak.flatten(e[e.isTight])))
-        print("Number of tight m :", len(ak.flatten(mu[mu.isTight])))
+        # This is crazy
+        print("\nloose")
+        for idx,x in enumerate(e.isLooseE):
+        #for idx,x in enumerate(isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)):
+        #for idx,x in enumerate(e['isLoose']):
+            print("x",x)
+            if idx==8: break
+
+
+        # SyncCheck: Number of objects
+        print("Number of loose e  :", len(ak.flatten(e[e.isPres & e.isLooseE])))
+        print("Number of loose m  :", len(ak.flatten(mu[mu.isPres & mu.isLooseM])))
+        print("Number of pres e  :", len(ak.flatten(e[e.isPres])))
+        print("Number of pres m  :", len(ak.flatten(mu[mu.isPres])))
+        print("Number of fo e    :", len(ak.flatten(e_fo)))
+        print("Number of fo m    :", len(ak.flatten(m_fo)))
+        print("Number of tight e :", len(ak.flatten(e_tight)))
+        print("Number of tight m :", len(ak.flatten(m_tight)))
 
         # SyncCheck: Two FO leptons (conePt > 25, conePt > 15)
-        l_fo_conept_sorted = lep_FO[ak.argsort(lep_FO.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
+        #l_fo_conept_sorted = lep_FO[ak.argsort(lep_FO.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
+        l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
         l_fo_pt_mask = ak.any(l_fo_conept_sorted[:,0:1].conept > 25.0, axis=1) & ak.any(l_fo_conept_sorted[:,1:2].conept > 15.0, axis=1)
         ee_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
         mm_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
@@ -150,9 +159,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         n_fo_2_mask = ak.num(l_fo_conept_sorted)==2
         print("Number of 2 FO lep events (with j0.pt>25):",ak.num(l_fo_conept_sorted[l_fo_pt_mask & ss_mask & j_mask],axis=0))
 
-        # SyncCheck: Two tight leptons (conePt > 25, conePt > 15)
-        #l_tight = ak.concatenate([e[e['isTight']],mu[mu['isTight']]],axis=1)
-        l_tight = ak.concatenate([e[e.isTight],mu[mu.isTight]],axis=1)
+        # SyncCheck: Two tight leptons (conePt > 25, conePt > 15) # TODO: Fix
+        #l_tight = ak.concatenate([e.isTightLep,mu.isTightLep],axis=1)
         l_tight_conept_sorted = l_tight[ak.argsort(l_tight.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
         l_tight_pt_mask = ak.any(l_tight_conept_sorted[:,0:1].conept > 25.0, axis=1) & ak.any(l_tight_conept_sorted[:,1:2].conept > 15.0, axis=1)
         print("Number of 2 tight lep events:",ak.num(l_tight_conept_sorted[l_tight_pt_mask],axis=0))
@@ -160,6 +168,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("\n--- End of print statements for the sync check---\n")
         ###### End SyncTest code ######
 
+        # Also super weird, why does it crash with "ValueError: ak.to_numpy cannot convert 'None' values to np.ma.MaskedArray unless the 'allow_missing' parameter is set to True" if I do e.g. e_tmp = e[e.isPres & e.isFO], and try to use that in concatenate
+        e =  e[e.isPres & e.isFO]
+        mu = mu[mu.isPres & mu.isFO]
+        lep_FO = ak.with_name(ak.concatenate([e,mu], axis=1), 'PtEtaPhiMCandidate')
+        l0 = lep_FO[ak.argmax(lep_FO.pt,axis=-1,keepdims=True)]
 
         nElec = ak.num(e)
         nMuon = ak.num(mu)
@@ -503,7 +516,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # MET filters
 
         # Tight Selection
-        isTight = (ak.singletons(ak.num(lep_FO[lep_FO.isTight==False]))==0)
+        isTight = (ak.singletons(ak.num(lep_FO[lep_FO.isTightLep==False]))==0)
 
         # Weights
         genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
