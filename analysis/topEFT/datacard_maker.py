@@ -42,7 +42,7 @@ class DatacardMaker():
         self.charge = list({k[3]:0 for k in self.hists['njets'].values().keys()})
         self.syst = list({k[4]:0 for k in self.hists['njets'].values().keys()})
         self.hsow = self.hists['SumOfEFTweights']
-        self.hsow.set_wilson_coefficients(np.zeros(self.hsow._nwc))
+        self.hsow.set_sm()
         self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples}
         with open(lumiJson) as jf:
             lumi = json.load(jf)
@@ -74,9 +74,9 @@ class DatacardMaker():
                 cat = '_'.join([channel, maxb])  
         else:
             if isinstance(charge, str):
-                '_'.join([channel, charge, maxb, variable])
+                cat = '_'.join([channel, charge, maxb, variable])
             else:
-                '_'.join([channel, maxb, variable])
+                cat = '_'.join([channel, maxb, variable])
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fout = uproot3.recreate(fname)
         #Scale each plot to the SM
@@ -94,9 +94,11 @@ class DatacardMaker():
                 if   '2l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7]))
                 elif '3l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5]))
                 elif '4l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4]))
+            elif variable == 'ht':
+                h_base = h_base.rebin('ht', hist.Bin("ht", "H$_{T}$ (GeV)", 10, 0, 1000))
             #Save the SM plot
             h_sm = h_base#.copy()
-            h_sm.set_wilson_coefficients(np.zeros(h_base._nwc))
+            h_sm.set_sm()
             fout[pname+'sm'] = hist.export1d(h_sm)
             #Asimov data: data_obs = MC at SM (all WCs = 0)
             fout['data_obs'] = hist.export1d(h_sm)
@@ -108,7 +110,7 @@ class DatacardMaker():
                 #Handle linear and quadratic terms
                 if 'lin' in name:
                     h_lin = h_base#.copy()
-                    h_lin.set_wilson_coefficients(wcpt)
+                    h_lin.set_wilson_coeff_from_array(wcpt)
                     if np.sum(h_lin.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_lin)
                         if variable == 'njets':
@@ -123,12 +125,12 @@ class DatacardMaker():
                                 '_'.join([channel, maxb, variable])
                 elif 'quad' in name and 'mix' not in name:
                     h_quad = h_base#.copy()
-                    h_quad.set_wilson_coefficients(wcpt)
+                    h_quad.set_wilson_coeff_from_array(wcpt)
                     if np.sum(h_quad.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_quad)
                 else:
                     h_mix = h_base#.copy()
-                    h_mix.set_wilson_coefficients(wcpt)
+                    h_mix.set_wilson_coeff_from_array(wcpt)
                     if np.sum(h_mix.values()[()]) > self.tolerance:
                         fout[pname+name] = hist.export1d(h_mix)
         
@@ -202,10 +204,14 @@ class DatacardMaker():
                 data_obs = d_hists[p+'_sm'].Clone('data_obs')
             else:
                 data_obs += d_hists[p+'_sm'].Clone('data_obs')
-            allyields[name] += data_obs.Integral()
             asimov = np.random.poisson(int(data_obs.Integral()))
             data_obs.SetDirectory(fout)
             if proc == self.samples[-1]:
+                xmin = data_obs.GetXaxis().GetXmin()
+                xmax = data_obs.GetXaxis().GetXmax()
+                xwidth = data_obs.GetXaxis().GetBinWidth(1)
+                data_obs.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
+                allyields[name] = data_obs.Integral()
                 data_obs.Scale(allyields['data_obs'] / data_obs.Integral())
                 data_obs.Write()
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
@@ -370,14 +376,22 @@ if __name__ == '__main__':
     do_nuisance = args.do_nuisance
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
-    hr = DatacardMaker(pklfile, year, lumiJson, do_nuisance)
-    hr.read()
-    hr.buildWCString()
-    hr.analyzeChannel(channel='2lss', cuts='1+bm2+bl', charges='ch+', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='2lss', cuts='1+bm2+bl', charges='ch-', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l', cuts='1bm', charges='ch+', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l', cuts='1bm', charges='ch-', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l', cuts='2+bm', charges='ch+', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l', cuts='2+bm', charges='ch-', systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='3l_sfz', cuts='2+bm', charges=['ch+','ch-'], systematics='nominal', variable='njets')
-    hr.analyzeChannel(channel='4l', cuts='1+bm2+bl', charges=['ch+','ch0','ch-'], systematics='nominal', variable='njets')
+    card = DatacardMaker(pklfile, year, lumiJson, do_nuisance)
+    card.read()
+    card.buildWCString()
+    card.analyzeChannel(channel='2lss', cuts='1+bm2+bl', charges='ch+', systematics='nominal', variable='njets')
+    card.analyzeChannel(channel='2lss', cuts='1+bm2+bl', charges='ch-', systematics='nominal', variable='njets')
+    card.analyzeChannel(channel='3l', cuts='1bm', charges='ch+', systematics='nominal', variable='njets')
+    card.analyzeChannel(channel='3l', cuts='1bm', charges='ch-', systematics='nominal', variable='njets')
+    card.analyzeChannel(channel='3l', cuts='2+bm', charges='ch+', systematics='nominal', variable='njets')
+    card.analyzeChannel(channel='3l', cuts='2+bm', charges='ch-', systematics='nominal', variable='njets')
+    card.analyzeChannel(channel='3l_sfz', cuts='2+bm', charges=['ch+','ch-'], systematics='nominal', variable='njets')
+    card.analyzeChannel(channel='4l', cuts='1+bm2+bl', charges=['ch+','ch0','ch-'], systematics='nominal', variable='njets')
+    card.analyzeChannel(channel='2lss', cuts='1+bm2+bl', charges='ch+', systematics='nominal', variable='ht')
+    card.analyzeChannel(channel='2lss', cuts='1+bm2+bl', charges='ch-', systematics='nominal', variable='ht')
+    card.analyzeChannel(channel='3l', cuts='1bm', charges='ch+', systematics='nominal', variable='ht')
+    card.analyzeChannel(channel='3l', cuts='1bm', charges='ch-', systematics='nominal', variable='ht')
+    card.analyzeChannel(channel='3l', cuts='2+bm', charges='ch+', systematics='nominal', variable='ht')
+    card.analyzeChannel(channel='3l', cuts='2+bm', charges='ch-', systematics='nominal', variable='ht')
+    card.analyzeChannel(channel='3l_sfz', cuts='2+bm', charges=['ch+','ch-'], systematics='nominal', variable='ht')
+    card.analyzeChannel(channel='4l', cuts='1+bm2+bl', charges=['ch+','ch0','ch-'], systematics='nominal', variable='ht')

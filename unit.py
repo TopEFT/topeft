@@ -294,7 +294,7 @@ def test_histeft():
 
     chk_x = 1.5
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
-    chk_arr = np.array([chk_x,0]) # CtG=chk_x, ctZ=0
+    chk_vals = {wc_name:chk_x, 'ctZ':0.0}
     chk_pt = WCPoint(f'EFTrwgt0_{wc_name}_{chk_x}',0.0)
 
     print('Running unit tests for HistEFT class')
@@ -324,7 +324,7 @@ def test_histeft():
 
     ###########################
 
-    h_base.set_wilson_coefficients(chk_arr)
+    h_base.set_wilson_coefficients(**chk_vals)
 
     expected = fit_1.EvalPoint(chk_pt)
     result = list(h_base.values().values())[0][0]
@@ -345,9 +345,9 @@ def test_histeft():
 
     chk_x = 0.75
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
-    chk_arr = np.array([chk_x,0]) # CtG=chk_x, ctZ=0
+    chk_vals = {wc_name:chk_x, 'ctZ':0.0}
     chk_pt.SetStrength(wc_name,chk_x)
-    h_base.set_wilson_coefficients(chk_arr)
+    h_base.set_wilson_coefficients(**chk_vals)
 
     expected = fit_1.EvalPoint(chk_pt)
     result = list(h_base.values().values())[0][0]
@@ -367,7 +367,7 @@ def test_histeft():
     ###########################
 
     h_base.fill(n=val, sample='test', weight=np.ones_like(val), eft_coeff=[ak.Array(sconst)*2])
-    h_base.set_wilson_coefficients(chk_arr)
+    h_base.set_wilson_coefficients(**chk_vals)
 
     # First make sure the original WCFits weren't messed with
     expected = chk_y + 2*chk_y
@@ -411,10 +411,10 @@ def test_histeft():
 
     chk_x = 0.975
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
-    chk_arr = np.array([chk_x,0]) # CtG=chk_x, ctZ=0
+    chk_vals = {wc_name:chk_x, 'ctZ':0.0}
     chk_pt.SetStrength(wc_name,chk_x)
     
-    h_new.set_wilson_coefficients(chk_arr)
+    h_new.set_wilson_coefficients(**chk_vals)
 
     # First check that h_new has the right value
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
@@ -434,7 +434,7 @@ def test_histeft():
     
     chk_x = 0.75    # Needs to be w/e chk_x was before UNIT 6
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
-    chk_arr = np.array([chk_x,0]) # CtG=chk_x, ctZ=0
+    chk_vals = {wc_name:chk_x, 'ctZ':0.0}
     chk_pt.SetStrength(wc_name,chk_x)
 
     # Next check that the h_base was unaffected when we scaled h_new
@@ -457,7 +457,7 @@ def test_histeft():
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt) #fits for h_base
     expected += fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt) #fits for h_new
     h_base.add(h_new)
-    h_base.set_wilson_coefficients(chk_arr) #evaluate h_base at chk_pt
+    h_base.set_wilson_coefficients(**chk_vals) #evaluate h_base at chk_pt
     result = list(h_base.values().values())[0][0]
 
     unit_chk = abs(result - expected) < tolerance
@@ -475,11 +475,11 @@ def test_histeft():
     # Check HistEFT.add() reweight
     chk_x = 0.75    # Needs to be w/e chk_x was before UNIT 6
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
-    chk_arr = np.array([chk_x,0]) # CtG=chk_x, ctZ=0
+    chk_vals = {wc_name:chk_x, 'ctZ':0.0}
     chk_pt.SetStrength(wc_name,chk_x)
     expected = fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
     expected += fit_1.EvalPoint(chk_pt) + fit_2.EvalPoint(chk_pt)
-    h_base.set_wilson_coefficients(chk_arr)
+    h_base.set_wilson_coefficients(**chk_vals)
     result = list(h_base.values().values())[0][0]
 
     unit_chk = abs(result - expected) < tolerance

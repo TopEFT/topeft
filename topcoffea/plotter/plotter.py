@@ -186,7 +186,7 @@ class plotter:
       sow = sow[process].sum("process")
     nwc = sow._nwc
     if nwc > 0:
-        sow.set_wilson_coefficients(np.zeros(nwc))
+        sow.set_sm()
         sow = sow.integrate("sample")
         sow = np.sum(sow.values()[()])
         h.scale(1. / sow) # Divie EFT samples by sum of weights at SM
