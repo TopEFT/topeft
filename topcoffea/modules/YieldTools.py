@@ -288,28 +288,31 @@ class YieldTools():
 
         h = self.select_hist_for_ana_cat(h,self.CATEGORIES[cat],njet)
 
+        '''
         # Reweight h (TODO: This part will need to be cleaned up.. should we pass the wc point to  this function?)
         if h._nwc == 22:
-            print("22 WCs")
+            #print("22 WCs")
             wc_vals = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22])
         if h._nwc == 26:
             if h._wcnames[-1] == "cQQ1":
-                print("26 WCs, sample came from mix-and-match-wc branch branch")
+                #print("26 WCs, sample came from mix-and-match-wc branch branch")
                 wc_vals = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,0,0,0,0]) # If comparing against a 22 WC sample
                 #wc_vals = np.array([1,2,4,22,21,6,7,9,12,13,18,15,17,14,24,20,25,26,8,11,10,5,3,16,19,23]) # To match the tttt WCs order on master branch
             if h._wcnames[-1] == "ctW":
-                print("26 WCs, sample came from master branch")
+                #print("26 WCs, sample came from master branch")
                 wc_vals = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26])
                 #wc_vals = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,0,0,0,0]) # If comparing against a 22 WC sample
         #h.set_wilson_coefficients(wc_vals)
-        h.set_wilson_coefficients([0]*h._nwc) # Reweight to the SM
+        '''
+        h.set_sm()
 
         lumi = 1000.0*self.get_lumi(year)
         h_sow = hin_dict["SumOfEFTweights"]
         nwc = h_sow._nwc
 
         if nwc > 0:
-            h_sow.set_wilson_coefficients([0]*h._nwc)
+            #h_sow.set_wilson_coefficients([0]*h._nwc)
+            h.set_sm()
             sow_val , sow_err = self.get_yield(h_sow,proc)
             h.scale(1.0/sow_val) # Divide EFT samples by sum of weights at SM, ignore error propagation for now
             #print("sow_val,sow_err",sow_val,sow_err,"->",sow_err/sow_val)
@@ -354,7 +357,7 @@ class YieldTools():
     ######### Functions that just print out information #########
 
     # Print out all the info about all the axes in a hist
-    def print_hist_info(path):
+    def print_hist_info(self,path):
 
         if type(path) is str: hin_dict = self.get_hist_from_pkl(path)
         else: hin_dict = path
@@ -416,6 +419,7 @@ class YieldTools():
                                 print("&",yld,"$\pm$",err,end=' ')
                             else:
                                 print("&",yld,end=' ')
+                    print("\\\ ")
 
             # Print processes as columns
             if columns == "procs":
@@ -442,7 +446,7 @@ class YieldTools():
             print("\\end{table}")
 
         if print_begin_info: print_begin()
-        print_table(self.PROC_MAP.keys(),col_order_lst,columns=column_variable)
+        print_table(self.PROC_MAP.keys(),col_order_lst,columns=column_variable) # TODO: Need to fix this
         if print_end_info: print_end()
 
 
