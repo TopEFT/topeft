@@ -1,6 +1,7 @@
 import argparse
 import json
 from topcoffea.modules.YieldTools import YieldTools
+import topcoffea.modules.MakeLatexTable as mlt
 
 def main():
 
@@ -44,10 +45,10 @@ def main():
 
         # TODO: Need to fix the print_latex_yield_table stuff...
         #yt.print_latex_yield_table({},[],"",print_begin_info=True)
-        yt.print_latex_yield_table(yld_dict_1,yt.CAT_LST,args.tag_1,print_begin_info=True)
-        yt.print_latex_yield_table(yld_dict_2,yt.CAT_LST,args.tag_2)
-        yt.print_latex_yield_table(pdiff_dict,yt.CAT_LST,f"Percent diff between {args.tag_1} and {args.tag_2}")
-        yt.print_latex_yield_table(diff_dict,yt.CAT_LST,f"Diff between {args.tag_1} and {args.tag_2}",print_end_info=True)
+        mlt.print_latex_yield_table(yld_dict_1,yt.PROC_MAP.keys(),yt.CAT_LST,args.tag_1,print_begin_info=True)
+        mlt.print_latex_yield_table(yld_dict_2,yt.PROC_MAP.keys(),yt.CAT_LST,args.tag_2)
+        mlt.print_latex_yield_table(pdiff_dict,yt.PROC_MAP.keys(),yt.CAT_LST,f"Percent diff between {args.tag_1} and {args.tag_2}")
+        mlt.print_latex_yield_table(diff_dict,yt.PROC_MAP.keys(),yt.CAT_LST,f"Diff between {args.tag_1} and {args.tag_2}",print_end_info=True)
         #yt.print_latex_yield_table({},[],"",print_end_info=True)
 
     # Raise errors if yields are too different
