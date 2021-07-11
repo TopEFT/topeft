@@ -45,10 +45,10 @@ def main():
 
         # TODO: Need to fix the print_latex_yield_table stuff...
         mlt.print_begin()
-        mlt.print_latex_yield_table(yld_dict_1,yt.PROC_MAP.keys(),yt.CAT_LST,args.tag_1)
-        mlt.print_latex_yield_table(yld_dict_2,yt.PROC_MAP.keys(),yt.CAT_LST,args.tag_2)
-        mlt.print_latex_yield_table(pdiff_dict,yt.PROC_MAP.keys(),yt.CAT_LST,f"Percent diff between {args.tag_1} and {args.tag_2}")
-        mlt.print_latex_yield_table(diff_dict,yt.PROC_MAP.keys(),yt.CAT_LST,f"Diff between {args.tag_1} and {args.tag_2}")
+        mlt.print_latex_yield_table(yld_dict_1,key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=args.tag_1)
+        mlt.print_latex_yield_table(yld_dict_2,key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=args.tag_2)
+        mlt.print_latex_yield_table(pdiff_dict,key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=f"Percent diff between {args.tag_1} and {args.tag_2}")
+        mlt.print_latex_yield_table(diff_dict, key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=f"Diff between {args.tag_1} and {args.tag_2}")
         mlt.print_end()
 
     # Raise errors if yields are too different

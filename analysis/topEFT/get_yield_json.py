@@ -27,7 +27,7 @@ def main():
     if not args.quiet:
         yt.print_hist_info(args.pkl_file_path)
         yt.print_yld_dicts(yld_dict,args.tag)
-        mlt.print_latex_yield_table(yld_dict,yt.PROC_MAP.keys(),yt.CAT_LST,args.tag,print_begin_info=True,print_end_info=True)
+        mlt.print_latex_yield_table(yld_dict,key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=args.tag,print_begin_info=True,print_end_info=True)
 
     # Save to a json
     out_json_name = args.json_name

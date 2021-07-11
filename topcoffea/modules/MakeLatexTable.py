@@ -86,8 +86,18 @@ def print_table(vals_dict,key_order,subkey_order,caption_text,print_errs,columns
     print("\\end{table}")
 
 # Wrapper function for printing a table
-def print_latex_yield_table(vals_dict,key_order_lst,cat_order_lst,tag,print_begin_info=False,print_end_info=False,print_errs=False,column_variable="subkeys"):
+def print_latex_yield_table(vals_dict,key_order=None,subkey_order=None,tag="",print_begin_info=False,print_end_info=False,print_errs=False,column_variable="subkeys"):
+
+    # If order for columns and rows not specified, just use the keys of the dict:
+    if key_order is None:
+        key_order = list(vals_dict.keys())
+    if subkey_order is None:
+        for k in vals_dict.keys():
+            subkey_order = list(vals_dict[k].keys())
+            break
+
+    # Print the table
     if print_begin_info: print_begin()
-    print_table(vals_dict,key_order_lst,cat_order_lst,tag,print_errs,columns=column_variable)
+    print_table(vals_dict,key_order,subkey_order,tag,print_errs,columns=column_variable)
     if print_end_info: print_end()
 
