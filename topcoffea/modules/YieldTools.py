@@ -165,6 +165,7 @@ class YieldTools():
                     ret_name = long_name
         return ret_name
 
+
     ######### General functions #########
 
     # Get percent difference
@@ -178,10 +179,12 @@ class YieldTools():
             p = (float(a)-float(b))/float(b)
         return p
 
+
     # Get the dictionary of hists from the pkl file (that the processor outputs)
     def get_hist_from_pkl(self,path_to_pkl):
         h = pickle.load( gzip.open(path_to_pkl) )
         return h
+
 
     # Return the lumi from the json/lumi.json file for a given year
     def get_lumi(self,year):
@@ -190,6 +193,7 @@ class YieldTools():
            lumi = json.load(f_lumi)
            lumi = lumi[year]
         return lumi
+
 
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, retrun the list of categories for that axis
     def get_cat_lables(self,hin_dict,axis,h_name=None):
@@ -209,12 +213,14 @@ class YieldTools():
             h_ret = h_ret.integrate(axis_name,cat_lst)
         return h_ret
 
+
     # Takes a histogram and a bin, rebins the njets axis to consist of only that bin (all other bins combined into under/overvlow)
     def select_njet_bin(self,h,bin_val):
         if not isinstance(bin_val,int):
             raise Exception(f"Need to pass an int to this function, got a {type(bin_val)} instead. Exiting...")
         h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [bin_val,bin_val+1]))
         return h
+
 
     # Get the difference between values in nested dictionary, currently can get either percent diff, or absolute diff
     # Returns a dictionary in the same formate (cuttently does not propagate errors, just returns None)
@@ -249,6 +255,7 @@ class YieldTools():
 
         return ret_dict
 
+
     ######### Functions specifically for getting yields #########
 
     # Sum all the values of a hist 
@@ -264,21 +271,24 @@ class YieldTools():
         e_sum = np.sqrt(e_sum)
         return (v_sum,e_sum)
 
+
     # Uses integrate_out_cats() and select_njet_bin() to return h for a particular analysis cateogry
-    #def get_h_for_cat(h,cat_dict,njet):
     def select_hist_for_ana_cat(self,h,cat_dict,njet):
         h_ret = self.integrate_out_cats(h,cat_dict)
         h_ret = h_ret.integrate("systematic","nominal") # For now anyway...
         h_ret = self.select_njet_bin(h_ret,njet)
         return h_ret
 
+
     # This is really just a wrapper for get_yield(). Note:
     #   - This fucntion now also rebins the njets hists
     #   - Maybe that does not belong in this function
-    def get_scaled_yield(self,hin_dict,year,proc,cat,njets_cat,overflow_str):
+    #   - Maybe depends on how we store njets info moving forward
+    def get_scaled_yield(self,hin_dict,year,proc,cat,njets_cat,overflow_str,rwgt_pt=None):
 
         h = hin_dict["njets"]
 
+        # Figure out which njet bins we want to combine
         if isinstance(njets_cat,str):
             njet = self.JET_BINS[njets_cat][0]
         elif isinstance(njets_cat,int):
@@ -286,41 +296,29 @@ class YieldTools():
         else:
             raise Exception(f"Wrong type, expected str or int, but got a {type(njets_cat)}, exiting...")
 
+        # Integrate over the categories for the analysis category we are interested in
         h = self.select_hist_for_ana_cat(h,self.CATEGORIES[cat],njet)
 
-        '''
-        # Reweight h (TODO: This part will need to be cleaned up.. should we pass the wc point to  this function?)
-        if h._nwc == 22:
-            #print("22 WCs")
-            wc_vals = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22])
-        if h._nwc == 26:
-            if h._wcnames[-1] == "cQQ1":
-                #print("26 WCs, sample came from mix-and-match-wc branch branch")
-                wc_vals = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,0,0,0,0]) # If comparing against a 22 WC sample
-                #wc_vals = np.array([1,2,4,22,21,6,7,9,12,13,18,15,17,14,24,20,25,26,8,11,10,5,3,16,19,23]) # To match the tttt WCs order on master branch
-            if h._wcnames[-1] == "ctW":
-                #print("26 WCs, sample came from master branch")
-                wc_vals = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26])
-                #wc_vals = np.array([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,0,0,0,0]) # If comparing against a 22 WC sample
-        #h.set_wilson_coefficients(wc_vals)
-        '''
-        h.set_sm()
+        # Reweight the hist
+        if rwgt_pt is not None:
+            hist.set_wilson_coefficients(**wc_vals)
+        else:
+            h.set_sm()
 
-        lumi = 1000.0*self.get_lumi(year)
+        # Scale by sum of weights (if EFT hist)
         h_sow = hin_dict["SumOfEFTweights"]
         nwc = h_sow._nwc
-
         if nwc > 0:
-            #h_sow.set_wilson_coefficients([0]*h._nwc)
             h.set_sm()
             sow_val , sow_err = self.get_yield(h_sow,proc)
             h.scale(1.0/sow_val) # Divide EFT samples by sum of weights at SM, ignore error propagation for now
-            #print("sow_val,sow_err",sow_val,sow_err,"->",sow_err/sow_val)
-            #print("Num of WCs:",nwc)
-            #print("Sum of weights:",sow)
 
+        # Scale by lumi
+        lumi = 1000.0*self.get_lumi(year)
         h.scale(lumi)
+
         return self.get_yield(h,proc,overflow_str)
+
 
     # This function:
     #   - Takes as input a hist dict (i.e. what the processor outptus)
@@ -370,8 +368,12 @@ class YieldTools():
                 print(cat)
 
 
-
     # Takes yield dicts (i.e. what get_yld_dict() returns) and prints it
+    # Note:
+    #   - This function also now optionally takes a tolerance value
+    #   - Checks if the differences are larger than that value
+    #   - Returns False if any of the values are too large
+    #   - Should a different function handle this stuff?
     def print_yld_dicts(self,ylds_dict,tag,show_errs=False,tolerance=None):
         ret = True
         print(f"\n--- {tag} ---\n")
@@ -397,6 +399,7 @@ class YieldTools():
                         print(f"\t{val} -> NOTE: This is larger than tolerance ({tolerance})!")
                         ret = False
         return ret
+
 
     # This function:
     #    - Takes as input a yld dict
