@@ -25,15 +25,15 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 ### Scripts for finding and comparing yields
 
 * `get_yield_json.py`:
-    - This script takes a pkl file produced by the processor, finds the yields in the analysis categories, and saves the yields to a json file. It also prints the info to the screen.
+    - This script takes a pkl file produced by the processor, finds the yields in the analysis categories, and saves the yields to a json file. It can also print the info to the screen.
     - Example usage: `python get_yield_json.py histos/your_pkl_file.pkl.gz`
 
 * `comp_yields.py`:
-    - This script takes two json files of yields (produced by `get_yield_json.py`), and prints out the yields, and information about how they compare; it also prints this info into a latex table. You can also compare to the TOP-19-001 yields by specifying `TOP-19-001` as one of the inputs. 
+    - This script takes two json files of yields (produced by `get_yield_json.py`), finds the difference and percent difference between them in each category, and prints out all of the information. You can also compare to the TOP-19-001 yields by specifying `TOP-19-001` as one of the inputs. The script returns a non-zero exit code if any of the percent differences are larger than a given value (currently set to 1e-8). 
     - Example usage: `python comp_yields.py -f1 your_yields_1.json -f2 your_yields_2.json`
 
 * `check_yields.sh`:
-    - This script calls `run.py` (to run the `topeft` processor over a sample), `get_yield_json.py` (to find the yields, and save them to a json file), and `comp_yields.py` (to compare these yields to reference yields.
+    - This script calls `run.py` (to run the `topeft` processor over a sample), `get_yield_json.py` (to find the yields, and save them to a json file), and `comp_yields.py` (to compare these yields to reference yields).
     - Example usage: `source check_yields.sh`
 
 ### Other scripts
