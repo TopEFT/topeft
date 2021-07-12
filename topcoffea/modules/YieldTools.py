@@ -204,7 +204,7 @@ class YieldTools():
         return lumi
 
 
-    # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, retruns the list of categories for that axis. efaults to 'njets' histogram if none given.
+    # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
         cats = []
         if h_name is None: h_name = "njets" # Guess a hist that we usually have
