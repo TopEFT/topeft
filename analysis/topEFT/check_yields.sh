@@ -1,5 +1,22 @@
-#/bin/bash
+#!/bin/bash
 
-#python run.py ../../topcoffea/cfg/comp_sample.cfg
+# What we want to call the output files
+FILE_NAME="check_yields"
 
-python find_yields.py histos/plotsTopEFT_privateUL17_all_merged.pkl.gz --quiet
+# The json we want to compare against
+REF_FILE_NAME="test/placeholder_ref_yields.json"
+
+# Run the processor
+printf "\nRunning processor...\n"
+time python run.py ../../topcoffea/cfg/comp_sample.cfg -o $FILE_NAME
+
+# Make the jsons
+printf "\nMaking yields json from pkl...\n"
+python get_yield_json.py histos/$FILE_NAME.pkl.gz -n $FILE_NAME --quiet
+
+# Compare the yields to the ref json
+printf "\nComparing yields agains reference...\n"
+python comp_yields.py -f1 $REF_FILE_NAME -f2 $FILE_NAME.json -t1 "Ref yields" -t2 "New yields" --quiet
+
+# Do something with the exit code?
+echo $?

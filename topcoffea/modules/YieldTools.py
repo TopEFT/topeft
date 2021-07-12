@@ -373,6 +373,7 @@ class YieldTools():
 
     # Takes yield dicts (i.e. what get_yld_dict() returns) and prints it
     def print_yld_dicts(self,ylds_dict,tag,show_errs=False,tolerance=None):
+        ret = True
         print(f"\n--- {tag} ---\n")
         for proc in ylds_dict.keys():
             print(proc)
@@ -394,6 +395,8 @@ class YieldTools():
                         print(f"\t{val}")
                     else:
                         print(f"\t{val} -> NOTE: This is larger than tolerance ({tolerance})!")
+                        ret = False
+        return ret
 
     # This function:
     #    - Takes as input a yld dict
