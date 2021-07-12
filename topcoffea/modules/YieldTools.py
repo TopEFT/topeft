@@ -10,6 +10,8 @@ class YieldTools():
 
     def __init__(self):
 
+        self.LUMI_FILE = topcoffea_path("json/lumi.json")
+
         self.CAT_LST = ["cat_2lss_p","cat_2lss_m","cat_3l_1b_offZ_p","cat_3l_1b_offZ_m","cat_3l_2b_offZ_p","cat_3l_2b_offZ_m","cat_3l_1b_onZ","cat_3l_2b_onZ","cat_4l"]
 
         self.PROC_MAP = {
@@ -188,7 +190,7 @@ class YieldTools():
 
     # Return the lumi from the json/lumi.json file for a given year
     def get_lumi(self,year):
-        lumi_json = topcoffea_path("json/lumi.json")
+        lumi_json = self.LUMI_FILE
         with open(lumi_json) as f_lumi:
            lumi = json.load(f_lumi)
            lumi = lumi[year]
