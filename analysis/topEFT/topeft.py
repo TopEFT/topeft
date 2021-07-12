@@ -14,7 +14,7 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetLeptonSF, GetBTagSF, jet_factory, GetBtagEff
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
@@ -120,6 +120,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         e0 = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
         m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
 
+        # Attach the lepton SFs to the electron and muons collections
+        AttachElectronSF(e,year=year)
+        AttachMuonSF(mu,year=year)
+
+        # Create a lepton (muon+electron) collection and calculate a per event lepton SF
+        leps = ak.concatenate([e,mu],axis=-1)
+        events['lepSF_nom'] = ak.prod(leps.sf_nom,axis=-1)
+        events['lepSF_hi']  = ak.prod(leps.sf_hi,axis=-1)
+        events['lepSF_lo']  = ak.prod(leps.sf_lo,axis=-1)
+
         # Jet selection
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
         
@@ -148,9 +158,6 @@ class AnalysisProcessor(processor.ProcessorABC):
           elif(self.jetSyst == 'JESDown'):
             jets = corrected_jets.JES_jes.down
           '''
-        
-        
-        
         j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, j.neHEF, j.neEmEF, j.chHEF, j.chEmEF, j.nConstituents)
         #j['isgood']  = isGoodJet(j.pt, j.eta, j.jetId)
         #j['isclean'] = isClean(j, e, mu)
@@ -209,9 +216,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         emSS = em[emSSmask]
         nemSS = len(ak.flatten(emSS))
  
-        lepSF_emSS      = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year)
-        lepSF_emSS_up   = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year, sys=1)
-        lepSF_emSS_down = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year, sys=-1)
         # ee and mumu
         # pt>-1 to preserve jagged dimensions
         ee = e [(nElec==2)&(nMuon==0)&(e.pt>-1)]
@@ -236,13 +240,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         neeSS = len(ak.flatten(eeSSonZ)) + len(ak.flatten(eeSSoffZ))
         nmmSS = len(ak.flatten(mmSSonZ)) + len(ak.flatten(mmSSoffZ))
         
-        lepSF_eeSS = GetLeptonSF(eepairs.e0.pt, eepairs.e0.eta, 'e', eepairs.e1.pt, eepairs.e1.eta, 'e', year=year)
-        lepSF_mumuSS = GetLeptonSF(mmpairs.m0.pt, mmpairs.m0.eta, 'm', mmpairs.m1.pt, mmpairs.m1.eta, 'm', year=year)
-        lepSF_eeSS_up = GetLeptonSF(eepairs.e0.pt, eepairs.e0.eta, 'e', eepairs.e1.pt, eepairs.e1.eta, 'e', year=year, sys=1)
-        lepSF_mumuSS_up = GetLeptonSF(mmpairs.m0.pt, mmpairs.m0.eta, 'm', mmpairs.m1.pt, mmpairs.m1.eta, 'm', year=year, sys=1)
-        lepSF_eeSS_down = GetLeptonSF(eepairs.e0.pt, eepairs.e0.eta, 'e', eepairs.e1.pt, eepairs.e1.eta, 'e', year=year, sys=-1)
-        lepSF_mumuSS_down = GetLeptonSF(mmpairs.m0.pt, mmpairs.m0.eta, 'm', mmpairs.m1.pt, mmpairs.m1.eta, 'm', year=year, sys=-1)
-
         print('Same-sign events [ee, emu, mumu] = [%i, %i, %i]'%(neeSS, nemSS, nmmSS))
 
         # Cuts
@@ -254,7 +251,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         mmoffZmask = (ak.num(mmoffZmask[mmoffZmask])>0)
         emSSmask   = (ak.num(emSSmask[emSSmask])>0)
 
-
         ##################################################################
         ### 3 leptons
         ##################################################################
@@ -262,8 +258,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         # eem
         muon_eem = mu[(nElec==2)&(nMuon==1)&(mu.pt>-1)]
         elec_eem =  e[(nElec==2)&(nMuon==1)&( e.pt>-1)]
-        ee_eem = ak.combinations(elec_eem, 2, fields=["e0", "e1"])
 
+        ee_eem = ak.combinations(elec_eem, 2, fields=["e0", "e1"])
         ee_eemZmask     = (ee_eem.e0.charge*ee_eem.e1.charge<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91.2)<10)
         ee_eemOffZmask  = (ee_eem.e0.charge*ee_eem.e1.charge<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91.2)>10)
         ee_eemZmask     = (ak.num(ee_eemZmask[ee_eemZmask])>0)
@@ -271,10 +267,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         eepair_eem  = (ee_eem.e0+ee_eem.e1)
         trilep_eem = eepair_eem+muon_eem #ak.cartesian({"e0":ee_eem.e0,"e1":ee_eem.e1, "m":muon_eem})
-
-        lepSF_eem = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', muon_eem.pt, muon_eem.eta, 'm', year)
-        lepSF_eem_up = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', muon_eem.pt, muon_eem.eta, 'm', year, sys=1)
-        lepSF_eem_down = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', muon_eem.pt, muon_eem.eta, 'm', year, sys=-1)
 
         # mme
         muon_mme = mu[(nElec==1)&(nMuon==2)&(mu.pt>-1)]
@@ -293,28 +285,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         mZ_eem  = eepair_eem.mass
         m3l_eem = trilep_eem.mass
         m3l_mme = trilep_mme.mass
-        
-        lepSF_mme = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', elec_mme.pt, elec_mme.eta, 'e', year)
-        lepSF_mme_up = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', elec_mme.pt, elec_mme.eta, 'e', year, sys=1)
-        lepSF_mme_down = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', elec_mme.pt, elec_mme.eta, 'e', year, sys=-1)
 
         # eee and mmm
         eee =   e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
         mmm =  mu[(nElec==0)&(nMuon==3)&(mu.pt>-1)] 
 
         eee_leps = ak.combinations(eee, 3, fields=["e0", "e1", "e2"])
-        mmm_leps = ak.combinations(mmm, 3, fields=["m0", "m1", "m2"])
+        mmm_leps       = ak.combinations(mmm, 3, fields=["m0", "m1", "m2"])
+
         ee_pairs = ak.combinations(eee, 2, fields=["e0", "e1"])
         mm_pairs = ak.combinations(mmm, 2, fields=["m0", "m1"])
         ee_pairs_index = ak.argcombinations(eee, 2, fields=["e0", "e1"])
         mm_pairs_index = ak.argcombinations(mmm, 2, fields=["m0", "m1"])
 
-        lepSF_eee = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year)
-        lepSF_mmm = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year)
-        lepSF_eee_up = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year, sys=1)
-        lepSF_mmm_up = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year, sys=1)
-        lepSF_eee_down = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year, sys=-1)
-        lepSF_mmm_down = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year, sys=-1)
         mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.charge != mm_pairs.m1.charge)]
         offZmask_mm = ak.all(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>10., axis=1, keepdims=True) & (ak.num(mmSFOS_pairs)>0)
         onZmask_mm  = ak.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<10., axis=1, keepdims=True)
@@ -335,14 +318,14 @@ class AnalysisProcessor(processor.ProcessorABC):
   
         Zee = eeSFOS_pairs[ZeeMask]
         Zmm = mmSFOS_pairs[ZmmMask]
-        eZ0= Zee.e0[ak.num(eeSFOS_pairs)>0]
-        eZ1= Zee.e1[ak.num(eeSFOS_pairs)>0]
-        eZ = eZ0+eZ1
-        mZ0= Zmm.m0[ak.num(mmSFOS_pairs)>0]
-        mZ1= Zmm.m1[ak.num(mmSFOS_pairs)>0]
-        mZ = mZ0+mZ1
-        mZ_eee  = eZ.mass
-        mZ_mmm  = mZ.mass
+        eZ0 = Zee.e0[ak.num(eeSFOS_pairs)>0]
+        eZ1 = Zee.e1[ak.num(eeSFOS_pairs)>0]
+        eZ  = eZ0+eZ1
+        mZ0 = Zmm.m0[ak.num(mmSFOS_pairs)>0]
+        mZ1 = Zmm.m1[ak.num(mmSFOS_pairs)>0]
+        mZ  = mZ0+mZ1
+        mZ_eee = eZ.mass
+        mZ_mmm = mZ.mass
 
         # And for the W boson
         ZmmIndices = mm_pairs_index[ZmmMask]
@@ -355,57 +338,23 @@ class AnalysisProcessor(processor.ProcessorABC):
         m3l_eee = triElec.mass
         m3l_mmm = triMuon.mass
 
-
         ##################################################################
         ### >=4 leptons
         ##################################################################
 
         # 4lep cat
         is4lmask = ((nElec+nMuon)>=4)
-        muon_4l = mu[(is4lmask)&(mu.pt>-1)]
-        elec_4l =  e[(is4lmask)&( e.pt>-1)]
+        muon_4l  = mu[(is4lmask)&(mu.pt>-1)]
+        elec_4l  =  e[(is4lmask)&( e.pt>-1)]
+
         # selecting 4 leading leptons
-        leptons=ak.concatenate([e,mu], axis=-1)
-        leptons_sorted=leptons[ak.argsort(leptons.pt, axis=-1,ascending=False)]
-        lep4l=leptons_sorted[:,0:4]
-        e4l=lep4l[abs(lep4l.pdgId)==11]
-        mu4l=lep4l[abs(lep4l.pdgId)==13]
-        nElec4l=ak.num(e4l)
-        nMuon4l=ak.num(mu4l)
-       
-        #eemm
-        muon_eemm = mu4l[(nElec4l==2)&(nMuon4l==2)&(mu4l.pt>-1)]
-        elec_eemm =  e4l[(nElec4l==2)&(nMuon4l==2)&( e4l.pt>-1)]
-        ee_eemm = ak.combinations(elec_eemm, 2, fields=["e0", "e1"])
-        mm_eemm = ak.combinations(muon_eemm, 2, fields=["m0", "m1"])
-        lepSF_eemm = GetLeptonSF(ee_eemm.e0.pt, ee_eemm.e0.eta, 'e', ee_eemm.e1.pt, ee_eemm.e1.eta, 'e', mm_eemm.m0.pt, mm_eemm.m0.eta, 'm',mm_eemm.m1.pt, mm_eemm.m1.eta, 'm', year)
-        lepSF_eemm_up = GetLeptonSF(ee_eemm.e0.pt, ee_eemm.e0.eta, 'e', ee_eemm.e1.pt, ee_eemm.e1.eta, 'e', mm_eemm.m0.pt, mm_eemm.m0.eta, 'm',mm_eemm.m1.pt, mm_eemm.m1.eta, 'm', year, sys=1)
-        lepSF_eemm_down = GetLeptonSF(ee_eemm.e0.pt, ee_eemm.e0.eta, 'e', ee_eemm.e1.pt, ee_eemm.e1.eta, 'e', mm_eemm.m0.pt, mm_eemm.m0.eta, 'm',mm_eemm.m1.pt, mm_eemm.m1.eta, 'm', year, sys=-1)
-        #eeem
-        muon_eeem = mu4l[(nElec4l==3)&(nMuon4l==1)&(mu4l.pt>-1)]
-        elec_eeem =  e4l[(nElec4l==3)&(nMuon4l==1)&( e4l.pt>-1)]
-        eee_eeem = ak.combinations(elec_eeem, 3, fields=["e0", "e1", "e2"])
-        lepSF_eeem = GetLeptonSF(eee_eeem.e0.pt, eee_eeem.e0.eta, 'e', eee_eeem.e1.pt, eee_eeem.e1.eta, 'e', eee_eeem.e2.pt, eee_eeem.e2.eta, 'e',muon_eeem.pt, muon_eeem.eta, 'm', year)
-        lepSF_eeem_up = GetLeptonSF(eee_eeem.e0.pt, eee_eeem.e0.eta, 'e', eee_eeem.e1.pt, eee_eeem.e1.eta, 'e', eee_eeem.e2.pt, eee_eeem.e2.eta, 'e',muon_eeem.pt, muon_eeem.eta, 'm', year, sys=1)
-        lepSF_eeem_down = GetLeptonSF(eee_eeem.e0.pt, eee_eeem.e0.eta, 'e', eee_eeem.e1.pt, eee_eeem.e1.eta, 'e', eee_eeem.e2.pt, eee_eeem.e2.eta, 'e',muon_eeem.pt, muon_eeem.eta, 'm', year, sys=-1)
-        #mmme
-        muon_mmme = mu4l[(nElec4l==1)&(nMuon4l==3)&(mu4l.pt>-1)]
-        elec_mmme =  e4l[(nElec4l==1)&(nMuon4l==3)&( e4l.pt>-1)]
-        mmm_mmme = ak.combinations(muon_eeem, 3, fields=["m0", "m1", "m2"])
-        lepSF_mmme = GetLeptonSF(mmm_mmme.m0.pt, mmm_mmme.m0.eta, 'm', mmm_mmme.m1.pt, mmm_mmme.m1.eta, 'm', mmm_mmme.m2.pt, mmm_mmme.m2.eta, 'm',elec_mmme.pt, elec_mmme.eta, 'e', year)
-        lepSF_mmme_up = GetLeptonSF(mmm_mmme.m0.pt, mmm_mmme.m0.eta, 'm', mmm_mmme.m1.pt, mmm_mmme.m1.eta, 'm', mmm_mmme.m2.pt, mmm_mmme.m2.eta, 'm',elec_mmme.pt, elec_mmme.eta, 'e', year, sys=1)
-        lepSF_mmme_down = GetLeptonSF(mmm_mmme.m0.pt, mmm_mmme.m0.eta, 'm', mmm_mmme.m1.pt, mmm_mmme.m1.eta, 'm', mmm_mmme.m2.pt, mmm_mmme.m2.eta, 'm',elec_mmme.pt, elec_mmme.eta, 'e', year, sys=-1)
-        #mmmm and eeee
-        muon_mmmm = mu4l[(nElec4l==0)&(nMuon4l==4)&(mu4l.pt>-1)]
-        elec_eeee =  e4l[(nElec4l==4)&(nMuon4l==0)&( e4l.pt>-1)]
-        eeee = ak.combinations(elec_eeee, 4, fields=["e0", "e1", "e2","e3"])
-        mmmm = ak.combinations(muon_mmmm, 4, fields=["m0", "m1", "m2","m3"])
-        lepSF_mmmm = GetLeptonSF(mmmm.m0.pt, mmmm.m0.eta, 'm', mmmm.m1.pt, mmmm.m1.eta, 'm', mmmm.m2.pt, mmmm.m2.eta, 'm', mmmm.m3.pt, mmmm.m3.eta, 'm', year)
-        lepSF_mmmm_up = GetLeptonSF(mmmm.m0.pt, mmmm.m0.eta, 'm', mmmm.m1.pt, mmmm.m1.eta, 'm', mmmm.m2.pt, mmmm.m2.eta, 'm', mmmm.m3.pt, mmmm.m3.eta, 'm', year, sys=1)
-        lepSF_mmmm_down = GetLeptonSF(mmmm.m0.pt, mmmm.m0.eta, 'm', mmmm.m1.pt, mmmm.m1.eta, 'm', mmmm.m2.pt, mmmm.m2.eta, 'm', mmmm.m3.pt, mmmm.m3.eta, 'm', year, sys=-1)
-        lepSF_eeee = GetLeptonSF(eeee.e0.pt, eeee.e0.eta, 'e', eeee.e1.pt, eeee.e1.eta, 'e', eeee.e2.pt, eeee.e2.eta, 'e', eeee.e3.pt, eeee.e3.eta, 'e', year)
-        lepSF_eeee_up = GetLeptonSF(eeee.e0.pt, eeee.e0.eta, 'e', eeee.e1.pt, eeee.e1.eta, 'e', eeee.e2.pt, eeee.e2.eta, 'e', eeee.e3.pt, eeee.e3.eta, 'e', year, sys=1)
-        lepSF_eeee_down = GetLeptonSF(eeee.e0.pt, eeee.e0.eta, 'e', eeee.e1.pt, eeee.e1.eta, 'e', eeee.e2.pt, eeee.e2.eta, 'e', eeee.e3.pt, eeee.e3.eta, 'e', year, sys=-1)
+        leptons = ak.concatenate([e,mu], axis=-1)
+        leptons_sorted = leptons[ak.argsort(leptons.pt, axis=-1,ascending=False)]
+        lep4l   = leptons_sorted[:,0:4]
+        e4l     = lep4l[abs(lep4l.pdgId)==11]
+        mu4l    = lep4l[abs(lep4l.pdgId)==13]
+        nElec4l = ak.num(e4l)
+        nMuon4l = ak.num(mu4l)
 
         # Triggers
         trig_eeSS = passTrigger(events,'ee',isData,dataset)
@@ -425,23 +374,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights = {}
         for r in ['all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme', 'eeee','eeem','eemm','mmme','mmmm']:
-          weights[r] = coffea.analysis_tools.Weights(len(events))
+          # weights[r] = coffea.analysis_tools.Weights(len(events))
+          weights[r] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
           if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
           weights[r].add('norm',genw if isData else (xsec/sow)*genw)
           weights[r].add('btagSF', btagSF, btagSFUp, btagSFDo)
-        
-        weights['ee'].add('lepSF', lepSF_eeSS, lepSF_eeSS_up, lepSF_eeSS_down)
-        weights['em'].add('lepSF', lepSF_emSS,lepSF_emSS_up, lepSF_emSS_down)
-        weights['mm'].add('lepSF', lepSF_mumuSS, lepSF_mumuSS_up, lepSF_mumuSS_down)
-        weights['eee'].add('lepSF', lepSF_eee, lepSF_eee_up, lepSF_eee_down)
-        weights['mmm'].add('lepSF', lepSF_mmm, lepSF_mmm_up, lepSF_mmm_down)
-        weights['mme'].add('lepSF', lepSF_mme, lepSF_mme_up, lepSF_mme_down)
-        weights['eem'].add('lepSF', lepSF_eem, lepSF_eem_up, lepSF_eem_down)
-        weights['eeee'].add('lepSF', lepSF_eeee, lepSF_eeee_up, lepSF_eeee_down)
-        weights['mmmm'].add('lepSF', lepSF_mmmm, lepSF_mmmm_up, lepSF_mmmm_down)
-        weights['mmme'].add('lepSF', lepSF_mmme, lepSF_mmme_up, lepSF_mmme_down)
-        weights['eeem'].add('lepSF', lepSF_eeem, lepSF_eeem_up, lepSF_eeem_down)
-        weights['eemm'].add('lepSF', lepSF_eemm, lepSF_eemm_up, lepSF_eemm_down)
+          weights[r].add('lepSF',events.lepSF_nom,events.lepSF_hi,events.lepSF_lo)
         
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
@@ -571,7 +509,7 @@ class AnalysisProcessor(processor.ProcessorABC):
              weights_ones = np.ones_like(weights_flat, dtype=np.int)
              eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
              eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
-             
+
              # filling histos
              if var == 'invmass':
               if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4L)): continue
