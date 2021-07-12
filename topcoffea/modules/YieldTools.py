@@ -156,7 +156,7 @@ class YieldTools():
 
     # What this function does:
     #   - Takes a list of full process names (i.e. all of the categories on samples axis) and a key from PROC_MAP
-    #   - Returns the long (i.e. the name of the cateogry in the smples axis) corresponding to the short name
+    #   - Returns the long (i.e. the name of the category in the smples axis) corresponding to the short name
     def get_long_name(self,long_name_lst_in,short_name_in):
         ret_name = None
         for long_name in PROC_MAP[short_name_in]:
@@ -195,7 +195,7 @@ class YieldTools():
         return lumi
 
 
-    # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, retrun the list of categories for that axis
+    # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, retruns the list of categories for that axis. efaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
         cats = []
         if h_name is None: h_name = "njets" # Guess a hist that we usually have
@@ -223,7 +223,7 @@ class YieldTools():
 
 
     # Get the difference between values in nested dictionary, currently can get either percent diff, or absolute diff
-    # Returns a dictionary in the same formate (cuttently does not propagate errors, just returns None)
+    # Returns a dictionary in the same format (currently does not propagate errors, just returns None)
     #   dict = {
     #       k : {
     #           subk : (val,err)
@@ -272,7 +272,7 @@ class YieldTools():
         return (v_sum,e_sum)
 
 
-    # Uses integrate_out_cats() and select_njet_bin() to return h for a particular analysis cateogry
+    # Uses integrate_out_cats() and select_njet_bin() to return h for a particular analysis category
     def select_hist_for_ana_cat(self,h,cat_dict,njet):
         h_ret = self.integrate_out_cats(h,cat_dict)
         h_ret = h_ret.integrate("systematic","nominal") # For now anyway...
@@ -281,7 +281,7 @@ class YieldTools():
 
 
     # This is really just a wrapper for get_yield(). Note:
-    #   - This fucntion now also rebins the njets hists
+    #   - This function now also rebins the njets hists
     #   - Maybe that does not belong in this function
     #   - Maybe depends on how we store njets info moving forward
     def get_scaled_yield(self,hin_dict,year,proc,cat,njets_cat,overflow_str,rwgt_pt=None):
@@ -322,7 +322,7 @@ class YieldTools():
 
     # This function:
     #   - Takes as input a hist dict (i.e. what the processor outptus)
-    #   - Retruns a dictionary of yields for the categories in CATEGORIES
+    #   - Returns a dictionary of yields for the categories in CATEGORIES
     #   - Making use of get_scaled_yield()
     #   - If you pass a key from JET_BINS for yields_for_njets_cats, will make a dict of yields for all the jet bins in that lep cat
     def get_yld_dict(self,hin_dict,year,yields_for_njets_cats=None):
