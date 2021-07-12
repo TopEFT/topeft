@@ -349,6 +349,9 @@ class YieldTools():
                         cat_name_full = cat+"_"+str(njet)+"j"
                         yld_dict[proc_name_short][cat_name_full] = self.get_scaled_yield(hin_dict,year,proc,cat,njet,overflow_str=include_overflow)
 
+                else:
+                    raise Exception(f"Error, invalid input for yields_for_njets_cats \"{yields_for_njets_cats}\". Exiting...")
+
         return yld_dict
 
 
