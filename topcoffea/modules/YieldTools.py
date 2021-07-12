@@ -10,10 +10,13 @@ class YieldTools():
 
     def __init__(self):
 
+        # The path to the file listing the luminosity for each year
         self.LUMI_FILE = topcoffea_path("json/lumi.json")
 
+        # The order of the categories in the TOP-19-001 AN yield tables
         self.CAT_LST = ["cat_2lss_p","cat_2lss_m","cat_3l_1b_offZ_p","cat_3l_1b_offZ_m","cat_3l_2b_offZ_p","cat_3l_2b_offZ_m","cat_3l_1b_onZ","cat_3l_2b_onZ","cat_4l"]
 
+        # A dictionary mapping names of samples in the samples axis to a short version of the name
         self.PROC_MAP = {
             "ttlnu" : ["ttW_centralUL17","ttlnu_private2017","ttlnuJet_privateUL17","ttlnuJet_privateUL18"],
             "ttll"  : ["ttZ_centralUL17","ttll_TOP-19-001","ttllJet_privateUL17","ttllJet_privateUL18"],
@@ -23,17 +26,20 @@ class YieldTools():
             "tttt"  : ["tttt_central2017","tttt_privateUL17"],
         }
 
+        # The jet bins we define for the lep categories
         self.JET_BINS = {
             "2lss" : [4,5,6,7],
             "3l"   : [2,3,4,5],
             "4l"   : [2,3,4],
         }
 
+        # The sub categories of the lep categories
         self.ch_3l_onZ = ["eemSSonZ", "mmeSSonZ", "eeeSSonZ", "mmmSSonZ"]
         self.ch_3l_offZ = ["eemSSoffZ", "mmeSSoffZ", "eeeSSoffZ", "mmmSSoffZ"]
         self.ch_2lss = ["eeSSonZ", "eeSSoffZ", "mmSSonZ", "mmSSoffZ", "emSS"]
         self.ch_4l = ["eeee","eeem","eemm","mmme","mmmm"]
 
+        # A dictionary specifying which categories from the hists create the analysis categories
         self.CATEGORIES = {
             "cat_2lss_p" : {
                 "channel": self.ch_2lss,
@@ -85,6 +91,7 @@ class YieldTools():
             },
         }
 
+        # Yields from TOP-19-001 AN table 15
         self.TOP19001_YLDS = {
             "ttlnu" : {
                 "cat_2lss_p" : (81.1,None),
