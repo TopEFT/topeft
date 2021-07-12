@@ -9,7 +9,7 @@
 # Make the header row
 def format_header(column_lst):
     s = "\\hline "
-    for i,col in enumerate(column_lst):
+    for col in column_lst:
         col = col.replace("_"," ")
         col = col.replace("cat","")
         s = s + " & " + col
