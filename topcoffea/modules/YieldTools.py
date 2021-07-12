@@ -393,7 +393,7 @@ class YieldTools():
 
                 # We want to check if the val is small
                 else:
-                    if abs(val) < abs(tolerance): # If these are differences between yields, coudl be negative
+                    if (val is None) or (abs(val) < abs(tolerance)):
                         print(f"\t{val}")
                     else:
                         print(f"\t{val} -> NOTE: This is larger than tolerance ({tolerance})!")
