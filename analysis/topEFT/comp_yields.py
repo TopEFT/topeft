@@ -25,7 +25,6 @@ def main():
 
     # Load the jsons
     if args.yields_file_1 == "TOP-19-001":
-    #if args['yields-file-1'] == "TOP-19-001":
         yld_dict_1 = yt.TOP19001_YLDS
     else:
         with open(args.yields_file_1,"r") as f1:
