@@ -5,17 +5,21 @@ import sys
 import topcoffea.modules.MakeLatexTable as mlt
 from topcoffea.modules.YieldTools import YieldTools
 
+# This script takes two json files of yields, and prints out information about how they compare
+# Example usage:
+# python comp_yields.py -f1 TOP-19-001 -f2 yields.json
+
 def main():
 
     yt = YieldTools()
 
     # Set up the command line parser
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f1", "--yields_file_1", default="yields.json", help = "The first json file that you would like to look at")
-    parser.add_argument("-f2", "--yields_file_2", default="yields.json", help = "The second json that you would like to look at")
+    parser.add_argument("-f1", "--yields_file_1", default="yields.json", help = "The name of the first json file")
+    parser.add_argument("-f2", "--yields_file_2", default="yields.json", help = "The name of the second json file")
     parser.add_argument("-t1", "--tag_1", default="Yields 1", help = "A string to describe the first set of yields")
     parser.add_argument("-t2", "--tag_2", default="Yields 2", help = "A string to describe the second set of yields")
-    parser.add_argument("-q", "--quiet", action='store_true', help = "Do not print out info about sample")
+    parser.add_argument("-q" , "--quiet", action='store_true', help = "Do not print out info about sample")
     args = parser.parse_args()
 
     # Load the jsons
