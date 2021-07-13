@@ -12,7 +12,7 @@ import glob
 import os
 
 logger = logging.getLogger()
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s:%(levelname)s:%(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
 
 env_dir_cache = 'envs'
 
@@ -48,7 +48,7 @@ def _run_conda_command(environment, command, *args):
         sys.exit(1)
 
 def _install_conda_packages(env_path, channel, pkgs):
-    logger.debug("Installing {} into {} via conda".format(','.join(pkgs), env_path))
+    logger.info("Installing {} into {} via conda".format(','.join(pkgs), env_path))
     return _run_conda_command(
             env_path,
             'install',
@@ -59,7 +59,7 @@ def _install_conda_packages(env_path, channel, pkgs):
 def _install_pip_requirements(env_path, pip_path):
     req_file = pathlib.Path(pip_path).joinpath('requirements.txt')
     if req_file.is_file():
-        logger.debug("Installing {} into {} via pip".format(pip_path, env_path))
+        logger.info("Installing {} into {} via pip".format(pip_path, env_path))
         _run_conda_command(
                 env_path,
                 'run',
@@ -70,17 +70,17 @@ def _create_base_env(packages_hash, pip_paths, force=False):
     base_env_path=pathlib.Path(env_dir_cache).joinpath("base_env_{}".format(packages_hash))
     output=base_env_path.with_suffix(".tar.gz")
 
-    logger.debug("Looking for base environment {}...".format(output))
+    logger.info("Looking for base environment {}...".format(output))
 
     if force:
-        logger.debug("Forcing rebuilding of {}".format(output))
+        logger.info("Forcing rebuilding of {}".format(output))
         pathlib.Path(output).unlink(missing_ok=True)
 
     if pathlib.Path(output).exists():
-        logger.debug("Found in cache {}".format(output))
+        logger.info("Found in cache {}".format(output))
         return str(output)
 
-    logger.debug("Creating environment {}".format(base_env_path))
+    logger.info("Creating environment {}".format(base_env_path))
     _run_conda_command(base_env_path, 'create')
 
     for (channel, pkgs) in packages['base']['conda'].items():
@@ -89,7 +89,7 @@ def _create_base_env(packages_hash, pip_paths, force=False):
     for pip_path in pip_paths:
         _install_pip_requirements(base_env_path, pip_path)
 
-    logger.debug("Generating {} environment file".format(output))
+    logger.info("Generating {} environment file".format(output))
     try:
         subprocess.check_output(['conda-pack', '--prefix', base_env_path, '--output', str(output)], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
@@ -151,15 +151,15 @@ def _clean_cache(cache_size, *current_files):
 
     for f in base_envs[cache_size:]:
         if not f in current_files:
-            logger.debug("Trimming cached environment file {}".format(f))
+            logger.info("Trimming cached environment file {}".format(f))
             os.remove(f)
     for f in full_envs[cache_size:]:
         if not f in current_files:
-            logger.debug("Trimming cached environment file {}".format(f))
+            logger.info("Trimming cached environment file {}".format(f))
             os.remove(f)
 
 def _install_local_pip(base_env_tarball, env_dir, pip_path):
-    logger.debug("Installing {} from editable pip".format(pip_path))
+    logger.info("Installing {} from editable pip".format(pip_path))
 
     with tempfile.NamedTemporaryFile(mode='w') as pip_recipe:
         pip_recipe.write("""
@@ -205,14 +205,14 @@ def get_environment(force=False, unstaged='rebuild', cache_size=3):
         pathlib.Path(full_env_tarball).unlink(missing_ok=True)
 
     if pathlib.Path(full_env_tarball).exists():
-        logger.debug("Found in cache {}".format(full_env_tarball))
+        logger.info("Found in cache {}".format(full_env_tarball))
         return str(full_env_tarball)
 
     with tempfile.TemporaryDirectory() as tmp_env:
         for path in pip_paths:
             _install_local_pip(base_env_tarball, tmp_env, path)
 
-        logger.debug("Generating {} environment file".format(full_env_tarball))
+        logger.info("Generating {} environment file".format(full_env_tarball))
         try:
             subprocess.check_output(['conda-pack', '--prefix', tmp_env, '--output', str(full_env_tarball)], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
