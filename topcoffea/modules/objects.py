@@ -8,13 +8,14 @@ import awkward as ak
 
 ### These functions have not been synchronized with ttH, but ARE used in topeft ###
 
-def isPresTau(pt, eta, dxy, dz, leadTkPtOverTauPt, idAntiMu, idAntiEle, rawIso, idDecayModeNewDMs, minpt=20.0):
-  kinematics = (pt>minpt)&(abs(eta)<2.3)&(dxy<1000.)&(dz<0.2)&(leadTkPtOverTauPt*pt>0.5)
-  medium = (idAntiMu>0.5)&(idAntiEle>0.5)&(rawIso>0.5)&(idDecayModeNewDMs)
-  return kinematics & medium
+def isPresTau(pt, eta, dxy, dz, idDecayModeNewDMs, idDeepTau2017v2p1VSjet, minpt=20.0):
+  return  (pt>minpt)&(abs(eta)<2.3)&(abs(dxy)<1000.)&(abs(dz)<0.2)&(idDecayModeNewDMs)&(idDeepTau2017v2p1VSjet>>1 & 1 ==1)
+
+def isTightTau(idDeepTau2017v2p1VSjet):
+  return (idDeepTau2017v2p1VSjet>>2 & 1)
 
 def isTightJet(pt, eta, jet_id, jetPtCut=25.0):
-    mask = (pt>jetPtCut) & (abs(eta)<2.4) & ((jet_id&2)==2)
+    mask = (pt>jetPtCut) & (abs(eta)<2.4) & (jet_id>0)
     return mask
 
 ### These functions have been synchronized with ttH ###
@@ -70,3 +71,8 @@ def tightSelElec(clean_and_FO_selection_TTH, mvaTTH):
 
 def tightSelMuon(clean_and_FO_selection_TTH, mediumId, mvaTTH):
   return (clean_and_FO_selection_TTH) & (mediumId>0) & (mvaTTH > 0.85)
+
+def isClean(obj_A, obj_B, drmin=0.4):
+   objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
+   mask = ak.fill_none(objB_DR > drmin, True)
+   return (mask)
