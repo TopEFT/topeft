@@ -75,11 +75,11 @@ class AnalysisProcessor(processor.ProcessorABC):
           if d in dataset: dataset = dataset.split('_')[0] 
 
         # Initialize objects
-        met = events.MET
-        e   = events.Electron
-        mu  = events.Muon
-        tau = events.Tau
-        j   = events.Jet
+        met  = events.MET
+        e    = events.Electron
+        mu   = events.Muon
+        tau  = events.Tau
+        jets = events.Jet
  
         e['idEmu'] = ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
         e['conept'] = coneptElec(e.pt, e.mvaTTH, e.jetRelIso)
@@ -100,19 +100,76 @@ class AnalysisProcessor(processor.ProcessorABC):
         e['isFO']  = isFOElec(e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
         e['isTightLep'] = tightSelElec(e.isFO, e.mvaTTH)
 
-        # Tau selection
-        tau['isPres']  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.leadTkPtOverTauPt, tau.idAntiMu, tau.idAntiEle, tau.rawIso, tau.idDecayModeNewDMs, minpt=20)
-        #tau['isClean'] = isClean(tau, e_pres, drmin=0.4) & isClean(tau, mu_pres, drmin=0.4)
-        tau['isGood']  = tau['isPres']# & tau['isClean'], for the moment
-        tau= tau[tau.isGood]
+        # build loose collections
+        m_loose = mu[mu.isPres & mu.isLooseM]
+        e_loose = e[e.isPres & e.isLooseE]
 
+        # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
         e_fo = e[e.isPres & e.isLooseE & e.isFO]
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
 
-        m_tight = mu[mu.isPres & mu.isLooseM & mu.isFO & mu.isTightLep]
-        e_tight = e[e.isPres & e.isLooseE & e.isFO & e.isTightLep]
-        l_tight = ak.with_name(ak.concatenate([e_tight, m_tight], axis=1), 'PtEtaPhiMCandidate')
+        # Tau selection
+        tau['isPres']  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDecayModeNewDMs, tau.idDeepTau2017v2p1VSjet, minpt=20)
+        tau['isClean'] = isClean(tau, e_loose, drmin=0.4) & isClean(tau, m_loose, drmin=0.4)
+        tau['isGood']  =  tau['isClean']  & tau['isPres']
+        tau= tau[tau.isGood] # use these to clean jets
+        tau['isTight']= isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+
+
+        # Jet cleaning, before any jet selection
+        tmp = ak.cartesian([ak.local_index(jets.pt), l_fo.jetIdx], nested=True)
+        cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
+        cleanedJets['isClean'] = isClean(cleanedJets, tau, drmin=0.3)
+        cleanedJets=cleanedJets[cleanedJets.isClean]
+
+        # Selecting jets and cleaning them
+        jetptname = 'pt_nom' if hasattr(cleanedJets, 'pt_nom') else 'pt'
+
+        ### Jet energy corrections
+        if False: # for synch
+          cleanedJets["pt_raw"]=(1 - cleanedJets.rawFactor)*cleanedJets.pt
+          cleanedJets["mass_raw"]=(1 - cleanedJets.rawFactor)*cleanedJets.mass
+          cleanedJets["pt_gen"]=ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
+          cleanedJets["rho"]= ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
+          events_cache = events.caches[0]
+          corrected_jets = jet_factory.build(cleanedJets, lazy_cache=events_cache)
+          '''
+          # SYSTEMATICS
+          jets = corrected_jets
+          if(self.jetSyst == 'JERUp'):
+            jets = corrected_jets.JER.up
+          elif(self.jetSyst == 'JERDown'):
+            jets = corrected_jets.JER.down
+          elif(self.jetSyst == 'JESUp'):
+            jets = corrected_jets.JES_jes.up
+          elif(self.jetSyst == 'JESDown'):
+            jets = corrected_jets.JES_jes.down
+          '''
+
+        cleanedJets['isGood']  = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=25.) # temporary at 25 for synch
+        goodJets = cleanedJets[cleanedJets.isGood]
+        
+        
+        
+        
+        # count jets, jet 
+        njets = ak.num(goodJets)
+        ht = ak.sum(goodJets.pt,axis=-1)
+        j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
+        
+        # to do: check these numbers are ok
+        if year == 2017: btagwpl = 0.0532 #WP loose 
+        else: btagwpl = 0.0490 #WP loose 
+        isBtagJetsLoose = (goodJets.btagDeepB > btagwpl)
+        isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
+        nbtagsl = ak.num(goodJets[isBtagJetsLoose])
+        # Medium DeepJet WP
+        if year == 2017: btagwpm = 0.3040 #WP medium
+        else: btagwpm = 0.2783 #WP medium
+        isBtagJetsMedium = (goodJets.btagDeepB > btagwpm)
+        isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
+        nbtagsm = ak.num(goodJets[isBtagJetsMedium])
 
         ###### Stuff for the SyncCheck ######
         print("\n--- Print statements for the sync check ---\n")
@@ -124,8 +181,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("Number of loose m :", len(ak.flatten(mu[mu.isPres & mu.isLooseM])))
         print("Number of fo e    :", len(ak.flatten(e_fo)))
         print("Number of fo m    :", len(ak.flatten(m_fo)))
-        print("Number of tight e :", len(ak.flatten(e_tight)))
-        print("Number of tight m :", len(ak.flatten(m_tight)))
 
         # SyncCheck: Two FO leptons (conePt > 25, conePt > 15)
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
@@ -144,10 +199,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         l_fo_conept_sorted_charge = ak.pad_none(l_fo_conept_sorted_charge,2,axis=1) # Pad
         l_fo_conept_sorted_charge = ak.fill_none(l_fo_conept_sorted_charge,0) # With 0s
         ss_mask     = (l_fo_conept_sorted_charge[:,0]*l_fo_conept_sorted_charge[:,1] == 1)
-        j_mask      = ak.flatten(j[ak.argmax(j.pt,axis=-1,keepdims=True)].pt > 25.0)
-        n_fo_2_mask = ak.num(l_fo_conept_sorted)==2
+        j_mask      = (njets > 1)
         print("Number of 2 FO lep events (with j0.pt>25):",ak.num(l_fo_conept_sorted[l_fo_pt_mask & ss_mask & j_mask],axis=0))
-
+        print('problematic events')
+        for ev,lumi in zip(events.event[l_fo_pt_mask & ss_mask & j_mask], events.luminosityBlock[l_fo_pt_mask & ss_mask & j_mask]):
+            print(ev, lumi)
+            pass
+        print(kk) 
+        
         # SyncCheck: Two tight leptons (conePt > 25, conePt > 15) # TODO: Fix
         l_tight_pt_mask = (ak.any(l_fo_conept_sorted[:,0:1].isTightLep, axis=1) & ak.any(l_fo_conept_sorted[:,1:2].isTightLep, axis=1))
         print("Number of 2 tight lep events:",ak.num(l_fo_conept_sorted[l_fo_pt_mask & l_tight_pt_mask],axis=0))
@@ -155,72 +214,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("\n--- End of print statements for the sync check---\n")
         ###### End SyncTest code ######
 
-        e =  e[e.isPres & e.isLooseE & e.isFO]
-        mu = mu[mu.isPres & mu.isLooseM & mu.isFO]
-        lep_FO = ak.with_name(ak.concatenate([e,mu], axis=1), 'PtEtaPhiMCandidate')
-        l0 = lep_FO[ak.argmax(lep_FO.pt,axis=-1,keepdims=True)]
 
-        nElec = ak.num(e)
-        nMuon = ak.num(mu)
-        nTau  = ak.num(tau)
-
-        e0 = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
-        m0 = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
-
-        # Jet selection
-        jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
-        
-        ### Jet energy corrections
-        if not isData:
-          j["pt_raw"]=(1 - j.rawFactor)*j.pt
-          j["mass_raw"]=(1 - j.rawFactor)*j.mass
-          j["pt_gen"]=ak.values_astype(ak.fill_none(j.matched_gen.pt, 0), np.float32)
-          j["rho"]= ak.broadcast_arrays(events.fixedGridRhoFastjetAll, j.pt)[0]
-          events_cache = events.caches[0]
-          corrected_jets = jet_factory.build(j, lazy_cache=events_cache)
-          #print('jet pt: ',j.pt)
-          #print('cor pt: ',corrected_jets.pt)
-          #print('jes up: ',corrected_jets.JES_jes.up.pt)
-          #print('jes down: ',corrected_jets.JES_jes.down.pt)
-          #print(ak.fields(corrected_jets))
-          '''
-          # SYSTEMATICS
-          jets = corrected_jets
-          if(self.jetSyst == 'JERUp'):
-            jets = corrected_jets.JER.up
-          elif(self.jetSyst == 'JERDown'):
-            jets = corrected_jets.JER.down
-          elif(self.jetSyst == 'JESUp'):
-            jets = corrected_jets.JES_jes.up
-          elif(self.jetSyst == 'JESDown'):
-            jets = corrected_jets.JES_jes.down
-          '''
-        
-        j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, jetPtCut=30.)
-        j = j[j.isGood]
-        #j['isClean'] = isClean(j, e, drmin=0.4)& isClean(j, mu, drmin=0.4)# & isClean(j, tau, drmin=0.4)
-
-        tmp = ak.cartesian([ak.local_index(j.pt), lep_FO.jetIdx], nested=True)
-        ak.any(tmp.slot0 == tmp.slot1, axis=-1)
-        j_new = j[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)]
-        
-        goodJets = j_new
-        njets = ak.num(goodJets)
-        ht = ak.sum(goodJets.pt,axis=-1)
-        j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
-        #nbtags = ak.num(goodJets[goodJets.btagDeepFlavB > 0.2770])
-        # Loose DeepJet WP
-        if year == 2017: btagwpl = 0.0532 #WP loose 
-        else: btagwpl = 0.0490 #WP loose 
-        isBtagJetsLoose = (goodJets.btagDeepB > btagwpl)
-        isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
-        nbtagsl = ak.num(goodJets[isBtagJetsLoose])
-        # Medium DeepJet WP
-        if year == 2017: btagwpm = 0.3040 #WP medium
-        else: btagwpm = 0.2783 #WP medium
-        isBtagJetsMedium = (goodJets.btagDeepB > btagwpm)
-        isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
-        nbtagsm = ak.num(goodJets[isBtagJetsMedium])
         
         # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
         btagSF   = np.ones_like(ht)
@@ -246,31 +240,8 @@ class AnalysisProcessor(processor.ProcessorABC):
           btagSFUp = pDataUp/pMC
           btagSFDo = pDataUp/pMC
 
-        ##################################################################
-        ### 2 same-sign leptons
-        ##################################################################
 
-        # emu
-        singe = e [(nElec==1)&(nMuon==1)&(e .pt>-1)]
-        singm = mu[(nElec==1)&(nMuon==1)&(mu.pt>-1)]
-        em = ak.cartesian({"e":singe,"m":singm})
-        emSSmask = (em.e.charge*em.m.charge>0)
-        emSS = em[emSSmask]
-        nemSS = len(ak.flatten(emSS))
-
-        emOSmask = (em.e.charge*em.m.charge<0)
-        emOS = em[emOSmask]
-        nemOS = len(ak.flatten(emOS))
- 
-        lepSF_emSS      = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year)
-        lepSF_emSS_up   = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year, sys=1)
-        lepSF_emSS_down = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year, sys=-1)
-        # ee and mumu
-        # pt>-1 to preserve jagged dimensions
-        ee = e [(nElec==2)&(nMuon==0)&(e.pt>-1)]
-        mm = mu[(nElec==0)&(nMuon==2)&(mu.pt>-1)]
-
-        sumcharge = ak.sum(e.charge, axis=-1)+ak.sum(mu.charge, axis=-1)
+        sumcharge = ak.sum(e.charge, axis=-1)
 
         eepairs = ak.combinations(ee, 2, fields=["e0","e1"])
         eeSSmask = (eepairs.e0.charge*eepairs.e1.charge>0)
