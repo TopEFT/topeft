@@ -48,7 +48,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0eta",  "Leading jet  $\eta$", 30, -3.0, 3.0)),
         'ht'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ht",     "H$_{T}$ (GeV)", 50, 0, 1000)),
         'njetsnbtags' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)), 
-        'nVtx'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nVtx",     "PU", 60, 0, 60)),
+        'nVtx'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Cat("sumcharge", "sumcharge"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nVtx",     "PU", 60, 0, 60)),
         })
 
         self._eft_helper = EFTHelper(wc_names_lst)
@@ -202,11 +202,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         singe = e [(nElec==1)&(nMuon==1)&(e .pt>-1)]
         singm = mu[(nElec==1)&(nMuon==1)&(mu.pt>-1)]
         em = ak.cartesian({"e":singe,"m":singm})
+        emChargeFlipsWeights = GetChargeFlipRate(em.e.pt, np.abs(em.e.eta), year)
         emSSmask = (em.e.charge*em.m.charge>0)
+        emOSmask = (em.e.charge*em.m.charge<0)
         emSS = em[emSSmask]
         nemSS = len(ak.flatten(emSS))
  
-        year = 2018
         lepSF_emSS      = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year)
         lepSF_emSS_up   = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year, sys=1)
         lepSF_emSS_down = GetLeptonSF(singm.pt, singm.eta, 'm', singe.pt, singe.eta, 'e', year=year, sys=-1)
@@ -218,12 +219,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         sumcharge = ak.sum(e.charge, axis=-1)+ak.sum(mu.charge, axis=-1)
 
         eepairs = ak.combinations(ee, 2, fields=["e0","e1"])
+        eeChargeFlipsWeights = (GetChargeFlipRate(eepairs.e0.pt, np.abs(eepairs.e0.eta), year)+GetChargeFlipRate(eepairs.e1.eta, np.abs(eepairs.e1.eta), year))
         eeSSmask = (eepairs.e0.charge*eepairs.e1.charge>0)
+        eeOSmask = (eepairs.e0.charge*eepairs.e1.charge<0)
         eeonZmask  = (np.abs((eepairs.e0+eepairs.e1).mass-91.2)<10)
         eeoffZmask = (eeonZmask==0)
 
         mmpairs = ak.combinations(mm, 2, fields=["m0","m1"])
         mmSSmask = (mmpairs.m0.charge*mmpairs.m1.charge>0)
+        mmOSmask = (mmpairs.m0.charge*mmpairs.m1.charge<0)
         mmonZmask = (np.abs((mmpairs.m0+mmpairs.m1).mass-91.2)<10)
         mmoffZmask = (mmonZmask==0)
 
@@ -231,6 +235,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         eeSSoffZ = eepairs[eeSSmask & eeoffZmask]
         mmSSonZ  = mmpairs[mmSSmask &  mmonZmask]
         mmSSoffZ = mmpairs[mmSSmask & mmoffZmask]
+        #eeOSonZ  = eepairs[eeOSmask &  eeonZmask]
+        #eeOSoffZ = eepairs[eeOSmask & eeoffZmask]
+        #mmOSonZ  = mmpairs[mmOSmask &  mmonZmask]
+        #mmOSoffZ = mmpairs[mmOSmask & mmoffZmask]
         neeSS = len(ak.flatten(eeSSonZ)) + len(ak.flatten(eeSSoffZ))
         nmmSS = len(ak.flatten(mmSSonZ)) + len(ak.flatten(mmSSoffZ))
         
@@ -246,11 +254,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Cuts
         eeSSmask   = (ak.num(eeSSmask[eeSSmask])>0)
         mmSSmask   = (ak.num(mmSSmask[mmSSmask])>0)
+        eeOSmask   = (ak.num(eeOSmask[eeOSmask])>0)
+        mmOSmask   = (ak.num(mmOSmask[mmOSmask])>0)
         eeonZmask  = (ak.num(eeonZmask[eeonZmask])>0)
         eeoffZmask = (ak.num(eeoffZmask[eeoffZmask])>0)
         mmonZmask  = (ak.num(mmonZmask[mmonZmask])>0)
         mmoffZmask = (ak.num(mmoffZmask[mmoffZmask])>0)
         emSSmask   = (ak.num(emSSmask[emSSmask])>0)
+        emOSmask   = (ak.num(emOSmask[emOSmask])>0)
 
 
         ##################################################################
@@ -425,21 +436,23 @@ class AnalysisProcessor(processor.ProcessorABC):
         for r in ['all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme', 'eeee','eeem','eemm','mmme','mmmm']:
           weights[r] = coffea.analysis_tools.Weights(len(events))
           weights[r].add('norm',genw if isData else (xsec/sow)*genw)
-          weights[r].add('btagSF', btagSF, btagSFUp, btagSFDo)
-          #weights[r].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
+          if not isData:
+            weights[r].add('btagSF', btagSF, btagSFUp, btagSFDo)
+            weights[r].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
+        if not isData:
+          weights['ee'].add('lepSF', lepSF_eeSS, lepSF_eeSS_up, lepSF_eeSS_down)
+          weights['em'].add('lepSF', lepSF_emSS,lepSF_emSS_up, lepSF_emSS_down)
+          weights['mm'].add('lepSF', lepSF_mumuSS, lepSF_mumuSS_up, lepSF_mumuSS_down)
+          weights['eee'].add('lepSF', lepSF_eee, lepSF_eee_up, lepSF_eee_down)
+          weights['mmm'].add('lepSF', lepSF_mmm, lepSF_mmm_up, lepSF_mmm_down)
+          weights['mme'].add('lepSF', lepSF_mme, lepSF_mme_up, lepSF_mme_down)
+          weights['eem'].add('lepSF', lepSF_eem, lepSF_eem_up, lepSF_eem_down)
+          weights['eeee'].add('lepSF', lepSF_eeee, lepSF_eeee_up, lepSF_eeee_down)
+          weights['mmmm'].add('lepSF', lepSF_mmmm, lepSF_mmmm_up, lepSF_mmmm_down)
+          weights['mmme'].add('lepSF', lepSF_mmme, lepSF_mmme_up, lepSF_mmme_down)
+          weights['eeem'].add('lepSF', lepSF_eeem, lepSF_eeem_up, lepSF_eeem_down)
+          weights['eemm'].add('lepSF', lepSF_eemm, lepSF_eemm_up, lepSF_eemm_down)
 
-        weights['ee'].add('lepSF', lepSF_eeSS, lepSF_eeSS_up, lepSF_eeSS_down)
-        weights['em'].add('lepSF', lepSF_emSS,lepSF_emSS_up, lepSF_emSS_down)
-        weights['mm'].add('lepSF', lepSF_mumuSS, lepSF_mumuSS_up, lepSF_mumuSS_down)
-        weights['eee'].add('lepSF', lepSF_eee, lepSF_eee_up, lepSF_eee_down)
-        weights['mmm'].add('lepSF', lepSF_mmm, lepSF_mmm_up, lepSF_mmm_down)
-        weights['mme'].add('lepSF', lepSF_mme, lepSF_mme_up, lepSF_mme_down)
-        weights['eem'].add('lepSF', lepSF_eem, lepSF_eem_up, lepSF_eem_down)
-        weights['eeee'].add('lepSF', lepSF_eeee, lepSF_eeee_up, lepSF_eeee_down)
-        weights['mmmm'].add('lepSF', lepSF_mmmm, lepSF_mmmm_up, lepSF_mmmm_down)
-        weights['mmme'].add('lepSF', lepSF_mmme, lepSF_mmme_up, lepSF_mmme_down)
-        weights['eeem'].add('lepSF', lepSF_eeem, lepSF_eeem_up, lepSF_eeem_down)
-        weights['eemm'].add('lepSF', lepSF_eemm, lepSF_eemm_up, lepSF_eemm_down)
         
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
@@ -454,6 +467,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add('mmSSonZ',  (mmonZmask)&(mmSSmask)&(trig_mmSS))
         selections.add('mmSSoffZ', (mmoffZmask)&(mmSSmask)&(trig_mmSS))
         selections.add('emSS',     (emSSmask)&(trig_emSS))
+
+        channels2LOS = ['eeOSonZ', 'eeOSoffZ', 'mmOSonZ', 'mmOSoffZ', 'emOS']
+        selections.add('eeOSonZ',  (eeonZmask)&(eeOSmask)&(trig_eeSS))
+        selections.add('eeOSoffZ', (eeoffZmask)&(eeOSmask)&(trig_eeSS))
+        selections.add('mmOSonZ',  (mmonZmask)&(mmOSmask)&(trig_mmSS))
+        selections.add('mmOSoffZ', (mmoffZmask)&(mmOSmask)&(trig_mmSS))
+        selections.add('emOS',     (emOSmask)&(trig_emSS))
 
         channels3L = ['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ']
         selections.add('eemSSonZ',   (ee_eemZmask)&(trig_eem))
@@ -531,11 +551,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['nVtx'] = events.PV.npvs
         # systematics
         systList = []
-        if isData==False:
+        if not isData:
           systList = ['nominal']
-          if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown']#, 'PUUp', 'PUDown']
+          if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown', 'PUUp', 'PUDown']
         else:
-          systList = ['noweight']
+          systList = ['noweight', 'fliprates']
         # fill Histos
         hout = self.accumulator.identity()
         normweights = weights['all'].weight().flatten() # Why does it not complain about .flatten() here?
@@ -543,7 +563,9 @@ class AnalysisProcessor(processor.ProcessorABC):
     
         for syst in systList:
          for var, v in varnames.items():
-          for ch in channels2LSS+channels3L+channels4L:
+          for ch in channels2LSS+channels3L+channels4L+channels2LOS:
+           if not isData and ch in channels2LOS: continue # Fill 2lOS only for fliprate estimate
+           if syst == 'fliprates' and ch not in channels2LOS: continue
            for sumcharge in ['ch+', 'ch-']:
             for lev in levels:
              #find the event weight to be used when filling the histograms    
@@ -553,6 +575,15 @@ class AnalysisProcessor(processor.ProcessorABC):
               weightSyst = None # no weight systematic for these variations
              if syst=='noweight':
                 weight = np.ones(len(events)) # for data
+             elif syst=='fliprates':
+               weight = np.zeros(len(events)) # for data
+               if ch in ['eeOSonZ', 'eeOSoffZ']:
+                 weight = eeChargeFlipsWeights
+                 weight = ak.flatten(weight)
+               elif ch == 'emOS':
+                 weight = emChargeFlipsWeights
+                 weight = ak.flatten(weight)
+               #weight = ak.prod(np.ones(len(events)), weight)
              else:
               # call weights.weight() with the name of the systematic to be varied
               if ch in channels3L: ch_w= ch[:3]
@@ -561,60 +592,60 @@ class AnalysisProcessor(processor.ProcessorABC):
               weight = weights['all'].weight(weightSyst) if isData else weights[ch_w].weight(weightSyst)
              cuts = [ch] + [lev] + [sumcharge]
              cut = selections.all(*cuts)
-             weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
+             weights_flat = weight[cut]#.flatten()
              weights_ones = np.ones_like(weights_flat, dtype=np.int)
              eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
              eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
              
              # filling histos
              if var == 'invmass':
-              if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4L)): continue
+              if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels2LOS) or (ch in channels4L)): continue
               else                                 : values = ak.flatten(v[ch][cut])
-              hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, invmass=values, weight=weights_flat, systematic=syst)
+              hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, invmass=values, weight=weights_flat, systematic=syst)
              elif var == 'm3l': 
-              if ((ch in channels2LSS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
+              if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
               values = ak.flatten(v[ch][cut])
-              hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, m3l=values, weight=weights_flat, systematic=syst)
+              hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, m3l=values, weight=weights_flat, systematic=syst)
              else:
               values = v[cut] 
-              if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'nVtx'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nVtx=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              elif var == 'nVtx'  : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nVtx=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'nbtags': 
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-                hout['njetsnbtags'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=varnames['njets'][cut], nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_ones, systematic=syst)
+                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                hout['njetsnbtags'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=varnames['njets'][cut], nbtags=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              elif var == 'counts': hout[var].fill(counts=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_ones, systematic=syst)
               elif var == 'j0eta' : 
                 if lev == 'base': continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'e0pt'  : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ','mmmm']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst) # Crashing here, not sure why. Related to values?
+                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0pt=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst) # Crashing here, not sure why. Related to values?
               elif var == 'm0pt'  : 
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0pt=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'e0eta' : 
                 if ch in ['mmSSonZ', 'mmSSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmmm']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0eta=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'm0eta':
                 if ch in ['eeSSonZ', 'eeSSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0eta=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'j0pt'  : 
                 if lev == 'base': continue
                 values = ak.flatten(values)
                 #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=dataset, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
         return hout
 
     def postprocess(self, accumulator):

@@ -239,20 +239,20 @@ for year in ['2016', '2016APV', '2017', '2018']:
   PUfunc[year] = {}
   with uproot.open(pudirpath+GetMCPUname(year)) as fMC:
     hMC = fMC['pileup']
-    PUfunc[year]['MC'    ] = lookup_tools.dense_lookup.dense_lookup(hMC .values(), hMC.axis(0).edges())
+    PUfunc[year]['MC'] = lookup_tools.dense_lookup.dense_lookup(hMC .values(), hMC.axis(0).edges())
   with uproot.open(pudirpath+GetDataPUname(year,  0)) as fData:
     hD   = fData  ['pileup']
-    PUfunc[year]['Data'  ] = lookup_tools.dense_lookup.dense_lookup(hD  .values(), hMC.axis(0).edges())
+    PUfunc[year]['Data'  ] = lookup_tools.dense_lookup.dense_lookup(hD  .values(), hD.axis(0).edges())
   with uproot.open(pudirpath+GetDataPUname(year,  1)) as fDataUp:
     hDUp = fDataUp['pileup']
-    PUfunc[year]['DataUp'] = lookup_tools.dense_lookup.dense_lookup(hDUp.values(), hMC.axis(0).edges())
+    PUfunc[year]['DataUp'] = lookup_tools.dense_lookup.dense_lookup(hDUp.values(), hD.axis(0).edges())
   with uproot.open(pudirpath+GetDataPUname(year, -1)) as fDataDo:
     hDDo = fDataDo['pileup']
-    PUfunc[year]['DataDo'] = lookup_tools.dense_lookup.dense_lookup(hDDo.values(), hMC.axis(0).edges())
-  
+    PUfunc[year]['DataDo'] = lookup_tools.dense_lookup.dense_lookup(hDDo.values(), hD.axis(0).edges())
+
 def GetPUSF(nTrueInt, year, var=0):
   year = str(year)
-  nMC  =PUfunc[year]['MC'](nTrueInt)
+  nMC  =PUfunc[year]['MC'](nTrueInt+1)
   nData=PUfunc[year]['DataUp' if var == 1 else ('DataDo' if var == -1 else 'Data')](nTrueInt)
   weights = np.divide(nData,nMC)
   return weights
