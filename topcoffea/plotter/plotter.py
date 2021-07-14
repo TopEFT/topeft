@@ -59,6 +59,9 @@ class plotter:
     self.histsData = {}
     for k in self.hists:
       self.histsData[k] = self.hists[k]
+    self.histsFlips = {}
+    for k in self.hists:
+      self.histsFlips[k] = self.hists[k]
     self.GroupProcesses()
 
   def SetProcessDic(self, prdic, sampleLabel='sample', processLabel='process'):
@@ -165,10 +168,16 @@ class plotter:
 
   def SetCategories(self, dic):
     self.categories = dic
+  
+  def SetFlipCategories(self, dic):
+    self.flipcategories = dic
 
   def SetCategory(self, catname, values):
     self.categories[catname] = values
 
+  def SetFlipCategory(self, catname, values):
+    self.flipcategories[catname] = values
+    
   def AddCategory(self, catname, catdic):
     self.multicategories[catname] = catdic
 
@@ -180,21 +189,38 @@ class plotter:
     else:
       self.multicategories = multidic
 
-  def GetHistogram(self, hname, process, categories=None):
+  def GetHistogram(self, hname, process, categories=None,flipcategories= {'channel' : ['emuOS,eeOSonZ','eeOSoffZ'],'cut' : 'base','sumcharge' : ['ch+','ch-']}):
     ''' Returns a histogram with all categories contracted '''
     if categories == None: categories = self.categories
     h = self.hists[hname]
     for cat in categories: 
       h = h.integrate(cat, categories[cat])
-    h=h.integrate('systematic','nominal')
+    h=h.integrate('systematic','PUDown')
     if isinstance(process, str) and ',' in process: process = process.split(',')
     if isinstance(process, list): 
       prdic = {}
       for pr in process: 
+         if pr=='Flips': continue  
          prdic[pr] = pr
       h = h.group("process", hist.Cat("process", "process"), prdic)
-    elif isinstance(process, str):
+    elif isinstance(process, str): 
       h = h[process].sum("process")
+    '''
+    process='Flips'
+    hf = self.histsFlips[hname]
+    for cat in flipcategories: 
+      hf = hf.integrate(cat, flipcategories[cat])
+    hf=hf.integrate('systematic','fliprates')
+    if isinstance(process, str) and ',' in process: process = process.split(',')
+    if isinstance(process, list): 
+      prdic = {}
+      for pr in process: 
+         if pr=='Flips': continue  
+         prdic[pr] = pr
+      hf = hf.group("process", hist.Cat("process", "process"), prdic)
+    elif isinstance(process, str): 
+      hf = hf[process].sum("process")
+    '''
     return h
 
   def GetHistogramData(self, hname, process, categories=None):
@@ -213,7 +239,7 @@ class plotter:
     elif isinstance(process, str):
       h = h[process].sum("process")
     return h
-
+    
   def doData(self, hname):
     ''' Check if data histogram exists '''
     return self.dataName in [str(x) for x in list(self.histsData[hname].identifiers(self.processLabel))] and self.plotData
@@ -241,7 +267,6 @@ class plotter:
     if isinstance(hname, list):
       for k in hname: self.Stack(k, xtit, ytit)
       return
-     
     density = False; binwnorm = None
     plt.rcParams.update(self.textParams)
 
