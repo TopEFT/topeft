@@ -14,12 +14,35 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetLeptonSF, GetBTagSF, jet_factory, GetBtagEff
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, fakeRateWeight2l, fakeRateWeight3l
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 
 #coffea.deprecations_as_errors = True
+
+
+def add2lssMaskAndSFs(events, year, isData):
+    FOs=events.l_fo_conept_sorted
+    filter_flags=events.Flag
+    filters=filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    cleanup=events.minMllAFAS > 12
+    dilep  = ( ak.num(FOs)) >= 2 
+    pt2515=ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1)
+    exclusive=ak.num( FOs[FOs.isTightLep],axis=-1)<3
+    padded_FOs=ak.pad_none(FOs, 2)
+    Zee_veto= (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
+    # Z_veto=abs(events.mZ1-91.2)>10 not working yet :( 
+    eleID1=(abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0) & (padded_FOs[:,0].tightCharge>=2))
+    eleID2=(abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0) & (padded_FOs[:,1].tightCharge>=2))
+    muTightCharge=((abs(padded_FOs[:,0].pdgId)!=13) | (padded_FOs[:,0].tightCharge>=1)) & ((abs(padded_FOs[:,1].pdgId)!=13) | (padded_FOs[:,1].tightCharge>=1))
+    njet4=(events.njets>3)
+    mask=(filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge & njet4) #     & Z_veto
+    events['is2lss']=ak.fill_none(mask,False)
+    events['sf_2lss']=padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom
+    events['sf_2lss_hi']=padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
+    events['sf_2lss_lo']=padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
+    fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
 
 class AnalysisProcessor(processor.ProcessorABC):
     def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, dtype=np.float32):
@@ -91,34 +114,55 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu['isLooseM'] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
         mu['isFO'] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTH, mu.jetRelIso, year)
-        ##mu['isTight']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH) # NOTE this already exists!!!???
         mu['isTightLep']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
 
         # Electron selection
         e['isPres'] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
         e['isLooseE'] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
         e['isFO']  = isFOElec(e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
-        e['isTightLep'] = tightSelElec(e.isFO, e.mvaTTH)
+        e['isTightLep'] =  tightSelElec(e.isFO, e.mvaTTH)
 
         # build loose collections
         m_loose = mu[mu.isPres & mu.isLooseM]
         e_loose = e[e.isPres & e.isLooseE]
+        l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
+
+        # compute pair invariant masses
+        llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
+        events['minMllAFAS']=ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
+        osllpairs=llpairs[llpairs.l0.charge*llpairs.l1.charge<0]
+        osllpairs_masses=(osllpairs.l0+osllpairs.l1).mass
+        events['mZ1']=osllpairs_masses[ak.argmin( abs(osllpairs_masses-91.2), axis=-1)] # needs to be fixed, but not used yet
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
         e_fo = e[e.isPres & e.isLooseE & e.isFO]
-        l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
 
+        # Attach the lepton SFs to the electron and muons collections
+        AttachElectronSF(e_fo,year=year)
+        AttachMuonSF(m_fo,year=year)
+
+        AttachPerLeptonFR(e_fo, flavor='Elec', year=year)
+        AttachPerLeptonFR(m_fo, flavor='Muon', year=year)
+        m_fo['convVeto']=ak.ones_like(m_fo.charge); 
+        m_fo['lostHits']=ak.zeros_like(m_fo.charge); 
+        l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
+        l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
+
+        ## Attach per lepton fake rates
+        
+        
         # Tau selection
         tau['isPres']  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDecayModeNewDMs, tau.idDeepTau2017v2p1VSjet, minpt=20)
-        tau['isClean'] = isClean(tau, e_loose, drmin=0.4) & isClean(tau, m_loose, drmin=0.4)
+        tau['isClean'] = isClean(tau, l_loose, drmin=0.3)
+
         tau['isGood']  =  tau['isClean']  & tau['isPres']
         tau= tau[tau.isGood] # use these to clean jets
         tau['isTight']= isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
 
-
         # Jet cleaning, before any jet selection
-        tmp = ak.cartesian([ak.local_index(jets.pt), l_fo.jetIdx], nested=True)
+        vetos_tocleanjets= ak.with_name( ak.concatenate([tau, l_fo], axis=1), 'PtEtaPhiMCandidate')
+        tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
         cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
         cleanedJets['isClean'] = isClean(cleanedJets, tau, drmin=0.3)
         cleanedJets=cleanedJets[cleanedJets.isClean]
@@ -171,51 +215,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
         nbtagsm = ak.num(goodJets[isBtagJetsMedium])
 
-        ###### Stuff for the SyncCheck ######
-        print("\n--- Print statements for the sync check ---\n")
-
-        # SyncCheck: Number of objects
-        print("Number of pres e  :", len(ak.flatten(e[e.isPres])))
-        print("Number of pres m  :", len(ak.flatten(mu[mu.isPres])))
-        print("Number of loose e :", len(ak.flatten(e[e.isPres & e.isLooseE])))
-        print("Number of loose m :", len(ak.flatten(mu[mu.isPres & mu.isLooseM])))
-        print("Number of fo e    :", len(ak.flatten(e_fo)))
-        print("Number of fo m    :", len(ak.flatten(m_fo)))
-
-        # SyncCheck: Two FO leptons (conePt > 25, conePt > 15)
-        l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
-        l_fo_pt_mask = ak.any(l_fo_conept_sorted[:,0:1].conept > 25.0, axis=1) & ak.any(l_fo_conept_sorted[:,1:2].conept > 15.0, axis=1)
-        ee_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
-        mm_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
-        em_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
-        me_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
-        print("Number of 2 FO l  events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask],axis=0))
-        print("Number of 2 FO e  events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & ee_mask],axis=0))
-        print("Number of 2 FO m  events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & mm_mask],axis=0))
-        print("Number of 2 FO em events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & (em_mask | me_mask)],axis=0))
-
-        # SyncCheck: Two FO leptons (conePt > 25, conePt > 15), with SS, and a njet > 1 (with j.pt > 25)
-        l_fo_conept_sorted_charge = l_fo_conept_sorted.charge # Get array of charges
-        l_fo_conept_sorted_charge = ak.pad_none(l_fo_conept_sorted_charge,2,axis=1) # Pad
-        l_fo_conept_sorted_charge = ak.fill_none(l_fo_conept_sorted_charge,0) # With 0s
-        ss_mask     = (l_fo_conept_sorted_charge[:,0]*l_fo_conept_sorted_charge[:,1] == 1)
-        j_mask      = (njets > 1)
-        print("Number of 2 FO lep events (with j0.pt>25):",ak.num(l_fo_conept_sorted[l_fo_pt_mask & ss_mask & j_mask],axis=0))
-        print('problematic events')
-        for ev,lumi in zip(events.event[l_fo_pt_mask & ss_mask & j_mask], events.luminosityBlock[l_fo_pt_mask & ss_mask & j_mask]):
-            print(ev, lumi)
-            pass
-        print(kk) 
+        ## Add the variables needed for event selection as columns to event, so they persist
+        events['njets']=njets
+        events['l_fo_conept_sorted']=l_fo_conept_sorted
         
-        # SyncCheck: Two tight leptons (conePt > 25, conePt > 15) # TODO: Fix
-        l_tight_pt_mask = (ak.any(l_fo_conept_sorted[:,0:1].isTightLep, axis=1) & ak.any(l_fo_conept_sorted[:,1:2].isTightLep, axis=1))
-        print("Number of 2 tight lep events:",ak.num(l_fo_conept_sorted[l_fo_pt_mask & l_tight_pt_mask],axis=0))
+        l_fo_conept_sorted_padded=ak.pad_none(l_fo_conept_sorted, 3)
+        l0=l_fo_conept_sorted_padded[:,0]
+        l1=l_fo_conept_sorted_padded[:,1]
+        l2=l_fo_conept_sorted_padded[:,2]
 
-        print("\n--- End of print statements for the sync check---\n")
-        ###### End SyncTest code ######
+        add2lssMaskAndSFs(events, year, isData)
+        print('the number of events passing all cuts is', ak.num(events[events.is2lss],axis=0))
+        events['l0']=l0; events['l1']=l1 # remove this 
+        theevents=events[events.is2lss]
+        for fr, thel0, thel1 in zip(theevents['fakefactor_2l'], theevents['l0'], theevents['l1']):
+          print(fr, thel0.isTightLep, thel1.isTightLep)
 
-
-        
         # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
         btagSF   = np.ones_like(ht)
         btagSFUp = np.ones_like(ht)
@@ -243,257 +258,17 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         sumcharge = ak.sum(e.charge, axis=-1)
 
-        eepairs = ak.combinations(ee, 2, fields=["e0","e1"])
-        eeSSmask = (eepairs.e0.charge*eepairs.e1.charge>0)
-        eeOSmask = (eepairs.e0.charge*eepairs.e1.charge<0)
-        eeonZmask  = (np.abs((eepairs.e0+eepairs.e1).mass-91.2)<10)
-        eeoffZmask = (eeonZmask==0)
-
-        mmpairs = ak.combinations(mm, 2, fields=["m0","m1"])
-        mmSSmask = (mmpairs.m0.charge*mmpairs.m1.charge>0)
-        mmOSmask = (mmpairs.m0.charge*mmpairs.m1.charge<0)
-        mmonZmask = (np.abs((mmpairs.m0+mmpairs.m1).mass-91.2)<10)
-        mmoffZmask = (mmonZmask==0)
-
-        eeSSonZ  = eepairs[eeSSmask &  eeonZmask]
-        eeSSoffZ = eepairs[eeSSmask & eeoffZmask]
-        mmSSonZ  = mmpairs[mmSSmask &  mmonZmask]
-        mmSSoffZ = mmpairs[mmSSmask & mmoffZmask]
-        neeSS = len(ak.flatten(eeSSonZ)) + len(ak.flatten(eeSSoffZ))
-        nmmSS = len(ak.flatten(mmSSonZ)) + len(ak.flatten(mmSSoffZ))
-
-        eeOSonZ  = eepairs[eeOSmask &  eeonZmask]
-        eeOSoffZ = eepairs[eeOSmask & eeoffZmask]
-        mmOSonZ  = mmpairs[mmOSmask &  mmonZmask]
-        mmOSoffZ = mmpairs[mmOSmask & mmoffZmask]
-        eeOS = eepairs[eeOSmask]
-        mmOS = mmpairs[mmOSmask]
-        neeOS = len(ak.flatten(eeOS))
-        nmmOS = len(ak.flatten(mmOS))
-        
-        lepSF_eeSS = GetLeptonSF(eepairs.e0.pt, eepairs.e0.eta, 'e', eepairs.e1.pt, eepairs.e1.eta, 'e', year=year)
-        lepSF_mumuSS = GetLeptonSF(mmpairs.m0.pt, mmpairs.m0.eta, 'm', mmpairs.m1.pt, mmpairs.m1.eta, 'm', year=year)
-        lepSF_eeSS_up = GetLeptonSF(eepairs.e0.pt, eepairs.e0.eta, 'e', eepairs.e1.pt, eepairs.e1.eta, 'e', year=year, sys=1)
-        lepSF_mumuSS_up = GetLeptonSF(mmpairs.m0.pt, mmpairs.m0.eta, 'm', mmpairs.m1.pt, mmpairs.m1.eta, 'm', year=year, sys=1)
-        lepSF_eeSS_down = GetLeptonSF(eepairs.e0.pt, eepairs.e0.eta, 'e', eepairs.e1.pt, eepairs.e1.eta, 'e', year=year, sys=-1)
-        lepSF_mumuSS_down = GetLeptonSF(mmpairs.m0.pt, mmpairs.m0.eta, 'm', mmpairs.m1.pt, mmpairs.m1.eta, 'm', year=year, sys=-1)
-
-        print('Same-sign events [ee, emu, mumu] = [%i, %i, %i]'%(neeSS, nemSS, nmmSS))
-
-        # Cuts
-        eeSSmask   = (ak.num(eeSSmask[eeSSmask])>0)
-        mmSSmask   = (ak.num(mmSSmask[mmSSmask])>0)
-        eeonZmask  = (ak.num(eeonZmask[eeonZmask])>0)
-        eeoffZmask = (ak.num(eeoffZmask[eeoffZmask])>0)
-        mmonZmask  = (ak.num(mmonZmask[mmonZmask])>0)
-        mmoffZmask = (ak.num(mmoffZmask[mmoffZmask])>0)
-        emSSmask   = (ak.num(emSSmask[emSSmask])>0)
-
-        eeOSmask   = (ak.num(eeOSmask[eeOSmask])>0)
-        mmOSmask   = (ak.num(mmOSmask[mmOSmask])>0)
-        emOSmask   = (ak.num(emOSmask[emOSmask])>0)
-
-        CR2LSSjetmask = ((njets==1)|(njets==2)) & (nbtagsm == 1)
-        CR2LSSlepmask = (eeSSmask) | (mmSSmask) | (emSSmask)
-        CR2LSSmask = (CR2LSSjetmask) & (CR2LSSlepmask)
-
-        CRttbarmask = (emOSmask) & (njets == 2) & (nbtagsm == 2)
-        CRZmask = (((eeOSmask)) | ((mmOSmask))) & (nbtagsm == 0)
-
-        ##################################################################
-        ### 3 leptons
-        ##################################################################
-
-        # eem
-        muon_eem = mu[(nElec==2)&(nMuon==1)&(mu.pt>-1)]
-        elec_eem =  e[(nElec==2)&(nMuon==1)&( e.pt>-1)]
-        ee_eem = ak.combinations(elec_eem, 2, fields=["e0", "e1"])
-
-        ee_eemZmask     = (ee_eem.e0.charge*ee_eem.e1.charge<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91.2)<10)
-        ee_eemOffZmask  = (ee_eem.e0.charge*ee_eem.e1.charge<1)&(np.abs((ee_eem.e0+ee_eem.e1).mass-91.2)>10)
-        ee_eemZmask     = (ak.num(ee_eemZmask[ee_eemZmask])>0)
-        ee_eemOffZmask  = (ak.num(ee_eemOffZmask[ee_eemOffZmask])>0)
-
-        eepair_eem  = (ee_eem.e0+ee_eem.e1)
-        trilep_eem = eepair_eem+muon_eem #ak.cartesian({"e0":ee_eem.e0,"e1":ee_eem.e1, "m":muon_eem})
-
-        lepSF_eem = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', muon_eem.pt, muon_eem.eta, 'm', year)
-        lepSF_eem_up = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', muon_eem.pt, muon_eem.eta, 'm', year, sys=1)
-        lepSF_eem_down = GetLeptonSF(ee_eem.e0.pt, ee_eem.e0.eta, 'e', ee_eem.e1.pt, ee_eem.e1.eta, 'e', muon_eem.pt, muon_eem.eta, 'm', year, sys=-1)
-
-        # mme
-        muon_mme = mu[(nElec==1)&(nMuon==2)&(mu.pt>-1)]
-        elec_mme =  e[(nElec==1)&(nMuon==2)&( e.pt>-1)]
-
-        mm_mme = ak.combinations(muon_mme, 2, fields=["m0", "m1"])
-        mm_mmeZmask     = (mm_mme.m0.charge*mm_mme.m1.charge<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91.2)<10)
-        mm_mmeOffZmask  = (mm_mme.m0.charge*mm_mme.m1.charge<1)&(np.abs((mm_mme.m0+mm_mme.m1).mass-91.2)>10)
-        mm_mmeZmask     = (ak.num(mm_mmeZmask[mm_mmeZmask])>0)
-        mm_mmeOffZmask  = (ak.num(mm_mmeOffZmask[mm_mmeOffZmask])>0)
-
-        mmpair_mme     = (mm_mme.m0+mm_mme.m1)
-        trilep_mme     = mmpair_mme+elec_mme
-
-        mZ_mme  = mmpair_mme.mass
-        mZ_eem  = eepair_eem.mass
-        m3l_eem = trilep_eem.mass
-        m3l_mme = trilep_mme.mass
-        
-        lepSF_mme = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', elec_mme.pt, elec_mme.eta, 'e', year)
-        lepSF_mme_up = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', elec_mme.pt, elec_mme.eta, 'e', year, sys=1)
-        lepSF_mme_down = GetLeptonSF(mm_mme.m0.pt, mm_mme.m0.eta, 'm', mm_mme.m1.pt, mm_mme.m1.eta, 'm', elec_mme.pt, elec_mme.eta, 'e', year, sys=-1)
-
-        # eee and mmm
-        eee =   e[(nElec==3)&(nMuon==0)&( e.pt>-1)] 
-        mmm =  mu[(nElec==0)&(nMuon==3)&(mu.pt>-1)] 
-
-        eee_leps = ak.combinations(eee, 3, fields=["e0", "e1", "e2"])
-        mmm_leps = ak.combinations(mmm, 3, fields=["m0", "m1", "m2"])
-        ee_pairs = ak.combinations(eee, 2, fields=["e0", "e1"])
-        mm_pairs = ak.combinations(mmm, 2, fields=["m0", "m1"])
-        ee_pairs_index = ak.argcombinations(eee, 2, fields=["e0", "e1"])
-        mm_pairs_index = ak.argcombinations(mmm, 2, fields=["m0", "m1"])
-
-        lepSF_eee = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year)
-        lepSF_mmm = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year)
-        lepSF_eee_up = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year, sys=1)
-        lepSF_mmm_up = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year, sys=1)
-        lepSF_eee_down = GetLeptonSF(eee_leps.e0.pt, eee_leps.e0.eta, 'e', eee_leps.e1.pt, eee_leps.e1.eta, 'e', eee_leps.e2.pt, eee_leps.e2.eta, 'e', year, sys=-1)
-        lepSF_mmm_down = GetLeptonSF(mmm_leps.m0.pt, mmm_leps.m0.eta, 'm', mmm_leps.m1.pt, mmm_leps.m1.eta, 'm', mmm_leps.m2.pt, mmm_leps.m2.eta, 'm', year, sys=-1)
-        mmSFOS_pairs = mm_pairs[(np.abs(mm_pairs.m0.pdgId) == np.abs(mm_pairs.m1.pdgId)) & (mm_pairs.m0.charge != mm_pairs.m1.charge)]
-        offZmask_mm = ak.all(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)>10., axis=1, keepdims=True) & (ak.num(mmSFOS_pairs)>0)
-        onZmask_mm  = ak.any(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2)<10., axis=1, keepdims=True)
-      
-        eeSFOS_pairs = ee_pairs[(np.abs(ee_pairs.e0.pdgId) == np.abs(ee_pairs.e1.pdgId)) & (ee_pairs.e0.charge != ee_pairs.e1.charge)]
-        offZmask_ee = ak.all(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)>10, axis=1, keepdims=True) & (ak.num(eeSFOS_pairs)>0)
-        onZmask_ee  = ak.any(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2)<10, axis=1, keepdims=True)
-
-        # Create masks **for event selection**
-        eeeOnZmask  = (ak.num(onZmask_ee[onZmask_ee])>0)
-        eeeOffZmask = (ak.num(offZmask_ee[offZmask_ee])>0)
-        mmmOnZmask  = (ak.num(onZmask_mm[onZmask_mm])>0)
-        mmmOffZmask = (ak.num(offZmask_mm[offZmask_mm])>0)
-
-        # Now we need to create masks for the leptons in order to select leptons from the Z boson candidate (in onZ categories)
-        ZeeMask = ak.argmin(np.abs((eeSFOS_pairs.e0 + eeSFOS_pairs.e1).mass - 91.2),axis=1,keepdims=True)
-        ZmmMask = ak.argmin(np.abs((mmSFOS_pairs.m0 + mmSFOS_pairs.m1).mass - 91.2),axis=1,keepdims=True)
-  
-        Zee = eeSFOS_pairs[ZeeMask]
-        Zmm = mmSFOS_pairs[ZmmMask]
-        eZ0= Zee.e0[ak.num(eeSFOS_pairs)>0]
-        eZ1= Zee.e1[ak.num(eeSFOS_pairs)>0]
-        eZ = eZ0+eZ1
-        mZ0= Zmm.m0[ak.num(mmSFOS_pairs)>0]
-        mZ1= Zmm.m1[ak.num(mmSFOS_pairs)>0]
-        mZ = mZ0+mZ1
-        mZ_eee  = eZ.mass
-        mZ_mmm  = mZ.mass
-
-        # And for the W boson
-        ZmmIndices = mm_pairs_index[ZmmMask]
-        ZeeIndices = ee_pairs_index[ZeeMask]
-        eW = eee[~ZeeIndices.e0 | ~ZeeIndices.e1]
-        mW = mmm[~ZmmIndices.m0 | ~ZmmIndices.m1]
-
-        triElec = eee_leps.e0+eee_leps.e1+eee_leps.e2
-        triMuon = mmm_leps.m0+mmm_leps.m1+mmm_leps.m2
-        m3l_eee = triElec.mass
-        m3l_mmm = triMuon.mass
-
-        CR3Ljetmask = (njets>=1) & (nbtagsm==0)
-        CR3Llepmask = (eeeOnZmask) | (eeeOffZmask) | (mmmOnZmask) | (mmmOffZmask) | (ee_eemZmask) | (ee_eemOffZmask) | (mm_mmeZmask) | (mm_mmeOffZmask)
-        CR3Lmask = (CR3Ljetmask) & (CR3Llepmask)    
-
-
-        ##################################################################
-        ### >=4 leptons
-        ##################################################################
-
-        # 4lep cat
-        is4lmask = ((nElec+nMuon)>=4)
-        muon_4l = mu[(is4lmask)&(mu.pt>-1)]
-        elec_4l =  e[(is4lmask)&( e.pt>-1)]
-        # selecting 4 leading leptons
-        leptons=ak.concatenate([e,mu], axis=-1)
-        leptons_sorted=leptons[ak.argsort(leptons.pt, axis=-1,ascending=False)]
-        lep4l=leptons_sorted[:,0:4]
-        e4l=lep4l[abs(lep4l.pdgId)==11]
-        mu4l=lep4l[abs(lep4l.pdgId)==13]
-        nElec4l=ak.num(e4l)
-        nMuon4l=ak.num(mu4l)
-       
-        #eemm
-        muon_eemm = mu4l[(nElec4l==2)&(nMuon4l==2)&(mu4l.pt>-1)]
-        elec_eemm =  e4l[(nElec4l==2)&(nMuon4l==2)&( e4l.pt>-1)]
-        ee_eemm = ak.combinations(elec_eemm, 2, fields=["e0", "e1"])
-        mm_eemm = ak.combinations(muon_eemm, 2, fields=["m0", "m1"])
-        lepSF_eemm = GetLeptonSF(ee_eemm.e0.pt, ee_eemm.e0.eta, 'e', ee_eemm.e1.pt, ee_eemm.e1.eta, 'e', mm_eemm.m0.pt, mm_eemm.m0.eta, 'm',mm_eemm.m1.pt, mm_eemm.m1.eta, 'm', year)
-        lepSF_eemm_up = GetLeptonSF(ee_eemm.e0.pt, ee_eemm.e0.eta, 'e', ee_eemm.e1.pt, ee_eemm.e1.eta, 'e', mm_eemm.m0.pt, mm_eemm.m0.eta, 'm',mm_eemm.m1.pt, mm_eemm.m1.eta, 'm', year, sys=1)
-        lepSF_eemm_down = GetLeptonSF(ee_eemm.e0.pt, ee_eemm.e0.eta, 'e', ee_eemm.e1.pt, ee_eemm.e1.eta, 'e', mm_eemm.m0.pt, mm_eemm.m0.eta, 'm',mm_eemm.m1.pt, mm_eemm.m1.eta, 'm', year, sys=-1)
-        #eeem
-        muon_eeem = mu4l[(nElec4l==3)&(nMuon4l==1)&(mu4l.pt>-1)]
-        elec_eeem =  e4l[(nElec4l==3)&(nMuon4l==1)&( e4l.pt>-1)]
-        eee_eeem = ak.combinations(elec_eeem, 3, fields=["e0", "e1", "e2"])
-        lepSF_eeem = GetLeptonSF(eee_eeem.e0.pt, eee_eeem.e0.eta, 'e', eee_eeem.e1.pt, eee_eeem.e1.eta, 'e', eee_eeem.e2.pt, eee_eeem.e2.eta, 'e',muon_eeem.pt, muon_eeem.eta, 'm', year)
-        lepSF_eeem_up = GetLeptonSF(eee_eeem.e0.pt, eee_eeem.e0.eta, 'e', eee_eeem.e1.pt, eee_eeem.e1.eta, 'e', eee_eeem.e2.pt, eee_eeem.e2.eta, 'e',muon_eeem.pt, muon_eeem.eta, 'm', year, sys=1)
-        lepSF_eeem_down = GetLeptonSF(eee_eeem.e0.pt, eee_eeem.e0.eta, 'e', eee_eeem.e1.pt, eee_eeem.e1.eta, 'e', eee_eeem.e2.pt, eee_eeem.e2.eta, 'e',muon_eeem.pt, muon_eeem.eta, 'm', year, sys=-1)
-        #mmme
-        muon_mmme = mu4l[(nElec4l==1)&(nMuon4l==3)&(mu4l.pt>-1)]
-        elec_mmme =  e4l[(nElec4l==1)&(nMuon4l==3)&( e4l.pt>-1)]
-        mmm_mmme = ak.combinations(muon_eeem, 3, fields=["m0", "m1", "m2"])
-        lepSF_mmme = GetLeptonSF(mmm_mmme.m0.pt, mmm_mmme.m0.eta, 'm', mmm_mmme.m1.pt, mmm_mmme.m1.eta, 'm', mmm_mmme.m2.pt, mmm_mmme.m2.eta, 'm',elec_mmme.pt, elec_mmme.eta, 'e', year)
-        lepSF_mmme_up = GetLeptonSF(mmm_mmme.m0.pt, mmm_mmme.m0.eta, 'm', mmm_mmme.m1.pt, mmm_mmme.m1.eta, 'm', mmm_mmme.m2.pt, mmm_mmme.m2.eta, 'm',elec_mmme.pt, elec_mmme.eta, 'e', year, sys=1)
-        lepSF_mmme_down = GetLeptonSF(mmm_mmme.m0.pt, mmm_mmme.m0.eta, 'm', mmm_mmme.m1.pt, mmm_mmme.m1.eta, 'm', mmm_mmme.m2.pt, mmm_mmme.m2.eta, 'm',elec_mmme.pt, elec_mmme.eta, 'e', year, sys=-1)
-        #mmmm and eeee
-        muon_mmmm = mu4l[(nElec4l==0)&(nMuon4l==4)&(mu4l.pt>-1)]
-        elec_eeee =  e4l[(nElec4l==4)&(nMuon4l==0)&( e4l.pt>-1)]
-        eeee = ak.combinations(elec_eeee, 4, fields=["e0", "e1", "e2","e3"])
-        mmmm = ak.combinations(muon_mmmm, 4, fields=["m0", "m1", "m2","m3"])
-        lepSF_mmmm = GetLeptonSF(mmmm.m0.pt, mmmm.m0.eta, 'm', mmmm.m1.pt, mmmm.m1.eta, 'm', mmmm.m2.pt, mmmm.m2.eta, 'm', mmmm.m3.pt, mmmm.m3.eta, 'm', year)
-        lepSF_mmmm_up = GetLeptonSF(mmmm.m0.pt, mmmm.m0.eta, 'm', mmmm.m1.pt, mmmm.m1.eta, 'm', mmmm.m2.pt, mmmm.m2.eta, 'm', mmmm.m3.pt, mmmm.m3.eta, 'm', year, sys=1)
-        lepSF_mmmm_down = GetLeptonSF(mmmm.m0.pt, mmmm.m0.eta, 'm', mmmm.m1.pt, mmmm.m1.eta, 'm', mmmm.m2.pt, mmmm.m2.eta, 'm', mmmm.m3.pt, mmmm.m3.eta, 'm', year, sys=-1)
-        lepSF_eeee = GetLeptonSF(eeee.e0.pt, eeee.e0.eta, 'e', eeee.e1.pt, eeee.e1.eta, 'e', eeee.e2.pt, eeee.e2.eta, 'e', eeee.e3.pt, eeee.e3.eta, 'e', year)
-        lepSF_eeee_up = GetLeptonSF(eeee.e0.pt, eeee.e0.eta, 'e', eeee.e1.pt, eeee.e1.eta, 'e', eeee.e2.pt, eeee.e2.eta, 'e', eeee.e3.pt, eeee.e3.eta, 'e', year, sys=1)
-        lepSF_eeee_down = GetLeptonSF(eeee.e0.pt, eeee.e0.eta, 'e', eeee.e1.pt, eeee.e1.eta, 'e', eeee.e2.pt, eeee.e2.eta, 'e', eeee.e3.pt, eeee.e3.eta, 'e', year, sys=-1)
-
-        # Triggers
-        trig_eeSS = passTrigger(events,'ee',isData,dataset)
-        trig_mmSS = passTrigger(events,'mm',isData,dataset)
-        trig_emSS = passTrigger(events,'em',isData,dataset)
-        trig_eee  = passTrigger(events,'eee',isData,dataset)
-        trig_mmm  = passTrigger(events,'mmm',isData,dataset)
-        trig_eem  = passTrigger(events,'eem',isData,dataset)
-        trig_mme  = passTrigger(events,'mme',isData,dataset)
-        trig_4l   = triggerFor4l(events, nMuon, nElec, isData, dataset)
-
-        # MET filters
-
-        # Tight Selection
-        isTight = (ak.singletons(ak.num(lep_FO[lep_FO.isTightLep==False]))==0)
-
-        # Weights
-        genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
 
         ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
+        genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
         weights = {}
-        for r in ['all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme', 'eeee','eeem','eemm','mmme','mmmm']:
-          weights[r] = coffea.analysis_tools.Weights(len(events))
+        for r in ['2lss0tau', 'all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme', 'eeee','eeem','eemm','mmme','mmmm']:
+          # weights[r] = coffea.analysis_tools.Weights(len(events))
+          weights[r] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
           if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
           weights[r].add('norm',genw if isData else (xsec/sow)*genw)
           weights[r].add('btagSF', btagSF, btagSFUp, btagSFDo)
-        
-        weights['ee'].add('lepSF', lepSF_eeSS, lepSF_eeSS_up, lepSF_eeSS_down)
-        weights['em'].add('lepSF', lepSF_emSS,lepSF_emSS_up, lepSF_emSS_down)
-        weights['mm'].add('lepSF', lepSF_mumuSS, lepSF_mumuSS_up, lepSF_mumuSS_down)
-        weights['eee'].add('lepSF', lepSF_eee, lepSF_eee_up, lepSF_eee_down)
-        weights['mmm'].add('lepSF', lepSF_mmm, lepSF_mmm_up, lepSF_mmm_down)
-        weights['mme'].add('lepSF', lepSF_mme, lepSF_mme_up, lepSF_mme_down)
-        weights['eem'].add('lepSF', lepSF_eem, lepSF_eem_up, lepSF_eem_down)
-        weights['eeee'].add('lepSF', lepSF_eeee, lepSF_eeee_up, lepSF_eeee_down)
-        weights['mmmm'].add('lepSF', lepSF_mmmm, lepSF_mmmm_up, lepSF_mmmm_down)
-        weights['mmme'].add('lepSF', lepSF_mmme, lepSF_mmme_up, lepSF_mmme_down)
-        weights['eeem'].add('lepSF', lepSF_eeem, lepSF_eeem_up, lepSF_eeem_down)
-        weights['eemm'].add('lepSF', lepSF_eemm, lepSF_eemm_up, lepSF_eemm_down)
+          weights[r].add('lepSF', events.sf_2lss,  events.sf_2lss_hi,events.sf_2lss_lo)
         
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
@@ -504,109 +279,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                 eft_coeffs = efth.remap_coeffs(self._samples[dataset]['WCnames'], self._wc_names_lst, eft_coeffs)
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
+        
+
         # Selections and cuts
         selections = PackedSelection(dtype='uint64')
-        channels2LSS = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
-        selections.add('eeSSonZ',  (eeonZmask)&(eeSSmask)&(trig_eeSS))
-        selections.add('eeSSoffZ', (eeoffZmask)&(eeSSmask)&(trig_eeSS))
-        selections.add('mmSSonZ',  (mmonZmask)&(mmSSmask)&(trig_mmSS))
-        selections.add('mmSSoffZ', (mmoffZmask)&(mmSSmask)&(trig_mmSS))
-        selections.add('emSS',     (emSSmask)&(trig_emSS))
-
-        channels2LOS = ['eeOSonZ', 'eeOSoffZ', 'mmOSonZ', 'mmOSoffZ', 'emOS']
-        selections.add('eeOSonZ',  (eeonZmask)&(eeOSmask)&(trig_eeSS))
-        selections.add('eeOSoffZ', (eeoffZmask)&(eeOSmask)&(trig_eeSS))
-        selections.add('mmOSonZ',  (mmonZmask)&(mmOSmask)&(trig_mmSS))
-        selections.add('mmOSoffZ', (mmoffZmask)&(mmOSmask)&(trig_mmSS))
-        selections.add('emOS',     (emOSmask)&(trig_emSS))
-
-        channels3L = ['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ']
-        selections.add('eemSSonZ',   (ee_eemZmask)&(trig_eem))
-        selections.add('eemSSoffZ',  (ee_eemOffZmask)&(trig_eem))
-        selections.add('mmeSSonZ',   (mm_mmeZmask)&(trig_mme))
-        selections.add('mmeSSoffZ',  (mm_mmeOffZmask)&(trig_mme))
-
-        channels3L += ['eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ']
-        selections.add('eeeSSonZ',   (eeeOnZmask)&(trig_eee))
-        selections.add('eeeSSoffZ',  (eeeOffZmask)&(trig_eee))
-        selections.add('mmmSSonZ',   (mmmOnZmask)&(trig_mmm))
-        selections.add('mmmSSoffZ',  (mmmOffZmask)&(trig_mmm))
-        
-        channels4L =['eeee','eeem','eemm','mmme','mmmm']
-        selections.add('eeee',((nElec4l==4)&(nMuon4l==0))&(trig_4l))
-        selections.add('eeem',((nElec4l==3)&(nMuon4l==1))&(trig_4l))
-        selections.add('eemm',((nElec4l==2)&(nMuon4l==2))&(trig_4l))
-        selections.add('mmme',((nElec4l==1)&(nMuon4l==3))&(trig_4l))
-        selections.add('mmmm',((nElec4l==0)&(nMuon4l==4))&(trig_4l))
-        
-        selections.add('ch+', (sumcharge>0))
-        selections.add('ch-', (sumcharge<0))
-        selections.add('ch0', (sumcharge==0))
-
-        levels = ['base', '1+bm2+bl', '1bm', '2+bm', 'CR2L', 'CR3L', 'CRttbar', 'CRZ', 'app']
-        selections.add('base',     (nElec+nMuon>=2)&(isTight))
-        selections.add('1+bm2+bl', (nElec+nMuon>=2)&((nbtagsm>=1)&(nbtagsl>=2))&(isTight))
-        selections.add('1bm',      (nElec+nMuon>=2)&(nbtagsm==1)&(isTight))
-        selections.add('2+bm',     (nElec+nMuon>=2)&(nbtagsm>=2)&(isTight))
-
-        selections.add('CR2L', (CR2LSSmask)&(isTight))
-        selections.add('CR3L', (CR3Lmask)&(isTight))
-        selections.add('CRttbar', (CRttbarmask)&(isTight))
-        selections.add('CRZ', (CRZmask)&(isTight))
-
-        selections.add('app', (isTight==False))
-
-        # Variables
-        invMass_eeSSonZ  = ( eeSSonZ.e0+ eeSSonZ.e1).mass
-        invMass_eeSSoffZ = (eeSSoffZ.e0+eeSSoffZ.e1).mass
-        invMass_mmSSonZ  = ( mmSSonZ.m0+ mmSSonZ.m1).mass
-        invMass_mmSSoffZ = (mmSSoffZ.m0+mmSSoffZ.m1).mass
-        invMass_emSS     = (emSS.e+emSS.m).mass
-
-        invMass_eeOSonZ  = ( eeOSonZ.e0+ eeOSonZ.e1).mass
-        invMass_eeOSoffZ = (eeOSoffZ.e0+eeOSoffZ.e1).mass
-        invMass_mmOSonZ  = ( mmOSonZ.m0+ mmOSonZ.m1).mass
-        invMass_mmOSoffZ = (mmOSoffZ.m0+mmOSoffZ.m1).mass
-        invMass_emOS     = (emOS.e+emOS.m).mass
+        is2lss=ak.values_astype(events.is2lss,'bool')
+        selections.add('2lss0tau', is2lss)
 
         varnames = {}
-        varnames['met']     = met.pt
-        varnames['ht']      = ht
-        varnames['njets']   = njets
-        varnames['invmass'] = {
-          'eeSSonZ'   : invMass_eeSSonZ,
-          'eeSSoffZ'  : invMass_eeSSoffZ,
-          'mmSSonZ'   : invMass_mmSSonZ,
-          'mmSSoffZ'  : invMass_mmSSoffZ,
-          'emSS'      : invMass_emSS,
-          'eeOSonZ'   : invMass_eeOSonZ,
-          'eeOSoffZ'  : invMass_eeOSoffZ,
-          'mmOSonZ'   : invMass_mmOSonZ,
-          'mmOSoffZ'  : invMass_mmOSoffZ,
-          'emOS'      : invMass_emOS,
-          'eemSSonZ'  : mZ_eem,
-          'eemSSoffZ' : mZ_eem,
-          'mmeSSonZ'  : mZ_mme,
-          'mmeSSoffZ' : mZ_mme,
-          'eeeSSonZ'  : mZ_eee,
-          'eeeSSoffZ' : mZ_eee,
-          'mmmSSonZ'  : mZ_mmm,
-          'mmmSSoffZ' : mZ_mmm,
-        }
-        varnames['m3l'] = {
-          'eemSSonZ'  : m3l_eem,
-          'eemSSoffZ' : m3l_eem,
-          'mmeSSonZ'  : m3l_mme,
-          'mmeSSoffZ' : m3l_mme,
-          'eeeSSonZ'  : m3l_eee,
-          'eeeSSoffZ' : m3l_eee,
-          'mmmSSonZ'  : m3l_mmm,
-          'mmmSSoffZ' : m3l_mmm,
-        }
-        varnames['e0pt' ]  = e0.pt
-        varnames['e0eta']  = e0.eta
-        varnames['m0pt' ]  = m0.pt
-        varnames['m0eta']  = m0.eta
+        varnames['e0pt' ]  = l0.pt  # update
+        varnames['e0eta']  = l0.eta # update
+        varnames['m0pt' ]  = l0.pt  # update
+        varnames['m0eta']  = l0.eta # update
         varnames['l0pt']  = l0.pt
         varnames['l0eta'] = l0.eta
         varnames['j0pt' ]  = j0.pt
@@ -628,9 +312,10 @@ class AnalysisProcessor(processor.ProcessorABC):
     
         for syst in systList:
          for var, v in varnames.items():
-          for ch in channels2LSS+channels2LOS+channels3L+channels4L:
-           for sumcharge in ['ch+', 'ch-', 'ch0']:
-            for lev in levels:
+          continue
+          for ch in ['2lss0tau']:
+           for sumcharge in ['']:
+            for lev in ['']:
              #find the event weight to be used when filling the histograms    
              weightSyst = syst
              #in the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
@@ -640,12 +325,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weight = np.ones(len(events)) # for data
              else:
               # call weights.weight() with the name of the systematic to be varied
-              if ch in channels3L: ch_w= ch[:3]
-              elif ch in channels2LSS: ch_w =ch[:2]
-              elif ch in channels2LOS: ch_w =ch[:2]
-              else: ch_w=ch
+              # if ch in channels3L: ch_w= ch[:3]
+              # elif ch in channels2LSS: ch_w =ch[:2]
+              # elif ch in channels2LOS: ch_w =ch[:2]
+              # else: ch_w=ch
+              ch_w=ch   
+              print(weightSyst)
               weight = weights['all'].weight(weightSyst) if isData else weights[ch_w].weight(weightSyst)
-             cuts = [ch] + [lev] + [sumcharge]
+             cuts = []
              cut = selections.all(*cuts)
              weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
              weights_ones = np.ones_like(weights_flat, dtype=np.int)
