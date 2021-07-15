@@ -524,17 +524,16 @@ class AnalysisProcessor(processor.ProcessorABC):
               weightSyst = None # no weight systematic for these variations
              if syst=='noweight':
                 weight = np.ones(len(events)) # for data
-                print('noweight:',len(weight))
              elif syst=='fliprates':
                weight = np.zeros(len(events)) # for data
-               if ch in ['eeOSonZ', 'eeOSoffZ']:
+               if   ch in ['eeOSonZ', 'eeOSoffZ']: 
                  weight = eeChargeFlipsWeights
-                 weight = ak.flatten(weight)
-                 print('flips:',len(weight))
-               elif ch == 'emOS':
+                 weight = ak.firsts(weight)
+                 weight = ak.fill_none(weight, 0)
+               elif ch == 'emOS': 
                  weight = emChargeFlipsWeights
-                 weight = ak.flatten(weight)
-               #weight = ak.prod(np.ones(len(events)), weight)
+                 weight = ak.firsts(weight)
+                 weight = ak.fill_none(weight, 0)
              else:
               # call weights.weight() with the name of the systematic to be varied
               if ch in channels3L: ch_w= ch[:3]
@@ -543,9 +542,7 @@ class AnalysisProcessor(processor.ProcessorABC):
               weight = weights['all'].weight(weightSyst) if isData else weights[ch_w].weight(weightSyst)
              cuts = [ch] + [lev] + [sumcharge]
              cut = selections.all(*cuts)
-             print('cut:',len(cut))
              weights_flat = weight[cut]#.flatten()
-             print('weights_flat:',len(weights_flat))
              weights_ones = np.ones_like(weights_flat, dtype=np.int)
              eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
              eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
