@@ -24,7 +24,7 @@
     "/store/mc/RunIISummer19UL18NanoAODv2/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/40000/0F2D8C23-A4D8-424F-AB8B-020E3E4CB60B.root"
   ],
   "nEvents": 12748300,
-  "nGenEvents": 989925.6204275204,
-  "nSumOfWeights": 12748300,
+  "nGenEvents": 12748300,
+  "nSumOfWeights": 989925.6204275204,
   "isData": false
 }

@@ -22,7 +22,7 @@
     "/store/mc/RunIISummer20UL17NanoAODv2/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/240000/979E2C20-CBBB-6B4E-B585-4256BF4EAF2F.root"
   ],
   "nEvents": 14196000,
-  "nGenEvents": 3464156.4672970804,
-  "nSumOfWeights": 14196000,
+  "nGenEvents": 14196000,
+  "nSumOfWeights": 3464156.4672970804,
   "isData": false
 }

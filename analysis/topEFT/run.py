@@ -27,14 +27,15 @@ if __name__ == '__main__':
   parser.add_argument('--test','-t'       , action='store_true'  , help = 'To perform a test, run over a few events in a couple of chunks')
   parser.add_argument('--pretend'        , action='store_true'  , help = 'Read json files but, not execute the analysis')
   parser.add_argument('--nworkers','-n'   , default=8  , help = 'Number of workers')
-  parser.add_argument('--chunksize','-s'   , default=500000  , help = 'Number of events per chunk')
+  parser.add_argument('--chunksize','-s'   , default=100000  , help = 'Number of events per chunk')
   parser.add_argument('--nchunks','-c'   , default=None  , help = 'You can choose to run only a number of chunks')
   parser.add_argument('--outname','-o'   , default='plotsTopEFT', help = 'Name of the output file with histograms')
   parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the output directory')
   parser.add_argument('--treename'   , default='Events', help = 'Name of the tree inside the files')
   parser.add_argument('--do-errors', action='store_true', help = 'Save the w**2 coefficients')
   parser.add_argument('--do-systs', action='store_true', help = 'Run over systematic samples (takes longer)')
-
+  parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
+  
   args = parser.parse_args()
   jsonFiles  = args.jsonFiles
   prefix     = args.prefix
@@ -48,6 +49,7 @@ if __name__ == '__main__':
   treename   = args.treename
   do_errors = args.do_errors
   do_systs  = args.do_systs
+  wc_lst = args.wc_list if args.wc_list is not None else []
 
   if dotest:
     nchunks = 2
@@ -131,12 +133,24 @@ if __name__ == '__main__':
     print('pretending...')
     exit() 
 
-  # Check that all datasets have the same list of WCs
-  for i,k in enumerate(samplesdict.keys()):
-    if i == 0:
-      wc_lst = samplesdict[k]['WCnames']
-    if wc_lst != samplesdict[k]['WCnames']:
-      raise Exception("Not all of the datasets have the same list of WCs.")
+  # Extract the list of all WCs, as long as we haven't already specified one.
+  if len(wc_lst) == 0:
+    for k in samplesdict.keys():
+      for wc in samplesdict[k]['WCnames']:
+        if wc not in wc_lst:
+          wc_lst.append(wc)
+
+  if len(wc_lst) > 0:
+    # Yes, why not have the output be in correct English?
+    if len(wc_lst) == 1:
+      wc_print = wc_lst[0]
+    elif len(wc_lst) == 2:
+      wc_print = wc_lst[0] + ' and ' + wc_lst[1]
+    else:
+      wc_print = ', '.join(wc_lst[:-1]) + ', and ' + wc_lst[-1]
+    print('Wilson Coefficients: {}.'.format(wc_print))
+  else:
+    print('No Wilson coefficients specified')
  
   processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors,do_systs)
 

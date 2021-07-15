@@ -26,7 +26,7 @@
     "/store/mc/RunIISummer20UL18NanoAODv2/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v15_L1v1-v1/30000/357EECEA-7F8C-F14F-91B0-42A8921A89E4.root"
   ],
   "nEvents": 19992000,
-  "nGenEvents": 4876491.715182641,
-  "nSumOfWeights": 19992000,
+  "nGenEvents": 19992000,
+  "nSumOfWeights": 4876491.715182641,
   "isData": false
 }
