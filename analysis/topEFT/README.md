@@ -22,6 +22,20 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - This run script also runs the main `topeft.py` processor, but it uses the `work_queue` executor. Pass the config file to this script in exactly the same was as with `run.py`. The `work_queue` executor makes use of remote resources, and you will need to submit workers using a `condor_submit_workers` command as explained on the main `topcoffea` README.
     - Example usage: `python work_queue_run.py ../../topcoffea/cfg/your_cfg.cfg`
 
+### Scripts for finding and comparing yields
+
+* `get_yield_json.py`:
+    - This script takes a pkl file produced by the processor, finds the yields in the analysis categories, and saves the yields to a json file. It can also print the info to the screen. The default pkl file to process is `hists/plotsTopEFT.pkl.gz`.
+    - Example usage: `python get_yield_json.py -f histos/your_pkl_file.pkl.gz`
+
+* `comp_yields.py`:
+    - This script takes two json files of yields (produced by `get_yield_json.py`), finds the difference and percent difference between them in each category, and prints out all of the information. You can also compare to the TOP-19-001 yields by specifying `TOP-19-001` as one of the inputs. Specifying the second file is optional, and it will default to the reference yield file. The script returns a non-zero exit code if any of the percent differences are larger than a given value (currently set to 1e-8). 
+    - Example usage: `python comp_yields.py your_yields_1.json your_yields_2.json`
+
+* `check_yields.sh`:
+    - This script calls `run.py` (to run the `topeft` processor over a sample), `get_yield_json.py` (to find the yields, and save them to a json file), and `comp_yields.py` (to compare these yields to reference yields).
+    - Example usage: `source check_yields.sh`
+
 ### Other scripts
 
 * `datacard_maker.py`:
@@ -30,10 +44,6 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - More cards can be made by adding addtional calls to `analyzeChannel()` (see file for details).
 
 * `drawSliders.py`:
-
-* `find_yields.py`:
-    - This script is a work in progress. The main functionality of this script is to load the histograms from the pkl files produced by the processor, and to find the yield for each category that is specified in the `CATEGORIES` dictionary. Currently, these categories are designed to match the categories defined in TOP-19-001. Once you have obtained the yields (via the `get_yld_dict()` function), you can manipulate them (e.g. find the percent different between two yield dictionaries using `get_pdiff_between_nested_dicts()`) or display them (by dumping them to the screen with `print_yld_dicts()`, or dumping them to the screen in the format of a latex table with `print_latex_yield_table()`).
-    - Example usage: `python find_yields.py`
  
 * `make_jsons.py`:
     - The purpose of this script is to function as a wrapper for the `topcoffea/modules/createJSON.py` script. That script can also be run from the command line, but many options must be specified, so if you would like to make multiple JSON files or if you will need to remake the JSON files at some point, it is easier to use this script.
