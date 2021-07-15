@@ -214,6 +214,12 @@ def get_environment(force=False, unstaged='rebuild', cache_size=3):
 
         logger.info("Generating {} environment file".format(full_env_tarball))
         try:
+            # remove flag file that marks environment as expanded
+            os.remove(os.path.join(tmp_env ,'.python_package_run_expanded'))
+        except FileNotFoundError:
+            pass
+
+        try:
             subprocess.check_output(['conda-pack', '--prefix', tmp_env, '--output', str(full_env_tarball)], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             print(e.output)
