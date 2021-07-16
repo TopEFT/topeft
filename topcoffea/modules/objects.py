@@ -58,7 +58,7 @@ def isTightMuon(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, mediumPrompt, tightCha
   return mask
 
 def isPresElec(pt, eta, dxy, dz, miniIso, sip3D, lostHits, minpt=15.0):
-  mask = (pt>minpt)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(lostHits<=1)
+  mask = (pt>minpt)&(abs(eta)<2.5)&(abs(dxy)<0.05)&(abs(dz)<0.1)&(sip3D<8)&(lostHits<=1)#&(eInvMinusPInv>-0.04)&(maskhoe)&(miniIso<0.25)
   return mask
  
 def isTightElec(pt, eta, dxy, dz, miniIso, sip3D, mvaTTH, elecMVA, lostHits, convVeto, tightCharge, sieie, hoe, eInvMinusPInv, minpt=15.0):
@@ -108,4 +108,3 @@ def tightSelElec(clean_and_FO_selection_TTH, mvaTTH):
 
 def tightSelMuon(clean_and_FO_selection_TTH, mediumId, mvaTTH):
   return (clean_and_FO_selection_TTH) & (mediumId>0) & (mvaTTH > 0.85)
-  return kinematics & medium

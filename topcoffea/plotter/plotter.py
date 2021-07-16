@@ -13,7 +13,7 @@ from cycler import cycler
 from topcoffea.plotter.OutText import OutText
 
 class plotter:
-  def __init__(self, path, prDic={}, colors={}, bkgList=[], dataName='data', outpath='./temp/', output=None, lumi=59.7, sigList=[]):
+  def __init__(self, path, prDic={}, colors={}, bkgList=[], dataName='data', outpath='./temp/', lumi=59.7, sigList=[]):
     self.SetPath(path)
     self.SetProcessDic(prDic)
     self.SetBkgProcesses(bkgList)
@@ -21,7 +21,6 @@ class plotter:
     self.SetDataName(dataName)
     self.Load()
     self.SetOutpath(outpath)
-    self.SetOutput(output)
     self.SetLumi(lumi)
     self.SetColors(colors)
     self.SetRegion()
@@ -33,7 +32,7 @@ class plotter:
     self.doLogY = False
     self.invertStack = False
     self.plotData = True
-    self.fill_opts = {'edgecolor': (0,0,0,0.3), 'alpha': 1.0}
+    self.fill_opts = {'edgecolor': (0,0,0,0.3), 'alpha': 0.8}
     self.error_opts = {'label':'Stat. Unc.','hatch':'///','facecolor':'none','edgecolor':(0,0,0,.5),'linewidth': 0}
     self.textParams = {'font.size': 14, 'axes.titlesize': 18, 'axes.labelsize': 18, 'xtick.labelsize': 12, 'ytick.labelsize': 12}
     self.data_err_opts = {'linestyle':'none', 'marker': '.', 'markersize': 10., 'color':'k', 'elinewidth': 1,}#'emarker': '_'
@@ -49,19 +48,11 @@ class plotter:
     ''' Get a dictionary histoname : histogram '''
     if path != '': self.SetPath(path)
     self.hists = {}
-    listpath = self.path if isinstance(self.path, list) else [self.path]
-    for path in listpath:
-      with gzip.open(path) as fin:
-        hin = pickle.load(fin)
-        for k in hin.keys():
-          if k in self.hists: self.hists[k]+=hin[k]
-          else:               self.hists[k]=hin[k]
-    self.histsData = {}
-    for k in self.hists:
-      self.histsData[k] = self.hists[k]
-    self.histsFlips = {}
-    for k in self.hists:
-      self.histsFlips[k] = self.hists[k]
+    with gzip.open(self.path) as fin:
+      hin = pickle.load(fin)
+      for k in hin.keys():
+        if k in self.hists: self.hists[k]+=hin[k]
+        else:               self.hists[k]=hin[k]
     self.GroupProcesses()
 
   def SetProcessDic(self, prdic, sampleLabel='sample', processLabel='process'):
@@ -77,8 +68,6 @@ class plotter:
     else:
       for k in groupDic:
         self.prDic[k] = (prdic[k])
-    for keys in self.prDic:
-        print("{}: {}".format(keys, self.prDic[keys]))
 
   def GroupProcesses(self, prdic={}):
     ''' Move from grouping in samples to groping in processes '''
@@ -92,9 +81,9 @@ class plotter:
     ''' Set the list of background processes '''
     self.bkglist = bkglist
     if isinstance(self.bkglist, str): 
-      self.bkgdic = (self.bkglist.replace(' ', '').split(','))
+      self.bkglist = self.bkglist.replace(' ', '').split(',')
     self.bkgdic = OrderedDict()
-    for b in self.bkglist: self.bkgdic[b] = (self.prDic[b])
+    for b in self.bkglist: self.bkgdic[b] = b
 
   def SetSignalProcesses(self, siglist=[]):
     ''' Set the list of signal processes '''
@@ -115,9 +104,6 @@ class plotter:
   def SetOutpath(self, outpath='./temp/'):
     ''' Set output path '''
     self.outpath = outpath
-
-  def SetOutput(self, output=None):
-    self.output = output
 
   def SetColors(self, colors={}):
     ''' Set a dictionary with a color for each process '''
@@ -151,8 +137,8 @@ class plotter:
     self.sqrts = sqrts
   
   def SetRange(self, xRange=None, yRange=None):
-    self.xRange = xRange
-    self.yRange = yRange
+    self.xRange = None
+    self.yRange = None
 
   def SetRatioRange(self, ymin=0.5, ymax=1.5):
     self.ratioRange = [ymin, ymax]
@@ -168,16 +154,10 @@ class plotter:
 
   def SetCategories(self, dic):
     self.categories = dic
-  
-  def SetFlipCategories(self, dic):
-    self.flipcategories = dic
 
   def SetCategory(self, catname, values):
     self.categories[catname] = values
 
-  def SetFlipCategory(self, catname, values):
-    self.flipcategories[catname] = values
-    
   def AddCategory(self, catname, catdic):
     self.multicategories[catname] = catdic
 
@@ -189,20 +169,17 @@ class plotter:
     else:
       self.multicategories = multidic
 
-  def GetHistogram(self, hname, process, categories=None,flipcategories= {'channel' : ['emuOS,eeOSonZ','eeOSoffZ'],'cut' : 'base','sumcharge' : ['ch+','ch-']}):
+  def GetHistogram(self, hname, process, categories=None):
     ''' Returns a histogram with all categories contracted '''
     if categories == None: categories = self.categories
     h = self.hists[hname]
     sow = self.hists['SumOfEFTweights']
     for cat in categories: 
       h = h.integrate(cat, categories[cat])
-    h=h.integrate('systematic','PUDown')
     if isinstance(process, str) and ',' in process: process = process.split(',')
     if isinstance(process, list): 
       prdic = {}
-      for pr in process: 
-         if pr=='Flips': continue  
-         prdic[pr] = pr
+      for pr in process: prdic[pr] = pr
       h = h.group("process", hist.Cat("process", "process"), prdic)
     elif isinstance(process, str): 
       h = h[process].sum("process")
@@ -213,44 +190,11 @@ class plotter:
         sow = sow.integrate("sample")
         sow = np.sum(sow.values()[()])
         h.scale(1. / sow) # Divie EFT samples by sum of weights at SM
-    '''
-    process='Flips'
-    hf = self.histsFlips[hname]
-    for cat in flipcategories: 
-      hf = hf.integrate(cat, flipcategories[cat])
-    hf=hf.integrate('systematic','fliprates')
-    if isinstance(process, str) and ',' in process: process = process.split(',')
-    if isinstance(process, list): 
-      prdic = {}
-      for pr in process: 
-         if pr=='Flips': continue  
-         prdic[pr] = pr
-      hf = hf.group("process", hist.Cat("process", "process"), prdic)
-    elif isinstance(process, str): 
-      hf = hf[process].sum("process")
-    '''
     return h
 
-  def GetHistogramData(self, hname, process, categories=None):
-    ''' Returns a histogram with all categories contracted '''
-    if categories == None: categories = self.categories
-    h = self.histsData[hname]
-    for cat in categories: 
-      h = h.integrate(cat, categories[cat])
-    h=h.integrate('systematic','noweight')
-    if isinstance(process, str) and ',' in process: process = process.split(',')
-    if isinstance(process, list): 
-      prdic = {}
-      for pr in process: 
-         prdic[pr] = pr
-      h = h.group("process", hist.Cat("process", "process"), prdic)
-    elif isinstance(process, str):
-      h = h[process].sum("process")
-    return h
-    
   def doData(self, hname):
     ''' Check if data histogram exists '''
-    return self.dataName in [str(x) for x in list(self.histsData[hname].identifiers(self.processLabel))] and self.plotData
+    return self.dataName in [str(x) for x in list(self.hists[hname].identifiers(self.processLabel))] and self.plotData
 
   def SetLegend(self, do=True):
     self.doLegend = do
@@ -275,6 +219,7 @@ class plotter:
     if isinstance(hname, list):
       for k in hname: self.Stack(k, xtit, ytit)
       return
+     
     density = False; binwnorm = None
     plt.rcParams.update(self.textParams)
 
@@ -287,7 +232,6 @@ class plotter:
     # Colors
     from cycler import cycler
     colors = self.GetColors(self.bkglist)
-
     if self.invertStack: 
       _n = len(h.identifiers(overlay))-1
       colors = colors[_n::-1]
@@ -300,16 +244,15 @@ class plotter:
       error_opts = None
       fill_opts  = None
 
-    if self.invertStack and type(h._axes[0])==hist.hist_tools.Cat:  h._axes[0]._sorted.reverse()
+    if self.invertStack and type(h._axes[0])==hist.hist_tools.Cat:  h._axes[0]._sorted.reverse() 
     h = self.GetHistogram(hname, self.bkglist)
     h.scale(1000.*self.lumi)
     y = h.integrate("process").values(overflow='all')
     if y == {}: return #process not found
     hist.plot1d(h, overlay="process", ax=ax, clear=False, stack=self.doStack, density=density, line_opts=None, fill_opts=fill_opts, error_opts=error_opts, binwnorm=binwnorm)
 
-    handles, labels = ax.get_legend_handles_labels()
     if self.doData(hname):
-      hData = self.GetHistogramData(hname, self.dataName)
+      hData = self.GetHistogram(hname, self.dataName)
       hist.plot1d(hData, ax=ax, clear=False, error_opts=data_err_opts, binwnorm=binwnorm)
       ydata = hData.values(overflow='all')
 
@@ -321,9 +264,6 @@ class plotter:
       leg_anchor=(1., 1.)
       leg_loc='upper left'
       handles, labels = ax.get_legend_handles_labels()
-
-      print(labels)
-
       if self.doData(hname):
         handles = handles[-1:]+handles[:-1]
         labels = ['Data']+labels[:-1]            
@@ -338,11 +278,11 @@ class plotter:
       ax.set_yscale("log")
       ax.set_ylim(1,ax.get_ylim()[1]*5)        
 
-    if not self.xRange is None: ax.set_xlim(self.xRange[0],self.xRange[1])
-    if not self.yRange is None: ax.set_ylim(self.yRange[0],self.yRange[1])
+    if not self.xRange is None: ax.set_xlim(xRange[0],xRange[1])
+    if not self.yRange is None: ax.set_ylim(yRange[0],yRange[1])
 
     # Labels
-    #CMS  = plt.text(0., 1., r"$\bf{CMS}$ Preliminary", fontsize=16, horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
+    CMS  = plt.text(0., 1., r"$\bf{CMS}$ Preliminary", fontsize=16, horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
     lumi = plt.text(1., 1., r"%1.1f %s (%s)"%(self.lumi, self.lumiunit, self.sqrts), fontsize=20, horizontalalignment='right', verticalalignment='bottom', transform=ax.transAxes)
 
     if not self.region is None:
@@ -357,7 +297,7 @@ class plotter:
     sumy = 0
     dicyields = {}
     h = self.GetHistogram(var, self.bkglist)
-    h.scale(1000*self.lumi)
+    h.scale(1000.*self.lumi)
     for bkg in self.bkglist:
       y = h[bkg].integrate("process").values(overflow='all')
       if y == {}: continue #process not found
@@ -365,7 +305,7 @@ class plotter:
       sumy += y
       dicyields[bkg] = y
     if self.doData(var):
-      hData = self.GetHistogramData(var, self.dataName)
+      hData = self.GetHistogram(var, self.dataName)
       ydata = hData.values(overflow='all')
       ndata = ydata[list(ydata.keys())[0]].sum()
       dicyields['data'] = ndata
@@ -431,6 +371,8 @@ class plotter:
       t.line(line)
       t.sep()
     t.write()
+
+
 
   '''
     # Get colors for the stack
