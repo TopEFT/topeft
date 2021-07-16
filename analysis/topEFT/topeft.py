@@ -256,7 +256,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           btagSFDo = pDataUp/pMC
 
 
-        sumcharge = ak.sum(e.charge, axis=-1)
+        #sumcharge = ak.sum(e.charge, axis=-1)
 
 
         ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
@@ -285,6 +285,29 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections = PackedSelection(dtype='uint64')
         is2lss=ak.values_astype(events.is2lss,'bool')
         selections.add('2lss0tau', is2lss)
+
+        # b jet masks
+        bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # This is the requirement for 2lss and 4l
+        bmask_exactly1med = (nbtagsm==1) # Used for 3l
+        bmask_atleast2med = (nbtagsm>=2) # Used for 3l
+
+        # Charge masks
+        sumcharge = (l_fo_conept_sorted_padded.charge[:,0]+l_fo_conept_sorted_padded.charge[:,1])
+        sumcharge_0 = ak.fill_none(sumcharge==0,False)
+        sumcharge_p = ak.fill_none(sumcharge==1,False)
+        sumcharge_m = ak.fill_none(sumcharge==-1,False)
+
+        # Channels for the 2lss cat
+        # Not sure if this is right (or not the way we want to do it)? 
+        channels2LSS  = ["2lss_4j_p","2lss_5j_p","2lss_6j_p","2lss_7j_p","2lss_4j_m","2lss_5j_m","2lss_6j_m","2lss_7j_m"]
+        selections.add("2lss_4j_p", (is2lss & (njets==4) & sumcharge_p & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_5j_p", (is2lss & (njets==5) & sumcharge_p & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_6j_p", (is2lss & (njets==6) & sumcharge_p & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_7j_p", (is2lss & (njets>=7) & sumcharge_p & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_4j_m", (is2lss & (njets==4) & sumcharge_m & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_5j_m", (is2lss & (njets==5) & sumcharge_m & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_6j_m", (is2lss & (njets==6) & sumcharge_m & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_7j_m", (is2lss & (njets>=7) & sumcharge_m & bmask_atleast1med_atleast2loose))
 
         varnames = {}
         varnames['e0pt' ]  = l0.pt  # update
