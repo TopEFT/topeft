@@ -228,8 +228,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         print('the number of events passing all cuts is', ak.num(events[events.is2lss],axis=0))
         events['l0']=l0; events['l1']=l1 # remove this 
         theevents=events[events.is2lss]
-        for fr, thel0, thel1 in zip(theevents['fakefactor_2l'], theevents['l0'], theevents['l1']):
-          print(fr, thel0.isTightLep, thel1.isTightLep)
+        #for fr, thel0, thel1 in zip(theevents['fakefactor_2l'], theevents['l0'], theevents['l1']):
+        #  print(fr, thel0.isTightLep, thel1.isTightLep)
 
         # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
         btagSF   = np.ones_like(ht)
@@ -259,6 +259,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         #sumcharge = ak.sum(e.charge, axis=-1)
 
 
+        # Not sure I understand this for loop, it seems all the vals in the dict are the same, so why do we need a dict
         ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
         weights = {}
@@ -269,7 +270,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           weights[r].add('norm',genw if isData else (xsec/sow)*genw)
           weights[r].add('btagSF', btagSF, btagSFUp, btagSFDo)
           weights[r].add('lepSF', events.sf_2lss,  events.sf_2lss_hi,events.sf_2lss_lo)
-        
+
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
         eft_coeffs = ak.to_numpy(events['EFTfitCoefficients']) if hasattr(events, "EFTfitCoefficients") else None
@@ -310,6 +311,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("2lss_7j_m", (is2lss & (njets>=7) & sumcharge_m & bmask_atleast1med_atleast2loose))
 
         varnames = {}
+        varnames['ht']      = ht
         varnames['e0pt' ]  = l0.pt  # update
         varnames['e0eta']  = l0.eta # update
         varnames['m0pt' ]  = l0.pt  # update
@@ -335,8 +337,9 @@ class AnalysisProcessor(processor.ProcessorABC):
     
         for syst in systList:
          for var, v in varnames.items():
-          continue
-          for ch in ['2lss0tau']:
+          print("var:",var)
+          #continue
+          for ch in ['2lss0tau'] + channels2LSS:
            for sumcharge in ['']:
             for lev in ['']:
              #find the event weight to be used when filling the histograms    
@@ -352,9 +355,10 @@ class AnalysisProcessor(processor.ProcessorABC):
               # elif ch in channels2LSS: ch_w =ch[:2]
               # elif ch in channels2LOS: ch_w =ch[:2]
               # else: ch_w=ch
-              ch_w=ch   
-              print(weightSyst)
-              weight = weights['all'].weight(weightSyst) if isData else weights[ch_w].weight(weightSyst)
+              #ch_w=ch   
+              #print(weightSyst)
+              #weight = weights['all'].weight(weightSyst) if isData else weights[ch_w].weight(weightSyst)
+              weight = weights['all'].weight(weightSyst) # All of the vals in the weights dict seem to be the same, so just use one that goes with the "all" key for now?
              cuts = []
              cut = selections.all(*cuts)
              weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
@@ -379,6 +383,7 @@ class AnalysisProcessor(processor.ProcessorABC):
               elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
               elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_ones, systematic=syst)
+              '''
               elif var == 'j0eta' : 
                 if lev in ['base', 'CRZ', 'app']: continue
                 values = ak.flatten(values)
@@ -417,6 +422,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 values = ak.flatten(values)
                 #values=np.asarray(values)
                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+              '''
         return hout
 
     def postprocess(self, accumulator):
