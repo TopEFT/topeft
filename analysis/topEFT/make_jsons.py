@@ -327,6 +327,16 @@ central_2017_dict = {
         "histAxisName": "tZq_central2017",
         "xsecName": "tZq",
     },
+    "2017_THQ" : {
+        "path" : "/THQ_ctcvcp_4f_Hincl_13TeV_madgraph_pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "tHq_central2017",
+        "xsecName": "tHq",
+    },
+    "2017_TTTT" : {
+        "path" : "/TTTT_TuneCP5_13TeV-amcatnlo-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "tttt_central2017",
+        "xsecName": "tttt",
+    },
 }
 
 central_UL17_dict = {
@@ -451,7 +461,7 @@ def main():
 
     # Central
     #make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
-    #make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
+    make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
     make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)

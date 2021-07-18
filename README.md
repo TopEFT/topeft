@@ -58,7 +58,7 @@ python work_queue_run.py ../../topcoffea/cfg/your_cfg.cfg
 Next, submit some workers. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
 ```
 conda activate topcoffea-env
-condor_submit_workers -M ${USER}-workqueue-coffea --cores 4 --memory 4000 --disk 2000 10
+condor_submit_workers -M ${USER}-workqueue-coffea -t 900 --cores 12 --memory 48000 --disk 100000 10
 ```
 The workers will terminate themselves after 15 minutes of inactivity.
 
