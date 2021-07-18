@@ -338,7 +338,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         for syst in systList:
           for var, v in varnames.items():
             print("var:",var)
-            #continue
             for ch in ['2lss0tau'] + channels2LSS:
               for sumcharge in ['']:
                 for lev in ['']:
@@ -359,7 +358,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     #print(weightSyst)
                     #weight = weights['all'].weight(weightSyst) if isData else weights[ch_w].weight(weightSyst)
                     weight = weights['all'].weight(weightSyst) # All of the vals in the weights dict seem to be the same, so just use one that goes with the "all" key for now?
-                  cuts = []
+                  cuts = [ch]
                   cut = selections.all(*cuts)
                   weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
                   weights_ones = np.ones_like(weights_flat, dtype=np.int)
@@ -383,46 +382,30 @@ class AnalysisProcessor(processor.ProcessorABC):
                     elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
                     elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
                     elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_ones, systematic=syst)
-                    '''
                     elif var == 'j0eta' : 
                       if lev in ['base', 'CRZ', 'app']: continue
-                      values = ak.flatten(values)
-                      #values=np.asarray(values)
+                      values = ak.flatten(values) # Values here are not already flat, why?
                       hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
                     elif var == 'e0pt'  : 
                       if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ','mmmm']: continue
-                      values = ak.flatten(values)
-                      #values=np.asarray(values)
                       hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst) # Crashing here, not sure why. Related to values?
                     elif var == 'm0pt'  : 
                       if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
-                      values = ak.flatten(values)
-                      #values=np.asarray(values)
                       hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
                     elif var == 'l0pt'  : 
-                      values = ak.flatten(values)
-                      #values=np.asarray(values)
                       hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
                     elif var == 'e0eta' : 
                       if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmmm']: continue
-                      values = ak.flatten(values)
-                      #values=np.asarray(values)
                       hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
                     elif var == 'm0eta':
                       if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
-                      values = ak.flatten(values)
-                      #values=np.asarray(values)
                       hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
                     elif var == 'l0eta'  : 
-                      values = ak.flatten(values)
-                      #values=np.asarray(values)
                       hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
                     elif var == 'j0pt'  : 
                       if lev in ['base', 'CRZ', 'app']: continue
-                      values = ak.flatten(values)
-                      #values=np.asarray(values)
+                      values = ak.flatten(values) # Values here are not already flat, why?
                       hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-                    '''
         return hout
 
     def postprocess(self, accumulator):
