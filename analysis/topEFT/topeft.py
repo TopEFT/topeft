@@ -336,93 +336,93 @@ class AnalysisProcessor(processor.ProcessorABC):
         hout['SumOfEFTweights'].fill(sample=histAxisName, SumOfEFTweights=varnames['counts'], weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
     
         for syst in systList:
-         for var, v in varnames.items():
-          print("var:",var)
-          #continue
-          for ch in ['2lss0tau'] + channels2LSS:
-           for sumcharge in ['']:
-            for lev in ['']:
-             #find the event weight to be used when filling the histograms    
-             weightSyst = syst
-             #in the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
-             if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
-              weightSyst = None # no weight systematic for these variations
-             if syst=='noweight':
-                weight = np.ones(len(events)) # for data
-             else:
-              # call weights.weight() with the name of the systematic to be varied
-              # if ch in channels3L: ch_w= ch[:3]
-              # elif ch in channels2LSS: ch_w =ch[:2]
-              # elif ch in channels2LOS: ch_w =ch[:2]
-              # else: ch_w=ch
-              #ch_w=ch   
-              #print(weightSyst)
-              #weight = weights['all'].weight(weightSyst) if isData else weights[ch_w].weight(weightSyst)
-              weight = weights['all'].weight(weightSyst) # All of the vals in the weights dict seem to be the same, so just use one that goes with the "all" key for now?
-             cuts = []
-             cut = selections.all(*cuts)
-             weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
-             weights_ones = np.ones_like(weights_flat, dtype=np.int)
-             eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
-             eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
-             
-             # filling histos
-             if var == 'invmass':
-              if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4L)): continue
-              else                                 : values = ak.flatten(v[ch][cut])
-              hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, invmass=values, weight=weights_flat, systematic=syst)
-             elif var == 'm3l': 
-              if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
-              values = ak.flatten(v[ch][cut])
-              hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, m3l=values, weight=weights_flat, systematic=syst)
-             else:
-              values = v[cut] 
-              # These all look identical, do we need if/else here?
-              if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_ones, systematic=syst)
-              '''
-              elif var == 'j0eta' : 
-                if lev in ['base', 'CRZ', 'app']: continue
-                values = ak.flatten(values)
-                #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'e0pt'  : 
-                if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ','mmmm']: continue
-                values = ak.flatten(values)
-                #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst) # Crashing here, not sure why. Related to values?
-              elif var == 'm0pt'  : 
-                if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
-                values = ak.flatten(values)
-                #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'l0pt'  : 
-                values = ak.flatten(values)
-                #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'e0eta' : 
-                if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmmm']: continue
-                values = ak.flatten(values)
-                #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'm0eta':
-                if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
-                values = ak.flatten(values)
-                #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'l0eta'  : 
-                values = ak.flatten(values)
-                #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              elif var == 'j0pt'  : 
-                if lev in ['base', 'CRZ', 'app']: continue
-                values = ak.flatten(values)
-                #values=np.asarray(values)
-                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
-              '''
+          for var, v in varnames.items():
+            print("var:",var)
+            #continue
+            for ch in ['2lss0tau'] + channels2LSS:
+              for sumcharge in ['']:
+                for lev in ['']:
+                  #find the event weight to be used when filling the histograms    
+                  weightSyst = syst
+                  #in the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
+                  if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
+                    weightSyst = None # no weight systematic for these variations
+                  if syst=='noweight':
+                    weight = np.ones(len(events)) # for data
+                  else:
+                    # call weights.weight() with the name of the systematic to be varied
+                    # if ch in channels3L: ch_w= ch[:3]
+                    # elif ch in channels2LSS: ch_w =ch[:2]
+                    # elif ch in channels2LOS: ch_w =ch[:2]
+                    # else: ch_w=ch
+                    #ch_w=ch   
+                    #print(weightSyst)
+                    #weight = weights['all'].weight(weightSyst) if isData else weights[ch_w].weight(weightSyst)
+                    weight = weights['all'].weight(weightSyst) # All of the vals in the weights dict seem to be the same, so just use one that goes with the "all" key for now?
+                  cuts = []
+                  cut = selections.all(*cuts)
+                  weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
+                  weights_ones = np.ones_like(weights_flat, dtype=np.int)
+                  eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
+                  eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
+                  
+                  # filling histos
+                  if var == 'invmass':
+                    if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4L)): continue
+                    else                                 : values = ak.flatten(v[ch][cut])
+                    hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, invmass=values, weight=weights_flat, systematic=syst)
+                  elif var == 'm3l': 
+                    if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
+                    values = ak.flatten(v[ch][cut])
+                    hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, m3l=values, weight=weights_flat, systematic=syst)
+                  else:
+                    values = v[cut] 
+                    # These all look identical, do we need if/else here?
+                    if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                    elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                    elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                    elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                    elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_ones, systematic=syst)
+                    '''
+                    elif var == 'j0eta' : 
+                      if lev in ['base', 'CRZ', 'app']: continue
+                      values = ak.flatten(values)
+                      #values=np.asarray(values)
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                    elif var == 'e0pt'  : 
+                      if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ','mmmm']: continue
+                      values = ak.flatten(values)
+                      #values=np.asarray(values)
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst) # Crashing here, not sure why. Related to values?
+                    elif var == 'm0pt'  : 
+                      if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
+                      values = ak.flatten(values)
+                      #values=np.asarray(values)
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                    elif var == 'l0pt'  : 
+                      values = ak.flatten(values)
+                      #values=np.asarray(values)
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                    elif var == 'e0eta' : 
+                      if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmmm']: continue
+                      values = ak.flatten(values)
+                      #values=np.asarray(values)
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                    elif var == 'm0eta':
+                      if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
+                      values = ak.flatten(values)
+                      #values=np.asarray(values)
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                    elif var == 'l0eta'  : 
+                      values = ak.flatten(values)
+                      #values=np.asarray(values)
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                    elif var == 'j0pt'  : 
+                      if lev in ['base', 'CRZ', 'app']: continue
+                      values = ak.flatten(values)
+                      #values=np.asarray(values)
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, cut=lev, sumcharge=sumcharge, weight=weights_flat, systematic=syst)
+                    '''
         return hout
 
     def postprocess(self, accumulator):
