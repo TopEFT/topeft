@@ -41,6 +41,8 @@ def add2lssMaskAndSFs(events, year, isData):
     events['sf_2lss']=padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom
     events['sf_2lss_hi']=padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
     events['sf_2lss_lo']=padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
+    events['is2lss_SR']=(padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
+    
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
 
 # PLACEHOLDER 3l selection (Should this go somewhere in topcoffea not in the processor?)
@@ -68,22 +70,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._accumulator = processor.dict_accumulator({
         'SumOfEFTweights'  : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
         'dummy'   : hist.Hist("Dummy" , hist.Cat("sample", "sample"), hist.Bin("dummy", "Number of events", 1, 0, 1)),
-        'counts'  : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Bin("counts", "Counts", 1, 0, 2)),
-        'invmass' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
-        'njets'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10)),
-        'nbtags'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)),
-        'met'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
-        'm3l'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 50, 0, 500)),
-        'wleppt'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
-        'e0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 25, 0, 500)),
-        'm0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 25, 0, 500)),
-        'l0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("l0pt",   "Leading lep $p_{T}$ (GeV)", 25, 0, 500)),
-        'j0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 25, 0, 500)),
-        'e0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("e0eta",  "Leading elec $\eta$", 30, -3.0, 3.0)),
-        'm0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("m0eta",  "Leading muon $\eta$", 30, -3.0, 3.0)),
-        'l0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("l0eta",  "Leading lep $\eta$", 30, -3.0, 3.0)),
-        'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0eta",  "Leading jet  $\eta$", 30, -3.0, 3.0)),
-        'ht'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ht",     "H$_{T}$ (GeV)", 50, 0, 1000)),
+        'counts'  : hist.Hist("Events",             hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("counts", "Counts", 1, 0, 2)),
+        'invmass' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
+        'njets'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10)),
+        'nbtags'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)),
+        'met'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
+        'm3l'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 50, 0, 500)),
+        'wleppt'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
+        'e0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 25, 0, 500)),
+        'm0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 25, 0, 500)),
+        'l0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",   "Leading lep $p_{T}$ (GeV)", 25, 0, 500)),
+        'j0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 25, 0, 500)),
+        'e0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("e0eta",  "Leading elec $\eta$", 30, -3.0, 3.0)),
+        'm0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("m0eta",  "Leading muon $\eta$", 30, -3.0, 3.0)),
+        'l0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",  "Leading lep $\eta$", 30, -3.0, 3.0)),
+        'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",  "Leading jet  $\eta$", 30, -3.0, 3.0)),
+        'ht'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",     "H$_{T}$ (GeV)", 50, 0, 1000)),
         })
 
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
@@ -295,8 +297,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         is2lss=ak.values_astype(events.is2lss,'bool')
         is3l=ak.values_astype(events.is3l,'bool')
         is4l=ak.values_astype(events.is4l,'bool')
-
+        
+        # 2lss0tau things
         selections.add('2lss0tau', is2lss)
+        selections.add('isSR_2lss', ak.values_astype(is2lss_SR))
+        selections.add('isAppl_2lss', ~ak.values_astype(is2lss_SR))
 
         # b jet masks
         bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # This is the requirement for 2lss and 4l
@@ -398,61 +403,63 @@ class AnalysisProcessor(processor.ProcessorABC):
           for var, v in varnames.items():
             print("var:",var)
             for ch in ['2lss0tau'] + channels2LSS:
-              #find the event weight to be used when filling the histograms    
-              weightSyst = syst
-              #in the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
-              if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
-                weightSyst = None # no weight systematic for these variations
-              if syst=='noweight':
-                weight = np.ones(len(events)) # for data
-              else:
-                weight = weights.weight(weightSyst)
-              cuts = [ch]
-              cut = selections.all(*cuts)
-              weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
-              weights_ones = np.ones_like(weights_flat, dtype=np.int)
-              eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
-              eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
-              
-              # filling histos
-              if var == 'invmass':
-                if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4L)): continue
-                else                                 : values = ak.flatten(v[ch][cut])
-                hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, invmass=values, weight=weights_flat, systematic=syst)
-              elif var == 'm3l': 
-                if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
-                values = ak.flatten(v[ch][cut])
-                hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, m3l=values, weight=weights_flat, systematic=syst)
-              else:
-                values = v[cut] 
-                # These all look identical, do we need if/else here?
-                if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst)
-                elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst)
-                elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst)
-                elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst)
-                elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, weight=weights_ones, systematic=syst)
-                elif var == 'j0eta' : 
-                  values = ak.flatten(values) # Values here are not already flat, why?
-                  hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst)
-                elif var == 'e0pt'  : 
-                  if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ','mmmm']: continue
-                  hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst) # Crashing here, not sure why. Related to values?
-                elif var == 'm0pt'  : 
-                  if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
-                  hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst)
-                elif var == 'l0pt'  : 
-                  hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst)
-                elif var == 'e0eta' : 
-                  if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmmm']: continue
-                  hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst)
-                elif var == 'm0eta':
-                  if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
-                  hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst)
-                elif var == 'l0eta'  : 
-                  hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst)
-                elif var == 'j0pt'  : 
-                  values = ak.flatten(values) # Values here are not already flat, why?
-                  hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst)
+              for appl in ['isSR_2lss', 'isAppl_2lss']:
+                  
+                  #find the event weight to be used when filling the histograms    
+                  weightSyst = syst
+                  #in the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
+                  if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
+                    weightSyst = None # no weight systematic for these variations
+                  if syst=='noweight':
+                    weight = np.ones(len(events)) # for data
+                  else:
+                    weight = weights.weight(weightSyst)
+                  cuts = [ch,appl]
+                  cut = selections.all(*cuts)
+                  weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
+                  weights_ones = np.ones_like(weights_flat, dtype=np.int)
+                  eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
+                  eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
+                  
+                  # filling histos
+                  if var == 'invmass':
+                    if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4L)): continue
+                    else                                 : values = ak.flatten(v[ch][cut])
+                    hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, invmass=values, weight=weights_flat, systematic=syst,appl=appl)
+                  elif var == 'm3l': 
+                    if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
+                    values = ak.flatten(v[ch][cut])
+                    hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, m3l=values, weight=weights_flat, systematic=syst,appl=appl)
+                  else:
+                    values = v[cut] 
+                    # These all look identical, do we need if/else here?
+                    if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                    elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                    elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                    elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                    elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, weight=weights_ones, systematic=syst,appl=appl)
+                    elif var == 'j0eta' : 
+                      values = ak.flatten(values) # Values here are not already flat, why?
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                    elif var == 'e0pt'  : 
+                      if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ','mmmm']: continue
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl) # Crashing here, not sure why. Related to values?
+                    elif var == 'm0pt'  : 
+                      if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                    elif var == 'l0pt'  : 
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                    elif var == 'e0eta' : 
+                      if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmmm']: continue
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                    elif var == 'm0eta':
+                      if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                    elif var == 'l0eta'  : 
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                    elif var == 'j0pt'  : 
+                      values = ak.flatten(values) # Values here are not already flat, why?
+                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
         return hout
 
     def postprocess(self, accumulator):
