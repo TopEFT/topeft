@@ -295,8 +295,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Charge masks
         sumcharge = (l_fo_conept_sorted_padded.charge[:,0]+l_fo_conept_sorted_padded.charge[:,1])
         sumcharge_0 = ak.fill_none(sumcharge==0,False)
-        sumcharge_p = ak.fill_none(sumcharge==1,False)
-        sumcharge_m = ak.fill_none(sumcharge==-1,False)
+        sumcharge_p = ak.fill_none(sumcharge>0,False)
+        sumcharge_m = ak.fill_none(sumcharge<0,False)
 
         # Channels for the 2lss cat
         # Not sure if this is right (or not the way we want to do it)? 
@@ -320,6 +320,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['l0eta'] = l0.eta
         varnames['j0pt' ]  = j0.pt
         varnames['j0eta']  = j0.eta
+        varnames['njets']  = njets
         varnames['counts'] = np.ones_like(events['event'])
 
         # systematics
