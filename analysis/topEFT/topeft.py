@@ -19,9 +19,8 @@ from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 
-#coffea.deprecations_as_errors = True
 
-
+# 2lss selection (Should this go somewhere in topcoffea not in the processor?)
 def add2lssMaskAndSFs(events, year, isData):
     FOs=events.l_fo_conept_sorted
     filter_flags=events.Flag
@@ -43,6 +42,20 @@ def add2lssMaskAndSFs(events, year, isData):
     events['sf_2lss_hi']=padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
     events['sf_2lss_lo']=padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
+
+# PLACEHOLDER 3l selection (Should this go somewhere in topcoffea not in the processor?)
+def add3lMaskAndSFs(events, year, isData):
+    njet2 = (events.njets>1)
+    mask = njet2
+    events['is3l'] = ak.fill_none(mask,False)
+
+# PLACEHOLDER 4l selection (Should this go somewhere in topcoffea not in the processor?)
+def add4lMaskAndSFs(events, year, isData):
+    njet3 = (events.njets>2)
+    mask = njet3
+    events['is4l'] = ak.fill_none(mask,False)
+
+
 
 class AnalysisProcessor(processor.ProcessorABC):
     def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, dtype=np.float32):
@@ -225,6 +238,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         l2=l_fo_conept_sorted_padded[:,2]
 
         add2lssMaskAndSFs(events, year, isData)
+        add3lMaskAndSFs(events, year, isData)
+        add4lMaskAndSFs(events, year, isData)
         print('the number of events passing all cuts is', ak.num(events[events.is2lss],axis=0))
         events['l0']=l0; events['l1']=l1 # remove this 
         theevents=events[events.is2lss]
@@ -276,7 +291,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Selections and cuts
         selections = PackedSelection(dtype='uint64')
+
         is2lss=ak.values_astype(events.is2lss,'bool')
+        is3l=ak.values_astype(events.is3l,'bool')
+        is4l=ak.values_astype(events.is4l,'bool')
+
         selections.add('2lss0tau', is2lss)
 
         # b jet masks
@@ -291,25 +310,72 @@ class AnalysisProcessor(processor.ProcessorABC):
         sumcharge_m = ak.fill_none(sumcharge<0,False)
 
         # Channels for the 2lss cat
-        # Not sure if this is right (or not the way we want to do it)? 
-        channels2LSS  = ["2lss_4j_p","2lss_5j_p","2lss_6j_p","2lss_7j_p","2lss_4j_m","2lss_5j_m","2lss_6j_m","2lss_7j_m"]
-        selections.add("2lss_4j_p", (is2lss & (njets==4) & sumcharge_p & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_5j_p", (is2lss & (njets==5) & sumcharge_p & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_6j_p", (is2lss & (njets==6) & sumcharge_p & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_7j_p", (is2lss & (njets>=7) & sumcharge_p & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_4j_m", (is2lss & (njets==4) & sumcharge_m & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_5j_m", (is2lss & (njets==5) & sumcharge_m & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_6j_m", (is2lss & (njets==6) & sumcharge_m & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_7j_m", (is2lss & (njets>=7) & sumcharge_m & bmask_atleast1med_atleast2loose))
+        channels2LSS  = ["2lss_p_4j","2lss_p_5j","2lss_p_6j","2lss_p_7j","2lss_m_4j","2lss_m_5j","2lss_m_6j","2lss_m_7j"]
+        selections.add("2lss_p_4j", (is2lss & sumcharge_p & (njets==4) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_p_5j", (is2lss & sumcharge_p & (njets==5) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_p_6j", (is2lss & sumcharge_p & (njets==6) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_p_7j", (is2lss & sumcharge_p & (njets>=7) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_m_4j", (is2lss & sumcharge_m & (njets==4) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_m_5j", (is2lss & sumcharge_m & (njets==5) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_m_6j", (is2lss & sumcharge_m & (njets==6) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_m_7j", (is2lss & sumcharge_m & (njets>=7) & bmask_atleast1med_atleast2loose))
+
+        # PLACEHOLDERS Channels for the 3l cat (we have a _lot_ of 3l categories...)
+        # NOTE: Will need to include the on/off Z mask in the selections
+        channels3l  = [
+            "3l_p_offZ_2j_1b","3l_p_offZ_3j_1b","3l_p_offZ_4j_1b","3l_p_offZ_5j_1b",
+            "3l_m_offZ_2j_1b","3l_m_offZ_3j_1b","3l_m_offZ_4j_1b","3l_m_offZ_5j_1b",
+            "3l_p_offZ_2j_2b","3l_p_offZ_3j_2b","3l_p_offZ_4j_2b","3l_p_offZ_5j_2b",
+            "3l_m_offZ_2j_2b","3l_m_offZ_3j_2b","3l_m_offZ_4j_2b","3l_m_offZ_5j_2b",
+            "3l_onZ_2j_1b","3l_onZ_3j_1b","3l_onZ_4j_1b","3l_onZ_5j_1b",
+            "3l_onZ_2j_2b","3l_onZ_3j_2b","3l_onZ_4j_2b","3l_onZ_5j_2b",
+        ]
+
+        selections.add("3l_p_offZ_2j_1b", (is3l & sumcharge_p & (njets==2) & bmask_exactly1med))
+        selections.add("3l_p_offZ_3j_1b", (is3l & sumcharge_p & (njets==3) & bmask_exactly1med))
+        selections.add("3l_p_offZ_4j_1b", (is3l & sumcharge_p & (njets==4) & bmask_exactly1med))
+        selections.add("3l_p_offZ_5j_1b", (is3l & sumcharge_p & (njets>=5) & bmask_exactly1med))
+
+        selections.add("3l_m_offZ_2j_1b", (is3l & sumcharge_m & (njets==2) & bmask_exactly1med))
+        selections.add("3l_m_offZ_3j_1b", (is3l & sumcharge_m & (njets==3) & bmask_exactly1med))
+        selections.add("3l_m_offZ_4j_1b", (is3l & sumcharge_m & (njets==4) & bmask_exactly1med))
+        selections.add("3l_m_offZ_5j_1b", (is3l & sumcharge_m & (njets>=5) & bmask_exactly1med))
+
+        selections.add("3l_p_offZ_2j_2b", (is3l & sumcharge_p & (njets==2) & bmask_atleast2med))
+        selections.add("3l_p_offZ_3j_2b", (is3l & sumcharge_p & (njets==3) & bmask_atleast2med))
+        selections.add("3l_p_offZ_4j_2b", (is3l & sumcharge_p & (njets==4) & bmask_atleast2med))
+        selections.add("3l_p_offZ_5j_2b", (is3l & sumcharge_p & (njets>=5) & bmask_atleast2med))
+
+        selections.add("3l_m_offZ_2j_2b", (is3l & sumcharge_m & (njets==2) & bmask_atleast2med))
+        selections.add("3l_m_offZ_3j_2b", (is3l & sumcharge_m & (njets==3) & bmask_atleast2med))
+        selections.add("3l_m_offZ_4j_2b", (is3l & sumcharge_m & (njets==4) & bmask_atleast2med))
+        selections.add("3l_m_offZ_5j_2b", (is3l & sumcharge_m & (njets>=5) & bmask_atleast2med))
+
+        selections.add("3l_onZ_2j_1b", (is3l & (njets==2) & bmask_exactly1med))
+        selections.add("3l_onZ_3j_1b", (is3l & (njets==3) & bmask_exactly1med))
+        selections.add("3l_onZ_4j_1b", (is3l & (njets==4) & bmask_exactly1med))
+        selections.add("3l_onZ_5j_1b", (is3l & (njets>=5) & bmask_exactly1med))
+
+        selections.add("3l_onZ_2j_2b", (is3l & (njets==2) & bmask_atleast2med))
+        selections.add("3l_onZ_3j_2b", (is3l & (njets==3) & bmask_atleast2med))
+        selections.add("3l_onZ_4j_2b", (is3l & (njets==4) & bmask_atleast2med))
+        selections.add("3l_onZ_5j_2b", (is3l & (njets>=5) & bmask_atleast2med))
+
+        # PLACEHOLDERS Channels for the 4l cat
+        channels4l  = ["4l_2j","4l_3j","4l_4j"]
+        selections.add("4l_2j", (is4l & (njets==2) & bmask_atleast1med_atleast2loose))
+        selections.add("4l_3j", (is4l & (njets==3) & bmask_atleast1med_atleast2loose))
+        selections.add("4l_4j", (is4l & (njets>=4) & bmask_atleast1med_atleast2loose))
+
 
         varnames = {}
-        varnames['ht']      = ht
+        varnames['ht']     = ht
         varnames['e0pt' ]  = l0.pt  # update
         varnames['e0eta']  = l0.eta # update
         varnames['m0pt' ]  = l0.pt  # update
         varnames['m0eta']  = l0.eta # update
-        varnames['l0pt']  = l0.pt
-        varnames['l0eta'] = l0.eta
+        varnames['l0pt']   = l0.pt
+        varnames['l0eta']  = l0.eta
         varnames['j0pt' ]  = j0.pt
         varnames['j0eta']  = j0.eta
         varnames['njets']  = njets
