@@ -107,7 +107,7 @@ def main():
   parser.add_argument('--sample','-s'     , default=''           , help = 'Sample(s) to process')
   parser.add_argument('--xsec','-x'       , default='xsec'       , help = 'Cross section')
   parser.add_argument('--year','-y'       , default=-1           , help = 'Year')
-  parser.add_argument('--options','-o'    , default=''           , help = 'Options to pass to your analysis')
+  parser.add_argument('--options'         , default=''           , help = 'Options to pass to your analysis')
   parser.add_argument('--treename'        , default='Events'     , help = 'Name of the tree')
   parser.add_argument('--nFiles'          , default=None         , help = 'Number of max files (for the moment, only applies for DAS)')
 
@@ -179,7 +179,6 @@ def main():
     sampdic[sname]['year']       = year
     sampdic[sname]['treeName']   = treeName
     if 'DAS' in options:
-      print("ES DAS")
       dataset = samplefiles[sname]
       nFiles = int(fileopt[sname]) if fileopt[sname]!='' else None
       #dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector='root://cms-xrd-global.cern.ch/')
@@ -189,7 +188,6 @@ def main():
       nEvents        = dicFiles['events']
       fileOptions = ''
     else:
-      print("NO es DAS... options=",options)
       files = GetFiles(path, samplefiles[sname])
       nEvents, nGenEvents, nSumOfWeights, isData = GetAllInfoFromFile(files, sampdic[sname]['treeName'])
       extraOption = GetOptions(path, files[0].split('/')[-1])

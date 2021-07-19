@@ -14,6 +14,7 @@ import gzip
 import pickle
 from coffea.jetmet_tools import FactorizedJetCorrector, JetCorrectionUncertainty
 from coffea.jetmet_tools import JECStack, CorrectedJetsFactory
+from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 
 basepathFromTTH = 'data/fromTTH/lepSF/'
 
@@ -49,11 +50,11 @@ extLepSF.add_weight_sets(["ElecLoosettHSF_2018_er EGamma_SF2D_error %s"%topcoffe
 
 # Electron tight
 extLepSF.add_weight_sets(["ElecTightSF_2016 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'tight/elec/egammaEff2016_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecTightSF_2017 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'tight/elec/egammaEff2016_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecTightSF_2018 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'tight/elec/egammaEff2016_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecTightSF_2017 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'tight/elec/egammaEff2017_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecTightSF_2018 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'tight/elec/egammaEff2018_EGM2D.root')])
 extLepSF.add_weight_sets(["ElecTightSF_2016_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'tight/elec/egammaEff2016_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecTightSF_2017_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'tight/elec/egammaEff2016_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecTightSF_2018_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'tight/elec/egammaEff2016_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecTightSF_2017_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'tight/elec/egammaEff2017_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecTightSF_2018_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'tight/elec/egammaEff2018_EGM2D.root')])
 
 # Muon loose
 extLepSF.add_weight_sets(["MuonLooseSF_2016 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'loose/muon/TnP_loose_muon_2016.root')])
@@ -74,68 +75,51 @@ extLepSF.add_weight_sets(["MuonTightSF_2018_er EGamma_SF2D_error %s"%topcoffea_p
 extLepSF.finalize()
 SFevaluator = extLepSF.make_evaluator()
 
+def AttachMuonSF(muons, year=2018):
+  '''
+    Description:
+      Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the muons array passed to this function. These
+      values correspond to the nominal, up, and down muon scalefactor values respectively.
+  '''
+  eta = np.abs(muons.eta)
+  pt = muons.pt
 
-def GetLeptonSF(pt1, eta1, type1, pt2, eta2, type2, pt3=None, eta3=None, type3=None, year=2018, sys=0):
-  if sys==0:
-    if type1 == 'm':
-        SF1 = ak.prod(SFevaluator['MuonLooseSF_%i'%year](np.abs(eta1), pt1) * SFevaluator['MuonTightSF_%i'%year](np.abs(eta1), pt1), axis=-1)
-    elif type1 == 'e':
-        SF1 = ak.prod(SFevaluator['ElecRecoSF_%i'%year](eta1, pt1) * SFevaluator['ElecLooseSF_%i'%year](np.abs(eta1), pt1) * SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta1), pt1) * SFevaluator['ElecTightSF_%i'%year](np.abs(eta1), pt1), axis=-1)
-    else: print(type1, ' is not a valid type. Valid types: "m" or "e"')
-    if type2 == 'm':
-        SF2 = ak.prod(SFevaluator['MuonLooseSF_%i'%year](np.abs(eta2), pt2) * SFevaluator['MuonTightSF_%i'%year](np.abs(eta2), pt2), axis=-1)
-    elif type2 == 'e':
-        SF2 = ak.prod(SFevaluator['ElecRecoSF_%i'%year](eta2, pt2) * SFevaluator['ElecLooseSF_%i'%year](np.abs(eta2), pt2) * SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta2), pt2) * SFevaluator['ElecTightSF_%i'%year](np.abs(eta2), pt2), axis=-1)
-    else: print(type2, ' is not a valid type. Valid types: "m" or "e"')
-    if type3==None:
-        return( np.multiply(SF1,SF2) )
-    elif type3 == 'm':
-        SF3 = ak.prod(SFevaluator['MuonLooseSF_%i'%year](np.abs(eta3), pt3) * SFevaluator['MuonTightSF_%i'%year](np.abs(eta3), pt3), axis=-1)
-    elif type3 == 'e':
-        SF3 = ak.prod(SFevaluator['ElecRecoSF_%i'%year](eta3, pt3) * SFevaluator['ElecLooseSF_%i'%year](np.abs(eta3), pt3) * SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta3), pt3) * SFevaluator['ElecTightSF_%i'%year](np.abs(eta3), pt3), axis=-1)
-    else: print(type3, ' is not a valid type. Valid types: "m" , "e" or None')
-    if type3!=None:
-        return( np.multiply(SF3, np.multiply(SF1,SF2)))
-  elif sys==1:
-    if type1 == 'm':
-        SF1 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta1), pt1)+SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta1), pt1) + SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta1), pt1)), axis=-1)
-    elif type1 == 'e':
-        SF1 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta1, pt1) + SFevaluator['ElecRecoSF_%i_er'%year](eta1, pt1)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta1), pt1) + SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta1), pt1) + SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta1), pt1) + SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta1), pt1)), axis=-1)
-    else: print(type1, ' is not a valid type. Valid types: "m" or "e"')
-    if type2 == 'm':
-        SF2 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta2), pt2)+SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta2), pt2)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta2), pt2) + SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta2), pt2)), axis=-1)
-    elif type2 == 'e':
-        SF2 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta2, pt2) + SFevaluator['ElecRecoSF_%i_er'%year](eta2, pt2)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta2), pt2) + SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta2), pt2)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta2), pt2) + SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta2), pt2)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta2), pt2) + SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta2), pt2)), axis=-1)
-    else: print(type2, ' is not a valid type. Valid types: "m" or "e"')
-    if type3==None:
-        return( np.multiply(SF1,SF2) )
-    if type3 == 'm':
-        SF3 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta3), pt3)+SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta3), pt3) + SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta3), pt3)), axis=-1)
-    elif type3 == 'e':
-        SF3 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta3, pt3) + SFevaluator['ElecRecoSF_%i_er'%year](eta3, pt3)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta3), pt3) + SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta3), pt3) + SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta3), pt3) + SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta3), pt3)), axis=-1)
-    else: print(type3, ' is not a valid type. Valid types: "m" , "e" or None')
-    if type3!=None:
-        return( np.multiply(SF3, np.multiply(SF1,SF2)))
-  elif sys==-1:
-    if type1 == 'm':
-        SF1 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta1), pt1)-SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta1), pt1) - SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta1), pt1)), axis=-1)
-    elif type1 == 'e':
-        SF1 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta1, pt1) - SFevaluator['ElecRecoSF_%i_er'%year](eta1, pt1)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta1), pt1) - SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta1), pt1) - SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta1), pt1)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta1), pt1) - SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta1), pt1)), axis=-1)
-    else: print(type1, ' is not a valid type. Valid types: "m" or "e"')
-    if type2 == 'm':
-        SF2 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta2), pt2)-SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta2), pt2)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta2), pt2) - SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta2), pt2)), axis=-1)
-    elif type2 == 'e':
-        SF2 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta2, pt2) - SFevaluator['ElecRecoSF_%i_er'%year](eta2, pt2)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta2), pt2) - SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta2), pt2)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta2), pt2) - SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta2), pt2)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta2), pt2) - SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta2), pt2)), axis=-1)
-    else: print(type2, ' is not a valid type. Valid types: "m" or "e"')
-    if type3==None:
-        return( np.multiply(SF1,SF2) )
-    if type3 == 'm':
-        SF3 = ak.prod((SFevaluator['MuonLooseSF_%i'%year](np.abs(eta3), pt3)-SFevaluator['MuonLooseSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['MuonTightSF_%i'%year](np.abs(eta3), pt3) - SFevaluator['MuonTightSF_%i_er'%year](np.abs(eta3), pt3)), axis=-1)
-    elif type3 == 'e':
-        SF3 = ak.prod((SFevaluator['ElecRecoSF_%i'%year](eta3, pt3) - SFevaluator['ElecRecoSF_%i_er'%year](eta3, pt3)) * (SFevaluator['ElecLooseSF_%i'%year](np.abs(eta3), pt3) - SFevaluator['ElecLooseSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['ElecLoosettHSF_%i'%year](np.abs(eta3), pt3) - SFevaluator['ElecLoosettHSF_%i_er'%year](np.abs(eta3), pt3)) * (SFevaluator['ElecTightSF_%i'%year](np.abs(eta3), pt3) - SFevaluator['ElecTightSF_%i_er'%year](np.abs(eta3), pt3)), axis=-1)
-    else: print(type3, ' is not a valid type. Valid types: "m" , "e" or None')
-    if type3!=None:
-        return( np.multiply(SF3, np.multiply(SF1,SF2)))
+  loose_sf  = SFevaluator['MuonLooseSF_{year}'.format(year=year)](eta,pt)
+  loose_err = SFevaluator['MuonLooseSF_{year}_er'.format(year=year)](eta,pt)
+
+  tight_sf  = SFevaluator['MuonTightSF_{year}'.format(year=year)](eta,pt)
+  tight_err = SFevaluator['MuonTightSF_{year}_er'.format(year=year)](eta,pt)
+
+  muons['sf_nom'] = loose_sf * tight_sf
+  muons['sf_hi']  = (loose_sf + loose_err) * (tight_sf + tight_err)
+  muons['sf_lo']  = (loose_sf - loose_err) * (tight_sf - tight_err)
+
+def AttachElectronSF(electrons, year=2018):
+  '''
+    Description:
+      Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the electrons array passed to this function. These
+      values correspond to the nominal, up, and down electron scalefactor values respectively.
+  '''
+  # eta = np.abs(electrons.eta)
+  eta = electrons.eta
+  pt = electrons.pt
+
+  # For the ElecRecoSF we dont take the absolute value of eta!
+  reco_sf          = SFevaluator['ElecRecoSF_{year}'.format(year=year)](eta,pt)
+  reco_sf_err      = SFevaluator['ElecRecoSF_{year}_er'.format(year=year)](eta,pt)
+
+  loose_sf         = SFevaluator['ElecLooseSF_{year}'.format(year=year)](np.abs(eta),pt)
+  loose_sf_err     = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](np.abs(eta),pt)
+
+  loose_ttH_sf     = SFevaluator['ElecLoosettHSF_{year}'.format(year=year)](np.abs(eta),pt)
+  loose_ttH_sf_err = SFevaluator['ElecLoosettHSF_{year}_er'.format(year=year)](np.abs(eta),pt)
+
+  tight_sf         = SFevaluator['ElecTightSF_{year}'.format(year=year)](np.abs(eta),pt)
+  tight_sf_err     = SFevaluator['ElecTightSF_{year}_er'.format(year=year)](np.abs(eta),pt)
+
+  electrons['sf_nom'] = reco_sf * loose_sf * loose_ttH_sf * tight_sf
+  electrons['sf_hi']  = (reco_sf + reco_sf_err) * (loose_sf + loose_sf_err) * (loose_ttH_sf + loose_ttH_sf_err) * (tight_sf + tight_sf_err)
+  electrons['sf_lo']  = (reco_sf - reco_sf_err) * (loose_sf - loose_sf_err) * (loose_ttH_sf - loose_ttH_sf_err) * (tight_sf - tight_sf_err)
 
 
 ###### Btag scale factors
@@ -161,14 +145,6 @@ def GetMCeffFunc(WP='medium', flav='b', year=2018):
   fun = lambda pt, abseta, flav : getnum(pt,abseta,flav)/getden(pt,abseta,flav)
   return fun
 
-# Efficiencies and SFs for UL only available for 2017 and 2018
-extBtagSF = lookup_tools.extractor()
-extBtagSF.add_weight_sets(["BTag_2016 * %s"%topcoffea_path("data/btagSF/DeepFlav_2016.csv")])
-extBtagSF.add_weight_sets(["BTag_2017 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL17_v2.csv")])#DeepFlav_2017.csv")])
-extBtagSF.add_weight_sets(["BTag_2018 * %s"%topcoffea_path("data/btagSF/UL/DeepJet_UL18_V2.csv")])#DeepFlav_2018.csv")])
-extBtagSF.finalize()
-SFevaluatorBtag = extBtagSF.make_evaluator()
-
 MCeffFunc_2018 = GetMCeffFunc('medium', 2018)
 MCeffFunc_2017 = GetMCeffFunc('medium', 2017)
 
@@ -177,9 +153,16 @@ def GetBtagEff(eta, pt, flavor, year=2018):
   else         : return MCeffFunc_2018(pt, eta, flavor)
 
 def GetBTagSF(eta, pt, flavor, year=2018, sys=0):
-  if   sys==0:  SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_central_0'%year](eta,pt,flavor)
-  elif sys==1:  SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_up_0'%year](eta,pt,flavor)
-  elif sys==-1: SF=SFevaluatorBtag['BTag_%iDeepJet_1_comb_down_0'%year](eta,pt,flavor)
+
+  # Efficiencies and SFs for UL only available for 2017 and 2018
+  if   year == 2016: SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/DeepFlav_2016.csv"),"MEDIUM")
+  elif year == 2017: SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL17.csv"),"MEDIUM")
+  elif year == 2018: SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18.csv"),"MEDIUM")
+
+  if   sys==0 : SF=SFevaluatorBtag.eval("central",flavor,eta,pt)
+  elif sys==1 : SF=SFevaluatorBtag.eval("up",flavor,eta,pt)
+  elif sys==-1: SF=SFevaluatorBtag.eval("down",flavor,eta,pt)
+
   return (SF)
 
 ###### JEC corrections (2018)

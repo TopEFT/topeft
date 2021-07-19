@@ -13,17 +13,29 @@ import os, sys
 
 from topcoffea.plotter.plotter import plotter
 
-path = 'histos/plotsTopEFT.pkl.gz'
+import argparse
+parser = argparse.ArgumentParser(description='You can customize your run')
+parser.add_argument('--year',     '-y', default='2018'                         , help = 'Run year to access lumi')
+parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
+parser.add_argument('--path',     '-p', default='histos/plotsTopEFT.pkl.gz'    , help = 'Path to pkl file')
+args = parser.parse_args()
+year  = args.year
+lumiJson  = args.lumiJson
+path  = args.path
+
+with open(lumiJson) as jf:
+  lumi = json.load(jf)
+  lumi = lumi[year]
 
 processDic = {
   'Nonprompt' : 'TTTo2L2Nu,tW_noFullHad, tbarW_noFullHad, WJetsToLNu_MLM, WWTo2L2Nu',
   'DY' : 'DYJetsToLL_M_10to50_MLM, DYJetsToLL_M_50_a',
-  'Other': 'WWW,WZG,WWZ,WZZ,ZZZ,tttt,ttWW,ttWZ,ttZH,ttZZ,ttHH,tZq,TTG',
+  'Other': 'WWW,WZG,WWZ,WZZ,ZZZ,tttt,ttWW,ttWZ,ttZH,ttZZ,ttHH,tZq,TTG,tllq_privateUL17',
   'WZ' : 'WZTo2L2Q,WZTo3LNu',
   'ZZ' : 'ZZTo2L2Nu,ZZTo2L2Q,ZZTo4L',
-  'ttW': 'TTWJetsToLNu',
-  'ttZ': 'TTZToLL_M_1to10,TTZToLLNuNu_M_10_a',
-  'ttH' : 'ttHnobb,tHq',
+  'ttW': 'TTWJetsToLNu,ttlnuJet_privateUL17',
+  'ttZ': 'TTZToLL_M_1to10,TTZToLLNuNu_M_10_a,ttllJet_privateUL17',
+  'ttH' : 'ttHnobb,tHq,tHq_privateUL17,ttHJet_privateUL17',
   'data' : 'EGamma, SingleMuon, DoubleMuon',
 }
 bkglist = ['Nonprompt', 'Other', 'DY',  'ttH', 'WZ', 'ZZ', 'ttZ', 'ttW']
@@ -50,20 +62,11 @@ colordic ={
   'WJets' : '#00065b',
 }
 
-ch3l = ['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ','eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ']
-ch2lss = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
-categories = {
- 'channel' : ch3l,#['eemSSonZ', 'eemSSoffZ', 'mmeSSonZ', 'mmeSSoffZ','eeeSSonZ', 'eeeSSoffZ', 'mmmSSonZ', 'mmmSSoffZ'],#'eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS'],
- 'cut' : ['2jets', '4jets','4j1b', '4j2b'],#['base', '2jets', '4jets', '4j1b', '4j2b'],
- #'Zcat' : ['onZ', 'offZ'],
- #'lepCat' : ['3l'],
-}
-
 colors = [colordic[k] for k in bkglist]
 
 
 def Draw(var, categories, label=''):
-  plt = plotter(path, prDic=processDic, bkgList=bkglist)
+  plt = plotter(path, prDic=processDic, bkgList=bkglist, lumi=lumi)
   plt.plotData = True
   plt.SetColors(colors)
   plt.SetCategories(categories)
@@ -71,4 +74,78 @@ def Draw(var, categories, label=''):
   plt.Stack(var, xtit='', ytit='')
   plt.PrintYields('counts')
 
-Draw('met', categories, '3 leptons')
+ch2lss = ['eeSSonZ', 'eeSSoffZ', 'mmSSonZ', 'mmSSoffZ', 'emSS']
+ch3l = ['eemSSoffZ', 'mmeSSoffZ', 'eeeSSoffZ', 'mmmSSoffZ']
+ch3lsfz = ['eemSSonZ', 'mmeSSonZ', 'eeeSSonZ', 'mmmSSonZ']
+ch4l =['eeee', 'eeem', 'eemm', 'mmme', 'mmmm']
+categories = {
+ 'channel' : ch2lss,
+ 'cut': '1+bm2+bl',
+ 'sumcharge': 'ch+',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '2 leptons p 2b')
+
+categories = {
+ 'channel' : ch2lss,
+ 'cut': '1+bm2+bl',
+ 'sumcharge': 'ch-',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '2 leptons m 2b')
+
+categories = {
+ 'channel' : ch3l,
+ 'cut': '1bm',
+ 'sumcharge': 'ch+',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '3 leptons  p 1b')
+    
+categories = {
+ 'channel' : ch3l,
+ 'cut': '1bm',
+ 'sumcharge': 'ch-',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '3 leptons  m 1b')
+
+categories = {
+ 'channel' : ch3l,
+ 'cut': '2+bm',
+ 'sumcharge': 'ch+',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '3 leptons p 2b')
+
+categories = {
+ 'channel' : ch3l,
+ 'cut': '2+bm',
+ 'sumcharge': 'ch-',
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '3 leptons p 2b')
+
+categories = {
+ 'channel' : ch3lsfz,
+ 'cut': '1bm',
+ 'sumcharge': ['ch+','ch-'],
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '3 leptons  Z 1b')
+
+categories = {
+ 'channel' : ch3lsfz,
+ 'cut': '2+bm',
+ 'sumcharge': ['ch+','ch-'],
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '3 leptons Z 2b')
+
+categories = {
+ 'channel' : ch4l,
+ 'cut': '1+bm2+bl',
+ 'sumcharge': ['ch+','ch0','ch-'],
+ 'systematic': 'nominal'
+}
+Draw('njets', categories, '4 leptons 2b')

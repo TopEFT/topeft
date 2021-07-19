@@ -20,7 +20,7 @@ import numbers
 
 from coffea.hist.hist_tools import DenseAxis
 
-from topcoffea.modules.EFTHelper import EFTHelper
+import topcoffea.modules.eft_helper as efth
 
 class HistEFT(coffea.hist.Hist):
 
@@ -29,10 +29,9 @@ class HistEFT(coffea.hist.Hist):
     if isinstance(wcnames, str) and ',' in wcnames: wcnames = wcnames.replace(' ', '').split(',')
     n = len(wcnames) if isinstance(wcnames, list) else wcnames
     self._wcnames = wcnames
-    self._eft_helper = EFTHelper(wcnames)
     self._nwc = n
-    self._ncoeffs = self._eft_helper.get_w_coeffs()
-    self._nerrcoeffs = self._eft_helper.get_w2_coeffs()
+    self._ncoeffs = efth.n_quad_terms(n)
+    self._nerrcoeffs = efth.n_quartic_terms(n)
     self._wcs = np.zeros(n)
     
     super().__init__(label, *axes, **kwargs)
@@ -54,9 +53,34 @@ class HistEFT(coffea.hist.Hist):
       else:
         self._sumw2[key] = self._sumw[key].copy()
             
-  def set_wilson_coefficients(self,values):
-    """Set the WC values used to evaluate the bin contents of this histogram"""
+  def set_wilson_coeff_from_array(self, values):
+    """Set the WC values used to evaluate the bin contents of this histogram to the contents of 
+       an array where the elements are ordered according to the order defined by wcnames.
+    """
     self._wcs = np.asarray(values).copy()
+
+  def set_sm(self):
+    """Conveniece method to set the WC values to SM (all zero)"""
+    self._wcs = np.zeros(self._nwc)
+    
+  def set_wilson_coefficients(self, **values):
+    """Set the WC values used to evaluate the bin contents of this histogram
+       where the WCs are specified as keyword arguments.  Any WCs not listed are set to zero.
+    """
+    self.set_sm()
+    for key in values:
+      try:
+        index = self._wcnames.index(key)
+        self._wcs[index] = values[key]
+      except ValueError:
+        msg = 'This HistEFT does not know about the "{}" Wilson coefficient.  '.format(key)
+        if self._nwc == 0:
+          msg += 'There are no Wilson coefficients defined for this HistEFT.'
+        else:
+          wc_string = ', '.join(self._wcnames)
+          part1, _, part2 = wc_string.rpartition(', ')
+          msg += ('Defined Wilson coefficients: '+part1 + ', and ' + part2+'.')
+        raise LookupError(msg)
 
   def copy(self, content=True):
     """ Copy """
@@ -466,7 +490,7 @@ class HistEFT(coffea.hist.Hist):
         is_eft_bin = isinstance(self._sumw[sparse_key],np.ndarray)
 
       if is_eft_bin:
-        _sumw = self._eft_helper.calc_eft_weights(self._sumw[sparse_key],self._wcs)
+        _sumw = efth.calc_eft_weights(self._sumw[sparse_key],self._wcs)
       else:
         _sumw = self._sumw[sparse_key]
 
@@ -474,7 +498,7 @@ class HistEFT(coffea.hist.Hist):
         if self._sumw2 is not None:
             if is_eft_bin:
               if self._sumw2[sparse_key] is not None:
-                _sumw2 = self._eft_helper.calc_eft_w2(self._sumw2[sparse_key],self._wcs)  
+                _sumw2 = efth.calc_eft_w2(self._sumw2[sparse_key],self._wcs)  
               else:
                 # Set really tiny error bars (e.g. one one-millionth the size of the average bin)
                 _sumw2 = np.full_like(_sumw,1e-30*np.mean(_sumw))
