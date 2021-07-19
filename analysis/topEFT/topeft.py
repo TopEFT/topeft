@@ -31,7 +31,6 @@ def add2lssMaskAndSFs(events, year, isData):
     exclusive=ak.num( FOs[FOs.isTightLep],axis=-1)<3
     padded_FOs=ak.pad_none(FOs, 2)
     Zee_veto= (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
-    # Z_veto=abs(events.mZ1-91.2)>10 not working yet :( 
     eleID1=(abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0) & (padded_FOs[:,0].tightCharge>=2))
     eleID2=(abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0) & (padded_FOs[:,1].tightCharge>=2))
     muTightCharge=((abs(padded_FOs[:,0].pdgId)!=13) | (padded_FOs[:,0].tightCharge>=1)) & ((abs(padded_FOs[:,1].pdgId)!=13) | (padded_FOs[:,1].tightCharge>=1))
@@ -77,12 +76,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         'met'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
         'm3l'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 50, 0, 500)),
         'wleppt'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
-        'e0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("e0pt",   "Leading elec $p_{T}$ (GeV)", 25, 0, 500)),
-        'm0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("m0pt",   "Leading muon $p_{T}$ (GeV)", 25, 0, 500)),
         'l0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",   "Leading lep $p_{T}$ (GeV)", 25, 0, 500)),
         'j0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 25, 0, 500)),
-        'e0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("e0eta",  "Leading elec $\eta$", 30, -3.0, 3.0)),
-        'm0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("m0eta",  "Leading muon $\eta$", 30, -3.0, 3.0)),
         'l0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",  "Leading lep $\eta$", 30, -3.0, 3.0)),
         'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",  "Leading jet  $\eta$", 30, -3.0, 3.0)),
         'ht'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",     "H$_{T}$ (GeV)", 50, 0, 1000)),
@@ -147,7 +142,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         events['minMllAFAS']=ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
         osllpairs=llpairs[llpairs.l0.charge*llpairs.l1.charge<0]
         osllpairs_masses=(osllpairs.l0+osllpairs.l1).mass
-        events['mZ1']=osllpairs_masses[ak.argmin( abs(osllpairs_masses-91.2), axis=-1)] # needs to be fixed, but not used yet
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
@@ -157,6 +151,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         AttachElectronSF(e_fo,year=year)
         AttachMuonSF(m_fo,year=year)
 
+        # Attach per lepton fake rates
         AttachPerLeptonFR(e_fo, flavor='Elec', year=year)
         AttachPerLeptonFR(m_fo, flavor='Muon', year=year)
         m_fo['convVeto']=ak.ones_like(m_fo.charge); 
@@ -164,9 +159,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
-        ## Attach per lepton fake rates
-        
-        
         # Tau selection
         tau['isPres']  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDecayModeNewDMs, tau.idDeepTau2017v2p1VSjet, minpt=20)
         tau['isClean'] = isClean(tau, l_loose, drmin=0.3)
@@ -243,10 +235,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         add3lMaskAndSFs(events, year, isData)
         add4lMaskAndSFs(events, year, isData)
         print('the number of events passing all cuts is', ak.num(events[events.is2lss],axis=0))
-        events['l0']=l0; events['l1']=l1 # remove this 
-        theevents=events[events.is2lss]
-        #for fr, thel0, thel1 in zip(theevents['fakefactor_2l'], theevents['l0'], theevents['l1']):
-        #  print(fr, thel0.isTightLep, thel1.isTightLep)
 
         # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
         btagSF   = np.ones_like(ht)
@@ -375,11 +363,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         varnames = {}
         varnames['ht']     = ht
-        varnames['e0pt' ]  = l0.pt  # update
-        varnames['e0eta']  = l0.eta # update
-        varnames['m0pt' ]  = l0.pt  # update
-        varnames['m0eta']  = l0.eta # update
-        varnames['l0pt']   = l0.pt
+        varnames['l0pt']   = l0.conept
         varnames['l0eta']  = l0.eta
         varnames['j0pt' ]  = j0.pt
         varnames['j0eta']  = j0.eta
@@ -441,20 +425,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                     elif var == 'j0eta' : 
                       values = ak.flatten(values) # Values here are not already flat, why?
                       hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                    elif var == 'e0pt'  : 
-                      if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ','mmmm']: continue
-                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl) # Crashing here, not sure why. Related to values?
-                    elif var == 'm0pt'  : 
-                      if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
-                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
                     elif var == 'l0pt'  : 
                       hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                    elif var == 'e0eta' : 
-                      if ch in ['mmSSonZ', 'mmOSonZ', 'mmSSoffZ', 'mmOSoffZ', 'mmmSSoffZ', 'mmmSSonZ', 'mmmm']: continue
-                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, e0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                    elif var == 'm0eta':
-                      if ch in ['eeSSonZ', 'eeOSonZ', 'eeSSoffZ', 'eeOSoffZ', 'eeeSSoffZ', 'eeeSSonZ', 'eeee']: continue
-                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, m0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
                     elif var == 'l0eta'  : 
                       hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
                     elif var == 'j0pt'  : 
