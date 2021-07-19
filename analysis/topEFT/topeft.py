@@ -300,8 +300,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         
         # 2lss0tau things
         selections.add('2lss0tau', is2lss)
-        selections.add('isSR_2lss', ak.values_astype(is2lss_SR))
-        selections.add('isAppl_2lss', ~ak.values_astype(is2lss_SR))
+        selections.add('isSR_2lss', ak.values_astype(events.is2lss_SR,'bool'))
+        selections.add('isAppl_2lss', ~ak.values_astype(events.is2lss_SR,'bool'))
 
         # b jet masks
         bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # This is the requirement for 2lss and 4l
