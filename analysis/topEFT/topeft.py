@@ -282,9 +282,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Selections and cuts
         selections = PackedSelection(dtype='uint64')
 
-        is2lss=ak.values_astype(events.is2lss,'bool')
-        is3l=ak.values_astype(events.is3l,'bool')
-        is4l=ak.values_astype(events.is4l,'bool')
+        # Lepton categories
+        is2lss = events.is2lss
+        is3l   = events.is3l
+        is4l   = events.is4l
         
         # 2lss0tau things
         selections.add('2lss0tau', is2lss)
