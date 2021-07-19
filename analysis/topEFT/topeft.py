@@ -256,20 +256,13 @@ class AnalysisProcessor(processor.ProcessorABC):
           btagSFDo = pDataUp/pMC
 
 
-        #sumcharge = ak.sum(e.charge, axis=-1)
-
-
-        # Not sure I understand this for loop, it seems all the vals in the dict are the same, so why do we need a dict
-        ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
+        # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
+        weights = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
-        weights = {}
-        for r in ['2lss0tau', 'all', 'ee', 'mm', 'em', 'eee', 'mmm', 'eem', 'mme', 'eeee','eeem','eemm','mmme','mmmm']:
-          # weights[r] = coffea.analysis_tools.Weights(len(events))
-          weights[r] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
-          if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
-          weights[r].add('norm',genw if isData else (xsec/sow)*genw)
-          weights[r].add('btagSF', btagSF, btagSFUp, btagSFDo)
-          weights[r].add('lepSF', events.sf_2lss,  events.sf_2lss_hi,events.sf_2lss_lo)
+        if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
+        weights.add('norm',genw if isData else (xsec/sow)*genw)
+        weights.add('btagSF', btagSF, btagSFUp, btagSFDo)
+        weights.add('lepSF', events.sf_2lss,  events.sf_2lss_hi,events.sf_2lss_lo)
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
@@ -280,7 +273,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 eft_coeffs = efth.remap_coeffs(self._samples[dataset]['WCnames'], self._wc_names_lst, eft_coeffs)
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
-        
 
         # Selections and cuts
         selections = PackedSelection(dtype='uint64')
@@ -332,7 +324,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           systList = ['noweight']
         # fill Histos
         hout = self.accumulator.identity()
-        normweights = weights['all'].weight().flatten() # Why does it not complain about .flatten() here?
+        normweights = weights.weight()
         sowweights = np.ones_like(normweights) if len(self._wc_names_lst)>0 else normweights
         hout['SumOfEFTweights'].fill(sample=histAxisName, SumOfEFTweights=varnames['counts'], weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
     
@@ -350,15 +342,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                   if syst=='noweight':
                     weight = np.ones(len(events)) # for data
                   else:
-                    # call weights.weight() with the name of the systematic to be varied
-                    # if ch in channels3L: ch_w= ch[:3]
-                    # elif ch in channels2LSS: ch_w =ch[:2]
-                    # elif ch in channels2LOS: ch_w =ch[:2]
-                    # else: ch_w=ch
-                    #ch_w=ch   
-                    #print(weightSyst)
-                    #weight = weights['all'].weight(weightSyst) if isData else weights[ch_w].weight(weightSyst)
-                    weight = weights['all'].weight(weightSyst) # All of the vals in the weights dict seem to be the same, so just use one that goes with the "all" key for now?
+                    weight = weights.weight(weightSyst)
                   cuts = [ch]
                   cut = selections.all(*cuts)
                   weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
