@@ -54,14 +54,13 @@ def add3lMaskAndSFs(events, year, isData):
     trilep = ( ak.num(FOs)) >=3
     pt251515 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 10.0, axis=1)
     exclusive=ak.num( FOs[FOs.isTightLep],axis=-1)<4
-    Zee_veto= (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
 
     eleID1=(abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0))
     eleID2=(abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0))
-    eleID2=(abs(padded_FOs[:,2].pdgId)!=11) | ((padded_FOs[:,2].convVeto != 0) & (padded_FOs[:,2].lostHits==0))
+    eleID3=(abs(padded_FOs[:,2].pdgId)!=11) | ((padded_FOs[:,2].convVeto != 0) & (padded_FOs[:,2].lostHits==0))
 
     njet2 = (events.njets>1)
-    mask = (filters & cleanup & trilep & pt251515 & exclusive & Zee_veto & eleID1 & eleID2 & eleID3 & njet2) 
+    mask = (filters & cleanup & trilep & pt251515 & exclusive & eleID1 & eleID2 & eleID3 & njet2) 
     events['is3l'] = ak.fill_none(mask,False)
     events['sf_3l'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom*padded_FOs[:,2].sf_nom
     events['sf_3l_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi*padded_FOs[:,2].sf_hi
@@ -88,7 +87,6 @@ def add4lMaskAndSFs(events, year, isData):
     filter_flags = events.Flag
     filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
     cleanup = events.minMllAFAS > 12
-    Zee_veto= (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
 
     # Jet requirements:
     njet2 = (events.njets>=2)
@@ -96,9 +94,9 @@ def add4lMaskAndSFs(events, year, isData):
     # 4l requirements:
     fourlep  = (ak.num(FOs)) >= 4
     pt25151510 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 15.0, axis=1) & ak.any(FOs[:,3:4].conept > 10.0, axis=1)
-    mask = (filters & cleanup & fourlep & pt25151510 & Zee_veto & eleID1 & eleID2 & eleID3 & eleID4 & njet2)
+    tightleps = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep) & (padded_FOs[:,3].isTightLep) 
+    mask = (filters & cleanup & fourlep & pt25151510 & tightleps & eleID1 & eleID2 & eleID3 & eleID4 & njet2)
     events['is4l'] = ak.fill_none(mask,False)
-    events['is4l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep) & (padded_FOs[:,3].isTightLep)
 
     # SFs:
     events['sf_4l']=padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom*padded_FOs[:,2].sf_nom*padded_FOs[:,3].sf_nom
