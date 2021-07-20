@@ -103,6 +103,9 @@ def add4lMaskAndSFs(events, year, isData):
     events['sf_4l_hi']=padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi*padded_FOs[:,2].sf_hi*padded_FOs[:,3].sf_hi
     events['sf_4l_lo']=padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo*padded_FOs[:,2].sf_lo*padded_FOs[:,3].sf_lo
 
+    # SR: Don't really need this for 4l, but define it so we can treat 4l category similar to 2lss and 3l
+    events['is4l_SR'] = tightleps
+
 
 
 
@@ -279,7 +282,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         add2lssMaskAndSFs(events, year, isData)
         add3lMaskAndSFs(events, year, isData)
         add4lMaskAndSFs(events, year, isData)
-        print('the number of events passing all cuts is', ak.num(events[events.is2lss],axis=0))
+        print('The number of events passing 2lss, 3l, and 4l selection is:', ak.num(events[events.is2lss],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
 
         # Get mask for events that have two sf os leps close to z peak
         ll_fo_pairs = ak.combinations(l_fo_conept_sorted_padded, 2, fields=["l0","l1"])
@@ -312,6 +315,21 @@ class AnalysisProcessor(processor.ProcessorABC):
           btagSFDo = pDataUp/pMC
 
 
+        ## We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
+        #weights = {}
+        #genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
+        #if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
+        #for ch_name in ["2lss","3l","4l"]:
+        #    weights[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+        #    weights[ch_name].add('norm',genw if isData else (xsec/sow)*genw)
+        #    weights[ch_name].add('btagSF', btagSF, btagSFUp, btagSFDo)
+        #    if ch_name == "2lss":
+        #        weights[ch_name].add('lepSF', events.sf_2lss, events.sf_2lss_hi, events.sf_2lss_lo)
+        #    if ch_name == "3l":
+        #        weights[ch_name].add('lepSF', events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
+        #    if ch_name == "4l":
+        #        weights[ch_name].add('lepSF', events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
+
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
@@ -340,8 +358,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # 2lss0tau things
         selections.add('2lss0tau', is2lss)
-        selections.add('isSR_2lss', ak.values_astype(events.is2lss_SR,'bool'))
-        selections.add('isAppl_2lss', ~ak.values_astype(events.is2lss_SR,'bool'))
+
+        # AR/SR categories
+        selections.add('isSR_2lss',  ak.values_astype(events.is2lss_SR,'bool'))
+        selections.add('isAR_2lss', ~ak.values_astype(events.is2lss_SR,'bool'))
+        selections.add('isSR_3l',    ak.values_astype(events.is3l_SR,'bool'))
+        selections.add('isAR_3l',   ~ak.values_astype(events.is3l_SR,'bool'))
+        selections.add('isSR_4l',    ak.values_astype(events.is4l_SR,'bool'))
 
         # b jet masks
         bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # This is the requirement for 2lss and 4l
@@ -437,8 +460,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         for syst in systList:
           for var, v in varnames.items():
             print("var:",var)
-            for ch in ['2lss0tau'] + channels2LSS:
-              for appl in ['isSR_2lss', 'isAppl_2lss']:
+            for ch in ['2lss0tau'] + channels2LSS + channels3l + channels4l:
+              if "2lss" in ch: appl_lst = ['isSR_2lss', 'isAR_2lss']
+              elif "3l" in ch: appl_lst = ['isSR_3l', 'isAR_3l']
+              elif "4l" in ch: appl_lst = ['isSR_4l']
+              else: raise Exception(f"Error: Unknown channel \"{ch}\". Exiting...")
+              for appl in appl_lst:
 
                   #find the event weight to be used when filling the histograms    
                   weightSyst = syst
