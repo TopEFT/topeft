@@ -7,7 +7,6 @@ import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-#from coffea.arrays import Initialize # Not used and gives error
 from coffea import hist, processor
 from coffea.util import load, save
 from optparse import OptionParser
@@ -41,7 +40,7 @@ def add2lssMaskAndSFs(events, year, isData):
     events['sf_2lss_hi']=padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
     events['sf_2lss_lo']=padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
     events['is2lss_SR']=(padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
-    
+
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
 
 # PLACEHOLDER 3l selection (Should this go somewhere in topcoffea not in the processor?)
@@ -85,7 +84,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
-        
+
     @property
     def accumulator(self):
         return self._accumulator
@@ -200,15 +199,12 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         cleanedJets['isGood']  = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=25.) # temporary at 25 for synch
         goodJets = cleanedJets[cleanedJets.isGood]
-        
-        
-        
-        
+
         # count jets, jet 
         njets = ak.num(goodJets)
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
-        
+
         # to do: check these numbers are ok
         if year == 2017: btagwpl = 0.0532 #WP loose 
         else: btagwpl = 0.0490 #WP loose 
@@ -225,7 +221,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ## Add the variables needed for event selection as columns to event, so they persist
         events['njets']=njets
         events['l_fo_conept_sorted']=l_fo_conept_sorted
-        
+
         l_fo_conept_sorted_padded=ak.pad_none(l_fo_conept_sorted, 3)
         l0=l_fo_conept_sorted_padded[:,0]
         l1=l_fo_conept_sorted_padded[:,1]
@@ -235,6 +231,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         add3lMaskAndSFs(events, year, isData)
         add4lMaskAndSFs(events, year, isData)
         print('the number of events passing all cuts is', ak.num(events[events.is2lss],axis=0))
+
+        # Get mask for events that have two sf os leps close to z peak
+        ll_fo_pairs = ak.combinations(l_fo_conept_sorted_padded, 2, fields=["l0","l1"])
+        zpeak_mask = (abs((ll_fo_pairs.l0+ll_fo_pairs.l1).mass - 91.2)<10.0) 
+        sfos_mask = (ll_fo_pairs.l0.pdgId == -ll_fo_pairs.l1.pdgId)
+        sfosz_mask = ak.flatten(ak.any((zpeak_mask & sfos_mask),axis=1,keepdims=True)) # Use flatten here not because it's jagged, but because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
 
         # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
         btagSF   = np.ones_like(ht)
@@ -249,7 +251,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           bJetEff_data   = bJetEff*bJetSF
           bJetEff_dataUp = bJetEff*bJetSFUp
           bJetEff_dataDo = bJetEff*bJetSFDo
-   
+
           pMC     = ak.prod(bJetEff       [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJetsMedium]), axis=-1)
           pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
           pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
@@ -286,7 +288,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         is2lss = events.is2lss
         is3l   = events.is3l
         is4l   = events.is4l
-        
+
         # 2lss0tau things
         selections.add('2lss0tau', is2lss)
         selections.add('isSR_2lss', ak.values_astype(events.is2lss_SR,'bool'))
@@ -314,8 +316,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("2lss_m_6j", (is2lss & sumcharge_m & (njets==6) & bmask_atleast1med_atleast2loose))
         selections.add("2lss_m_7j", (is2lss & sumcharge_m & (njets>=7) & bmask_atleast1med_atleast2loose))
 
-        # PLACEHOLDERS Channels for the 3l cat (we have a _lot_ of 3l categories...)
-        # NOTE: Will need to include the on/off Z mask in the selections
+        # Channels for the 3l cat (we have a _lot_ of 3l categories...)
         channels3l  = [
             "3l_p_offZ_2j_1b","3l_p_offZ_3j_1b","3l_p_offZ_4j_1b","3l_p_offZ_5j_1b",
             "3l_m_offZ_2j_1b","3l_m_offZ_3j_1b","3l_m_offZ_4j_1b","3l_m_offZ_5j_1b",
@@ -325,37 +326,37 @@ class AnalysisProcessor(processor.ProcessorABC):
             "3l_onZ_2j_2b","3l_onZ_3j_2b","3l_onZ_4j_2b","3l_onZ_5j_2b",
         ]
 
-        selections.add("3l_p_offZ_2j_1b", (is3l & sumcharge_p & (njets==2) & bmask_exactly1med))
-        selections.add("3l_p_offZ_3j_1b", (is3l & sumcharge_p & (njets==3) & bmask_exactly1med))
-        selections.add("3l_p_offZ_4j_1b", (is3l & sumcharge_p & (njets==4) & bmask_exactly1med))
-        selections.add("3l_p_offZ_5j_1b", (is3l & sumcharge_p & (njets>=5) & bmask_exactly1med))
+        selections.add("3l_p_offZ_2j_1b", (is3l & sumcharge_p & ~sfosz_mask & (njets==2) & bmask_exactly1med))
+        selections.add("3l_p_offZ_3j_1b", (is3l & sumcharge_p & ~sfosz_mask & (njets==3) & bmask_exactly1med))
+        selections.add("3l_p_offZ_4j_1b", (is3l & sumcharge_p & ~sfosz_mask & (njets==4) & bmask_exactly1med))
+        selections.add("3l_p_offZ_5j_1b", (is3l & sumcharge_p & ~sfosz_mask & (njets>=5) & bmask_exactly1med))
 
-        selections.add("3l_m_offZ_2j_1b", (is3l & sumcharge_m & (njets==2) & bmask_exactly1med))
-        selections.add("3l_m_offZ_3j_1b", (is3l & sumcharge_m & (njets==3) & bmask_exactly1med))
-        selections.add("3l_m_offZ_4j_1b", (is3l & sumcharge_m & (njets==4) & bmask_exactly1med))
-        selections.add("3l_m_offZ_5j_1b", (is3l & sumcharge_m & (njets>=5) & bmask_exactly1med))
+        selections.add("3l_m_offZ_2j_1b", (is3l & sumcharge_m & ~sfosz_mask & (njets==2) & bmask_exactly1med))
+        selections.add("3l_m_offZ_3j_1b", (is3l & sumcharge_m & ~sfosz_mask & (njets==3) & bmask_exactly1med))
+        selections.add("3l_m_offZ_4j_1b", (is3l & sumcharge_m & ~sfosz_mask & (njets==4) & bmask_exactly1med))
+        selections.add("3l_m_offZ_5j_1b", (is3l & sumcharge_m & ~sfosz_mask & (njets>=5) & bmask_exactly1med))
 
-        selections.add("3l_p_offZ_2j_2b", (is3l & sumcharge_p & (njets==2) & bmask_atleast2med))
-        selections.add("3l_p_offZ_3j_2b", (is3l & sumcharge_p & (njets==3) & bmask_atleast2med))
-        selections.add("3l_p_offZ_4j_2b", (is3l & sumcharge_p & (njets==4) & bmask_atleast2med))
-        selections.add("3l_p_offZ_5j_2b", (is3l & sumcharge_p & (njets>=5) & bmask_atleast2med))
+        selections.add("3l_p_offZ_2j_2b", (is3l & sumcharge_p & ~sfosz_mask & (njets==2) & bmask_atleast2med))
+        selections.add("3l_p_offZ_3j_2b", (is3l & sumcharge_p & ~sfosz_mask & (njets==3) & bmask_atleast2med))
+        selections.add("3l_p_offZ_4j_2b", (is3l & sumcharge_p & ~sfosz_mask & (njets==4) & bmask_atleast2med))
+        selections.add("3l_p_offZ_5j_2b", (is3l & sumcharge_p & ~sfosz_mask & (njets>=5) & bmask_atleast2med))
 
-        selections.add("3l_m_offZ_2j_2b", (is3l & sumcharge_m & (njets==2) & bmask_atleast2med))
-        selections.add("3l_m_offZ_3j_2b", (is3l & sumcharge_m & (njets==3) & bmask_atleast2med))
-        selections.add("3l_m_offZ_4j_2b", (is3l & sumcharge_m & (njets==4) & bmask_atleast2med))
-        selections.add("3l_m_offZ_5j_2b", (is3l & sumcharge_m & (njets>=5) & bmask_atleast2med))
+        selections.add("3l_m_offZ_2j_2b", (is3l & sumcharge_m & ~sfosz_mask & (njets==2) & bmask_atleast2med))
+        selections.add("3l_m_offZ_3j_2b", (is3l & sumcharge_m & ~sfosz_mask & (njets==3) & bmask_atleast2med))
+        selections.add("3l_m_offZ_4j_2b", (is3l & sumcharge_m & ~sfosz_mask & (njets==4) & bmask_atleast2med))
+        selections.add("3l_m_offZ_5j_2b", (is3l & sumcharge_m & ~sfosz_mask & (njets>=5) & bmask_atleast2med))
 
-        selections.add("3l_onZ_2j_1b", (is3l & (njets==2) & bmask_exactly1med))
-        selections.add("3l_onZ_3j_1b", (is3l & (njets==3) & bmask_exactly1med))
-        selections.add("3l_onZ_4j_1b", (is3l & (njets==4) & bmask_exactly1med))
-        selections.add("3l_onZ_5j_1b", (is3l & (njets>=5) & bmask_exactly1med))
+        selections.add("3l_onZ_2j_1b", (is3l & sfosz_mask & (njets==2) & bmask_exactly1med))
+        selections.add("3l_onZ_3j_1b", (is3l & sfosz_mask & (njets==3) & bmask_exactly1med))
+        selections.add("3l_onZ_4j_1b", (is3l & sfosz_mask & (njets==4) & bmask_exactly1med))
+        selections.add("3l_onZ_5j_1b", (is3l & sfosz_mask & (njets>=5) & bmask_exactly1med))
 
-        selections.add("3l_onZ_2j_2b", (is3l & (njets==2) & bmask_atleast2med))
-        selections.add("3l_onZ_3j_2b", (is3l & (njets==3) & bmask_atleast2med))
-        selections.add("3l_onZ_4j_2b", (is3l & (njets==4) & bmask_atleast2med))
-        selections.add("3l_onZ_5j_2b", (is3l & (njets>=5) & bmask_atleast2med))
+        selections.add("3l_onZ_2j_2b", (is3l & sfosz_mask & (njets==2) & bmask_atleast2med))
+        selections.add("3l_onZ_3j_2b", (is3l & sfosz_mask & (njets==3) & bmask_atleast2med))
+        selections.add("3l_onZ_4j_2b", (is3l & sfosz_mask & (njets==4) & bmask_atleast2med))
+        selections.add("3l_onZ_5j_2b", (is3l & sfosz_mask & (njets>=5) & bmask_atleast2med))
 
-        # PLACEHOLDERS Channels for the 4l cat
+        # Channels for the 4l cat
         channels4l  = ["4l_2j","4l_3j","4l_4j"]
         selections.add("4l_2j", (is4l & (njets==2) & bmask_atleast1med_atleast2loose))
         selections.add("4l_3j", (is4l & (njets==3) & bmask_atleast1med_atleast2loose))
@@ -383,13 +384,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         normweights = weights.weight()
         sowweights = np.ones_like(normweights) if len(self._wc_names_lst)>0 else normweights
         hout['SumOfEFTweights'].fill(sample=histAxisName, SumOfEFTweights=varnames['counts'], weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-    
+
         for syst in systList:
           for var, v in varnames.items():
             print("var:",var)
             for ch in ['2lss0tau'] + channels2LSS:
               for appl in ['isSR_2lss', 'isAppl_2lss']:
-                  
+
                   #find the event weight to be used when filling the histograms    
                   weightSyst = syst
                   #in the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
@@ -405,7 +406,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                   weights_ones = np.ones_like(weights_flat, dtype=np.int)
                   eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
                   eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
-                  
+
                   # filling histos
                   if var == 'invmass':
                     if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4L)): continue
