@@ -43,11 +43,33 @@ def add2lssMaskAndSFs(events, year, isData):
 
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
 
-# PLACEHOLDER 3l selection (Should this go somewhere in topcoffea not in the processor?)
+# Attempt at 3l selection (Should this go somewhere in topcoffea not in the processor?)
 def add3lMaskAndSFs(events, year, isData):
+    FOs=events.l_fo_conept_sorted
+    filter_flags=events.Flag
+    padded_FOs = ak.pad_none(FOs, 3)
+
+    filters=filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    cleanup=events.minMllAFAS > 12
+    trilep = ( ak.num(FOs)) >=3
+    pt251515 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 10.0, axis=1)
+    exclusive=ak.num( FOs[FOs.isTightLep],axis=-1)<4
+    Zee_veto= (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
+
+    eleID1=(abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0))
+    eleID2=(abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0))
+    eleID2=(abs(padded_FOs[:,2].pdgId)!=11) | ((padded_FOs[:,2].convVeto != 0) & (padded_FOs[:,2].lostHits==0))
+
     njet2 = (events.njets>1)
-    mask = njet2
+    mask = (filters & cleanup & trilep & pt251515 & exclusive & Zee_veto & eleID1 & eleID2 & eleID3 & njet2) 
     events['is3l'] = ak.fill_none(mask,False)
+    events['sf_3l'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom*padded_FOs[:,2].sf_nom
+    events['sf_3l_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi*padded_FOs[:,2].sf_hi
+    events['sf_3l_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo*padded_FOs[:,2].sf_lo
+    events['is3l_SR']=(padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
+    
+    fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
+    
 
 # 4l selection (Should this go somewhere in topcoffea not in the processor?)
 def add4lMaskAndSFs(events, year, isData):
