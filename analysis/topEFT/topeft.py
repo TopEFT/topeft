@@ -49,11 +49,40 @@ def add3lMaskAndSFs(events, year, isData):
     mask = njet2
     events['is3l'] = ak.fill_none(mask,False)
 
-# PLACEHOLDER 4l selection (Should this go somewhere in topcoffea not in the processor?)
+# 4l selection (Should this go somewhere in topcoffea not in the processor?)
 def add4lMaskAndSFs(events, year, isData):
-    njet3 = (events.njets>2)
-    mask = njet3
+
+    # FOs and padded FOs
+    FOs=events.l_fo_conept_sorted
+    padded_FOs=ak.pad_none(FOs, 4)
+
+    # IDs
+    eleID1 = ((abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0)))
+    eleID2 = ((abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0)))
+    eleID3 = ((abs(padded_FOs[:,2].pdgId)!=11) | ((padded_FOs[:,2].convVeto != 0) & (padded_FOs[:,2].lostHits==0)))
+    eleID4 = ((abs(padded_FOs[:,3].pdgId)!=11) | ((padded_FOs[:,3].convVeto != 0) & (padded_FOs[:,3].lostHits==0)))
+
+    # Filters and cleanups
+    filter_flags = events.Flag
+    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    cleanup = events.minMllAFAS > 12
+    Zee_veto= (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
+
+    # Jet requirements:
+    njet2 = (events.njets>=2)
+
+    # 4l requirements:
+    fourlep  = (ak.num(FOs)) >= 4
+    pt25151510 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 15.0, axis=1) & ak.any(FOs[:,3:4].conept > 10.0, axis=1)
+    mask = (filters & cleanup & fourlep & pt25151510 & Zee_veto & eleID1 & eleID2 & eleID3 & eleID4 & njet2)
     events['is4l'] = ak.fill_none(mask,False)
+    events['is4l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep) & (padded_FOs[:,3].isTightLep)
+
+    # SFs:
+    events['sf_4l']=padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom*padded_FOs[:,2].sf_nom*padded_FOs[:,3].sf_nom
+    events['sf_4l_hi']=padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi*padded_FOs[:,2].sf_hi*padded_FOs[:,3].sf_hi
+    events['sf_4l_lo']=padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo*padded_FOs[:,2].sf_lo*padded_FOs[:,3].sf_lo
+
 
 
 
