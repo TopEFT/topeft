@@ -164,7 +164,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu   = events.Muon
         tau  = events.Tau
         jets = events.Jet
- 
+
         e['idEmu'] = ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
         e['conept'] = coneptElec(e.pt, e.mvaTTH, e.jetRelIso)
         mu['conept'] = coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
@@ -444,19 +444,24 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['njets']  = njets
         varnames['counts'] = np.ones_like(events['event'])
 
-        # systematics
+        # Systematics
         systList = []
         if isData==False:
           systList = ['nominal']
           if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown']
         else:
           systList = ['noweight']
-        # fill Histos
+
+        # Histograms
         hout = self.accumulator.identity()
-        normweights = weights.weight()
-        sowweights = np.ones_like(normweights) if len(self._wc_names_lst)>0 else normweights
+
+        # Fill sum of weights hist
+        normweights = weights.partial_weight(include=["norm"])
+        if len(self._wc_names_lst)>0: sowweights = np.ones_like(normweights)
+        else: sowweights = normweights
         hout['SumOfEFTweights'].fill(sample=histAxisName, SumOfEFTweights=varnames['counts'], weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
+        # Fill the rest of the hists
         for syst in systList:
           for var, v in varnames.items():
             print("var:",var)
