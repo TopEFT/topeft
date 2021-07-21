@@ -21,52 +21,82 @@ import topcoffea.modules.eft_helper as efth
 
 # 2lss selection (Should this go somewhere in topcoffea not in the processor?)
 def add2lssMaskAndSFs(events, year, isData):
-    FOs=events.l_fo_conept_sorted
-    filter_flags=events.Flag
-    filters=filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
-    cleanup=events.minMllAFAS > 12
-    dilep  = ( ak.num(FOs)) >= 2 
-    pt2515=ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1)
-    exclusive=ak.num( FOs[FOs.isTightLep],axis=-1)<3
-    padded_FOs=ak.pad_none(FOs, 2)
-    Zee_veto= (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
-    eleID1=(abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0) & (padded_FOs[:,0].tightCharge>=2))
-    eleID2=(abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0) & (padded_FOs[:,1].tightCharge>=2))
-    muTightCharge=((abs(padded_FOs[:,0].pdgId)!=13) | (padded_FOs[:,0].tightCharge>=1)) & ((abs(padded_FOs[:,1].pdgId)!=13) | (padded_FOs[:,1].tightCharge>=1))
-    njet4=(events.njets>3)
-    mask=(filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge & njet4) #     & Z_veto
+
+    # FOs and padded FOs
+    FOs = events.l_fo_conept_sorted
+    padded_FOs = ak.pad_none(FOs, 2)
+
+    # Filters and cleanups
+    filter_flags = events.Flag
+    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    cleanup = events.minMllAFAS > 12
+    muTightCharge = ((abs(padded_FOs[:,0].pdgId)!=13) | (padded_FOs[:,0].tightCharge>=1)) & ((abs(padded_FOs[:,1].pdgId)!=13) | (padded_FOs[:,1].tightCharge>=1))
+
+    # Zee veto
+    Zee_veto = (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
+
+    # IDs
+    eleID1 = (abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0) & (padded_FOs[:,0].tightCharge>=2))
+    eleID2 = (abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0) & (padded_FOs[:,1].tightCharge>=2))
+
+    # Jet requirements:
+    njet4 = (events.njets>3)
+
+    # 2lss requirements:
+    exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
+    dilep = ( ak.num(FOs)) >= 2 
+    pt2515 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1)
+    mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge & njet4) #     & Z_veto
     events['is2lss']=ak.fill_none(mask,False)
+
+    # SFs
     events['sf_2lss']=padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom
     events['sf_2lss_hi']=padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
     events['sf_2lss_lo']=padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
+
+    # SR:
     events['is2lss_SR']=(padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
 
+    # FF:
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
+
 
 # Attempt at 3l selection (Should this go somewhere in topcoffea not in the processor?)
 def add3lMaskAndSFs(events, year, isData):
+
+    # FOs and padded FOs
     FOs=events.l_fo_conept_sorted
-    filter_flags=events.Flag
     padded_FOs = ak.pad_none(FOs, 3)
 
+    # Filters and cleanups
+    filter_flags=events.Flag
     filters=filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
     cleanup=events.minMllAFAS > 12
-    trilep = ( ak.num(FOs)) >=3
-    pt251515 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 10.0, axis=1)
-    exclusive=ak.num( FOs[FOs.isTightLep],axis=-1)<4
 
+    # IDs
     eleID1=(abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0))
     eleID2=(abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0))
     eleID3=(abs(padded_FOs[:,2].pdgId)!=11) | ((padded_FOs[:,2].convVeto != 0) & (padded_FOs[:,2].lostHits==0))
 
+    # Jet requirements:
     njet2 = (events.njets>1)
+
+    # 3l requirements:
+    trilep = ( ak.num(FOs)) >=3
+    pt251515 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 10.0, axis=1)
+    exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
     mask = (filters & cleanup & trilep & pt251515 & exclusive & eleID1 & eleID2 & eleID3 & njet2) 
     events['is3l'] = ak.fill_none(mask,False)
+
+    # SFs
     events['sf_3l'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom*padded_FOs[:,2].sf_nom
     events['sf_3l_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi*padded_FOs[:,2].sf_hi
     events['sf_3l_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo*padded_FOs[:,2].sf_lo
+
+    # SR:
     events['is3l_SR']=(padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
     
+    # FF:
     fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
     
 
@@ -77,16 +107,16 @@ def add4lMaskAndSFs(events, year, isData):
     FOs=events.l_fo_conept_sorted
     padded_FOs=ak.pad_none(FOs, 4)
 
+    # Filters and cleanups
+    filter_flags = events.Flag
+    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    cleanup = events.minMllAFAS > 12
+
     # IDs
     eleID1 = ((abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0)))
     eleID2 = ((abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0)))
     eleID3 = ((abs(padded_FOs[:,2].pdgId)!=11) | ((padded_FOs[:,2].convVeto != 0) & (padded_FOs[:,2].lostHits==0)))
     eleID4 = ((abs(padded_FOs[:,3].pdgId)!=11) | ((padded_FOs[:,3].convVeto != 0) & (padded_FOs[:,3].lostHits==0)))
-
-    # Filters and cleanups
-    filter_flags = events.Flag
-    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
-    cleanup = events.minMllAFAS > 12
 
     # Jet requirements:
     njet2 = (events.njets>=2)
@@ -99,9 +129,9 @@ def add4lMaskAndSFs(events, year, isData):
     events['is4l'] = ak.fill_none(mask,False)
 
     # SFs:
-    events['sf_4l']=padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom*padded_FOs[:,2].sf_nom*padded_FOs[:,3].sf_nom
-    events['sf_4l_hi']=padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi*padded_FOs[:,2].sf_hi*padded_FOs[:,3].sf_hi
-    events['sf_4l_lo']=padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo*padded_FOs[:,2].sf_lo*padded_FOs[:,3].sf_lo
+    events['sf_4l'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom*padded_FOs[:,2].sf_nom*padded_FOs[:,3].sf_nom
+    events['sf_4l_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi*padded_FOs[:,2].sf_hi*padded_FOs[:,3].sf_hi
+    events['sf_4l_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo*padded_FOs[:,2].sf_lo*padded_FOs[:,3].sf_lo
 
     # SR: Don't really need this for 4l, but define it so we can treat 4l category similar to 2lss and 3l
     events['is4l_SR'] = tightleps
@@ -110,7 +140,9 @@ def add4lMaskAndSFs(events, year, isData):
 
 
 class AnalysisProcessor(processor.ProcessorABC):
+
     def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, dtype=np.float32):
+
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
@@ -119,7 +151,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
         self._accumulator = processor.dict_accumulator({
         'SumOfEFTweights'  : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
-        'dummy'   : hist.Hist("Dummy" , hist.Cat("sample", "sample"), hist.Bin("dummy", "Number of events", 1, 0, 1)),
         'counts'  : hist.Hist("Events",             hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("counts", "Counts", 1, 0, 2)),
         'invmass' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
         'njets'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10)),
@@ -156,7 +187,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         isData       = self._samples[dataset]['isData']
         datasets     = ['SingleMuon', 'SingleElectron', 'EGamma', 'MuonEG', 'DoubleMuon', 'DoubleElectron']
         for d in datasets: 
-          if d in dataset: dataset = dataset.split('_')[0] 
+            if d in dataset: dataset = dataset.split('_')[0] 
 
         # Initialize objects
         met  = events.MET
@@ -228,26 +259,26 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Selecting jets and cleaning them
         jetptname = 'pt_nom' if hasattr(cleanedJets, 'pt_nom') else 'pt'
 
-        ### Jet energy corrections
+        # Jet energy corrections
         if False: # for synch
-          cleanedJets["pt_raw"]=(1 - cleanedJets.rawFactor)*cleanedJets.pt
-          cleanedJets["mass_raw"]=(1 - cleanedJets.rawFactor)*cleanedJets.mass
-          cleanedJets["pt_gen"]=ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-          cleanedJets["rho"]= ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
-          events_cache = events.caches[0]
-          corrected_jets = jet_factory.build(cleanedJets, lazy_cache=events_cache)
-          '''
-          # SYSTEMATICS
-          jets = corrected_jets
-          if(self.jetSyst == 'JERUp'):
-            jets = corrected_jets.JER.up
-          elif(self.jetSyst == 'JERDown'):
-            jets = corrected_jets.JER.down
-          elif(self.jetSyst == 'JESUp'):
-            jets = corrected_jets.JES_jes.up
-          elif(self.jetSyst == 'JESDown'):
-            jets = corrected_jets.JES_jes.down
-          '''
+            cleanedJets["pt_raw"]=(1 - cleanedJets.rawFactor)*cleanedJets.pt
+            cleanedJets["mass_raw"]=(1 - cleanedJets.rawFactor)*cleanedJets.mass
+            cleanedJets["pt_gen"]=ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
+            cleanedJets["rho"]= ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
+            events_cache = events.caches[0]
+            corrected_jets = jet_factory.build(cleanedJets, lazy_cache=events_cache)
+            '''
+            # SYSTEMATICS
+            jets = corrected_jets
+            if(self.jetSyst == 'JERUp'):
+                jets = corrected_jets.JER.up
+            elif(self.jetSyst == 'JERDown'):
+                jets = corrected_jets.JER.down
+            elif(self.jetSyst == 'JESUp'):
+                jets = corrected_jets.JES_jes.up
+            elif(self.jetSyst == 'JESDown'):
+                jets = corrected_jets.JES_jes.down
+            '''
 
         cleanedJets['isGood']  = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=25.) # temporary at 25 for synch
         goodJets = cleanedJets[cleanedJets.isGood]
@@ -295,24 +326,24 @@ class AnalysisProcessor(processor.ProcessorABC):
         btagSFUp = np.ones_like(ht)
         btagSFDo = np.ones_like(ht)
         if not isData:
-          pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
-          bJetSF   = GetBTagSF(abseta, pt, flav)
-          bJetSFUp = GetBTagSF(abseta, pt, flav, sys=1)
-          bJetSFDo = GetBTagSF(abseta, pt, flav, sys=-1)
-          bJetEff  = GetBtagEff(abseta, pt, flav, year)
-          bJetEff_data   = bJetEff*bJetSF
-          bJetEff_dataUp = bJetEff*bJetSFUp
-          bJetEff_dataDo = bJetEff*bJetSFDo
+            pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
+            bJetSF   = GetBTagSF(abseta, pt, flav)
+            bJetSFUp = GetBTagSF(abseta, pt, flav, sys=1)
+            bJetSFDo = GetBTagSF(abseta, pt, flav, sys=-1)
+            bJetEff  = GetBtagEff(abseta, pt, flav, year)
+            bJetEff_data   = bJetEff*bJetSF
+            bJetEff_dataUp = bJetEff*bJetSFUp
+            bJetEff_dataDo = bJetEff*bJetSFDo
 
-          pMC     = ak.prod(bJetEff       [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJetsMedium]), axis=-1)
-          pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
-          pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
-          pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)
+            pMC     = ak.prod(bJetEff       [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJetsMedium]), axis=-1)
+            pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
+            pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
+            pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)
 
-          pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-          btagSF   = pData  /pMC
-          btagSFUp = pDataUp/pMC
-          btagSFDo = pDataUp/pMC
+            pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
+            btagSF   = pData  /pMC
+            btagSFUp = pDataUp/pMC
+            btagSFDo = pDataUp/pMC
 
 
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
@@ -440,10 +471,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Systematics
         systList = []
         if isData==False:
-          systList = ['nominal']
-          if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown']
+            systList = ['nominal']
+            if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown']
         else:
-          systList = ['noweight']
+            systList = ['noweight']
 
         # Histograms
         hout = self.accumulator.identity()
@@ -456,68 +487,68 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Fill the rest of the hists
         for syst in systList:
-          for var, v in varnames.items():
-            print("var:",var)
+            for var, v in varnames.items():
+                print("var:",var)
 
-            for ch in ['2lss0tau'] + channels2LSS + channels3l + channels4l:
+                for ch in ['2lss0tau'] + channels2LSS + channels3l + channels4l:
 
-              if "2lss" in ch:
-                  appl_lst = ['isSR_2lss', 'isAR_2lss']
-                  weights_object = weights_dict["2lss"]
-              elif "3l" in ch:
-                  appl_lst = ['isSR_3l', 'isAR_3l']
-                  weights_object = weights_dict["3l"]
-              elif "4l" in ch:
-                  appl_lst = ['isSR_4l']
-                  weights_object = weights_dict["4l"]
-              else: raise Exception(f"Error: Unknown channel \"{ch}\". Exiting...")
+                    if "2lss" in ch:
+                        appl_lst = ['isSR_2lss', 'isAR_2lss']
+                        weights_object = weights_dict["2lss"]
+                    elif "3l" in ch:
+                        appl_lst = ['isSR_3l', 'isAR_3l']
+                        weights_object = weights_dict["3l"]
+                    elif "4l" in ch:
+                        appl_lst = ['isSR_4l']
+                        weights_object = weights_dict["4l"]
+                    else: raise Exception(f"Error: Unknown channel \"{ch}\". Exiting...")
 
-              # Find the event weight to be used when filling the histograms    
-              weightSyst = syst
-              # In the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
-              if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
-                weightSyst = None # no weight systematic for these variations
-              if syst=='noweight':
-                weight = np.ones(len(events)) # for data
-              else:
-                weight = weights_object.weight(weightSyst)
+                    # Find the event weight to be used when filling the histograms    
+                    weightSyst = syst
+                    # In the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
+                    if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
+                        weightSyst = None # no weight systematic for these variations
+                    if syst=='noweight':
+                        weight = np.ones(len(events)) # for data
+                    else:
+                        weight = weights_object.weight(weightSyst)
 
-              for appl in appl_lst:
+                    for appl in appl_lst:
 
-                  cuts = [ch,appl]
-                  cut = selections.all(*cuts)
-                  weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
-                  weights_ones = np.ones_like(weights_flat, dtype=np.int)
-                  eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
-                  eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
+                        cuts = [ch,appl]
+                        cut = selections.all(*cuts)
+                        weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
+                        weights_ones = np.ones_like(weights_flat, dtype=np.int)
+                        eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
+                        eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
 
-                  # filling histos
-                  if var == 'invmass':
-                    if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4L)): continue
-                    else                                 : values = ak.flatten(v[ch][cut])
-                    hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, invmass=values, weight=weights_flat, systematic=syst,appl=appl)
-                  elif var == 'm3l': 
-                    if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
-                    values = ak.flatten(v[ch][cut])
-                    hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, m3l=values, weight=weights_flat, systematic=syst,appl=appl)
-                  else:
-                    values = v[cut] 
-                    # These all look identical, do we need if/else here?
-                    if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                    elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                    elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                    elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                    elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, weight=weights_ones, systematic=syst,appl=appl)
-                    elif var == 'j0eta' : 
-                      values = ak.flatten(values) # Values here are not already flat, why?
-                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                    elif var == 'l0pt'  : 
-                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                    elif var == 'l0eta'  : 
-                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                    elif var == 'j0pt'  : 
-                      values = ak.flatten(values) # Values here are not already flat, why?
-                      hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                        # filling histos
+                        if var == 'invmass':
+                            if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4L)): continue
+                            else : values = ak.flatten(v[ch][cut])
+                            hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, invmass=values, weight=weights_flat, systematic=syst,appl=appl)
+                        elif var == 'm3l': 
+                            if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
+                            values = ak.flatten(v[ch][cut])
+                            hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, m3l=values, weight=weights_flat, systematic=syst,appl=appl)
+                        else:
+                            values = v[cut] 
+                            # These all look identical, do we need if/else here?
+                            if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, weight=weights_ones, systematic=syst,appl=appl)
+                            elif var == 'j0eta' : 
+                                values = ak.flatten(values) # Values here are not already flat, why?
+                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'l0pt'  : 
+                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'l0eta'  : 
+                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'j0pt'  : 
+                                values = ak.flatten(values) # Values here are not already flat, why?
+                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
         return hout
 
     def postprocess(self, accumulator):
