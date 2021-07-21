@@ -315,28 +315,21 @@ class AnalysisProcessor(processor.ProcessorABC):
           btagSFDo = pDataUp/pMC
 
 
-        ## We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
-        #weights = {}
-        #genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
-        #if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
-        #for ch_name in ["2lss","3l","4l"]:
-        #    weights[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
-        #    weights[ch_name].add('norm',genw if isData else (xsec/sow)*genw)
-        #    weights[ch_name].add('btagSF', btagSF, btagSFUp, btagSFDo)
-        #    if ch_name == "2lss":
-        #        weights[ch_name].add('lepSF', events.sf_2lss, events.sf_2lss_hi, events.sf_2lss_lo)
-        #    if ch_name == "3l":
-        #        weights[ch_name].add('lepSF', events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
-        #    if ch_name == "4l":
-        #        weights[ch_name].add('lepSF', events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
-
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
-        weights = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+        weights_dict = {}
         genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
         if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
-        weights.add('norm',genw if isData else (xsec/sow)*genw)
-        weights.add('btagSF', btagSF, btagSFUp, btagSFDo)
-        weights.add('lepSF', events.sf_2lss,  events.sf_2lss_hi,events.sf_2lss_lo)
+        for ch_name in ["2lss","3l","4l"]:
+            weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+            weights_dict[ch_name].add('norm',genw if isData else (xsec/sow)*genw)
+            weights_dict[ch_name].add('btagSF', btagSF, btagSFUp, btagSFDo)
+            if ch_name == "2lss":
+                weights_dict[ch_name].add('lepSF', events.sf_2lss, events.sf_2lss_hi, events.sf_2lss_lo)
+            if ch_name == "3l":
+                weights_dict[ch_name].add('lepSF', events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
+            if ch_name == "4l":
+                weights_dict[ch_name].add('lepSF', events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
+
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
@@ -456,7 +449,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         hout = self.accumulator.identity()
 
         # Fill sum of weights hist
-        normweights = weights.partial_weight(include=["norm"])
+        normweights = weights_dict["2lss"].partial_weight(include=["norm"]) # Here we could have used 2lss, 3l, or 4l, as the "norm" weights should be identical for all three
         if len(self._wc_names_lst)>0: sowweights = np.ones_like(normweights)
         else: sowweights = normweights
         hout['SumOfEFTweights'].fill(sample=histAxisName, SumOfEFTweights=varnames['counts'], weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
@@ -465,22 +458,32 @@ class AnalysisProcessor(processor.ProcessorABC):
         for syst in systList:
           for var, v in varnames.items():
             print("var:",var)
+
             for ch in ['2lss0tau'] + channels2LSS + channels3l + channels4l:
-              if "2lss" in ch: appl_lst = ['isSR_2lss', 'isAR_2lss']
-              elif "3l" in ch: appl_lst = ['isSR_3l', 'isAR_3l']
-              elif "4l" in ch: appl_lst = ['isSR_4l']
+
+              if "2lss" in ch:
+                  appl_lst = ['isSR_2lss', 'isAR_2lss']
+                  weights_object = weights_dict["2lss"]
+              elif "3l" in ch:
+                  appl_lst = ['isSR_3l', 'isAR_3l']
+                  weights_object = weights_dict["3l"]
+              elif "4l" in ch:
+                  appl_lst = ['isSR_4l']
+                  weights_object = weights_dict["4l"]
               else: raise Exception(f"Error: Unknown channel \"{ch}\". Exiting...")
+
+              # Find the event weight to be used when filling the histograms    
+              weightSyst = syst
+              # In the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
+              if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
+                weightSyst = None # no weight systematic for these variations
+              if syst=='noweight':
+                weight = np.ones(len(events)) # for data
+              else:
+                weight = weights_object.weight(weightSyst)
+
               for appl in appl_lst:
 
-                  #find the event weight to be used when filling the histograms    
-                  weightSyst = syst
-                  #in the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
-                  if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
-                    weightSyst = None # no weight systematic for these variations
-                  if syst=='noweight':
-                    weight = np.ones(len(events)) # for data
-                  else:
-                    weight = weights.weight(weightSyst)
                   cuts = [ch,appl]
                   cut = selections.all(*cuts)
                   weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
