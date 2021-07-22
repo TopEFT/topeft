@@ -14,7 +14,7 @@ class YieldTools():
         self.LUMI_FILE = topcoffea_path("json/lumi.json")
 
         # The order of the categories in the TOP-19-001 AN yield tables
-        self.CAT_LST = ["cat_2lss_p","cat_2lss_m","cat_3l_1b_offZ_p","cat_3l_1b_offZ_m","cat_3l_2b_offZ_p","cat_3l_2b_offZ_m","cat_3l_1b_onZ","cat_3l_2b_onZ","cat_4l"]
+        self.CAT_LST = ["cat_2lss_p", "cat_2lss_m", "cat_3l_p_offZ_1b", "cat_3l_m_offZ_1b", "cat_3l_p_offZ_2b", "cat_3l_m_offZ_2b", "cat_3l_onZ_1b", "cat_3l_onZ_2b", "cat_4l"]
 
         # A dictionary mapping names of samples in the samples axis to a short version of the name
         self.PROC_MAP = {
@@ -26,7 +26,7 @@ class YieldTools():
             "tttt"  : ["tttt_central2017","tttt_privateUL17"],
         }
 
-        # The jet bins we define for the lep categories
+        # The jet bins we define for the lep categories (Not currently used)
         self.JET_BINS = {
             "2lss" : [4,5,6,7],
             "3l"   : [2,3,4,5],
@@ -42,110 +42,99 @@ class YieldTools():
         # A dictionary specifying which categories from the hists create the analysis categories
         self.CATEGORIES = {
             "cat_2lss_p" : {
-                "channel": self.ch_2lss,
-                "sumcharge": ["ch+"],
-                "cut": ["1+bm2+bl"],
+                "channel": ["2lss_p_4j","2lss_p_5j","2lss_p_6j","2lss_p_7j"],
+                "appl": ["isSR_2lss"],
             },
             "cat_2lss_m" : {
-                "channel": self.ch_2lss,
-                "sumcharge": ["ch-"],
-                "cut": ["1+bm2+bl"],
+                "channel": ["2lss_m_4j","2lss_m_5j","2lss_m_6j","2lss_m_7j"],
+                "appl": ["isSR_2lss"],
             },
-
-            "cat_3l_1b_onZ" : {
-                "channel": self.ch_3l_onZ,
-                "sumcharge": ["ch+","ch-"],
-                "cut": ["1bm"],
+            "cat_3l_p_offZ_1b" : {
+                "channel": ["3l_p_offZ_2j_1b", "3l_p_offZ_3j_1b", "3l_p_offZ_4j_1b", "3l_p_offZ_5j_1b"],
+                "appl": ["isSR_3l"],
             },
-            "cat_3l_1b_offZ_p" : {
-                "channel": self.ch_3l_offZ,
-                "sumcharge": ["ch+"],
-                "cut": ["1bm"],
+            "cat_3l_m_offZ_1b" : {
+                "channel": ["3l_m_offZ_2j_1b", "3l_m_offZ_3j_1b", "3l_m_offZ_4j_1b", "3l_m_offZ_5j_1b"],
+                "appl": ["isSR_3l"],
             },
-            "cat_3l_1b_offZ_m" : {
-                "channel": self.ch_3l_offZ,
-                "sumcharge": ["ch-"],
-                "cut": ["1bm"],
+            "cat_3l_p_offZ_2b" : {
+                "channel": ["3l_p_offZ_2j_2b", "3l_p_offZ_3j_2b", "3l_p_offZ_4j_2b", "3l_p_offZ_5j_2b"],
+                "appl": ["isSR_3l"],
             },
-
-            "cat_3l_2b_onZ" : {
-                "channel": self.ch_3l_onZ,
-                "sumcharge": ["ch+","ch-"],
-                "cut": ["2+bm"],
+            "cat_3l_m_offZ_2b" : {
+                "channel": ["3l_m_offZ_2j_2b", "3l_m_offZ_3j_2b", "3l_m_offZ_4j_2b", "3l_m_offZ_5j_2b"],
+                "appl": ["isSR_3l"],
             },
-            "cat_3l_2b_offZ_p" : {
-                "channel": self.ch_3l_offZ,
-                "sumcharge": ["ch+"],
-                "cut": ["2+bm"],
+            "cat_3l_onZ_1b" : {
+                "channel": ["3l_onZ_2j_1b", "3l_onZ_3j_1b", "3l_onZ_4j_1b", "3l_onZ_5j_1b"],
+                "appl": ["isSR_3l"],
             },
-            "cat_3l_2b_offZ_m" : {
-                "channel": self.ch_3l_offZ,
-                "sumcharge": ["ch-"],
-                "cut": ["2+bm"],
+            "cat_3l_onZ_2b" : {
+                "channel": ["3l_onZ_2j_2b", "3l_onZ_3j_2b", "3l_onZ_4j_2b", "3l_onZ_5j_2b"],
+                "appl": ["isSR_3l"],
             },
-
             "cat_4l" : {
-                "channel": self.ch_4l,
-                "sumcharge": ["ch+","ch-","ch0"],
-                "cut": ["1+bm2+bl"],
+                "channel": ["4l_2j", "4l_3j", "4l_4j"],
+                "appl": ["isSR_4l"],
             },
         }
+
 
         # Yields from TOP-19-001 AN table 15
         self.TOP19001_YLDS = {
             "ttlnu" : {
                 "cat_2lss_p" : (81.1,None),
                 "cat_2lss_m" : (44.0,None),
-                "cat_3l_1b_offZ_p" : (16.6,None),
-                "cat_3l_1b_offZ_m" : (9.1,None),
-                "cat_3l_2b_offZ_p" : (12.1,None),
-                "cat_3l_2b_offZ_m" : (6.7,None),
-                "cat_3l_1b_onZ" : (3.4,None),
-                "cat_3l_2b_onZ" : (2.5,None),
+                "cat_3l_p_offZ_1b" : (16.6,None),
+                "cat_3l_m_offZ_1b" : (9.1,None),
+                "cat_3l_p_offZ_2b" : (12.1,None),
+                "cat_3l_m_offZ_2b" : (6.7,None),
+                "cat_3l_onZ_1b" : (3.4,None),
+                "cat_3l_onZ_2b" : (2.5,None),
                 "cat_4l" : (0.0,None),
             },
             "ttll"  : {
                 "cat_2lss_p" : (22.6,None),
                 "cat_2lss_m" : (22.5,None),
-                "cat_3l_1b_offZ_p" : (14.2,None),
-                "cat_3l_1b_offZ_m" : (14.7,None),
-                "cat_3l_2b_offZ_p" : (10.1,None),
-                "cat_3l_2b_offZ_m" : (9.4,None),
-                "cat_3l_1b_onZ" : (106.5,None),
-                "cat_3l_2b_onZ" : (70.9,None),
+                "cat_3l_p_offZ_1b" : (14.2,None),
+                "cat_3l_m_offZ_1b" : (14.7,None),
+                "cat_3l_p_offZ_2b" : (10.1,None),
+                "cat_3l_m_offZ_2b" : (9.4,None),
+                "cat_3l_onZ_1b" : (106.5,None),
+                "cat_3l_onZ_2b" : (70.9,None),
                 "cat_4l" : (10.4,None),
             },
             "ttH"   : {
                 "cat_2lss_p" : (28.6,None),
                 "cat_2lss_m" : (27.9,None),
-                "cat_3l_1b_offZ_p" : (8.5,None),
-                "cat_3l_1b_offZ_m" : (8.1,None),
-                "cat_3l_2b_offZ_p" : (5.5,None),
-                "cat_3l_2b_offZ_m" : (5.6,None),
-                "cat_3l_1b_onZ" : (3.5,None),
-                "cat_3l_2b_onZ" : (2.4,None),
+                "cat_3l_p_offZ_1b" : (8.5,None),
+                "cat_3l_m_offZ_1b" : (8.1,None),
+                "cat_3l_p_offZ_2b" : (5.5,None),
+                "cat_3l_m_offZ_2b" : (5.6,None),
+                "cat_3l_onZ_1b" : (3.5,None),
+                "cat_3l_onZ_2b" : (2.4,None),
                 "cat_4l" : (1.1,None),
             },
             "tllq"  : {
                 "cat_2lss_p" : (2.9,None),
                 "cat_2lss_m" : (1.7,None),
-                "cat_3l_1b_offZ_p" : (3.8,None),
-                "cat_3l_1b_offZ_m" : (1.9,None),
-                "cat_3l_2b_offZ_p" : (1.3,None),
-                "cat_3l_2b_offZ_m" : (0.6,None),
-                "cat_3l_1b_onZ" : (42.1,None),
-                "cat_3l_2b_onZ" : (14.1,None),
+                "cat_3l_p_offZ_1b" : (3.8,None),
+                "cat_3l_m_offZ_1b" : (1.9,None),
+                "cat_3l_p_offZ_2b" : (1.3,None),
+                "cat_3l_m_offZ_2b" : (0.6,None),
+                "cat_3l_onZ_1b" : (42.1,None),
+                "cat_3l_onZ_2b" : (14.1,None),
                 "cat_4l" : (0.0,None),
             },
             "tHq"   : {
                 "cat_2lss_p" : (0.9,None),
                 "cat_2lss_m" : (0.5,None),
-                "cat_3l_1b_offZ_p" : (0.3,None),
-                "cat_3l_1b_offZ_m" : (0.2,None),
-                "cat_3l_2b_offZ_p" : (0.2,None),
-                "cat_3l_2b_offZ_m" : (0.1,None),
-                "cat_3l_1b_onZ" : (0.1,None),
-                "cat_3l_2b_onZ" : (0.1,None),
+                "cat_3l_p_offZ_1b" : (0.3,None),
+                "cat_3l_m_offZ_1b" : (0.2,None),
+                "cat_3l_p_offZ_2b" : (0.2,None),
+                "cat_3l_m_offZ_2b" : (0.1,None),
+                "cat_3l_onZ_1b" : (0.1,None),
+                "cat_3l_onZ_2b" : (0.1,None),
                 "cat_4l" : (0.0,None),
             },
         }
@@ -207,7 +196,8 @@ class YieldTools():
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
         cats = []
-        if h_name is None: h_name = "njets" # Guess a hist that we usually have
+        #if h_name is None: h_name = "njets" # Guess a hist that we usually have
+        if h_name is None: h_name = "ht" # Guess a hist that we usually have
         for i in range(len(hin_dict[h_name].axes())):
             if axis == hin_dict[h_name].axes()[i].name:
                 for cat in hin_dict[h_name].axes()[i].identifiers():
@@ -348,15 +338,16 @@ class YieldTools():
 
                 # We want to sum over the jet bins, and look at all of the lep cats
                 if yields_for_njets_cats is None:
-                    yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cat,njet_cat,overflow_str="over")
+                    yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cat,njet_cat,overflow_str="over") # Overflow string should not matter anymore with the way we're now defining the categories in the processor
 
                 # We want to look at all the jet bins in the give lep cat
                 elif yields_for_njets_cats == njet_cat:
+                    raise Exception("Probably will need to update this funciton now that we have changed the categories in the processor") # Temp, till we fix the function, but don't need it for now
                     for njet in self.JET_BINS[njet_cat]:
                         if njet == max(self.JET_BINS[njet_cat]): include_overflow = "over"
                         else: include_overflow = "none"
                         cat_name_full = cat+"_"+str(njet)+"j"
-                        yld_dict[proc_name_short][cat_name_full] = self.get_scaled_yield(hin_dict,year,proc,cat,njet,overflow_str=include_overflow)
+                        yld_dict[proc_name_short][cat_name_full] = self.get_scaled_yield(hin_dict,year,proc,cat,njet,overflow_str=include_overflow) # Overflow string should not matter anymore with the way we're now defining the categories in the processor 
 
                 else:
                     raise Exception(f"Error, invalid input for yields_for_njets_cats \"{yields_for_njets_cats}\". Exiting...")
@@ -372,6 +363,7 @@ class YieldTools():
         if type(path) is str: hin_dict = self.get_hist_from_pkl(path)
         else: hin_dict = path
 
+        #h_name = "ht"
         h_name = "njets"
         #h_name = "SumOfEFTweights"
         for i in range(len(hin_dict[h_name].axes())):
