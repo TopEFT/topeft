@@ -47,15 +47,16 @@ def add2lssMaskAndSFs(events, year, isData):
     dilep = ( ak.num(FOs)) >= 2 
     pt2515 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1)
     mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge & njet4) #     & Z_veto
-    events['is2lss']=ak.fill_none(mask,False)
+    events['is2lss'] = ak.fill_none(mask,False)
 
     # SFs
-    events['sf_2lss']=padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom
-    events['sf_2lss_hi']=padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
-    events['sf_2lss_lo']=padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
+    events['sf_2lss'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom
+    events['sf_2lss_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
+    events['sf_2lss_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
 
     # SR:
-    events['is2lss_SR']=(padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
+    events['is2lss_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
+    events['is2lss_SR'] = ak.fill_none(events['is2lss_SR'],False)
 
     # FF:
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
@@ -69,8 +70,8 @@ def add3lMaskAndSFs(events, year, isData):
     padded_FOs = ak.pad_none(FOs, 3)
 
     # Filters and cleanups
-    filter_flags=events.Flag
-    filters=filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    filter_flags = events.Flag
+    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
     cleanup=events.minMllAFAS > 12
 
     # IDs
@@ -83,9 +84,9 @@ def add3lMaskAndSFs(events, year, isData):
 
     # 3l requirements:
     trilep = ( ak.num(FOs)) >=3
-    pt251515 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 10.0, axis=1)
+    pt251510 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 10.0, axis=1)
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
-    mask = (filters & cleanup & trilep & pt251515 & exclusive & eleID1 & eleID2 & eleID3 & njet2) 
+    mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3 & njet2) 
     events['is3l'] = ak.fill_none(mask,False)
 
     # SFs
@@ -94,7 +95,8 @@ def add3lMaskAndSFs(events, year, isData):
     events['sf_3l_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo*padded_FOs[:,2].sf_lo
 
     # SR:
-    events['is3l_SR']=(padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
+    events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
+    events['is3l_SR'] = ak.fill_none(events['is3l_SR'],False)
     
     # FF:
     fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
@@ -123,7 +125,7 @@ def add4lMaskAndSFs(events, year, isData):
 
     # 4l requirements:
     fourlep  = (ak.num(FOs)) >= 4
-    pt25151510 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 15.0, axis=1) & ak.any(FOs[:,3:4].conept > 10.0, axis=1)
+    pt25151510 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 10.0, axis=1) & ak.any(FOs[:,3:4].conept > 10.0, axis=1) # TODO: Check on these thresholds!!!
     tightleps = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep) & (padded_FOs[:,3].isTightLep) 
     mask = (filters & cleanup & fourlep & pt25151510 & tightleps & eleID1 & eleID2 & eleID3 & eleID4 & njet2)
     events['is4l'] = ak.fill_none(mask,False)
@@ -135,6 +137,7 @@ def add4lMaskAndSFs(events, year, isData):
 
     # SR: Don't really need this for 4l, but define it so we can treat 4l category similar to 2lss and 3l
     events['is4l_SR'] = tightleps
+    events['is4l_SR'] = ak.fill_none(events['is4l_SR'],False)
 
 
 
@@ -280,7 +283,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 jets = corrected_jets.JES_jes.down
             '''
 
-        cleanedJets['isGood']  = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=25.) # temporary at 25 for synch
+        cleanedJets['isGood']  = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
         goodJets = cleanedJets[cleanedJets.isGood]
 
         # count jets, jet 
@@ -302,13 +305,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         nbtagsm = ak.num(goodJets[isBtagJetsMedium])
 
         ## Add the variables needed for event selection as columns to event, so they persist
-        events['njets']=njets
-        events['l_fo_conept_sorted']=l_fo_conept_sorted
+        events['njets'] = njets
+        events['l_fo_conept_sorted'] = l_fo_conept_sorted
 
-        l_fo_conept_sorted_padded=ak.pad_none(l_fo_conept_sorted, 3)
-        l0=l_fo_conept_sorted_padded[:,0]
-        l1=l_fo_conept_sorted_padded[:,1]
-        l2=l_fo_conept_sorted_padded[:,2]
+        l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
+        l0 = l_fo_conept_sorted_padded[:,0]
+        l1 = l_fo_conept_sorted_padded[:,1]
+        l2 = l_fo_conept_sorted_padded[:,2]
 
         add2lssMaskAndSFs(events, year, isData)
         add3lMaskAndSFs(events, year, isData)
@@ -330,6 +333,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bJetSF   = GetBTagSF(abseta, pt, flav)
             bJetSFUp = GetBTagSF(abseta, pt, flav, sys=1)
             bJetSFDo = GetBTagSF(abseta, pt, flav, sys=-1)
+
             bJetEff  = GetBtagEff(abseta, pt, flav, year)
             bJetEff_data   = bJetEff*bJetSF
             bJetEff_dataUp = bJetEff*bJetSFUp
@@ -396,21 +400,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         bmask_atleast2med = (nbtagsm>=2) # Used for 3l
 
         # Charge masks
-        sumcharge = (l_fo_conept_sorted_padded.charge[:,0]+l_fo_conept_sorted_padded.charge[:,1])
-        sumcharge_0 = ak.fill_none(sumcharge==0,False)
-        sumcharge_p = ak.fill_none(sumcharge>0,False)
-        sumcharge_m = ak.fill_none(sumcharge<0,False)
+        charge2l_p = ak.fill_none(((l0.charge+l1.charge)>0),False)
+        charge2l_m = ak.fill_none(((l0.charge+l1.charge)<0),False)
+        charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
+        charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
         # Channels for the 2lss cat
         channels2LSS  = ["2lss_p_4j","2lss_p_5j","2lss_p_6j","2lss_p_7j","2lss_m_4j","2lss_m_5j","2lss_m_6j","2lss_m_7j"]
-        selections.add("2lss_p_4j", (is2lss & sumcharge_p & (njets==4) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_p_5j", (is2lss & sumcharge_p & (njets==5) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_p_6j", (is2lss & sumcharge_p & (njets==6) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_p_7j", (is2lss & sumcharge_p & (njets>=7) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_m_4j", (is2lss & sumcharge_m & (njets==4) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_m_5j", (is2lss & sumcharge_m & (njets==5) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_m_6j", (is2lss & sumcharge_m & (njets==6) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_m_7j", (is2lss & sumcharge_m & (njets>=7) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_p_4j", (is2lss & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_p_5j", (is2lss & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_p_6j", (is2lss & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_p_7j", (is2lss & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_m_4j", (is2lss & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_m_5j", (is2lss & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_m_6j", (is2lss & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_m_7j", (is2lss & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose))
 
         # Channels for the 3l cat (we have a _lot_ of 3l categories...)
         channels3l  = [
@@ -422,25 +426,25 @@ class AnalysisProcessor(processor.ProcessorABC):
             "3l_onZ_2j_2b","3l_onZ_3j_2b","3l_onZ_4j_2b","3l_onZ_5j_2b",
         ]
 
-        selections.add("3l_p_offZ_2j_1b", (is3l & sumcharge_p & ~sfosz_mask & (njets==2) & bmask_exactly1med))
-        selections.add("3l_p_offZ_3j_1b", (is3l & sumcharge_p & ~sfosz_mask & (njets==3) & bmask_exactly1med))
-        selections.add("3l_p_offZ_4j_1b", (is3l & sumcharge_p & ~sfosz_mask & (njets==4) & bmask_exactly1med))
-        selections.add("3l_p_offZ_5j_1b", (is3l & sumcharge_p & ~sfosz_mask & (njets>=5) & bmask_exactly1med))
+        selections.add("3l_p_offZ_2j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets==2) & bmask_exactly1med))
+        selections.add("3l_p_offZ_3j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets==3) & bmask_exactly1med))
+        selections.add("3l_p_offZ_4j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets==4) & bmask_exactly1med))
+        selections.add("3l_p_offZ_5j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets>=5) & bmask_exactly1med))
 
-        selections.add("3l_m_offZ_2j_1b", (is3l & sumcharge_m & ~sfosz_mask & (njets==2) & bmask_exactly1med))
-        selections.add("3l_m_offZ_3j_1b", (is3l & sumcharge_m & ~sfosz_mask & (njets==3) & bmask_exactly1med))
-        selections.add("3l_m_offZ_4j_1b", (is3l & sumcharge_m & ~sfosz_mask & (njets==4) & bmask_exactly1med))
-        selections.add("3l_m_offZ_5j_1b", (is3l & sumcharge_m & ~sfosz_mask & (njets>=5) & bmask_exactly1med))
+        selections.add("3l_m_offZ_2j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets==2) & bmask_exactly1med))
+        selections.add("3l_m_offZ_3j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets==3) & bmask_exactly1med))
+        selections.add("3l_m_offZ_4j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets==4) & bmask_exactly1med))
+        selections.add("3l_m_offZ_5j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets>=5) & bmask_exactly1med))
 
-        selections.add("3l_p_offZ_2j_2b", (is3l & sumcharge_p & ~sfosz_mask & (njets==2) & bmask_atleast2med))
-        selections.add("3l_p_offZ_3j_2b", (is3l & sumcharge_p & ~sfosz_mask & (njets==3) & bmask_atleast2med))
-        selections.add("3l_p_offZ_4j_2b", (is3l & sumcharge_p & ~sfosz_mask & (njets==4) & bmask_atleast2med))
-        selections.add("3l_p_offZ_5j_2b", (is3l & sumcharge_p & ~sfosz_mask & (njets>=5) & bmask_atleast2med))
+        selections.add("3l_p_offZ_2j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets==2) & bmask_atleast2med))
+        selections.add("3l_p_offZ_3j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets==3) & bmask_atleast2med))
+        selections.add("3l_p_offZ_4j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets==4) & bmask_atleast2med))
+        selections.add("3l_p_offZ_5j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets>=5) & bmask_atleast2med))
 
-        selections.add("3l_m_offZ_2j_2b", (is3l & sumcharge_m & ~sfosz_mask & (njets==2) & bmask_atleast2med))
-        selections.add("3l_m_offZ_3j_2b", (is3l & sumcharge_m & ~sfosz_mask & (njets==3) & bmask_atleast2med))
-        selections.add("3l_m_offZ_4j_2b", (is3l & sumcharge_m & ~sfosz_mask & (njets==4) & bmask_atleast2med))
-        selections.add("3l_m_offZ_5j_2b", (is3l & sumcharge_m & ~sfosz_mask & (njets>=5) & bmask_atleast2med))
+        selections.add("3l_m_offZ_2j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets==2) & bmask_atleast2med))
+        selections.add("3l_m_offZ_3j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets==3) & bmask_atleast2med))
+        selections.add("3l_m_offZ_4j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets==4) & bmask_atleast2med))
+        selections.add("3l_m_offZ_5j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets>=5) & bmask_atleast2med))
 
         selections.add("3l_onZ_2j_1b", (is3l & sfosz_mask & (njets==2) & bmask_exactly1med))
         selections.add("3l_onZ_3j_1b", (is3l & sfosz_mask & (njets==3) & bmask_exactly1med))
@@ -504,20 +508,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                     else: raise Exception(f"Error: Unknown channel \"{ch}\". Exiting...")
 
                     # Find the event weight to be used when filling the histograms    
-                    weightSyst = syst
-                    # In the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weightSyst=None)
+                    weight_fluct = syst
+                    # In the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weight_fluct=None)
                     if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
-                        weightSyst = None # no weight systematic for these variations
+                        weight_fluct = None # no weight systematic for these variations
                     if syst=='noweight':
                         weight = np.ones(len(events)) # for data
                     else:
-                        weight = weights_object.weight(weightSyst)
+                        weight = weights_object.weight(weight_fluct)
 
                     for appl in appl_lst:
 
                         cuts = [ch,appl]
                         cut = selections.all(*cuts)
-                        weights_flat = weight[cut].flatten() # Why does it not complain about .flatten() here?
+                        weights_flat = weight[cut]
                         weights_ones = np.ones_like(weights_flat, dtype=np.int)
                         eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
                         eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
