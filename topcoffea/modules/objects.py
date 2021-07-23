@@ -6,7 +6,7 @@
 import numpy as np
 import awkward as ak
 
-### These functions have not been synchronized with ttH, but ARE used in topeft ###
+### These functions have been synchronized with ttH ###
 
 def isPresTau(pt, eta, dxy, dz, idDecayModeNewDMs, idDeepTau2017v2p1VSjet, minpt=20.0):
   return  (pt>minpt)&(abs(eta)<2.3)&(abs(dxy)<1000.)&(abs(dz)<0.2)&(idDecayModeNewDMs)&(idDeepTau2017v2p1VSjet>>1 & 1 ==1)
@@ -17,8 +17,6 @@ def isTightTau(idDeepTau2017v2p1VSjet):
 def isTightJet(pt, eta, jet_id, jetPtCut=25.0):
     mask = (pt>jetPtCut) & (abs(eta)<2.4) & (jet_id>0)
     return mask
-
-### These functions have been synchronized with ttH ###
 
 def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
   return (hoe<(0.10-0.00*(abs(eta+deltaEtaSC)>1.479))) & (eInvMinusPInv>-0.04) & (sieie<(0.011+0.019*(abs(eta+deltaEtaSC)>1.479)))

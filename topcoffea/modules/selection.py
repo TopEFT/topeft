@@ -8,6 +8,9 @@
 '''
 
 import numpy as np
+import awkward as ak
+
+from topcoffea.modules.corrections import fakeRateWeight2l, fakeRateWeight3l
 
 def passNJets(nJets, lim=2):
   return nJets >= lim
@@ -179,25 +182,122 @@ def triggerFor4l(df, nMuon, nElec, isData, dataName=''):
   trigMask = ( ( (is4l0m)&(trig4l0m) )|( (is4l1m)&(trig4l1m) )|( (is4l2m)&(trig4l2m) )|( (is4l3m)&(trig4l3m) )|( (is4l4m)&(trig4l4m) ) )
   return trigMask
 
-##################################################################################
-### Fake rates
 
-import uproot
-from coffea import hist, lookup_tools
-import os, sys
-from topcoffea.modules.paths import topcoffea_path
-import awkward as ak
+# 2lss selection
+def add2lssMaskAndSFs(events, year, isData):
 
-extFakeRates = lookup_tools.extractor()
-basepathFromTTH = 'data/fromTTH/fakerate/'
+    # FOs and padded FOs
+    FOs = events.l_fo_conept_sorted
+    padded_FOs = ak.pad_none(FOs, 2)
 
-# Electron reco
-#histoName = ''
-#for leptype in ['el', 'mu']:
-#  for year in [2016, 2017, 2018]:
-#    hname = 'FR_mva090_mu_data_comb' if leptype == 'mu' else 'FR_mva090_el_data_comb_NC'
-#    extFakeRates.add_weight_sets( ["fr_%s_%i %s %s"%(leptype, year, hname, topcoffea_path(basepathFromTTH+'fr_%i.root'%year) )] ) # pt, abs(eta)
+    # Filters and cleanups
+    filter_flags = events.Flag
+    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    cleanup = events.minMllAFAS > 12
+    muTightCharge = ((abs(padded_FOs[:,0].pdgId)!=13) | (padded_FOs[:,0].tightCharge>=1)) & ((abs(padded_FOs[:,1].pdgId)!=13) | (padded_FOs[:,1].tightCharge>=1))
+
+    # Zee veto
+    Zee_veto = (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
+
+    # IDs
+    eleID1 = (abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0) & (padded_FOs[:,0].tightCharge>=2))
+    eleID2 = (abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0) & (padded_FOs[:,1].tightCharge>=2))
+
+    # Jet requirements:
+    njet4 = (events.njets>3)
+
+    # 2lss requirements:
+    exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
+    dilep = ( ak.num(FOs)) >= 2 
+    pt2515 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1)
+    mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge & njet4) #     & Z_veto
+    events['is2lss'] = ak.fill_none(mask,False)
+
+    # SFs
+    events['sf_2lss'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom
+    events['sf_2lss_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
+    events['sf_2lss_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
+
+    # SR:
+    events['is2lss_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
+    events['is2lss_SR'] = ak.fill_none(events['is2lss_SR'],False)
+
+    # FF:
+    fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
 
 
-#extFakeRates.finalize()
-#FRevaluatior = extFakeRates.make_evaluator()
+# 3l selection
+def add3lMaskAndSFs(events, year, isData):
+
+    # FOs and padded FOs
+    FOs=events.l_fo_conept_sorted
+    padded_FOs = ak.pad_none(FOs, 3)
+
+    # Filters and cleanups
+    filter_flags = events.Flag
+    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    cleanup=events.minMllAFAS > 12
+
+    # IDs
+    eleID1=(abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0))
+    eleID2=(abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0))
+    eleID3=(abs(padded_FOs[:,2].pdgId)!=11) | ((padded_FOs[:,2].convVeto != 0) & (padded_FOs[:,2].lostHits==0))
+
+    # Jet requirements:
+    njet2 = (events.njets>1)
+
+    # 3l requirements:
+    trilep = ( ak.num(FOs)) >=3
+    pt251510 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 10.0, axis=1)
+    exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
+    mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3 & njet2) 
+    events['is3l'] = ak.fill_none(mask,False)
+
+    # SFs
+    events['sf_3l'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom*padded_FOs[:,2].sf_nom
+    events['sf_3l_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi*padded_FOs[:,2].sf_hi
+    events['sf_3l_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo*padded_FOs[:,2].sf_lo
+
+    # SR:
+    events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
+    events['is3l_SR'] = ak.fill_none(events['is3l_SR'],False)
+    
+    # FF:
+    fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
+
+# 4l selection
+def add4lMaskAndSFs(events, year, isData):
+
+    # FOs and padded FOs
+    FOs=events.l_fo_conept_sorted
+    padded_FOs=ak.pad_none(FOs, 4)
+
+    # Filters and cleanups
+    filter_flags = events.Flag
+    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    cleanup = events.minMllAFAS > 12
+
+    # IDs
+    eleID1 = ((abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0)))
+    eleID2 = ((abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0)))
+    eleID3 = ((abs(padded_FOs[:,2].pdgId)!=11) | ((padded_FOs[:,2].convVeto != 0) & (padded_FOs[:,2].lostHits==0)))
+    eleID4 = ((abs(padded_FOs[:,3].pdgId)!=11) | ((padded_FOs[:,3].convVeto != 0) & (padded_FOs[:,3].lostHits==0)))
+
+    # Jet requirements:
+    njet2 = (events.njets>=2)
+
+    # 4l requirements:
+    fourlep  = (ak.num(FOs)) >= 4
+    pt25151510 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 10.0, axis=1) & ak.any(FOs[:,3:4].conept > 10.0, axis=1) # TODO: Check on these thresholds!!!
+    tightleps = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep) & (padded_FOs[:,3].isTightLep) 
+    mask = (filters & cleanup & fourlep & pt25151510 & tightleps & eleID1 & eleID2 & eleID3 & eleID4 & njet2)
+    events['is4l'] = ak.fill_none(mask,False)
+
+    # SFs:
+    events['sf_4l'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom*padded_FOs[:,2].sf_nom*padded_FOs[:,3].sf_nom
+    events['sf_4l_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi*padded_FOs[:,2].sf_hi*padded_FOs[:,3].sf_hi
+    events['sf_4l_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo*padded_FOs[:,2].sf_lo*padded_FOs[:,3].sf_lo
+
+    # SR: Don't really need this for 4l, but define it so we can treat 4l category similar to 2lss and 3l
+    events['is4l_SR'] = tightleps
+    events['is4l_SR'] = ak.fill_none(events['is4l_SR'],False)
