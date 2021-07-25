@@ -13,13 +13,16 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetLeptonSF
+from topcoffea.modules.corrections import SFevaluator
 from topcoffea.modules.selection import *
-from topcoffea.modules.HistEFT import HistEFT, EFTHelper
+from topcoffea.modules.HistEFT import HistEFT
+import topcoffea.modules.eft_helper as efth
 
 class AnalysisProcessor(processor.ProcessorABC):
-    def __init__(self, samples, wc_names_lst=[], do_errors=False):
+    def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, dtype=np.float32):
         self._samples = samples
+        self._wc_names_lst = wc_names_lst
+        self._dtype = dtype
 
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
@@ -31,8 +34,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         'l0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("l0pt",   "Leading lep $p_{T}$ (GeV)", 15, 0, 400)),
         })
 
-        self._eft_helper = EFTHelper(wc_names_lst)
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
+        self._do_systematics = do_systematics # Whether to process systematic samples
         
     @property
     def accumulator(self):
@@ -45,8 +48,6 @@ class AnalysisProcessor(processor.ProcessorABC):
     # Main function: run on a given dataset
     def process(self, events):
 
-        print("\nHere in process!!!\n")
-
         # Dataset parameters
         dataset = events.metadata['dataset']
         year   = self._samples[dataset]['year']
@@ -57,9 +58,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         for d in datasets: 
           if d in dataset: dataset = dataset.split('_')[0] 
 
-        print("\nHere in process 2!!!\n")
+        # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
+        # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
+        eft_coeffs = ak.to_numpy(events['EFTfitCoefficients']) if hasattr(events, "EFTfitCoefficients") else None
+        if eft_coeffs is not None:
+            # Check to see if the ordering of WCs for this sample matches what want
+            if self._samples[dataset]['WCnames'] != self._wc_names_lst:
+                eft_coeffs = efth.remap_coeffs(self._samples[dataset]['WCnames'], self._wc_names_lst, eft_coeffs)
+        eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
-        # Initialize objects
+        # Initialize objects (GEN objects)
         e = events.GenPart[abs(events.GenPart.pdgId)==11]
         m = events.GenPart[abs(events.GenPart.pdgId)==13]
         tau = events.GenPart[abs(events.GenPart.pdgId)==15]
@@ -69,17 +77,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         luminosityBlock = events.luminosityBlock
         event = events.event
 
-        print("run:",run)
-        print("luminosityBlock:",luminosityBlock)
-        print("event:",event)
+        print("\n\nInfo about events:")
+        print("\trun:",run)
+        print("\tluminosityBlock:",luminosityBlock)
+        print("\tevent:",event)
  
-        print("\n\nleptons before selection:")
+        print("\nLeptons before selection:")
         print("\te pt",e.pt)
         print("\te eta",e.eta)
         print("\tm pt",m.pt)
         print("\tm eta",m.eta)
 
-        # Lepton selection
+        ######## Lep selection  ########
+
         e_selec = ( (e.pt>15) & (abs(e.eta)<2.5) )
         m_selec = ( (m.pt>15) & (abs(m.eta)<2.5) )
         e = e[e_selec]
@@ -92,7 +102,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         n_m = ak.num(m)
         n_l = ak.num(l)
 
-        print("after selection:")
+        at_least_two_leps = (n_l >= 2)
+
+        e0 = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
+        m0 = m[ak.argmax(m.pt,axis=-1,keepdims=True)]
+        l0 = l[ak.argmax(l.pt,axis=-1,keepdims=True)]
+
+        print("\nLeptons after selection:")
         print("\te pt",e.pt)
         print("\tm pt",m.pt)
         print("\tl pt:",l.pt)
@@ -100,70 +116,47 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("\tn m",n_m)
         print("\tn l",n_l)
 
-        #at_least_two_leps = ((n_e + n_m) >= 2)
-        at_least_two_leps = (n_l >= 2)
+        print("\nMask for at least two lep:",at_least_two_leps)
 
-        #print("ne + nm:",n_e+n_m)
-        print("at least two lep:",at_least_two_leps)
+        print("\nLeading lepton info:")
+        print("\te0",e0.pt)
+        print("\tm0",m0.pt)
+        print("\tl0",l0.pt)
 
+        ######## Jet selection  ########
 
-        e0 = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
-        m0 = m[ak.argmax(m.pt,axis=-1,keepdims=True)]
-        l0 = l[ak.argmax(l.pt,axis=-1,keepdims=True)]
-
-        print("e0",e0.pt)
-        print("m0",m0.pt)
-        print("l0",l0.pt)
-
-        # Jet selection
-
-        print("\njets:")
-        print("jpt",j.pt)
+        print("\nJet info:")
+        print("\tjpt before selection",j.pt)
 
         j_selec = ( (j.pt>30) & (abs(j.eta)<2.5) )
-        print("jselect",j_selec)
+        print("\tjselect",j_selec)
 
         j = j[j_selec]
-        print("jpt",j.pt)
+        print("\tjpt",j.pt)
 
         j['isClean'] = isClean(j, e, drmin=0.4)& isClean(j, m, drmin=0.4)
-        #goodJets = j[(j.isClean)&(j.isGood)]
-        #print("j['isClean']",j['isClean'])
         j_isclean = isClean(j, e, drmin=0.4) & isClean(j, m, drmin=0.4)
-        print("j is clean",j_isclean)
+        print("\tj is clean",j_isclean)
 
-        #goodJets = j[(j.isClean)]
         j = j[j_isclean]
-        print("clean jets pt",j.pt)
+        print("\tclean jets pt",j.pt)
 
         n_j = ak.num(j)
-        print("n_j",n_j)
+        print("\tn_j",n_j)
         j0 = j[ak.argmax(j.pt,axis=-1,keepdims=True)]
 
-        print("j0pt",j0.pt)
+        print("\tj0pt",j0.pt)
 
         at_least_two_jets = (n_j >= 2)
-        print("at_least_two_jets",at_least_two_jets)
+        print("\tat_least_two_jets",at_least_two_jets)
+
+        ######## Selections and cuts ########
 
         event_selec = (at_least_two_leps & at_least_two_jets)
         print("\nEvent selection:",event_selec,"\n")
 
-        # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
-        eft_coeffs = ak.to_numpy(events['EFTfitCoefficients']) if hasattr(events, "EFTfitCoefficients") else None
-        eft_w2_coeffs = self._eft_helper.calc_w2_coeffs(eft_coeffs) if self._do_errors else None
-
-        # Selections and cuts
-
         selections = PackedSelection()
-
         selections.add('2l2j', event_selec)
-
-        #channels2l = ['2leps']
-        #levels = ['base','2jets', '3jets']
-        #selections.add('2leps', event_selec)
-        #selections.add('base', event_selec)
-        #selections.add('2jets',(n_j>=2))
-        #selections.add('3jets',(n_j>=3))
 
         varnames = {}
         varnames['counts'] = np.ones_like(events.MET.pt)
@@ -172,76 +165,28 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['j0eta'] = j0.eta
         varnames['l0pt' ] = l0.pt
 
-        print("np.ones_like(events.MET.pt)",np.ones_like(events.MET.pt))
+        ######## Fill histos ########
 
-        # fill Histos
+        print("\nFilling hists now...\n")
         hout = self.accumulator.identity()
-
-        #print("\nFIlling hists!!!\n")
-
         for var, v in varnames.items():
             cut = selections.all("2l2j")
             values = v[cut]
             eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
             eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
-            #print('var!!!',var)
             if var == "counts":
-                #print(values)
                 hout[var].fill(counts=values, sample=dataset, channel="2l", cut="2l")
             elif var == "njets":
-                #print(values)
                 hout[var].fill(njets=values, sample=dataset, channel="2l", cut="2l", eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
             elif var == "j0pt":
-                #print(values)
                 hout[var].fill(j0pt=values, sample=dataset, channel="2l", cut="2l", eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
             elif var == "j0eta":
-                #print(values)
                 hout[var].fill(j0eta=values, sample=dataset, channel="2l", cut="2l", eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
             elif var == "l0pt":
-                #print(values)
                 hout[var].fill(l0pt=values, sample=dataset, channel="2l", cut="2l", eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
-
-        '''
-        for var, v in varnames.items():
-            print("\nVAR:",var)
-            print("\tv:",v)
-            #for ch in channels2LSS+channels3L:
-            for ch in channels2l:
-                #print("\n\tCHANNEL:",ch,"\n")
-                for lev in levels:
-                    #print("\n\t\tLEVEL:",lev,"\n")
-
-                    cuts = [ch] + [lev]
-                    print("\tcuts!!!",cuts)
-                    cut = selections.all(*cuts)
-                    eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
-                    eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
-                    print("\tcut!!!",cut)
-                    values = v[cut] 
-                    print("\tvalues!!!",values)
-                    if var == 'counts':
-                        hout[var].fill(counts=values, sample=dataset, channel=ch, cut=lev)
-                    elif var == 'njets':
-                        hout[var].fill(njets=values, sample=dataset, channel=ch, cut=lev, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
-                    elif var == 'j0pt': 
-                        values = ak.flatten(values)
-                        hout[var].fill(j0pt=values, sample=dataset, channel=ch, cut=lev, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
-                    elif var == 'j0eta': 
-                        values = ak.flatten(values)
-                        hout[var].fill(j0eta=values, sample=dataset, channel=ch, cut=lev, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
-                    elif var == 'l0pt': 
-                        values = ak.flatten(values)
-                        hout[var].fill(l0pt=values, sample=dataset, channel=ch, cut=lev, eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
-        '''
 
         return hout
 
     def postprocess(self, accumulator):
         return accumulator
-
-if __name__ == '__main__':
-    # Load the .coffea files
-    outpath= './coffeaFiles/'
-    samples     = load(outpath+'samples.coffea')
-    topprocessor = AnalysisProcessor(samples)
 
