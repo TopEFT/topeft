@@ -38,16 +38,20 @@ packages = json.loads(packages_json)
 
 
 def _run_conda_command(environment, command, *args):
-    all_args = ['conda', command, '--yes', '--prefix={}'.format(str(environment))] + list(args)
+    all_args = ['conda', command]
+    if command != 'run':
+        all_args.append('--yes')
+    all_args = all_args + ['--prefix={}'.format(str(environment))] + list(args)
 
     try:
         subprocess.check_output(all_args, stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         logging.warning("Error executing: {}".format(' '.join(all_args)))
-        print(e.output)
+        print(e.output.decode())
         sys.exit(1)
 
-def _install_conda_packages(env_path, channel, pkgs):
+def _install_conda_packages(env_path, channel, pkgs, from_local_pip=[]):
+    pkgs = [p for p in pkgs if p not in from_local_pip]
     logger.info("Installing {} into {} via conda".format(','.join(pkgs), env_path))
     return _run_conda_command(
             env_path,
@@ -56,47 +60,43 @@ def _install_conda_packages(env_path, channel, pkgs):
             channel,
             *pkgs)
 
-def _install_pip_requirements(env_path, pip_path):
-    req_file = pathlib.Path(pip_path).joinpath('requirements.txt')
-    if req_file.is_file():
-        logger.info("Installing {} into {} via pip".format(pip_path, env_path))
-        _run_conda_command(
-                env_path,
-                'run',
-                'sh', '-c', 'pip install . && pip uninstall `python setup.py --name`')
+def _install_pip_requirements(base_env_tarball, env_path, pkg, location):
+    logger.info("Installing requirements of {} into {} via pip".format(location, env_path))
+    _run_conda_command(
+            env_path,
+            'run',
+            'sh', '-c', 'cd {} && pip install . && pip uninstall --yes {}'.format(location, pkg))
 
 def _create_base_env(packages_hash, pip_paths, force=False):
     pathlib.Path(env_dir_cache).mkdir(parents=True, exist_ok=True)
-    base_env_path=pathlib.Path(env_dir_cache).joinpath("base_env_{}".format(packages_hash))
-    output=base_env_path.with_suffix(".tar.gz")
+    output=pathlib.Path(env_dir_cache).joinpath("base_env_{}.tar.gz".format(packages_hash))
 
-    logger.info("Looking for base environment {}...".format(output))
+    with tempfile.TemporaryDirectory() as base_env_path:
+        logger.info("Looking for base environment {}...".format(output))
 
-    if force:
-        logger.info("Forcing rebuilding of {}".format(output))
-        pathlib.Path(output).unlink(missing_ok=True)
+        if force:
+            logger.info("Forcing rebuilding of {}".format(output))
+            pathlib.Path(output).unlink(missing_ok=True)
 
-    if pathlib.Path(output).exists():
-        logger.info("Found in cache {}".format(output))
-        return str(output)
+        if pathlib.Path(output).exists():
+            logger.info("Found in cache {}".format(output))
+            return str(output)
 
-    logger.info("Creating environment {}".format(base_env_path))
-    _run_conda_command(base_env_path, 'create')
+        logger.info("Creating environment {}".format(base_env_path))
+        _run_conda_command(base_env_path, 'create')
 
-    for (channel, pkgs) in packages['base']['conda'].items():
-        _install_conda_packages(base_env_path, channel, pkgs)
+        for (channel, pkgs) in packages['base']['conda'].items():
+            _install_conda_packages(base_env_path, channel, pkgs, pip_paths.keys())
 
-    for pip_path in pip_paths:
-        _install_pip_requirements(base_env_path, pip_path)
+        for (pkg, location) in pip_paths.items():
+            _install_pip_requirements(output, base_env_path, pkg, location)
 
-    logger.info("Generating {} environment file".format(output))
-    try:
-        subprocess.check_output(['conda-pack', '--prefix', base_env_path, '--output', str(output)], stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        print(e.output)
-        sys.exit(1)
-
-    shutil.rmtree(base_env_path)
+        logger.info("Generating {} environment file".format(output))
+        try:
+            subprocess.check_output(['conda-pack', '--prefix', base_env_path, '--output', str(output)], stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            print(e.output)
+            sys.exit(1)
 
     return str(output)
 
@@ -107,16 +107,16 @@ def _find_local_pip():
     # drop first two lines, which are just a header
     edit_raw = edit_raw.split('\n')[2:]
 
-    paths = []
+    path_of = {}
     for line in edit_raw:
         if not line:
             # skip empty lines
             continue
         # we are only interested in the path information of the package, which
         # is in the last column
-        path = line.split()[-1]
-        paths.append(path)
-    return sorted(paths)
+        (pkg, version, location) = line.split()
+        path_of[pkg] = location
+    return path_of
 
 def _commits_local_pip(paths):
     commits = {}
@@ -209,7 +209,7 @@ def get_environment(force=False, unstaged='rebuild', cache_size=3):
         return str(full_env_tarball)
 
     with tempfile.TemporaryDirectory() as tmp_env:
-        for path in pip_paths:
+        for path in pip_paths.values():
             _install_local_pip(base_env_tarball, tmp_env, path)
 
         logger.info("Generating {} environment file".format(full_env_tarball))
