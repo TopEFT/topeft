@@ -139,6 +139,11 @@ class HistEFT(coffea.hist.Hist):
       if sparse_key in self._sumw:
         if len(np.atleast_1d(self._sumw[sparse_key]).shape) != len(self._dense_shape):
           raise ValueError("Attempt to fill an EFT bin with non-EFT events.")
+      # Wait! If weight is not None, but some axes have EFT weights,
+      # the base class _init_sumw2() will do the wrong thing, so call
+      # ours here!
+      if weight is not None:
+        self._init_sumw2()
       # Put the weights back in!  We're just going to rely on the
       # regular coffea.hist.Hist fill method to handle this.
       values['weight']=weight
@@ -268,7 +273,18 @@ class HistEFT(coffea.hist.Hist):
       self._init_sumw2()
       add_dict(self._sumw2, other._sumw2)
     elif other._sumw2 is None:
-      add_dict(self._sumw2, other._sumw)
+      # This is a tricky case because we want to put in "sumw" for
+      # "sumw2" for any non-EFT sparse bins, but None for any EFT
+      # sparse bins
+      temp = {}
+      for key in other._sumw:
+        # If it's an EFT bin, there will be a bigger shape
+        if self._sumw[key].shape != self._dense_shape:
+          temp[key] = None
+        else:
+          # Regular bins can just copy over sumw for sumw2
+          temp[key] = other._sumw[key]
+      add_dict(self._sumw2, temp)
     else:
       add_dict(self._sumw2, other._sumw2)
     add_dict(self._sumw, other._sumw)
