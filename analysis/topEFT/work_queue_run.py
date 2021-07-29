@@ -1,4 +1,5 @@
-#!/usr/bin/env python                                                                                                                                                                                       
+#!/usr/bin/env python
+
 import lz4.frame as lz4f
 import pickle
 import json
@@ -72,7 +73,7 @@ for f in allInputFiles:
   if not os.path.isfile(f):
     raise Exception(f'[ERROR] Input file {f} not found!')
   # This input file is a json file, not a cfg
-  if f.endswith('.json'): 
+  if f.endswith('.json'):
     LoadJsonToSampleName(f, prefix)
   # Open cfg files
   else:
@@ -163,7 +164,7 @@ executor_args = {#'flatten': True, #used for all executors
                  'extra-input-files': ["topeft.py"]
 }
 
-# Run the processor and get the output                                                                                                                                                                     
+# Run the processor and get the output
 tstart = time.time()
 output = processor.run_uproot_job(flist, treename=treename, processor_instance=processor_instance, executor=processor.work_queue_executor, executor_args=executor_args, chunksize=chunksize, maxchunks=nchunks)
 dt = time.time() - tstart
@@ -174,9 +175,10 @@ nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() i
 nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
 print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
-# This is taken from the DM photon analysis...                                                                                                                                                             
-# Pickle is not very fast or memory efficient, will be replaced by something better soon                                                                                                                   
-#    with lz4f.open("pods/"+options.year+"/"+dataset+".pkl.gz", mode="xb", compression_level=5) as fout:                                                                                                   
+# This is taken from the DM photon analysis...
+# Pickle is not very fast or memory efficient, will be replaced by something
+# better soon
+#    with lz4f.open("pods/"+options.year+"/"+dataset+".pkl.gz", mode="xb", compression_level=5) as fout:
 if not outpath.endswith('/'): outpath += '/'
 if not os.path.isdir(outpath): os.system("mkdir -p %s"%outpath)
 print('Saving output in %s...'%(outpath + outname + ".pkl.gz"))
