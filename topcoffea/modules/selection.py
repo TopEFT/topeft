@@ -12,175 +12,104 @@ import awkward as ak
 
 from topcoffea.modules.corrections import fakeRateWeight2l, fakeRateWeight3l
 
-def passNJets(nJets, lim=2):
-  return nJets >= lim
 
-def passMETcut(met, metCut=40):
-  return met >= metCut
+#def passNJets(nJets, lim=2):
+#  return nJets >= lim
+#
+#def passMETcut(met, metCut=40):
+#  return met >= metCut
 
-# Datasets:
-# SingleElec, SingleMuon
-# DoubleElec, DoubleMuon, MuonEG
-# Overlap removal at trigger level... singlelep, doublelep, triplelep
 
-triggers = {
-  'SingleMuonTriggers' : ['IsoMu24', 'IsoMu27'],
-  'SingleElecTriggers' : ['Ele32_WPTight_Gsf', 'Ele35_WPTight_Gsf'],
-  'DoubleMuonTrig' : ['Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ', 'Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8'],
-  'DoubleElecTrig' : ['Ele23_Ele12_CaloIdL_TrackIdL_IsoVL', 'Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ'],
-  'MuonEGTrig' : ['Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL', 'Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ', 'Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ'],
-  'TripleElecTrig' : ['Ele16_Ele12_Ele8_CaloIdL_TrackIdL'],
-  'TripleMuonTrig' : ['TripleMu_12_10_5'],
-  'DoubleMuonElecTrig' : ['DiMu9_Ele9_CaloIdL_TrackIdL_DZ'],
-  'DoubleElecMuonTrig' : ['Mu8_DiEle12_CaloIdL_TrackIdL'],
+# The datasets we are using, and the triggers in them
+dataset_dict = {
+    "2017" : {
+        "SingleMuon" : [
+            "IsoMu24",
+            "IsoMu27",
+        ],
+        "SingleElectron" : [
+            "Ele32_WPTight_Gsf",
+            "Ele35_WPTight_Gsf",
+        ],
+        "DoubleMuon" : [
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ",
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
+            "TripleMu_12_10_5",
+        ],
+        "DoubleEG" : [
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
+        ],
+        "MuonEG" : [
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_DiEle12_CaloIdL_TrackIdL",
+            "Mu8_DiEle12_CaloIdL_TrackIdL_DZ", # Note: Listed in Andrew's thesis, but not TOP-19-001 AN
+            "DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
+        ]
+    }
 }
 
-triggersForFinalState = {
-  'ee' : {
-      'MC': triggers['SingleElecTriggers']+triggers['DoubleElecTrig'],
-      'EGamma'     : triggers['SingleElecTriggers']+triggers['DoubleElecTrig'],
-  },
-  'em' : {
-      'MC': triggers['SingleElecTriggers']+triggers['SingleMuonTriggers']+triggers['MuonEGTrig'],
-      'EGamma'     : triggers['SingleElecTriggers'],
-      'MuonEG'     : triggers['MuonEGTrig'],
-      'SingleMuon' : triggers['SingleMuonTriggers'],
-  },
-  'mm' : {
-      'MC': triggers['SingleMuonTriggers']+triggers['DoubleMuonTrig'],
-      'DoubleMuon' : triggers['DoubleMuonTrig'],
-      'SingleMuon' : triggers['SingleMuonTriggers'],
-  },
-  'eee' : {
-      'MC': triggers['SingleElecTriggers']+triggers['DoubleElecTrig']+triggers['TripleElecTrig'],
-      'EGamma' : triggers['SingleElecTriggers']+triggers['DoubleElecTrig']+triggers['TripleElecTrig'],
-  },
-  'mmm' : {
-      'MC': triggers['SingleMuonTriggers']+triggers['DoubleMuonTrig']+triggers['TripleMuonTrig'],
-      'DoubleMuon' : triggers['DoubleMuonTrig']+triggers['TripleMuonTrig'],
-      'SingleMuon' : triggers['SingleMuonTriggers'],
-  },
-  'eem' : {
-      'MC': triggers['SingleMuonTriggers']+triggers['SingleElecTriggers']+triggers['DoubleElecTrig']+triggers['MuonEGTrig']+triggers['DoubleElecMuonTrig'],
-      'MuonEG' : triggers['MuonEGTrig']+triggers['DoubleElecMuonTrig'],
-      'EGamma' : triggers['SingleElecTriggers']+triggers['DoubleElecTrig'],
-      'SingleMuon' : triggers['SingleMuonTriggers'],
-  },
-  'mme' : {
-      'MC': triggers['SingleMuonTriggers']+triggers['SingleElecTriggers']+triggers['DoubleMuonTrig']+triggers['MuonEGTrig']+triggers['DoubleMuonElecTrig'],
-      'MuonEG' : triggers['MuonEGTrig']+triggers['DoubleMuonElecTrig'],
-      'EGamma' : triggers['SingleElecTriggers'],
-      'DoubleMuon' : triggers['DoubleMuonTrig'],
-      'SingleMuon' : triggers['SingleMuonTriggers'],
-  },
-  'eeee' : {
-      'MC': triggers['SingleElecTriggers']+triggers['DoubleElecTrig']+triggers['TripleElecTrig'],
-      'EGamma' : triggers['SingleElecTriggers']+triggers['DoubleElecTrig']+triggers['TripleElecTrig'],
-  },
-  'mmmm' : {
-      'MC': triggers['SingleMuonTriggers']+triggers['DoubleMuonTrig']+triggers['TripleMuonTrig'],
-      'DoubleMuon' : triggers['DoubleMuonTrig']+triggers['TripleMuonTrig'],
-      'SingleMuon' : triggers['SingleMuonTriggers'],
-  },
-  'eeem' : {
-      'MC': triggers['TripleElecTrig']+triggers['SingleMuonTriggers']+triggers['SingleElecTriggers']+triggers['DoubleElecTrig']+triggers['MuonEGTrig']+triggers['DoubleElecMuonTrig'],
-      'MuonEG' : triggers['MuonEGTrig']+triggers['DoubleElecMuonTrig'],
-      'EGamma' : triggers['TripleElecTrig']+triggers['SingleElecTriggers']+triggers['DoubleElecTrig'],
-      'SingleMuon' : triggers['SingleMuonTriggers'],
-  },
-  'eemm' : {
-      'MC': triggers['SingleMuonTriggers']+triggers['SingleElecTriggers']+triggers['DoubleElecTrig']+triggers['DoubleMuonTrig']+triggers['MuonEGTrig']+triggers['DoubleElecMuonTrig']+triggers['DoubleMuonElecTrig'],
-      'MuonEG' : triggers['MuonEGTrig']+triggers['DoubleElecMuonTrig']+triggers['DoubleMuonElecTrig'],
-      'EGamma' : triggers['SingleElecTriggers']+triggers['DoubleElecTrig'],
-      'SingleMuon' : triggers['SingleMuonTriggers'],
-      'DoubleMuon' : triggers['DoubleMuonTrig'],
-  },
-  'mmme' : {
-      'MC': triggers['TripleMuonTrig']+triggers['SingleMuonTriggers']+triggers['SingleElecTriggers']+triggers['DoubleMuonTrig']+triggers['MuonEGTrig']+triggers['DoubleMuonElecTrig'],
-      'MuonEG' : triggers['MuonEGTrig']+triggers['DoubleMuonElecTrig'],
-      'EGamma' : triggers['SingleElecTriggers'],
-      'DoubleMuon' : triggers['TripleMuonTrig']+triggers['DoubleMuonTrig'],
-      'SingleMuon' : triggers['SingleMuonTriggers'],   
-  }
+
+# Hard coded dictionary for figuring out overlap...
+#   - No unique way to do this
+#   - Note: In order for this to work properly, you should be processing all of the datastes to be used in the analysis
+#   - Otherwise, you may be removing events that show up in other datasets you're not using
+exclude_dict = {
+    "2017" : {
+        "SingleMuon"     : [],
+        "SingleElectron" : dataset_dict["2017"]["SingleMuon"],
+        "DoubleMuon"     : dataset_dict["2017"]["SingleMuon"] + dataset_dict["2017"]["SingleElectron"],
+        "DoubleEG"       : dataset_dict["2017"]["SingleMuon"] + dataset_dict["2017"]["SingleElectron"] + dataset_dict["2017"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2017"]["SingleMuon"] + dataset_dict["2017"]["SingleElectron"] + dataset_dict["2017"]["DoubleMuon"] + dataset_dict["2017"]["DoubleEG"],
+    }
 }
 
-triggersNotForFinalState = {
-  'ee' : {'EGamma' : [],},
-  'em' : {
-      'MuonEG'     : [],
-      'EGamma'     : triggers['MuonEGTrig'],
-      'SingleMuon' : triggers['MuonEGTrig'],
-  },
-  'mm' : {
-      'DoubleMuon' : [],
-      'SingleMuon' : triggers['DoubleMuonTrig'],
-  },
-  'eee' : { 'EGamma' : [],},
-  'mmm' : {
-      'DoubleMuon' : [],
-      'SingleMuon' : triggers['DoubleMuonTrig']+triggers['TripleMuonTrig'],
-  },
-  'eem' : {
-      'MuonEG' : [], 
-      'EGamma' : triggers['MuonEGTrig']+triggers['DoubleElecMuonTrig'],
-      'SingleMuon' :  triggers['MuonEGTrig']+triggers['DoubleElecMuonTrig']+triggers['SingleElecTriggers']+triggers['DoubleElecTrig'],
-  },
-  'mme' : {
-      'MuonEG' : [],
-      'EGamma' : triggers['MuonEGTrig']+triggers['DoubleMuonElecTrig'],
-      'DoubleMuon' : triggers['MuonEGTrig']+triggers['DoubleMuonElecTrig']+triggers['SingleElecTriggers'],
-      'SingleMuon' : triggers['MuonEGTrig']+triggers['DoubleMuonElecTrig']+triggers['SingleElecTriggers']+triggers['DoubleMuonTrig'],
-  },
-  'eeee' : { 'EGamma' : [],},
-  'mmmm' : {
-      'DoubleMuon' : [],
-      'SingleMuon' : triggers['DoubleMuonTrig']+triggers['TripleMuonTrig'],   
-  },
-  'eeem' : {
-      'MuonEG' : [], 
-      'EGamma' : triggers['MuonEGTrig']+triggers['DoubleElecMuonTrig'],
-      'SingleMuon' :  triggers['TripleElecTrig']+triggers['MuonEGTrig']+triggers['DoubleElecMuonTrig']+triggers['SingleElecTriggers']+triggers['DoubleElecTrig'],   
-  },
-  'eemm' : {
-      'MuonEG' : [], 
-      'EGamma' : triggers['MuonEGTrig']+triggers['DoubleElecMuonTrig']+triggers['DoubleMuonElecTrig'],
-      'SingleMuon' :  triggers['MuonEGTrig']+triggers['DoubleElecMuonTrig']+triggers['DoubleMuonElecTrig']+triggers['SingleElecTriggers']+triggers['DoubleElecTrig']+triggers['DoubleMuonTrig'], 
-  },
-  'mmme' : {
-      'MuonEG' : [],
-      'EGamma' : triggers['MuonEGTrig']+triggers['DoubleMuonElecTrig'],
-      'DoubleMuon' : triggers['MuonEGTrig']+triggers['DoubleMuonElecTrig']+triggers['SingleElecTriggers'],
-      'SingleMuon' : triggers['MuonEGTrig']+triggers['DoubleMuonElecTrig']+triggers['SingleElecTriggers']+triggers['DoubleMuonTrig']+triggers['TripleMuonTrig'],   
-  }
-}
 
-def passTrigger(df, cat, isData=False, dataName=''):
-  tpass = np.zeros_like(np.array(df.MET.pt), dtype=np.bool)
-  df = df.HLT
-  if not isData: 
-    paths = triggersForFinalState[cat]['MC']
-    for path in paths: tpass = tpass | df[path]
-  else:
-    passTriggers    = triggersForFinalState[cat][dataName] if dataName in triggersForFinalState[cat].keys() else []
-    notPassTriggers = triggersNotForFinalState[cat][dataName] if dataName in triggersNotForFinalState[cat].keys() else []
-    for path in passTriggers: tpass = tpass| df[path]
-    for path in notPassTriggers: tpass = (tpass)&(df[path]==0)
-  return tpass
+# This is a helper function called by trgPassNoOverlap
+#   - Takes events objects, and a lits of triggers
+#   - Returns an array the same length as events, elements are true if the event passed at least one of the triggers and false otherwise
+def passsesTrgInLst(events,trg_name_lst):
+    tpass = np.zeros_like(np.array(events.MET.pt), dtype=np.bool)
+    trg_info_dict = events.HLT
+    for trg_name in trg_name_lst:
+        tpass = tpass | trg_info_dict[trg_name]
+    return tpass
 
-def triggerFor4l(df, nMuon, nElec, isData, dataName=''):
-  is4lmask = ((nElec+nMuon)>=4)
-  is4l0m = (is4lmask)&(nMuon==0)
-  is4l1m = (is4lmask)&(nMuon==1)
-  is4l2m = (is4lmask)&(nMuon==2)
-  is4l3m = (is4lmask)&(nMuon==3)
-  is4l4m = (is4lmask)&(nMuon>=4)
-  trig4l0m = passTrigger(df, 'eeee', isData, dataName)
-  trig4l1m = passTrigger(df, 'eeem', isData, dataName)
-  trig4l2m = passTrigger(df, 'eemm', isData, dataName)
-  trig4l3m = passTrigger(df, 'mmme', isData, dataName)
-  trig4l4m = passTrigger(df, 'mmmm', isData, dataName)
-  trigMask = ( ( (is4l0m)&(trig4l0m) )|( (is4l1m)&(trig4l1m) )|( (is4l2m)&(trig4l2m) )|( (is4l3m)&(trig4l3m) )|( (is4l4m)&(trig4l4m) ) )
-  return trigMask
+
+# This is what we call from the processor
+#   - Returns an array the len of events
+#   - Elements are false if they do not pass any of the triggers defined in dataset_dict
+#   - In the case of data, events are also false if they overlap with another dataset
+def trgPassNoOverlap(events,is_data,dataset,year):
+
+    # Initialize ararys and lists, get trg pass info from events
+    trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=np.bool) # Array of False the len of events
+    trg_overlaps  = np.zeros_like(np.array(events.MET.pt), dtype=np.bool) # Array of False the len of events
+    trg_info_dict = events.HLT
+    full_trg_lst  = []
+
+    # Get the full list of triggers in all datasets
+    for dataset_name in dataset_dict[year].keys():
+        full_trg_lst = full_trg_lst + dataset_dict[year][dataset_name]
+
+    # Check if events pass any of the triggers
+    trg_passes = passsesTrgInLst(events,full_trg_lst)
+
+    # In case of data, check if events overlap with other datasets
+    if is_data:
+        # We are not running over any data yet (we do not even have the jsons for data samples)
+        # Once we want to process data, will need to double check what events.metadata['dataset'] gives us
+        # That's what we're passing as "dataset", and I don't know exactly what it returns, but I hope it is e.g. "DoubleMuon"
+        # Which brings up another quesiton, why pass dataset at all? We already pass events, so we can just get it from that, righ?
+        # Anyway for now let's raise an exception so that we remember to check this when we want to process data
+        raise Exception("Error: Have not checked this function for data yet! Do that before using it.")
+        trg_overlaps = passsesTrgInLst(events, exclude_dict[year][dataset])
+
+    # Return true if passes trg and does not overlap
+    return (trg_passes & ~trg_overlaps)
 
 
 # 2lss selection
@@ -301,3 +230,4 @@ def add4lMaskAndSFs(events, year, isData):
     # SR: Don't really need this for 4l, but define it so we can treat 4l category similar to 2lss and 3l
     events['is4l_SR'] = tightleps
     events['is4l_SR'] = ak.fill_none(events['is4l_SR'],False)
+

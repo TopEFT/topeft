@@ -169,12 +169,16 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # to do: check these numbers are ok
         if year == 2017: btagwpl = 0.0532 #WP loose 
+        #if year == 2017: btagwpl = 0.1355 #WP loose (Sergio suggests for 2017 comparison)
+        #if year == 2017: btagwpl = 0.1522 #WP loose top-19-001
         else: btagwpl = 0.0490 #WP loose 
         isBtagJetsLoose = (goodJets.btagDeepB > btagwpl)
         isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
         nbtagsl = ak.num(goodJets[isBtagJetsLoose])
         # Medium DeepJet WP
         if year == 2017: btagwpm = 0.3040 #WP medium
+        #if year == 2017: btagwpm = 0.4506 #WP medium (Sergio suggests for 2017 comparison)
+        #if year == 2017: btagwpm = 0.4941 #WP medium top-19-001
         else: btagwpm = 0.2783 #WP medium
         isBtagJetsMedium = (goodJets.btagDeepB > btagwpm)
         isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
@@ -252,6 +256,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
 
+        # Pass trigger
+        pass_trg = trgPassNoOverlap(events,isData,dataset,str(year))
+
         # Selections and cuts
         selections = PackedSelection(dtype='uint64')
 
@@ -283,14 +290,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Channels for the 2lss cat
         channels2LSS  = ["2lss_p_4j","2lss_p_5j","2lss_p_6j","2lss_p_7j","2lss_m_4j","2lss_m_5j","2lss_m_6j","2lss_m_7j"]
-        selections.add("2lss_p_4j", (is2lss & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_p_5j", (is2lss & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_p_6j", (is2lss & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_p_7j", (is2lss & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_m_4j", (is2lss & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_m_5j", (is2lss & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_m_6j", (is2lss & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose))
-        selections.add("2lss_m_7j", (is2lss & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose))
+        selections.add("2lss_p_4j", (is2lss & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_p_5j", (is2lss & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_p_6j", (is2lss & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_p_7j", (is2lss & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m_4j", (is2lss & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m_5j", (is2lss & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m_6j", (is2lss & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m_7j", (is2lss & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
 
         # Channels for the 3l cat (we have a _lot_ of 3l categories...)
         channels3l  = [
@@ -302,41 +309,41 @@ class AnalysisProcessor(processor.ProcessorABC):
             "3l_onZ_2j_2b","3l_onZ_3j_2b","3l_onZ_4j_2b","3l_onZ_5j_2b",
         ]
 
-        selections.add("3l_p_offZ_2j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets==2) & bmask_exactly1med))
-        selections.add("3l_p_offZ_3j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets==3) & bmask_exactly1med))
-        selections.add("3l_p_offZ_4j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets==4) & bmask_exactly1med))
-        selections.add("3l_p_offZ_5j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets>=5) & bmask_exactly1med))
+        selections.add("3l_p_offZ_2j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets==2) & bmask_exactly1med & pass_trg))
+        selections.add("3l_p_offZ_3j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets==3) & bmask_exactly1med & pass_trg))
+        selections.add("3l_p_offZ_4j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets==4) & bmask_exactly1med & pass_trg))
+        selections.add("3l_p_offZ_5j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets>=5) & bmask_exactly1med & pass_trg))
 
-        selections.add("3l_m_offZ_2j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets==2) & bmask_exactly1med))
-        selections.add("3l_m_offZ_3j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets==3) & bmask_exactly1med))
-        selections.add("3l_m_offZ_4j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets==4) & bmask_exactly1med))
-        selections.add("3l_m_offZ_5j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets>=5) & bmask_exactly1med))
+        selections.add("3l_m_offZ_2j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets==2) & bmask_exactly1med & pass_trg))
+        selections.add("3l_m_offZ_3j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets==3) & bmask_exactly1med & pass_trg))
+        selections.add("3l_m_offZ_4j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets==4) & bmask_exactly1med & pass_trg))
+        selections.add("3l_m_offZ_5j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets>=5) & bmask_exactly1med & pass_trg))
 
-        selections.add("3l_p_offZ_2j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets==2) & bmask_atleast2med))
-        selections.add("3l_p_offZ_3j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets==3) & bmask_atleast2med))
-        selections.add("3l_p_offZ_4j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets==4) & bmask_atleast2med))
-        selections.add("3l_p_offZ_5j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets>=5) & bmask_atleast2med))
+        selections.add("3l_p_offZ_2j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets==2) & bmask_atleast2med & pass_trg))
+        selections.add("3l_p_offZ_3j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets==3) & bmask_atleast2med & pass_trg))
+        selections.add("3l_p_offZ_4j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets==4) & bmask_atleast2med & pass_trg))
+        selections.add("3l_p_offZ_5j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets>=5) & bmask_atleast2med & pass_trg))
 
-        selections.add("3l_m_offZ_2j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets==2) & bmask_atleast2med))
-        selections.add("3l_m_offZ_3j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets==3) & bmask_atleast2med))
-        selections.add("3l_m_offZ_4j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets==4) & bmask_atleast2med))
-        selections.add("3l_m_offZ_5j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets>=5) & bmask_atleast2med))
+        selections.add("3l_m_offZ_2j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets==2) & bmask_atleast2med & pass_trg))
+        selections.add("3l_m_offZ_3j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets==3) & bmask_atleast2med & pass_trg))
+        selections.add("3l_m_offZ_4j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets==4) & bmask_atleast2med & pass_trg))
+        selections.add("3l_m_offZ_5j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets>=5) & bmask_atleast2med & pass_trg))
 
-        selections.add("3l_onZ_2j_1b", (is3l & sfosz_mask & (njets==2) & bmask_exactly1med))
-        selections.add("3l_onZ_3j_1b", (is3l & sfosz_mask & (njets==3) & bmask_exactly1med))
-        selections.add("3l_onZ_4j_1b", (is3l & sfosz_mask & (njets==4) & bmask_exactly1med))
-        selections.add("3l_onZ_5j_1b", (is3l & sfosz_mask & (njets>=5) & bmask_exactly1med))
+        selections.add("3l_onZ_2j_1b", (is3l & sfosz_mask & (njets==2) & bmask_exactly1med & pass_trg))
+        selections.add("3l_onZ_3j_1b", (is3l & sfosz_mask & (njets==3) & bmask_exactly1med & pass_trg))
+        selections.add("3l_onZ_4j_1b", (is3l & sfosz_mask & (njets==4) & bmask_exactly1med & pass_trg))
+        selections.add("3l_onZ_5j_1b", (is3l & sfosz_mask & (njets>=5) & bmask_exactly1med & pass_trg))
 
-        selections.add("3l_onZ_2j_2b", (is3l & sfosz_mask & (njets==2) & bmask_atleast2med))
-        selections.add("3l_onZ_3j_2b", (is3l & sfosz_mask & (njets==3) & bmask_atleast2med))
-        selections.add("3l_onZ_4j_2b", (is3l & sfosz_mask & (njets==4) & bmask_atleast2med))
-        selections.add("3l_onZ_5j_2b", (is3l & sfosz_mask & (njets>=5) & bmask_atleast2med))
+        selections.add("3l_onZ_2j_2b", (is3l & sfosz_mask & (njets==2) & bmask_atleast2med & pass_trg))
+        selections.add("3l_onZ_3j_2b", (is3l & sfosz_mask & (njets==3) & bmask_atleast2med & pass_trg))
+        selections.add("3l_onZ_4j_2b", (is3l & sfosz_mask & (njets==4) & bmask_atleast2med & pass_trg))
+        selections.add("3l_onZ_5j_2b", (is3l & sfosz_mask & (njets>=5) & bmask_atleast2med & pass_trg))
 
         # Channels for the 4l cat
         channels4l  = ["4l_2j","4l_3j","4l_4j"]
-        selections.add("4l_2j", (is4l & (njets==2) & bmask_atleast1med_atleast2loose))
-        selections.add("4l_3j", (is4l & (njets==3) & bmask_atleast1med_atleast2loose))
-        selections.add("4l_4j", (is4l & (njets>=4) & bmask_atleast1med_atleast2loose))
+        selections.add("4l_2j", (is4l & (njets==2) & bmask_atleast1med_atleast2loose) & pass_trg)
+        selections.add("4l_3j", (is4l & (njets==3) & bmask_atleast1med_atleast2loose) & pass_trg)
+        selections.add("4l_4j", (is4l & (njets>=4) & bmask_atleast1med_atleast2loose) & pass_trg)
 
 
         varnames = {}
