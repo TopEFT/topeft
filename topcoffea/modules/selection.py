@@ -22,6 +22,31 @@ from topcoffea.modules.corrections import fakeRateWeight2l, fakeRateWeight3l
 
 # The datasets we are using, and the triggers in them
 dataset_dict = {
+    "2016" : {
+        "SingleMuon" : [
+            "IsoMu24",
+            "IsoMu27",
+        ],
+        "SingleElectron" : [
+            'Ele27_WPTight_Gsf'
+        ],
+        "DoubleMuon" : [
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ",
+            "TripleMu_12_10_5",
+        ],
+        "DoubleEG" : [
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
+        ],
+        "MuonEG" : [
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_DiEle12_CaloIdL_TrackIdL",
+            "DiMu9_Ele9_CaloIdL_TrackIdL",
+        ]
+    },
     "2017" : {
         "SingleMuon" : [
             "IsoMu24",
@@ -49,7 +74,36 @@ dataset_dict = {
             "Mu8_DiEle12_CaloIdL_TrackIdL_DZ", # Note: Listed in Andrew's thesis, but not TOP-19-001 AN
             "DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
         ]
+    },
+    "2018" : {
+        "SingleMuon" : [
+            "IsoMu24",
+            "IsoMu27",
+        ],
+        "SingleElectron" : [
+            "Ele32_WPTight_Gsf",
+            "Ele35_WPTight_Gsf",
+        ],
+        "DoubleMuon" : [
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ",
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
+            "TripleMu_12_10_5",
+        ],
+        "DoubleEG" : [
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
+        ],
+        "MuonEG" : [
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_DiEle12_CaloIdL_TrackIdL",
+            "Mu8_DiEle12_CaloIdL_TrackIdL_DZ",
+            "DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
+        ]
     }
+
 }
 
 
@@ -58,13 +112,27 @@ dataset_dict = {
 #   - Note: In order for this to work properly, you should be processing all of the datastes to be used in the analysis
 #   - Otherwise, you may be removing events that show up in other datasets you're not using
 exclude_dict = {
-    "2017" : {
+    "2016": {
+        "SingleMuon"     : [],
+        "SingleElectron" : dataset_dict["2016"]["SingleMuon"],
+        "DoubleMuon"     : dataset_dict["2016"]["SingleMuon"] + dataset_dict["2016"]["SingleElectron"],
+        "DoubleEG"       : dataset_dict["2016"]["SingleMuon"] + dataset_dict["2016"]["SingleElectron"] + dataset_dict["2016"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2016"]["SingleMuon"] + dataset_dict["2016"]["SingleElectron"] + dataset_dict["2016"]["DoubleMuon"] + dataset_dict["2016"]["DoubleEG"],
+    },
+    "2017": {
         "SingleMuon"     : [],
         "SingleElectron" : dataset_dict["2017"]["SingleMuon"],
         "DoubleMuon"     : dataset_dict["2017"]["SingleMuon"] + dataset_dict["2017"]["SingleElectron"],
         "DoubleEG"       : dataset_dict["2017"]["SingleMuon"] + dataset_dict["2017"]["SingleElectron"] + dataset_dict["2017"]["DoubleMuon"],
         "MuonEG"         : dataset_dict["2017"]["SingleMuon"] + dataset_dict["2017"]["SingleElectron"] + dataset_dict["2017"]["DoubleMuon"] + dataset_dict["2017"]["DoubleEG"],
-    }
+    },
+    "2018": {
+        "SingleMuon"     : [],
+        "SingleElectron" : dataset_dict["2018"]["SingleMuon"],
+        "DoubleMuon"     : dataset_dict["2018"]["SingleMuon"] + dataset_dict["2018"]["SingleElectron"],
+        "DoubleEG"       : dataset_dict["2018"]["SingleMuon"] + dataset_dict["2018"]["SingleElectron"] + dataset_dict["2018"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2018"]["SingleMuon"] + dataset_dict["2018"]["SingleElectron"] + dataset_dict["2018"]["DoubleMuon"] + dataset_dict["2018"]["DoubleEG"],
+    },
 }
 
 
@@ -84,6 +152,10 @@ def passsesTrgInLst(events,trg_name_lst):
 #   - Elements are false if they do not pass any of the triggers defined in dataset_dict
 #   - In the case of data, events are also false if they overlap with another dataset
 def trgPassNoOverlap(events,is_data,dataset,year):
+    
+    # The trigger for 2016 and 2016APV are the same
+    if year == "2016APV":
+        year= "2016"
 
     # Initialize ararys and lists, get trg pass info from events
     trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=np.bool) # Array of False the len of events
