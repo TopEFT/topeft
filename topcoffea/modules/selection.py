@@ -22,6 +22,7 @@ from topcoffea.modules.corrections import fakeRateWeight2l, fakeRateWeight3l
 
 # The datasets we are using, and the triggers in them
 dataset_dict = {
+
     "2016" : {
         "SingleMuon" : [
             "IsoMu24",
@@ -47,6 +48,7 @@ dataset_dict = {
             "DiMu9_Ele9_CaloIdL_TrackIdL",
         ]
     },
+
     "2017" : {
         "SingleMuon" : [
             "IsoMu24",
@@ -75,6 +77,7 @@ dataset_dict = {
             "DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
         ]
     },
+
     "2018" : {
         "SingleMuon" : [
             "IsoMu24",
@@ -209,9 +212,9 @@ def add2lssMaskAndSFs(events, year, isData):
 
     # 2lss requirements:
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
-    dilep = ( ak.num(FOs)) >= 2 
-    pt2515 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1)
-    mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge & njet4) #     & Z_veto
+    dilep = (ak.num(FOs)) >= 2 
+    pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
+    mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge & njet4)
     events['is2lss'] = ak.fill_none(mask,False)
 
     # SFs
@@ -232,7 +235,7 @@ def add3lMaskAndSFs(events, year, isData):
 
     # FOs and padded FOs
     FOs=events.l_fo_conept_sorted
-    padded_FOs = ak.pad_none(FOs, 3)
+    padded_FOs = ak.pad_none(FOs,3)
 
     # Filters and cleanups
     filter_flags = events.Flag
@@ -247,9 +250,12 @@ def add3lMaskAndSFs(events, year, isData):
     # Jet requirements:
     njet2 = (events.njets>1)
 
+    # Pt requirements for 3rd lepton (different for e and m)
+    pt3lmask = ak.any(ak.where(abs(FOs[:,2:3].pdgId)==11,FOs[:,2:3].conept>15.0,FOs[:,2:3].conept>10.0),axis=1)
+
     # 3l requirements:
-    trilep = ( ak.num(FOs)) >=3
-    pt251510 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 10.0, axis=1)
+    trilep = (ak.num(FOs)) >=3
+    pt251510 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & pt3lmask)
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
     mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3 & njet2) 
     events['is3l'] = ak.fill_none(mask,False)
@@ -262,7 +268,7 @@ def add3lMaskAndSFs(events, year, isData):
     # SR:
     events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
     events['is3l_SR'] = ak.fill_none(events['is3l_SR'],False)
-    
+
     # FF:
     fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
 
@@ -271,7 +277,7 @@ def add4lMaskAndSFs(events, year, isData):
 
     # FOs and padded FOs
     FOs=events.l_fo_conept_sorted
-    padded_FOs=ak.pad_none(FOs, 4)
+    padded_FOs=ak.pad_none(FOs,4)
 
     # Filters and cleanups
     filter_flags = events.Flag
@@ -287,10 +293,14 @@ def add4lMaskAndSFs(events, year, isData):
     # Jet requirements:
     njet2 = (events.njets>=2)
 
+    # Pt requirements for 3rd and 4th leptons (different for e and m)
+    pt3lmask = ak.any(ak.where(abs(FOs[:,2:3].pdgId)==11,FOs[:,2:3].conept>15.0,FOs[:,2:3].conept>10.0),axis=1)
+    pt4lmask = ak.any(ak.where(abs(FOs[:,3:4].pdgId)==11,FOs[:,3:4].conept>15.0,FOs[:,3:4].conept>10.0),axis=1)
+
     # 4l requirements:
     fourlep  = (ak.num(FOs)) >= 4
-    pt25151510 = ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & ak.any(FOs[:,2:3].conept > 10.0, axis=1) & ak.any(FOs[:,3:4].conept > 10.0, axis=1) # TODO: Check on these thresholds!!!
-    tightleps = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep) & (padded_FOs[:,3].isTightLep) 
+    pt25151510 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & pt3lmask & pt4lmask)
+    tightleps = ((padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep) & (padded_FOs[:,3].isTightLep))
     mask = (filters & cleanup & fourlep & pt25151510 & tightleps & eleID1 & eleID2 & eleID3 & eleID4 & njet2)
     events['is4l'] = ak.fill_none(mask,False)
 
