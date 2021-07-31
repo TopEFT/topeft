@@ -27,7 +27,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._dtype = dtype
 
         # Create the histograms
-        # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
         self._accumulator = processor.dict_accumulator({
         'SumOfEFTweights'  : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
         'counts'  : hist.Hist("Events",             hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("counts", "Counts", 1, 0, 2)),
@@ -93,12 +92,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         e['isFO']  = isFOElec(e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
         e['isTightLep'] =  tightSelElec(e.isFO, e.mvaTTH)
 
-        # build loose collections
+        # Build loose collections
         m_loose = mu[mu.isPres & mu.isLooseM]
         e_loose = e[e.isPres & e.isLooseE]
         l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
 
-        # compute pair invariant masses
+        # Compute pair invariant masses
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
         events['minMllAFAS']=ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
         osllpairs=llpairs[llpairs.l0.charge*llpairs.l1.charge<0]
@@ -123,7 +122,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Tau selection
         tau['isPres']  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDecayModeNewDMs, tau.idDeepTau2017v2p1VSjet, minpt=20)
         tau['isClean'] = isClean(tau, l_loose, drmin=0.3)
-
         tau['isGood']  =  tau['isClean']  & tau['isPres']
         tau= tau[tau.isGood] # use these to clean jets
         tau['isTight']= isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
@@ -192,7 +190,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         add2lssMaskAndSFs(events, year, isData)
         add3lMaskAndSFs(events, year, isData)
         add4lMaskAndSFs(events, year, isData)
-        print('The number of events passing 2lss, 3l, and 4l selection is:', ak.num(events[events.is2lss],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
+        print('The number of events passing fo 2lss, 3l, and 4l selection is:', ak.num(events[events.is2lss],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
 
         # Get mask for events that have two sf os leps close to z peak
         ll_fo_pairs = ak.combinations(l_fo_conept_sorted_padded, 2, fields=["l0","l1"])
@@ -371,7 +369,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Fill the rest of the hists
         for syst in systList:
             for var, v in varnames.items():
-                print("var:",var)
 
                 for ch in ['2lss0tau'] + channels2LSS + channels3l + channels4l:
 
@@ -405,7 +402,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
                         eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
 
-                        # filling histos
+                        # Filling histos
                         if var == 'invmass':
                             if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4L)): continue
                             else : values = ak.flatten(v[ch][cut])

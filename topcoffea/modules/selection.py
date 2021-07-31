@@ -13,13 +13,6 @@ import awkward as ak
 from topcoffea.modules.corrections import fakeRateWeight2l, fakeRateWeight3l
 
 
-#def passNJets(nJets, lim=2):
-#  return nJets >= lim
-#
-#def passMETcut(met, metCut=40):
-#  return met >= metCut
-
-
 # The datasets we are using, and the triggers in them
 dataset_dict = {
 
@@ -192,7 +185,7 @@ def add2lssMaskAndSFs(events, year, isData):
 
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
-    padded_FOs = ak.pad_none(FOs, 2)
+    padded_FOs = ak.pad_none(FOs,2)
 
     # Filters and cleanups
     filter_flags = events.Flag
@@ -272,6 +265,7 @@ def add3lMaskAndSFs(events, year, isData):
     # FF:
     fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
 
+
 # 4l selection
 def add4lMaskAndSFs(events, year, isData):
 
@@ -312,4 +306,3 @@ def add4lMaskAndSFs(events, year, isData):
     # SR: Don't really need this for 4l, but define it so we can treat 4l category similar to 2lss and 3l
     events['is4l_SR'] = tightleps
     events['is4l_SR'] = ak.fill_none(events['is4l_SR'],False)
-
