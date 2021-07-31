@@ -168,19 +168,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
 
         # to do: check these numbers are ok
-        if year == 2017: btagwpl = 0.0532 #WP loose 
-        #if year == 2017: btagwpl = 0.1355 #WP loose (Sergio suggests for 2017 comparison)
-        #if year == 2017: btagwpl = 0.1522 #WP loose top-19-001
+        if year == "2017": btagwpl = 0.0532 #WP loose 
         else: btagwpl = 0.0490 #WP loose 
-        isBtagJetsLoose = (goodJets.btagDeepB > btagwpl)
+        isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
         isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
         nbtagsl = ak.num(goodJets[isBtagJetsLoose])
         # Medium DeepJet WP
-        if year == 2017: btagwpm = 0.3040 #WP medium
-        #if year == 2017: btagwpm = 0.4506 #WP medium (Sergio suggests for 2017 comparison)
-        #if year == 2017: btagwpm = 0.4941 #WP medium top-19-001
+        if year == "2017": btagwpm = 0.3040 #WP medium
         else: btagwpm = 0.2783 #WP medium
-        isBtagJetsMedium = (goodJets.btagDeepB > btagwpm)
+        isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
         isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
         nbtagsm = ak.num(goodJets[isBtagJetsMedium])
 
