@@ -14,7 +14,7 @@ class YieldTools():
         self.LUMI_FILE = topcoffea_path("json/lumi.json")
 
         # The order of the categories in the TOP-19-001 AN yield tables
-        self.CAT_LST = ["cat_2lss_p","cat_2lss_m","cat_3l_1b_offZ_p","cat_3l_1b_offZ_m","cat_3l_2b_offZ_p","cat_3l_2b_offZ_m","cat_3l_1b_onZ","cat_3l_2b_onZ","cat_4l"]
+        self.CAT_LST = ["cat_2lss_p", "cat_2lss_m", "cat_3l_p_offZ_1b", "cat_3l_m_offZ_1b", "cat_3l_p_offZ_2b", "cat_3l_m_offZ_2b", "cat_3l_onZ_1b", "cat_3l_onZ_2b", "cat_4l"]
 
         # A dictionary mapping names of samples in the samples axis to a short version of the name
         self.PROC_MAP = {
@@ -26,7 +26,7 @@ class YieldTools():
             "tttt"  : ["tttt_central2017","tttt_privateUL17"],
         }
 
-        # The jet bins we define for the lep categories
+        # The jet bins we define for the lep categories (Not currently used)
         self.JET_BINS = {
             "2lss" : [4,5,6,7],
             "3l"   : [2,3,4,5],
@@ -42,113 +42,103 @@ class YieldTools():
         # A dictionary specifying which categories from the hists create the analysis categories
         self.CATEGORIES = {
             "cat_2lss_p" : {
-                "channel": self.ch_2lss,
-                "sumcharge": ["ch+"],
-                "cut": ["1+bm2+bl"],
+                "channel": ["2lss_p_4j","2lss_p_5j","2lss_p_6j","2lss_p_7j"],
+                "appl": ["isSR_2lss"],
             },
             "cat_2lss_m" : {
-                "channel": self.ch_2lss,
-                "sumcharge": ["ch-"],
-                "cut": ["1+bm2+bl"],
+                "channel": ["2lss_m_4j","2lss_m_5j","2lss_m_6j","2lss_m_7j"],
+                "appl": ["isSR_2lss"],
             },
-
-            "cat_3l_1b_onZ" : {
-                "channel": self.ch_3l_onZ,
-                "sumcharge": ["ch+","ch-"],
-                "cut": ["1bm"],
+            "cat_3l_p_offZ_1b" : {
+                "channel": ["3l_p_offZ_2j_1b", "3l_p_offZ_3j_1b", "3l_p_offZ_4j_1b", "3l_p_offZ_5j_1b"],
+                "appl": ["isSR_3l"],
             },
-            "cat_3l_1b_offZ_p" : {
-                "channel": self.ch_3l_offZ,
-                "sumcharge": ["ch+"],
-                "cut": ["1bm"],
+            "cat_3l_m_offZ_1b" : {
+                "channel": ["3l_m_offZ_2j_1b", "3l_m_offZ_3j_1b", "3l_m_offZ_4j_1b", "3l_m_offZ_5j_1b"],
+                "appl": ["isSR_3l"],
             },
-            "cat_3l_1b_offZ_m" : {
-                "channel": self.ch_3l_offZ,
-                "sumcharge": ["ch-"],
-                "cut": ["1bm"],
+            "cat_3l_p_offZ_2b" : {
+                "channel": ["3l_p_offZ_2j_2b", "3l_p_offZ_3j_2b", "3l_p_offZ_4j_2b", "3l_p_offZ_5j_2b"],
+                "appl": ["isSR_3l"],
             },
-
-            "cat_3l_2b_onZ" : {
-                "channel": self.ch_3l_onZ,
-                "sumcharge": ["ch+","ch-"],
-                "cut": ["2+bm"],
+            "cat_3l_m_offZ_2b" : {
+                "channel": ["3l_m_offZ_2j_2b", "3l_m_offZ_3j_2b", "3l_m_offZ_4j_2b", "3l_m_offZ_5j_2b"],
+                "appl": ["isSR_3l"],
             },
-            "cat_3l_2b_offZ_p" : {
-                "channel": self.ch_3l_offZ,
-                "sumcharge": ["ch+"],
-                "cut": ["2+bm"],
+            "cat_3l_onZ_1b" : {
+                "channel": ["3l_onZ_2j_1b", "3l_onZ_3j_1b", "3l_onZ_4j_1b", "3l_onZ_5j_1b"],
+                "appl": ["isSR_3l"],
             },
-            "cat_3l_2b_offZ_m" : {
-                "channel": self.ch_3l_offZ,
-                "sumcharge": ["ch-"],
-                "cut": ["2+bm"],
+            "cat_3l_onZ_2b" : {
+                "channel": ["3l_onZ_2j_2b", "3l_onZ_3j_2b", "3l_onZ_4j_2b", "3l_onZ_5j_2b"],
+                "appl": ["isSR_3l"],
             },
-
             "cat_4l" : {
-                "channel": self.ch_4l,
-                "sumcharge": ["ch+","ch-","ch0"],
-                "cut": ["1+bm2+bl"],
+                "channel": ["4l_2j", "4l_3j", "4l_4j"],
+                "appl": ["isSR_4l"],
             },
         }
+
 
         # Yields from TOP-19-001 AN table 15
         self.TOP19001_YLDS = {
             "ttlnu" : {
-                "cat_2lss_p" : (81.1,None),
-                "cat_2lss_m" : (44.0,None),
-                "cat_3l_1b_offZ_p" : (16.6,None),
-                "cat_3l_1b_offZ_m" : (9.1,None),
-                "cat_3l_2b_offZ_p" : (12.1,None),
-                "cat_3l_2b_offZ_m" : (6.7,None),
-                "cat_3l_1b_onZ" : (3.4,None),
-                "cat_3l_2b_onZ" : (2.5,None),
+                "cat_2lss_p" : (68.7,None),
+                "cat_2lss_m" : (37.1,None),
+                "cat_3l_p_offZ_1b" : (14.4,None),
+                "cat_3l_m_offZ_1b" : (8.0,None),
+                "cat_3l_p_offZ_2b" : (10.8,None),
+                "cat_3l_m_offZ_2b" : (5.9,None),
+                "cat_3l_onZ_1b" : (2.9,None),
+                "cat_3l_onZ_2b" : (2.3,None),
                 "cat_4l" : (0.0,None),
             },
             "ttll"  : {
-                "cat_2lss_p" : (22.6,None),
-                "cat_2lss_m" : (22.5,None),
-                "cat_3l_1b_offZ_p" : (14.2,None),
-                "cat_3l_1b_offZ_m" : (14.7,None),
-                "cat_3l_2b_offZ_p" : (10.1,None),
-                "cat_3l_2b_offZ_m" : (9.4,None),
-                "cat_3l_1b_onZ" : (106.5,None),
-                "cat_3l_2b_onZ" : (70.9,None),
-                "cat_4l" : (10.4,None),
+                "cat_2lss_p" : (19.3,None),
+                "cat_2lss_m" : (19.0,None),
+                "cat_3l_p_offZ_1b" : (12.7,None),
+                "cat_3l_m_offZ_1b" : (13.3,None),
+                "cat_3l_p_offZ_2b" : (9.1,None),
+                "cat_3l_m_offZ_2b" : (8.5,None),
+                "cat_3l_onZ_1b" : (95.5,None),
+                "cat_3l_onZ_2b" : (63.2,None),
+                "cat_4l" : (9.4,None),
             },
             "ttH"   : {
-                "cat_2lss_p" : (28.6,None),
-                "cat_2lss_m" : (27.9,None),
-                "cat_3l_1b_offZ_p" : (8.5,None),
-                "cat_3l_1b_offZ_m" : (8.1,None),
-                "cat_3l_2b_offZ_p" : (5.5,None),
-                "cat_3l_2b_offZ_m" : (5.6,None),
-                "cat_3l_1b_onZ" : (3.5,None),
-                "cat_3l_2b_onZ" : (2.4,None),
-                "cat_4l" : (1.1,None),
+                "cat_2lss_p" : (24.7,None),
+                "cat_2lss_m" : (24.1,None),
+                "cat_3l_p_offZ_1b" : (7.9,None),
+                "cat_3l_m_offZ_1b" : (7.6,None),
+                "cat_3l_p_offZ_2b" : (5.1,None),
+                "cat_3l_m_offZ_2b" : (5.2,None),
+                "cat_3l_onZ_1b" : (3.2,None),
+                "cat_3l_onZ_2b" : (2.2,None),
+                "cat_4l" : (1.0,None),
             },
             "tllq"  : {
-                "cat_2lss_p" : (2.9,None),
-                "cat_2lss_m" : (1.7,None),
-                "cat_3l_1b_offZ_p" : (3.8,None),
-                "cat_3l_1b_offZ_m" : (1.9,None),
-                "cat_3l_2b_offZ_p" : (1.3,None),
-                "cat_3l_2b_offZ_m" : (0.6,None),
-                "cat_3l_1b_onZ" : (42.1,None),
-                "cat_3l_2b_onZ" : (14.1,None),
+                "cat_2lss_p" : (2.7,None),
+                "cat_2lss_m" : (1.5,None),
+                "cat_3l_p_offZ_1b" : (3.5,None),
+                "cat_3l_m_offZ_1b" : (1.8,None),
+                "cat_3l_p_offZ_2b" : (1.2,None),
+                "cat_3l_m_offZ_2b" : (0.6,None),
+                "cat_3l_onZ_1b" : (39.8,None),
+                "cat_3l_onZ_2b" : (13.3,None),
                 "cat_4l" : (0.0,None),
             },
             "tHq"   : {
-                "cat_2lss_p" : (0.9,None),
-                "cat_2lss_m" : (0.5,None),
-                "cat_3l_1b_offZ_p" : (0.3,None),
-                "cat_3l_1b_offZ_m" : (0.2,None),
-                "cat_3l_2b_offZ_p" : (0.2,None),
-                "cat_3l_2b_offZ_m" : (0.1,None),
-                "cat_3l_1b_onZ" : (0.1,None),
-                "cat_3l_2b_onZ" : (0.1,None),
+                "cat_2lss_p" : (0.8,None),
+                "cat_2lss_m" : (0.4,None),
+                "cat_3l_p_offZ_1b" : (0.3,None),
+                "cat_3l_m_offZ_1b" : (0.2,None),
+                "cat_3l_p_offZ_2b" : (0.2,None),
+                "cat_3l_m_offZ_2b" : (0.1,None),
+                "cat_3l_onZ_1b" : (0.1,None),
+                "cat_3l_onZ_2b" : (0.1,None),
                 "cat_4l" : (0.0,None),
             },
         }
+
 
     ######### Functions for getting process names from PROC_MAP #########
 
@@ -207,7 +197,8 @@ class YieldTools():
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
         cats = []
-        if h_name is None: h_name = "njets" # Guess a hist that we usually have
+        #if h_name is None: h_name = "njets" # Guess a hist that we usually have
+        if h_name is None: h_name = "ht" # Guess a hist that we usually have
         for i in range(len(hin_dict[h_name].axes())):
             if axis == hin_dict[h_name].axes()[i].name:
                 for cat in hin_dict[h_name].axes()[i].identifiers():
@@ -282,10 +273,11 @@ class YieldTools():
 
 
     # Uses integrate_out_cats() and select_njet_bin() to return h for a particular analysis category
+    # This function maybe should not exist, we only use it in one place, so maybe just call integrate_out_cats() directly from there...
     def select_hist_for_ana_cat(self,h,cat_dict,njet):
         h_ret = self.integrate_out_cats(h,cat_dict)
         h_ret = h_ret.integrate("systematic","nominal") # For now anyway...
-        h_ret = self.select_njet_bin(h_ret,njet)
+        #h_ret = self.select_njet_bin(h_ret,njet) # Now the categories are split by njets, so no need to rebin njets hist to find the info
         return h_ret
 
 
@@ -295,7 +287,8 @@ class YieldTools():
     #   - Maybe depends on how we store njets info moving forward
     def get_scaled_yield(self,hin_dict,year,proc,cat,njets_cat,overflow_str,rwgt_pt=None):
 
-        h = hin_dict["njets"]
+        #h = hin_dict["njets"]
+        h = hin_dict["ht"]
 
         # Figure out which njet bins we want to combine
         if isinstance(njets_cat,str):
@@ -348,20 +341,43 @@ class YieldTools():
 
                 # We want to sum over the jet bins, and look at all of the lep cats
                 if yields_for_njets_cats is None:
-                    yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cat,njet_cat,overflow_str="over")
+                    yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cat,njet_cat,overflow_str="over") # Overflow string should not matter anymore with the way we're now defining the categories in the processor
 
                 # We want to look at all the jet bins in the give lep cat
                 elif yields_for_njets_cats == njet_cat:
+                    raise Exception("Probably will need to update this funciton now that we have changed the categories in the processor") # Temporary, raise exception till we update the function to handle the new structure of the cateogries, but we don't use this function for now, so we'll just update it when we need it...
                     for njet in self.JET_BINS[njet_cat]:
                         if njet == max(self.JET_BINS[njet_cat]): include_overflow = "over"
                         else: include_overflow = "none"
                         cat_name_full = cat+"_"+str(njet)+"j"
-                        yld_dict[proc_name_short][cat_name_full] = self.get_scaled_yield(hin_dict,year,proc,cat,njet,overflow_str=include_overflow)
+                        yld_dict[proc_name_short][cat_name_full] = self.get_scaled_yield(hin_dict,year,proc,cat,njet,overflow_str=include_overflow) # Overflow string should not matter anymore with the way we're now defining the categories in the processor 
 
                 else:
                     raise Exception(f"Error, invalid input for yields_for_njets_cats \"{yields_for_njets_cats}\". Exiting...")
 
         return yld_dict
+
+    # This function:
+    #    - Takes as input a yld dict
+    #    - Sums ylds over processes to find total for each cat
+    #    - Rreturns a dict with the same structure, where the vals are the cat's fractional contribution to the total
+    def find_relative_contributions(self,yld_dict):
+
+        sum_dict = {}
+        for proc in yld_dict.keys():
+            for cat in yld_dict[proc].keys():
+                if cat not in sum_dict.keys(): sum_dict[cat] = 0
+                yld,err = yld_dict[proc][cat]
+                sum_dict[cat] = sum_dict[cat] + yld
+
+        ret_dict = {}
+        for proc in yld_dict.keys():
+            ret_dict[proc] = {}
+            for cat in yld_dict[proc].keys():
+                yld,err = yld_dict[proc][cat]
+                ret_dict[proc][cat] = (yld/sum_dict[cat],None) # No propagation of errors
+
+        return ret_dict
 
 
     ######### Functions that just print out information #########
@@ -372,12 +388,13 @@ class YieldTools():
         if type(path) is str: hin_dict = self.get_hist_from_pkl(path)
         else: hin_dict = path
 
+        #h_name = "ht"
         h_name = "njets"
         #h_name = "SumOfEFTweights"
         for i in range(len(hin_dict[h_name].axes())):
             print(f"\n{i} Aaxis name:",hin_dict[h_name].axes()[i].name)
             for cat in hin_dict[h_name].axes()[i].identifiers():
-                print(cat)
+                print(f"\t{cat}")
 
 
     # Takes yield dicts (i.e. what get_yld_dict() returns) and prints it
@@ -411,26 +428,3 @@ class YieldTools():
                         print(f"\t{val} -> NOTE: This is larger than tolerance ({tolerance})!")
                         ret = False
         return ret
-
-
-    # This function:
-    #    - Takes as input a yld dict
-    #    - Sums ylds over processes to find total for each cat
-    #    - Rreturns a dict with the same structure, where the vals are the cat's fractional contribution to the total
-    def find_relative_contributions(self,yld_dict):
-
-        sum_dict = {}
-        for proc in yld_dict.keys():
-            for cat in yld_dict[proc].keys():
-                if cat not in sum_dict.keys(): sum_dict[cat] = 0
-                yld,err = yld_dict[proc][cat]
-                sum_dict[cat] = sum_dict[cat] + yld
-
-        ret_dict = {}
-        for proc in yld_dict.keys():
-            ret_dict[proc] = {}
-            for cat in yld_dict[proc].keys():
-                yld,err = yld_dict[proc][cat]
-                ret_dict[proc][cat] = (yld/sum_dict[cat],None) # No propagation of errors
-
-        return ret_dict

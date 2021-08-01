@@ -20,7 +20,7 @@ def format_header(column_lst):
 def print_begin():
     print("\n")
     print("\\documentclass[10pt]{article}")
-    print("\\usepackage[margin=0.05in]{geometry}")
+    print("\\usepackage[margin=0.2in]{geometry}")
     print("\\begin{document}")
 
 # Print the info for the end of a latex document

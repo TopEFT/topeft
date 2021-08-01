@@ -31,7 +31,7 @@ bash conda-install.sh
 ```
 Next, run `unset PYTHONPATH` to avoid conflicts. Then run the following commands to set up the conda environment:    
 ```
-conda create --name topcoffea-env python=3.8.3
+conda create --name topcoffea-env python
 conda activate topcoffea-env
 conda install -y -c conda-forge ndcctools conda-pack dill xrootd coffea
 ```

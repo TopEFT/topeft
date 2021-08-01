@@ -98,7 +98,7 @@ nevts_total = 0
 for sname in samplesdict.keys():
   redirector = samplesdict[sname]['redirector']
   flist[sname] = [(redirector+f) for f in samplesdict[sname]['files']]
-  samplesdict[sname]['year'] = int(samplesdict[sname]['year'])
+  samplesdict[sname]['year'] = samplesdict[sname]['year']
   samplesdict[sname]['xsec'] = float(samplesdict[sname]['xsec'])
   samplesdict[sname]['nEvents'] = int(samplesdict[sname]['nEvents'])
   nevts_total += samplesdict[sname]['nEvents']
@@ -108,7 +108,7 @@ for sname in samplesdict.keys():
   # Print file info
   print('>> '+sname)
   print('   - isData?      : %s'   %('YES' if samplesdict[sname]['isData'] else 'NO'))
-  print('   - year         : %i'   %samplesdict[sname]['year'])
+  print('   - year         : %s'   %samplesdict[sname]['year'])
   print('   - xsec         : %f'   %samplesdict[sname]['xsec'])
   print('   - histAxisName : %s'   %samplesdict[sname]['histAxisName'])
   print('   - options      : %s'   %samplesdict[sname]['options'])
