@@ -170,10 +170,10 @@ class HistEFT(coffea.hist.Hist):
       
     # Next, if there are weights, we should multiply the EFT coefficients by those weights
     if weight is not None:
-      eft_coeff *= weight[:,np.newaxis]
+      eft_coeff = eft_coeff*weight[:,np.newaxis]
       # Also, if there are EFT error coefficients, those need to be scaled by weight**2
       if eft_err_coeff is not None:
-        eft_err_coeff *= (weight[:,np.newaxis]**2)
+        eft_err_coeff = eft_err_coeff*(weight[:,np.newaxis]**2)
 
     # At this point, we're ready to accumulate these coefficients with
     # any of our previous ones.  Note: we're going to use the same
@@ -279,7 +279,7 @@ class HistEFT(coffea.hist.Hist):
       temp = {}
       for key in other._sumw:
         # If it's an EFT bin, there will be a bigger shape
-        if self._sumw[key].shape != self._dense_shape:
+        if other._sumw[key].shape != self._dense_shape:
           temp[key] = None
         else:
           # Regular bins can just copy over sumw for sumw2
