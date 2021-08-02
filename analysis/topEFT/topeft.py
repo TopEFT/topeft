@@ -338,7 +338,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("4l_2j", (is4l & (njets==2) & bmask_atleast1med_atleast2loose) & pass_trg)
         selections.add("4l_3j", (is4l & (njets==3) & bmask_atleast1med_atleast2loose) & pass_trg)
         selections.add("4l_4j", (is4l & (njets>=4) & bmask_atleast1med_atleast2loose) & pass_trg)
-
+        
+        # Define invariant mass hists
+        mll_0_1 = (l0+l1).mass     #invmass for leading two leps
 
         varnames = {}
         varnames['ht']     = ht
@@ -347,6 +349,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['j0pt' ]  = j0.pt
         varnames['j0eta']  = j0.eta
         varnames['njets']  = njets
+        varnames['invmass'] = mll_0_1
         varnames['counts'] = np.ones_like(events['event'])
 
         # Systematics
@@ -404,8 +407,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                         # Filling histos
                         if var == 'invmass':
-                            if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4L)): continue
-                            else : values = ak.flatten(v[ch][cut])
+                            values = v[cut]
                             hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, invmass=values, weight=weights_flat, systematic=syst,appl=appl)
                         elif var == 'm3l': 
                             if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
