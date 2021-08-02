@@ -95,7 +95,7 @@ def _create_base_env(packages_hash, pip_paths, force=False):
         try:
             subprocess.check_output(['conda-pack', '--prefix', base_env_path, '--output', str(output)], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            print(e.output)
+            print(e.output.decode())
             sys.exit(1)
 
     return str(output)
@@ -176,7 +176,7 @@ python_package_run -e {base_env_tarball} -u {env_dir} -- pip install {path}
         try:
             subprocess.check_output(['/bin/bash', pip_recipe.name], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            print(e.output)
+            print(e.output.decode())
             sys.exit(1)
 
 def get_environment(force=False, unstaged='rebuild', cache_size=3):
@@ -222,7 +222,7 @@ def get_environment(force=False, unstaged='rebuild', cache_size=3):
         try:
             subprocess.check_output(['conda-pack', '--prefix', tmp_env, '--output', str(full_env_tarball)], stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
-            print(e.output)
+            print(e.output.decode())
             sys.exit(1)
     return str(full_env_tarball)
 
