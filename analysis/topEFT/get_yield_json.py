@@ -16,7 +16,7 @@ def main():
 
     # Set up the command line parser
     parser = argparse.ArgumentParser()
-    parser.add_argument("-f", "--pkl-file-path", default="hists/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
+    parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
     parser.add_argument("-y", "--year", default="2017", help = "The year of the sample")
     parser.add_argument("-t", "--tag", default="Sample", help = "A string to describe the pkl file")
     parser.add_argument("-n", "--json_name", default="yields", help = "Name of the json file to save")
