@@ -86,10 +86,17 @@ class DatacardMaker():
                 charge = 'p' if charges == 'ch+' else 'm'
                 if isinstance(bins, str):
                     chan = [c for c in self.channels[channel+'_'+charge] if bins in c]
-                    channel = '_'.join(chan)
+                    channel = chan[-1]
                     h = h.integrate('channel', chan)
+                else:
+                    h = h.integrate('channel', self.channels[channel])
             else:
-                h = h.integrate('channel', self.channels[channel])
+                if isinstance(bins, str):
+                    chan = [c for c in self.channels[channel] if bins in c]
+                    channel = chan[-1]
+                    h = h.integrate('channel', chan)
+                else:
+                    h = h.integrate('channel', self.channels[channel])
         else:
             if isinstance(charges, str):
                 charge = 'p' if charges == 'ch+' else 'm'
@@ -123,7 +130,10 @@ class DatacardMaker():
             #if isinstance(charges, str):
             #    cat = '_'.join([channel, charge, maxb, variable])
             #else:
-            cat = '_'.join([channel, maxb, variable])
+            if 'b' in channel:
+                cat = channel
+            else:
+                cat = '_'.join([channel, maxb, variable])
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fout = uproot3.recreate(fname)
         #Scale each plot to the SM
@@ -178,10 +188,12 @@ class DatacardMaker():
                                 else:
                                     cat = '_'.join([channel, maxb])  
                             else:
-                                if isinstance(charges, str):
-                                    '_'.join([channel, charge, maxb, variable])
+                                if 'b' in channel:
+                                    cat = channel
+                                elif isinstance(charges, str):
+                                    cat = '_'.join([channel, charge, maxb, variable])
                                 else:
-                                    '_'.join([channel, maxb, variable])
+                                    cat = '_'.join([channel, maxb, variable])
                     elif 'quad' in name and 'mix' not in name:
                         h_quad = h_base
                         h_quad.set_wilson_coeff_from_array(wcpt)
