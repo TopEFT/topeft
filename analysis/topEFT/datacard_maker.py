@@ -8,6 +8,7 @@ import numpy as np
 import os
 import re
 import json
+import concurrent.futures
 
 from ROOT import TFile, TH1D, TH2D
 
@@ -131,7 +132,7 @@ class DatacardMaker():
             #    cat = '_'.join([channel, charge, maxb, variable])
             #else:
             if 'b' in channel:
-                cat = channel
+                cat = '_'.join([channel, variable])  
             else:
                 cat = '_'.join([channel, maxb, variable])
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
@@ -238,7 +239,7 @@ class DatacardMaker():
                 h_sys.SetName(h_sys.GetName().replace('Up', 'Down'))
                 h_sys.Scale(0.9/h_sys.Integral())
                 h_sys.Write()
-        print(f'Making the datacard')
+        print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
         charge = 'p' if charge == 'ch+' else 'm'
@@ -253,7 +254,10 @@ class DatacardMaker():
             #if isinstance(charges, str):
             #    cat = '_'.join([channel, charge, nbjet, variable])
             #else:
-            cat = '_'.join([channel, nbjet, variable])
+            if 'b' in channel:
+                cat = '_'.join([channel, variable])  
+            else:
+                cat = '_'.join([channel, nbjet, variable])
         #Open temp ROOT file
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fin = TFile(fname)
@@ -269,10 +273,10 @@ class DatacardMaker():
         data_obs = []
         for proc in self.samples:
             p = self.rename[proc] if proc in self.rename else proc
-            print(f'Process: {proc} -> {p}')
+            #print(f'Process: {proc} -> {p}')
             name = 'data_obs'
             if name not in d_hists:
-                print(f'{name} not found!')
+                print(f'{name} not found in {channel}!')
                 continue
             '''
             These lines are for testing only, and create Asimov data based on all processes provided
@@ -294,7 +298,7 @@ class DatacardMaker():
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             name = pname + 'sm'
             if name not in d_hists:
-                print(f'{name} not found!')
+                print(f'{name} not found in {channel}!')
                 continue
             h_sm = d_hists[name]
             if h_sm.Integral() > self.tolerance or p not in self.signal:
@@ -321,7 +325,7 @@ class DatacardMaker():
             for n,wc in enumerate(self.coeffs):
                 name = '_'.join([pname[:-1],'lin',wc])
                 if name not in d_hists:
-                    print(f'Histogram {name} not found! Probably below the tolerance. If so, ignore this message!')
+                    print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                     continue
                 h_lin = d_hists[name]
                 if h_lin.Integral() > self.tolerance:
@@ -336,7 +340,7 @@ class DatacardMaker():
                     #processSyst(h_lin, systMap,fout)
                 name = '_'.join([pname[:-1],'quad',wc])
                 if name not in d_hists:
-                    print(f'Histogram {name} not found! Probably below the tolerance. If so, ignore this message!')
+                    print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                     continue
                 h_quad = d_hists[name]
                 h_quad.Add(h_lin, -2)
@@ -355,7 +359,7 @@ class DatacardMaker():
                 for wc2 in [self.coeffs[w2] for w2 in range(n)]:
                     name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
                     if name not in d_hists:
-                        print(f'Histogram {name} not found! Probably below the tolerance. If so, ignore this message!')
+                        print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                         continue
                     h_mix = d_hists[name]
                     if h_mix.Integral() > self.tolerance:
@@ -466,12 +470,16 @@ if __name__ == '__main__':
     card.read()
     card.buildWCString()
     #for var in ['njets','ht','pbl']:#,'njetbpl','njetht']:
+    # Could make a futures for each variable as well
     for var in ['ht','pbl']:#,'njetbpl','njetht']:
-        card.analyzeChannel(channel='2lss', appl='isSR_2lss', charges='ch+', systematics='nominal', variable=var, bins=card.ch2lssj)
-        card.analyzeChannel(channel='2lss', appl='isSR_2lss', charges='ch-', systematics='nominal', variable=var, bins=card.ch2lssj)
-        card.analyzeChannel(channel='3l1b', appl='isSR_3l', charges='ch+', systematics='nominal', variable=var, bins=card.ch3lj)
-        card.analyzeChannel(channel='3l1b', appl='isSR_3l', charges='ch-', systematics='nominal', variable=var, bins=card.ch3lj)
-        card.analyzeChannel(channel='3l2b', appl='isSR_3l', charges='ch+', systematics='nominal', variable=var, bins=card.ch3lj)
-        card.analyzeChannel(channel='3l2b', appl='isSR_3l', charges='ch-', systematics='nominal', variable=var, bins=card.ch3lj)
-        card.analyzeChannel(channel='3l_sfz', appl='isSR_3l', charges=['ch+','ch-'], systematics='nominal', variable=var, bins=card.ch3lj)
-        card.analyzeChannel(channel='4l', appl='isSR_4l', charges=['ch+','ch0','ch-'], systematics='nominal', variable=var, bins=card.ch4lj)
+        cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                 {'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l_sfz', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
+        executor = concurrent.futures.ProcessPoolExecutor(len(cards))
+        futures = [executor.submit(card.analyzeChannel, **c) for c in cards]
+        concurrent.futures.wait(futures)
