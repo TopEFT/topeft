@@ -469,9 +469,8 @@ if __name__ == '__main__':
     card = DatacardMaker(pklfile, year, lumiJson, do_nuisance)
     card.read()
     card.buildWCString()
-    #for var in ['njets','ht','pbl']:#,'njetbpl','njetht']:
     # Could make a futures for each variable as well
-    for var in ['ht','pbl']:#,'njetbpl','njetht']:
+    for var in ['njets','ht','pbl']:#,'njetbpl','njetht']:
         cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
                  {'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
                  {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
