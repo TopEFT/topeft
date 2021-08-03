@@ -17,13 +17,19 @@ class DatacardMaker():
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
         self.ch2lss = ['2lss_p_4j','2lss_p_5j','2lss_p_6j','2lss_p_7j','2lss_m_4j','2lss_m_5j','2lss_m_6j','2lss_m_7j']
+        self.ch2lss_p = ['2lss_p_4j','2lss_p_5j','2lss_p_6j','2lss_p_7j']
+        self.ch2lss_m = ['2lss_m_4j','2lss_m_5j','2lss_m_6j','2lss_m_7j']
         self.ch3l = ['3l_p_offZ_2j_1b','3l_p_offZ_3j_1b','3l_p_offZ_4j_1b','3l_p_offZ_5j_1b', '3l_m_offZ_2j_1b','3l_m_offZ_3j_1b','3l_m_offZ_4j_1b','3l_m_offZ_5j_1b', '3l_p_offZ_2j_2b','3l_p_offZ_3j_2b','3l_p_offZ_4j_2b','3l_p_offZ_5j_2b', '3l_m_offZ_2j_2b','3l_m_offZ_3j_2b','3l_m_offZ_4j_2b','3l_m_offZ_5j_2b']
         self.ch3l1b = ['3l_p_offZ_2j_1b','3l_p_offZ_3j_1b','3l_p_offZ_4j_1b','3l_p_offZ_5j_1b', '3l_m_offZ_2j_1b','3l_m_offZ_3j_1b','3l_m_offZ_4j_1b','3l_m_offZ_5j_1b']
+        self.ch3l1b_p = ['3l_p_offZ_2j_1b','3l_p_offZ_3j_1b','3l_p_offZ_4j_1b','3l_p_offZ_5j_1b']
+        self.ch3l1b_m = ['3l_m_offZ_2j_1b','3l_m_offZ_3j_1b','3l_m_offZ_4j_1b','3l_m_offZ_5j_1b']
         self.ch3l2b = ['3l_p_offZ_2j_2b','3l_p_offZ_3j_2b','3l_p_offZ_4j_2b','3l_p_offZ_5j_2b', '3l_m_offZ_2j_2b','3l_m_offZ_3j_2b','3l_m_offZ_4j_2b','3l_m_offZ_5j_2b']
+        self.ch3l2b_p = ['3l_p_offZ_2j_2b','3l_p_offZ_3j_2b','3l_p_offZ_4j_2b','3l_p_offZ_5j_2b']
+        self.ch3l2b_m = ['3l_m_offZ_2j_2b','3l_m_offZ_3j_2b','3l_m_offZ_4j_2b','3l_m_offZ_5j_2b']
         self.ch3lsfz = ['3l_onZ_2j_1b','3l_onZ_3j_1b','3l_onZ_4j_1b','3l_onZ_5j_1b', '3l_onZ_2j_2b','3l_onZ_3j_2b','3l_onZ_4j_2b','3l_onZ_5j_2b']
         self.ch4l =['4l_2j','4l_3j','4l_4j']
         self.levels = ['base', '2jets', '4jets', '4j1b', '4j2b']
-        self.channels = {'2lss': self.ch2lss, '3l1b': self.ch3l1b, '3l2b': self.ch3l2b, '3l_sfz': self.ch3lsfz, '4l': self.ch4l}
+        self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m,'3l_sfz': self.ch3lsfz, '4l': self.ch4l}
         self.fin = infile
         self.tolerance = 0.001
         self.do_nuisance = do_nuisance
@@ -60,17 +66,7 @@ class DatacardMaker():
 
     def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets'):
         def export2d(h):
-            print(h.values())
-            sumw1 = h.integrate(h.axes()[0]).values(overflow='all')[()]
-            print(sumw1)
-            print(h.integrate(h.axes()[1]).values())
-            sumw2 = h.integrate(h.axes()[1]).values(overflow='all')
-            sumw2 = [v for v in sumw2.values()]
-            print(sumw2)
-            if len(sumw1)>len(sumw2):
-                return np.histogram2d(sumw1,np.resize(sumw2, len(sumw1), bins=[len(sumw1)-2, len(sumw2)-2]))
-            else:
-                return np.histogram2d(sumw1,np.resize(sumw2, len(sumw1), bins=[len(sumw1)-2, len(sumw2)-2]))
+            return h.to_hist().to_numpy()
         if isinstance(channel, str) and channel not in self.channels:
            raise Exception(f'{channel} not found in self.channels!')
         if isinstance(channel, list) and not all(ch in self.channels for ch in self.channels.keys()):
@@ -78,11 +74,20 @@ class DatacardMaker():
            print([[ch, ch in self.channels.keys()] for ch in channel])
            raise Exception(f'At least one channel in {channels} is not found in self.channels!')
         h = self.hists[variable].integrate('appl', appl).integrate('systematic', systematics)
-        if var == 'njets':
-            h = h.integrate('channel', self.channels[channel])
+        if variable == 'njets':
+            if isinstance(charges, str):
+                charge = 'p' if charges == 'ch+' else 'm'
+                h = h.integrate('channel', self.channels[channel+'_'+charge])
+            else:
+                h = h.integrate('channel', self.channels[channel])
         else:
-            ch = {v:v for v in self.channels[channel]}
-            h = h.group('channel', hist.Cat('channel', {channel: ch}),ch )
+            if isinstance(charges, str):
+                charge = 'p' if charges == 'ch+' else 'm'
+                ch = {v:v for v in self.channels[channel+'_'+charge]}
+                h = h.group('channel', hist.Cat('channel', {channel+'_'+charge: ch}),ch )
+            else:
+                ch = {v:v for v in self.channels[channel]}
+                h = h.group('channel', hist.Cat('channel', {channel: ch}),ch )
         all_str = ' '.join([f'{v}' for v in locals().values() if v != self.hists])
         channel = re.split('\db', channel)[0]
         all_str = f'{channel} {charges} {systematics} {variable}'
@@ -126,7 +131,7 @@ class DatacardMaker():
             if 'ht' in variable:
                 h_base = h_base.rebin('ht', hist.Bin("ht", "H$_{T}$ (GeV)", 50, 0, 1000))
             if 'pbl' in variable:
-                h_base = h_base.rebin('pbl', hist.Bin("pbl", "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$", 50, 0, 500))
+                h_base = h_base.rebin('pbl', hist.Bin("pbl", "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$", 10, 0, 500))
             #Save the SM plot
             h_sm = h_base
             h_sm.set_sm()
@@ -149,7 +154,7 @@ class DatacardMaker():
                     if 'lin' in name:
                         h_lin = h_base
                         h_lin.set_wilson_coeff_from_array(wcpt)
-                        if np.sum(h_lin.values()[()]) > self.tolerance or True:
+                        if True or np.sum(h_lin.values()[()]) > self.tolerance or True:
                             if len(h_base.axes())>1:
                                 fout[pname+name] = export2d(h_lin)
                             else:
@@ -167,7 +172,7 @@ class DatacardMaker():
                     elif 'quad' in name and 'mix' not in name:
                         h_quad = h_base
                         h_quad.set_wilson_coeff_from_array(wcpt)
-                        if np.sum(h_quad.values()[()]) > self.tolerance or True:
+                        if True or np.sum(h_quad.values()[()]) > self.tolerance or True:
                             if len(h_base.axes())>1:
                                 fout[pname+name] = export2d(h_quad)
                             else:
@@ -175,7 +180,7 @@ class DatacardMaker():
                     else:
                         h_mix = h_base
                         h_mix.set_wilson_coeff_from_array(wcpt)
-                        if np.sum(h_mix.values()[()]) > self.tolerance or True:
+                        if True or np.sum(h_mix.values()[()]) > self.tolerance or True:
                             if len(h_base.axes())>1:
                                 fout[pname+name] = export2d(h_mix)
                             else:
@@ -250,7 +255,7 @@ class DatacardMaker():
             if proc == self.samples[0]:
                 data_obs = d_hists[p+'_sm'].Clone('data_obs')
             else:
-                data_obs += d_hists[p+'_sm'].Clone('data_obs')
+                data_obs.Add(d_hists[p+'_sm'].Clone('data_obs'))
             asimov = np.random.poisson(int(data_obs.Integral()))
             data_obs.SetDirectory(fout)
             if proc == self.samples[-1]:
