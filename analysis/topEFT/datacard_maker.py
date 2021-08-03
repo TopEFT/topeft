@@ -249,7 +249,10 @@ class DatacardMaker():
             #if isinstance(charges, str):
             #    cat = '_'.join([channel, charge, nbjet])  
             #else:
-            cat = '_'.join([channel, nbjet])  
+            if 'b' in channel:
+                cat = channel
+            else:
+                cat = '_'.join([channel, nbjet])
         else:
             #if isinstance(charges, str):
             #    cat = '_'.join([channel, charge, nbjet, variable])
@@ -470,7 +473,8 @@ if __name__ == '__main__':
     card.read()
     card.buildWCString()
     # Could make a futures for each variable as well
-    for var in ['njets','ht','pbl']:#,'njetbpl','njetht']:
+    #for var in ['njets','ht','pbl']:#,'njetbpl','njetht']:
+    for var in ['njets']:#,'njetbpl','njetht']:
         cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
                  {'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
                  {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
