@@ -1,0 +1,23 @@
+{
+  "xsec": 34.91,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "tW_noFullHad_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/0E5215DA-00D5-A540-9B0B-4ECE89A60255.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/4A6C553D-7F1D-2141-A20A-D4014FE5E349.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/61C84B1A-5304-084A-B910-583F50371698.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/B4C225F8-7AAE-A142-BB58-A9106F9EE6C0.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/6DE31E4E-2298-4C4B-AD31-00DC57E912E4.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/1DFBE8F5-0C28-D24E-B52E-3DDBB7A04F98.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/120000/A7785E8B-237D-814A-9E25-1407CA1F8F60.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/120000/314BE822-9950-B84E-A582-7F0AC337BEF8.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/120000/B3EFC2A1-F6E4-874C-86D1-0BB647FD03BF.root"
+  ],
+  "nEvents": 8498506,
+  "nGenEvents": 8498506,
+  "nSumOfWeights": 275739426.7110001,
+  "isData": false
+}
