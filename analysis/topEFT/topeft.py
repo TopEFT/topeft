@@ -31,6 +31,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         'SumOfEFTweights'  : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
         'counts'  : hist.Hist("Events",             hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("counts", "Counts", 1, 0, 2)),
         'invmass' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
+        'pbl'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("pbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 50, 0, 500)),
         'njets'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10)),
         'nbtags'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)),
         'met'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
@@ -339,6 +340,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("4l_3j", (is4l & (njets==3) & bmask_atleast1med_atleast2loose) & pass_trg)
         selections.add("4l_4j", (is4l & (njets>=4) & bmask_atleast1med_atleast2loose) & pass_trg)
 
+        pbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
+        pbl_bjet = pbl_bjet[ak.argmax(pbl_bjet.pt,axis=-1,keepdims=True)] # Only save hardest b-jet
+        pbl_lep = l_fo_conept_sorted
+        pbl = (pbl_bjet.nearest(pbl_lep) + pbl_bjet).pt
+        pbl = ak.values_astype(ak.fill_none(pbl, -1), np.float32)
+
 
         varnames = {}
         varnames['ht']     = ht
@@ -348,6 +355,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['j0eta']  = j0.eta
         varnames['njets']  = njets
         varnames['counts'] = np.ones_like(events['event'])
+        varnames['pbl']    = pbl
 
         # Systematics
         systList = []
@@ -404,13 +412,16 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                         # Filling histos
                         if var == 'invmass':
-                            if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4L)): continue
+                            if ((ch in ['eeeSSoffZ', 'mmmSSoffZ','eeeSSonZ', 'mmmSSonZ']) or (ch in channels4l)): continue
                             else : values = ak.flatten(v[ch][cut])
                             hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, invmass=values, weight=weights_flat, systematic=syst,appl=appl)
                         elif var == 'm3l': 
-                            if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
+                            if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4l)): continue
                             values = ak.flatten(v[ch][cut])
                             hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, m3l=values, weight=weights_flat, systematic=syst,appl=appl)
+                        elif var == 'pbl' : 
+                            values = ak.flatten(v[cut])
+                            hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, pbl=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
                         else:
                             values = v[cut] 
                             # These all look identical, do we need if/else here?
