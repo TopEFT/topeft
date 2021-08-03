@@ -19,6 +19,7 @@ class DatacardMaker():
         self.ch2lss = ['2lss_p_4j','2lss_p_5j','2lss_p_6j','2lss_p_7j','2lss_m_4j','2lss_m_5j','2lss_m_6j','2lss_m_7j']
         self.ch2lss_p = ['2lss_p_4j','2lss_p_5j','2lss_p_6j','2lss_p_7j']
         self.ch2lss_m = ['2lss_m_4j','2lss_m_5j','2lss_m_6j','2lss_m_7j']
+        self.ch2lssj = ['4j','5j','6j','7j']
         self.ch3l = ['3l_p_offZ_2j_1b','3l_p_offZ_3j_1b','3l_p_offZ_4j_1b','3l_p_offZ_5j_1b', '3l_m_offZ_2j_1b','3l_m_offZ_3j_1b','3l_m_offZ_4j_1b','3l_m_offZ_5j_1b', '3l_p_offZ_2j_2b','3l_p_offZ_3j_2b','3l_p_offZ_4j_2b','3l_p_offZ_5j_2b', '3l_m_offZ_2j_2b','3l_m_offZ_3j_2b','3l_m_offZ_4j_2b','3l_m_offZ_5j_2b']
         self.ch3l1b = ['3l_p_offZ_2j_1b','3l_p_offZ_3j_1b','3l_p_offZ_4j_1b','3l_p_offZ_5j_1b', '3l_m_offZ_2j_1b','3l_m_offZ_3j_1b','3l_m_offZ_4j_1b','3l_m_offZ_5j_1b']
         self.ch3l1b_p = ['3l_p_offZ_2j_1b','3l_p_offZ_3j_1b','3l_p_offZ_4j_1b','3l_p_offZ_5j_1b']
@@ -27,7 +28,9 @@ class DatacardMaker():
         self.ch3l2b_p = ['3l_p_offZ_2j_2b','3l_p_offZ_3j_2b','3l_p_offZ_4j_2b','3l_p_offZ_5j_2b']
         self.ch3l2b_m = ['3l_m_offZ_2j_2b','3l_m_offZ_3j_2b','3l_m_offZ_4j_2b','3l_m_offZ_5j_2b']
         self.ch3lsfz = ['3l_onZ_2j_1b','3l_onZ_3j_1b','3l_onZ_4j_1b','3l_onZ_5j_1b', '3l_onZ_2j_2b','3l_onZ_3j_2b','3l_onZ_4j_2b','3l_onZ_5j_2b']
+        self.ch3lj = ['2j','3j','4j','5j']
         self.ch4l =['4l_2j','4l_3j','4l_4j']
+        self.ch4lj =['2j','3j','4j']
         self.levels = ['base', '2jets', '4jets', '4j1b', '4j2b']
         self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m,'3l_sfz': self.ch3lsfz, '4l': self.ch4l}
         self.fin = infile
@@ -64,7 +67,11 @@ class DatacardMaker():
             lumi = lumi[year]
         self.lumi = 1000*lumi
 
-    def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets'):
+    def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
+        if isinstance(bins, list) and len(bins)>0:
+            for b in bins:
+                self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=b)
+            return
         def export2d(h):
             return h.to_hist().to_numpy()
         if isinstance(channel, str) and channel not in self.channels:
@@ -74,10 +81,13 @@ class DatacardMaker():
            print([[ch, ch in self.channels.keys()] for ch in channel])
            raise Exception(f'At least one channel in {channels} is not found in self.channels!')
         h = self.hists[variable].integrate('appl', appl).integrate('systematic', systematics)
-        if variable == 'njets':
+        if True or variable == 'njets' or variable == 'pbl':
             if isinstance(charges, str):
                 charge = 'p' if charges == 'ch+' else 'm'
-                h = h.integrate('channel', self.channels[channel+'_'+charge])
+                if isinstance(bins, str):
+                    chan = [c for c in self.channels[channel+'_'+charge] if bins in c]
+                    channel = '_'.join(chan)
+                    h = h.integrate('channel', chan)
             else:
                 h = h.integrate('channel', self.channels[channel])
         else:
@@ -89,8 +99,8 @@ class DatacardMaker():
                 ch = {v:v for v in self.channels[channel]}
                 h = h.group('channel', hist.Cat('channel', {channel: ch}),ch )
         all_str = ' '.join([f'{v}' for v in locals().values() if v != self.hists])
-        channel = re.split('\db', channel)[0]
-        all_str = f'{channel} {charges} {systematics} {variable}'
+        #channel = re.split('\db', channel)[0]
+        all_str = f'{channel} {systematics} {variable}'
         print(f'Making relish from the pickle file for {all_str}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
@@ -102,15 +112,18 @@ class DatacardMaker():
         if systematics == 'nominal': sys = ''
         else: sys = '_'+systematics
         if variable == 'njets':
-            if isinstance(charges, str):
-                cat = '_'.join([channel, charge, maxb])  
+            #if isinstance(charges, str):
+            #    cat = '_'.join([channel, charge, maxb])  
+            #else:
+            if 'b' in channel:
+                cat = channel
             else:
                 cat = '_'.join([channel, maxb])  
         else:
-            if isinstance(charges, str):
-                cat = '_'.join([channel, charge, maxb, variable])
-            else:
-                cat = '_'.join([channel, maxb, variable])
+            #if isinstance(charges, str):
+            #    cat = '_'.join([channel, charge, maxb, variable])
+            #else:
+            cat = '_'.join([channel, maxb, variable])
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fout = uproot3.recreate(fname)
         #Scale each plot to the SM
@@ -220,15 +233,15 @@ class DatacardMaker():
         if systematics == 'nominal': sys = ''
         else: sys = '_'+systematics
         if variable == 'njets':
-            if isinstance(charges, str):
-                cat = '_'.join([channel, charge, nbjet])  
-            else:
-                cat = '_'.join([channel, nbjet])  
+            #if isinstance(charges, str):
+            #    cat = '_'.join([channel, charge, nbjet])  
+            #else:
+            cat = '_'.join([channel, nbjet])  
         else:
-            if isinstance(charges, str):
-                cat = '_'.join([channel, charge, nbjet, variable])
-            else:
-                cat = '_'.join([channel, nbjet, variable])
+            #if isinstance(charges, str):
+            #    cat = '_'.join([channel, charge, nbjet, variable])
+            #else:
+            cat = '_'.join([channel, nbjet, variable])
         #Open temp ROOT file
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fin = TFile(fname)
@@ -440,12 +453,13 @@ if __name__ == '__main__':
     card = DatacardMaker(pklfile, year, lumiJson, do_nuisance)
     card.read()
     card.buildWCString()
-    for var in ['njets','ht','pbl']:#,'njetbpl','njetht']:
-        card.analyzeChannel(channel='2lss', appl='isSR_2lss', charges='ch+', systematics='nominal', variable=var)
-        card.analyzeChannel(channel='2lss', appl='isSR_2lss', charges='ch-', systematics='nominal', variable=var)
-        card.analyzeChannel(channel='3l1b', appl='isSR_3l', charges='ch+', systematics='nominal', variable=var)
-        card.analyzeChannel(channel='3l1b', appl='isSR_3l', charges='ch-', systematics='nominal', variable=var)
-        card.analyzeChannel(channel='3l2b', appl='isSR_3l', charges='ch+', systematics='nominal', variable=var)
-        card.analyzeChannel(channel='3l2b', appl='isSR_3l', charges='ch-', systematics='nominal', variable=var)
-        card.analyzeChannel(channel='3l_sfz', appl='isSR_3l', charges=['ch+','ch-'], systematics='nominal', variable=var)
-        card.analyzeChannel(channel='4l', appl='isSR_4l', charges=['ch+','ch0','ch-'], systematics='nominal', variable=var)
+    #for var in ['njets','ht','pbl']:#,'njetbpl','njetht']:
+    for var in ['ht','pbl']:#,'njetbpl','njetht']:
+        card.analyzeChannel(channel='2lss', appl='isSR_2lss', charges='ch+', systematics='nominal', variable=var, bins=card.ch2lssj)
+        card.analyzeChannel(channel='2lss', appl='isSR_2lss', charges='ch-', systematics='nominal', variable=var, bins=card.ch2lssj)
+        card.analyzeChannel(channel='3l1b', appl='isSR_3l', charges='ch+', systematics='nominal', variable=var, bins=card.ch3lj)
+        card.analyzeChannel(channel='3l1b', appl='isSR_3l', charges='ch-', systematics='nominal', variable=var, bins=card.ch3lj)
+        card.analyzeChannel(channel='3l2b', appl='isSR_3l', charges='ch+', systematics='nominal', variable=var, bins=card.ch3lj)
+        card.analyzeChannel(channel='3l2b', appl='isSR_3l', charges='ch-', systematics='nominal', variable=var, bins=card.ch3lj)
+        card.analyzeChannel(channel='3l_sfz', appl='isSR_3l', charges=['ch+','ch-'], systematics='nominal', variable=var, bins=card.ch3lj)
+        card.analyzeChannel(channel='4l', appl='isSR_4l', charges=['ch+','ch0','ch-'], systematics='nominal', variable=var, bins=card.ch4lj)
