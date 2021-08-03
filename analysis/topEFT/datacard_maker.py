@@ -82,7 +82,7 @@ class DatacardMaker():
            print([[ch, ch in self.channels.keys()] for ch in channel])
            raise Exception(f'At least one channel in {channels} is not found in self.channels!')
         h = self.hists[variable].integrate('appl', appl).integrate('systematic', systematics)
-        if True or variable == 'njets' or variable == 'pbl':
+        if True or variable == 'njets' or variable == 'ptbl':
             if isinstance(charges, str):
                 charge = 'p' if charges == 'ch+' else 'm'
                 if isinstance(bins, str):
@@ -154,8 +154,8 @@ class DatacardMaker():
                 elif '4l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4]))
             if 'ht' in variable:
                 h_base = h_base.rebin('ht', hist.Bin("ht", "H$_{T}$ (GeV)", 50, 0, 1000))
-            if 'pbl' in variable:
-                h_base = h_base.rebin('pbl', hist.Bin("pbl", "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$", 10, 0, 500))
+            if 'ptbl' in variable:
+                h_base = h_base.rebin('ptbl', hist.Bin("ptbl", "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$", 10, 0, 500))
             #Save the SM plot
             h_sm = h_base
             h_sm.set_sm()
@@ -473,8 +473,7 @@ if __name__ == '__main__':
     card.read()
     card.buildWCString()
     # Could make a futures for each variable as well
-    #for var in ['njets','ht','pbl']:#,'njetbpl','njetht']:
-    for var in ['njets']:#,'njetbpl','njetht']:
+    for var in ['njets','ht','ptbl']:#,'njetbpl','njetht']:
         cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
                  {'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
                  {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
