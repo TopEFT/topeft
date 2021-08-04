@@ -17,25 +17,7 @@ class DatacardMaker():
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
-        self.ch2lss = ['2lss_p_4j','2lss_p_5j','2lss_p_6j','2lss_p_7j','2lss_m_4j','2lss_m_5j','2lss_m_6j','2lss_m_7j']
-        self.ch2lss_p = ['2lss_p_4j','2lss_p_5j','2lss_p_6j','2lss_p_7j']
-        self.ch2lss_m = ['2lss_m_4j','2lss_m_5j','2lss_m_6j','2lss_m_7j']
-        self.ch2lssj = ['4j','5j','6j','7j']
-        self.ch3l = ['3l_p_offZ_2j_1b','3l_p_offZ_3j_1b','3l_p_offZ_4j_1b','3l_p_offZ_5j_1b', '3l_m_offZ_2j_1b','3l_m_offZ_3j_1b','3l_m_offZ_4j_1b','3l_m_offZ_5j_1b', '3l_p_offZ_2j_2b','3l_p_offZ_3j_2b','3l_p_offZ_4j_2b','3l_p_offZ_5j_2b', '3l_m_offZ_2j_2b','3l_m_offZ_3j_2b','3l_m_offZ_4j_2b','3l_m_offZ_5j_2b']
-        self.ch3l1b = ['3l_p_offZ_2j_1b','3l_p_offZ_3j_1b','3l_p_offZ_4j_1b','3l_p_offZ_5j_1b', '3l_m_offZ_2j_1b','3l_m_offZ_3j_1b','3l_m_offZ_4j_1b','3l_m_offZ_5j_1b']
-        self.ch3l1b_p = ['3l_p_offZ_2j_1b','3l_p_offZ_3j_1b','3l_p_offZ_4j_1b','3l_p_offZ_5j_1b']
-        self.ch3l1b_m = ['3l_m_offZ_2j_1b','3l_m_offZ_3j_1b','3l_m_offZ_4j_1b','3l_m_offZ_5j_1b']
-        self.ch3l2b = ['3l_p_offZ_2j_2b','3l_p_offZ_3j_2b','3l_p_offZ_4j_2b','3l_p_offZ_5j_2b', '3l_m_offZ_2j_2b','3l_m_offZ_3j_2b','3l_m_offZ_4j_2b','3l_m_offZ_5j_2b']
-        self.ch3l2b_p = ['3l_p_offZ_2j_2b','3l_p_offZ_3j_2b','3l_p_offZ_4j_2b','3l_p_offZ_5j_2b']
-        self.ch3l2b_m = ['3l_m_offZ_2j_2b','3l_m_offZ_3j_2b','3l_m_offZ_4j_2b','3l_m_offZ_5j_2b']
-        self.ch3lsfz = ['3l_onZ_2j_1b','3l_onZ_3j_1b','3l_onZ_4j_1b','3l_onZ_5j_1b', '3l_onZ_2j_2b','3l_onZ_3j_2b','3l_onZ_4j_2b','3l_onZ_5j_2b']
-        self.ch3lsfz1b = ['3l_onZ_2j_1b','3l_onZ_3j_1b','3l_onZ_4j_1b','3l_onZ_5j_1b']
-        self.ch3lsfz2b = ['3l_onZ_2j_2b','3l_onZ_3j_2b','3l_onZ_4j_2b','3l_onZ_5j_2b']
-        self.ch3lj = ['2j','3j','4j','5j']
-        self.ch4l =['4l_2j','4l_3j','4l_4j']
-        self.ch4lj =['2j','3j','4j']
         self.levels = ['base', '2jets', '4jets', '4j1b', '4j2b']
-        self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz1b': self.ch3lsfz1b, '3l_sfz2b': self.ch3lsfz2b, '4l': self.ch4l}
         self.fin = infile
         self.tolerance = 0.001
         self.do_nuisance = do_nuisance
@@ -49,6 +31,25 @@ class DatacardMaker():
         with gzip.open(self.fin) as fin:
             self.hists = pickle.load(fin)
         self.coeffs = self.hists['njets']._wcnames
+
+        #Get list of channels
+        self.ch2lss = list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1]})
+        self.ch2lss_p = list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_p' in k[1]})
+        self.ch2lss_m = list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_m' in k[1]})
+        self.ch2lssj  = list(set([j[-2:] for j in self.ch2lss_p]))
+        self.ch3l1b = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and '1b' in k[1]})
+        self.ch3l1b_p = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_p' in k[1] and '1b' in k[1]})
+        self.ch3l1b_m = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_m' in k[1] and '1b' in k[1]})
+        self.ch3l2b = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and '2b' in k[1]})
+        self.ch3l2b_p = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_p' in k[1] and '2b' in k[1]})
+        self.ch3l2b_m = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_m' in k[1] and '2b' in k[1]})
+        self.ch3lsfz = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1]})
+        self.ch3lsfz1b = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '1b' in k[1]})
+        self.ch3lsfz2b = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
+        self.ch3lj  = list(set([j[-5:-3] for j in self.ch3l1b_p]))
+        self.ch4l = list({k[1]:0 for k in self.hists['njets'].values().keys() if '4l' in k[1]})
+        self.ch4lj = list(set([j[-2:] for j in self.ch4l]))
+        self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz1b': self.ch3lsfz1b, '3l_sfz2b': self.ch3lsfz2b, '4l': self.ch4l}
 
         #Get list of samples and cut levels from histograms
         self.signal = ['ttH','tllq','ttll','ttlnu','tHq','tttt']
