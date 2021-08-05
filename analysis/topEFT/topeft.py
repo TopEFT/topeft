@@ -419,10 +419,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                         if var == 'invmass':
                             values = v[cut]
                             hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, invmass=values, weight=weights_flat, systematic=syst,appl=appl)
-                        elif var == 'm3l': 
-                            if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4l)): continue
-                            values = ak.flatten(v[ch][cut])
-                            hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, m3l=values, weight=weights_flat, systematic=syst,appl=appl)
                         elif var == 'ptbl' : 
                             values = ak.flatten(v[cut])
                             hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ptbl=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
