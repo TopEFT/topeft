@@ -12,6 +12,7 @@ from coffea.util import load, save
 from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
+from topcoffea.modules.GetValuesFromJsons import get_cut
 from topcoffea.modules.objects import *
 from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
 from topcoffea.modules.selection import *
@@ -160,20 +161,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         cleanedJets['isGood']  = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
         goodJets = cleanedJets[cleanedJets.isGood]
 
-        # count jets, jet 
+        # Count jets, jet 
         njets = ak.num(goodJets)
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
 
         # to do: check these numbers are ok
-        if year == "2017": btagwpl = 0.0532 #WP loose 
-        else: btagwpl = 0.0490 #WP loose 
+        # Loose DeepJet WP
+        if year == "2017": btagwpl = get_cut("btag_wp_loose_2017")
+        else: btagwpl = get_cut("btag_wp_loose_other")
         isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
         isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
         nbtagsl = ak.num(goodJets[isBtagJetsLoose])
         # Medium DeepJet WP
-        if year == "2017": btagwpm = 0.3040 #WP medium
-        else: btagwpm = 0.2783 #WP medium
+        if year == "2017": btagwpm = get_cut("btag_wp_medium_2017")
+        else: btagwpm = get_cut("btag_wp_medium_other")
         isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
         isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
         nbtagsm = ak.num(goodJets[isBtagJetsMedium])

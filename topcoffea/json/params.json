@@ -1,0 +1,38 @@
+{
+    "eta_e_cut" : 2.5,
+    "eta_m_cut" : 2.4,
+    "eta_t_cut" : 2.3,
+    "eta_j_cut" : 2.4,
+
+    "fo_pt_cut" : 10.0,
+    "pres_e_pt_cut" : 7.0,
+    "pres_m_pt_cut" : 5.0,
+
+    "iso_cut" : 0.4,
+
+    "fo_e_jetRelIso_cut" : 0.7,
+    "fo_m_jetRelIso_cut" : 0.5,
+
+    "jet_id_cut" : 0,
+
+    "dxy_cut" : 0.05,
+    "dz_cut" : 0.1,
+    "dxy_tau_cut" : 1000.0,
+    "dz_tau_cut" : 0.2,
+    "sip3d_cut" : 8,
+
+    "mva_TTH_e_cut" : 0.80,
+    "mva_TTH_m_cut" : 0.85,
+
+    "btag_wp_loose_forFO_2016"  : 0.0614,
+    "btag_wp_loose_forFO_2017"  : 0.0521,
+    "btag_wp_loose_forFO_2018"  : 0.0494,
+    "btag_wp_medium_forFO_2016" : 0.3093,
+    "btag_wp_medium_forFO_2017" : 0.3033,
+    "btag_wp_medium_forFO_2018" : 0.2770,
+
+    "btag_wp_loose_2017"   : 0.0532,
+    "btag_wp_loose_other"  : 0.0490,
+    "btag_wp_medium_2017"  : 0.3040,
+    "btag_wp_medium_other" : 0.2783
+}
