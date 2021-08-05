@@ -85,32 +85,22 @@ class DatacardMaker():
            print([[ch, ch in self.channels.keys()] for ch in channel])
            raise Exception(f'At least one channel in {channels} is not found in self.channels!')
         h = self.hists[variable].integrate('appl', appl).integrate('systematic', systematics)
-        if True or variable == 'njets' or variable == 'ptbl':
-            if isinstance(charges, str):
-                charge = 'p' if charges == 'ch+' else 'm'
-                if isinstance(bins, str):
-                    chan = [c for c in self.channels[channel+'_'+charge] if bins in c]
-                    channel = chan[-1]
-                    h = h.integrate('channel', chan)
-                else:
-                    h = h.integrate('channel', self.channels[channel])
+        if isinstance(charges, str):
+            charge = 'p' if charges == 'ch+' else 'm'
+            if isinstance(bins, str):
+                chan = [c for c in self.channels[channel+'_'+charge] if bins in c]
+                channel = chan[-1]
+                h = h.integrate('channel', chan)
             else:
-                if isinstance(bins, str):
-                    chan = [c for c in self.channels[channel] if bins in c]
-                    channel = chan[-1]
-                    h = h.integrate('channel', chan)
-                else:
-                    h = h.integrate('channel', self.channels[channel])
+                h = h.integrate('channel', self.channels[channel])
         else:
-            if isinstance(charges, str):
-                charge = 'p' if charges == 'ch+' else 'm'
-                ch = {v:v for v in self.channels[channel+'_'+charge]}
-                h = h.group('channel', hist.Cat('channel', {channel+'_'+charge: ch}),ch )
+            if isinstance(bins, str):
+                chan = [c for c in self.channels[channel] if bins in c]
+                channel = chan[-1]
+                h = h.integrate('channel', chan)
             else:
-                ch = {v:v for v in self.channels[channel]}
-                h = h.group('channel', hist.Cat('channel', {channel: ch}),ch )
+                h = h.integrate('channel', self.channels[channel])
         all_str = ' '.join([f'{v}' for v in locals().values() if v != self.hists])
-        #channel = re.split('\db', channel)[0]
         all_str = f'{channel} {systematics} {variable}'
         print(f'Making relish from the pickle file for {all_str}')
         if isinstance(charges, str): charge = charges
@@ -123,17 +113,11 @@ class DatacardMaker():
         if systematics == 'nominal': sys = ''
         else: sys = '_'+systematics
         if variable == 'njets':
-            #if isinstance(charges, str):
-            #    cat = '_'.join([channel, charge, maxb])  
-            #else:
             if 'b' in channel:
                 cat = channel
             else:
                 cat = '_'.join([channel, maxb])  
         else:
-            #if isinstance(charges, str):
-            #    cat = '_'.join([channel, charge, maxb, variable])
-            #else:
             if 'b' in channel:
                 cat = '_'.join([channel, variable])  
             else:
@@ -181,39 +165,36 @@ class DatacardMaker():
                     if 'lin' in name:
                         h_lin = h_base
                         h_lin.set_wilson_coeff_from_array(wcpt)
-                        if True or np.sum(h_lin.values()[()]) > self.tolerance or True:
-                            if len(h_base.axes())>1:
-                                fout[pname+name] = export2d(h_lin)
+                        if len(h_base.axes())>1:
+                            fout[pname+name] = export2d(h_lin)
+                        else:
+                            fout[pname+name] = hist.export1d(h_lin)
+                        if variable == 'njets':
+                            if isinstance(charges, str):
+                                cat = '_'.join([channel, charge, ])  
                             else:
-                                fout[pname+name] = hist.export1d(h_lin)
-                            if variable == 'njets':
-                                if isinstance(charges, str):
-                                    cat = '_'.join([channel, charge, ])  
-                                else:
-                                    cat = '_'.join([channel, maxb])  
+                                cat = '_'.join([channel, maxb])  
+                        else:
+                            if 'b' in channel:
+                                cat = channel
+                            elif isinstance(charges, str):
+                                cat = '_'.join([channel, charge, maxb, variable])
                             else:
-                                if 'b' in channel:
-                                    cat = channel
-                                elif isinstance(charges, str):
-                                    cat = '_'.join([channel, charge, maxb, variable])
-                                else:
-                                    cat = '_'.join([channel, maxb, variable])
+                                cat = '_'.join([channel, maxb, variable])
                     elif 'quad' in name and 'mix' not in name:
                         h_quad = h_base
                         h_quad.set_wilson_coeff_from_array(wcpt)
-                        if True or np.sum(h_quad.values()[()]) > self.tolerance or True:
-                            if len(h_base.axes())>1:
-                                fout[pname+name] = export2d(h_quad)
-                            else:
-                                fout[pname+name] = hist.export1d(h_quad)
+                        if len(h_base.axes())>1:
+                            fout[pname+name] = export2d(h_quad)
+                        else:
+                            fout[pname+name] = hist.export1d(h_quad)
                     else:
                         h_mix = h_base
                         h_mix.set_wilson_coeff_from_array(wcpt)
-                        if True or np.sum(h_mix.values()[()]) > self.tolerance or True:
-                            if len(h_base.axes())>1:
-                                fout[pname+name] = export2d(h_mix)
-                            else:
-                                fout[pname+name] = hist.export1d(h_mix)
+                        if len(h_base.axes())>1:
+                            fout[pname+name] = export2d(h_mix)
+                        else:
+                            fout[pname+name] = hist.export1d(h_mix)
         
         fout.close()
         self.makeCardLevel(channel=channel, appl=appl, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
@@ -255,17 +236,11 @@ class DatacardMaker():
         if systematics == 'nominal': sys = ''
         else: sys = '_'+systematics
         if variable == 'njets':
-            #if isinstance(charges, str):
-            #    cat = '_'.join([channel, charge, nbjet])  
-            #else:
             if 'b' in channel:
                 cat = channel
             else:
                 cat = '_'.join([channel, nbjet])
         else:
-            #if isinstance(charges, str):
-            #    cat = '_'.join([channel, charge, nbjet, variable])
-            #else:
             if 'b' in channel:
                 cat = '_'.join([channel, variable])  
             else:
@@ -285,7 +260,6 @@ class DatacardMaker():
         data_obs = []
         for proc in self.samples:
             p = self.rename[proc] if proc in self.rename else proc
-            #print(f'Process: {proc} -> {p}')
             name = 'data_obs'
             if name not in d_hists:
                 print(f'{name} not found in {channel}!')
@@ -300,10 +274,6 @@ class DatacardMaker():
             asimov = np.random.poisson(int(data_obs.Integral()))
             data_obs.SetDirectory(fout)
             if proc == self.samples[-1]:
-                #xmin = data_obs.GetXaxis().GetXmin()
-                #xmax = data_obs.GetXaxis().GetXmax()
-                #xwidth = data_obs.GetXaxis().GetBinWidth(1)
-                #data_obs.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
                 allyields[name] = data_obs.Integral()
                 data_obs.Scale(allyields['data_obs'] / data_obs.Integral())
                 data_obs.Write()
@@ -406,7 +376,6 @@ class DatacardMaker():
         datacard.write((npatt % 'process')+(" "*6)+(" ".join([kpatt % iproc[p] for p in procs]))+"\n")
         datacard.write((npatt % 'rate   ')+(" "*6)+(" ".join([fpatt % allyields[p] for p in procs]))+"\n")
         datacard.write('##----------------------------------\n')
-        # Uncomment for nuisance parameter testing, or final nuisance paramter values
         if self.do_nuisance:
             for name in nuisances:
                 systEff = dict((p,"1" if p in systMap[name] else "-") for p in procs)
@@ -483,16 +452,16 @@ if __name__ == '__main__':
     card.buildWCString()
     # Could make a futures for each variable as well
     futures = []
-    for var in ['njets','ht','ptbl']:#,'njetbpl','njetht']:
-        cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},]
-                 #{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 #{'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 #{'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 #{'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 #{'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 #{'channel':'3l_sfz1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 #{'channel':'3l_sfz2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 #{'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
+    for var in ['njets','ht','ptbl']:
+        cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                 {'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l_sfz1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l_sfz2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
         executor = concurrent.futures.ProcessPoolExecutor(len(cards))
         futures = futures + [executor.submit(card.analyzeChannel, **c) for c in cards]
     concurrent.futures.wait(futures)
