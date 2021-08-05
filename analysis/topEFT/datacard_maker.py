@@ -242,6 +242,12 @@ class DatacardMaker():
                 h_sys.SetName(h_sys.GetName().replace('Up', 'Down'))
                 h_sys.Scale(0.9/h_sys.Integral())
                 h_sys.Write()
+        def getHist(d_hists,name):
+            h = d_hists[name]
+            xmin = h.GetXaxis().GetXmin()
+            xmax = h.GetXaxis().GetXmax()
+            xwidth = h.GetXaxis().GetBinWidth(1)
+            h.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
@@ -288,16 +294,16 @@ class DatacardMaker():
             These lines are for testing only, and create Asimov data based on all processes provided
             '''
             if proc == self.samples[0]:
-                data_obs = d_hists[p+'_sm'].Clone('data_obs')
+                data_obs = getHist(d_hists,p+'_sm').Clone('data_obs')
             else:
-                data_obs.Add(d_hists[p+'_sm'].Clone('data_obs'))
+                data_obs.Add(getHist(d_hists,p+'_sm').Clone('data_obs'))
             asimov = np.random.poisson(int(data_obs.Integral()))
             data_obs.SetDirectory(fout)
             if proc == self.samples[-1]:
-                xmin = data_obs.GetXaxis().GetXmin()
-                xmax = data_obs.GetXaxis().GetXmax()
-                xwidth = data_obs.GetXaxis().GetBinWidth(1)
-                data_obs.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
+                #xmin = data_obs.GetXaxis().GetXmin()
+                #xmax = data_obs.GetXaxis().GetXmax()
+                #xwidth = data_obs.GetXaxis().GetBinWidth(1)
+                #data_obs.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
                 allyields[name] = data_obs.Integral()
                 data_obs.Scale(allyields['data_obs'] / data_obs.Integral())
                 data_obs.Write()
@@ -306,7 +312,7 @@ class DatacardMaker():
             if name not in d_hists:
                 print(f'{name} not found in {channel}!')
                 continue
-            h_sm = d_hists[name]
+            h_sm = getHist(d_hists, name)
             if h_sm.Integral() > self.tolerance or p not in self.signal:
                 if p in self.signal:
                     signalcount -= 1
@@ -333,7 +339,7 @@ class DatacardMaker():
                 if name not in d_hists:
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                     continue
-                h_lin = d_hists[name]
+                h_lin = getHist(d_hists, name)
                 if h_lin.Integral() > self.tolerance:
                     h_lin.SetDirectory(fout)
                     h_lin.Write()
@@ -348,7 +354,7 @@ class DatacardMaker():
                 if name not in d_hists:
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                     continue
-                h_quad = d_hists[name]
+                h_quad = getHist(d_hists, name)
                 h_quad.Add(h_lin, -2)
                 h_quad.Add(h_sm)
                 h_quad.Scale(0.5)
@@ -367,7 +373,7 @@ class DatacardMaker():
                     if name not in d_hists:
                         print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                         continue
-                    h_mix = d_hists[name]
+                    h_mix = getHist(d_hists, name)
                     if h_mix.Integral() > self.tolerance:
                         h_mix.SetDirectory(fout)
                         h_mix.Write()
@@ -478,15 +484,15 @@ if __name__ == '__main__':
     # Could make a futures for each variable as well
     futures = []
     for var in ['njets','ht','ptbl']:#,'njetbpl','njetht']:
-        cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 {'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l_sfz1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l_sfz2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
+        cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},]
+                 #{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                 #{'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 #{'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 #{'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 #{'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 #{'channel':'3l_sfz1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 #{'channel':'3l_sfz2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 #{'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
         executor = concurrent.futures.ProcessPoolExecutor(len(cards))
         futures = futures + [executor.submit(card.analyzeChannel, **c) for c in cards]
     concurrent.futures.wait(futures)
