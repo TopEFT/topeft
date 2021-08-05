@@ -88,14 +88,20 @@ class DatacardMaker():
         if isinstance(charges, str):
             charge = 'p' if charges == 'ch+' else 'm'
             if isinstance(bins, str):
-                chan = [c for c in self.channels[channel+'_'+charge] if bins in c]
+                if var == 'njets':
+                    chan = [c for c in self.channels[channel+'_'+charge] if 'j' not in c]
+                else:
+                    chan = [c for c in self.channels[channel+'_'+charge] if bins in c]
                 channel = chan[-1]
                 h = h.integrate('channel', chan)
             else:
                 h = h.integrate('channel', self.channels[channel])
         else:
             if isinstance(bins, str):
-                chan = [c for c in self.channels[channel] if bins in c]
+                if var == 'njets':
+                    chan = [c for c in self.channels[channel] if bins in c and 'j' not in c]
+                else:
+                    chan = [c for c in self.channels[channel] if bins in c]
                 channel = chan[-1]
                 h = h.integrate('channel', chan)
             else:
@@ -464,4 +470,4 @@ if __name__ == '__main__':
                  {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
         executor = concurrent.futures.ProcessPoolExecutor(len(cards))
         futures = futures + [executor.submit(card.analyzeChannel, **c) for c in cards]
-    #concurrent.futures.wait(futures)
+    concurrent.futures.wait(futures)
