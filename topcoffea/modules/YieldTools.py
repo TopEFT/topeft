@@ -5,25 +5,23 @@ import numpy as np
 from coffea import hist
 #from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
+from topcoffea.modules.GetValuesFromJsons import get_lumi
 
 class YieldTools():
 
     def __init__(self):
-
-        # The path to the file listing the luminosity for each year
-        self.LUMI_FILE = topcoffea_path("json/lumi.json")
 
         # The order of the categories in the TOP-19-001 AN yield tables
         self.CAT_LST = ["cat_2lss_p", "cat_2lss_m", "cat_3l_p_offZ_1b", "cat_3l_m_offZ_1b", "cat_3l_p_offZ_2b", "cat_3l_m_offZ_2b", "cat_3l_onZ_1b", "cat_3l_onZ_2b", "cat_4l"]
 
         # A dictionary mapping names of samples in the samples axis to a short version of the name
         self.PROC_MAP = {
-            "ttlnu" : ["ttW_centralUL17","ttlnu_private2017","ttlnuJet_privateUL17","ttlnuJet_privateUL18"],
-            "ttll"  : ["ttZ_centralUL17","ttll_TOP-19-001","ttllJet_privateUL17","ttllJet_privateUL18"],
-            "ttH"   : ["ttH_centralUL17","ttH_private2017","ttHJet_privateUL17","ttHJet_privateUL18"],
-            "tllq"  : ["tZq_centralUL17","tllq_private2017","tllq_privateUL17","tllq_privateUL18"],
-            "tHq"   : ["tHq_central2017","tHq_privateUL17"],
-            "tttt"  : ["tttt_central2017","tttt_privateUL17"],
+            "ttlnu" : ["ttW_centralUL17" , "ttlnuJet_privateUL18" , "ttlnuJet_privateUL17" , "ttlnuJet_privateUL16" , "ttlnuJet_privateUL16APV"],
+            "ttll"  : ["ttZ_centralUL17" , "ttllJet_privateUL18"  , "ttllJet_privateUL17"  , "ttllJet_privateUL16"  , "ttllJet_privateUL16APV"],
+            "ttH"   : ["ttH_centralUL17" , "ttHJet_privateUL18"   , "ttHJet_privateUL17"   , "ttHJet_privateUL16"   , "ttHJet_privateUL16APV"],
+            "tllq"  : ["tZq_centralUL17" , "tllq_privateUL18"     , "tllq_privateUL17"     , "tllq_privateUL16"     , "tllq_privateUL16APV"],
+            "tHq"   : ["tHq_central2017" , "tHq_privateUL18"      , "tHq_privateUL17"      , "tHq_privateUL16"      , "tHq_privateUL16APV"],
+            "tttt"  : ["tttt_central2017", "tttt_privateUL18"     , "tttt_privateUL17"     , "tttt_privateUL16"     , "tttt_privateUL16APV"],
         }
 
         # The jet bins we define for the lep categories (Not currently used)
@@ -185,15 +183,6 @@ class YieldTools():
         return h
 
 
-    # Return the lumi from the json/lumi.json file for a given year
-    def get_lumi(self,year):
-        lumi_json = self.LUMI_FILE
-        with open(lumi_json) as f_lumi:
-           lumi = json.load(f_lumi)
-           lumi = lumi[year]
-        return lumi
-
-
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
         cats = []
@@ -316,7 +305,7 @@ class YieldTools():
             h.scale(1.0/sow_val) # Divide EFT samples by sum of weights at SM, ignore error propagation for now
 
         # Scale by lumi
-        lumi = 1000.0*self.get_lumi(year)
+        lumi = 1000.0*get_lumi(year)
         h.scale(lumi)
 
         return self.get_yield(h,proc,overflow_str)
