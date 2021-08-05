@@ -330,7 +330,7 @@ class YieldTools():
 
                 # We want to sum over the jet bins, and look at all of the lep cats
                 if yields_for_njets_cats is None:
-                    yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cat,njet_cat,overflow_str="over") # Overflow string should not matter anymore with the way we're now defining the categories in the processor
+                    yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cat,njet_cat,overflow_str="over") # Important to keep overflow
 
                 # We want to look at all the jet bins in the give lep cat
                 elif yields_for_njets_cats == njet_cat:
@@ -339,7 +339,7 @@ class YieldTools():
                         if njet == max(self.JET_BINS[njet_cat]): include_overflow = "over"
                         else: include_overflow = "none"
                         cat_name_full = cat+"_"+str(njet)+"j"
-                        yld_dict[proc_name_short][cat_name_full] = self.get_scaled_yield(hin_dict,year,proc,cat,njet,overflow_str=include_overflow) # Overflow string should not matter anymore with the way we're now defining the categories in the processor 
+                        yld_dict[proc_name_short][cat_name_full] = self.get_scaled_yield(hin_dict,year,proc,cat,njet,overflow_str=include_overflow)
 
                 else:
                     raise Exception(f"Error, invalid input for yields_for_njets_cats \"{yields_for_njets_cats}\". Exiting...")
