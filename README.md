@@ -105,6 +105,7 @@ scram b -j8
 
 #### Fitting
 ##### In TopCoffea
+- ROOT is required, so install it first iwth `conda install -c conda-forge root`
 - Run `python analysis/topEFT/datacard_maker.py` (see `analysis/topEFT/README.md` for details)
 ##### In CMSSW
 - Enter `CMSSW_10_2_13/src/EFTFit/Fitter/test` (wherever you have it installed) and run `cmsenv` to initialize CMSSW
