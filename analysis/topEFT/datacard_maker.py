@@ -229,6 +229,7 @@ class DatacardMaker():
             xmax = h.GetXaxis().GetXmax()
             xwidth = h.GetXaxis().GetBinWidth(1)
             h.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
+            return h
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
@@ -450,7 +451,6 @@ if __name__ == '__main__':
     card = DatacardMaker(pklfile, year, lumiJson, do_nuisance)
     card.read()
     card.buildWCString()
-    # Could make a futures for each variable as well
     futures = []
     for var in ['njets','ht','ptbl']:
         cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
@@ -464,4 +464,4 @@ if __name__ == '__main__':
                  {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
         executor = concurrent.futures.ProcessPoolExecutor(len(cards))
         futures = futures + [executor.submit(card.analyzeChannel, **c) for c in cards]
-    concurrent.futures.wait(futures)
+    #concurrent.futures.wait(futures)
