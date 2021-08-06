@@ -33,36 +33,35 @@ class DatacardMaker():
         self.coeffs = self.hists['njets']._wcnames
 
         #Get list of channels
-        self.ch2lss = list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1]})
-        self.ch2lss_p = list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_p' in k[1]})
-        self.ch2lss_m = list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_m' in k[1]})
-        self.ch2lssj  = list(set([j[-2:] for j in self.ch2lss_p]))
-        self.ch3l1b = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and '1b' in k[1]})
-        self.ch3l1b_p = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_p' in k[1] and '1b' in k[1]})
-        self.ch3l1b_m = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_m' in k[1] and '1b' in k[1]})
-        self.ch3l2b = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and '2b' in k[1]})
-        self.ch3l2b_p = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_p' in k[1] and '2b' in k[1]})
-        self.ch3l2b_m = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_m' in k[1] and '2b' in k[1]})
-        self.ch3lsfz = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1]})
-        self.ch3lsfz1b = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '1b' in k[1]})
-        self.ch3lsfz2b = list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
-        self.ch3lj  = list(set([j[-5:-3] for j in self.ch3l1b_p]))
-        self.ch4l = list({k[1]:0 for k in self.hists['njets'].values().keys() if '4l' in k[1]})
-        self.ch4lj = list(set([j[-2:] for j in self.ch4l]))
-        self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz1b': self.ch3lsfz1b, '3l_sfz2b': self.ch3lsfz2b, '4l': self.ch4l}
+        self.ch2lss = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1]})
+        self.ch2lss_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_p' in k[1]})
+        self.ch2lss_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_m' in k[1]})
+        self.ch2lssj  = list(set([j[-2:] for j in self.ch2lss_p if 'j' in j]))
+        self.ch3l1b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
+        self.ch3l1b_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'p' in k[1] and '1b' in k[1]})
+        self.ch3l1b_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'm' in k[1]  and '1b' in k[1]})
+        self.ch3l2b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and '2b' in k[1] and 'onZ' not in k[1]})
+        self.ch3l2b_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'p' in k[1]  and '2b' in k[1]})
+        self.ch3l2b_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'm' in k[1]  and '2b' in k[1]})
+        self.ch3lsfz = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1]})
+        self.ch3lsfz1b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1] and '1b' in k[1]})
+        self.ch3lsfz2b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
+        self.ch3lj  = list(set([j[-5:-3] for j in self.ch3l1b_p if 'j' in j]))
+        self.ch4l = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '4l' in k[1]})
+        self.ch4lj = list(set([j[-2:] for j in self.ch4l if 'j' in j]))
+        self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '4l': self.ch4l}
 
         #Get list of samples and cut levels from histograms
         self.signal = ['ttH','tllq','ttll','ttlnu','tHq','tttt']
-        self.samples = list({k[0]:0 for k in self.hists['njets'].values().keys()})
+        self.samples = list({k[0]:0 for k in self.hists['ptbl'].values().keys()})
         rename = {l: re.split('(Jet)?_[a-zA-Z]*1[6-8]', l)[0] for l in self.samples}
         rename = {k: 'Triboson' if bool(re.search('[WZ]{3}', v)) else v for k,v in rename.items()}
         rename = {k: 'Diboson' if bool(re.search('[WZ]{2}', v)) else v for k,v in rename.items()}
         rename = {k: 'convs' if bool(re.search('TTG', v)) else v for k,v in rename.items()}
         rename = {k: 'fakes' if bool(re.search('(^tW)|(^tbarW)|(^WJet)|(^t_)|(^tbar_)|(^TT)|(^DY)', v)) else v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
-        print(self.rename)
-        self.levels = list({k[2]:0 for k in self.hists['njets'].values().keys()})
-        self.syst = list({k[3]:0 for k in self.hists['njets'].values().keys()})
+        self.levels = list({k[2]:0 for k in self.hists['ptbl'].values().keys()})
+        self.syst = list({k[3]:0 for k in self.hists['ptbl'].values().keys()})
         self.hsow = self.hists['SumOfEFTweights']
         self.hsow.set_sm()
         self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples}
@@ -72,7 +71,7 @@ class DatacardMaker():
         self.lumi = 1000*lumi
 
     def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
-        if isinstance(bins, list) and len(bins)>0:
+        if variable != 'njets' and isinstance(bins, list) and len(bins)>0:
             for b in bins:
                 self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=b)
             return
@@ -88,24 +87,33 @@ class DatacardMaker():
         if isinstance(charges, str):
             charge = 'p' if charges == 'ch+' else 'm'
             if isinstance(bins, str):
-                if var == 'njets':
+                if variable == 'njets':
                     chan = [c for c in self.channels[channel+'_'+charge] if 'j' not in c]
                 else:
                     chan = [c for c in self.channels[channel+'_'+charge] if bins in c]
-                channel = chan[-1]
+                    channel = chan[0]
                 h = h.integrate('channel', chan)
             else:
-                h = h.integrate('channel', self.channels[channel])
+                if variable == 'njets':
+                    chan = [c for c in self.channels[channel+'_'+charge] if 'j' not in c]
+                    channel = channel + '_' + charge
+                    h = h.integrate('channel', chan)
+                else:
+                    h = h.integrate('channel', self.channels[channel+'_'+charege])
         else:
             if isinstance(bins, str):
-                if var == 'njets':
+                if variable == 'njets':
                     chan = [c for c in self.channels[channel] if bins in c and 'j' not in c]
                 else:
                     chan = [c for c in self.channels[channel] if bins in c]
-                channel = chan[-1]
+                    channel = chan[0]
                 h = h.integrate('channel', chan)
             else:
-                h = h.integrate('channel', self.channels[channel])
+                if variable == 'njets':
+                    chan = [c for c in self.channels[channel] if 'j' not in c]
+                    h = h.integrate('channel', chan)
+                else:
+                    h = h.integrate('channel', self.channels[channel])
         all_str = ' '.join([f'{v}' for v in locals().values() if v != self.hists])
         all_str = f'{channel} {systematics} {variable}'
         print(f'Making relish from the pickle file for {all_str}')
@@ -317,7 +325,7 @@ class DatacardMaker():
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                     continue
                 h_lin = getHist(d_hists, name)
-                if h_lin.Integral() > self.tolerance:
+                if True or h_lin.Integral() > self.tolerance:
                     h_lin.SetDirectory(fout)
                     h_lin.Write()
                     signalcount -= 1
@@ -335,7 +343,7 @@ class DatacardMaker():
                 h_quad.Add(h_lin, -2)
                 h_quad.Add(h_sm)
                 h_quad.Scale(0.5)
-                if h_quad.Integral() > self.tolerance:
+                if True or h_quad.Integral() > self.tolerance:
                     h_quad.SetDirectory(fout)
                     h_quad.Write()
                     signalcount -= 1
@@ -351,7 +359,7 @@ class DatacardMaker():
                         print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                         continue
                     h_mix = getHist(d_hists, name)
-                    if h_mix.Integral() > self.tolerance:
+                    if True or h_mix.Integral() > self.tolerance:
                         h_mix.SetDirectory(fout)
                         h_mix.Write()
                         signalcount -= 1
@@ -465,8 +473,8 @@ if __name__ == '__main__':
                  {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
                  {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
                  {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l_sfz1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l_sfz2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
                  {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
         executor = concurrent.futures.ProcessPoolExecutor(len(cards))
         futures = futures + [executor.submit(card.analyzeChannel, **c) for c in cards]

@@ -299,7 +299,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Channels for the 3l cat (we have a _lot_ of 3l categories...)
         channels3l  = [
-            "3l_p_offZ_1b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b",
+            "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b",
             "3l_p_offZ_2j_1b","3l_p_offZ_3j_1b","3l_p_offZ_4j_1b","3l_p_offZ_5j_1b",
             "3l_m_offZ_2j_1b","3l_m_offZ_3j_1b","3l_m_offZ_4j_1b","3l_m_offZ_5j_1b",
             "3l_p_offZ_2j_2b","3l_p_offZ_3j_2b","3l_p_offZ_4j_2b","3l_p_offZ_5j_2b",
