@@ -31,8 +31,10 @@
     "btag_wp_medium_forFO_2017" : 0.3033,
     "btag_wp_medium_forFO_2018" : 0.2770,
 
-    "btag_wp_loose_2017"   : 0.0532,
-    "btag_wp_loose_other"  : 0.0490,
-    "btag_wp_medium_2017"  : 0.3040,
-    "btag_wp_medium_other" : 0.2783
+    "btag_wp_loose_L16"   : 0.0614,
+    "btag_wp_loose_UL17"  : 0.0532,
+    "btag_wp_loose_UL18"  : 0.0490,
+    "btag_wp_medium_L16"  : 0.3093,
+    "btag_wp_medium_UL17" : 0.3040,
+    "btag_wp_medium_UL18" : 0.2783
 }

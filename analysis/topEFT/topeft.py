@@ -166,16 +166,30 @@ class AnalysisProcessor(processor.ProcessorABC):
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
 
-        # to do: check these numbers are ok
         # Loose DeepJet WP
-        if year == "2017": btagwpl = get_cut("btag_wp_loose_2017")
-        else: btagwpl = get_cut("btag_wp_loose_other")
+        # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
+        if year == "2017":
+            btagwpl = get_cut("btag_wp_loose_UL17")
+        elif year == "2018":
+            btagwpl = get_cut("btag_wp_loose_UL18")
+        elif ((year=="2016") or (year=="2016APV")):
+            btagwpl = get_cut("btag_wp_loose_L16")
+        else:
+            raise ValueError(f"Error: Unknown year \"{year}\".")
         isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
         isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
         nbtagsl = ak.num(goodJets[isBtagJetsLoose])
+
         # Medium DeepJet WP
-        if year == "2017": btagwpm = get_cut("btag_wp_medium_2017")
-        else: btagwpm = get_cut("btag_wp_medium_other")
+        # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
+        if year == "2017": 
+            btagwpm = get_cut("btag_wp_medium_UL17")
+        elif year == "2018":
+            btagwpm = get_cut("btag_wp_medium_UL18")
+        elif ((year=="2016") or (year=="2016APV")):
+            btagwpm = get_cut("btag_wp_medium_L16")
+        else:
+            raise ValueError(f"Error: Unknown year \"{year}\".")
         isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
         isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
         nbtagsm = ak.num(goodJets[isBtagJetsMedium])
