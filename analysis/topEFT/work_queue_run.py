@@ -70,8 +70,7 @@ for jsonFile in jsonFiles:
 # Read from cfg files
 for f in allInputFiles:
   if not os.path.isfile(f):
-    print('[WARNING] Input file "%s% not found!'%f)
-    continue
+    raise Exception(f'[ERROR] Input file {f} not found!')
   # This input file is a json file, not a cfg
   if f.endswith('.json'): 
     LoadJsonToSampleName(f, prefix)
