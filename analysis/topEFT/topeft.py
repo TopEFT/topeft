@@ -426,7 +426,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                         eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
 
                         # Filling histos
-                        if var == 'invmass':
+                        if var == 'njets' :
+                            if 'j' in ch: continue # Ignore sparse jet bins
+                            values = v[cut]
+                            hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                        elif 'j' not in ch: continue # Super channels for njets only
+                        elif var == 'invmass':
                             values = v[cut]
                             hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, invmass=values, weight=weights_flat, systematic=syst,appl=appl)
                         elif var == 'ptbl' : 
@@ -437,9 +442,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                             # These all look identical, do we need if/else here?
                             if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
                             elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'njets' :
-                                if 'j' in ch: continue # Ignore sparse jet bins
-                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
                             elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
                             elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, weight=weights_ones, systematic=syst,appl=appl)
                             elif var == 'j0eta' : 
