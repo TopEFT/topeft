@@ -89,19 +89,19 @@ scram b -j8
 
 Otherwise, this package should be compatible with most CMSSW releases. It still requires the HiggsCombineTool package though. See https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit/wiki/gettingstarted#for-end-users-that-dont-need-to-commit-or-do-any-development
 
-##### CombineHarvester
-```
-git clone https://github.com/cms-govner/CombineHarvester.git CombineHarvester
-scram b -j8
-```
-This might case errors, but you can safely ignore them.
-
 ##### EFTFit
 ```
 cd $CMSSW_BASE/src/
 git clone https://github.com/cms-govner/EFTFit.git EFTFit
 scram b -j8
 ```
+
+##### CombineHarvester
+```
+git clone https://github.com/cms-govner/CombineHarvester.git CombineHarvester
+scram b -j8
+```
+This might case errors, but you can safely ignore them.
 
 #### Fitting
 ##### In TopCoffea
