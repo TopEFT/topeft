@@ -128,20 +128,21 @@ def _find_local_pip():
 
 def _commits_local_pip(paths):
     commits = {}
-    for path in paths:
+    for (pkg, path) in paths.items():
         try:
             commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=path).decode().rstrip()
             changed = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=path).decode().rstrip()
             if changed:
                 logger.warning("Found unstaged changes in '{}'".format(path))
-                commits[path] = 'HEAD'
+                commits[pkg] = 'HEAD'
             else:
-                commits[path] = commit
+                commits[pkg] = commit
         except Exception as e:
             # on error, e.g., not a git repository, assume that current state
             # should be installed
+            print(e)
             logger.warning("Could not get current commit of '{}'.".format(path))
-            commits[path] = 'HEAD'
+            commits[pkg] = 'HEAD'
     return commits
 
 def _compute_commit(paths, commits):
