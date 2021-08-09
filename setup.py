@@ -9,6 +9,7 @@ setuptools.setup(
     package_data={
         "topcoffea" : [
             "cfg/*.cfg",
+            "json/*",
             "data/scaleFactors/*.root",
             "data/fromTTH/fakerate/*.root",
             "data/fromTTH/fliprates/*.root",
