@@ -10,19 +10,25 @@ import time
 import logging
 import glob
 import os
+import string
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
 
 env_dir_cache = 'envs'
 
+py_version = "{}.{}.{}".format(
+        sys.version_info[0], sys.version_info[1], sys.version_info[2]
+        )  # 3.8 or 3.9, or etc.
+
+
 # Define packages to install from different conda channels.
 # This is defines as json so that we can easily checksum the contents.
-packages_json = '''
+packages_json_template = string.Template('''
 {
     "base": {
         "conda": {
-            "defaults" : ["python=3.8.3", "conda"],
+            "defaults" : ["python=$py_version", "conda"],
             "conda-forge" : ["conda-pack", "dill", "xrootd", "coffea"]
         }
     },
@@ -33,8 +39,10 @@ packages_json = '''
         ]
     }
 }
-'''
-packages = json.loads(packages_json)
+''')
+
+packages_json = packages_json_template.substitute(py_version=py_version)
+packages = json.loads(str(packages_json))
 
 
 def _run_conda_command(environment, command, *args):
