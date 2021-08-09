@@ -9,8 +9,10 @@ REF_FILE_NAME="test/ref_yields.json"
 
 
 # Run the processor
+printf "\nSubmitting workers...\n"
+condor_submit_workers -M ${USER}-workqueue-coffea -t 900 --cores 12 --memory 48000 --disk 150000 20
 printf "\nRunning processor...\n"
-time python run.py ../../topcoffea/cfg/check_yields_sample.cfg -o ${OUT_FILE_NAME}
+time python work_queue_run.py ../../topcoffea/cfg/check_yields_sample.cfg -o ${OUT_FILE_NAME}
 
 # Make the jsons
 printf "\nMaking yields json from pkl...\n"
