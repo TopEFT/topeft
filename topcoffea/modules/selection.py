@@ -227,7 +227,7 @@ def add2lssMaskAndSFs(events, year, isData):
 def add3lMaskAndSFs(events, year, isData):
 
     # FOs and padded FOs
-    FOs=events.l_fo_conept_sorted
+    FOs = events.l_fo_conept_sorted
     padded_FOs = ak.pad_none(FOs,3)
 
     # Filters and cleanups
@@ -270,8 +270,8 @@ def add3lMaskAndSFs(events, year, isData):
 def add4lMaskAndSFs(events, year, isData):
 
     # FOs and padded FOs
-    FOs=events.l_fo_conept_sorted
-    padded_FOs=ak.pad_none(FOs,4)
+    FOs = events.l_fo_conept_sorted
+    padded_FOs = ak.pad_none(FOs,4)
 
     # Filters and cleanups
     filter_flags = events.Flag
@@ -306,3 +306,67 @@ def add4lMaskAndSFs(events, year, isData):
     # SR: Don't really need this for 4l, but define it so we can treat 4l category similar to 2lss and 3l
     events['is4l_SR'] = tightleps
     events['is4l_SR'] = ak.fill_none(events['is4l_SR'],False)
+
+def addLepCatMasks(events):
+
+    # FOs and padded FOs
+    fo = events.l_fo_conept_sorted
+    padded_fo = ak.pad_none(fo,4)
+    padded_fo_id = padded_fo.pdgId
+    for x in padded_fo_id:
+        print("\t",x)
+
+    # Find the numbers of e and m in the event
+    is_e_mask = (abs(padded_fo_id)==11)
+    is_m_mask = (abs(padded_fo_id)==13)
+    n_e = ak.sum(is_e_mask,axis=-1)
+    n_m = ak.sum(is_m_mask,axis=-1)
+
+    # 2l masks
+    ee_mask = ((n_e==2) & (n_m==0))
+    em_mask = ((n_e==1) & (n_m==1))
+    mm_mask = ((n_e==0) & (n_m==2))
+
+    # 3l masks
+    eee_mask = ((n_e==3) & (n_m==0))
+    eem_mask = ((n_e==2) & (n_m==1))
+    emm_mask = ((n_e==1) & (n_m==2))
+    mmm_mask = ((n_e==0) & (n_m==3))
+
+    # 4l masks
+    eeee_mask = ((n_e==4) & (n_m==0))
+    eeem_mask = ((n_e==3) & (n_m==1))
+    eemm_mask = ((n_e==2) & (n_m==2))
+    emmm_mask = ((n_e==1) & (n_m==3))
+    mmmm_mask = ((n_e==0) & (n_m==4))
+
+    print("")
+    print("ee mask",ee_mask)
+    print("mm mask",mm_mask)
+    print("em mask",em_mask)
+    print("")
+    print("eee mask",eee_mask)
+    print("mmm mask",mmm_mask)
+    print("emm mask",emm_mask)
+    print("eem mask",eem_mask)
+    print("")
+    print("eeee mask",eeee_mask)
+    print("eeem mask",eeem_mask)
+    print("eemm mask",eemm_mask)
+    print("emmm mask",emmm_mask)
+    print("mmmm mask",mmmm_mask)
+
+    events['is_ee'] = (ee_mask)
+    events['is_em'] = (em_mask)
+    events['is_mm'] = (mm_mask)
+
+    events['is_eee'] = (eee_mask)
+    events['is_eem'] = (eem_mask)
+    events['is_emm'] = (emm_mask)
+    events['is_mmm'] = (mmm_mask)
+
+    events['is_eeee'] = (eeee_mask)
+    events['is_eeem'] = (eeem_mask)
+    events['is_eemm'] = (eemm_mask)
+    events['is_emmm'] = (emmm_mask)
+    events['is_mmmm'] = (mmmm_mask)

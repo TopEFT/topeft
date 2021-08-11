@@ -206,6 +206,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         add2lssMaskAndSFs(events, year, isData)
         add3lMaskAndSFs(events, year, isData)
         add4lMaskAndSFs(events, year, isData)
+        addLepCatMasks(events)
         print('The number of events passing fo 2lss, 3l, and 4l selection is:', ak.num(events[events.is2lss],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
 
         # Get mask for events that have two sf os leps close to z peak
@@ -308,6 +309,38 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("2lss_m_5j", (is2lss & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_m_6j", (is2lss & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_m_7j", (is2lss & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+
+        ####### Maybe not how we want to do this... ########
+
+        selections.add("2lss_ee_p_4j", (is2lss & events.is_ee & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_ee_p_5j", (is2lss & events.is_ee & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_ee_p_6j", (is2lss & events.is_ee & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_ee_p_7j", (is2lss & events.is_ee & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_ee_m_4j", (is2lss & events.is_ee & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_ee_m_5j", (is2lss & events.is_ee & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_ee_m_6j", (is2lss & events.is_ee & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_ee_m_7j", (is2lss & events.is_ee & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+
+        #selections.add("2lss_em_p_4j", (is2lss & events.is_em & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_em_p_5j", (is2lss & events.is_em & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_em_p_6j", (is2lss & events.is_em & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_em_p_7j", (is2lss & events.is_em & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_em_m_4j", (is2lss & events.is_em & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_em_m_5j", (is2lss & events.is_em & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_em_m_6j", (is2lss & events.is_em & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_em_m_7j", (is2lss & events.is_em & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+
+        #selections.add("2lss_mm_p_4j", (is2lss & events.is_mm & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_mm_p_5j", (is2lss & events.is_mm & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_mm_p_6j", (is2lss & events.is_mm & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_mm_p_7j", (is2lss & events.is_mm & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_mm_m_4j", (is2lss & events.is_mm & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_mm_m_5j", (is2lss & events.is_mm & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_mm_m_6j", (is2lss & events.is_mm & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_mm_m_7j", (is2lss & events.is_mm & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+
+        #####################################################
+
 
         # Channels for the 3l cat (we have a _lot_ of 3l categories...)
         channels3l  = [
