@@ -179,10 +179,10 @@ executor_args = {
     # of a workflow run a little bit faster.
     # Rather than using whole workers in the exploratory mode of
     # resources_mode: auto, tasks are forever limited to a maximum
-    # of 10GB of mem and disk.
+    # of 8GB of mem and disk.
     'cores': 1,
-    'disk': 10000,   #MB
-    'memory': 10000, #MB
+    'disk': 8000,   #MB
+    'memory': 8000, #MB
 
     # control the size of accumulation tasks. Results are
     # accumulated in groups of size chunks_per_accum, keeping at
