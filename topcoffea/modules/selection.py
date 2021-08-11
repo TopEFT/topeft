@@ -313,8 +313,6 @@ def addLepCatMasks(events):
     fo = events.l_fo_conept_sorted
     padded_fo = ak.pad_none(fo,4)
     padded_fo_id = padded_fo.pdgId
-    for x in padded_fo_id:
-        print("\t",x)
 
     # Find the numbers of e and m in the event
     is_e_mask = (abs(padded_fo_id)==11)
@@ -323,50 +321,23 @@ def addLepCatMasks(events):
     n_m = ak.sum(is_m_mask,axis=-1)
 
     # 2l masks
-    ee_mask = ((n_e==2) & (n_m==0))
-    em_mask = ((n_e==1) & (n_m==1))
-    mm_mask = ((n_e==0) & (n_m==2))
+    events['is_ee'] = ((n_e==2) & (n_m==0)) 
+    events['is_em'] = ((n_e==1) & (n_m==1)) 
+    events['is_mm'] = ((n_e==0) & (n_m==2)) 
+    events['is_2l'] = ((n_e+n_m==2)) 
 
     # 3l masks
-    eee_mask = ((n_e==3) & (n_m==0))
-    eem_mask = ((n_e==2) & (n_m==1))
-    emm_mask = ((n_e==1) & (n_m==2))
-    mmm_mask = ((n_e==0) & (n_m==3))
+    events['is_eee'] = ((n_e==3) & (n_m==0)) 
+    events['is_eem'] = ((n_e==2) & (n_m==1)) 
+    events['is_emm'] = ((n_e==1) & (n_m==2)) 
+    events['is_mmm'] = ((n_e==0) & (n_m==3)) 
+    events['is_3l'] = ((n_e+n_m==3)) 
 
     # 4l masks
-    eeee_mask = ((n_e==4) & (n_m==0))
-    eeem_mask = ((n_e==3) & (n_m==1))
-    eemm_mask = ((n_e==2) & (n_m==2))
-    emmm_mask = ((n_e==1) & (n_m==3))
-    mmmm_mask = ((n_e==0) & (n_m==4))
-
-    print("")
-    print("ee mask",ee_mask)
-    print("mm mask",mm_mask)
-    print("em mask",em_mask)
-    print("")
-    print("eee mask",eee_mask)
-    print("mmm mask",mmm_mask)
-    print("emm mask",emm_mask)
-    print("eem mask",eem_mask)
-    print("")
-    print("eeee mask",eeee_mask)
-    print("eeem mask",eeem_mask)
-    print("eemm mask",eemm_mask)
-    print("emmm mask",emmm_mask)
-    print("mmmm mask",mmmm_mask)
-
-    events['is_ee'] = (ee_mask)
-    events['is_em'] = (em_mask)
-    events['is_mm'] = (mm_mask)
-
-    events['is_eee'] = (eee_mask)
-    events['is_eem'] = (eem_mask)
-    events['is_emm'] = (emm_mask)
-    events['is_mmm'] = (mmm_mask)
-
-    events['is_eeee'] = (eeee_mask)
-    events['is_eeem'] = (eeem_mask)
-    events['is_eemm'] = (eemm_mask)
-    events['is_emmm'] = (emmm_mask)
-    events['is_mmmm'] = (mmmm_mask)
+    events['is_eeee'] = ((n_e==4) & (n_m==0))
+    events['is_eeem'] = ((n_e==3) & (n_m==1))
+    events['is_eemm'] = ((n_e==2) & (n_m==2))
+    events['is_emmm'] = ((n_e==1) & (n_m==3))
+    events['is_mmmm'] = ((n_e==0) & (n_m==4))
+    events['is_gr4l'] = ((n_e+n_m)>4)
+    events['is_4l'] = ((n_e+n_m==4)) 

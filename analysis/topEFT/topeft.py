@@ -209,6 +209,28 @@ class AnalysisProcessor(processor.ProcessorABC):
         addLepCatMasks(events)
         print('The number of events passing fo 2lss, 3l, and 4l selection is:', ak.num(events[events.is2lss],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
 
+        # Something is wrong here, the numbers do not add up... we should apply the event selection cuts _before_ counting number of e and m...
+        print("\nNumber of events passing FO selection:")
+        print("  n 2lss:",ak.sum(events.is2lss,axis=-1))
+        print("    n 2l:",ak.sum((events.is2lss & events.is_2l),axis=-1))
+        print("    n ee:",ak.sum((events.is2lss & events.is_ee),axis=-1))
+        print("    n em:",ak.sum((events.is2lss & events.is_em),axis=-1))
+        print("    n mm:",ak.sum((events.is2lss & events.is_mm),axis=-1))
+        print("  n 3l:",ak.sum(events.is3l,axis=-1))
+        print("    n 3l :",ak.sum((events.is3l & events.is_3l),axis=-1))
+        print("    n eee:",ak.sum((events.is3l & events.is_eee),axis=-1))
+        print("    n eem:",ak.sum((events.is3l & events.is_eem),axis=-1))
+        print("    n emm:",ak.sum((events.is3l & events.is_emm),axis=-1))
+        print("    n mmm:",ak.sum((events.is3l & events.is_mmm),axis=-1))
+        print("  n 4l:",ak.sum(events.is4l,axis=-1))
+        print("    n 4l :",ak.sum((events.is4l & events.is_4l),axis=-1))
+        print("    n eeee:",ak.sum((events.is4l & events.is_eeee),axis=-1))
+        print("    n eeem:",ak.sum((events.is4l & events.is_eeem),axis=-1))
+        print("    n eemm:",ak.sum((events.is4l & events.is_eemm),axis=-1))
+        print("    n emmm:",ak.sum((events.is4l & events.is_emmm),axis=-1))
+        print("    n mmmm:",ak.sum((events.is4l & events.is_mmmm),axis=-1))
+        print("    n gr4l:",ak.sum((events.is4l & events.is_gr4l),axis=-1))
+
         # Get mask for events that have two sf os leps close to z peak
         ll_fo_pairs = ak.combinations(l_fo_conept_sorted_padded, 2, fields=["l0","l1"])
         zpeak_mask = (abs((ll_fo_pairs.l0+ll_fo_pairs.l1).mass - 91.2)<10.0) 
