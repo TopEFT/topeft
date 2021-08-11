@@ -307,6 +307,7 @@ def add4lMaskAndSFs(events, year, isData):
     events['is4l_SR'] = tightleps
     events['is4l_SR'] = ak.fill_none(events['is4l_SR'],False)
 
+
 def addLepCatMasks(events):
 
     # FOs and padded FOs
@@ -317,27 +318,28 @@ def addLepCatMasks(events):
     # Find the numbers of e and m in the event
     is_e_mask = (abs(padded_fo_id)==11)
     is_m_mask = (abs(padded_fo_id)==13)
-    n_e = ak.sum(is_e_mask,axis=-1)
-    n_m = ak.sum(is_m_mask,axis=-1)
+    n_e_2l = ak.sum(is_e_mask[:,0:2],axis=-1) # Make sure we only look at first two leps
+    n_m_2l = ak.sum(is_m_mask[:,0:2],axis=-1) # Make sure we only look at first two leps
+    n_e_3l = ak.sum(is_e_mask[:,0:3],axis=-1) # Make sure we only look at first three leps
+    n_m_3l = ak.sum(is_m_mask[:,0:3],axis=-1) # Make sure we only look at first three leps
+    n_e_4l = ak.sum(is_e_mask,axis=-1)        # Look at all the leps
+    n_m_4l = ak.sum(is_m_mask,axis=-1)        # Look at all the leps
 
     # 2l masks
-    events['is_ee'] = ((n_e==2) & (n_m==0)) 
-    events['is_em'] = ((n_e==1) & (n_m==1)) 
-    events['is_mm'] = ((n_e==0) & (n_m==2)) 
-    events['is_2l'] = ((n_e+n_m==2)) 
+    events['is_ee'] = ((n_e_2l==2) & (n_m_2l==0)) 
+    events['is_em'] = ((n_e_2l==1) & (n_m_2l==1)) 
+    events['is_mm'] = ((n_e_2l==0) & (n_m_2l==2)) 
 
     # 3l masks
-    events['is_eee'] = ((n_e==3) & (n_m==0)) 
-    events['is_eem'] = ((n_e==2) & (n_m==1)) 
-    events['is_emm'] = ((n_e==1) & (n_m==2)) 
-    events['is_mmm'] = ((n_e==0) & (n_m==3)) 
-    events['is_3l'] = ((n_e+n_m==3)) 
+    events['is_eee'] = ((n_e_3l==3) & (n_m_3l==0)) 
+    events['is_eem'] = ((n_e_3l==2) & (n_m_3l==1)) 
+    events['is_emm'] = ((n_e_3l==1) & (n_m_3l==2)) 
+    events['is_mmm'] = ((n_e_3l==0) & (n_m_3l==3)) 
 
     # 4l masks
-    events['is_eeee'] = ((n_e==4) & (n_m==0))
-    events['is_eeem'] = ((n_e==3) & (n_m==1))
-    events['is_eemm'] = ((n_e==2) & (n_m==2))
-    events['is_emmm'] = ((n_e==1) & (n_m==3))
-    events['is_mmmm'] = ((n_e==0) & (n_m==4))
-    events['is_gr4l'] = ((n_e+n_m)>4)
-    events['is_4l'] = ((n_e+n_m==4)) 
+    events['is_eeee'] = ((n_e_4l==4) & (n_m_4l==0))
+    events['is_eeem'] = ((n_e_4l==3) & (n_m_4l==1))
+    events['is_eemm'] = ((n_e_4l==2) & (n_m_4l==2))
+    events['is_emmm'] = ((n_e_4l==1) & (n_m_4l==3))
+    events['is_mmmm'] = ((n_e_4l==0) & (n_m_4l==4))
+    events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
