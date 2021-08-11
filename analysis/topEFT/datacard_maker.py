@@ -13,7 +13,7 @@ import concurrent.futures
 from ROOT import TFile, TH1D, TH2D
 
 class DatacardMaker():
-    def __init__(self, infile='', year=2018, lumiJson='topcoffea/json/lumi.json', do_nuisance=False):
+    def __init__(self, infile='', year=2018, lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[]):
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
@@ -21,6 +21,8 @@ class DatacardMaker():
         self.fin = infile
         self.tolerance = 0.001
         self.do_nuisance = do_nuisance
+        if len(wcs)>0: self.coeffs = wcs
+        self.coeffs = wcs if len(wcs)>0 else []
 
 
     def read(self):
@@ -30,7 +32,7 @@ class DatacardMaker():
         print(f'Loading {self.fin}')
         with gzip.open(self.fin) as fin:
             self.hists = pickle.load(fin)
-        self.coeffs = self.hists['njets']._wcnames
+        if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         #Get list of channels
         self.ch2lss = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1]})
@@ -468,16 +470,20 @@ if __name__ == '__main__':
     parser.add_argument('--year',     '-y', default='2018'                         , help = 'Run year to access lumi')
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
     parser.add_argument('--do-nuisance',    action='store_true', help = 'Include nuisance parameters')
+    parser.add_argument('--POI',            default=[],          help = 'List of WCs (comma separated)')
     args = parser.parse_args()
     pklfile  = args.pklfile
     year = args.year
     lumiJson = args.lumiJson
     do_nuisance = args.do_nuisance
+    wcs = args.POI
+    if isinstance(wcs, str): wcs = wcs.split(',')
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
-    card = DatacardMaker(pklfile, year, lumiJson, do_nuisance)
+    card = DatacardMaker(pklfile, year, lumiJson, do_nuisance, wcs)
     card.read()
     card.buildWCString()
+    print(card.coeffs)
     futures = []
     for var in ['njets','ht','ptbl']:
         cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
