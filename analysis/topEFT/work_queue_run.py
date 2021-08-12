@@ -1,4 +1,5 @@
-#!/usr/bin/env python                                                                                                                                                                                       
+#!/usr/bin/env python
+
 import lz4.frame as lz4f
 import pickle
 import json
@@ -70,10 +71,9 @@ for jsonFile in jsonFiles:
 # Read from cfg files
 for f in allInputFiles:
   if not os.path.isfile(f):
-    print('[WARNING] Input file "%s% not found!'%f)
-    continue
+    raise Exception(f'[ERROR] Input file {f} not found!')
   # This input file is a json file, not a cfg
-  if f.endswith('.json'): 
+  if f.endswith('.json'):
     LoadJsonToSampleName(f, prefix)
   # Open cfg files
   else:
@@ -98,7 +98,7 @@ nevts_total = 0
 for sname in samplesdict.keys():
   redirector = samplesdict[sname]['redirector']
   flist[sname] = [(redirector+f) for f in samplesdict[sname]['files']]
-  samplesdict[sname]['year'] = int(samplesdict[sname]['year'])
+  samplesdict[sname]['year'] = samplesdict[sname]['year']
   samplesdict[sname]['xsec'] = float(samplesdict[sname]['xsec'])
   samplesdict[sname]['nEvents'] = int(samplesdict[sname]['nEvents'])
   nevts_total += samplesdict[sname]['nEvents']
@@ -108,7 +108,7 @@ for sname in samplesdict.keys():
   # Print file info
   print('>> '+sname)
   print('   - isData?      : %s'   %('YES' if samplesdict[sname]['isData'] else 'NO'))
-  print('   - year         : %i'   %samplesdict[sname]['year'])
+  print('   - year         : %s'   %samplesdict[sname]['year'])
   print('   - xsec         : %f'   %samplesdict[sname]['xsec'])
   print('   - histAxisName : %s'   %samplesdict[sname]['histAxisName'])
   print('   - options      : %s'   %samplesdict[sname]['options'])
@@ -145,26 +145,60 @@ else:
 
 processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors,do_systs)
 
-executor_args = {#'flatten': True, #used for all executors
-                 'compression': 0, #used for all executors
-                 'cores': 1,
-                 'disk': 5000, #MB
-                 'memory': 4000, #MB
-                 'resource-monitor': True,
-                 'debug-log': 'debug.log',
-                 'transactions-log': 'tr.log',
-                 'stats-log': 'stats.log',
-                 'verbose': False,
-                 'port': [9123,9130],
-                 'environment-file': topeftenv.get_environment(),
-                 'master-name': '{}-workqueue-coffea'.format(os.environ['USER']),
-                 'print-stdout': True,
-                 'skipbadfiles': False,
-                 'schema': NanoAODSchema,
-                 'extra-input-files': ["topeft.py"]
+executor_args = {
+    'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
+
+    # find a port to run work queue in this range:
+    'port': [9123,9130],
+
+    'debug_log': 'debug.log',
+    'transactions_log': 'tr.log',
+    'stats_log': 'stats.log',
+
+    'environment_file': topeftenv.get_environment(),
+    'extra_input_files': ["topeft.py"],
+
+    'schema': NanoAODSchema,
+    'skipbadfiles': False,
+
+    # use mid-range compression for chunks results. 9 is the default for work
+    # queue in coffea. Valid values are 0 (minimum compression, less memory
+    # usage) to 16 (maximum compression, more memory usage).
+    'compression': 9,
+
+    # automatically find an adequate resource allocation for tasks.
+    # allocations sizes are tried until the maximum resources (defined below)
+    # are reached, at which point a tasks fails permanently. If no maximum is
+    # specified, of no worker is as large as the maximum specified, then
+    # retried tasks will wait forever until a large enough worker connects.
+    'resource_monitor': True,
+    'resources_mode': 'auto',
+
+    # this resource values may be ommited when using
+    # resources_mode: 'auto', but they do make the initial portion
+    # of a workflow run a little bit faster.
+    # Rather than using whole workers in the exploratory mode of
+    # resources_mode: auto, tasks are forever limited to a maximum
+    # of 8GB of mem and disk.
+    'cores': 1,
+    'disk': 8000,   #MB
+    'memory': 8000, #MB
+
+    # control the size of accumulation tasks. Results are
+    # accumulated in groups of size chunks_per_accum, keeping at
+    # most chunks_per_accum at the same time in memory per task.
+    'chunks_per_accum': 25,
+    'chunks_accum_in_mem': 2,
+
+    # print messages when tasks are submitted, finished, etc.,
+    # together with their resource allocation and usage. If a task
+    # fails, its standard output is also printed, so we can turn
+    # off print_stdout for all tasks.
+    'verbose': True,
+    'print_stdout': False,
 }
 
-# Run the processor and get the output                                                                                                                                                                     
+# Run the processor and get the output
 tstart = time.time()
 output = processor.run_uproot_job(flist, treename=treename, processor_instance=processor_instance, executor=processor.work_queue_executor, executor_args=executor_args, chunksize=chunksize, maxchunks=nchunks)
 dt = time.time() - tstart
@@ -175,9 +209,10 @@ nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() i
 nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
 print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
-# This is taken from the DM photon analysis...                                                                                                                                                             
-# Pickle is not very fast or memory efficient, will be replaced by something better soon                                                                                                                   
-#    with lz4f.open("pods/"+options.year+"/"+dataset+".pkl.gz", mode="xb", compression_level=5) as fout:                                                                                                   
+# This is taken from the DM photon analysis...
+# Pickle is not very fast or memory efficient, will be replaced by something
+# better soon
+#    with lz4f.open("pods/"+options.year+"/"+dataset+".pkl.gz", mode="xb", compression_level=5) as fout:
 if not outpath.endswith('/'): outpath += '/'
 if not os.path.isdir(outpath): os.system("mkdir -p %s"%outpath)
 print('Saving output in %s...'%(outpath + outname + ".pkl.gz"))
