@@ -3,30 +3,46 @@ name: CI
 on:
   push:
   schedule:
-    - cron: '0 1 * * *' # Should test every day at 1AM, though apparently does not work anywhere but master branch
+    - cron: '0 1 * * *' # Test every day at 1AM
   
 jobs:
-  # Example of a test job, just prints Hello world
-  test: 
-    runs-on: ubuntu-latest
-    steps:
-      - name: Hello world
-        run: echo Hello world
-  # Placeholder job for testing the processor, based on build job from https://github.com/bu-cms/bucoffea/blob/master/.github/workflows/pythonpackage.yml
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
+
+      - name: Add conda to system path
+        run: |
+          echo $CONDA/bin >> $GITHUB_PATH 
+
       - name: Install dependencies
         run: |
-          # Install into base environment to avoid issue of environment variables not persisting between steps in a workflow, see https://autobencoder.com/2020-08-24-conda-actions/
           conda env update --file environment.yml --name base
-      - name: Install package
+
+      - name: Conda list
+        run: |
+          conda list
+
+      - name: Install topcoffea package
         run: |
           pip install -e .
+
+      - name: Download root files
+        run: |
+          wget http://www.crc.nd.edu/~ywan2/root_files/NAOD-00000_18449.root
+
       - name: Run processors over test files
         run: |
-          cd tests
-          chmod +x ./run_over_testfiles.sh
-          ./run_over_testfiles.sh
+          cd analysis/topEFT
+          time python run.py ../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.json -o output_check_yields
+
+      - name: Get yields 
+        run: |
+          cd analysis/topEFT
+          python get_yield_json.py -f histos/output_check_yields.pkl.gz -n output_check_yields
+
+      - name: Compare yields
+        run: |
+          cd analysis/topEFT
+          python comp_yields.py test/ref_yields.json output_check_yields.json -t1 "Ref yields" -t2 "New yields"
