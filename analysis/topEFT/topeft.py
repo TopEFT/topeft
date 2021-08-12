@@ -370,10 +370,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         ####### Maybe not how we want to do this... ########
 
         # 2lss selection
+        channels_2lss = ["2lss_p" , "2lss_m"]
         selections.add("2lss_p", (is2lss & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_m", (is2lss & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
 
         # 3l selection
+        channels_3l = ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"]
         selections.add("3l_p_offZ_1b", (is3l & charge3l_p & ~sfosz_mask & bmask_exactly1med & pass_trg))
         selections.add("3l_m_offZ_1b", (is3l & charge3l_m & ~sfosz_mask & bmask_exactly1med & pass_trg))
         selections.add("3l_p_offZ_2b", (is3l & charge3l_p & ~sfosz_mask & bmask_atleast2med & pass_trg))
@@ -382,9 +384,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("3l_onZ_2b", (is3l & sfosz_mask & bmask_atleast2med & pass_trg))
 
         # 4l selection
+        channels_4l = ["4l"]
         selections.add("4l", (is4l & bmask_atleast1med_atleast2loose & pass_trg))
 
         # Lep cat selection
+        channels_2lss_flav = ["ee" , "em" , "mm"]
+        channels_3l_flav   = ["eee" , "eem" , "emm", "mmm"]
         selections.add("ee", events.is_ee)
         selections.add("em", events.is_em)
         selections.add("mm", events.is_em)
@@ -394,6 +399,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("mmm", events.is_mmm)
 
         # Njets selection
+        channels_2lss_njets = ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"]
+        channels_3l_njets   = ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"]
+        channels_4l_njets   = ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"]
         selections.add("exactly_2j", (njets==2))
         selections.add("exactly_3j", (njets==3))
         selections.add("exactly_4j", (njets==4))
