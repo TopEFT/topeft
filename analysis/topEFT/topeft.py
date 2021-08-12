@@ -35,7 +35,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         'njets'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10)),
         'nbtags'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)),
         'met'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
-        'm3l'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("m3l",    "$m_{3\ell}$ (GeV) ", 50, 0, 500)),
         'wleppt'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
         'l0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",   "Leading lep $p_{T}$ (GeV)", 25, 0, 500)),
         'j0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 25, 0, 500)),
@@ -107,6 +106,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
         e_fo = e[e.isPres & e.isLooseE & e.isFO]
+        #m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO & mu.isTightLep]
+        #e_fo = e[e.isPres & e.isLooseE & e.isFO & e.isTightLep]
 
         # Attach the lepton SFs to the electron and muons collections
         AttachElectronSF(e_fo,year=year)
@@ -211,22 +212,59 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Print the number of events by leptop category
         print("\nNumber of events passing FO selection:")
-        print("  n 2lss:",ak.sum(events.is2lss,axis=-1))
-        print("    n ee:",ak.sum((events.is2lss & events.is_ee),axis=-1))
-        print("    n em:",ak.sum((events.is2lss & events.is_em),axis=-1))
-        print("    n mm:",ak.sum((events.is2lss & events.is_mm),axis=-1))
-        print("  n 3l:",ak.sum(events.is3l,axis=-1))
-        print("    n eee:",ak.sum((events.is3l & events.is_eee),axis=-1))
-        print("    n eem:",ak.sum((events.is3l & events.is_eem),axis=-1))
-        print("    n emm:",ak.sum((events.is3l & events.is_emm),axis=-1))
-        print("    n mmm:",ak.sum((events.is3l & events.is_mmm),axis=-1))
-        print("  n 4l:",ak.sum(events.is4l,axis=-1))
-        print("    n eeee:",ak.sum((events.is4l & events.is_eeee),axis=-1))
-        print("    n eeem:",ak.sum((events.is4l & events.is_eeem),axis=-1))
-        print("    n eemm:",ak.sum((events.is4l & events.is_eemm),axis=-1))
-        print("    n emmm:",ak.sum((events.is4l & events.is_emmm),axis=-1))
-        print("    n mmmm:",ak.sum((events.is4l & events.is_mmmm),axis=-1))
-        print("    n gr4l:",ak.sum((events.is4l & events.is_gr4l),axis=-1))
+        print("  n_2lss:",ak.sum(events.is2lss,axis=-1))
+        print("    n_ee:",ak.sum((events.is2lss & events.is_ee),axis=-1))
+        print("    n_em:",ak.sum((events.is2lss & events.is_em),axis=-1))
+        print("    n_mm:",ak.sum((events.is2lss & events.is_mm),axis=-1))
+        print("  n_3l:",ak.sum(events.is3l,axis=-1))
+        print("    n_eee:",ak.sum((events.is3l & events.is_eee),axis=-1))
+        print("    n_eem:",ak.sum((events.is3l & events.is_eem),axis=-1))
+        print("    n_emm:",ak.sum((events.is3l & events.is_emm),axis=-1))
+        print("    n_mmm:",ak.sum((events.is3l & events.is_mmm),axis=-1))
+        print("  n_4l:",ak.sum(events.is4l,axis=-1))
+        print("    n_eeee:",ak.sum((events.is4l & events.is_eeee),axis=-1))
+        print("    n_eeem:",ak.sum((events.is4l & events.is_eeem),axis=-1))
+        print("    n_eemm:",ak.sum((events.is4l & events.is_eemm),axis=-1))
+        print("    n_emmm:",ak.sum((events.is4l & events.is_emmm),axis=-1))
+        print("    n_mmmm:",ak.sum((events.is4l & events.is_mmmm),axis=-1))
+        print("    n_gr4l:",ak.sum((events.is4l & events.is_gr4l),axis=-1))
+
+        print("\nNumber of events passing tight selection:")
+        print("  n_2lss:",ak.sum(events.is2lss & events.is2lss_SR,axis=-1))
+        print("    n_ee:",ak.sum((events.is2lss & events.is_ee & events.is2lss_SR),axis=-1))
+        print("    n_em:",ak.sum((events.is2lss & events.is_em & events.is2lss_SR),axis=-1))
+        print("    n_mm:",ak.sum((events.is2lss & events.is_mm & events.is2lss_SR),axis=-1))
+        print("  n_3l:",ak.sum(events.is3l & events.is3l_SR,axis=-1))
+        print("    n_eee:",ak.sum((events.is3l & events.is_eee & events.is3l_SR),axis=-1))
+        print("    n_eem:",ak.sum((events.is3l & events.is_eem & events.is3l_SR),axis=-1))
+        print("    n_emm:",ak.sum((events.is3l & events.is_emm & events.is3l_SR),axis=-1))
+        print("    n_mmm:",ak.sum((events.is3l & events.is_mmm & events.is3l_SR),axis=-1))
+        print("  n_4l:",ak.sum(events.is4l & events.is4l_SR,axis=-1))
+        print("    n_eeee:",ak.sum((events.is4l & events.is_eeee & events.is4l_SR),axis=-1))
+        print("    n_eeem:",ak.sum((events.is4l & events.is_eeem & events.is4l_SR),axis=-1))
+        print("    n_eemm:",ak.sum((events.is4l & events.is_eemm & events.is4l_SR),axis=-1))
+        print("    n_emmm:",ak.sum((events.is4l & events.is_emmm & events.is4l_SR),axis=-1))
+        print("    n_mmmm:",ak.sum((events.is4l & events.is_mmmm & events.is4l_SR),axis=-1))
+        print("    n_gr4l:",ak.sum((events.is4l & events.is_gr4l & events.is4l_SR),axis=-1))
+
+        ##############
+        # SyncCheck: Two FO leptons (conePt > 25, conePt > 15)
+        #l_fo_conept_sorted = lep_FO[ak.argsort(lep_FO.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
+        #l_fo_conept_sorted = l_fo_conept_sorted[l_fo_conept_sorted.isTightLep] # TMP
+        l_fo_pt_mask = ak.any(l_fo_conept_sorted[:,0:1].conept > 25.0, axis=1) & ak.any(l_fo_conept_sorted[:,1:2].conept > 15.0, axis=1)
+        ee_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
+        mm_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
+        em_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
+        me_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
+        print("")
+        print("l_fo_pt_mask",l_fo_pt_mask)
+        print("2 FO leps (conePt>25, conePt>15):")
+        print("  ll events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask],axis=0))
+        print("  ee events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & ee_mask],axis=0))
+        print("  em events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & (em_mask | me_mask)],axis=0))
+        print("  mm events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & mm_mask],axis=0))
+        print("")
+        ##############
 
         # Get mask for events that have two sf os leps close to z peak
         ll_fo_pairs = ak.combinations(l_fo_conept_sorted_padded, 2, fields=["l0","l1"])
@@ -331,32 +369,38 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ####### Maybe not how we want to do this... ########
 
-        selections.add("2lss_ee_p_4j", (is2lss & events.is_ee & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_ee_p_5j", (is2lss & events.is_ee & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_ee_p_6j", (is2lss & events.is_ee & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_ee_p_7j", (is2lss & events.is_ee & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_ee_m_4j", (is2lss & events.is_ee & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_ee_m_5j", (is2lss & events.is_ee & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_ee_m_6j", (is2lss & events.is_ee & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_ee_m_7j", (is2lss & events.is_ee & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+        # 2lss selection
+        selections.add("2lss_p", (is2lss & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m", (is2lss & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
 
-        #selections.add("2lss_em_p_4j", (is2lss & events.is_em & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_em_p_5j", (is2lss & events.is_em & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_em_p_6j", (is2lss & events.is_em & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_em_p_7j", (is2lss & events.is_em & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_em_m_4j", (is2lss & events.is_em & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_em_m_5j", (is2lss & events.is_em & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_em_m_6j", (is2lss & events.is_em & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_em_m_7j", (is2lss & events.is_em & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+        # 3l selection
+        selections.add("3l_p_offZ_1b", (is3l & charge3l_p & ~sfosz_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_m_offZ_1b", (is3l & charge3l_m & ~sfosz_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_p_offZ_2b", (is3l & charge3l_p & ~sfosz_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_m_offZ_2b", (is3l & charge3l_m & ~sfosz_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_onZ_1b", (is3l & sfosz_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_onZ_2b", (is3l & sfosz_mask & bmask_atleast2med & pass_trg))
 
-        #selections.add("2lss_mm_p_4j", (is2lss & events.is_mm & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_mm_p_5j", (is2lss & events.is_mm & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_mm_p_6j", (is2lss & events.is_mm & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_mm_p_7j", (is2lss & events.is_mm & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_mm_m_4j", (is2lss & events.is_mm & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_mm_m_5j", (is2lss & events.is_mm & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_mm_m_6j", (is2lss & events.is_mm & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_mm_m_7j", (is2lss & events.is_mm & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+        # 4l selection
+        selections.add("4l", (is4l & bmask_atleast1med_atleast2loose & pass_trg))
+
+        # Lep cat selection
+        selections.add("ee", events.is_ee)
+        selections.add("em", events.is_em)
+        selections.add("mm", events.is_em)
+        selections.add("eee", events.is_eee)
+        selections.add("eem", events.is_eem)
+        selections.add("emm", events.is_emm)
+        selections.add("mmm", events.is_mmm)
+
+        # Njets selection
+        selections.add("exactly_2j", (njets==2))
+        selections.add("exactly_3j", (njets==3))
+        selections.add("exactly_4j", (njets==4))
+        selections.add("exactly_5j", (njets==5))
+        selections.add("exactly_6j", (njets==6))
+        selections.add("atleast_5j", (njets>=5))
+        selections.add("atleast_7j", (njets>=7))
 
         #####################################################
 
@@ -477,26 +521,27 @@ class AnalysisProcessor(processor.ProcessorABC):
                         if var == 'invmass':
                             values = v[cut]
                             hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, invmass=values, weight=weights_flat, systematic=syst,appl=appl)
-                        elif var == 'm3l': 
-                            if ((ch in channels2LSS) or (ch in channels2LOS) or (ch in ['eeeSSoffZ', 'mmmSSoffZ', 'eeeSSonZ' , 'mmmSSonZ']) or (ch in channels4L)): continue
-                            values = ak.flatten(v[ch][cut])
-                            hout['m3l'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, m3l=values, weight=weights_flat, systematic=syst,appl=appl)
                         else:
                             values = v[cut] 
                             # These all look identical, do we need if/else here?
-                            if   var == 'ht'    : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'met'   : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'njets' : hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'nbtags': hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'counts': hout[var].fill(counts=values, sample=histAxisName, channel=ch, weight=weights_ones, systematic=syst,appl=appl)
-                            elif var == 'j0eta' : 
+                            if   var == 'ht': 
+                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'met': 
+                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'njets': 
+                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'nbtags': 
+                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'counts': 
+                                hout[var].fill(counts=values, sample=histAxisName, channel=ch, weight=weights_ones, systematic=syst,appl=appl)
+                            elif var == 'l0pt': 
+                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'l0eta': 
+                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            elif var == 'j0eta': 
                                 values = ak.flatten(values) # Values here are not already flat, why?
                                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'l0pt'  : 
-                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'l0eta'  : 
-                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'j0pt'  : 
+                            elif var == 'j0pt': 
                                 values = ak.flatten(values) # Values here are not already flat, why?
                                 hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
         return hout
