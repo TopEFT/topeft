@@ -178,7 +178,7 @@ class DatacardMaker():
             if len(h_base.axes())>1:
                 fout[pname+'sm'] = export2d(h_sm)
             else:
-                fout[pname+'sm'] = hist.export1d(h_sm)
+                fout[proc+'_sm'] = hist.export1d(h_sm) # Special case for SM b/c background names overlap
             #Asimov data: data_obs = MC at SM (all WCs = 0)
             if len(h_base.axes())>1:
                 fout['data_obs'] = export2d(h_sm)
@@ -288,6 +288,7 @@ class DatacardMaker():
         fout = TFile(fname, 'recreate')
         signalcount=0; bkgcount=0; iproc = {}; systMap = {}; allyields = {'data_obs' : 0.}
         data_obs = []
+        d_bkgs = {} # Store backgrounds for summing
         for proc in self.samples:
             p = self.rename[proc] if proc in self.rename else proc
             name = 'data_obs'
@@ -298,9 +299,9 @@ class DatacardMaker():
             These lines are for testing only, and create Asimov data based on all processes provided
             '''
             if proc == self.samples[0]:
-                data_obs = getHist(d_hists,p+'_sm').Clone('data_obs')
+                data_obs = getHist(d_hists,proc+'_sm').Clone('data_obs') # Special case for SM b/c background names overlap
             else:
-                data_obs.Add(getHist(d_hists,p+'_sm').Clone('data_obs'))
+                data_obs.Add(getHist(d_hists,proc+'_sm').Clone('data_obs')) # Special case for SM b/c background names overlap
             asimov = np.random.poisson(int(data_obs.Integral()))
             data_obs.SetDirectory(fout)
             if proc == self.samples[-1]:
@@ -309,11 +310,11 @@ class DatacardMaker():
                 data_obs.Write()
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             name = pname + 'sm'
-            if name not in d_hists:
+            if name not in d_hists and proc+'_sm' not in d_hists:
                 print(f'{name} not found in {channel}!')
                 continue
-            h_sm = getHist(d_hists, name)
-            if h_sm.Integral() > self.tolerance or p not in self.signal:
+            h_sm = getHist(d_hists, proc+'_sm') # Special case for SM b/c background names overlap
+            if True or h_sm.Integral() > self.tolerance or p not in self.signal:
                 if p in self.signal:
                     signalcount -= 1
                     iproc[name] = signalcount
@@ -321,16 +322,21 @@ class DatacardMaker():
                 else:
                     if name in iproc:
                         allyields[name] += h_sm.Integral()
-                        h_sm.Add(fout.Get(name))
+                        #h_sm.Add(fout.Get(name).Clone()) # Special case for SM b/c background names overlap
+                        d_bkgs[name].Add(h_sm)
                         fout.Delete(name+';1')
+                        h_sm = d_bkgs[name]
                     else:
                         iproc[name] = bkgcount
                         allyields[name] = h_sm.Integral()
                         bkgcount += 1
-                if allyields[name] < 0 or allyields[name] < self.tolerance:
+                        d_bkgs[name] = h_sm
+                if allyields[name] < 0:# or allyields[name] < self.tolerance:
                     allyields[name] = 0.
                 #processSyst(h_sm, systMap,fout)
                 h_sm.SetDirectory(fout)
+                h_sm.SetName(name)
+                h_sm.SetTitle(name)
                 h_sm.Write()
                 if p not in self.signal:
                     continue
@@ -340,7 +346,7 @@ class DatacardMaker():
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                     continue
                 h_lin = getHist(d_hists, name)
-                if True or h_lin.Integral() > self.tolerance:
+                if h_lin.Integral() > self.tolerance:
                     h_lin.SetDirectory(fout)
                     h_lin.Write()
                     signalcount -= 1
@@ -358,7 +364,7 @@ class DatacardMaker():
                 h_quad.Add(h_lin, -2)
                 h_quad.Add(h_sm)
                 h_quad.Scale(0.5)
-                if True or h_quad.Integral() > self.tolerance:
+                if h_quad.Integral() > self.tolerance:
                     h_quad.SetDirectory(fout)
                     h_quad.Write()
                     signalcount -= 1
@@ -374,7 +380,7 @@ class DatacardMaker():
                         print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                         continue
                     h_mix = getHist(d_hists, name)
-                    if True or h_mix.Integral() > self.tolerance:
+                    if h_mix.Integral() > self.tolerance:
                         h_mix.SetDirectory(fout)
                         h_mix.Write()
                         signalcount -= 1
