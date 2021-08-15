@@ -581,8 +581,9 @@ def main():
     out_dir_private_UL     = os.path.join(topcoffea_path("json"),"signal_samples/private_UL/")
     out_dir_top19001_local = os.path.join(topcoffea_path("json"),"signal_samples/private_top19001_local")
     out_dir_central_UL     = os.path.join(topcoffea_path("json"),"signal_samples/central_UL/")
-    out_dir_central_bkg_UL     = os.path.join(topcoffea_path("json"),"background_samples/central_UL/")
     out_dir_central_2017   = os.path.join(topcoffea_path("json"),"signal_samples/central_2017/")
+    out_dir_central_sync   = os.path.join(topcoffea_path("json"),"sync_samples/")
+    out_dir_central_bkg_UL = os.path.join(topcoffea_path("json"),"background_samples/central_UL/")
 
     # Private UL
     #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
@@ -600,6 +601,7 @@ def main():
     #make_jsons_for_dict_of_samples(central_UL17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
     make_jsons_for_dict_of_samples(central_UL17_bkg_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
+    #make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
 
     # Testing finding list of files with xrdfs ls
     #make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
