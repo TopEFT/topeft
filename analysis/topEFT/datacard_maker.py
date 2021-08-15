@@ -19,7 +19,7 @@ class DatacardMaker():
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
         self.levels = ['base', '2jets', '4jets', '4j1b', '4j2b']
         self.fin = infile
-        self.tolerance = 0.001
+        self.tolerance = 1e-7
         self.do_nuisance = do_nuisance
         if len(wcs)>0: self.coeffs = wcs
         self.coeffs = wcs if len(wcs)>0 else []
@@ -346,7 +346,7 @@ class DatacardMaker():
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                     continue
                 h_lin = getHist(d_hists, name)
-                if h_lin.Integral() > self.tolerance:
+                if h_lin.Integral() > 0 and h_lin.Integral() / h_sm.Integral() > self.tolerance:
                     h_lin.SetDirectory(fout)
                     h_lin.Write()
                     signalcount -= 1
@@ -364,7 +364,7 @@ class DatacardMaker():
                 h_quad.Add(h_lin, -2)
                 h_quad.Add(h_sm)
                 h_quad.Scale(0.5)
-                if h_quad.Integral() > self.tolerance:
+                if h_quad.Integral() > 0 and h_quad.Integral() / h_sm.Integral() > self.tolerance:
                     h_quad.SetDirectory(fout)
                     h_quad.Write()
                     signalcount -= 1
@@ -380,7 +380,7 @@ class DatacardMaker():
                         print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                         continue
                     h_mix = getHist(d_hists, name)
-                    if h_mix.Integral() > self.tolerance:
+                    if h_mix.Integral() > 0 and h_mix.Integral() / h_sm.Integral() > self.tolerance:
                         h_mix.SetDirectory(fout)
                         h_mix.Write()
                         signalcount -= 1
@@ -399,11 +399,13 @@ class DatacardMaker():
         cat = 'bin_'+cat
         datacard.write('##----------------------------------\n')
         datacard.write('bin         %s\n' % cat)
-        datacard.write('observation %%.%df\n' % np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])) % allyields['data_obs'])
+        datacard.write('observation %%.%df\n' % np.abs(3) % allyields['data_obs'])
+        #datacard.write('observation %%.%df\n' % np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])) % allyields['data_obs'])
         datacard.write('##----------------------------------\n')
         klen = max([7, len(cat)]+[len(p[0]) for p in iproc.keys()])
         kpatt = " %%%ds "  % klen
-        fpatt = " %%%d.%df " % (klen,np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])))#3)
+        fpatt = " %%%d.%df " % (klen,np.abs(3))#3)
+        #fpatt = " %%%d.%df " % (klen,np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])))#3)
         npatt = "%%-%ds " % max([len('process')]+list(map(len,nuisances)))
         datacard.write('##----------------------------------\n')
         procs = iproc.keys()
