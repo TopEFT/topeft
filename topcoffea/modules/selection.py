@@ -180,8 +180,8 @@ def trgPassNoOverlap(events,is_data,dataset,year):
     return (trg_passes & ~trg_overlaps)
 
 
-# 2lss selection
-def add2lssMaskAndSFs(events, year, isData):
+# 2l selection (we do not make the ss requirement here)
+def add2lMaskAndSFs(events, year, isData):
 
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
@@ -203,21 +203,21 @@ def add2lssMaskAndSFs(events, year, isData):
     # Jet requirements:
     njet4 = (events.njets>3)
 
-    # 2lss requirements:
+    # 2l requirements:
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
     dilep = (ak.num(FOs)) >= 2 
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
     mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge & njet4)
-    events['is2lss'] = ak.fill_none(mask,False)
+    events['is2l'] = ak.fill_none(mask,False)
 
     # SFs
-    events['sf_2lss'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom
-    events['sf_2lss_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
-    events['sf_2lss_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
+    events['sf_2l'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom
+    events['sf_2l_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
+    events['sf_2l_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
 
     # SR:
-    events['is2lss_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
-    events['is2lss_SR'] = ak.fill_none(events['is2lss_SR'],False)
+    events['is2l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
+    events['is2l_SR'] = ak.fill_none(events['is2l_SR'],False)
 
     # FF:
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])

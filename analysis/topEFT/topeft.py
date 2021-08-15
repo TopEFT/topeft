@@ -204,18 +204,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         l1 = l_fo_conept_sorted_padded[:,1]
         l2 = l_fo_conept_sorted_padded[:,2]
 
-        add2lssMaskAndSFs(events, year, isData)
+        add2lMaskAndSFs(events, year, isData)
         add3lMaskAndSFs(events, year, isData)
         add4lMaskAndSFs(events, year, isData)
         addLepCatMasks(events)
-        print('The number of events passing fo 2lss, 3l, and 4l selection is:', ak.num(events[events.is2lss],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
+        print('The number of events passing fo 2lss, 3l, and 4l selection is:', ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
 
+        ################################################################
         # Print the number of events by leptop category
         print("\nNumber of events passing FO selection:")
-        print("  n_2lss:",ak.sum(events.is2lss,axis=-1))
-        print("    n_ee:",ak.sum((events.is2lss & events.is_ee),axis=-1))
-        print("    n_em:",ak.sum((events.is2lss & events.is_em),axis=-1))
-        print("    n_mm:",ak.sum((events.is2lss & events.is_mm),axis=-1))
+        print("  n_2lss:",ak.sum(events.is2l,axis=-1))
+        print("    n_ee:",ak.sum((events.is2l & events.is_ee),axis=-1))
+        print("    n_em:",ak.sum((events.is2l & events.is_em),axis=-1))
+        print("    n_mm:",ak.sum((events.is2l & events.is_mm),axis=-1))
         print("  n_3l:",ak.sum(events.is3l,axis=-1))
         print("    n_eee:",ak.sum((events.is3l & events.is_eee),axis=-1))
         print("    n_eem:",ak.sum((events.is3l & events.is_eem),axis=-1))
@@ -230,10 +231,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("    n_gr4l:",ak.sum((events.is4l & events.is_gr4l),axis=-1))
 
         print("\nNumber of events passing tight selection:")
-        print("  n_2lss:",ak.sum(events.is2lss & events.is2lss_SR,axis=-1))
-        print("    n_ee:",ak.sum((events.is2lss & events.is_ee & events.is2lss_SR),axis=-1))
-        print("    n_em:",ak.sum((events.is2lss & events.is_em & events.is2lss_SR),axis=-1))
-        print("    n_mm:",ak.sum((events.is2lss & events.is_mm & events.is2lss_SR),axis=-1))
+        print("  n_2lss:",ak.sum(events.is2l & events.is2l_SR,axis=-1))
+        print("    n_ee:",ak.sum((events.is2l & events.is_ee & events.is2l_SR),axis=-1))
+        print("    n_em:",ak.sum((events.is2l & events.is_em & events.is2l_SR),axis=-1))
+        print("    n_mm:",ak.sum((events.is2l & events.is_mm & events.is2l_SR),axis=-1))
         print("  n_3l:",ak.sum(events.is3l & events.is3l_SR,axis=-1))
         print("    n_eee:",ak.sum((events.is3l & events.is_eee & events.is3l_SR),axis=-1))
         print("    n_eem:",ak.sum((events.is3l & events.is_eem & events.is3l_SR),axis=-1))
@@ -247,6 +248,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("    n_mmmm:",ak.sum((events.is4l & events.is_mmmm & events.is4l_SR),axis=-1))
         print("    n_gr4l:",ak.sum((events.is4l & events.is_gr4l & events.is4l_SR),axis=-1))
 
+        n_ee = ak.sum((events.is2l & events.is_ee & events.is2l_SR),axis=-1)
+        n_mm = ak.sum((events.is2l & events.is_mm & events.is2l_SR),axis=-1)
+        n_eee = ak.sum((events.is3l & events.is_eee & events.is3l_SR),axis=-1)
+        n_mmm = ak.sum((events.is3l & events.is_mmm & events.is3l_SR),axis=-1)
+
+        print("\nRatios:")
+        print(f"    ee/mm  : ({n_ee}/{n_mm})^(1/2) ->",(n_ee/n_mm)**(1.0/2.0))
+        print(f"    eee/mmm: ({n_eee}/{n_mmm})^(1/3) ->",(n_eee/n_mmm)**(1.0/3.0))
+
         ##############
         # SyncCheck: Two FO leptons (conePt > 25, conePt > 15)
         #l_fo_conept_sorted = lep_FO[ak.argsort(lep_FO.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
@@ -256,15 +266,23 @@ class AnalysisProcessor(processor.ProcessorABC):
         mm_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
         em_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
         me_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
+        # For tight sel
+        t_mask = (ak.any(l_fo_conept_sorted[:,0:1].isTightLep,axis=1) & ak.any(l_fo_conept_sorted[:,1:2].isTightLep,axis=1))
         print("")
-        print("l_fo_pt_mask",l_fo_pt_mask)
+        #print("l_fo_pt_mask",l_fo_pt_mask)
         print("2 FO leps (conePt>25, conePt>15):")
         print("  ll events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask],axis=0))
         print("  ee events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & ee_mask],axis=0))
         print("  em events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & (em_mask | me_mask)],axis=0))
         print("  mm events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & mm_mask],axis=0))
+        print("2 tight leps (conePt>25, conePt>15):")
+        print("  ll events:", ak.num(l_fo_conept_sorted[t_mask & l_fo_pt_mask],axis=0))
+        print("  ee events:", ak.num(l_fo_conept_sorted[t_mask & l_fo_pt_mask & ee_mask],axis=0))
+        print("  em events:", ak.num(l_fo_conept_sorted[t_mask & l_fo_pt_mask & (em_mask | me_mask)],axis=0))
+        print("  mm events:", ak.num(l_fo_conept_sorted[t_mask & l_fo_pt_mask & mm_mask],axis=0))
         print("")
-        ##############
+
+        ################################################################
 
         # Get mask for events that have two sf os leps close to z peak
         ll_fo_pairs = ak.combinations(l_fo_conept_sorted_padded, 2, fields=["l0","l1"])
@@ -307,7 +325,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_dict[ch_name].add('norm',genw if isData else (xsec/sow)*genw)
             weights_dict[ch_name].add('btagSF', btagSF, btagSFUp, btagSFDo)
             if ch_name == "2lss":
-                weights_dict[ch_name].add('lepSF', events.sf_2lss, events.sf_2lss_hi, events.sf_2lss_lo)
+                weights_dict[ch_name].add('lepSF', events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
             if ch_name == "3l":
                 weights_dict[ch_name].add('lepSF', events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
             if ch_name == "4l":
@@ -331,16 +349,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections = PackedSelection(dtype='uint64')
 
         # Lepton categories
-        is2lss = events.is2lss
+        is2l   = events.is2l
         is3l   = events.is3l
         is4l   = events.is4l
 
         # 2lss0tau things
-        selections.add('2lss0tau', is2lss)
+        selections.add('2lss0tau', is2l)
 
         # AR/SR categories
-        selections.add('isSR_2lss',  ak.values_astype(events.is2lss_SR,'bool'))
-        selections.add('isAR_2lss', ~ak.values_astype(events.is2lss_SR,'bool'))
+        selections.add('isSR_2l',    ak.values_astype(events.is2l_SR,'bool'))
+        selections.add('isAR_2l',   ~ak.values_astype(events.is2l_SR,'bool'))
         selections.add('isSR_3l',    ak.values_astype(events.is3l_SR,'bool'))
         selections.add('isAR_3l',   ~ak.values_astype(events.is3l_SR,'bool'))
         selections.add('isSR_4l',    ak.values_astype(events.is4l_SR,'bool'))
@@ -358,21 +376,21 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Channels for the 2lss cat
         channels2LSS  = ["2lss_p_4j","2lss_p_5j","2lss_p_6j","2lss_p_7j","2lss_m_4j","2lss_m_5j","2lss_m_6j","2lss_m_7j"]
-        selections.add("2lss_p_4j", (is2lss & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_p_5j", (is2lss & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_p_6j", (is2lss & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_p_7j", (is2lss & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m_4j", (is2lss & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m_5j", (is2lss & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m_6j", (is2lss & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m_7j", (is2lss & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_p_4j", (is2l & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_p_5j", (is2l & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_p_6j", (is2l & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_p_7j", (is2l & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m_4j", (is2l & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m_5j", (is2l & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m_6j", (is2l & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m_7j", (is2l & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
 
         ####### Maybe not how we want to do this... ########
 
         # 2lss selection
         channels_2lss = ["2lss_p" , "2lss_m"]
-        selections.add("2lss_p", (is2lss & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m", (is2lss & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_p", (is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m", (is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
 
         # 3l selection
         channels_3l = ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"]
@@ -496,7 +514,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 for ch in ['2lss0tau'] + channels2LSS + channels3l + channels4l:
 
                     if "2lss" in ch:
-                        appl_lst = ['isSR_2lss', 'isAR_2lss']
+                        appl_lst = ['isSR_2l', 'isAR_2l']
                         weights_object = weights_dict["2lss"]
                     elif "3l" in ch:
                         appl_lst = ['isSR_3l', 'isAR_3l']
