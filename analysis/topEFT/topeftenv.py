@@ -10,19 +10,25 @@ import time
 import logging
 import glob
 import os
+import string
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
 
 env_dir_cache = 'envs'
 
+py_version = "{}.{}.{}".format(
+        sys.version_info[0], sys.version_info[1], sys.version_info[2]
+        )  # 3.8 or 3.9, or etc.
+
+
 # Define packages to install from different conda channels.
 # This is defines as json so that we can easily checksum the contents.
-packages_json = '''
+packages_json_template = string.Template('''
 {
     "base": {
         "conda": {
-            "defaults" : ["python=3.8.3", "conda"],
+            "defaults" : ["python=$py_version", "conda"],
             "conda-forge" : ["conda-pack", "dill", "xrootd", "coffea"]
         }
     },
@@ -33,8 +39,10 @@ packages_json = '''
         ]
     }
 }
-'''
-packages = json.loads(packages_json)
+''')
+
+packages_json = packages_json_template.substitute(py_version=py_version)
+packages = json.loads(str(packages_json))
 
 
 def _run_conda_command(environment, command, *args):
@@ -120,20 +128,21 @@ def _find_local_pip():
 
 def _commits_local_pip(paths):
     commits = {}
-    for path in paths:
+    for (pkg, path) in paths.items():
         try:
             commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=path).decode().rstrip()
             changed = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=path).decode().rstrip()
             if changed:
                 logger.warning("Found unstaged changes in '{}'".format(path))
-                commits[path] = 'HEAD'
+                commits[pkg] = 'HEAD'
             else:
-                commits[path] = commit
+                commits[pkg] = commit
         except Exception as e:
             # on error, e.g., not a git repository, assume that current state
             # should be installed
+            print(e)
             logger.warning("Could not get current commit of '{}'.".format(path))
-            commits[path] = 'HEAD'
+            commits[pkg] = 'HEAD'
     return commits
 
 def _compute_commit(paths, commits):

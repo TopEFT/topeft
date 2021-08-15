@@ -1,0 +1,20 @@
+{
+  "xsec": 3.697,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "TTGJets_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL17NanoAODv2/TTGJets_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/120000/DF83A786-9754-414F-802D-26C419CEADEA.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/TTGJets_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/120000/7171F60B-921D-B543-AEFE-41C14F4FB604.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/TTGJets_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/382EB97E-C752-9847-AF12-973A57F57F2E.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/TTGJets_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/B7AC3626-47BD-D74A-AC6C-86BA3113419F.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/TTGJets_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/F08B910F-0E30-9E46-A6D0-28A26D5729CF.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/TTGJets_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/FE962B9F-69A7-D84D-AB81-3EEC5481EE70.root"
+  ],
+  "nEvents": 3534208,
+  "nGenEvents": 3534208,
+  "nSumOfWeights": 22157555.754240002,
+  "isData": false
+}
