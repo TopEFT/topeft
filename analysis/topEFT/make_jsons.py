@@ -290,6 +290,14 @@ private_2017_dict = {
 
 ########### Central signal samples ###########
 
+sync_dict = {
+    "ttHJetToNonbb_sync" : {
+        "path" : "/store/mc/RunIIFall17NanoAODv7/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/110000/BB506088-A858-A24D-B27C-0D31058D3125.root",
+        "histAxisName": "ttHJetToNonbb_sync",
+        "xsecName": "ttHnobb",
+    },
+}
+
 central_2017_correctnPartonsInBorn_dict = {
     "2017_TTZToLLNuNu_M_10_correctnPartonsInBorn" : {
         "path" : "/TTZToLLNuNu_M-10_TuneCP5_PSweights_correctnPartonsInBorn_13TeV-amcatnlo-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM",
