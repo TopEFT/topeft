@@ -1,0 +1,30 @@
+{
+  "xsec": 34.97,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "tbarW_noFullHad_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/E88E47C9-8478-2E4C-ADDE-6831D6A3FB49.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/70000/ECF3B012-7F8D-EE4B-9E0B-DC4079F8BF07.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/130000/3CED251A-A935-4B4D-B132-9948615B5741.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/130000/44F84794-4C63-B242-B34C-01F1DC2D1C29.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/130000/D68DD7E0-6CB5-2F40-8781-93D08208221E.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/140000/7F2323EF-88FD-1146-AB8C-FADC41193B67.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/140000/A3CFB75E-8CC8-2C48-80A1-536968996220.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/120000/1AB4B3DE-9B86-3340-A57D-FBF15ED8D08F.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/120000/3E5850EE-C352-6B43-8156-6BCE8AF755C5.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/3B9BC26C-02AF-4B4B-BB2A-D3492B90209D.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/AC4DBE59-5CB2-CD46-8D38-1256501F155C.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/270000/F158094C-2F1A-FB4C-A1B0-930EFCACA6D4.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/280000/97BC63BB-74E2-9646-943F-75D47160F9B5.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/280000/99911E39-D837-A941-BA50-7D98A67FD1FF.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/280000/B444663F-F1E9-354E-BE39-7436BCA1B7C1.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/280000/42BA5993-CEF8-EE46-BB81-DC3E66B13E06.root"
+  ],
+  "nEvents": 8238224,
+  "nGenEvents": 8238224,
+  "nSumOfWeights": 267804157.7232,
+  "isData": false
+}

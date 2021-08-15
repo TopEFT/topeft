@@ -362,6 +362,140 @@ central_UL17_dict = {
     },
 }
 
+central_UL17_bkg_dict = {
+    "UL17_DY10to50" : {
+        "path" : "/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "DYJetsToLL_centralUL17",
+        "xsecName": "DYJetsToLL_M_10to50_MLM",
+    },
+
+    "UL17_DY50" : {
+        "path" : "/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer19UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "DYJetsToLL_centralUL17",
+        "xsecName": "DYJetsToLL_M_50_MLM",
+    },
+
+    "UL17_singleTop" : {
+        "path" : "/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer19UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "singleTop_centralUL17",
+        "xsecName": "ST",
+    },
+
+    "UL17_t" : {
+        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer19UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "t_centralUL17",
+        "xsecName": "t",
+    },
+
+    "UL17_tbar" : {
+        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer19UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "tbar_centralUL17",
+        "xsecName": "tbar",
+    },
+
+    "UL17_tbarW" : {
+        "path" : "/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "tbarW_noFullHad_centralUL17",
+        "xsecName": "tbarW_noFullHad",
+    },
+
+    "UL17_tW" : {
+        "path" : "/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "tW_noFullHad_centralUL17",
+        "xsecName": "tW_noFullHad",
+    },
+
+    "UL17_TTGJets" : {
+        "path" : "/TTGJets_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "TTGJets_centralUL17",
+        "xsecName": "TTGJets",
+    },
+
+    "UL17_TTJets" : {
+        "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer19UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "TTJets_centralUL17",
+        "xsecName": "TT",
+    },
+
+    "UL17_TTWJetsToLNu" : {
+        "path" : "/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "TTWJetsToLNu_centralUL17",
+        "xsecName": "TTWJetsToLNu",
+    },
+
+    "UL17_TTZToLLNuNu" : {
+        "path" : "/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "TTZToLLNuNu_centralUL17",
+        "xsecName": "TTZToLLNuNu_M_10",
+    },
+
+    "UL17_WJetsToLNu" : {
+        "path" : "/WJetsToLNu_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "WJetsToLNu_centralUL17",
+        "xsecName": "WJetsToLNu",
+    },
+
+    "UL17_WWTo2L2Nu" : {
+        "path" : "/WWTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "WWTo2L2Nu_centralUL17",
+        "xsecName": "WWTo2L2Nu",
+    },
+
+    "UL17_WWW_4F" : {
+        "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "WWW_centralUL17",
+        "xsecName": "WWW",
+    },
+
+    "UL17_WWW_4F" : {
+        "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8_ext1-v1/NANOAODSIM",
+        "histAxisName": "WWW_centralUL17",
+        "xsecName": "WWW",
+    },
+
+    "UL17_WWZ_4F" : {
+        "path" : "/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "WWZ_centralUL17",
+        "xsecName": "WWZ",
+    },
+
+    "UL17_WZTo3LNu" : {
+        "path" : "/WZ_TuneCP5_13TeV-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "WZTo3LNu_centralUL17",
+        "xsecName": "WZTo3LNu",
+    },
+
+    "UL17_WZZ" : {
+        "path" : "/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "WZZ_centralUL17",
+        "xsecName": "WZZ",
+    },
+
+    "UL17_WZZ_ext" : {
+        "path" : "/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8_ext1-v1/NANOAODSIM",
+        "histAxisName": "WZZ_centralUL17",
+        "xsecName": "WZZ",
+    },
+
+    "UL17_ZZ" : {
+        "path" : "/ZZ_TuneCP5_13TeV-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "ZZTo4L_centralUL17",
+        "xsecName": "ZZTo4L",
+    },
+
+    "UL17_ZZZ" : {
+        "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "histAxisName": "ZZZ_centralUL17",
+        "xsecName": "ZZZ",
+    },
+
+    "UL17_ZZZ" : {
+        "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8_ext1-v1/NANOAODSIM",
+        "histAxisName": "ZZZ_centralUL17",
+        "xsecName": "ZZZ",
+    },
+}
+
 central_UL18_dict = {
     "UL18_ttHnobb" : {
         "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
@@ -447,10 +581,11 @@ def main():
     out_dir_private_UL     = os.path.join(topcoffea_path("json"),"signal_samples/private_UL/")
     out_dir_top19001_local = os.path.join(topcoffea_path("json"),"signal_samples/private_top19001_local")
     out_dir_central_UL     = os.path.join(topcoffea_path("json"),"signal_samples/central_UL/")
+    out_dir_central_bkg_UL     = os.path.join(topcoffea_path("json"),"background_samples/central_UL/")
     out_dir_central_2017   = os.path.join(topcoffea_path("json"),"signal_samples/central_2017/")
-    out_dir_central_sync   = os.path.join(topcoffea_path("json"),"sync_samples/")
 
     # Private UL
+    #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL18_dict,"/hadoop","2018",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL16_dict,"/hadoop","2016",out_dir_private_UL)
@@ -463,8 +598,8 @@ def main():
     #make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
     make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
+    make_jsons_for_dict_of_samples(central_UL17_bkg_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
-    make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
 
     # Testing finding list of files with xrdfs ls
     #make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
