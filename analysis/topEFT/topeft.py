@@ -378,12 +378,12 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Channels for the 2lss cat
         channels2LSS  = ["2lss_p", "2lss_m", "2lss_p_4j","2lss_p_5j","2lss_p_6j","2lss_p_7j","2lss_m_4j","2lss_m_5j","2lss_m_6j","2lss_m_7j"]
-        selections.add("2lss_p",    (is2lss & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_p",    (is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_p_4j", (is2l & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_p_5j", (is2l & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_p_6j", (is2l & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_p_7j", (is2l & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m",    (is2lss & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m",    (is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_m_4j", (is2l & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_m_5j", (is2l & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_m_6j", (is2l & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
@@ -393,44 +393,44 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # 2lss selection
         channels_2lss = ["2lss_p" , "2lss_m"]
-        selections.add("2lss_p", (is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m", (is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_p", (is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("2lss_m", (is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
 
         # 3l selection
         channels_3l = ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"]
-        selections.add("3l_p_offZ_1b", (is3l & charge3l_p & ~sfosz_mask & bmask_exactly1med & pass_trg))
-        selections.add("3l_m_offZ_1b", (is3l & charge3l_m & ~sfosz_mask & bmask_exactly1med & pass_trg))
-        selections.add("3l_p_offZ_2b", (is3l & charge3l_p & ~sfosz_mask & bmask_atleast2med & pass_trg))
-        selections.add("3l_m_offZ_2b", (is3l & charge3l_m & ~sfosz_mask & bmask_atleast2med & pass_trg))
-        selections.add("3l_onZ_1b", (is3l & sfosz_mask & bmask_exactly1med & pass_trg))
-        selections.add("3l_onZ_2b", (is3l & sfosz_mask & bmask_atleast2med & pass_trg))
+        #selections.add("3l_p_offZ_1b", (is3l & charge3l_p & ~sfosz_mask & bmask_exactly1med & pass_trg))
+        #selections.add("3l_m_offZ_1b", (is3l & charge3l_m & ~sfosz_mask & bmask_exactly1med & pass_trg))
+        #selections.add("3l_p_offZ_2b", (is3l & charge3l_p & ~sfosz_mask & bmask_atleast2med & pass_trg))
+        #selections.add("3l_m_offZ_2b", (is3l & charge3l_m & ~sfosz_mask & bmask_atleast2med & pass_trg))
+        #selections.add("3l_onZ_1b", (is3l & sfosz_mask & bmask_exactly1med & pass_trg))
+        #selections.add("3l_onZ_2b", (is3l & sfosz_mask & bmask_atleast2med & pass_trg))
 
         # 4l selection
         channels_4l = ["4l"]
-        selections.add("4l", (is4l & bmask_atleast1med_atleast2loose & pass_trg))
+        #selections.add("4l", (is4l & bmask_atleast1med_atleast2loose & pass_trg))
 
         # Lep cat selection
         channels_2lss_flav = ["ee" , "em" , "mm"]
         channels_3l_flav   = ["eee" , "eem" , "emm", "mmm"]
-        selections.add("ee", events.is_ee)
-        selections.add("em", events.is_em)
-        selections.add("mm", events.is_em)
-        selections.add("eee", events.is_eee)
-        selections.add("eem", events.is_eem)
-        selections.add("emm", events.is_emm)
-        selections.add("mmm", events.is_mmm)
+        #selections.add("ee", events.is_ee)
+        #selections.add("em", events.is_em)
+        #selections.add("mm", events.is_em)
+        #selections.add("eee", events.is_eee)
+        #selections.add("eem", events.is_eem)
+        #selections.add("emm", events.is_emm)
+        #selections.add("mmm", events.is_mmm)
 
         # Njets selection
         channels_2lss_njets = ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"]
         channels_3l_njets   = ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"]
         channels_4l_njets   = ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"]
-        selections.add("exactly_2j", (njets==2))
-        selections.add("exactly_3j", (njets==3))
-        selections.add("exactly_4j", (njets==4))
-        selections.add("exactly_5j", (njets==5))
-        selections.add("exactly_6j", (njets==6))
-        selections.add("atleast_5j", (njets>=5))
-        selections.add("atleast_7j", (njets>=7))
+        #selections.add("exactly_2j", (njets==2))
+        #selections.add("exactly_3j", (njets==3))
+        #selections.add("exactly_4j", (njets==4))
+        #selections.add("exactly_5j", (njets==5))
+        #selections.add("exactly_6j", (njets==6))
+        #selections.add("atleast_5j", (njets>=5))
+        #selections.add("atleast_7j", (njets>=7))
 
         #####################################################
 
