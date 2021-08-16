@@ -85,6 +85,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
     # Main function: run on a given dataset
     def process(self, events):
+
         # Dataset parameters
         dataset = events.metadata['dataset']
         histAxisName = self._samples[dataset]['histAxisName']
@@ -108,6 +109,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu['conept'] = coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
         e['btagDeepFlavB'] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
         mu['btagDeepFlavB'] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+
+
+        #################### Object selection ####################
 
         # Muon selection
         mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
@@ -135,8 +139,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
         e_fo = e[e.isPres & e.isLooseE & e.isFO]
-        #m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO & mu.isTightLep]
-        #e_fo = e[e.isPres & e.isLooseE & e.isFO & e.isTightLep]
 
         # Attach the lepton SFs to the electron and muons collections
         AttachElectronSF(e_fo,year=year)
@@ -156,6 +158,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau['isGood']  =  tau['isClean']  & tau['isPres']
         tau= tau[tau.isGood] # use these to clean jets
         tau['isTight']= isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+
+
+        #################### Jets ####################
 
         # Jet cleaning, before any jet selection
         vetos_tocleanjets= ak.with_name( ak.concatenate([tau, l_fo], axis=1), 'PtEtaPhiMCandidate')
@@ -224,22 +229,31 @@ class AnalysisProcessor(processor.ProcessorABC):
         isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
         nbtagsm = ak.num(goodJets[isBtagJetsMedium])
 
-        ## Add the variables needed for event selection as columns to event, so they persist
+
+        #################### Add variables into event object so that they persist ####################
+
+        # Want to put njets and l_fo_conept_sorted into events
         events['njets'] = njets
         events['l_fo_conept_sorted'] = l_fo_conept_sorted
 
+        # The event selection
+        add2lMaskAndSFs(events, year, isData)
+        add3lMaskAndSFs(events, year, isData)
+        add4lMaskAndSFs(events, year, isData)
+        addLepCatMasks(events)
+
+        # Convenient to have l0, l1, l2 on hand
         l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
         l0 = l_fo_conept_sorted_padded[:,0]
         l1 = l_fo_conept_sorted_padded[:,1]
         l2 = l_fo_conept_sorted_padded[:,2]
 
-        add2lMaskAndSFs(events, year, isData)
-        add3lMaskAndSFs(events, year, isData)
-        add4lMaskAndSFs(events, year, isData)
-        addLepCatMasks(events)
-        print('The number of events passing fo 2lss, 3l, and 4l selection is:', ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
+        print('The number of events passing fo 2l, 3l, and 4l selection is:', ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
+
 
         ################################################################
+        ### TMP for the lep flavor studies ###
+
         # Print the number of events by leptop category
         print("\nNumber of events passing FO selection:")
         print("  n_2lss:",ak.sum(events.is2l,axis=-1))
@@ -283,13 +297,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         n_mmm = ak.sum((events.is3l & events.is_mmm & events.is3l_SR),axis=-1)
 
         print("\nRatios:")
-        #print(f"    ee/mm  : ({n_ee}/{n_mm})^(1/2) ->",(n_ee/n_mm)**(1.0/2.0))
-        #print(f"    eee/mmm: ({n_eee}/{n_mmm})^(1/3) ->",(n_eee/n_mmm)**(1.0/3.0))
+        print(f"    ee/mm  : ({n_ee}/{n_mm})^(1/2) ->",(n_ee/n_mm)**(1.0/2.0))
+        print(f"    eee/mmm: ({n_eee}/{n_mmm})^(1/3) ->",(n_eee/n_mmm)**(1.0/3.0))
 
         ##############
-        # SyncCheck: Two FO leptons (conePt > 25, conePt > 15)
-        #l_fo_conept_sorted = lep_FO[ak.argsort(lep_FO.conept, axis=-1,ascending=False)] # Make sure highest conept comes first
-        #l_fo_conept_sorted = l_fo_conept_sorted[l_fo_conept_sorted.isTightLep] # TMP
         l_fo_pt_mask = ak.any(l_fo_conept_sorted[:,0:1].conept > 25.0, axis=1) & ak.any(l_fo_conept_sorted[:,1:2].conept > 15.0, axis=1)
         ee_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
         mm_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
@@ -298,7 +309,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # For tight sel
         t_mask = (ak.any(l_fo_conept_sorted[:,0:1].isTightLep,axis=1) & ak.any(l_fo_conept_sorted[:,1:2].isTightLep,axis=1))
         print("")
-        #print("l_fo_pt_mask",l_fo_pt_mask)
         print("2 FO leps (conePt>25, conePt>15):")
         print("  ll events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask],axis=0))
         print("  ee events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & ee_mask],axis=0))
@@ -311,13 +321,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("  mm events:", ak.num(l_fo_conept_sorted[t_mask & l_fo_pt_mask & mm_mask],axis=0))
         print("")
 
+        ### END TMP for the lep flavor studies ###
         ################################################################
 
-        # Get mask for events that have two sf os leps close to z peak
-        ll_fo_pairs = ak.combinations(l_fo_conept_sorted_padded, 2, fields=["l0","l1"])
-        zpeak_mask = (abs((ll_fo_pairs.l0+ll_fo_pairs.l1).mass - 91.2)<10.0) 
-        sfos_mask = (ll_fo_pairs.l0.pdgId == -ll_fo_pairs.l1.pdgId)
-        sfosz_mask = ak.flatten(ak.any((zpeak_mask & sfos_mask),axis=1,keepdims=True)) # Use flatten here not because it's jagged, but because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
+
+
+        ######### SFs, weights, systematics ##########
 
         # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
         btagSF   = np.ones_like(ht)
@@ -360,6 +369,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             if ch_name == "4l":
                 weights_dict[ch_name].add('lepSF', events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
 
+        # Systematics
+        systList = []
+        if isData==False:
+            systList = ['nominal']
+            if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown']
+        else:
+            systList = ['noweight']
+
+
+        ######### EFT coefficients ##########
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
@@ -371,13 +390,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
 
-        # Pass trigger
-        pass_trg = trgPassNoOverlap(events,isData,dataset,str(year))
+        ######### Masks we need for the selection  ##########
 
-        # Lepton categories
-        is2l   = events.is2l
-        is3l   = events.is3l
-        is4l   = events.is4l
+        # Get mask for events that have two sf os leps close to z peak
+        ll_fo_pairs = ak.combinations(l_fo_conept_sorted_padded, 2, fields=["l0","l1"])
+        zpeak_mask = (abs((ll_fo_pairs.l0+ll_fo_pairs.l1).mass - 91.2)<10.0) 
+        sfos_mask = (ll_fo_pairs.l0.pdgId == -ll_fo_pairs.l1.pdgId)
+        sfosz_mask = ak.flatten(ak.any((zpeak_mask & sfos_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
+
+        # Pass trigger mask
+        pass_trg = trgPassNoOverlap(events,isData,dataset,str(year))
 
         # b jet masks
         bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # This is the requirement for 2lss and 4l
@@ -399,24 +421,24 @@ class AnalysisProcessor(processor.ProcessorABC):
         #selections.add('2lss0tau', is2l)
 
         # 2lss selection
-        selections.add("2lss_p", (is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m", (is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_p", (events.is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m", (events.is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
 
         # 3l selection
-        selections.add("3l_p_offZ_1b", (is3l & charge3l_p & ~sfosz_mask & bmask_exactly1med & pass_trg))
-        selections.add("3l_m_offZ_1b", (is3l & charge3l_m & ~sfosz_mask & bmask_exactly1med & pass_trg))
-        selections.add("3l_p_offZ_2b", (is3l & charge3l_p & ~sfosz_mask & bmask_atleast2med & pass_trg))
-        selections.add("3l_m_offZ_2b", (is3l & charge3l_m & ~sfosz_mask & bmask_atleast2med & pass_trg))
-        selections.add("3l_onZ_1b", (is3l & sfosz_mask & bmask_exactly1med & pass_trg))
-        selections.add("3l_onZ_2b", (is3l & sfosz_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_onZ_1b", (events.is3l & sfosz_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_onZ_2b", (events.is3l & sfosz_mask & bmask_atleast2med & pass_trg))
 
         # 4l selection
-        selections.add("4l", (is4l & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
 
         # Lep cat selection
-        selections.add("ee", events.is_ee)
-        selections.add("em", events.is_em)
-        selections.add("mm", events.is_em)
+        selections.add("ee",  events.is_ee)
+        selections.add("em",  events.is_em)
+        selections.add("mm",  events.is_em)
         selections.add("eee", events.is_eee)
         selections.add("eem", events.is_eem)
         selections.add("emm", events.is_emm)
@@ -433,35 +455,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("atleast_7j", (njets>=7))
 
         # AR/SR categories
-        selections.add('isSR_2l',    ak.values_astype(events.is2l_SR,'bool'))
-        selections.add('isAR_2l',   ~ak.values_astype(events.is2l_SR,'bool'))
-        selections.add('isSR_3l',    ak.values_astype(events.is3l_SR,'bool'))
-        selections.add('isAR_3l',   ~ak.values_astype(events.is3l_SR,'bool'))
-        selections.add('isSR_4l',    ak.values_astype(events.is4l_SR,'bool'))
+        selections.add('isSR_2l',  ak.values_astype(events.is2l_SR,'bool'))
+        selections.add('isAR_2l', ~ak.values_astype(events.is2l_SR,'bool'))
+        selections.add('isSR_3l',  ak.values_astype(events.is3l_SR,'bool'))
+        selections.add('isAR_3l', ~ak.values_astype(events.is3l_SR,'bool'))
+        selections.add('isSR_4l',  ak.values_astype(events.is4l_SR,'bool'))
 
-        # This dictionary keeps track of which selections go with which categories
-        cat_dict = {
-            "2l" : {
-                "lep_chan_lst" : ["2lss_p" , "2lss_m"],
-                "lep_flav_lst" : ["ee" , "em" , "mm"],
-                "njets_lst"    : ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
-                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
-            },
-            "3l" : {
-                "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
-                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                "njets_lst"    : ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"],
-                "appl_lst"     : ['isSR_3l', 'isAR_3l'],
-            },
-            "4l" : {
-                "lep_chan_lst" : ["4l"],
-                "lep_flav_lst" : [],
-                "njets_lst"    : ["exactly_2j" , "exactly_3j" , "atleast_4j"],
-                "appl_lst"     : ['isSR_4l'],
-            }
-        }
 
-        #####################################################
+        ######### Variables for the x axis of the hists ##########
 
         # Calculate ptbl
         ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
@@ -485,16 +486,30 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['counts']  = np.ones_like(events['event'])
         varnames['ptbl']    = ptbl
 
-        # Systematics
-        systList = []
-        if isData==False:
-            systList = ['nominal']
-            if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown']
-        else:
-            systList = ['noweight']
-
 
         ########## Fill the histograms ##########
+
+        # This dictionary keeps track of which selections go with which categories
+        cat_dict = {
+            "2l" : {
+                "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "njets_lst"    : ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
+                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
+            },
+            "3l" : {
+                "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                "njets_lst"    : ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"],
+                "appl_lst"     : ['isSR_3l', 'isAR_3l'],
+            },
+            "4l" : {
+                "lep_chan_lst" : ["4l"],
+                "lep_flav_lst" : [],
+                "njets_lst"    : ["exactly_2j" , "exactly_3j" , "atleast_4j"],
+                "appl_lst"     : ['isSR_4l'],
+            }
+        }
 
         hout = self.accumulator.identity()
 
@@ -504,7 +519,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         else: sowweights = normweights
         hout['SumOfEFTweights'].fill(sample=histAxisName, SumOfEFTweights=varnames['counts'], weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
-        # Fill the rest of the hists
         # Loop over the systematics
         for syst in systList:
 
@@ -535,7 +549,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                             # Loop over the appropriate AR and SR for this channel (TODO: Rename this to involve "tight" not "SR")
                             for appl in cat_dict[nlep_cat]["appl_lst"]:
 
-                                all_cuts_mask = selections.all(*[lep_chan,njet_val,appl])
+                                cuts_lst = [lep_chan,njet_val,appl]
+                                all_cuts_mask = selections.all(*cuts_lst)
 
                                 weights_flat = weight[all_cuts_mask]
                                 weights_ones = np.ones_like(weights_flat, dtype=np.int)
