@@ -527,7 +527,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']: weight_fluct = None # No weight systematic for these variations
 
             # Loop over the hists we want to fill
-            for var, v in varnames.items():
+            for dense_axis_name, dense_axis_vals in varnames.items():
 
                 # Loop over nlep categories "2l", "3l", "4l"
                 for nlep_cat in cat_dict.keys():
@@ -544,11 +544,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                         for njet_val in cat_dict[nlep_cat]["njets_lst"]:
 
                             # Construct the channel name from the the components
-                            ch_name = construct_cat_name(lep_chan,njet_str=njet_val)
+                            if dense_axis_name == "njets": ch_name = construct_cat_name(lep_chan) # Do not split njets hist by njets
+                            else: ch_name = construct_cat_name(lep_chan,njet_str=njet_val)
 
                             # Loop over the appropriate AR and SR for this channel (TODO: Rename this to involve "tight" not "SR")
                             for appl in cat_dict[nlep_cat]["appl_lst"]:
 
+                                # Get a mask for all of the cuts we apply for this channel (an "and" of all the selection masks)
                                 cuts_lst = [lep_chan,njet_val,appl]
                                 all_cuts_mask = selections.all(*cuts_lst)
 
@@ -558,21 +560,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                                 eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
                                 axes_fill_info_dict = {
-                                    var             : v[all_cuts_mask],
+                                    dense_axis_name : dense_axis_vals[all_cuts_mask],
+                                    "channel"       : ch_name,
+                                    "appl"          : appl,
+                                    "sample"        : histAxisName,
+                                    "systematic"    : syst,
+                                    "weight"        : weights_flat,
                                     "eft_coeff"     : eft_coeffs_cut,
                                     "eft_err_coeff" : eft_w2_coeffs_cut,
-                                    "sample"        : histAxisName,
-                                    "channel"       : ch_name,
-                                    "weight"        : weights_flat,
-                                    "systematic"    : syst,
-                                    "appl"          : appl,
                                 }
 
-                                if var != "counts":
-                                    hout[var].fill(**axes_fill_info_dict)
+                                if dense_axis_name != "counts":
+                                    hout[dense_axis_name].fill(**axes_fill_info_dict)
                                 else:
-                                    values = v[all_cuts_mask] 
-                                    hout[var].fill(counts=values, sample=histAxisName, channel=ch_name, weight=weights_ones, systematic=syst,appl=appl)
+                                    hout[dense_axis_name].fill(counts=dense_axis_vals[all_cuts_mask], sample=histAxisName, channel=ch_name, weight=weights_ones, systematic=syst, appl=appl)
 
         return hout
 
