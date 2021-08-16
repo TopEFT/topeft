@@ -19,6 +19,7 @@ from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 
+
 # Takes strings as inputs, constructs a string for the full channel name
 # Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
     # chan_str should look something like "3l_p_offZ_1b", NOTE: This function assumes nlep comes first
@@ -48,7 +49,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, split_by_lepton_flavor=False, dtype=np.float32):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -74,6 +75,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
+        self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
 
     @property
     def accumulator(self):
@@ -438,11 +440,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Lep cat selection
         selections.add("ee",  events.is_ee)
         selections.add("em",  events.is_em)
-        selections.add("mm",  events.is_em)
+        selections.add("mm",  events.is_mm)
         selections.add("eee", events.is_eee)
         selections.add("eem", events.is_eem)
         selections.add("emm", events.is_emm)
         selections.add("mmm", events.is_mmm)
+        selections.add("llll", (events.is_eeee | events.is_eeem | events.is_eemm | events.is_emmm | events.is_mmmm | events.is_gr4l)) # Not keepting track of these separately
 
         # Njets selection
         selections.add("exactly_2j", (njets==2))
@@ -505,7 +508,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             },
             "4l" : {
                 "lep_chan_lst" : ["4l"],
-                "lep_flav_lst" : [],
+                "lep_flav_lst" : ["llll"], # Not keepting track of these separately
                 "njets_lst"    : ["exactly_2j" , "exactly_3j" , "atleast_4j"],
                 "appl_lst"     : ['isSR_4l'],
             }
@@ -543,37 +546,43 @@ class AnalysisProcessor(processor.ProcessorABC):
                         # Loop over the njets list for each channel
                         for njet_val in cat_dict[nlep_cat]["njets_lst"]:
 
-                            # Construct the channel name from the the components
-                            if dense_axis_name == "njets": ch_name = construct_cat_name(lep_chan) # Do not split njets hist by njets
-                            else: ch_name = construct_cat_name(lep_chan,njet_str=njet_val)
+                            # Loop over the lep flavor list for each channel
+                            for lep_flav in cat_dict[nlep_cat]["lep_flav_lst"]:
 
-                            # Loop over the appropriate AR and SR for this channel (TODO: Rename this to involve "tight" not "SR")
-                            for appl in cat_dict[nlep_cat]["appl_lst"]:
+                                # Construct the channel name from the the components
+                                flav_ch = None
+                                njet_ch = None
+                                if self._split_by_lepton_flavor: flav_ch = lep_flav # Do not fill separate for lep flav unless this flag is True
+                                if dense_axis_name != "njes": njet_ch = njet_val    # Do not fill separate categories for njets in njets hist
+                                ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
 
-                                # Get a mask for all of the cuts we apply for this channel (an "and" of all the selection masks)
-                                cuts_lst = [lep_chan,njet_val,appl]
-                                all_cuts_mask = selections.all(*cuts_lst)
+                                # Loop over the appropriate AR and SR for this channel (TODO: Rename this to involve "tight" not "SR")
+                                for appl in cat_dict[nlep_cat]["appl_lst"]:
 
-                                weights_flat = weight[all_cuts_mask]
-                                weights_ones = np.ones_like(weights_flat, dtype=np.int)
-                                eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
-                                eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
+                                    # Get a mask for all of the cuts we apply for this channel (an "and" of all the selection masks)
+                                    cuts_lst = [lep_chan,njet_val,lep_flav,appl]
+                                    all_cuts_mask = selections.all(*cuts_lst)
 
-                                axes_fill_info_dict = {
-                                    dense_axis_name : dense_axis_vals[all_cuts_mask],
-                                    "channel"       : ch_name,
-                                    "appl"          : appl,
-                                    "sample"        : histAxisName,
-                                    "systematic"    : syst,
-                                    "weight"        : weights_flat,
-                                    "eft_coeff"     : eft_coeffs_cut,
-                                    "eft_err_coeff" : eft_w2_coeffs_cut,
-                                }
+                                    weights_flat = weight[all_cuts_mask]
+                                    weights_ones = np.ones_like(weights_flat, dtype=np.int)
+                                    eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
+                                    eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
-                                if dense_axis_name != "counts":
-                                    hout[dense_axis_name].fill(**axes_fill_info_dict)
-                                else:
-                                    hout[dense_axis_name].fill(counts=dense_axis_vals[all_cuts_mask], sample=histAxisName, channel=ch_name, weight=weights_ones, systematic=syst, appl=appl)
+                                    axes_fill_info_dict = {
+                                        dense_axis_name : dense_axis_vals[all_cuts_mask],
+                                        "channel"       : ch_name,
+                                        "appl"          : appl,
+                                        "sample"        : histAxisName,
+                                        "systematic"    : syst,
+                                        "weight"        : weights_flat,
+                                        "eft_coeff"     : eft_coeffs_cut,
+                                        "eft_err_coeff" : eft_w2_coeffs_cut,
+                                    }
+
+                                    if dense_axis_name != "counts":
+                                        hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                    else:
+                                        hout[dense_axis_name].fill(counts=dense_axis_vals[all_cuts_mask], sample=histAxisName, channel=ch_name, weight=weights_ones, systematic=syst, appl=appl)
 
         return hout
 
