@@ -19,6 +19,33 @@ from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 
+# Takes strings as inputs, constructs a string for the full channel name
+# Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
+    # chan_str should look something like "3l_p_offZ_1b", NOTE: This function assumes nlep comes first
+    # njet_str should look something like "atleast_5j",   NOTE: This function assumes njets comes last
+    # flav_str should look something like "emm"
+def construct_cat_name(chan_str,njet_str=None,flav_str=None):
+
+    # Get the component strings
+    nlep_str = chan_str.split("_")[0] # Assumes n leps comes first in the str
+    chan_str = "_".join(chan_str.split("_")[1:]) # The rest of the channel name is everything that comes after nlep
+    if chan_str == "": chan_str = None # So that we properly skip this in the for loop below
+    if flav_str is not None:
+        flav_str = flav_str
+    if njet_str is not None:
+        njet_str = njet_str[-2:] # Assumes number of n jets comes at the end of the string
+        if "j" not in njet_str:
+            # The njet string should really have a "j" in it
+            raise Exception(f"Something when wrong while trying to consturct channel name, is \"{njet_str}\" an njet string?")
+
+    # Put the component strings into the channel name
+    ret_str = nlep_str
+    for component in [flav_str,chan_str,njet_str]:
+        if component is None: continue
+        ret_str = "_".join([ret_str,component])
+    return ret_str
+
+
 class AnalysisProcessor(processor.ProcessorABC):
 
     def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, dtype=np.float32):
@@ -256,8 +283,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         n_mmm = ak.sum((events.is3l & events.is_mmm & events.is3l_SR),axis=-1)
 
         print("\nRatios:")
-        print(f"    ee/mm  : ({n_ee}/{n_mm})^(1/2) ->",(n_ee/n_mm)**(1.0/2.0))
-        print(f"    eee/mmm: ({n_eee}/{n_mmm})^(1/3) ->",(n_eee/n_mmm)**(1.0/3.0))
+        #print(f"    ee/mm  : ({n_ee}/{n_mm})^(1/2) ->",(n_ee/n_mm)**(1.0/2.0))
+        #print(f"    eee/mmm: ({n_eee}/{n_mmm})^(1/3) ->",(n_eee/n_mmm)**(1.0/3.0))
 
         ##############
         # SyncCheck: Two FO leptons (conePt > 25, conePt > 15)
@@ -322,11 +349,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         weights_dict = {}
         genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
         if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
-        for ch_name in ["2lss","3l","4l"]:
+        for ch_name in ["2l","3l","4l"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add('norm',genw if isData else (xsec/sow)*genw)
             weights_dict[ch_name].add('btagSF', btagSF, btagSFUp, btagSFDo)
-            if ch_name == "2lss":
+            if ch_name == "2l":
                 weights_dict[ch_name].add('lepSF', events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
             if ch_name == "3l":
                 weights_dict[ch_name].add('lepSF', events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
@@ -347,23 +374,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Pass trigger
         pass_trg = trgPassNoOverlap(events,isData,dataset,str(year))
 
-        # Selections and cuts
-        selections = PackedSelection(dtype='uint64')
-
         # Lepton categories
         is2l   = events.is2l
         is3l   = events.is3l
         is4l   = events.is4l
-
-        # 2lss0tau things
-        selections.add('2lss0tau', is2l)
-
-        # AR/SR categories
-        selections.add('isSR_2l',    ak.values_astype(events.is2l_SR,'bool'))
-        selections.add('isAR_2l',   ~ak.values_astype(events.is2l_SR,'bool'))
-        selections.add('isSR_3l',    ak.values_astype(events.is3l_SR,'bool'))
-        selections.add('isAR_3l',   ~ak.values_astype(events.is3l_SR,'bool'))
-        selections.add('isSR_4l',    ak.values_astype(events.is4l_SR,'bool'))
 
         # b jet masks
         bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # This is the requirement for 2lss and 4l
@@ -376,138 +390,99 @@ class AnalysisProcessor(processor.ProcessorABC):
         charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
         charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
-        # Channels for the 2lss cat
-        channels2LSS  = ["2lss_p", "2lss_m", "2lss_p_4j","2lss_p_5j","2lss_p_6j","2lss_p_7j","2lss_m_4j","2lss_m_5j","2lss_m_6j","2lss_m_7j"]
-        selections.add("2lss_p",    (is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_p_4j", (is2l & charge2l_p & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_p_5j", (is2l & charge2l_p & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_p_6j", (is2l & charge2l_p & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_p_7j", (is2l & charge2l_p & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m",    (is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m_4j", (is2l & charge2l_m & (njets==4) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m_5j", (is2l & charge2l_m & (njets==5) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m_6j", (is2l & charge2l_m & (njets==6) & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m_7j", (is2l & charge2l_m & (njets>=7) & bmask_atleast1med_atleast2loose & pass_trg))
 
-        ####### Maybe not how we want to do this... ########
+        ######### Store boolean masks with PackedSelection ##########
+
+        selections = PackedSelection(dtype='uint64')
+
+        # 2lss0tau things # What is this for??
+        #selections.add('2lss0tau', is2l)
 
         # 2lss selection
-        channels_2lss = ["2lss_p" , "2lss_m"]
-        #selections.add("2lss_p", (is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
-        #selections.add("2lss_m", (is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_p", (is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_m", (is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
 
         # 3l selection
-        channels_3l = ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"]
-        #selections.add("3l_p_offZ_1b", (is3l & charge3l_p & ~sfosz_mask & bmask_exactly1med & pass_trg))
-        #selections.add("3l_m_offZ_1b", (is3l & charge3l_m & ~sfosz_mask & bmask_exactly1med & pass_trg))
-        #selections.add("3l_p_offZ_2b", (is3l & charge3l_p & ~sfosz_mask & bmask_atleast2med & pass_trg))
-        #selections.add("3l_m_offZ_2b", (is3l & charge3l_m & ~sfosz_mask & bmask_atleast2med & pass_trg))
-        #selections.add("3l_onZ_1b", (is3l & sfosz_mask & bmask_exactly1med & pass_trg))
-        #selections.add("3l_onZ_2b", (is3l & sfosz_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_p_offZ_1b", (is3l & charge3l_p & ~sfosz_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_m_offZ_1b", (is3l & charge3l_m & ~sfosz_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_p_offZ_2b", (is3l & charge3l_p & ~sfosz_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_m_offZ_2b", (is3l & charge3l_m & ~sfosz_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_onZ_1b", (is3l & sfosz_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_onZ_2b", (is3l & sfosz_mask & bmask_atleast2med & pass_trg))
 
         # 4l selection
-        channels_4l = ["4l"]
-        #selections.add("4l", (is4l & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("4l", (is4l & bmask_atleast1med_atleast2loose & pass_trg))
 
         # Lep cat selection
-        channels_2lss_flav = ["ee" , "em" , "mm"]
-        channels_3l_flav   = ["eee" , "eem" , "emm", "mmm"]
-        #selections.add("ee", events.is_ee)
-        #selections.add("em", events.is_em)
-        #selections.add("mm", events.is_em)
-        #selections.add("eee", events.is_eee)
-        #selections.add("eem", events.is_eem)
-        #selections.add("emm", events.is_emm)
-        #selections.add("mmm", events.is_mmm)
+        selections.add("ee", events.is_ee)
+        selections.add("em", events.is_em)
+        selections.add("mm", events.is_em)
+        selections.add("eee", events.is_eee)
+        selections.add("eem", events.is_eem)
+        selections.add("emm", events.is_emm)
+        selections.add("mmm", events.is_mmm)
 
         # Njets selection
-        channels_2lss_njets = ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"]
-        channels_3l_njets   = ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"]
-        channels_4l_njets   = ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"]
-        #selections.add("exactly_2j", (njets==2))
-        #selections.add("exactly_3j", (njets==3))
-        #selections.add("exactly_4j", (njets==4))
-        #selections.add("exactly_5j", (njets==5))
-        #selections.add("exactly_6j", (njets==6))
-        #selections.add("atleast_5j", (njets>=5))
-        #selections.add("atleast_7j", (njets>=7))
+        selections.add("exactly_2j", (njets==2))
+        selections.add("exactly_3j", (njets==3))
+        selections.add("exactly_4j", (njets==4))
+        selections.add("exactly_5j", (njets==5))
+        selections.add("exactly_6j", (njets==6))
+        selections.add("atleast_4j", (njets>=4))
+        selections.add("atleast_5j", (njets>=5))
+        selections.add("atleast_7j", (njets>=7))
+
+        # AR/SR categories
+        selections.add('isSR_2l',    ak.values_astype(events.is2l_SR,'bool'))
+        selections.add('isAR_2l',   ~ak.values_astype(events.is2l_SR,'bool'))
+        selections.add('isSR_3l',    ak.values_astype(events.is3l_SR,'bool'))
+        selections.add('isAR_3l',   ~ak.values_astype(events.is3l_SR,'bool'))
+        selections.add('isSR_4l',    ak.values_astype(events.is4l_SR,'bool'))
+
+        # This dictionary keeps track of which selections go with which categories
+        cat_dict = {
+            "2l" : {
+                "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "njets_lst"    : ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
+                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
+            },
+            "3l" : {
+                "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                "njets_lst"    : ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"],
+                "appl_lst"     : ['isSR_3l', 'isAR_3l'],
+            },
+            "4l" : {
+                "lep_chan_lst" : ["4l"],
+                "lep_flav_lst" : [],
+                "njets_lst"    : ["exactly_2j" , "exactly_3j" , "atleast_4j"],
+                "appl_lst"     : ['isSR_4l'],
+            }
+        }
 
         #####################################################
 
-
-        # Channels for the 3l cat (we have a _lot_ of 3l categories...)
-        channels3l  = [
-            "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b",
-            "3l_p_offZ_2j_1b","3l_p_offZ_3j_1b","3l_p_offZ_4j_1b","3l_p_offZ_5j_1b",
-            "3l_m_offZ_2j_1b","3l_m_offZ_3j_1b","3l_m_offZ_4j_1b","3l_m_offZ_5j_1b",
-            "3l_p_offZ_2j_2b","3l_p_offZ_3j_2b","3l_p_offZ_4j_2b","3l_p_offZ_5j_2b",
-            "3l_m_offZ_2j_2b","3l_m_offZ_3j_2b","3l_m_offZ_4j_2b","3l_m_offZ_5j_2b",
-            "3l_onZ_2j_1b","3l_onZ_3j_1b","3l_onZ_4j_1b","3l_onZ_5j_1b",
-            "3l_onZ_2j_2b","3l_onZ_3j_2b","3l_onZ_4j_2b","3l_onZ_5j_2b",
-        ]
-
-        selections.add("3l_p_offZ_1b",    (is3l & charge3l_p & ~sfosz_mask & bmask_exactly1med & pass_trg))
-        selections.add("3l_p_offZ_2j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets==2) & bmask_exactly1med & pass_trg))
-        selections.add("3l_p_offZ_3j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets==3) & bmask_exactly1med & pass_trg))
-        selections.add("3l_p_offZ_4j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets==4) & bmask_exactly1med & pass_trg))
-        selections.add("3l_p_offZ_5j_1b", (is3l & charge3l_p & ~sfosz_mask & (njets>=5) & bmask_exactly1med & pass_trg))
-
-        selections.add("3l_m_offZ_1b",    (is3l & charge3l_m & ~sfosz_mask & bmask_exactly1med & pass_trg))
-        selections.add("3l_m_offZ_2j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets==2) & bmask_exactly1med & pass_trg))
-        selections.add("3l_m_offZ_3j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets==3) & bmask_exactly1med & pass_trg))
-        selections.add("3l_m_offZ_4j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets==4) & bmask_exactly1med & pass_trg))
-        selections.add("3l_m_offZ_5j_1b", (is3l & charge3l_m & ~sfosz_mask & (njets>=5) & bmask_exactly1med & pass_trg))
-
-        selections.add("3l_p_offZ_2b",    (is3l & charge3l_p & ~sfosz_mask & bmask_atleast2med & pass_trg))
-        selections.add("3l_p_offZ_2j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets==2) & bmask_atleast2med & pass_trg))
-        selections.add("3l_p_offZ_3j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets==3) & bmask_atleast2med & pass_trg))
-        selections.add("3l_p_offZ_4j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets==4) & bmask_atleast2med & pass_trg))
-        selections.add("3l_p_offZ_5j_2b", (is3l & charge3l_p & ~sfosz_mask & (njets>=5) & bmask_atleast2med & pass_trg))
-
-        selections.add("3l_m_offZ_2b",    (is3l & charge3l_m & ~sfosz_mask & bmask_atleast2med & pass_trg))
-        selections.add("3l_m_offZ_2j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets==2) & bmask_atleast2med & pass_trg))
-        selections.add("3l_m_offZ_3j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets==3) & bmask_atleast2med & pass_trg))
-        selections.add("3l_m_offZ_4j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets==4) & bmask_atleast2med & pass_trg))
-        selections.add("3l_m_offZ_5j_2b", (is3l & charge3l_m & ~sfosz_mask & (njets>=5) & bmask_atleast2med & pass_trg))
-
-        selections.add("3l_onZ_1b",    (is3l & sfosz_mask & bmask_exactly1med & pass_trg))
-        selections.add("3l_onZ_2j_1b", (is3l & sfosz_mask & (njets==2) & bmask_exactly1med & pass_trg))
-        selections.add("3l_onZ_3j_1b", (is3l & sfosz_mask & (njets==3) & bmask_exactly1med & pass_trg))
-        selections.add("3l_onZ_4j_1b", (is3l & sfosz_mask & (njets==4) & bmask_exactly1med & pass_trg))
-        selections.add("3l_onZ_5j_1b", (is3l & sfosz_mask & (njets>=5) & bmask_exactly1med & pass_trg))
-
-        selections.add("3l_onZ_2b",    (is3l & sfosz_mask & bmask_atleast2med & pass_trg))
-        selections.add("3l_onZ_2j_2b", (is3l & sfosz_mask & (njets==2) & bmask_atleast2med & pass_trg))
-        selections.add("3l_onZ_3j_2b", (is3l & sfosz_mask & (njets==3) & bmask_atleast2med & pass_trg))
-        selections.add("3l_onZ_4j_2b", (is3l & sfosz_mask & (njets==4) & bmask_atleast2med & pass_trg))
-        selections.add("3l_onZ_5j_2b", (is3l & sfosz_mask & (njets>=5) & bmask_atleast2med & pass_trg))
-
-        # Channels for the 4l cat
-        channels4l  = ["4l", "4l_2j","4l_3j","4l_4j"]
-        selections.add("4l",    (is4l & bmask_atleast1med_atleast2loose) & pass_trg)
-        selections.add("4l_2j", (is4l & (njets==2) & bmask_atleast1med_atleast2loose) & pass_trg)
-        selections.add("4l_3j", (is4l & (njets==3) & bmask_atleast1med_atleast2loose) & pass_trg)
-        selections.add("4l_4j", (is4l & (njets>=4) & bmask_atleast1med_atleast2loose) & pass_trg)
-
+        # Calculate ptbl
         ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
         ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt,axis=-1,keepdims=True)] # Only save hardest b-jet
         ptbl_lep = l_fo_conept_sorted
         ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
         ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
-
         
         # Define invariant mass hists
         mll_0_1 = (l0+l1).mass     #invmass for leading two leps
 
+        # Variables we will loop over when filling hists
         varnames = {}
-        varnames['ht']     = ht
-        varnames['l0pt']   = l0.conept
-        varnames['l0eta']  = l0.eta
-        varnames['j0pt' ]  = j0.pt
-        varnames['j0eta']  = j0.eta
-        varnames['njets']  = njets
+        varnames['ht']      = ht
+        varnames['l0pt']    = l0.conept
+        varnames['l0eta']   = l0.eta
+        varnames['j0pt' ]   = j0.pt
+        varnames['j0eta']   = j0.eta
+        varnames['njets']   = njets
         varnames['invmass'] = mll_0_1
-        varnames['counts'] = np.ones_like(events['event'])
+        varnames['counts']  = np.ones_like(events['event'])
         varnames['ptbl']    = ptbl
 
         # Systematics
@@ -518,86 +493,91 @@ class AnalysisProcessor(processor.ProcessorABC):
         else:
             systList = ['noweight']
 
-        # Histograms
+
+        ########## Fill the histograms ##########
+
         hout = self.accumulator.identity()
 
         # Fill sum of weights hist
-        normweights = weights_dict["2lss"].partial_weight(include=["norm"]) # Here we could have used 2lss, 3l, or 4l, as the "norm" weights should be identical for all three
+        normweights = weights_dict["2l"].partial_weight(include=["norm"]) # Here we could have used 2l, 3l, or 4l, as the "norm" weights should be identical for all three
         if len(self._wc_names_lst)>0: sowweights = np.ones_like(normweights)
         else: sowweights = normweights
         hout['SumOfEFTweights'].fill(sample=histAxisName, SumOfEFTweights=varnames['counts'], weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
         # Fill the rest of the hists
+        # Loop over the systematics
         for syst in systList:
+
+            # In the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weight_fluct=None)
+            weight_fluct = syst
+            if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']: weight_fluct = None # No weight systematic for these variations
+
+            # Loop over the hists we want to fill
             for var, v in varnames.items():
 
-                for ch in ['2lss0tau'] + channels2LSS + channels3l + channels4l:
+                # Loop over nlep categories "2l", "3l", "4l"
+                for nlep_cat in cat_dict.keys():
 
-                    if "2lss" in ch:
-                        appl_lst = ['isSR_2l', 'isAR_2l']
-                        weights_object = weights_dict["2lss"]
-                    elif "3l" in ch:
-                        appl_lst = ['isSR_3l', 'isAR_3l']
-                        weights_object = weights_dict["3l"]
-                    elif "4l" in ch:
-                        appl_lst = ['isSR_4l']
-                        weights_object = weights_dict["4l"]
-                    else: raise Exception(f"Error: Unknown channel \"{ch}\". Exiting...")
+                    # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
+                    weights_object = weights_dict[nlep_cat]
+                    if syst=='noweight': weight = np.ones(len(events)) # For data
+                    else: weight = weights_object.weight(weight_fluct) # For MC
 
-                    # Find the event weight to be used when filling the histograms    
-                    weight_fluct = syst
-                    # In the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weight_fluct=None)
-                    if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']:
-                        weight_fluct = None # no weight systematic for these variations
-                    if syst=='noweight':
-                        weight = np.ones(len(events)) # for data
-                    else:
-                        weight = weights_object.weight(weight_fluct)
+                    # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
+                    for lep_chan in cat_dict[nlep_cat]["lep_chan_lst"]:
 
-                    for appl in appl_lst:
+                        # Loop over the njets list for each channel
+                        for njet_val in cat_dict[nlep_cat]["njets_lst"]:
 
-                        cuts = [ch,appl]
-                        cut = selections.all(*cuts)
-                        weights_flat = weight[cut]
-                        weights_ones = np.ones_like(weights_flat, dtype=np.int)
-                        eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
-                        eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
+                            # Construct the channel name from the the components
+                            ch_name = construct_cat_name(lep_chan,njet_str=njet_val)
 
-                        # Filling histos
-                        if var == 'njets' :
-                            if 'j' in ch: continue # Ignore sparse jet bins
-                            values = v[cut]
-                            hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                        elif 'j' not in ch: continue # Super channels for njets only
-                        elif var == 'invmass':
-                            values = v[cut]
-                            hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch, invmass=values, weight=weights_flat, systematic=syst,appl=appl)
-                        elif var == 'ptbl' : 
-                            values = ak.flatten(v[cut])
-                            hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ptbl=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                        else:
-                            values = v[cut] 
-                            # These all look identical, do we need if/else here?
-                            if   var == 'ht': 
-                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'met': 
-                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'njets': 
-                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'nbtags': 
-                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'counts': 
-                                hout[var].fill(counts=values, sample=histAxisName, channel=ch, weight=weights_ones, systematic=syst,appl=appl)
-                            elif var == 'l0pt': 
-                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'l0eta': 
-                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'j0eta': 
-                                values = ak.flatten(values) # Values here are not already flat, why?
-                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
-                            elif var == 'j0pt': 
-                                values = ak.flatten(values) # Values here are not already flat, why?
-                                hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch, weight=weights_flat, systematic=syst,appl=appl)
+                            # Loop over the appropriate AR and SR for this channel (TODO: Rename this to involve "tight" not "SR")
+                            for appl in cat_dict[nlep_cat]["appl_lst"]:
+
+                                all_cuts_mask = selections.all(*[lep_chan,njet_val,appl])
+
+                                weights_flat = weight[all_cuts_mask]
+                                weights_ones = np.ones_like(weights_flat, dtype=np.int)
+                                eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
+                                eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
+
+                                # Filling histos
+                                if var == 'njets' :
+                                    #if 'j' in ch: continue # Ignore sparse jet bins
+                                    values = v[all_cuts_mask]
+                                    hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch_name, weight=weights_flat, systematic=syst,appl=appl)
+                                #elif 'j' not in ch: continue # Super channels for njets only
+                                elif var == 'invmass':
+                                    values = v[all_cuts_mask]
+                                    hout['invmass'].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, sample=histAxisName, channel=ch_name, invmass=values, weight=weights_flat, systematic=syst,appl=appl)
+                                elif var == 'ptbl' : 
+                                    values = ak.flatten(v[all_cuts_mask])
+                                    hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ptbl=values, sample=histAxisName, channel=ch_name, weight=weights_flat, systematic=syst,appl=appl)
+                                else:
+                                    values = v[all_cuts_mask] 
+                                    # These all look identical, do we need if/else here?
+                                    if   var == 'ht': 
+                                        hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, ht=values, sample=histAxisName, channel=ch_name, weight=weights_flat, systematic=syst,appl=appl)
+                                    elif var == 'met': 
+                                        hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, met=values, sample=histAxisName, channel=ch_name, weight=weights_flat, systematic=syst,appl=appl)
+                                    elif var == 'njets': 
+                                        hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, njets=values, sample=histAxisName, channel=ch_name, weight=weights_flat, systematic=syst,appl=appl)
+                                    elif var == 'nbtags': 
+                                        hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, nbtags=values, sample=histAxisName, channel=ch_name, weight=weights_flat, systematic=syst,appl=appl)
+                                    elif var == 'counts': 
+                                        hout[var].fill(counts=values, sample=histAxisName, channel=ch_name, weight=weights_ones, systematic=syst,appl=appl)
+                                    elif var == 'l0pt': 
+                                        hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0pt=values, sample=histAxisName, channel=ch_name, weight=weights_flat, systematic=syst,appl=appl)
+                                    elif var == 'l0eta': 
+                                        hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, l0eta=values, sample=histAxisName, channel=ch_name, weight=weights_flat, systematic=syst,appl=appl)
+                                    elif var == 'j0eta': 
+                                        values = ak.flatten(values) # Values here are not already flat, why?
+                                        hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0eta=values, sample=histAxisName, channel=ch_name, weight=weights_flat, systematic=syst,appl=appl)
+                                    elif var == 'j0pt': 
+                                        values = ak.flatten(values) # Values here are not already flat, why?
+                                        hout[var].fill(eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut, j0pt=values, sample=histAxisName, channel=ch_name, weight=weights_flat, systematic=syst,appl=appl)
+
         return hout
 
     def postprocess(self, accumulator):

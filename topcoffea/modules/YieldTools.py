@@ -41,34 +41,34 @@ class YieldTools():
         self.CATEGORIES = {
             "cat_2lss_p" : {
                 "channel": ["2lss_p_4j","2lss_p_5j","2lss_p_6j","2lss_p_7j"],
-                "appl": ["isSR_2lss"],
+                "appl": ["isSR_2l"],
             },
             "cat_2lss_m" : {
                 "channel": ["2lss_m_4j","2lss_m_5j","2lss_m_6j","2lss_m_7j"],
-                "appl": ["isSR_2lss"],
+                "appl": ["isSR_2l"],
             },
             "cat_3l_p_offZ_1b" : {
-                "channel": ["3l_p_offZ_2j_1b", "3l_p_offZ_3j_1b", "3l_p_offZ_4j_1b", "3l_p_offZ_5j_1b"],
+                "channel": ["3l_p_offZ_1b_2j", "3l_p_offZ_1b_3j", "3l_p_offZ_1b_4j", "3l_p_offZ_1b_5j"],
                 "appl": ["isSR_3l"],
             },
             "cat_3l_m_offZ_1b" : {
-                "channel": ["3l_m_offZ_2j_1b", "3l_m_offZ_3j_1b", "3l_m_offZ_4j_1b", "3l_m_offZ_5j_1b"],
+                "channel": ["3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_m_offZ_1b_5j"],
                 "appl": ["isSR_3l"],
             },
             "cat_3l_p_offZ_2b" : {
-                "channel": ["3l_p_offZ_2j_2b", "3l_p_offZ_3j_2b", "3l_p_offZ_4j_2b", "3l_p_offZ_5j_2b"],
+                "channel": ["3l_p_offZ_2b_2j", "3l_p_offZ_2b_3j", "3l_p_offZ_2b_4j", "3l_p_offZ_2b_5j"],
                 "appl": ["isSR_3l"],
             },
             "cat_3l_m_offZ_2b" : {
-                "channel": ["3l_m_offZ_2j_2b", "3l_m_offZ_3j_2b", "3l_m_offZ_4j_2b", "3l_m_offZ_5j_2b"],
+                "channel": ["3l_m_offZ_2b_2j", "3l_m_offZ_2b_3j", "3l_m_offZ_2b_4j", "3l_m_offZ_2b_5j"],
                 "appl": ["isSR_3l"],
             },
             "cat_3l_onZ_1b" : {
-                "channel": ["3l_onZ_2j_1b", "3l_onZ_3j_1b", "3l_onZ_4j_1b", "3l_onZ_5j_1b"],
+                "channel": ["3l_onZ_1b_2j", "3l_onZ_1b_3j", "3l_onZ_1b_4j", "3l_onZ_1b_5j"],
                 "appl": ["isSR_3l"],
             },
             "cat_3l_onZ_2b" : {
-                "channel": ["3l_onZ_2j_2b", "3l_onZ_3j_2b", "3l_onZ_4j_2b", "3l_onZ_5j_2b"],
+                "channel": ["3l_onZ_2b_2j", "3l_onZ_2b_3j", "3l_onZ_2b_4j", "3l_onZ_2b_5j"],
                 "appl": ["isSR_3l"],
             },
             "cat_4l" : {
