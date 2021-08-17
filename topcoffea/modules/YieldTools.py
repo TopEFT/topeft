@@ -45,6 +45,12 @@ class YieldTools():
             "mmm" : (e_over_mu_old**(-0))*(e_over_mu_new**(0)),
         }
 
+        self.APPL_DICT = {
+            "2lss" : "isSR_2l",
+            "3l"   : "isSR_3l",
+            "4l"   : "isSR_4l",
+        }
+
         # A dictionary specifying which categories from the hists create the analysis categories
         self.CATEGORIES = {
             "cat_2lss_p" : {
@@ -270,22 +276,12 @@ class YieldTools():
 
 
     # Integrates out categories, normalizes, then calls get_yield()
-    def get_scaled_yield(self,hin_dict,year,proc,cat,overflow_str,rwgt_pt=None):
-
-        cat_dict = self.CATEGORIES[cat]
+    def get_scaled_yield(self,hin_dict,year,proc,cat_dict,overflow_str,rwgt_pt=None,h_name="ht"):
 
         # Integrate out cateogries
-        #h = hin_dict["njets"]
-        h = hin_dict["ht"]
+        h = hin_dict[h_name]
         h = self.integrate_out_cats(h,cat_dict)
         h = h.integrate("systematic","nominal") # For now anyway...
-
-        # Integrate over the categories for the analysis category we are interested in
-        #h = self.select_hist_for_ana_cat(h,self.CATEGORIES[cat])
-        #cats_dict = {}
-        #cats_dict["channel"] = self.CATEGORIES[cat]["channel"][0][:-3]
-        #cats_dict["appl"] = self.CATEGORIES[cat]["appl"]
-        #h = self.select_hist_for_ana_cat(h,cats_dict)
 
         # Reweight the hist
         if rwgt_pt is not None:
@@ -313,24 +309,30 @@ class YieldTools():
     #   - Returns a dictionary of yields for the categories in CATEGORIES
     #   - Making use of get_scaled_yield()
     #   - If you pass a key from JET_BINS for yields_for_njets_cats, will make a dict of yields for all the jet bins in that lep cat
-    def get_yld_dict(self,hin_dict,year,yields_for_njets_cats=None):
+    def get_yld_dict(self,hin_dict,year,use_ana_cats=True):
 
         yld_dict = {}
         proc_lst = self.get_cat_lables(hin_dict,"sample")
         for proc in proc_lst:
             proc_name_short = self.get_short_name(proc)
             yld_dict[proc_name_short] = {}
-            for cat,cuts_dict in self.CATEGORIES.items():
-                if "2lss" in cat: njet_cat = "2lss"
-                elif "3l" in cat: njet_cat = "3l"
-                elif "4l" in cat: njet_cat = "4l"
 
-                # We want to sum over the jet bins, and look at all of the lep cats
-                if yields_for_njets_cats is None:
-                    yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cat,overflow_str="over") # Important to keep overflow
+            # Whether we want to get the yields for specific categories, or all categories
+            if use_ana_cats:
+                cat_dict = self.CATEGORIES
+                hist_to_use = "ht"
+            else:
+                hist_to_use = "njets"
+                cat_dict = {}
+                for ch in self.get_cat_lables(hin_dict,"channel",h_name="njets"):
+                    cat_dict[ch] = {}
+                    nlep_str = ch.split("_")[0]
+                    cat_dict[ch]["appl"] = self.APPL_DICT[nlep_str]
+                    cat_dict[ch]["channel"] = ch
 
-                else:
-                    raise Exception(f"Error, invalid input for yields_for_njets_cats \"{yields_for_njets_cats}\". Exiting...")
+            for cat,cuts_dict in cat_dict.items():
+                yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
+
 
         return yld_dict
 
