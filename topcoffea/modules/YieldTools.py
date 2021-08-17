@@ -31,11 +31,19 @@ class YieldTools():
             "4l"   : [2,3,4],
         }
 
-        # The sub categories of the lep categories
-        self.ch_3l_onZ = ["eemSSonZ", "mmeSSonZ", "eeeSSonZ", "mmmSSonZ"]
-        self.ch_3l_offZ = ["eemSSoffZ", "mmeSSoffZ", "eeeSSoffZ", "mmmSSoffZ"]
-        self.ch_2lss = ["eeSSonZ", "eeSSoffZ", "mmSSonZ", "mmSSoffZ", "emSS"]
-        self.ch_4l = ["eeee","eeem","eemm","mmme","mmmm"]
+
+        # The ratios we can scale our yields by to see if we get agreemnet with TOP-19-001
+        e_over_mu_old = 0.75
+        e_over_mu_new = 0.56
+        flav_factor_dict = {
+            "ee"  : (e_over_mu_old**(-2))*(e_over_mu_new**(2)),
+            "em"  : (e_over_mu_old**(-1))*(e_over_mu_new**(1)),
+            "mm"  : (e_over_mu_old**(-0))*(e_over_mu_new**(0)),
+            "eee" : (e_over_mu_old**(-3))*(e_over_mu_new**(3)),
+            "eem" : (e_over_mu_old**(-2))*(e_over_mu_new**(2)),
+            "emm" : (e_over_mu_old**(-1))*(e_over_mu_new**(1)),
+            "mmm" : (e_over_mu_old**(-0))*(e_over_mu_new**(0)),
+        }
 
         # A dictionary specifying which categories from the hists create the analysis categories
         self.CATEGORIES = {
@@ -261,34 +269,23 @@ class YieldTools():
         return (v_sum,e_sum)
 
 
-    # Uses integrate_out_cats() and select_njet_bin() to return h for a particular analysis category
-    # This function maybe should not exist, we only use it in one place, so maybe just call integrate_out_cats() directly from there...
-    def select_hist_for_ana_cat(self,h,cat_dict,njet):
-        h_ret = self.integrate_out_cats(h,cat_dict)
-        h_ret = h_ret.integrate("systematic","nominal") # For now anyway...
-        #h_ret = self.select_njet_bin(h_ret,njet) # Now the categories are split by njets, so no need to rebin njets hist to find the info
-        return h_ret
+    # Integrates out categories, normalizes, then calls get_yield()
+    def get_scaled_yield(self,hin_dict,year,proc,cat,overflow_str,rwgt_pt=None):
 
+        cat_dict = self.CATEGORIES[cat]
 
-    # This is really just a wrapper for get_yield(). Note:
-    #   - This function now also rebins the njets hists
-    #   - Maybe that does not belong in this function
-    #   - Maybe depends on how we store njets info moving forward
-    def get_scaled_yield(self,hin_dict,year,proc,cat,njets_cat,overflow_str,rwgt_pt=None):
-
+        # Integrate out cateogries
         #h = hin_dict["njets"]
         h = hin_dict["ht"]
-
-        # Figure out which njet bins we want to combine
-        if isinstance(njets_cat,str):
-            njet = self.JET_BINS[njets_cat][0]
-        elif isinstance(njets_cat,int):
-            njet = njets_cat
-        else:
-            raise Exception(f"Wrong type, expected str or int, but got a {type(njets_cat)}, exiting...")
+        h = self.integrate_out_cats(h,cat_dict)
+        h = h.integrate("systematic","nominal") # For now anyway...
 
         # Integrate over the categories for the analysis category we are interested in
-        h = self.select_hist_for_ana_cat(h,self.CATEGORIES[cat],njet)
+        #h = self.select_hist_for_ana_cat(h,self.CATEGORIES[cat])
+        #cats_dict = {}
+        #cats_dict["channel"] = self.CATEGORIES[cat]["channel"][0][:-3]
+        #cats_dict["appl"] = self.CATEGORIES[cat]["appl"]
+        #h = self.select_hist_for_ana_cat(h,cats_dict)
 
         # Reweight the hist
         if rwgt_pt is not None:
@@ -330,16 +327,7 @@ class YieldTools():
 
                 # We want to sum over the jet bins, and look at all of the lep cats
                 if yields_for_njets_cats is None:
-                    yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cat,njet_cat,overflow_str="over") # Important to keep overflow
-
-                # We want to look at all the jet bins in the give lep cat
-                elif yields_for_njets_cats == njet_cat:
-                    raise Exception("Probably will need to update this funciton now that we have changed the categories in the processor") # Temporary, raise exception till we update the function to handle the new structure of the cateogries, but we don't use this function for now, so we'll just update it when we need it...
-                    for njet in self.JET_BINS[njet_cat]:
-                        if njet == max(self.JET_BINS[njet_cat]): include_overflow = "over"
-                        else: include_overflow = "none"
-                        cat_name_full = cat+"_"+str(njet)+"j"
-                        yld_dict[proc_name_short][cat_name_full] = self.get_scaled_yield(hin_dict,year,proc,cat,njet,overflow_str=include_overflow)
+                    yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cat,overflow_str="over") # Important to keep overflow
 
                 else:
                     raise Exception(f"Error, invalid input for yields_for_njets_cats \"{yields_for_njets_cats}\". Exiting...")
