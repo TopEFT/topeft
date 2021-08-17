@@ -88,12 +88,19 @@ find the address of the manager. In some other terminal, run:
 
 ```sh
 conda activate topcoffea-env
-work_queue_worker -dall --cores 1 --memory 4000 --disk 4000 -M ${USER}-workqueue-coffea
+work_queue_worker -dall --cores 1 --memory 8000 --disk 8000 -M ${USER}-workqueue-coffea
 ```
 
 We use the options cores, memory, and disk to limit the resources that worker
 claims for itself, otherwise it may incorrectly assume that the whole resources
-of the machine are available to it.
+of the machine are available to it. Further, the resources used here match the
+resource description in `work_queue_run.py` for the maximum resources any task
+can use. When no task has been completed, tasks are dispatched to workers using
+these maximum resources specified, so it is required for the workers to be at
+least as large.  As tasks are finished and data about their resource usage is
+collected, Work Queue will try to reduce the size of the allocations used when
+first trying the tasks in order to run more tasks concurrently. Tasks will be
+retried, if needed, using the maximum specified values in `work_queue_run.py`.
 
 We also use the option `-dall` to print debugging output. If the worker
 correctly connected to the manager, you should see the messages that describe
