@@ -58,9 +58,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Create the histograms
         self._accumulator = processor.dict_accumulator({
         'SumOfEFTweights'  : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
-        'counts'  : hist.Hist("Events",             hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("counts", "Counts", 1, 0, 2)),
         'invmass' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
-        'ptbl'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 50, 0, 500)),
+        'ptbl'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 50, 0, 500)),
         'invmass' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ",50 , 60, 130)),
         'njets'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10)),
         'nbtags'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)),
@@ -477,6 +476,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Define invariant mass hists
         mll_0_1 = (l0+l1).mass     #invmass for leading two leps
 
+        # Counts
+        counts = np.ones_like(events['event'])
+
         # Variables we will loop over when filling hists
         varnames = {}
         varnames['ht']      = ht
@@ -486,7 +488,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames['j0eta']   = ak.flatten(j0.eta)
         varnames['njets']   = njets
         varnames['invmass'] = mll_0_1
-        varnames['counts']  = np.ones_like(events['event'])
         varnames['ptbl']    = ak.flatten(ptbl)
 
 
@@ -508,7 +509,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             },
             "4l" : {
                 "lep_chan_lst" : ["4l"],
-                "lep_flav_lst" : ["llll"], # Not keepting track of these separately
+                "lep_flav_lst" : ["llll"], # Not keeping track of these separately
                 "njets_lst"    : ["exactly_2j" , "exactly_3j" , "atleast_4j"],
                 "appl_lst"     : ['isSR_4l'],
             }
@@ -520,17 +521,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         normweights = weights_dict["2l"].partial_weight(include=["norm"]) # Here we could have used 2l, 3l, or 4l, as the "norm" weights should be identical for all three
         if len(self._wc_names_lst)>0: sowweights = np.ones_like(normweights)
         else: sowweights = normweights
-        hout['SumOfEFTweights'].fill(sample=histAxisName, SumOfEFTweights=varnames['counts'], weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout['SumOfEFTweights'].fill(sample=histAxisName, SumOfEFTweights=counts, weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
-        # Loop over the systematics
-        for syst in systList:
+        # Loop over the hists we want to fill
+        for dense_axis_name, dense_axis_vals in varnames.items():
 
-            # In the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weight_fluct=None)
-            weight_fluct = syst
-            if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']: weight_fluct = None # No weight systematic for these variations
+            # Loop over the systematics
+            for syst in systList:
 
-            # Loop over the hists we want to fill
-            for dense_axis_name, dense_axis_vals in varnames.items():
+                # In the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weight_fluct=None)
+                weight_fluct = syst
+                if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']: weight_fluct = None # No weight systematic for these variations
 
                 # Loop over nlep categories "2l", "3l", "4l"
                 for nlep_cat in cat_dict.keys():
@@ -540,34 +541,38 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if syst=='noweight': weight = np.ones(len(events)) # For data
                     else: weight = weights_object.weight(weight_fluct) # For MC
 
-                    # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
-                    for lep_chan in cat_dict[nlep_cat]["lep_chan_lst"]:
+                    # Loop over the appropriate AR and SR for this channel (TODO: Rename this to involve "tight" not "SR")
+                    for appl in cat_dict[nlep_cat]["appl_lst"]:
 
-                        # Loop over the njets list for each channel
-                        for njet_val in cat_dict[nlep_cat]["njets_lst"]:
+                        # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
+                        for lep_chan in cat_dict[nlep_cat]["lep_chan_lst"]:
 
-                            # Loop over the lep flavor list for each channel
-                            for lep_flav in cat_dict[nlep_cat]["lep_flav_lst"]:
+                            # Loop over the njets list for each channel
+                            for njet_val in cat_dict[nlep_cat]["njets_lst"]:
 
-                                # Construct the channel name from the the components
-                                flav_ch = None
-                                njet_ch = None
-                                if self._split_by_lepton_flavor: flav_ch = lep_flav # Do not fill separate for lep flav unless this flag is True
-                                if dense_axis_name != "njes": njet_ch = njet_val    # Do not fill separate categories for njets in njets hist
-                                ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
+                                # Loop over the lep flavor list for each channel
+                                for lep_flav in cat_dict[nlep_cat]["lep_flav_lst"]:
 
-                                # Loop over the appropriate AR and SR for this channel (TODO: Rename this to involve "tight" not "SR")
-                                for appl in cat_dict[nlep_cat]["appl_lst"]:
-
-                                    # Get a mask for all of the cuts we apply for this channel (an "and" of all the selection masks)
-                                    cuts_lst = [lep_chan,njet_val,lep_flav,appl]
+                                    # Construct the hist name and the cuts list
+                                    flav_ch = None
+                                    njet_ch = None
+                                    cuts_lst = [appl,lep_chan]
+                                    if self._split_by_lepton_flavor:
+                                        flav_ch = lep_flav
+                                        cuts_lst.append(lep_flav)
+                                    if dense_axis_name != "njets":
+                                        njet_ch = njet_val
+                                        cuts_lst.append(njet_val)
+                                    ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
                                     all_cuts_mask = selections.all(*cuts_lst)
 
+                                    # Weights and eft coeffs
                                     weights_flat = weight[all_cuts_mask]
                                     weights_ones = np.ones_like(weights_flat, dtype=np.int)
                                     eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
                                     eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
+                                    # Fill the histos
                                     axes_fill_info_dict = {
                                         dense_axis_name : dense_axis_vals[all_cuts_mask],
                                         "channel"       : ch_name,
@@ -578,11 +583,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         "eft_coeff"     : eft_coeffs_cut,
                                         "eft_err_coeff" : eft_w2_coeffs_cut,
                                     }
+                                    hout[dense_axis_name].fill(**axes_fill_info_dict)
 
-                                    if dense_axis_name != "counts":
-                                        hout[dense_axis_name].fill(**axes_fill_info_dict)
-                                    else:
-                                        hout[dense_axis_name].fill(counts=dense_axis_vals[all_cuts_mask], sample=histAxisName, channel=ch_name, weight=weights_ones, systematic=syst, appl=appl)
+                                    # Do not loop over lep flavors if not _split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
+                                    if not self._split_by_lepton_flavor: break
+
+                                # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
+                                if dense_axis_name == "njets": break
 
         return hout
 
