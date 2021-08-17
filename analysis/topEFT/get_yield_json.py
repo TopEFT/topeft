@@ -21,17 +21,23 @@ def main():
     parser.add_argument("-t", "--tag", default="Sample", help = "A string to describe the pkl file")
     parser.add_argument("-n", "--json_name", default="yields", help = "Name of the json file to save")
     parser.add_argument("-q", "--quiet", action="store_true", help = "Do not print out anything")
+    parser.add_argument("-c", "--yield-categories-type", default="sum_njets_sum_lepflav", help = "The types of categories to get yields for")
     args = parser.parse_args()
 
     # Get the histograms, and put the yields into a dict
     hin_dict = yt.get_hist_from_pkl(args.pkl_file_path)
-    yld_dict = yt.get_yld_dict(hin_dict,args.year)
+    yld_dict = yt.get_yld_dict(hin_dict,args.year,cat_type=args.yield_categories_type)
+
 
     # Print info about the file
     if not args.quiet:
         yt.print_hist_info(args.pkl_file_path)
         yt.print_yld_dicts(yld_dict,args.tag)
-        mlt.print_latex_yield_table(yld_dict,key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=args.tag,print_begin_info=True,print_end_info=True)
+        if args.yield_categories_type == "sum_njets_sum_lepflav":
+            mlt.print_latex_yield_table(yld_dict,key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=args.tag,print_begin_info=True,print_end_info=True)
+        else:
+            mlt.print_latex_yield_table(yld_dict,tag=args.tag,print_begin_info=True,print_end_info=True,column_variable="keys")
+
 
     # Save to a json
     out_json_name = args.json_name

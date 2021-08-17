@@ -309,7 +309,7 @@ class YieldTools():
     #   - Returns a dictionary of yields for the categories in CATEGORIES
     #   - Making use of get_scaled_yield()
     #   - If you pass a key from JET_BINS for yields_for_njets_cats, will make a dict of yields for all the jet bins in that lep cat
-    def get_yld_dict(self,hin_dict,year,use_ana_cats=True):
+    def get_yld_dict(self,hin_dict,year,cat_type="sum_njets_sum_lepflav"):
 
         yld_dict = {}
         proc_lst = self.get_cat_lables(hin_dict,"sample")
@@ -318,13 +318,18 @@ class YieldTools():
             yld_dict[proc_name_short] = {}
 
             # Whether we want to get the yields for specific categories, or all categories
-            if use_ana_cats:
+            if cat_type == "sum_njets_sum_lepflav":
                 cat_dict = self.CATEGORIES
                 hist_to_use = "ht"
             else:
-                hist_to_use = "njets"
+                if cat_type == "njets":
+                    hist_to_use = "ht" # Don't use njets hist since that's not split by j
+                elif cat_type == "lepflav":
+                    hist_to_use = "njets" # Use njets hist since it's not split by j and we don't want to split by lep flav _and_ j, that's too many categories to look at
+                else:
+                    raise Exception(f"Error: Unknown categry type \"{cat_type}\".")
                 cat_dict = {}
-                for ch in self.get_cat_lables(hin_dict,"channel",h_name="njets"):
+                for ch in self.get_cat_lables(hin_dict,"channel",h_name=hist_to_use):
                     cat_dict[ch] = {}
                     nlep_str = ch.split("_")[0]
                     cat_dict[ch]["appl"] = self.APPL_DICT[nlep_str]
