@@ -393,7 +393,6 @@ from collections import defaultdict
 
 ### 2016 ###
 naod_version = "MiniAODv1_NanoAODv2-v1"
-dataset_names = ["SingleMuon","EGamma","DoubleMuon","MuonEG"]
 dataset_names = ['DoubleEG','DoubleMuon','SingleElectron','SingleMuon']
 dataset_eras = [# See: https://twiki.cern.ch/twiki/bin/view/CMS/PdmVDatasetsUL2016
     'B-ver1_HIPM_UL2016',
@@ -538,8 +537,8 @@ def main():
     # make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
 
     # Data
-    # make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
-    # make_jsons_for_dict_of_samples(data_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_data_2017,on_das=True)
+    make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
+    make_jsons_for_dict_of_samples(data_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_data_2017,on_das=True)
     make_jsons_for_dict_of_samples(data_2018_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_data_2018,on_das=True)
 
     # Testing finding list of files with xrdfs ls
