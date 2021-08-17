@@ -84,7 +84,6 @@ class DatacardMaker():
             lumi = json.load(jf)
             self.lumi = lumi
         self.lumi = {year : 1000*lumi for year,lumi in self.lumi.items()}
-        print(self.lumi)
 
     def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
         if variable != 'njets' and isinstance(bins, list) and len(bins)>0:
