@@ -13,7 +13,7 @@ import concurrent.futures
 from ROOT import TFile, TH1D, TH2D
 
 class DatacardMaker():
-    def __init__(self, infile='', year=2018, lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[]):
+    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[]):
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
@@ -82,8 +82,9 @@ class DatacardMaker():
         self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples}
         with open(lumiJson) as jf:
             lumi = json.load(jf)
-            lumi = lumi[year]
-        self.lumi = 1000*lumi
+            self.lumi = lumi
+        self.lumi = {year : 1000*lumi for year,lumi in self.lumi.items()}
+        print(self.lumi)
 
     def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
         if variable != 'njets' and isinstance(bins, list) and len(bins)>0:
@@ -160,9 +161,19 @@ class DatacardMaker():
             if h_base == {}:
                 print(f'Issue with {proc}')
                 continue
+            #Get year from sample name
+            year = -1
+            if 'UL16' in proc or 'UL16APV' in proc:
+                year = "2016"
+            elif 'UL17'in proc:
+                year = "2017"
+            elif 'UL18'in proc:
+                year = "2018"
+            else:
+                raise Exception(f'Could not determine the lumi year for {proc}!')
             nwc = self.hsow._nwc
             if nwc > 0:
-                h_base.scale(self.lumi/self.smsow[proc])
+                h_base.scale(self.lumi[year]/self.smsow[proc])
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             if 'njet' in variable:
                 if   '2l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7]))
@@ -475,20 +486,20 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='You can select which file to run over')
     parser.add_argument('pklfile'           , nargs='?', default=''           , help = 'Pickle file with histograms')
-    parser.add_argument('--year',     '-y', default='2018'                         , help = 'Run year to access lumi')
+    #parser.add_argument('--year',     '-y', default='2018'                         , help = 'Run year to access lumi')
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
     parser.add_argument('--do-nuisance',    action='store_true', help = 'Include nuisance parameters')
     parser.add_argument('--POI',            default=[],          help = 'List of WCs (comma separated)')
     args = parser.parse_args()
     pklfile  = args.pklfile
-    year = args.year
+    #year = args.year
     lumiJson = args.lumiJson
     do_nuisance = args.do_nuisance
     wcs = args.POI
     if isinstance(wcs, str): wcs = wcs.split(',')
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
-    card = DatacardMaker(pklfile, year, lumiJson, do_nuisance, wcs)
+    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs)
     card.read()
     card.buildWCString()
     print(card.coeffs)
