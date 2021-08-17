@@ -134,8 +134,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Compute pair invariant masses
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
         events['minMllAFAS']=ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
-        osllpairs=llpairs[llpairs.l0.charge*llpairs.l1.charge<0]
-        osllpairs_masses=(osllpairs.l0+osllpairs.l1).mass
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
@@ -174,7 +172,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         jetptname = 'pt_nom' if hasattr(cleanedJets, 'pt_nom') else 'pt'
 
         # Jet energy corrections
-        if False: # for synch
+        if not isData:
             cleanedJets["pt_raw"]=(1 - cleanedJets.rawFactor)*cleanedJets.pt
             cleanedJets["mass_raw"]=(1 - cleanedJets.rawFactor)*cleanedJets.mass
             cleanedJets["pt_gen"]=ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
@@ -197,7 +195,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         cleanedJets['isGood']  = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
         goodJets = cleanedJets[cleanedJets.isGood]
 
-        # Count jets, jet 
+        # Count jets
         njets = ak.num(goodJets)
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
@@ -249,7 +247,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         l1 = l_fo_conept_sorted_padded[:,1]
         l2 = l_fo_conept_sorted_padded[:,2]
 
-        print('The number of events passing fo 2l, 3l, and 4l selection is:', ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
+        print('The number of events passing fo 2l, 3l, and 4l selection:', ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
 
 
         ################################################################
@@ -418,9 +416,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         selections = PackedSelection(dtype='uint64')
 
-        # 2lss0tau things # What is this for??
-        #selections.add('2lss0tau', is2l)
-
         # 2lss selection
         selections.add("2lss_p", (events.is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_m", (events.is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
@@ -436,7 +431,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # 4l selection
         selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
 
-        # Lep cat selection
+        # Lep flavor selection
         selections.add("ee",  events.is_ee)
         selections.add("em",  events.is_em)
         selections.add("mm",  events.is_mm)
@@ -464,7 +459,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add('isSR_4l',  ak.values_astype(events.is4l_SR,'bool'))
 
 
-        ######### Variables for the x axis of the hists ##########
+        ######### Variables for the dense axes of the hists ##########
 
         # Calculate ptbl
         ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
@@ -541,7 +536,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if syst=='noweight': weight = np.ones(len(events)) # For data
                     else: weight = weights_object.weight(weight_fluct) # For MC
 
-                    # Loop over the appropriate AR and SR for this channel (TODO: Rename this to involve "tight" not "SR")
+                    # Loop over the appropriate AR and SR for this channel
                     for appl in cat_dict[nlep_cat]["appl_lst"]:
 
                         # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
@@ -553,7 +548,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                 # Loop over the lep flavor list for each channel
                                 for lep_flav in cat_dict[nlep_cat]["lep_flav_lst"]:
 
-                                    # Construct the hist name and the cuts list
+                                    # Construct the hist name and the cuts mask for all selections
                                     flav_ch = None
                                     njet_ch = None
                                     cuts_lst = [appl,lep_chan]
@@ -585,7 +580,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     }
                                     hout[dense_axis_name].fill(**axes_fill_info_dict)
 
-                                    # Do not loop over lep flavors if not _split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
+                                    # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                     if not self._split_by_lepton_flavor: break
 
                                 # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
