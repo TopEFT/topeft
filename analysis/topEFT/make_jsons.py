@@ -554,8 +554,8 @@ dataset_eras = [# Note: Eras G and H correspond to 5 TeV and lowPU, so ignore th
     'B-UL2017',
     'C-UL2017',
     'D-UL2017',
-    'E-UL2017',
-    'F-UL2017',
+    'E-UL2017', # Note: SingleElectron and SingleMuon era E are missing as they are marked as "invalid" on DAS
+    'F-UL2017', # Note: SingleMuon era F is missing as it is marked as "invalid" on DAS
 ]
 
 data_2017_dict = defaultdict(lambda: {'path': '','histAxisName': 'data', 'xsecName': ''})
@@ -570,7 +570,7 @@ naod_version = "MiniAODv1_NanoAODv2-v1"
 dataset_names = ["SingleMuon","EGamma","DoubleMuon","MuonEG"]
 dataset_eras = [
     'A-UL2018',
-    'B-UL2018',
+    'B-UL2018', # Note: DoubleMuon era B is missing as it is marked as "invalid" on DAS
     'C-UL2018',
     'D-UL2018',
 ]
