@@ -138,10 +138,17 @@ exclude_dict = {
 def passsesTrgInLst(events,trg_name_lst):
     tpass = np.zeros_like(np.array(events.MET.pt), dtype=np.bool)
     trg_info_dict = events.HLT
-    for trg_name in trg_name_lst:
+
+    # "fields" should be list of all triggers in the dataset
+    common_triggers = set(trg_info_dict.fields) & set(trg_name_lst)
+
+    # Check to make sure that at least one of our specified triggers is present in the dataset
+    if len(common_triggers) == 0 and len(trg_name_lst):
+        raise Exception("No triggers from the sample matched to the ones used in the analysis.")
+
+    for trg_name in common_triggers:
         tpass = tpass | trg_info_dict[trg_name]
     return tpass
-
 
 # This is what we call from the processor
 #   - Returns an array the len of events
@@ -151,7 +158,7 @@ def trgPassNoOverlap(events,is_data,dataset,year):
     
     # The trigger for 2016 and 2016APV are the same
     if year == "2016APV":
-        year= "2016"
+        year = "2016"
 
     # Initialize ararys and lists, get trg pass info from events
     trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=np.bool) # Array of False the len of events
@@ -168,12 +175,6 @@ def trgPassNoOverlap(events,is_data,dataset,year):
 
     # In case of data, check if events overlap with other datasets
     if is_data:
-        # We are not running over any data yet (we do not even have the jsons for data samples)
-        # Once we want to process data, will need to double check what events.metadata['dataset'] gives us
-        # That's what we're passing as "dataset", and I don't know exactly what it returns, but I hope it is e.g. "DoubleMuon"
-        # Which brings up another quesiton, why pass dataset at all? We already pass events, so we can just get it from that, righ?
-        # Anyway for now let's raise an exception so that we remember to check this when we want to process data
-        raise Exception("Error: Have not checked this function for data yet! Do that before using it.")
         trg_overlaps = passsesTrgInLst(events, exclude_dict[year][dataset])
 
     # Return true if passes trg and does not overlap
