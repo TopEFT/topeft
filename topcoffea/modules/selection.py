@@ -144,7 +144,6 @@ def passsesTrgInLst(events,trg_name_lst):
 
     # Check to make sure that at least one of our specified triggers is present in the dataset
     if len(common_triggers) == 0 and len(trg_name_lst):
-        # TODO: Might want to just make this a warning instead of an error
         raise Exception("No triggers from the sample matched to the ones used in the analysis.")
 
     for trg_name in common_triggers:
@@ -159,7 +158,7 @@ def trgPassNoOverlap(events,is_data,dataset,year):
     
     # The trigger for 2016 and 2016APV are the same
     if year == "2016APV":
-        year= "2016"
+        year = "2016"
 
     # Initialize ararys and lists, get trg pass info from events
     trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=np.bool) # Array of False the len of events
