@@ -40,8 +40,9 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 * `datacard_maker.py`:
     - This script produces datacards to be used in combine. It creates temporary ROOT files with `tmp` in the name, and delets them when finished. The final txt and root files are in the `histos` folder. The txt files are the datacards, and the root files are the shape files.
-    - Example usage: `python analysis/topEFT/datacard_maker.py histos/all_private_UL17_datacard_rebase.pkl.gz -y 2017`
+    - Example usage: `python analysis/topEFT/datacard_maker.py histos/all_private_njet_opt.pkl.gz`
     - More cards can be made by adding addtional calls to `analyzeChannel()` (see file for details).
+    - (Optional) Specify a subset of WCs using e.g. `--POI cpt,ctp,cptb,cQlMi,cQl3i,ctlTi,ctli,cbW,cpQM,cpQ3,ctei,cQei,ctW,ctlSi,ctZ,ctG`
 
 * `drawSliders.py`:
  

@@ -1,0 +1,18 @@
+{
+  "xsec": 0.2086,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "WWW_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL17NanoAODv2/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/00000/E8882B42-6D5B-C641-9B3A-5515F41C49FE.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/30000/242BC540-A8D5-F74D-BEFA-2DCC6D7E4235.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/240000/6CE31933-D02D-624D-BE80-1FE7C39EB049.root",
+    "/store/mc/RunIISummer20UL17NanoAODv2/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/230000/4B41DA36-6785-AA46-B3AD-CB521112C677.root"
+  ],
+  "nEvents": 171000,
+  "nGenEvents": 171000,
+  "nSumOfWeights": 36869.16160590001,
+  "isData": false
+}
