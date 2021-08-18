@@ -54,6 +54,22 @@ pip install -e .
 # pip install -e .
 ```
 
+---
+**NOTE**
+
+If your python environments do not work after the step `conda activate
+topcoffea-env`, for example, if `python` immediately fails because it cannot
+find module, then your conda installation may be in conflict with a previous
+setup. Most problems like this are solved by typing:
+
+```sh
+unset PYTHONPATH
+```
+
+just before the `conda activate` command.
+
+---
+
 This completes setting up the base python environment. The python environment
 sent to the workers will be automatically constructed from the base environment
 as changes in the topcoffea code are detected. We highly recommend that when
