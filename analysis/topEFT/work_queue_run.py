@@ -167,19 +167,24 @@ executor_args = {
     'compression': 9,
 
     # automatically find an adequate resource allocation for tasks.
-    # allocations sizes are tried until the maximum resources (defined below)
-    # are reached, at which point a tasks fails permanently. If no maximum is
-    # specified, of no worker is as large as the maximum specified, then
-    # retried tasks will wait forever until a large enough worker connects.
+    # tasks are first tried using the maximum resources seen of previously ran
+    # tasks. on resource exhaustion, they are retried with the maximum resource
+    # values, if specified below. if a maximum is not specified, the task waits
+    # forever until a larger worker connects.
     'resource_monitor': True,
     'resources_mode': 'auto',
 
-    # this resource values may be ommited when using
+    # this resource values may be omitted when using
     # resources_mode: 'auto', but they do make the initial portion
     # of a workflow run a little bit faster.
     # Rather than using whole workers in the exploratory mode of
     # resources_mode: auto, tasks are forever limited to a maximum
     # of 8GB of mem and disk.
+    #
+    # NOTE: The very first tasks in the exploratory
+    # mode will use the values specified here, so workers need to be at least
+    # this large. If left unspecified, tasks will use whole workers in the
+    # exploratory mode.
     'cores': 1,
     'disk': 8000,   #MB
     'memory': 8000, #MB
