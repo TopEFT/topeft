@@ -1,0 +1,18 @@
+{
+  "xsec": 0.01398,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "ZZZ_centralUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL16NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/280000/EA71F810-3009-294C-906A-0F2DBDAD3E43.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/120000/2E96A5E9-C938-A149-BBBF-8FD81A9E5AD6.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/120000/208C46AA-A718-DA45-B0E5-D08D1CF0051E.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/270000/10365726-5ABB-524A-A5F7-507C2AE951F6.root"
+  ],
+  "nEvents": 72000,
+  "nGenEvents": 72000,
+  "nSumOfWeights": 1066.5219449800002,
+  "isData": false
+}

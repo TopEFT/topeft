@@ -1,0 +1,22 @@
+{
+  "xsec": 0.1651,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "WWZ_4F_centralUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/120000/F576B6DD-1357-9E4D-8001-73DD3749502F.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/120000/1879CF4A-F03D-754B-97AA-F8E781186CDD.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/120000/200C9DE9-0F06-4646-8CD4-F1AE79B89A89.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/120000/CE31D6F7-580F-784B-BE93-F02F9DDBEEC6.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/120000/37689321-B7D9-4E48-9651-BBA50CECB364.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/280000/3CE80F99-C9C3-8D4C-9B21-EF7BF673C257.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/130000/386BC248-6FB6-634E-B921-B84D49BDCF10.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/70000/C00DDDA8-693E-A449-8017-8FF7969A7DFD.root"
+  ],
+  "nEvents": 67000,
+  "nGenEvents": 67000,
+  "nSumOfWeights": 11495.724679200002,
+  "isData": false
+}
