@@ -485,13 +485,11 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='You can select which file to run over')
     parser.add_argument('pklfile'           , nargs='?', default=''           , help = 'Pickle file with histograms')
-    #parser.add_argument('--year',     '-y', default='2018'                         , help = 'Run year to access lumi')
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
     parser.add_argument('--do-nuisance',    action='store_true', help = 'Include nuisance parameters')
     parser.add_argument('--POI',            default=[],          help = 'List of WCs (comma separated)')
     args = parser.parse_args()
     pklfile  = args.pklfile
-    #year = args.year
     lumiJson = args.lumiJson
     do_nuisance = args.do_nuisance
     wcs = args.POI
