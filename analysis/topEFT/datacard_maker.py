@@ -157,13 +157,13 @@ class DatacardMaker():
         for proc in self.samples:
             # Only get proc from matching year
             if year == '2016':
-                if '16' not in proc or 'APV' in proc: continue
+                if 'UL16' not in proc or 'APV' in proc: continue
             elif year == '2016APV':
                 if '16APV' not in proc: continue
             elif year == '2017':
-                if '17' not in proc: continue
+                if 'UL17' not in proc: continue
             elif year == '2018':
-                if '18' not in proc: continue
+                if 'UL18' not in proc: continue
             else:
                 raise Exception('Year not found!')
             #Integrate out processes
@@ -171,16 +171,6 @@ class DatacardMaker():
             if h_base == {}:
                 print(f'Issue with {proc}')
                 continue
-            #Get year from sample name
-            year = -1
-            if 'UL16' in proc or 'UL16APV' in proc:
-                year = "2016"
-            elif 'UL17'in proc:
-                year = "2017"
-            elif 'UL18'in proc:
-                year = "2018"
-            else:
-                raise Exception(f'Could not determine the lumi year for {proc}!')
             nwc = self.hsow._nwc
             if nwc > 0:
                 h_base.scale(self.lumi[year]/self.smsow[proc])
@@ -313,13 +303,13 @@ class DatacardMaker():
         for proc in self.samples:
             # Only get proc from matching year
             if year == '2016':
-                if '16' not in proc or 'APV' in proc: continue
+                if 'UL16' not in proc or 'APV' in proc: continue
             elif year == '2016APV':
                 if '16APV' not in proc: continue
             elif year == '2017':
-                if '17' not in proc: continue
+                if 'UL17' not in proc: continue
             elif year == '2018':
-                if '18' not in proc: continue
+                if 'UL18' not in proc: continue
             else:
                 raise Exception('Year not found!')
             p = self.rename[proc] if proc in self.rename else proc
