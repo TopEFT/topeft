@@ -66,7 +66,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         xsec         = self._samples[dataset]['xsec']
         sow          = self._samples[dataset]['nSumOfWeights' ]
         isData       = self._samples[dataset]['isData']
-        datasets     = ['SingleMuon', 'SingleElectron', 'EGamma', 'MuonEG', 'DoubleMuon', 'DoubleElectron']
+        datasets     = ['SingleMuon', 'SingleElectron', 'EGamma', 'MuonEG', 'DoubleMuon', 'DoubleElectron', 'DoubleEG']
         for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0] 
 
