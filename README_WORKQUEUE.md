@@ -87,6 +87,11 @@ which files of events to process. One small configuration to test is:
 ```sh
 conda activate topcoffea-env
 cd analysis/topEFT
+
+## optional: initialize your proxy credentials to access the needed xrootd files.
+## It is not needed if the .cfg file is using root files from local paths.
+# voms-init-proxy2
+
 python work_queue_run.py --chunksize 128000 ../../topcoffea/cfg/mc_signal_samples.cfg
 ```
 
