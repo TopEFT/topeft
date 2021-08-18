@@ -447,7 +447,7 @@ central_UL17_bkg_dict = {
         "xsecName": "WWW",
     },
 
-    "UL17_WWW_4F" : {
+    "UL17_WWW_4F_ext" : {
         "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8_ext1-v1/NANOAODSIM",
         "histAxisName": "WWW_centralUL17",
         "xsecName": "WWW",
@@ -588,12 +588,12 @@ central_UL18_bkg_dict = {
     "UL18_WWW_4F" : {
         "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
         "histAxisName": "WWW_4F_centralUL18",
-        "xsecName": "WWW_4F",
+        "xsecName": "WWW",
     },
     "UL18_WWZ_4F" : {
         "path" : "/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
         "histAxisName": "WWZ_4F_centralUL18",
-        "xsecName": "WWZ_4F",
+        "xsecName": "WWZ",
     },
     "UL18_WZTo3Lnu" : {
         "path" : "/WZ_TuneCP5_13TeV-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
@@ -666,22 +666,22 @@ central_UL16_bkg_dict = {
     "UL16_WWW_4F" : {
         "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
         "histAxisName": "WWW_4F_centralUL16",
-        "xsecName": "WWW_4F",
+        "xsecName": "WWW",
     },
-    "UL16_WWW_4F" : {
+    "UL16_WWW_4F_ext" : {
         "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17_ext1-v1/NANOAODSIM",
         "histAxisName": "WWW_4F_centralUL16",
-        "xsecName": "WWW_4F",
+        "xsecName": "WWW",
     },
     "UL16_WWZ_4F" : {
         "path" : "/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
         "histAxisName": "WWZ_4F_centralUL16",
-        "xsecName": "WWZ_4F",
+        "xsecName": "WWZ",
     },
-    "UL16_WWZ_4F" : {
+    "UL16_WWZ_ext" : {
         "path" : "/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17_ext1-v1/NANOAODSIM",
         "histAxisName": "WWZ_4F_centralUL16",
-        "xsecName": "WWZ_4F",
+        "xsecName": "WWZ",
     },
     "UL16_WZTo3LNu" : {
         "path" : "/WZTo3LNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
@@ -693,7 +693,7 @@ central_UL16_bkg_dict = {
         "histAxisName": "WZZ_centralUL16",
         "xsecName": "WZZ",
     },
-    "UL16_WZZ" : {
+    "UL16_WZZ_ext" : {
         "path" : "/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17_ext1-v1/NANOAODSIM",
         "histAxisName": "WZZ_centralUL16",
         "xsecName": "WZZ",
@@ -703,7 +703,7 @@ central_UL16_bkg_dict = {
         "histAxisName": "ZZZ_centralUL16",
         "xsecName": "ZZZ",
     },
-    "UL16_ZZZ" : {
+    "UL16_ZZZ_ext" : {
         "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17_ext1-v1/NANOAODSIM",
         "histAxisName": "ZZZ_centralUL16",
         "xsecName": "ZZZ",
@@ -753,20 +753,20 @@ central_UL16APV_bkg_dict = {
     },
     "UL16_WWW_4F_APV" : {
         "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
-        "histAxisName": "WWW_4F_APV_centralUL16",
-        "xsecName": "WWW_4F_APV",
+        "histAxisName": "WWW_APV_centralUL16",
+        "xsecName": "WWW",
     },
-    "UL16_WWW_4F_APV" : {
+    "UL16_WWW_APV_ext" : {
         "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM",
-        "histAxisName": "WWW_4F_APV_centralUL16",
-        "xsecName": "WWW_4F_APV",
+        "histAxisName": "WWW_APV_centralUL16",
+        "xsecName": "WWW",
     },
     "UL16_WZZ_APV" : {
         "path" : "/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
         "histAxisName": "WZZ_APV_centralUL16",
         "xsecName": "WZZ_APV",
     },
-    "UL16_WZZ_APV" : {
+    "UL16_WZZ_APV_ext" : {
         "path" : "/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM",
         "histAxisName": "WZZ_APV_centralUL16",
         "xsecName": "WZZ_APV",
@@ -776,7 +776,7 @@ central_UL16APV_bkg_dict = {
         "histAxisName": "ZZZ_APV_centralUL16",
         "xsecName": "ZZZ_APV",
     },
-    "UL16_ZZZ_APV" : {
+    "UL16_ZZZ_APV_ext" : {
         "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM",
         "histAxisName": "ZZZ_APV_centralUL16",
         "xsecName": "ZZZ_APV",
@@ -865,16 +865,16 @@ def main():
     # Central
     #make_jsons_for_dict_of_samples(central_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_2016,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL16_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_UL,on_das=True)
-    #make_jsons_for_dict_of_samples(central_UL16_bkg_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_bkg_UL,on_das=True)
+    make_jsons_for_dict_of_samples(central_UL16_bkg_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_2016APV,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL16APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_UL,on_das=True)
-    #make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_bkg_UL,on_das=True)
+    make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
-    make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
+    #make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
     make_jsons_for_dict_of_samples(central_UL17_bkg_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
-    #make_jsons_for_dict_of_samples(central_UL18_bkg_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_bkg_UL,on_das=True)
+    make_jsons_for_dict_of_samples(central_UL18_bkg_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_bkg_UL,on_das=True)
 
     # Testing finding list of files with xrdfs ls
     #make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")

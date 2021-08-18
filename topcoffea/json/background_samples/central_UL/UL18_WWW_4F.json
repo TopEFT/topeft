@@ -1,0 +1,19 @@
+{
+  "xsec": 0.2086,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "WWW_4F_centralUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL18NanoAODv9/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/059FD01D-45FF-9648-A2B0-62BA97441F0E.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/45536FE0-4DE7-4E43-B43E-DE0ED0EF4B87.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/2D098776-10C1-654A-928B-A7F298D65BDB.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/6EA62051-8A50-3145-AC8C-FAE38D3FDE59.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/70000/2EE2817D-914A-0D4F-A13E-206F6D491894.root"
+  ],
+  "nEvents": 240000,
+  "nGenEvents": 240000,
+  "nSumOfWeights": 51638.257653960005,
+  "isData": false
+}
