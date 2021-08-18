@@ -1,0 +1,19 @@
+{
+  "xsec": 1,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "ST_tW_top_5f_inclusiveDecays_APV_centralUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/ST_tW_top_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/70000/A1D2AA90-1511-5F46-90DF-DA650C683BF9.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/ST_tW_top_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/70000/49FE1519-6DEF-D642-BDBF-D5626C8D7548.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/ST_tW_top_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/70000/CF1E96B8-2E1D-CC46-AD59-CB8DC261119E.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/ST_tW_top_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/70000/96F1F244-16D9-6448-847C-9A7D2FADB34D.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/ST_tW_top_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/70000/AE793875-F030-C54E-8C56-7FB2A20B2222.root"
+  ],
+  "nEvents": 2300000,
+  "nGenEvents": 2300000,
+  "nSumOfWeights": 74624666.33600001,
+  "isData": false
+}

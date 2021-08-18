@@ -1,0 +1,18 @@
+{
+  "xsec": 1,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "ST_tW_antitop_5f_inclusiveDecays_APV_centralUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/120000/D019449E-F6DC-8644-B1F2-DC72C1EA03C8.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/120000/C3E2F782-F1E0-8640-9F5C-03CA73D9265A.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/120000/7C4D6835-DB16-3043-B378-7ED3F701FB49.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/120000/8978CDC8-5901-5844-9F91-7172DDCE718D.root"
+  ],
+  "nEvents": 2300000,
+  "nGenEvents": 2300000,
+  "nSumOfWeights": 74766343.79400003,
+  "isData": false
+}

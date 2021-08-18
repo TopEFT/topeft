@@ -42,7 +42,7 @@
 
 import os, sys
 from coffea.util import save
-from topcoffea.modules.DASsearch import GetDatasetFromDAS
+from topcoffea.modules.DASsearch import GetDatasetFromDAS, RunDasGoClientCommand
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.fileReader import GetFiles, GetAllInfoFromFile, GetListOfWCs
 from topcoffea.modules.samples import loadxsecdic
@@ -113,13 +113,36 @@ def main():
     files = [(f[len(prefix):]) for f in filesWithPrefix]
 
   # 3) Search files in DAS dataset
+  #   NOTE: For DAS searches, the isData flag is determined from DAS itself, not the files
   else:
     dataset = path
     dicFiles = GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector=prefix)
     files = [f[len(prefix):] for f in dicFiles['files']]
     filesWithPrefix = dicFiles['files']
 
-  nEvents, nGenEvents, nSumOfWeights, isData = GetAllInfoFromFile(filesWithPrefix, treeName)
+    # This DAS command for some reason returns the output doubled and will look something like this:
+    #   output = " \ndata  \ndata  \n "
+    # So we strip off the whitespace and spurious newlines and then only take the first of the duplicates
+    dataset_part = "{name} | grep dataset.datatype".format(name=path)
+    output = RunDasGoClientCommand(dataset=dataset_part,mode='')
+    cleaned_output = output.strip().replace('\n',' ').split()[0]
+    if cleaned_output == 'data':
+      isData = True
+    elif cleaned_output == 'mc':
+      isData = False
+    else:
+      raise RuntimeError("Unknown datatype returned by DAS: ---{}---".format(output))
+
+  # When getting data from DAS, we don't need to query every single file to get the number of events
+  if isDAS and isData and nFiles is None:
+    dataset_part = "{name} | sum(file.nevents)".format(name=path)
+    output = RunDasGoClientCommand(dataset=dataset_part,mode='file,')
+    output = float(output.split(':')[-1].strip())
+
+    # For data this this should all be the same
+    nEvents,nGenEvents,nSumOfWeights = output,output,output
+  else:
+    nEvents, nGenEvents, nSumOfWeights, isData = GetAllInfoFromFile(filesWithPrefix, treeName)
 
   sampdic['WCnames'] = GetListOfWCs(filesWithPrefix[0])
   sampdic['files']         = files
@@ -139,4 +162,5 @@ def main():
 
 if __name__ == '__main__':
   main()
+
 

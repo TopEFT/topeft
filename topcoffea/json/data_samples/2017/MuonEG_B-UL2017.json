@@ -1,0 +1,22 @@
+{
+  "xsec": 1,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "data",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/data/Run2017B/MuonEG/NANOAOD/UL2017_MiniAODv1_NanoAODv2-v1/50000/A64AB80C-8ACA-A44A-BEC6-D76B2250CA41.root",
+    "/store/data/Run2017B/MuonEG/NANOAOD/UL2017_MiniAODv1_NanoAODv2-v1/50000/3340CB57-697C-9C43-A294-FC8EF5528772.root",
+    "/store/data/Run2017B/MuonEG/NANOAOD/UL2017_MiniAODv1_NanoAODv2-v1/270000/FF51F6B6-0DB1-224C-B88C-1CF7C15852F8.root",
+    "/store/data/Run2017B/MuonEG/NANOAOD/UL2017_MiniAODv1_NanoAODv2-v1/270000/099B3DC4-070F-AE4B-8CBB-80EA84F0ADAC.root",
+    "/store/data/Run2017B/MuonEG/NANOAOD/UL2017_MiniAODv1_NanoAODv2-v1/270000/50E5A3D0-4476-5441-8C6E-6CD5E96324CA.root",
+    "/store/data/Run2017B/MuonEG/NANOAOD/UL2017_MiniAODv1_NanoAODv2-v1/270000/E90A74EA-68BD-8242-B1BD-D41502AAFA6A.root",
+    "/store/data/Run2017B/MuonEG/NANOAOD/UL2017_MiniAODv1_NanoAODv2-v1/270000/3C655922-02D9-CA4C-A10F-B14FC4C7241A.root",
+    "/store/data/Run2017B/MuonEG/NANOAOD/UL2017_MiniAODv1_NanoAODv2-v1/280000/D50EAD37-DB1E-6244-AE09-88790DDF4E84.root"
+  ],
+  "nEvents": 4453465.0,
+  "nGenEvents": 4453465.0,
+  "nSumOfWeights": 4453465.0,
+  "isData": true
+}
