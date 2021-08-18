@@ -57,19 +57,19 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         self._accumulator = processor.dict_accumulator({
-        'SumOfEFTweights'  : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
-        'invmass' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
-        'ptbl'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 50, 0, 500)),
-        'invmass' : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ",50 , 60, 130)),
-        'njets'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",  "Jet multiplicity ", 10, 0, 10)),
-        'nbtags'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtags", "btag multiplicity ", 5, 0, 5)),
-        'met'     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",    "MET (GeV)", 40, 0, 400)),
-        'wleppt'  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("wleppt", "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
-        'l0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",   "Leading lep $p_{T}$ (GeV)", 25, 0, 500)),
-        'j0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 25, 0, 500)),
-        'l0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",  "Leading lep $\eta$", 30, -3.0, 3.0)),
-        'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",  "Leading jet  $\eta$", 30, -3.0, 3.0)),
-        'ht'      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",     "H$_{T}$ (GeV)", 50, 0, 1000)),
+        "SumOfEFTweights" : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
+        "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
+        "ptbl"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 50, 0, 500)),
+        "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ",50 , 60, 130)),
+        "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
+        "nbtags"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtags",  "btag multiplicity ", 5, 0, 5)),
+        "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
+        "wleppt"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("wleppt",  "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
+        "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 25, 0, 500)),
+        "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 25, 0, 500)),
+        "l0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",   "Leading lep $\eta$", 30, -3.0, 3.0)),
+        "j0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
+        "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 50, 0, 1000)),
         })
 
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
@@ -88,13 +88,13 @@ class AnalysisProcessor(processor.ProcessorABC):
     def process(self, events):
 
         # Dataset parameters
-        dataset = events.metadata['dataset']
-        histAxisName = self._samples[dataset]['histAxisName']
-        year         = self._samples[dataset]['year']
-        xsec         = self._samples[dataset]['xsec']
-        sow          = self._samples[dataset]['nSumOfWeights' ]
-        isData       = self._samples[dataset]['isData']
-        datasets     = ['SingleMuon', 'SingleElectron', 'EGamma', 'MuonEG', 'DoubleMuon', 'DoubleElectron']
+        dataset = events.metadata["dataset"]
+        histAxisName = self._samples[dataset]["histAxisName"]
+        year         = self._samples[dataset]["year"]
+        xsec         = self._samples[dataset]["xsec"]
+        sow          = self._samples[dataset]["nSumOfWeights"]
+        isData       = self._samples[dataset]["isData"]
+        datasets     = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron"]
         for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0] 
 
@@ -105,35 +105,35 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau  = events.Tau
         jets = events.Jet
 
-        e['idEmu'] = ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
-        e['conept'] = coneptElec(e.pt, e.mvaTTH, e.jetRelIso)
-        mu['conept'] = coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
-        e['btagDeepFlavB'] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
-        mu['btagDeepFlavB'] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+        e["idEmu"] = ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
+        e["conept"] = coneptElec(e.pt, e.mvaTTH, e.jetRelIso)
+        mu["conept"] = coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
+        e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
+        mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
 
 
         #################### Object selection ####################
 
         # Muon selection
-        mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-        mu['isLooseM'] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
-        mu['isFO'] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTH, mu.jetRelIso, year)
-        mu['isTightLep']= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
+        mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
+        mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
+        mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTH, mu.jetRelIso, year)
+        mu["isTightLep"]= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
 
         # Electron selection
-        e['isPres'] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
-        e['isLooseE'] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
-        e['isFO']  = isFOElec(e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
-        e['isTightLep'] =  tightSelElec(e.isFO, e.mvaTTH)
+        e["isPres"] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
+        e["isLooseE"] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
+        e["isFO"]  = isFOElec(e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
+        e["isTightLep"] =  tightSelElec(e.isFO, e.mvaTTH)
 
         # Build loose collections
         m_loose = mu[mu.isPres & mu.isLooseM]
         e_loose = e[e.isPres & e.isLooseE]
         l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
 
-        # Compute pair invariant masses
+        # Compute pair invariant masses, for all flavors all signes
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
-        events['minMllAFAS']=ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
+        events["minMllAFAS"]=ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
@@ -144,32 +144,32 @@ class AnalysisProcessor(processor.ProcessorABC):
         AttachMuonSF(m_fo,year=year)
 
         # Attach per lepton fake rates
-        AttachPerLeptonFR(e_fo, flavor='Elec', year=year)
-        AttachPerLeptonFR(m_fo, flavor='Muon', year=year)
-        m_fo['convVeto']=ak.ones_like(m_fo.charge); 
-        m_fo['lostHits']=ak.zeros_like(m_fo.charge); 
+        AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
+        AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
+        m_fo['convVeto'] = ak.ones_like(m_fo.charge); 
+        m_fo['lostHits'] = ak.zeros_like(m_fo.charge); 
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
         # Tau selection
-        tau['isPres']  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDecayModeNewDMs, tau.idDeepTau2017v2p1VSjet, minpt=20)
-        tau['isClean'] = isClean(tau, l_loose, drmin=0.3)
-        tau['isGood']  =  tau['isClean']  & tau['isPres']
-        tau= tau[tau.isGood] # use these to clean jets
-        tau['isTight']= isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+        tau["isPres"]  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDecayModeNewDMs, tau.idDeepTau2017v2p1VSjet, minpt=20)
+        tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
+        tau["isGood"]  =  tau["isClean"] & tau["isPres"]
+        tau = tau[tau.isGood] # use these to clean jets
+        tau["isTight"]= isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
 
 
         #################### Jets ####################
 
         # Jet cleaning, before any jet selection
-        vetos_tocleanjets= ak.with_name( ak.concatenate([tau, l_fo], axis=1), 'PtEtaPhiMCandidate')
+        vetos_tocleanjets= ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
         tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
         cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
-        cleanedJets['isClean'] = isClean(cleanedJets, tau, drmin=0.3)
+        cleanedJets["isClean"] = isClean(cleanedJets, tau, drmin=0.3)
         cleanedJets=cleanedJets[cleanedJets.isClean]
 
         # Selecting jets and cleaning them
-        jetptname = 'pt_nom' if hasattr(cleanedJets, 'pt_nom') else 'pt'
+        jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
         # Jet energy corrections
         if not isData:
@@ -192,7 +192,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 jets = corrected_jets.JES_jes.down
             '''
 
-        cleanedJets['isGood']  = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
+        cleanedJets["isGood"]  = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
         goodJets = cleanedJets[cleanedJets.isGood]
 
         # Count jets
@@ -231,9 +231,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         #################### Add variables into event object so that they persist ####################
 
-        # Want to put njets and l_fo_conept_sorted into events
-        events['njets'] = njets
-        events['l_fo_conept_sorted'] = l_fo_conept_sorted
+        # Put njets and l_fo_conept_sorted into events
+        events["njets"] = njets
+        events["l_fo_conept_sorted"] = l_fo_conept_sorted
 
         # The event selection
         add2lMaskAndSFs(events, year, isData)
@@ -247,82 +247,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         l1 = l_fo_conept_sorted_padded[:,1]
         l2 = l_fo_conept_sorted_padded[:,2]
 
-        print('The number of events passing fo 2l, 3l, and 4l selection:', ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
-
-
-        ################################################################
-        ### TMP for the lep flavor studies ###
-
-        # Print the number of events by leptop category
-        print("\nNumber of events passing FO selection:")
-        print("  n_2lss:",ak.sum(events.is2l,axis=-1))
-        print("    n_ee:",ak.sum((events.is2l & events.is_ee),axis=-1))
-        print("    n_em:",ak.sum((events.is2l & events.is_em),axis=-1))
-        print("    n_mm:",ak.sum((events.is2l & events.is_mm),axis=-1))
-        print("  n_3l:",ak.sum(events.is3l,axis=-1))
-        print("    n_eee:",ak.sum((events.is3l & events.is_eee),axis=-1))
-        print("    n_eem:",ak.sum((events.is3l & events.is_eem),axis=-1))
-        print("    n_emm:",ak.sum((events.is3l & events.is_emm),axis=-1))
-        print("    n_mmm:",ak.sum((events.is3l & events.is_mmm),axis=-1))
-        print("  n_4l:",ak.sum(events.is4l,axis=-1))
-        print("    n_eeee:",ak.sum((events.is4l & events.is_eeee),axis=-1))
-        print("    n_eeem:",ak.sum((events.is4l & events.is_eeem),axis=-1))
-        print("    n_eemm:",ak.sum((events.is4l & events.is_eemm),axis=-1))
-        print("    n_emmm:",ak.sum((events.is4l & events.is_emmm),axis=-1))
-        print("    n_mmmm:",ak.sum((events.is4l & events.is_mmmm),axis=-1))
-        print("    n_gr4l:",ak.sum((events.is4l & events.is_gr4l),axis=-1))
-
-        print("\nNumber of events passing tight selection:")
-        print("  n_2lss:",ak.sum(events.is2l & events.is2l_SR,axis=-1))
-        print("    n_ee:",ak.sum((events.is2l & events.is_ee & events.is2l_SR),axis=-1))
-        print("    n_em:",ak.sum((events.is2l & events.is_em & events.is2l_SR),axis=-1))
-        print("    n_mm:",ak.sum((events.is2l & events.is_mm & events.is2l_SR),axis=-1))
-        print("  n_3l:",ak.sum(events.is3l & events.is3l_SR,axis=-1))
-        print("    n_eee:",ak.sum((events.is3l & events.is_eee & events.is3l_SR),axis=-1))
-        print("    n_eem:",ak.sum((events.is3l & events.is_eem & events.is3l_SR),axis=-1))
-        print("    n_emm:",ak.sum((events.is3l & events.is_emm & events.is3l_SR),axis=-1))
-        print("    n_mmm:",ak.sum((events.is3l & events.is_mmm & events.is3l_SR),axis=-1))
-        print("  n_4l:",ak.sum(events.is4l & events.is4l_SR,axis=-1))
-        print("    n_eeee:",ak.sum((events.is4l & events.is_eeee & events.is4l_SR),axis=-1))
-        print("    n_eeem:",ak.sum((events.is4l & events.is_eeem & events.is4l_SR),axis=-1))
-        print("    n_eemm:",ak.sum((events.is4l & events.is_eemm & events.is4l_SR),axis=-1))
-        print("    n_emmm:",ak.sum((events.is4l & events.is_emmm & events.is4l_SR),axis=-1))
-        print("    n_mmmm:",ak.sum((events.is4l & events.is_mmmm & events.is4l_SR),axis=-1))
-        print("    n_gr4l:",ak.sum((events.is4l & events.is_gr4l & events.is4l_SR),axis=-1))
-
-        n_ee = ak.sum((events.is2l & events.is_ee & events.is2l_SR),axis=-1)
-        n_mm = ak.sum((events.is2l & events.is_mm & events.is2l_SR),axis=-1)
-        n_eee = ak.sum((events.is3l & events.is_eee & events.is3l_SR),axis=-1)
-        n_mmm = ak.sum((events.is3l & events.is_mmm & events.is3l_SR),axis=-1)
-
-        print("\nRatios:")
-        print(f"    ee/mm  : ({n_ee}/{n_mm})^(1/2) ->",(n_ee/n_mm)**(1.0/2.0))
-        print(f"    eee/mmm: ({n_eee}/{n_mmm})^(1/3) ->",(n_eee/n_mmm)**(1.0/3.0))
-
-        ##############
-        l_fo_pt_mask = ak.any(l_fo_conept_sorted[:,0:1].conept > 25.0, axis=1) & ak.any(l_fo_conept_sorted[:,1:2].conept > 15.0, axis=1)
-        ee_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
-        mm_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
-        em_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==11, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==13, axis=1))
-        me_mask = (ak.any(abs(l_fo_conept_sorted[:,0:1].pdgId)==13, axis=1) & ak.any(abs(l_fo_conept_sorted[:,1:2].pdgId)==11, axis=1))
-        # For tight sel
-        t_mask = (ak.any(l_fo_conept_sorted[:,0:1].isTightLep,axis=1) & ak.any(l_fo_conept_sorted[:,1:2].isTightLep,axis=1))
-        print("")
-        print("2 FO leps (conePt>25, conePt>15):")
-        print("  ll events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask],axis=0))
-        print("  ee events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & ee_mask],axis=0))
-        print("  em events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & (em_mask | me_mask)],axis=0))
-        print("  mm events:", ak.num(l_fo_conept_sorted[l_fo_pt_mask & mm_mask],axis=0))
-        print("2 tight leps (conePt>25, conePt>15):")
-        print("  ll events:", ak.num(l_fo_conept_sorted[t_mask & l_fo_pt_mask],axis=0))
-        print("  ee events:", ak.num(l_fo_conept_sorted[t_mask & l_fo_pt_mask & ee_mask],axis=0))
-        print("  em events:", ak.num(l_fo_conept_sorted[t_mask & l_fo_pt_mask & (em_mask | me_mask)],axis=0))
-        print("  mm events:", ak.num(l_fo_conept_sorted[t_mask & l_fo_pt_mask & mm_mask],axis=0))
-        print("")
-
-        ### END TMP for the lep flavor studies ###
-        ################################################################
-
+        print("The number of events passing FO 2l, 3l, and 4l selection:", ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
 
 
         ######### SFs, weights, systematics ##########
@@ -355,37 +280,37 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights_dict = {}
-        genw = np.ones_like(events['event']) if (isData or len(self._wc_names_lst)>0) else events['genWeight']
+        genw = np.ones_like(events["event"]) if (isData or len(self._wc_names_lst)>0) else events["genWeight"]
         if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
         for ch_name in ["2l","3l","4l"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
-            weights_dict[ch_name].add('norm',genw if isData else (xsec/sow)*genw)
-            weights_dict[ch_name].add('btagSF', btagSF, btagSFUp, btagSFDo)
+            weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
+            weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
             if ch_name == "2l":
-                weights_dict[ch_name].add('lepSF', events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
+                weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
             if ch_name == "3l":
-                weights_dict[ch_name].add('lepSF', events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
+                weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
             if ch_name == "4l":
-                weights_dict[ch_name].add('lepSF', events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
+                weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
 
         # Systematics
         systList = []
         if isData==False:
-            systList = ['nominal']
-            if self._do_systematics: systList = systList + ['lepSFUp','lepSFDown','btagSFUp', 'btagSFDown']
+            systList = ["nominal"]
+            if self._do_systematics: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
         else:
-            systList = ['noweight']
+            systList = ["noweight"]
 
 
         ######### EFT coefficients ##########
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
-        eft_coeffs = ak.to_numpy(events['EFTfitCoefficients']) if hasattr(events, "EFTfitCoefficients") else None
+        eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
         if eft_coeffs is not None:
             # Check to see if the ordering of WCs for this sample matches what want
-            if self._samples[dataset]['WCnames'] != self._wc_names_lst:
-                eft_coeffs = efth.remap_coeffs(self._samples[dataset]['WCnames'], self._wc_names_lst, eft_coeffs)
+            if self._samples[dataset]["WCnames"] != self._wc_names_lst:
+                eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
 
@@ -452,11 +377,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("atleast_7j", (njets>=7))
 
         # AR/SR categories
-        selections.add('isSR_2l',  ak.values_astype(events.is2l_SR,'bool'))
-        selections.add('isAR_2l', ~ak.values_astype(events.is2l_SR,'bool'))
-        selections.add('isSR_3l',  ak.values_astype(events.is3l_SR,'bool'))
-        selections.add('isAR_3l', ~ak.values_astype(events.is3l_SR,'bool'))
-        selections.add('isSR_4l',  ak.values_astype(events.is4l_SR,'bool'))
+        selections.add("isSR_2l",  ak.values_astype(events.is2l_SR,"bool"))
+        selections.add("isAR_2l", ~ak.values_astype(events.is2l_SR,"bool"))
+        selections.add("isSR_3l",  ak.values_astype(events.is3l_SR,"bool"))
+        selections.add("isAR_3l", ~ak.values_astype(events.is3l_SR,"bool"))
+        selections.add("isSR_4l",  ak.values_astype(events.is4l_SR,"bool"))
 
 
         ######### Variables for the dense axes of the hists ##########
@@ -476,14 +401,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Variables we will loop over when filling hists
         varnames = {}
-        varnames['ht']      = ht
-        varnames['l0pt']    = l0.conept
-        varnames['l0eta']   = l0.eta
-        varnames['j0pt' ]   = ak.flatten(j0.pt)
-        varnames['j0eta']   = ak.flatten(j0.eta)
-        varnames['njets']   = njets
-        varnames['invmass'] = mll_0_1
-        varnames['ptbl']    = ak.flatten(ptbl)
+        varnames["ht"]      = ht
+        varnames["l0pt"]    = l0.conept
+        varnames["l0eta"]   = l0.eta
+        varnames["j0pt"]    = ak.flatten(j0.pt)
+        varnames["j0eta"]   = ak.flatten(j0.eta)
+        varnames["njets"]   = njets
+        varnames["invmass"] = mll_0_1
+        varnames["ptbl"]    = ak.flatten(ptbl)
 
 
         ########## Fill the histograms ##########
@@ -516,7 +441,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         normweights = weights_dict["2l"].partial_weight(include=["norm"]) # Here we could have used 2l, 3l, or 4l, as the "norm" weights should be identical for all three
         if len(self._wc_names_lst)>0: sowweights = np.ones_like(normweights)
         else: sowweights = normweights
-        hout['SumOfEFTweights'].fill(sample=histAxisName, SumOfEFTweights=counts, weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfEFTweights"].fill(sample=histAxisName, SumOfEFTweights=counts, weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
         # Loop over the hists we want to fill
         for dense_axis_name, dense_axis_vals in varnames.items():
@@ -524,16 +449,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Loop over the systematics
             for syst in systList:
 
-                # In the case of 'nominal', or the jet energy systematics, no weight systematic variation is used (weight_fluct=None)
+                # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used (weight_fluct=None)
                 weight_fluct = syst
-                if syst in ['nominal','JERUp','JERDown','JESUp','JESDown']: weight_fluct = None # No weight systematic for these variations
+                if syst in ["nominal","JERUp","JERDown","JESUp","JESDown"]: weight_fluct = None # No weight systematic for these variations
 
                 # Loop over nlep categories "2l", "3l", "4l"
                 for nlep_cat in cat_dict.keys():
 
                     # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                     weights_object = weights_dict[nlep_cat]
-                    if syst=='noweight': weight = np.ones(len(events)) # For data
+                    if syst == "noweight": weight = np.ones(len(events)) # For data
                     else: weight = weights_object.weight(weight_fluct) # For MC
 
                     # Loop over the appropriate AR and SR for this channel

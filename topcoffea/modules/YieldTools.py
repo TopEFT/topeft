@@ -387,12 +387,11 @@ class YieldTools():
     def print_em_ratios(self,yld_dict):
 
         def print_ratios(e_val,m_val,nlep):
-            #ratio = (e_val/m_val)**(1.0/nlep)
             ratio = self.get_em_factor(e_val,m_val,nlep)
             print(f"\te/m from {nlep}l: ({e_val}/{m_val})^(1/{nlep}) = {ratio}")
 
         for proc in yld_dict.keys():
-            print("\nProc:",proc)
+            print("Proc:",proc)
 
             yld_sum_dict = {"ee":0, "mm":0, "eee":0, "mmm":0}
             for cat_name in yld_dict[proc].keys():
@@ -401,7 +400,6 @@ class YieldTools():
                 if lepflav in yld_sum_dict.keys():
                     yld_sum_dict[lepflav] = yld_sum_dict[lepflav] + yld
 
-            #print("\tyld_sum_dict",yld_sum_dict)
             e_over_m_from_2l = (yld_sum_dict["ee"]/yld_sum_dict["mm"])**(1./2.)
             e_over_m_from_3l = (yld_sum_dict["eee"]/yld_sum_dict["mmm"])**(1./3.)
 

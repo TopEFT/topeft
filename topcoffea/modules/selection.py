@@ -135,7 +135,7 @@ exclude_dict = {
 # This is a helper function called by trgPassNoOverlap
 #   - Takes events objects, and a lits of triggers
 #   - Returns an array the same length as events, elements are true if the event passed at least one of the triggers and false otherwise
-def passsesTrgInLst(events,trg_name_lst):
+def passesTrgInLst(events,trg_name_lst):
     tpass = np.zeros_like(np.array(events.MET.pt), dtype=np.bool)
     trg_info_dict = events.HLT
     for trg_name in trg_name_lst:
@@ -164,7 +164,7 @@ def trgPassNoOverlap(events,is_data,dataset,year):
         full_trg_lst = full_trg_lst + dataset_dict[year][dataset_name]
 
     # Check if events pass any of the triggers
-    trg_passes = passsesTrgInLst(events,full_trg_lst)
+    trg_passes = passesTrgInLst(events,full_trg_lst)
 
     # In case of data, check if events overlap with other datasets
     if is_data:
@@ -174,7 +174,7 @@ def trgPassNoOverlap(events,is_data,dataset,year):
         # Which brings up another quesiton, why pass dataset at all? We already pass events, so we can just get it from that, righ?
         # Anyway for now let's raise an exception so that we remember to check this when we want to process data
         raise Exception("Error: Have not checked this function for data yet! Do that before using it.")
-        trg_overlaps = passsesTrgInLst(events, exclude_dict[year][dataset])
+        trg_overlaps = passesTrgInLst(events, exclude_dict[year][dataset])
 
     # Return true if passes trg and does not overlap
     return (trg_passes & ~trg_overlaps)
