@@ -12,7 +12,7 @@ class YieldTools():
     def __init__(self):
 
         # The order of the categories in the TOP-19-001 AN yield tables
-        self.CAT_LST = ["cat_2lss_p", "cat_2lss_m", "cat_3l_p_offZ_1b", "cat_3l_m_offZ_1b", "cat_3l_p_offZ_2b", "cat_3l_m_offZ_2b", "cat_3l_onZ_1b", "cat_3l_onZ_2b", "cat_4l"]
+        self.CAT_LST = ["2lss_p", "2lss_m", "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b", "4l"]
 
         # A dictionary mapping names of samples in the samples axis to a short version of the name
         self.PROC_MAP = {
@@ -31,123 +31,68 @@ class YieldTools():
             "4l"   : [2,3,4],
         }
 
-
-        # The ratios we can scale our yields by to see if we get agreemnet with TOP-19-001
-        e_over_mu_old = 0.75
-        e_over_mu_new = 0.56
-        flav_factor_dict = {
-            "ee"  : (e_over_mu_old**(-2))*(e_over_mu_new**(2)),
-            "em"  : (e_over_mu_old**(-1))*(e_over_mu_new**(1)),
-            "mm"  : (e_over_mu_old**(-0))*(e_over_mu_new**(0)),
-            "eee" : (e_over_mu_old**(-3))*(e_over_mu_new**(3)),
-            "eem" : (e_over_mu_old**(-2))*(e_over_mu_new**(2)),
-            "emm" : (e_over_mu_old**(-1))*(e_over_mu_new**(1)),
-            "mmm" : (e_over_mu_old**(-0))*(e_over_mu_new**(0)),
-        }
-
         self.APPL_DICT = {
             "2lss" : "isSR_2l",
             "3l"   : "isSR_3l",
             "4l"   : "isSR_4l",
         }
 
-        # A dictionary specifying which categories from the hists create the analysis categories
-        self.CATEGORIES = {
-            "cat_2lss_p" : {
-                "channel": ["2lss_p_4j","2lss_p_5j","2lss_p_6j","2lss_p_7j"],
-                "appl": ["isSR_2l"],
-            },
-            "cat_2lss_m" : {
-                "channel": ["2lss_m_4j","2lss_m_5j","2lss_m_6j","2lss_m_7j"],
-                "appl": ["isSR_2l"],
-            },
-            "cat_3l_p_offZ_1b" : {
-                "channel": ["3l_p_offZ_1b_2j", "3l_p_offZ_1b_3j", "3l_p_offZ_1b_4j", "3l_p_offZ_1b_5j"],
-                "appl": ["isSR_3l"],
-            },
-            "cat_3l_m_offZ_1b" : {
-                "channel": ["3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_m_offZ_1b_5j"],
-                "appl": ["isSR_3l"],
-            },
-            "cat_3l_p_offZ_2b" : {
-                "channel": ["3l_p_offZ_2b_2j", "3l_p_offZ_2b_3j", "3l_p_offZ_2b_4j", "3l_p_offZ_2b_5j"],
-                "appl": ["isSR_3l"],
-            },
-            "cat_3l_m_offZ_2b" : {
-                "channel": ["3l_m_offZ_2b_2j", "3l_m_offZ_2b_3j", "3l_m_offZ_2b_4j", "3l_m_offZ_2b_5j"],
-                "appl": ["isSR_3l"],
-            },
-            "cat_3l_onZ_1b" : {
-                "channel": ["3l_onZ_1b_2j", "3l_onZ_1b_3j", "3l_onZ_1b_4j", "3l_onZ_1b_5j"],
-                "appl": ["isSR_3l"],
-            },
-            "cat_3l_onZ_2b" : {
-                "channel": ["3l_onZ_2b_2j", "3l_onZ_2b_3j", "3l_onZ_2b_4j", "3l_onZ_2b_5j"],
-                "appl": ["isSR_3l"],
-            },
-            "cat_4l" : {
-                "channel": ["4l_2j", "4l_3j", "4l_4j"],
-                "appl": ["isSR_4l"],
-            },
-        }
-
-
         # Yields from TOP-19-001 AN table 15
         self.TOP19001_YLDS = {
             "ttlnu" : {
-                "cat_2lss_p" : (68.7,None),
-                "cat_2lss_m" : (37.1,None),
-                "cat_3l_p_offZ_1b" : (14.4,None),
-                "cat_3l_m_offZ_1b" : (8.0,None),
-                "cat_3l_p_offZ_2b" : (10.8,None),
-                "cat_3l_m_offZ_2b" : (5.9,None),
-                "cat_3l_onZ_1b" : (2.9,None),
-                "cat_3l_onZ_2b" : (2.3,None),
-                "cat_4l" : (0.0,None),
+                "2lss_p" : (68.7,None),
+                "2lss_m" : (37.1,None),
+                "3l_p_offZ_1b" : (14.4,None),
+                "3l_m_offZ_1b" : (8.0,None),
+                "3l_p_offZ_2b" : (10.8,None),
+                "3l_m_offZ_2b" : (5.9,None),
+                "3l_onZ_1b" : (2.9,None),
+                "3l_onZ_2b" : (2.3,None),
+                "4l" : (0.0,None),
             },
             "ttll"  : {
-                "cat_2lss_p" : (19.3,None),
-                "cat_2lss_m" : (19.0,None),
-                "cat_3l_p_offZ_1b" : (12.7,None),
-                "cat_3l_m_offZ_1b" : (13.3,None),
-                "cat_3l_p_offZ_2b" : (9.1,None),
-                "cat_3l_m_offZ_2b" : (8.5,None),
-                "cat_3l_onZ_1b" : (95.5,None),
-                "cat_3l_onZ_2b" : (63.2,None),
-                "cat_4l" : (9.4,None),
+                "2lss_p" : (19.3,None),
+                "2lss_m" : (19.0,None),
+                "3l_p_offZ_1b" : (12.7,None),
+                "3l_m_offZ_1b" : (13.3,None),
+                "3l_p_offZ_2b" : (9.1,None),
+                "3l_m_offZ_2b" : (8.5,None),
+                "3l_onZ_1b" : (95.5,None),
+                "3l_onZ_2b" : (63.2,None),
+                "4l" : (9.4,None),
             },
             "ttH"   : {
-                "cat_2lss_p" : (24.7,None),
-                "cat_2lss_m" : (24.1,None),
-                "cat_3l_p_offZ_1b" : (7.9,None),
-                "cat_3l_m_offZ_1b" : (7.6,None),
-                "cat_3l_p_offZ_2b" : (5.1,None),
-                "cat_3l_m_offZ_2b" : (5.2,None),
-                "cat_3l_onZ_1b" : (3.2,None),
-                "cat_3l_onZ_2b" : (2.2,None),
-                "cat_4l" : (1.0,None),
+                "2lss_p" : (24.7,None),
+                "2lss_m" : (24.1,None),
+                "3l_p_offZ_1b" : (7.9,None),
+                "3l_m_offZ_1b" : (7.6,None),
+                "3l_p_offZ_2b" : (5.1,None),
+                "3l_m_offZ_2b" : (5.2,None),
+                "3l_onZ_1b" : (3.2,None),
+                "3l_onZ_2b" : (2.2,None),
+                "4l" : (1.0,None),
             },
             "tllq"  : {
-                "cat_2lss_p" : (2.7,None),
-                "cat_2lss_m" : (1.5,None),
-                "cat_3l_p_offZ_1b" : (3.5,None),
-                "cat_3l_m_offZ_1b" : (1.8,None),
-                "cat_3l_p_offZ_2b" : (1.2,None),
-                "cat_3l_m_offZ_2b" : (0.6,None),
-                "cat_3l_onZ_1b" : (39.8,None),
-                "cat_3l_onZ_2b" : (13.3,None),
-                "cat_4l" : (0.0,None),
+                "2lss_p" : (2.7,None),
+                "2lss_m" : (1.5,None),
+                "3l_p_offZ_1b" : (3.5,None),
+                "3l_m_offZ_1b" : (1.8,None),
+                "3l_p_offZ_2b" : (1.2,None),
+                "3l_m_offZ_2b" : (0.6,None),
+                "3l_onZ_1b" : (39.8,None),
+                "3l_onZ_2b" : (13.3,None),
+                "4l" : (0.0,None),
             },
             "tHq"   : {
-                "cat_2lss_p" : (0.8,None),
-                "cat_2lss_m" : (0.4,None),
-                "cat_3l_p_offZ_1b" : (0.3,None),
-                "cat_3l_m_offZ_1b" : (0.2,None),
-                "cat_3l_p_offZ_2b" : (0.2,None),
-                "cat_3l_m_offZ_2b" : (0.1,None),
-                "cat_3l_onZ_1b" : (0.1,None),
-                "cat_3l_onZ_2b" : (0.1,None),
-                "cat_4l" : (0.0,None),
+                "2lss_p" : (0.8,None),
+                "2lss_m" : (0.4,None),
+                "3l_p_offZ_1b" : (0.3,None),
+                "3l_m_offZ_1b" : (0.2,None),
+                "3l_p_offZ_2b" : (0.2,None),
+                "3l_m_offZ_2b" : (0.1,None),
+                "3l_onZ_1b" : (0.1,None),
+                "3l_onZ_2b" : (0.1,None),
+                "4l" : (0.0,None),
             },
         }
 
@@ -292,9 +237,7 @@ class YieldTools():
 
 
     # Integrates out categories, normalizes, then calls get_yield()
-    def get_scaled_yield(self,hin_dict,year,proc,cat_dict,overflow_str,rwgt_pt=None,h_name="ht"):
-
-        print("h_name we're using:",h_name)
+    def get_normalized_yield(self,hin_dict,year,proc,cat_dict,overflow_str,rwgt_pt=None,h_name="ht"):
 
         # Integrate out cateogries
         h = hin_dict[h_name]
@@ -324,78 +267,43 @@ class YieldTools():
 
     # This function:
     #   - Takes as input a hist dict (i.e. what the processor outptus)
-    #   - Returns a dictionary of yields for the categories in CATEGORIES
-    #   - Making use of get_scaled_yield()
-    #   - If you pass a key from JET_BINS for yields_for_njets_cats, will make a dict of yields for all the jet bins in that lep cat
+    #   - Returns a dictionary of yields for the categories in the "channel" axis
+    #   - Optionally sums over njets or lep flavs
     def get_yld_dict(self,hin_dict,year,njets=False,lepflav=False):
 
         # Check for options that do not make sense
         if lepflav and not self.is_split_by_lepflav(hin_dict):
             raise Exception("Error: Cannot split by lep flav if the input file is not split by lep flav.")
 
-        # Which hist to use
-        hist_to_use = "ht"
-        if lepflav and not njets: # If want to split by lepflav and not njets, use njets hist so we don't have to sum over njets
-            print("using njets!!!")
-            hist_to_use = "njets"
+        # If we want to seperate by njets, don't use njets hist since njets are not in it's sparse axis
+        hist_to_use = "njets"
+        if njets: hist_to_use = "ht"
 
-        # Get the cat dict
+        # Get the cat dict (that we will integrate over)
         cat_dict = {}
         for ch in self.get_cat_lables(hin_dict,"channel",h_name=hist_to_use):
             cat_dict[ch] = {}
             nlep_str = ch.split("_")[0]
             cat_dict[ch]["appl"] = self.APPL_DICT[nlep_str]
             cat_dict[ch]["channel"] = ch
-        # But if do not want to split by lepflav or njets, we want the ana cats listed in self.CATEGORIES
-        #if not lepflav and not njets:
-            #cat_dict = self.CATEGORIES
 
+        # Find the yields
         yld_dict = {}
         proc_lst = self.get_cat_lables(hin_dict,"sample")
         for proc in proc_lst:
             proc_name_short = self.get_short_name(proc)
             yld_dict[proc_name_short] = {}
-
-            # Get the yields
-            print("getting yields...")
             for cat,cuts_dict in cat_dict.items():
-                print("hist to use!!!",hist_to_use)
-                yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
+                yld_dict[proc_name_short][cat] = self.get_normalized_yield(hin_dict,year,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
 
-            # If the file is split by lepton flav, but we don't want that, sum over lep flavors:
-            if self.is_split_by_lepflav(hin_dict) and not lepflav:
-                print("now summing getting yields...")
-                yld_dict = self.sum_over_lepcats(yld_dict)
-
-            ####################
-            '''
-            # What types of categories we want the yields for
-            if cat_type == "sum_njets_sum_lepflav":
-                cat_dict = self.CATEGORIES
-                hist_to_use = "ht"
-            else:
-                if cat_type == "njets":
-                    hist_to_use = "ht" # Don't use njets hist since that's not split by j
-                elif cat_type == "lepflav":
-                    hist_to_use = "njets" # Use njets hist since it's not split by j and we don't want to split by lep flav _and_ j, that's too many categories to look at
-                else:
-                    raise Exception(f"Error: Unknown categry type \"{cat_type}\".")
-                cat_dict = {}
-
-                for ch in self.get_cat_lables(hin_dict,"channel",h_name=hist_to_use):
-                    cat_dict[ch] = {}
-                    nlep_str = ch.split("_")[0]
-                    cat_dict[ch]["appl"] = self.APPL_DICT[nlep_str]
-                    cat_dict[ch]["channel"] = ch
-
-            for cat,cuts_dict in cat_dict.items():
-                yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
-            '''
+        # If the file is split by lepton flav, but we don't want that, sum over lep flavors:
+        if self.is_split_by_lepflav(hin_dict) and not lepflav:
+            yld_dict = self.sum_over_lepcats(yld_dict)
 
         return yld_dict
 
 
-    # TODO Finish this
+    # This function takes as input a yld_dict that's seperated by lep flavor, and sums categories over lepton flavor
     def sum_over_lepcats(self,yld_dict):
 
         sum_dict = {}
@@ -403,14 +311,14 @@ class YieldTools():
             sum_dict[proc] = {}
             for cat_name in yld_dict[proc].keys():
 
-                yld,err = yld_dict[proc][cat_name]
-
                 # Get name without lepflav in it
                 name_components = cat_name.split("_")
                 lepflav = name_components[1] # Assumes lepflav comes right after nlep e.g. "3l_eee_..."
                 name_components.remove(lepflav)
-                cat_name_sans_leplfav = "cat_"+"_".join(name_components)
+                cat_name_sans_leplfav = "_".join(name_components)
 
+                # Sum the values
+                yld,err = yld_dict[proc][cat_name]
                 if cat_name_sans_leplfav not in sum_dict[proc].keys(): sum_dict[proc][cat_name_sans_leplfav] = (0,None)
                 sum_dict[proc][cat_name_sans_leplfav] = (sum_dict[proc][cat_name_sans_leplfav][0] + yld, None)
 
@@ -454,6 +362,7 @@ class YieldTools():
                 ret_dict[proc][cat] = (yld/sum_dict[cat],None) # No propagation of errors
 
         return ret_dict
+
 
 
     ######### Functions that just print out information #########
@@ -531,4 +440,3 @@ class YieldTools():
                         print(f"\t{val} -> NOTE: This is larger than tolerance ({tolerance})!")
                         ret = False
         return ret
-

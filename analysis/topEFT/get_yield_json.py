@@ -39,13 +39,11 @@ def main():
     #yt.print_yld_dicts(yld_sums,"Sum over lep cats")
     #print("\n\nAfter scaling the dict:")
     #yt.print_em_ratios(yld_dict)
-    #exit()
 
     # Print info about the file
     if not args.quiet:
         yt.print_hist_info(args.pkl_file_path)
         yt.print_yld_dicts(yld_dict,args.tag)
-        #if args.yield_categories_type == "sum_njets_sum_lepflav":
         if not args.lepflav and not args.njets:
             mlt.print_latex_yield_table(yld_dict,key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=args.tag,print_begin_info=True,print_end_info=True)
         else:
