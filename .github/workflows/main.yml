@@ -45,4 +45,4 @@ jobs:
       - name: Compare yields
         run: |
           cd analysis/topEFT
-          python comp_yields.py test/ref_yields.json output_check_yields.json -t1 "Ref yields" -t2 "New yields"
+          python comp_yields.py test/ref_yields.json test/UL17_private_ttH_for_CI_yields.json -t1 "Ref yields" -t2 "New yields"
