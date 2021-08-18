@@ -305,7 +305,7 @@ class DatacardMaker():
             if year == '2016':
                 if 'UL16' not in proc or 'APV' in proc: continue
             elif year == '2016APV':
-                if '16APV' not in proc: continue
+                if 'UL16APV' not in proc: continue
             elif year == '2017':
                 if 'UL17' not in proc: continue
             elif year == '2018':
