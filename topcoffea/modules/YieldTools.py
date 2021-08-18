@@ -191,6 +191,11 @@ class YieldTools():
         return p
 
 
+    # Get the per lepton e/m factor from e.g. eee and mmm yields
+    def get_em_factor(self,e_val,m_val,nlep):
+        return (e_val/m_val)**(1.0/nlep)
+
+
     # Get the dictionary of hists from the pkl file (that the processor outputs)
     def get_hist_from_pkl(self,path_to_pkl):
         h = pickle.load( gzip.open(path_to_pkl) )
@@ -207,6 +212,17 @@ class YieldTools():
                 for cat in hin_dict[h_name].axes()[i].identifiers():
                     cats.append(cat.name)
         return cats
+
+
+    # This should return true if the hist is split by lep flavor, definitely not a bullet proof check..
+    def is_split_by_lepflav(self,hin_dict):
+        ch_names_lst = self.get_cat_lables(hin_dict,h_name="ht",axis="channel")
+        lep_flav_lst = ["ee","em","mm","eee","eem","emm","mmm"]
+        for ch_name in ch_names_lst:
+            for lep_flav_name in lep_flav_lst:
+                if lep_flav_name in ch_name:
+                    return True
+        return False
 
 
     # Takes a histogram and a dictionary that specifies categories, integrates out the categories listed in the dictionry
@@ -278,6 +294,8 @@ class YieldTools():
     # Integrates out categories, normalizes, then calls get_yield()
     def get_scaled_yield(self,hin_dict,year,proc,cat_dict,overflow_str,rwgt_pt=None,h_name="ht"):
 
+        print("h_name we're using:",h_name)
+
         # Integrate out cateogries
         h = hin_dict[h_name]
         h = self.integrate_out_cats(h,cat_dict)
@@ -309,7 +327,28 @@ class YieldTools():
     #   - Returns a dictionary of yields for the categories in CATEGORIES
     #   - Making use of get_scaled_yield()
     #   - If you pass a key from JET_BINS for yields_for_njets_cats, will make a dict of yields for all the jet bins in that lep cat
-    def get_yld_dict(self,hin_dict,year,cat_type="sum_njets_sum_lepflav"):
+    def get_yld_dict(self,hin_dict,year,njets=False,lepflav=False):
+
+        # Check for options that do not make sense
+        if lepflav and not self.is_split_by_lepflav(hin_dict):
+            raise Exception("Error: Cannot split by lep flav if the input file is not split by lep flav.")
+
+        # Which hist to use
+        hist_to_use = "ht"
+        if lepflav and not njets: # If want to split by lepflav and not njets, use njets hist so we don't have to sum over njets
+            print("using njets!!!")
+            hist_to_use = "njets"
+
+        # Get the cat dict
+        cat_dict = {}
+        for ch in self.get_cat_lables(hin_dict,"channel",h_name=hist_to_use):
+            cat_dict[ch] = {}
+            nlep_str = ch.split("_")[0]
+            cat_dict[ch]["appl"] = self.APPL_DICT[nlep_str]
+            cat_dict[ch]["channel"] = ch
+        # But if do not want to split by lepflav or njets, we want the ana cats listed in self.CATEGORIES
+        #if not lepflav and not njets:
+            #cat_dict = self.CATEGORIES
 
         yld_dict = {}
         proc_lst = self.get_cat_lables(hin_dict,"sample")
@@ -317,7 +356,20 @@ class YieldTools():
             proc_name_short = self.get_short_name(proc)
             yld_dict[proc_name_short] = {}
 
-            # Whether we want to get the yields for specific categories, or all categories
+            # Get the yields
+            print("getting yields...")
+            for cat,cuts_dict in cat_dict.items():
+                print("hist to use!!!",hist_to_use)
+                yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
+
+            # If the file is split by lepton flav, but we don't want that, sum over lep flavors:
+            if self.is_split_by_lepflav(hin_dict) and not lepflav:
+                print("now summing getting yields...")
+                yld_dict = self.sum_over_lepcats(yld_dict)
+
+            ####################
+            '''
+            # What types of categories we want the yields for
             if cat_type == "sum_njets_sum_lepflav":
                 cat_dict = self.CATEGORIES
                 hist_to_use = "ht"
@@ -329,6 +381,7 @@ class YieldTools():
                 else:
                     raise Exception(f"Error: Unknown categry type \"{cat_type}\".")
                 cat_dict = {}
+
                 for ch in self.get_cat_lables(hin_dict,"channel",h_name=hist_to_use):
                     cat_dict[ch] = {}
                     nlep_str = ch.split("_")[0]
@@ -337,9 +390,48 @@ class YieldTools():
 
             for cat,cuts_dict in cat_dict.items():
                 yld_dict[proc_name_short][cat] = self.get_scaled_yield(hin_dict,year,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
-
+            '''
 
         return yld_dict
+
+
+    # TODO Finish this
+    def sum_over_lepcats(self,yld_dict):
+
+        sum_dict = {}
+        for proc in yld_dict.keys():
+            sum_dict[proc] = {}
+            for cat_name in yld_dict[proc].keys():
+
+                yld,err = yld_dict[proc][cat_name]
+
+                # Get name without lepflav in it
+                name_components = cat_name.split("_")
+                lepflav = name_components[1] # Assumes lepflav comes right after nlep e.g. "3l_eee_..."
+                name_components.remove(lepflav)
+                cat_name_sans_leplfav = "cat_"+"_".join(name_components)
+
+                if cat_name_sans_leplfav not in sum_dict[proc].keys(): sum_dict[proc][cat_name_sans_leplfav] = (0,None)
+                sum_dict[proc][cat_name_sans_leplfav] = (sum_dict[proc][cat_name_sans_leplfav][0] + yld, None)
+
+        return sum_dict
+
+
+    # This function:
+    #    - Takes as input a yld dict
+    #    - Scales each val by the given factor to the power of the number of e in the event
+    #    - Rreturns a dict with the same structure, where the vals are scaled
+    def scale_ylds_by_em_factor(self,yld_dict,factor):
+        ret_dict = {}
+        for proc in yld_dict.keys():
+            ret_dict[proc] = {}
+            for cat_name in yld_dict[proc].keys():
+                yld,err = yld_dict[proc][cat_name]
+                lepflav = cat_name.split("_")[1] # Assumes lepflav comes right after nlep e.g. "3l_eee_..."
+                power_of_e = lepflav.count("e")
+                ret_dict[proc][cat_name] = (yld*((factor)**(power_of_e)),None)
+        return ret_dict
+
 
     # This function:
     #    - Takes as input a yld dict
@@ -366,6 +458,7 @@ class YieldTools():
 
     ######### Functions that just print out information #########
 
+
     # Print out all the info about all the axes in a hist
     def print_hist_info(self,path):
 
@@ -379,6 +472,32 @@ class YieldTools():
             print(f"\n{i} Aaxis name:",hin_dict[h_name].axes()[i].name)
             for cat in hin_dict[h_name].axes()[i].identifiers():
                 print(f"\t{cat}")
+
+
+    # Print the ratios of e to m from a given yld dict
+    def print_em_ratios(self,yld_dict):
+
+        def print_ratios(e_val,m_val,nlep):
+            #ratio = (e_val/m_val)**(1.0/nlep)
+            ratio = self.get_em_factor(e_val,m_val,nlep)
+            print(f"\te/m from {nlep}l: ({e_val}/{m_val})^(1/{nlep}) = {ratio}")
+
+        for proc in yld_dict.keys():
+            print("\nProc:",proc)
+
+            yld_sum_dict = {"ee":0, "mm":0, "eee":0, "mmm":0}
+            for cat_name in yld_dict[proc].keys():
+                yld,err = yld_dict[proc][cat_name]
+                lepflav = cat_name.split("_")[1] # Assumes lepflav comes right after nlep e.g. "3l_eee_..."
+                if lepflav in yld_sum_dict.keys():
+                    yld_sum_dict[lepflav] = yld_sum_dict[lepflav] + yld
+
+            #print("\tyld_sum_dict",yld_sum_dict)
+            e_over_m_from_2l = (yld_sum_dict["ee"]/yld_sum_dict["mm"])**(1./2.)
+            e_over_m_from_3l = (yld_sum_dict["eee"]/yld_sum_dict["mmm"])**(1./3.)
+
+            print_ratios(yld_sum_dict["ee"],yld_sum_dict["mm"],2)
+            print_ratios(yld_sum_dict["eee"],yld_sum_dict["mmm"],3)
 
 
     # Takes yield dicts (i.e. what get_yld_dict() returns) and prints it
@@ -412,3 +531,4 @@ class YieldTools():
                         print(f"\t{val} -> NOTE: This is larger than tolerance ({tolerance})!")
                         ret = False
         return ret
+
