@@ -88,7 +88,7 @@ class DatacardMaker():
     def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[], year = '2017'):
         if variable != 'njets' and isinstance(bins, list) and len(bins)>0:
             for b in bins:
-                self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=b)
+                self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=b, year=year)
             return
         def export2d(h):
             return h.to_hist().to_numpy()
