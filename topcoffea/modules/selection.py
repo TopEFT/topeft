@@ -76,7 +76,7 @@ dataset_dict = {
             "IsoMu24",
             "IsoMu27",
         ],
-        "SingleElectron" : [
+        "EGamma" : [
             "Ele32_WPTight_Gsf",
             "Ele35_WPTight_Gsf",
         ],
@@ -124,10 +124,10 @@ exclude_dict = {
     },
     "2018": {
         "SingleMuon"     : [],
-        "SingleElectron" : dataset_dict["2018"]["SingleMuon"],
-        "DoubleMuon"     : dataset_dict["2018"]["SingleMuon"] + dataset_dict["2018"]["SingleElectron"],
-        "DoubleEG"       : dataset_dict["2018"]["SingleMuon"] + dataset_dict["2018"]["SingleElectron"] + dataset_dict["2018"]["DoubleMuon"],
-        "MuonEG"         : dataset_dict["2018"]["SingleMuon"] + dataset_dict["2018"]["SingleElectron"] + dataset_dict["2018"]["DoubleMuon"] + dataset_dict["2018"]["DoubleEG"],
+        "EGamma"         : dataset_dict["2018"]["SingleMuon"],
+        "DoubleMuon"     : dataset_dict["2018"]["SingleMuon"] + dataset_dict["2018"]["EGamma"],
+        "DoubleEG"       : dataset_dict["2018"]["SingleMuon"] + dataset_dict["2018"]["EGamma"] + dataset_dict["2018"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2018"]["SingleMuon"] + dataset_dict["2018"]["EGamma"] + dataset_dict["2018"]["DoubleMuon"] + dataset_dict["2018"]["DoubleEG"],
     },
 }
 
