@@ -377,11 +377,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("atleast_7j", (njets>=7))
 
         # AR/SR categories
-        selections.add("isSR_2l",  ak.values_astype(events.is2l_SR,"bool"))
-        selections.add("isAR_2l", ~ak.values_astype(events.is2l_SR,"bool"))
-        selections.add("isSR_3l",  ak.values_astype(events.is3l_SR,"bool"))
-        selections.add("isAR_3l", ~ak.values_astype(events.is3l_SR,"bool"))
-        selections.add("isSR_4l",  ak.values_astype(events.is4l_SR,"bool"))
+        selections.add("isSR_2l",  events.is2l_SR)
+        selections.add("isAR_2l", ~events.is2l_SR)
+        selections.add("isSR_3l",  events.is3l_SR)
+        selections.add("isAR_3l", ~events.is3l_SR)
+        selections.add("isSR_4l",  events.is4l_SR)
 
 
         ######### Variables for the dense axes of the hists ##########
