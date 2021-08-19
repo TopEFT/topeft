@@ -135,7 +135,7 @@ exclude_dict = {
 # This is a helper function called by trgPassNoOverlap
 #   - Takes events objects, and a lits of triggers
 #   - Returns an array the same length as events, elements are true if the event passed at least one of the triggers and false otherwise
-def passsesTrgInLst(events,trg_name_lst):
+def passesTrgInLst(events,trg_name_lst):
     tpass = np.zeros_like(np.array(events.MET.pt), dtype=np.bool)
     trg_info_dict = events.HLT
 
@@ -171,18 +171,18 @@ def trgPassNoOverlap(events,is_data,dataset,year):
         full_trg_lst = full_trg_lst + dataset_dict[year][dataset_name]
 
     # Check if events pass any of the triggers
-    trg_passes = passsesTrgInLst(events,full_trg_lst)
+    trg_passes = passesTrgInLst(events,full_trg_lst)
 
     # In case of data, check if events overlap with other datasets
     if is_data:
-        trg_overlaps = passsesTrgInLst(events, exclude_dict[year][dataset])
+        trg_overlaps = passesTrgInLst(events, exclude_dict[year][dataset])
 
     # Return true if passes trg and does not overlap
     return (trg_passes & ~trg_overlaps)
 
 
-# 2lss selection
-def add2lssMaskAndSFs(events, year, isData):
+# 2l selection (we do not make the ss requirement here)
+def add2lMaskAndSFs(events, year, isData):
 
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
@@ -190,7 +190,7 @@ def add2lssMaskAndSFs(events, year, isData):
 
     # Filters and cleanups
     filter_flags = events.Flag
-    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == "2016") | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
     cleanup = events.minMllAFAS > 12
     muTightCharge = ((abs(padded_FOs[:,0].pdgId)!=13) | (padded_FOs[:,0].tightCharge>=1)) & ((abs(padded_FOs[:,1].pdgId)!=13) | (padded_FOs[:,1].tightCharge>=1))
 
@@ -204,21 +204,21 @@ def add2lssMaskAndSFs(events, year, isData):
     # Jet requirements:
     njet4 = (events.njets>3)
 
-    # 2lss requirements:
+    # 2l requirements:
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
     dilep = (ak.num(FOs)) >= 2 
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
     mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge & njet4)
-    events['is2lss'] = ak.fill_none(mask,False)
+    events['is2l'] = ak.fill_none(mask,False)
 
     # SFs
-    events['sf_2lss'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom
-    events['sf_2lss_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
-    events['sf_2lss_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
+    events['sf_2l'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom
+    events['sf_2l_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
+    events['sf_2l_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
 
     # SR:
-    events['is2lss_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
-    events['is2lss_SR'] = ak.fill_none(events['is2lss_SR'],False)
+    events['is2l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
+    events['is2l_SR'] = ak.fill_none(events['is2l_SR'],False)
 
     # FF:
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
@@ -228,12 +228,12 @@ def add2lssMaskAndSFs(events, year, isData):
 def add3lMaskAndSFs(events, year, isData):
 
     # FOs and padded FOs
-    FOs=events.l_fo_conept_sorted
+    FOs = events.l_fo_conept_sorted
     padded_FOs = ak.pad_none(FOs,3)
 
     # Filters and cleanups
     filter_flags = events.Flag
-    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == "2016") | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
     cleanup=events.minMllAFAS > 12
 
     # IDs
@@ -271,12 +271,12 @@ def add3lMaskAndSFs(events, year, isData):
 def add4lMaskAndSFs(events, year, isData):
 
     # FOs and padded FOs
-    FOs=events.l_fo_conept_sorted
-    padded_FOs=ak.pad_none(FOs,4)
+    FOs = events.l_fo_conept_sorted
+    padded_FOs = ak.pad_none(FOs,4)
 
     # Filters and cleanups
     filter_flags = events.Flag
-    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == 2016) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & ((year == "2016") | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
     cleanup = events.minMllAFAS > 12
 
     # IDs
@@ -307,3 +307,40 @@ def add4lMaskAndSFs(events, year, isData):
     # SR: Don't really need this for 4l, but define it so we can treat 4l category similar to 2lss and 3l
     events['is4l_SR'] = tightleps
     events['is4l_SR'] = ak.fill_none(events['is4l_SR'],False)
+
+
+def addLepCatMasks(events):
+
+    # FOs and padded FOs
+    fo = events.l_fo_conept_sorted
+    padded_fo = ak.pad_none(fo,4)
+    padded_fo_id = padded_fo.pdgId
+
+    # Find the numbers of e and m in the event
+    is_e_mask = (abs(padded_fo_id)==11)
+    is_m_mask = (abs(padded_fo_id)==13)
+    n_e_2l = ak.sum(is_e_mask[:,0:2],axis=-1) # Make sure we only look at first two leps
+    n_m_2l = ak.sum(is_m_mask[:,0:2],axis=-1) # Make sure we only look at first two leps
+    n_e_3l = ak.sum(is_e_mask[:,0:3],axis=-1) # Make sure we only look at first three leps
+    n_m_3l = ak.sum(is_m_mask[:,0:3],axis=-1) # Make sure we only look at first three leps
+    n_e_4l = ak.sum(is_e_mask,axis=-1)        # Look at all the leps
+    n_m_4l = ak.sum(is_m_mask,axis=-1)        # Look at all the leps
+
+    # 2l masks
+    events['is_ee'] = ((n_e_2l==2) & (n_m_2l==0)) 
+    events['is_em'] = ((n_e_2l==1) & (n_m_2l==1)) 
+    events['is_mm'] = ((n_e_2l==0) & (n_m_2l==2)) 
+
+    # 3l masks
+    events['is_eee'] = ((n_e_3l==3) & (n_m_3l==0)) 
+    events['is_eem'] = ((n_e_3l==2) & (n_m_3l==1)) 
+    events['is_emm'] = ((n_e_3l==1) & (n_m_3l==2)) 
+    events['is_mmm'] = ((n_e_3l==0) & (n_m_3l==3)) 
+
+    # 4l masks
+    events['is_eeee'] = ((n_e_4l==4) & (n_m_4l==0))
+    events['is_eeem'] = ((n_e_4l==3) & (n_m_4l==1))
+    events['is_eemm'] = ((n_e_4l==2) & (n_m_4l==2))
+    events['is_emmm'] = ((n_e_4l==1) & (n_m_4l==3))
+    events['is_mmmm'] = ((n_e_4l==0) & (n_m_4l==4))
+    events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
