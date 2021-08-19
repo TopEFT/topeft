@@ -34,23 +34,23 @@ if __name__ == '__main__':
   parser.add_argument('--treename'   , default='Events', help = 'Name of the tree inside the files')
   parser.add_argument('--do-errors', action='store_true', help = 'Save the w**2 coefficients')
   parser.add_argument('--do-systs', action='store_true', help = 'Run over systematic samples (takes longer)')
-  parser.add_argument('--split-lep-flav', action='store_true', help = 'Split up categories by lepton flavor')
+  parser.add_argument('--split-lep-flavor', action='store_true', help = 'Split up categories by lepton flavor')
   parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
   
   args = parser.parse_args()
-  jsonFiles      = args.jsonFiles
-  prefix         = args.prefix
-  dotest         = args.test
-  nworkers       = int(args.nworkers)
-  chunksize      = int(args.chunksize)
-  nchunks        = int(args.nchunks) if not args.nchunks is None else args.nchunks
-  outname        = args.outname
-  outpath        = args.outpath
-  pretend        = args.pretend
-  treename       = args.treename
-  do_errors      = args.do_errors
-  do_systs       = args.do_systs
-  split_lep_flav = args.split_lep_flav
+  jsonFiles        = args.jsonFiles
+  prefix           = args.prefix
+  dotest           = args.test
+  nworkers         = int(args.nworkers)
+  chunksize        = int(args.chunksize)
+  nchunks          = int(args.nchunks) if not args.nchunks is None else args.nchunks
+  outname          = args.outname
+  outpath          = args.outpath
+  pretend          = args.pretend
+  treename         = args.treename
+  do_errors        = args.do_errors
+  do_systs         = args.do_systs
+  split_lep_flavor = args.split_lep_flavor
   wc_lst = args.wc_list if args.wc_list is not None else []
 
   if dotest:
@@ -153,7 +153,7 @@ if __name__ == '__main__':
   else:
     print('No Wilson coefficients specified')
  
-  processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors,do_systs,split_lep_flav)
+  processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors,do_systs,split_lep_flavor)
 
   # Run the processor and get the output
   tstart = time.time()
