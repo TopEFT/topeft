@@ -113,7 +113,7 @@ This might case errors, but you can safely ignore them.
 - Run `combineCards.py ttx_multileptons-* > combinedcard.txt` to merge them all into one txt file. **DO NOT** merge multiple variables!
 - Run `text2workspace.py combinedcard.txt -o wps.root -P EFTFit.Fitter.AnomalousCouplingEFTNegative:analiticAnomalousCouplingEFTNegative --X-allow-no-background` to generate the workspace file
     - Specify a subset of WCs using e.g. `--PO cpt,ctp,cptb,cQlMi,cQl3i,ctlTi,ctli,cbW,cpQM,cpQ3,ctei,cQei,ctW,ctlSi,ctZ,ctG`
-- Run combine with our EFTFitter tools
+- Run combine with our EFTFit tools
   - Example:
 ```
 python -i ../scripts/EFTFitter.py
