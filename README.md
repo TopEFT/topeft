@@ -1,3 +1,5 @@
+[![CI](https://github.com/TopEFT/topcoffea/actions/workflows/main.yml/badge.svg)](https://github.com/TopEFT/topcoffea/actions/workflows/main.yml)
+
 # topcoffea
 Top quark analyses using the Coffea framework
 
