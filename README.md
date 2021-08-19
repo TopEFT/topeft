@@ -123,7 +123,7 @@ fitter.batch1DScanEFT(basename='.081921.njet.ptbl.Float', batch='condor', worksp
   - To make simple 1D plots, use:
 ```
 python -i ../scripts/EFTPlotter.py
-plotter.BatchLLPlot1DEFT(basename='.081121.njet.16wc.Float', frozen=False, wcs=['cpt','ctp','cptb','cQlMi','cQl3i','ctlTi','ctli','cbW','cpQM','cpQ3','ctei','cQei','ctW','ctlSi','ctZ','ctG'], log=False)
+plotter.BatchLLPlot1DEFT(basename='.081121.njet.16wc.Float')
 ```
   - To make comparison plots (e.g. `njets` vs. `njets+ptbl`)
 ```
