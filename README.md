@@ -125,7 +125,7 @@ fitter.batch1DScanEFT(basename='.081921.njet.ptbl.Float', batch='condor', worksp
 python -i ../scripts/EFTPlotter.py
 plotter.BatchLLPlot1DEFT(basename='.081121.njet.16wc.Float', frozen=False, wcs=['cpt','ctp','cptb','cQlMi','cQl3i','ctlTi','ctli','cbW','cpQM','cpQ3','ctei','cQei','ctW','ctlSi','ctZ','ctG'], log=False)
 ```
-  - To make comparison plots (e.g. njets vs. njets+ptbl)
+  - To make comparison plots (e.g. `njets` vs. `njets+ptbl`)
 ```
 python -i ../scripts/EFTPlotter.py
 plotter.BestScanPlot(basename_float='.081721.njet.Float', basename_freeze='.081821.njet.ptbl.Float', filename='_float_njet_ptbl', titles=['N_{jet} prof.', 'N_{jet}+p_{T}(b+l) prof.'], printFOM=True)
