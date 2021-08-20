@@ -119,7 +119,7 @@ This might case errors, but you can safely ignore them.
 python -i ../scripts/EFTFitter.py
 fitter.batch1DScanEFT(basename='.081921.njet.ptbl.Float', batch='condor', workspace='wps.root')
 ```
-  - Once all jobs are finished run `fitter.batch1DScanEFT(basename='.081921.njet.ptbl.Float', batch='condor')` (again inside `python -i ../scripts/EFTFitter.py`) to collect them in the `EFTFit/Fitter/fit_files` folder
+  - Once all jobs are finished run `fitter.batchRetrieve1DScansEFT(basename='.081921.njet.ptbl.Float', batch='condor')` (again inside `python -i ../scripts/EFTFitter.py`) to collect them in the `EFTFit/Fitter/fit_files` folder
   - To make simple 1D plots, use:
 ```
 python -i ../scripts/EFTPlotter.py
