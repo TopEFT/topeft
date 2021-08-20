@@ -74,13 +74,13 @@ scram b -j8
 ```
 
 #### Set up Repo
-This package is designed to be used with the cms-govner CombineHarvester fork. Install within the same CMSSW release. See https://github.com/cms-govner/CombineHarvester
+This package is designed to be used with the CombineHarvester fork. Install within the same CMSSW release. See https://github.com/cms-analysis/CombineHarvester
 
 ##### Combine
 Currently working with tag `v8.2.0`:
 
 ```
-git clone https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git HiggsAnalysis/CombinedLimit
+git clone git@github.com:cms-analysis/HiggsAnalysis-CombinedLimit.git HiggsAnalysis/CombinedLimit
 cd HiggsAnalysis/CombinedLimit/
 git checkout v8.2.0
 cd -
@@ -92,13 +92,13 @@ Otherwise, this package should be compatible with most CMSSW releases. It still 
 ##### EFTFit
 ```
 cd $CMSSW_BASE/src/
-git clone https://github.com/cms-govner/EFTFit.git EFTFit
+git clone git@github.com:cms-govner/EFTFit.git EFTFit
 scram b -j8
 ```
 
 ##### CombineHarvester
 ```
-git clone https://github.com/cms-govner/CombineHarvester.git CombineHarvester
+git clone git@github.com:cms-analysis/CombineHarvester.git
 scram b -j8
 ```
 This might case errors, but you can safely ignore them.
