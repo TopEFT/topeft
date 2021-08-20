@@ -1,0 +1,11 @@
+name: coffea-env
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python
+  - coffea
+  - ndcctools
+  - conda-pack
+  - dill
+  - xrootd
