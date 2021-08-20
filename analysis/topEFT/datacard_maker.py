@@ -85,10 +85,10 @@ class DatacardMaker():
             self.lumi = lumi
         self.lumi = {year : 1000*lumi for year,lumi in self.lumi.items()}
 
-    def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[], year = '2017'):
+    def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
         if variable != 'njets' and isinstance(bins, list) and len(bins)>0:
             for b in bins:
-                self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=b, year=year)
+                self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=b)
             return
         def export2d(h):
             return h.to_hist().to_numpy()
@@ -131,7 +131,7 @@ class DatacardMaker():
                     h = h.integrate('channel', self.channels[channel])
         all_str = ' '.join([f'{v}' for v in locals().values() if v != self.hists])
         all_str = f'{channel} {systematics} {variable}'
-        print(f'Making relish from the pickle file for {all_str} {year}')
+        print(f'Making relish from the pickle file for {all_str}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
         charge = 'p' if charge == 'ch+' else 'm'
@@ -151,26 +151,25 @@ class DatacardMaker():
                 cat = '_'.join([channel, variable])  
             else:
                 cat = '_'.join([channel, maxb, variable])
-        fname = f'histos/tmp_ttx_multileptons-{cat}-{year}.root'
+        fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fout = uproot3.recreate(fname)
         #Scale each plot to the SM
         for proc in self.samples:
-            # Only get proc from matching year
-            if year == '2016':
-                if 'UL16' not in proc or 'APV' in proc: continue
-            elif year == '2016APV':
-                if '16APV' not in proc: continue
-            elif year == '2017':
-                if 'UL17' not in proc: continue
-            elif year == '2018':
-                if 'UL18' not in proc: continue
-            else:
-                raise Exception('Year not found!')
             #Integrate out processes
             h_base = h.integrate('sample', proc)
             if h_base == {}:
                 print(f'Issue with {proc}')
                 continue
+            #Get year from sample name
+            year = -1
+            if 'UL16' in proc or 'UL16APV' in proc:
+                year = "2016"
+            elif 'UL17'in proc:
+                year = "2017"
+            elif 'UL18'in proc:
+                year = "2018"
+            else:
+                raise Exception(f'Could not determine the lumi year for {proc}!')
             nwc = self.hsow._nwc
             if nwc > 0:
                 h_base.scale(self.lumi[year]/self.smsow[proc])
@@ -237,9 +236,9 @@ class DatacardMaker():
                             fout[pname+name] = hist.export1d(h_mix)
         
         fout.close()
-        self.makeCardLevel(channel=channel, appl=appl, charges=charges, nbjet=maxb, systematics=systematics, variable=variable, year=year)
+        self.makeCardLevel(channel=channel, appl=appl, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
 
-    def makeCardLevel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], nbjet='2+bm', systematics='nominal', variable='njets', year='2017'):
+    def makeCardLevel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], nbjet='2+bm', systematics='nominal', variable='njets'):
         '''
         Create datacard files from temp uproot outputs
         Creates histograms for ``combine``:
@@ -270,7 +269,7 @@ class DatacardMaker():
             xwidth = h.GetXaxis().GetBinWidth(1)
             h.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
             return h
-        print(f'Making the datacard for {channel} {year}')
+        print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
         charge = 'p' if charge == 'ch+' else 'm'
@@ -287,7 +286,7 @@ class DatacardMaker():
             else:
                 cat = '_'.join([channel, nbjet, variable])
         #Open temp ROOT file
-        fname = f'histos/tmp_ttx_multileptons-{cat}-{year}.root'
+        fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fin = TFile(fname)
         d_hists = {k.GetName(): fin.Get(k.GetName()) for k in fin.GetListOfKeys()}
         [h.SetDirectory(0) for h in d_hists.values()]
@@ -295,23 +294,12 @@ class DatacardMaker():
         #Delete temp ROOT file
         os.system(f'rm {fname}')
         #Create the ROOT file
-        fname = f'histos/ttx_multileptons-{cat}-{year}.root'
+        fname = f'histos/ttx_multileptons-{cat}.root'
         fout = TFile(fname, 'recreate')
         signalcount=0; bkgcount=0; iproc = {}; systMap = {}; allyields = {'data_obs' : 0.}
         data_obs = []
         d_bkgs = {} # Store backgrounds for summing
         for proc in self.samples:
-            # Only get proc from matching year
-            if year == '2016':
-                if 'UL16' not in proc or 'APV' in proc: continue
-            elif year == '2016APV':
-                if 'UL16APV' not in proc: continue
-            elif year == '2017':
-                if 'UL17' not in proc: continue
-            elif year == '2018':
-                if 'UL18' not in proc: continue
-            else:
-                raise Exception('Year not found!')
             p = self.rename[proc] if proc in self.rename else proc
             name = 'data_obs'
             if name not in d_hists:
@@ -320,15 +308,16 @@ class DatacardMaker():
             '''
             These lines are for testing only, and create Asimov data based on all processes provided
             '''
-            if isinstance(data_obs, list):
+            if proc == self.samples[0]:
                 data_obs = getHist(d_hists,proc+'_sm').Clone('data_obs') # Special case for SM b/c background names overlap
             else:
                 data_obs.Add(getHist(d_hists,proc+'_sm').Clone('data_obs')) # Special case for SM b/c background names overlap
             asimov = np.random.poisson(int(data_obs.Integral()))
             data_obs.SetDirectory(fout)
-            allyields[name] = data_obs.Integral()
-            fout.Delete(name+';1')
-            data_obs.Write()
+            if proc == self.samples[-1]:
+                allyields[name] = data_obs.Integral()
+                data_obs.Scale(allyields['data_obs'] / data_obs.Integral())
+                data_obs.Write()
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             name = pname + 'sm'
             if name not in d_hists and proc+'_sm' not in d_hists:
@@ -415,8 +404,8 @@ class DatacardMaker():
         if systematics != 'nominal':
             cat = cat + '_' + systematics
         nuisances = [syst for syst in systMap]
-        datacard = open("histos/ttx_multileptons-%s-%s.txt"%(cat,year), "w"); 
-        datacard.write("shapes *        * ttx_multileptons-%s-%s.root $PROCESS $PROCESS_$SYSTEMATIC\n" % (cat,year))
+        datacard = open("histos/ttx_multileptons-%s.txt"%cat, "w"); 
+        datacard.write("shapes *        * ttx_multileptons-%s.root $PROCESS $PROCESS_$SYSTEMATIC\n" % cat)
         cat = 'bin_'+cat
         datacard.write('##----------------------------------\n')
         datacard.write('bin         %s\n' % cat)
@@ -511,18 +500,17 @@ if __name__ == '__main__':
     card.read()
     card.buildWCString()
     print(card.coeffs)
-    for year in ['2016', '2017', '2018']: # Skipping 2016APV until SFs are fixed
-        futures = [] # Placing here to avoid generating too many jobs, causing write errors
-        for var in ['njets','ht','ptbl']:
-            cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj, 'year':year},
-                     {'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj, 'year':year},
-                     {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj, 'year':year},
-                     {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj, 'year':year},
-                     {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj, 'year':year},
-                     {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj, 'year':year},
-                     {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj, 'year':year},
-                     {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj, 'year':year},
-                     {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj, 'year':year}]
-            executor = concurrent.futures.ProcessPoolExecutor(len(cards))
-            futures = futures + [executor.submit(card.analyzeChannel, **c) for c in cards]
-        concurrent.futures.wait(futures)
+    futures = []
+    for var in ['njets','ht','ptbl']:
+        cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                 {'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
+        executor = concurrent.futures.ProcessPoolExecutor(len(cards))
+        futures = futures + [executor.submit(card.analyzeChannel, **c) for c in cards]
+    concurrent.futures.wait(futures)
