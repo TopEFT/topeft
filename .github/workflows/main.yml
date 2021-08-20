@@ -6,7 +6,7 @@ on:
     - cron: '0 1 * * *' # Test every day at 1AM
   
 jobs:
-  Full Analysis:
+  Full_Analysis:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
