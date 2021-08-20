@@ -308,16 +308,16 @@ class DatacardMaker():
             '''
             These lines are for testing only, and create Asimov data based on all processes provided
             '''
+            if isinstance(data_obs, list):
             if proc == self.samples[0]:
                 data_obs = getHist(d_hists,proc+'_sm').Clone('data_obs') # Special case for SM b/c background names overlap
             else:
                 data_obs.Add(getHist(d_hists,proc+'_sm').Clone('data_obs')) # Special case for SM b/c background names overlap
             asimov = np.random.poisson(int(data_obs.Integral()))
             data_obs.SetDirectory(fout)
-            if proc == self.samples[-1]:
-                allyields[name] = data_obs.Integral()
-                data_obs.Scale(allyields['data_obs'] / data_obs.Integral())
-                data_obs.Write()
+            allyields[name] = data_obs.Integral()
+            fout.Delete(name+';1')
+            data_obs.Write()
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             name = pname + 'sm'
             if name not in d_hists and proc+'_sm' not in d_hists:
