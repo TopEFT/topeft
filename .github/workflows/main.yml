@@ -6,7 +6,7 @@ on:
     - cron: '0 1 * * *' # Test every day at 1AM
   
 jobs:
-  build:
+  Full Analysis:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -32,7 +32,7 @@ jobs:
         run: |
           wget http://www.crc.nd.edu/~ywan2/root_files/NAOD-00000_18449.root
 
-      - name: Run processors over test files
+      - name: Run processors over test files with futures executor
         run: |
           cd analysis/topEFT
           time python run.py ../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.json -o output_check_yields
