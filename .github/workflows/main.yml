@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  schedule:
+    - cron: '0 1 * * *' # Test every day at 1AM
+  
+jobs:
+  Full_Analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Add conda to system path
+        run: |
+          echo $CONDA/bin >> $GITHUB_PATH 
+
+      - name: Install dependencies
+        run: |
+          conda env update --file environment.yml --name base
+
+      - name: Conda list
+        run: |
+          conda list
+
+      - name: Install topcoffea package
+        run: |
+          pip install -e .
+
+      - name: Download root files
+        run: |
+          wget http://www.crc.nd.edu/~ywan2/root_files/NAOD-00000_18449.root
+
+      - name: Run processors over test files with futures executor
+        run: |
+          cd analysis/topEFT
+          time python run.py ../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.json -o output_check_yields
+
+      - name: Get yields 
+        run: |
+          cd analysis/topEFT
+          python get_yield_json.py -f histos/output_check_yields.pkl.gz -n output_check_yields
+
+      - name: Compare yields
+        run: |
+          cd analysis/topEFT
+          python comp_yields.py test/UL17_private_ttH_for_CI_yields.json output_check_yields.json -t1 "Ref yields" -t2 "New yields"

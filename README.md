@@ -1,3 +1,5 @@
+[![CI](https://github.com/TopEFT/topcoffea/actions/workflows/main.yml/badge.svg)](https://github.com/TopEFT/topcoffea/actions/workflows/main.yml)
+
 # topcoffea
 Top quark analyses using the Coffea framework
 
@@ -31,9 +33,8 @@ bash conda-install.sh
 ```
 Next, run `unset PYTHONPATH` to avoid conflicts. Then run the following commands to set up the conda environment:    
 ```
-conda create --name topcoffea-env python
-conda activate topcoffea-env
-conda install -y -c conda-forge ndcctools conda-pack dill xrootd coffea
+conda env create -f environment.yml
+conda activate coffea-env
 ```
 
 ### How to start
