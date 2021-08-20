@@ -152,7 +152,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
         # Tau selection
-        tau["isPres"]  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDecayModeNewDMs, tau.idDeepTau2017v2p1VSjet, minpt=20)
+        tau["isPres"]  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
         tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
         tau["isGood"]  =  tau["isClean"] & tau["isPres"]
         tau = tau[tau.isGood] # use these to clean jets
