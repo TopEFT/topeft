@@ -309,7 +309,6 @@ class DatacardMaker():
             These lines are for testing only, and create Asimov data based on all processes provided
             '''
             if isinstance(data_obs, list):
-            if proc == self.samples[0]:
                 data_obs = getHist(d_hists,proc+'_sm').Clone('data_obs') # Special case for SM b/c background names overlap
             else:
                 data_obs.Add(getHist(d_hists,proc+'_sm').Clone('data_obs')) # Special case for SM b/c background names overlap
