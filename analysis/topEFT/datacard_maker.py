@@ -298,6 +298,7 @@ class DatacardMaker():
         fout = TFile(fname, 'recreate')
         signalcount=0; bkgcount=0; iproc = {}; systMap = {}; allyields = {'data_obs' : 0.}
         data_obs = []
+        d_sigs = {} # Store signals for summing
         d_bkgs = {} # Store backgrounds for summing
         for proc in self.samples:
             p = self.rename[proc] if proc in self.rename else proc
@@ -325,13 +326,19 @@ class DatacardMaker():
             h_sm = getHist(d_hists, proc+'_sm') # Special case for SM b/c background names overlap
             if True or h_sm.Integral() > self.tolerance or p not in self.signal:
                 if p in self.signal:
-                    signalcount -= 1
-                    iproc[name] = signalcount
-                    allyields[name] = h_sm.Integral()
+                    if name in iproc:
+                        allyields[name] += h_sm.Integral()
+                        d_sigs[name].Add(h_sm)
+                        fout.Delete(name+';1')
+                        h_sm = d_sigs[name]
+                    else:
+                        signalcount -= 1
+                        iproc[name] = signalcount
+                        allyields[name] = h_sm.Integral()
+                        d_sigs[name] = h_sm
                 else:
                     if name in iproc:
                         allyields[name] += h_sm.Integral()
-                        #h_sm.Add(fout.Get(name).Clone()) # Special case for SM b/c background names overlap
                         d_bkgs[name].Add(h_sm)
                         fout.Delete(name+';1')
                         h_sm = d_bkgs[name]
@@ -356,11 +363,18 @@ class DatacardMaker():
                     continue
                 h_lin = getHist(d_hists, name)
                 if h_lin.Integral() > 0 and h_lin.Integral() / h_sm.Integral() > self.tolerance:
+                    if name in iproc:
+                        allyields[name] += h_lin.Integral()
+                        d_sigs[name].Add(h_lin)
+                        fout.Delete(name+';1')
+                        h_lin = d_sigs[name]
+                    else:
+                        signalcount -= 1
+                        iproc[name] = signalcount
+                        allyields[name] = h_lin.Integral()
+                        d_sigs[name] = h_lin
                     h_lin.SetDirectory(fout)
                     h_lin.Write()
-                    signalcount -= 1
-                    iproc[name] = signalcount
-                    allyields[name] = h_lin.Integral()
                     if allyields[name] < 0:
                         allyields[name] = 0.
 
@@ -374,11 +388,18 @@ class DatacardMaker():
                 h_quad.Add(h_sm)
                 h_quad.Scale(0.5)
                 if h_quad.Integral() > 0 and h_quad.Integral() / h_sm.Integral() > self.tolerance:
+                    if name in iproc:
+                        allyields[name] += h_quad.Integral()
+                        d_sigs[name].Add(h_quad)
+                        fout.Delete(name+';1')
+                        h_quad = d_sigs[name]
+                    else:
+                        signalcount -= 1
+                        iproc[name] = signalcount
+                        allyields[name] = h_quad.Integral()
+                        d_sigs[name] = h_quad
                     h_quad.SetDirectory(fout)
                     h_quad.Write()
-                    signalcount -= 1
-                    iproc[name] = signalcount
-                    allyields[name] = h_quad.Integral()
                     if allyields[name] < 0:
                         allyields[name] = 0.
                     #processSyst(h_quad, systMap,fout)
@@ -390,10 +411,18 @@ class DatacardMaker():
                         continue
                     h_mix = getHist(d_hists, name)
                     if h_mix.Integral() > 0 and h_mix.Integral() / h_sm.Integral() > self.tolerance:
+                        if name in iproc:
+                            allyields[name] += h_mix.Integral()
+                            d_sigs[name].Add(h_mix)
+                            fout.Delete(name+';1')
+                            h_mix = d_sigs[name]
+                        else:
+                            signalcount -= 1
+                            iproc[name] = signalcount
+                            allyields[name] = h_mix.Integral()
+                            d_sigs[name] = h_mix
                         h_mix.SetDirectory(fout)
                         h_mix.Write()
-                        signalcount -= 1
-                        iproc[name] = signalcount
                         allyields[name] = h_mix.Integral()
                         if allyields[name] < 0:
                             allyields[name] = 0.
