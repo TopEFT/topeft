@@ -501,8 +501,8 @@ if __name__ == '__main__':
     print(card.coeffs)
     futures = []
     for var in ['njets','ht','ptbl']:
-        cards = [{'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 {'channel':'2lss', 'appl':'isSR_2lss', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+        cards = [{'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                 {'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
                  {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
                  {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
                  {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
