@@ -8,7 +8,6 @@ import numpy as np
 import os
 import re
 import json
-import concurrent.futures
 
 from ROOT import TFile, TH1D, TH2D
 
@@ -61,6 +60,9 @@ class DatacardMaker():
         self.ch3lsfz2b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
         self.ch3lsfz2b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
         self.ch3lj  = list(set([j[-5:-3] for j in self.ch3l1b_p if 'j' in j]))
+        self.ch3lj  += list(set([j[-5:-3] for j in self.ch3l2b_p if 'j' in j]))
+        self.ch3lsfzj  = list(set([j[-5:-3] for j in self.ch3l1b_p if 'j' in j]))
+        self.ch3lsfzj  += list(set([j[-5:-3] for j in self.ch3l2b_p if 'j' in j]))
         self.ch4l = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '4l' in k[1]})
         self.ch4l += list({k[1]:0 for k in self.hists['njets'].values().keys() if '4l' in k[1]})
         self.ch4lj = list(set([j[-2:] for j in self.ch4l if 'j' in j]))
@@ -88,7 +90,8 @@ class DatacardMaker():
     def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
         if variable != 'njets' and isinstance(bins, list) and len(bins)>0:
             for b in bins:
-                self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=b)
+                if any([b in c for c in self.channels[channel]]):
+                    self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=b)
             return
         def export2d(h):
             return h.to_hist().to_numpy()
@@ -105,7 +108,7 @@ class DatacardMaker():
                 if variable == 'njets':
                     chan = [c for c in self.channels[channel+'_'+charge] if 'j' not in c]
                 else:
-                    chan = [c for c in self.channels[channel+'_'+charge] if bins in c]
+                    chan = [c for c in self.channels[channel+'_'+charge] if bins in c and 'j' in c]
                     channel = chan[0]
                 h = h.integrate('channel', chan)
             else:
@@ -114,7 +117,7 @@ class DatacardMaker():
                     channel = channel + '_' + charge
                     h = h.integrate('channel', chan)
                 else:
-                    h = h.integrate('channel', self.channels[channel+'_'+charege])
+                    h = h.integrate('channel', self.channels[channel+'_'+charge])
         else:
             if isinstance(bins, str):
                 if variable == 'njets':
@@ -507,6 +510,36 @@ class DatacardMaker():
                     else: wcpt.append([f'quad_mixed_{wc1}_{wc2}', wl])
         self.wcs     = wcpt
         return wcpt
+    def condor_job(self, njobs):
+        os.system('mkdir -p %s/condor' % os.getcwd())
+        os.system('mkdir -p %s/condor/log' % os.getcwd())
+        target = '%s/condor_submit.sh' % os.getcwd()
+        condorFile = open(target,'w')
+        condorFile.write('source %s/miniconda3/etc/profile.d/conda.sh\n' % os.path.expanduser('~'))
+        condorFile.write('unset PYTHONPATH\n')
+        condorFile.write('conda activate %s\n' % os.environ['CONDA_DEFAULT_ENV'])
+        condorFile.write('cluster=$1\n')
+        condorFile.write('job=$2\n')
+        condorFile.write('\n')
+        condorFile.write('python analysis/topEFT/datacard_maker.py histos/all_private_full.pkl.gz --job "${job}"\n')
+        os.system('chmod 777 condor_submit.sh')
+        target = '%s/condor/datacardmaker' % os.getcwd()
+        condorFile = open(target,'w')
+        condorFile.write('universe              = vanilla\n')
+        condorFile.write('executable            = condor_submit.sh\n')
+        condorFile.write('arguments             = $(ClusterID) $(ProcId)\n')
+        condorFile.write('output                = condor/log/$(ClusterID)_$(ProcId).out\n')
+        condorFile.write('error                 = condor/log/$(ClusterID)_$(ProcId).err\n')
+        condorFile.write('log                   = condor/log/$(ClusterID).log\n')
+        condorFile.write('Rank                  = Memory >= 64\n')
+        condorFile.write('Request_Memory        = 3 Gb\n')
+        condorFile.write('+JobFlavour           = "workday"\n')
+        condorFile.write('getenv                = True\n')
+        condorFile.write('Should_Transfer_Files = NO\n')
+        condorFile.write('queue %d' % njobs)
+        condorFile.close()
+        os.system('condor_submit %s -batch-name TopCoffea-datacard-maker' % target)
+        os.system('rm %s' % target)
 
 
 if __name__ == '__main__':
@@ -516,11 +549,13 @@ if __name__ == '__main__':
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
     parser.add_argument('--do-nuisance',    action='store_true', help = 'Include nuisance parameters')
     parser.add_argument('--POI',            default=[],          help = 'List of WCs (comma separated)')
+    parser.add_argument('--job',      '-j', default='-1'       , help = 'Job to run')
     args = parser.parse_args()
     pklfile  = args.pklfile
     lumiJson = args.lumiJson
     do_nuisance = args.do_nuisance
     wcs = args.POI
+    job = int(args.job)
     if isinstance(wcs, str): wcs = wcs.split(',')
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
@@ -528,17 +563,24 @@ if __name__ == '__main__':
     card.read()
     card.buildWCString()
     print(card.coeffs)
-    futures = []
+    jobs = []
     for var in ['njets','ht','ptbl']:
         cards = [{'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 {'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
-        executor = concurrent.futures.ProcessPoolExecutor(len(cards))
-        futures = futures + [executor.submit(card.analyzeChannel, **c) for c in cards]
-    concurrent.futures.wait(futures)
+                     {'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                     {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                     {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                     {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                     {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                     {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+                     {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+                     {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
+        jobs.append(cards)
+    njobs = len(jobs) * len(jobs[0])
+    if job == -1:
+        card.condor_job(njobs)
+    elif job < njobs:
+        d = jobs[job//len(jobs[0])][job%len(jobs[0])]
+        print(d)
+        card.analyzeChannel(**d)
+    else:
+        raise Exception(f'Job number {job} outside of range {njobs}!')
