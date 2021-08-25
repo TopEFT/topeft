@@ -59,10 +59,8 @@ class DatacardMaker():
         self.ch3lsfz1b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '1b' in k[1]})
         self.ch3lsfz2b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
         self.ch3lsfz2b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
-        self.ch3lj  = list(set([j[-5:-3] for j in self.ch3l1b_p if 'j' in j]))
-        self.ch3lj  += list(set([j[-5:-3] for j in self.ch3l2b_p if 'j' in j]))
-        self.ch3lsfzj  = list(set([j[-5:-3] for j in self.ch3l1b_p if 'j' in j]))
-        self.ch3lsfzj  += list(set([j[-5:-3] for j in self.ch3l2b_p if 'j' in j]))
+        self.ch3lj  = list(set([j[-2] for j in self.ch3l1b_p if 'j' in j]))
+        self.ch3lsfzj  = list(set([j[-2] for j in self.ch3l1b_p if 'j' in j]))
         self.ch4l = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '4l' in k[1]})
         self.ch4l += list({k[1]:0 for k in self.hists['njets'].values().keys() if '4l' in k[1]})
         self.ch4lj = list(set([j[-2:] for j in self.ch4l if 'j' in j]))
@@ -90,8 +88,7 @@ class DatacardMaker():
     def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
         if variable != 'njets' and isinstance(bins, list) and len(bins)>0:
             for b in bins:
-                if any([b in c for c in self.channels[channel]]):
-                    self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=b)
+                self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=b)
             return
         def export2d(h):
             return h.to_hist().to_numpy()
@@ -123,7 +120,7 @@ class DatacardMaker():
                 if variable == 'njets':
                     chan = [c for c in self.channels[channel] if bins in c and 'j' not in c]
                 else:
-                    chan = [c for c in self.channels[channel] if bins in c]
+                    chan = [c for c in self.channels[channel] if bins in c and 'j' in c]
                     channel = chan[0]
                 h = h.integrate('channel', chan)
             else:
