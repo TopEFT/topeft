@@ -287,18 +287,18 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
             if ch_name == "2l":
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
+                weights_dict[ch_name].add("FF"   , events.fakefactor_2l)
             if ch_name == "3l":
                 weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
+                weights_dict[ch_name].add("FF"   , events.fakefactor_3l)
             if ch_name == "4l":
                 weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
 
         # Systematics
-        systList = []
-        if isData==False:
-            systList = ["nominal"]
-            if self._do_systematics: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
-        else:
-            systList = ["noweight"]
+        systList = ["nominal"]
+        if self._do_systematics and not isData: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
+        
+        
 
 
         ######### EFT coefficients ##########
@@ -457,8 +457,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                     weights_object = weights_dict[nlep_cat]
-                    if syst == "noweight": weight = np.ones(len(events)) # For data
-                    else: weight = weights_object.weight(weight_fluct) # For MC
+                    if isData : weight = weights_object.partial_weight(include=["FF"]) # for data, must include the FF
+                    else      : weight = weights_object.weight(weight_fluct) # For MC
 
                     # Loop over the appropriate AR and SR for this channel
                     for appl in cat_dict[nlep_cat]["appl_lst"]:
@@ -487,7 +487,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                     # Weights and eft coeffs
                                     weights_flat = weight[all_cuts_mask]
-                                    weights_ones = np.ones_like(weights_flat, dtype=np.int)
                                     eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
                                     eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
