@@ -303,12 +303,12 @@ private_UL17_dict_b1b4_local = {
         "histAxisName": "ttllJet_privateUL17",
         "xsecName": "TTZToLLNuNu_M_10",
     },
-    "UL17_tllqJet" : {
+    "UL17_tllq" : {
         "path" : "/scratch365/kmohrman/mc_files/full_r2_files/round1/tllq_b1/",
         "histAxisName": "tllq_privateUL17",
         "xsecName": "tZq",
     },
-    "UL17_tHqJet" : {
+    "UL17_tHq" : {
         "path" : "/scratch365/kmohrman/mc_files/full_r2_files/round1/tHq_b1/",
         "histAxisName": "tHq_privateUL17",
         "xsecName": "tHq",
