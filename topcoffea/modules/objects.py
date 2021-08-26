@@ -10,7 +10,7 @@ from topcoffea.modules.GetValuesFromJsons import get_cut
 
 ### These functions have been synchronized with ttH ###
 
-def isPresTau(pt, eta, dxy, dz, idDecayModeNewDMs, idDeepTau2017v2p1VSjet, minpt=20.0):
+def isPresTau(pt, eta, dxy, dz, idDeepTau2017v2p1VSjet, minpt=20.0):
     return  (pt>minpt)&(abs(eta)<get_cut("eta_t_cut"))&(abs(dxy)<get_cut("dxy_tau_cut"))&(abs(dz)<get_cut("dz_tau_cut"))&(idDeepTau2017v2p1VSjet>>1 & 1 ==1)
 
 def isTightTau(idDeepTau2017v2p1VSjet):
