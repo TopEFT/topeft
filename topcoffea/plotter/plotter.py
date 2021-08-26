@@ -169,7 +169,7 @@ class plotter:
     else:
       self.multicategories = multidic
 
-  def GetHistogram(self, hname, process, categories=None):
+  def GetHistogram(self, hname, process, categories=None, doDDFakes=True):
     ''' Returns a histogram with all categories contracted '''
     if categories == None: categories = self.categories
     h = self.hists[hname]
@@ -189,7 +189,27 @@ class plotter:
         sow.set_sm()
         sow = sow.integrate("sample")
         sow = np.sum(sow.values()[()])
-        h.scale(1. / sow) # Divie EFT samples by sum of weights at SM
+        h.scale(1. / sow) # Divide EFT samples by sum of weights at SM
+    if doDDFakes:
+      fakesInRegion[ident.name.replace('isAR', 'isSR')]=hFakes
+      for ident in h.identifiers('appl'):
+        if 'isAR' not in ident.name: continue
+        hAR=h.integrate('appl', ident)
+        hFakes=hAR.group('process', hist.Cat('process','process'), {'nonprompt' : dataName})
+        hPromptSub=hAR.group('process', hist.Cat('process','process'), {'nonprompt' : [x.name for x in hAR.identifiers('process') if x.name != dataName]} )
+        hPromptSub.scale(-1)
+        hPromptSub=hAR.integrate('sample'); hPromptSub.scale(-1)
+        hFakes = hFakes+hPromptSub
+        fakesInRegion[ident.name.replace('isAR', 'isSR')]=hFakes
+
+      for ident in h.identifiers('appl'):
+        if 'isSR' not in ident.name: continue
+        if ident.name not in fakesInRegion:
+          print('Warning, SR %s does not have DD nonprompt estimate'%ident)
+          continue
+        hSR=h.integrate('appl', ident)
+        return hSR+fakesInRegion[ident.name]
+
     return h
 
   def doData(self, hname):
