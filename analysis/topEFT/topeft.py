@@ -287,10 +287,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
             if ch_name == "2l":
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
-                weights_dict[ch_name].add("FF"   , events.fakefactor_2l)
+                weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
             if ch_name == "3l":
                 weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
-                weights_dict[ch_name].add("FF"   , events.fakefactor_3l)
+                weights_dict[ch_name].add("FF"   , events.fakefactor_3l, events.fakefactor_3l_up, events.fakefactor_3l_down)
             if ch_name == "4l":
                 weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
 
