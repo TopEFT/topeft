@@ -162,11 +162,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         #################### Jets ####################
 
         # Jet cleaning, before any jet selection
-        vetos_tocleanjets= ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
+        #vetos_tocleanjets= ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
+        vetos_tocleanjets= ak.with_name( l_fo, "PtEtaPhiMCandidate")
         tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
         cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
-        cleanedJets["isClean"] = isClean(cleanedJets, tau, drmin=0.3)
-        cleanedJets=cleanedJets[cleanedJets.isClean]
 
         # Selecting jets and cleaning them
         jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
