@@ -75,6 +75,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
+        
+        print("split by flavor: {}".format(self._split_by_lepton_flavor))
 
     @property
     def accumulator(self):
@@ -293,12 +295,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
 
         # Systematics
-        systList = []
-        if isData==False:
-            systList = ["nominal"]
+        systList = ["nominal"]
+        if not isData:
             if self._do_systematics: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
-        else:
-            systList = ["noweight"]
 
 
         ######### EFT coefficients ##########
@@ -326,8 +325,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # b jet masks
         bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # This is the requirement for 2lss and 4l
+        bmask_exactly0med = (nbtagsm==0) # Used for 3lCR
         bmask_exactly1med = (nbtagsm==1) # Used for 3l
         bmask_atleast2med = (nbtagsm>=2) # Used for 3l
+        bmask_1or2med     =((nbtagsm==1) | (nbtagsm==2)) # Used for 2lssCR
 
         # Charge masks
         charge2l_p = ak.fill_none(((l0.charge+l1.charge)>0),False)
@@ -343,6 +344,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # 2lss selection
         selections.add("2lss_p", (events.is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_m", (events.is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
+        selections.add("2lss_CR", (events.is2l & (charge2l_p | charge2l_m) & bmask_1or2med & pass_trg))
 
         # 3l selection
         selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_mask & bmask_exactly1med & pass_trg))
@@ -351,6 +353,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_mask & bmask_atleast2med & pass_trg))
         selections.add("3l_onZ_1b", (events.is3l & sfosz_mask & bmask_exactly1med & pass_trg))
         selections.add("3l_onZ_2b", (events.is3l & sfosz_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_CR"     , (events.is3l & bmask_exactly0med & pass_trg))
 
         # 4l selection
         selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
@@ -371,6 +374,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("exactly_4j", (njets==4))
         selections.add("exactly_5j", (njets==5))
         selections.add("exactly_6j", (njets==6))
+        selections.add("atleast_1j", (njets>=1))
         selections.add("atleast_4j", (njets>=4))
         selections.add("atleast_5j", (njets>=5))
         selections.add("atleast_7j", (njets>=7))
@@ -415,15 +419,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         # This dictionary keeps track of which selections go with which categories
         cat_dict = {
             "2l" : {
-                "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                "lep_chan_lst" : ["2lss_p" , "2lss_m" , "2lss_CR"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
-                "njets_lst"    : ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
+                "njets_lst"    : ["atleast_1j" , "exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
                 "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
             },
             "3l" : {
-                "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b" , "3l_CR"],
                 "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                "njets_lst"    : ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"],
+                "njets_lst"    : ["atleast_1j" , "exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"],
                 "appl_lst"     : ['isSR_3l', 'isAR_3l'],
             },
             "4l" : {
