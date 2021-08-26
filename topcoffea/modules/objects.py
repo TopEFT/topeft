@@ -11,7 +11,7 @@ from topcoffea.modules.GetValuesFromJsons import get_cut
 ### These functions have been synchronized with ttH ###
 
 def isPresTau(pt, eta, dxy, dz, idDecayModeNewDMs, idDeepTau2017v2p1VSjet, minpt=20.0):
-    return  (pt>minpt)&(abs(eta)<get_cut("eta_t_cut"))&(abs(dxy)<get_cut("dxy_tau_cut"))&(abs(dz)<0.2)&(idDecayModeNewDMs)&(idDeepTau2017v2p1VSjet>>1 & 1 ==1)
+    return  (pt>minpt)&(abs(eta)<get_cut("eta_t_cut"))&(abs(dxy)<get_cut("dxy_tau_cut"))&(abs(dz)<get_cut("dz_tau_cut"))&(idDecayModeNewDMs)&(idDeepTau2017v2p1VSjet>>1 & 1 ==1)
 
 def isTightTau(idDeepTau2017v2p1VSjet):
     return (idDeepTau2017v2p1VSjet>>2 & 1)
@@ -26,15 +26,15 @@ def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
 def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
 
     # Get the btag wp for the year
-    if ((year == "2016") or (year == "2016APV")):
-        wploose  = get_cut("btag_wp_loose_forFO_2016")
-        wpmedium = get_cut("btag_wp_medium_forFO_2016")
+    if ((year == "2016") or (year == "L16APV")):
+        wploose  = get_cut("btag_wp_loose_L16")
+        wpmedium = get_cut("btag_wp_medium_L16")
     elif (year == "2017"):
-        wploose  = get_cut("btag_wp_loose_forFO_2017")
-        wpmedium = get_cut("btag_wp_medium_forFO_2017")
+        wploose  = get_cut("btag_wp_loose_UL17")
+        wpmedium = get_cut("btag_wp_medium_UL17")
     elif (year == "2018"):
-        wploose  = get_cut("btag_wp_loose_forFO_2018")
-        wpmedium = get_cut("btag_wp_medium_forFO_2018")
+        wploose  = get_cut("btag_wp_loose_UL18")
+        wpmedium = get_cut("btag_wp_medium_UL18")
     else:
         raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
 
@@ -77,11 +77,11 @@ def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mva
 
     # Get the btag cut for the year
     if ((year == "2016") or (year == "2016APV")):
-        bTagCut = get_cut("btag_wp_medium_forFO_2016")
+        bTagCut = get_cut("btag_wp_medium_L16")
     elif (year == "2017"):
-        bTagCut = get_cut("btag_wp_medium_forFO_2017")
+        bTagCut = get_cut("btag_wp_medium_UL17")
     elif (year == "2018"):
-        bTagCut = get_cut("btag_wp_medium_forFO_2018")
+        bTagCut = get_cut("btag_wp_medium_UL18")
     else:
         raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
 
@@ -96,11 +96,11 @@ def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTH, jetRelIso, year):
 
     # Get the btag cut for the year
     if ((year == "2016") or (year == "2016APV")):
-        bTagCut = get_cut("btag_wp_medium_forFO_2016")
+        bTagCut = get_cut("btag_wp_medium_L16")
     elif (year == "2017"):
-        bTagCut = get_cut("btag_wp_medium_forFO_2017")
+        bTagCut = get_cut("btag_wp_medium_UL17")
     elif (year == "2018"):
-        bTagCut = get_cut("btag_wp_medium_forFO_2018")
+        bTagCut = get_cut("btag_wp_medium_UL18")
     else:
         raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
 
