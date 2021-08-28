@@ -41,6 +41,7 @@ class DatacardMaker():
         self.ch2lss_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_m' in k[1]})
         self.ch2lss_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_m' in k[1]})
         self.ch2lssj  = list(set([j[-2:] for j in self.ch2lss_p if 'j' in j]))
+        self.ch2lssj.sort()
         self.ch3l1b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
         self.ch3l1b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
         self.ch3l1b_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'p' in k[1] and '1b' in k[1]})
@@ -60,10 +61,13 @@ class DatacardMaker():
         self.ch3lsfz2b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
         self.ch3lsfz2b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
         self.ch3lj  = list(set([j[-2] for j in self.ch3l1b_p if 'j' in j]))
+        self.ch3lj.sort()
         self.ch3lsfzj  = list(set([j[-2] for j in self.ch3l1b_p if 'j' in j]))
+        self.ch3lsfzj.sort()
         self.ch4l = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '4l' in k[1]})
         self.ch4l += list({k[1]:0 for k in self.hists['njets'].values().keys() if '4l' in k[1]})
         self.ch4lj = list(set([j[-2:] for j in self.ch4l if 'j' in j]))
+        self.ch4lj.sort()
         self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '4l': self.ch4l}
 
         #Get list of samples and cut levels from histograms
@@ -74,6 +78,8 @@ class DatacardMaker():
         rename = {k: 'Diboson' if bool(re.search('[WZ]{2}', v)) else v for k,v in rename.items()}
         rename = {k: 'convs' if bool(re.search('TTG', v)) else v for k,v in rename.items()}
         rename = {k: 'fakes' if bool(re.search('(^tW)|(^tbarW)|(^WJet)|(^t_)|(^tbar_)|(^TT)|(^DY)', v)) else v for k,v in rename.items()}
+        self.rename = {**self.rename, **rename}
+        rename = {k.split('_')[0]: v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
         self.levels = list({k[2]:0 for k in self.hists['ptbl'].values().keys()})
         self.syst = list({k[3]:0 for k in self.hists['ptbl'].values().keys()})
@@ -87,8 +93,8 @@ class DatacardMaker():
 
     def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
         if variable != 'njets' and isinstance(bins, list) and len(bins)>0:
-            for b in bins:
-                self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=b)
+            for jbin in bins:
+                self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=jbin)
             return
         def export2d(h):
             return h.to_hist().to_numpy()
@@ -105,7 +111,7 @@ class DatacardMaker():
                 if variable == 'njets':
                     chan = [c for c in self.channels[channel+'_'+charge] if 'j' not in c]
                 else:
-                    chan = [c for c in self.channels[channel+'_'+charge] if bins in c and 'j' in c]
+                    chan = [c for c in self.channels[channel+'_'+charge] if bins+'j' in c]
                     channel = chan[0]
                 h = h.integrate('channel', chan)
             else:
@@ -120,7 +126,7 @@ class DatacardMaker():
                 if variable == 'njets':
                     chan = [c for c in self.channels[channel] if bins in c and 'j' not in c]
                 else:
-                    chan = [c for c in self.channels[channel] if bins in c and 'j' in c]
+                    chan = [c for c in self.channels[channel] if bins+'j' in c]
                     channel = chan[0]
                 h = h.integrate('channel', chan)
             else:
@@ -155,25 +161,23 @@ class DatacardMaker():
         fout = uproot3.recreate(fname)
         #Scale each plot to the SM
         for proc in self.samples:
+            if 'UL17' not in proc: continue
+            p = proc.split('_')[0]
+            ul = {'20'+k.split('UL')[1]:k for k in self.samples if p in k}
             #Integrate out processes
-            h_base = h.integrate('sample', proc)
+            h_base = h.group('sample', hist.Cat('year', 'year'), ul)
+            #h_base = h.integrate('sample', proc)
             if h_base == {}:
                 print(f'Issue with {proc}')
                 continue
-            #Get year from sample name
-            year = -1
-            if 'UL16' in proc or 'UL16APV' in proc:
-                year = "2016"
-            elif 'UL17'in proc:
-                year = "2017"
-            elif 'UL18'in proc:
-                year = "2018"
-            else:
-                raise Exception(f'Could not determine the lumi year for {proc}!')
             nwc = self.hsow._nwc
             if nwc > 0:
-                h_base.scale(self.lumi[year]/self.smsow[proc])
-            pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
+                years = {}
+                for year in ul:
+                    years[year] = self.lumi[year]/self.smsow[proc]
+                h_base.scale(years, axis='year')
+            h_base = h_base.integrate('year')
+            pname = self.rename[p]+'_' if p in self.rename else p+'_'
             if 'njet' in variable:
                 if   '2l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7]))
                 elif '3l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5]))
@@ -188,14 +192,14 @@ class DatacardMaker():
             if len(h_base.axes())>1:
                 fout[pname+'sm'] = export2d(h_sm)
             else:
-                fout[proc+'_sm'] = hist.export1d(h_sm) # Special case for SM b/c background names overlap
+                fout[p+'_sm'] = hist.export1d(h_sm) # Special case for SM b/c background names overlap
             #Asimov data: data_obs = MC at SM (all WCs = 0)
             if len(h_base.axes())>1:
                 fout['data_obs'] = export2d(h_sm)
             else:
                 fout['data_obs'] = hist.export1d(h_sm)
             
-            if proc in self.signal or self.rename[proc] in self.signal:
+            if p in self.signal or self.rename[p] in self.signal:
                 h_lin = h_base; h_quad = []; h_mix = []
                 yields = []
                 for name,wcpt in self.wcs:
@@ -300,7 +304,9 @@ class DatacardMaker():
         data_obs = []
         d_sigs = {} # Store signals for summing
         d_bkgs = {} # Store backgrounds for summing
-        for proc in self.samples:
+        samples = list(set([proc.split('_')[0] for proc in self.samples]))
+        samples.sort()
+        for proc in samples:
             p = self.rename[proc] if proc in self.rename else proc
             name = 'data_obs'
             if name not in d_hists:
@@ -313,7 +319,6 @@ class DatacardMaker():
                 data_obs = getHist(d_hists,proc+'_sm').Clone('data_obs') # Special case for SM b/c background names overlap
             else:
                 data_obs.Add(getHist(d_hists,proc+'_sm').Clone('data_obs')) # Special case for SM b/c background names overlap
-            asimov = np.random.poisson(int(data_obs.Integral()))
             data_obs.SetDirectory(fout)
             allyields[name] = data_obs.Integral()
             fout.Delete(name+';1')
@@ -507,7 +512,7 @@ class DatacardMaker():
                     else: wcpt.append([f'quad_mixed_{wc1}_{wc2}', wl])
         self.wcs     = wcpt
         return wcpt
-    def condor_job(self, njobs):
+    def condor_job(self, pklfile, njobs):
         os.system('mkdir -p %s/condor' % os.getcwd())
         os.system('mkdir -p %s/condor/log' % os.getcwd())
         target = '%s/condor_submit.sh' % os.getcwd()
@@ -518,7 +523,7 @@ class DatacardMaker():
         condorFile.write('cluster=$1\n')
         condorFile.write('job=$2\n')
         condorFile.write('\n')
-        condorFile.write('python analysis/topEFT/datacard_maker.py histos/all_private_full.pkl.gz --job "${job}"\n')
+        condorFile.write('python analysis/topEFT/datacard_maker.py %s --job "${job}"\n' % pklfile)
         os.system('chmod 777 condor_submit.sh')
         target = '%s/condor/datacardmaker' % os.getcwd()
         condorFile = open(target,'w')
@@ -574,7 +579,7 @@ if __name__ == '__main__':
         jobs.append(cards)
     njobs = len(jobs) * len(jobs[0])
     if job == -1:
-        card.condor_job(njobs)
+        card.condor_job(pklfile, njobs)
     elif job < njobs:
         d = jobs[job//len(jobs[0])][job%len(jobs[0])]
         print(d)
