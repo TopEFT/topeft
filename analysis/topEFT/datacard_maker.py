@@ -166,7 +166,6 @@ class DatacardMaker():
             ul = {'20'+k.split('UL')[1]:k for k in self.samples if p in k}
             #Integrate out processes
             h_base = h.group('sample', hist.Cat('year', 'year'), ul)
-            #h_base = h.integrate('sample', proc)
             if h_base == {}:
                 print(f'Issue with {proc}')
                 continue
