@@ -161,7 +161,7 @@ class DatacardMaker():
         fout = uproot3.recreate(fname)
         #Scale each plot to the SM
         for proc in self.samples:
-            if 'UL17' not in proc: continue # This is NOT a typo! We only need on year to determine the process name
+            if 'UL17' not in proc: continue # This is NOT a typo! We only need one year to determine the process name
             p = proc.split('_')[0]
             ul = {'20'+k.split('UL')[1]:k for k in self.samples if p in k}
             #Integrate out processes
