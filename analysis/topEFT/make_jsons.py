@@ -11,6 +11,7 @@ from topcoffea.modules.paths import topcoffea_path
 
 private_UL17_dict = {
 
+
     "UL17_ttHJet_b1"   : {
         "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v2/nAOD_step_ttHJet_all22WCsStartPtCheckdim6TopMay20GST_run0",
         "histAxisName": "ttHJet_privateUL17",
@@ -256,7 +257,7 @@ private_UL16APV_dict = {
 }
 
 
-########### TOP-19-001 samples (locally at ND on /scratch365) ###########
+########### TOP-19-001 samples and subsets of UL17 locally at ND on /scratch365 and at UNL ###########
 
 private_2017_dict = {
     "2017_ttHJet" : {
@@ -286,6 +287,71 @@ private_2017_dict = {
     },
 }
 
+private_UL17_dict_b1b4_local = {
+    "UL17_ttHJet" : {
+        "path" : "/scratch365/kmohrman/mc_files/full_r2_files/round1/ttH_b1/",
+        "histAxisName": "ttHJet_privateUL17",
+        "xsecName": "ttHnobb",
+    },
+    "UL17_ttlnuJet" : {
+        "path" : "/scratch365/kmohrman/mc_files/full_r2_files/round1/ttlnu_b1/",
+        "histAxisName": "ttlnuJet_privateUL17",
+        "xsecName": "TTWJetsToLNu",
+    },
+    "UL17_ttllJet" : {
+        "path" : "/scratch365/kmohrman/mc_files/full_r2_files/round1/ttll_b1/",
+        "histAxisName": "ttllJet_privateUL17",
+        "xsecName": "TTZToLLNuNu_M_10",
+    },
+    "UL17_tllq" : {
+        "path" : "/scratch365/kmohrman/mc_files/full_r2_files/round1/tllq_b1/",
+        "histAxisName": "tllq_privateUL17",
+        "xsecName": "tZq",
+    },
+    "UL17_tHq" : {
+        "path" : "/scratch365/kmohrman/mc_files/full_r2_files/round1/tHq_b1/",
+        "histAxisName": "tHq_privateUL17",
+        "xsecName": "tHq",
+    },
+    "UL17_tttt" : {
+        "path" : "/scratch365/kmohrman/mc_files/full_r2_files/round1/tttt_b4/",
+        "histAxisName": "tttt_privateUL17",
+        "xsecName": "tttt",
+    },
+}
+
+private_UL17_dict_b1b4_UNL = {
+    "UL17_ttHJet" : {
+        "path" : "/store/user/awightma/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v2/nAOD_step_ttHJet_all22WCsStartPtCheckdim6TopMay20GST_run0",
+        "histAxisName": "ttHJet_privateUL17",
+        "xsecName": "ttHnobb",
+    },
+    "UL17_ttlnuJet" : {
+        "path" : "/store/user/awightma/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v2/nAOD_step_ttlnuJet_all22WCsStartPtCheckdim6TopMay20GST_run0",
+        "histAxisName": "ttlnuJet_privateUL17",
+        "xsecName": "TTWJetsToLNu",
+    },
+    "UL17_ttllJet" : {
+        "path" : "/store/user/awightma/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v2/nAOD_step_ttllNuNuJetNoHiggs_all22WCsStartPtCheckdim6TopMay20GST_run0",
+        "histAxisName": "ttllJet_privateUL17",
+        "xsecName": "TTZToLLNuNu_M_10",
+    },
+    "UL17_tllqJet" : {
+        "path" : "/store/user/awightma/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v2/nAOD_step_tllq4fNoSchanWNoHiggs0p_all22WCsStartPtCheckV2dim6TopMay20GST_run0",
+        "histAxisName": "tllq_privateUL17",
+        "xsecName": "tZq",
+    },
+    "UL17_tHqJet" : {
+        "path" : "/store/user/awightma/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v2/nAOD_step_tHq4f_all22WCsStartPtCheckdim6TopMay20GST_run0",
+        "histAxisName": "tHq_privateUL17",
+        "xsecName": "tHq",
+    },
+    "UL17_tttt" : {
+        "path" : "/store/user/awightma/FullProduction/FullR2/UL17/Round1/Batch4/naodOnly_step/v1/nAOD_step_tttt_FourtopsMay3v1_run0",
+        "histAxisName": "tttt_privateUL17",
+        "xsecName": "tttt",
+    },
+}
 
 
 ########### Central signal samples ###########
@@ -913,6 +979,8 @@ def main():
 
     # Specify some output dirs
     out_dir_private_UL     = os.path.join(topcoffea_path("json"),"signal_samples/private_UL/")
+    out_dir_private_UL_subset_local = os.path.join(topcoffea_path("json"),"signal_samples/subsets_of_private_UL_for_debugging/private_UL17_b1b4_at_NDscratch365/")
+    out_dir_private_UL_subset_unl = os.path.join(topcoffea_path("json"),"signal_samples/subsets_of_private_UL_for_debugging/private_UL17_b1b4_at_NDscratch365/")
     out_dir_top19001_local = os.path.join(topcoffea_path("json"),"signal_samples/private_top19001_local")
     out_dir_central_UL     = os.path.join(topcoffea_path("json"),"signal_samples/central_UL/")
     out_dir_central_bkg_UL = os.path.join(topcoffea_path("json"),"background_samples/central_UL/")
@@ -929,32 +997,32 @@ def main():
     #make_jsons_for_dict_of_samples(private_UL16_dict,"/hadoop","2016",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL16APV_dict,"/hadoop","2016APV",out_dir_private_UL) # Not sure what we need here for the year, can remake the JSONs later to update when we have SFs etc set up for 2016 stuff (right now I think it's mostly just 18)
 
-    # TOP-19-001 ttll
-    # make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
+    # Subsets of files for small debugging tests local files (scratch365 at ND)
+    #make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
+    #make_jsons_for_dict_of_samples(private_UL17_dict_b1b4_local,"","2017",out_dir_private_UL_subset_local)
 
     # Central
     #make_jsons_for_dict_of_samples(central_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_2016,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL16_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_UL,on_das=True)
-    make_jsons_for_dict_of_samples(central_UL16_bkg_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_bkg_UL,on_das=True)
+    #make_jsons_for_dict_of_samples(central_UL16_bkg_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_2016APV,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL16APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_UL,on_das=True)
-    make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_bkg_UL,on_das=True)
+    #make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
     #make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
-    make_jsons_for_dict_of_samples(central_UL17_bkg_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_bkg_UL,on_das=True)
+    #make_jsons_for_dict_of_samples(central_UL17_bkg_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
-    make_jsons_for_dict_of_samples(central_UL18_bkg_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_bkg_UL,on_das=True)
-    # make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
+    #make_jsons_for_dict_of_samples(central_UL18_bkg_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_bkg_UL,on_das=True)
+    #make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
 
     # Data
-    make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
-    make_jsons_for_dict_of_samples(data_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_data_2017,on_das=True)
-    make_jsons_for_dict_of_samples(data_2018_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_data_2018,on_das=True)
+    #make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
+    #make_jsons_for_dict_of_samples(data_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_data_2017,on_das=True)
+    #make_jsons_for_dict_of_samples(data_2018_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_data_2018,on_das=True)
 
     # Testing finding list of files with xrdfs ls
     # make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
 
 
 main()
-
