@@ -181,13 +181,23 @@ class plotter:
     if categories == None: categories = self.categories
     h = self.hists[hname]
     sow = self.hists['SumOfEFTweights']
+    print(categories)
+    print("unintegrated hist: {}".format(h))
+    print("unintegrated proc: {}".format(h.identifiers('process')))
+    print("unintegrated chan: {}".format(h.identifiers('channel')))
+    print("unintegrated syst: {}".format(h.identifiers('systematic')))
+    print("unintegrated appl: {}".format(h.identifiers('appl')))
     for cat in categories: 
       h = h.integrate(cat, categories[cat])
+    print("ungrouped hist: {}".format(h))
+    print("ungrouped proc: {}".format(h.identifiers('process')))
     if isinstance(process, str) and ',' in process: process = process.split(',')
     if isinstance(process, list): 
       prdic = {}
       for pr in process: prdic[pr] = pr
       h = h.group("process", hist.Cat("process", "process"), prdic)
+      print("grouped hist: {}".format(h))
+      print("grouped proc: {}".format(h.identifiers('process')))
     elif isinstance(process, str): 
       h = h[process].sum("process")
       sow = sow[process].sum("sample")
@@ -196,7 +206,7 @@ class plotter:
         sow.set_sm()
         sow = sow.integrate("sample")
         sow = np.sum(sow.values()[()])
-        h.scale(1. / sow) # Divie EFT samples by sum of weights at SM
+        h.scale(1. / sow) # Divide EFT samples by sum of weights at SM
     return h
 
   def doData(self, hname):
@@ -245,8 +255,8 @@ class plotter:
     ax.set_prop_cycle(cycler(color=colors))
 
     fill_opts  = self.fill_opts
-    error_opts = self.error_opts
-    data_err_opts = self.data_err_opts
+    error_opts = None#self.error_opts
+    data_err_opts = None#self.data_err_opts
     if not self.doStack:
       error_opts = None
       fill_opts  = None
@@ -254,6 +264,13 @@ class plotter:
     if self.invertStack and type(h._axes[0])==hist.hist_tools.Cat:  h._axes[0]._sorted.reverse() 
     h = self.GetHistogram(hname, self.bkglist)
     h.scale(1000.*self.lumi)
+    
+    print(self.hists[hname])
+    print(self.hists[hname].identifiers('process'))
+    print(self.bkglist)
+    print(h)
+    print(h.identifiers('process'))
+    
     y = h.integrate("process").values(overflow='all')
     if y == {}: return #process not found
     hist.plot1d(h, overlay="process", ax=ax, clear=False, stack=self.doStack, density=density, line_opts=None, fill_opts=fill_opts, error_opts=error_opts, binwnorm=binwnorm)

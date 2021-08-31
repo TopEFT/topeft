@@ -65,8 +65,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         "nbtags"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtags",  "btag multiplicity ", 5, 0, 5)),
         "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
         "wleppt"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("wleppt",  "$p_{T}^{lepW}$ (GeV) ", 20, 0, 200)),
-        "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 25, 0, 500)),
-        "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 25, 0, 500)),
+        "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 25, 0, 200)),
+        "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 25, 0, 200)),
         "l0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",   "Leading lep $\eta$", 30, -3.0, 3.0)),
         "j0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
         "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 50, 0, 1000)),
@@ -75,8 +75,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
-        
-        print("split by flavor: {}".format(self._split_by_lepton_flavor))
 
     @property
     def accumulator(self):
@@ -248,7 +246,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         l1 = l_fo_conept_sorted_padded[:,1]
         l2 = l_fo_conept_sorted_padded[:,2]
 
-        print("The number of events passing FO 2l, 3l, and 4l selection:", ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
+        #print("The number of events passing FO 2l, 3l, and 4l selection:", ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
 
 
         ######### SFs, weights, systematics ##########
@@ -283,13 +281,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         weights_dict = {}
         genw = np.ones_like(events["event"]) if (isData or len(self._wc_names_lst)>0) else events["genWeight"]
         if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
-        for ch_name in ["2l","3l","4l"]:
+        for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
             weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
-            if ch_name == "2l":
+            if ((ch_name == "2l") | (ch_name == "2l_CR")):
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
-            if ch_name == "3l":
+            if ((ch_name == "3l") | (ch_name == "3l_CR")):
                 weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
             if ch_name == "4l":
                 weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
@@ -369,6 +367,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("llll", (events.is_eeee | events.is_eeem | events.is_eemm | events.is_emmm | events.is_mmmm | events.is_gr4l)) # Not keepting track of these separately
 
         # Njets selection
+        selections.add("exactly_1j", (njets==1))
         selections.add("exactly_2j", (njets==2))
         selections.add("exactly_3j", (njets==3))
         selections.add("exactly_4j", (njets==4))
@@ -385,6 +384,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("isSR_3l",  events.is3l_SR)
         selections.add("isAR_3l", ~events.is3l_SR)
         selections.add("isSR_4l",  events.is4l_SR)
+        
+        mask2lssCR = (events.is2l & (charge2l_p | charge2l_m) & bmask_1or2med & pass_trg & (njets==2) & events.is2l_SR)
+        mask3lCR   = (events.is3l & bmask_exactly0med & pass_trg & (njets>=1) & events.is3l_SR)
 
 
         ######### Variables for the dense axes of the hists ##########
@@ -419,15 +421,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         # This dictionary keeps track of which selections go with which categories
         cat_dict = {
             "2l" : {
-                "lep_chan_lst" : ["2lss_p" , "2lss_m" , "2lss_CR"],
+                "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
-                "njets_lst"    : ["atleast_1j" , "exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
+                "njets_lst"    : ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
                 "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
             },
             "3l" : {
-                "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b" , "3l_CR"],
+                "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
                 "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                "njets_lst"    : ["atleast_1j" , "exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"],
+                "njets_lst"    : ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"],
                 "appl_lst"     : ['isSR_3l', 'isAR_3l'],
             },
             "4l" : {
@@ -435,6 +437,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_flav_lst" : ["llll"], # Not keeping track of these separately
                 "njets_lst"    : ["exactly_2j" , "exactly_3j" , "atleast_4j"],
                 "appl_lst"     : ['isSR_4l'],
+            },
+            "2l_CR" : {
+                "lep_chan_lst" : ["2lss_CR"],
+                "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "njets_lst"    : ["exactly_1j" , "exactly_2j"],
+                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
+            },
+            "3l_CR" : {
+                "lep_chan_lst" : ["3l_CR"],
+                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                "njets_lst"    : ["atleast_1j"],
+                "appl_lst"     : ['isSR_3l'], # 3 tight leptons
             }
         }
 

@@ -71,7 +71,7 @@ args = parser.parse_args()
 
 year  = args.year
 lumiJson  = args.lumiJson
-path  = 'histos/plotsTopEFT.pkl.gz' #['histos/background.pkl.gz', 'histos/signal.pkl.gz', 'histos/data_Run2017B.pkl.gz']#args.path
+path  = 'histos/test.pkl.gz'#'histos/plotsTopEFT.pkl.gz' #['histos/background.pkl.gz', 'histos/signal.pkl.gz', 'histos/data_Run2017B.pkl.gz']#args.path
 var = args.variable
 ch = args.channel
 njets = args.njets
@@ -89,6 +89,9 @@ elif "CR" in ch     : appl = ['isSR_2lss', 'isAR_2lss']
 
 if ch == '2lss'     : ch   = ['2lss_p', '2lss_m']
 if ch == '3l'       : ch   = ["3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_onZ_1b", "3l_m_onZ_1b"]
+
+# don't specify njets if we are plotting njets
+if var == 'njets': njets = None
 
 # define "all" flavors
 flav_lst = []
@@ -155,7 +158,7 @@ def Draw(var, categories, label=''):
 
 categories = {
  'channel'    : ch_list,
- 'systematic' : 'nominal',
- 'appl'       : appl,
+ 'systematic' : ['nominal'],
+ 'appl'       : [appl],
 }
 Draw(var, categories, title)
