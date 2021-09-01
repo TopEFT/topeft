@@ -14,7 +14,7 @@ from coffea.analysis_tools import PackedSelection
 
 from topcoffea.modules.GetValuesFromJsons import get_cut
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
@@ -284,19 +284,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         for ch_name in ["2l","3l","4l"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
-            weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
-            if ch_name == "2l":
-                weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
-            if ch_name == "3l":
-                weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
-            if ch_name == "4l":
-                weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
+            if not isData:
+              weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
+              weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
+              if ch_name == "2l":
+                  weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
+              if ch_name == "3l":
+                  weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
+              if ch_name == "4l":
+                  weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
 
         # Systematics
         systList = []
-        if isData==False:
+        if not isData:
             systList = ["nominal"]
-            if self._do_systematics: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
+            if self._do_systematics: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown",'PUUp', 'PUDown']
         else:
             systList = ["noweight"]
 

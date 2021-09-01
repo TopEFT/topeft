@@ -194,6 +194,58 @@ def GetBTagSF(eta, pt, flavor, year=2018, sys=0):
 
   return (SF)
 
+###### Pileup reweighing
+##############################################
+## Get central PU data and MC profiles and calculate reweighting
+## Using the current UL recommendations in:
+##   https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData
+##   - 2018: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/PileUp/UltraLegacy/
+##   - 2017: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions17/13TeV/PileUp/UltraLegacy/
+##   - 2016: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/PileUp/UltraLegacy/
+##
+## MC histograms from:
+##    https://github.com/CMS-LUMI-POG/PileupTools/
+
+pudirpath = topcoffea_path('data/pileup/')
+
+def GetDataPUname(year='2017', var=0):
+  ''' Returns the name of the file to read pu observed distribution '''
+  if   var== 0: ppxsec = 69200
+  elif var== 1: ppxsec = 72400
+  elif var==-1: ppxsec = 66000
+  year = str(year)
+  if year.startswith('2016'): year = '2016'
+  return 'PileupHistogram-goldenJSON-13tev-%s-%sub-99bins.root'%((year), str(ppxsec))
+
+MCPUfile = {'2016APV':'pileup_2016BF.root', '2016':'pileup_2016GH.root', '2017':'pileup_2017_shifts.root', '2018':'pileup_2018_shifts.root'}
+def GetMCPUname(year='2017'):
+  ''' Returns the name of the file to read pu MC profile '''
+  return MCPUfile[str(year)]
+
+PUfunc = {}
+### Load histograms and get lookup tables (extractors are not working here...)
+for year in ['2016', '2016APV', '2017', '2018']:
+  PUfunc[year] = {}
+  with uproot.open(pudirpath+GetMCPUname(year)) as fMC:
+    hMC = fMC['pileup']
+    PUfunc[year]['MC'] = lookup_tools.dense_lookup.dense_lookup(hMC .values(), hMC.axis(0).edges())
+  with uproot.open(pudirpath+GetDataPUname(year,  0)) as fData:
+    hD   = fData  ['pileup']
+    PUfunc[year]['Data'  ] = lookup_tools.dense_lookup.dense_lookup(hD  .values(), hD.axis(0).edges())
+  with uproot.open(pudirpath+GetDataPUname(year,  1)) as fDataUp:
+    hDUp = fDataUp['pileup']
+    PUfunc[year]['DataUp'] = lookup_tools.dense_lookup.dense_lookup(hDUp.values(), hD.axis(0).edges())
+  with uproot.open(pudirpath+GetDataPUname(year, -1)) as fDataDo:
+    hDDo = fDataDo['pileup']
+    PUfunc[year]['DataDo'] = lookup_tools.dense_lookup.dense_lookup(hDDo.values(), hD.axis(0).edges())
+
+def GetPUSF(nTrueInt, year, var=0):
+  year = str(year)
+  nMC  =PUfunc[year]['MC'](nTrueInt+1)
+  nData=PUfunc[year]['DataUp' if var == 1 else ('DataDo' if var == -1 else 'Data')](nTrueInt)
+  weights = np.divide(nData,nMC)
+  return weights
+
 ###### JEC corrections (2018)
 ##############################################
 extJEC = lookup_tools.extractor()
