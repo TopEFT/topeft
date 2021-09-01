@@ -460,6 +460,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if syst == "noweight": weight = np.ones(len(events)) # For data
                     else: weight = weights_object.weight(weight_fluct) # For MC
 
+                    # Get a mask for events that pass any of the njet requiremens in this nlep cat
+                    # Useful in cases like njets hist where we don't store njets in a sparse axis
+                    njets_any_mask = selections.any(*cat_dict[nlep_cat]["njets_lst"])
+
                     # Loop over the appropriate AR and SR for this channel
                     for appl in cat_dict[nlep_cat]["appl_lst"]:
 
@@ -472,7 +476,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                 # Loop over the lep flavor list for each channel
                                 for lep_flav in cat_dict[nlep_cat]["lep_flav_lst"]:
 
-                                    # Construct the hist name and the cuts mask for all selections
+                                    # Construct the hist name
                                     flav_ch = None
                                     njet_ch = None
                                     cuts_lst = [appl,lep_chan]
@@ -483,7 +487,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         njet_ch = njet_val
                                         cuts_lst.append(njet_val)
                                     ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
-                                    all_cuts_mask = selections.all(*cuts_lst)
+
+                                    # Get the cuts mask for all selections
+                                    if dense_axis_name == "njets":
+                                        all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
+                                    else:
+                                        all_cuts_mask = selections.all(*cuts_lst)
 
                                     # Weights and eft coeffs
                                     weights_flat = weight[all_cuts_mask]
