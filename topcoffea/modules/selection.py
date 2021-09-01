@@ -201,14 +201,11 @@ def add2lMaskAndSFs(events, year, isData):
     eleID1 = (abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0) & (padded_FOs[:,0].tightCharge>=2))
     eleID2 = (abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0) & (padded_FOs[:,1].tightCharge>=2))
 
-    # Jet requirements:
-    njet4 = (events.njets>3)
-
     # 2l requirements:
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
     dilep = (ak.num(FOs)) >= 2 
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
-    mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge & njet4)
+    mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge)
     events['is2l'] = ak.fill_none(mask,False)
 
     # SFs
@@ -241,9 +238,6 @@ def add3lMaskAndSFs(events, year, isData):
     eleID2=(abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0))
     eleID3=(abs(padded_FOs[:,2].pdgId)!=11) | ((padded_FOs[:,2].convVeto != 0) & (padded_FOs[:,2].lostHits==0))
 
-    # Jet requirements:
-    njet2 = (events.njets>1)
-
     # Pt requirements for 3rd lepton (different for e and m)
     pt3lmask = ak.any(ak.where(abs(FOs[:,2:3].pdgId)==11,FOs[:,2:3].conept>15.0,FOs[:,2:3].conept>10.0),axis=1)
 
@@ -251,7 +245,7 @@ def add3lMaskAndSFs(events, year, isData):
     trilep = (ak.num(FOs)) >=3
     pt251510 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & pt3lmask)
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
-    mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3 & njet2) 
+    mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3)
     events['is3l'] = ak.fill_none(mask,False)
 
     # SFs
@@ -285,9 +279,6 @@ def add4lMaskAndSFs(events, year, isData):
     eleID3 = ((abs(padded_FOs[:,2].pdgId)!=11) | ((padded_FOs[:,2].convVeto != 0) & (padded_FOs[:,2].lostHits==0)))
     eleID4 = ((abs(padded_FOs[:,3].pdgId)!=11) | ((padded_FOs[:,3].convVeto != 0) & (padded_FOs[:,3].lostHits==0)))
 
-    # Jet requirements:
-    njet2 = (events.njets>=2)
-
     # Pt requirements for 3rd and 4th leptons (different for e and m)
     pt3lmask = ak.any(ak.where(abs(FOs[:,2:3].pdgId)==11,FOs[:,2:3].conept>15.0,FOs[:,2:3].conept>10.0),axis=1)
     pt4lmask = ak.any(ak.where(abs(FOs[:,3:4].pdgId)==11,FOs[:,3:4].conept>15.0,FOs[:,3:4].conept>10.0),axis=1)
@@ -296,7 +287,7 @@ def add4lMaskAndSFs(events, year, isData):
     fourlep  = (ak.num(FOs)) >= 4
     pt25151510 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & pt3lmask & pt4lmask)
     tightleps = ((padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep) & (padded_FOs[:,3].isTightLep))
-    mask = (filters & cleanup & fourlep & pt25151510 & tightleps & eleID1 & eleID2 & eleID3 & eleID4 & njet2)
+    mask = (filters & cleanup & fourlep & pt25151510 & tightleps & eleID1 & eleID2 & eleID3 & eleID4)
     events['is4l'] = ak.fill_none(mask,False)
 
     # SFs:
