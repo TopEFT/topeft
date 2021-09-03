@@ -245,7 +245,7 @@ def add3lMaskAndSFs(events, year, isData):
     trilep = (ak.num(FOs)) >=3
     pt251510 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & pt3lmask)
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
-    mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3) 
+    mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3)
     events['is3l'] = ak.fill_none(mask,False)
 
     # SFs
