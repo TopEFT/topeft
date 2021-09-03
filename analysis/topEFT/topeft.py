@@ -475,7 +475,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                     weights_object = weights_dict[nlep_cat]
-                    if syst == "noweight": weight = np.ones(len(events)) # For data
+                    if isData: weight = np.ones(len(events)) # For data
                     else: weight = weights_object.weight(weight_fluct) # For MC
 
                     # Loop over the appropriate AR and SR for this channel

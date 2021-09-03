@@ -71,7 +71,7 @@ args = parser.parse_args()
 
 year  = args.year
 lumiJson  = args.lumiJson
-path  = 'histos/test.pkl.gz'#'histos/plotsTopEFT.pkl.gz' #['histos/background.pkl.gz', 'histos/signal.pkl.gz', 'histos/data_Run2017B.pkl.gz']#args.path
+path  = ['histos/data.pkl.gz', 'histos/MC.pkl.gz']#args.path
 var = args.variable
 ch = args.channel
 njets = args.njets
@@ -116,12 +116,12 @@ with open(lumiJson) as jf:
   lumi = lumi[year]
 
 processDic = {
-  'Diboson': 'WZTo2L2Q_centralUL17, WZTo3LNu_centralUL17, ZZTo2L2Nu_centralUL17, ZZTo2L2Q_centralUL17, ZZTo4L_centralUL17, WWTo2L2Nu_centralUL17',
-  'Triboson': 'WWW_centralUL17, WZG_centralUL17, WWZ_centralUL17, WZZ_centralUL17, ZZZ_centralUL17',
+  'Diboson': 'WZTo2L2Q_centralUL17, WZTo3LNu_centralUL17, ZZTo4L_centralUL17, WWTo2L2Nu_centralUL17',
+  'Triboson': 'WWW_centralUL17, WZG_centralUL17, WWZ_centralUL17, WZZ_centralUL17, ZZZ_centralUL17, WZZ_centralUL17',
   'ttH': 'ttHnobb, ttHH',
-  'ttll': 'TTZToLL_M_1to10, TTZToLLNuNu_M_10_a, TTG, ttZH, ttZZ',
+  'ttll': 'ttZ_centralUL17',
   'ttlv': 'TTWJetsToLNu, ttWW, ttWZ',
-  'tllq': 'tZq',
+  'tllq': 'tZq_centralUL17',
   'tHq': 'tHq',
   'TT': 'TTTo2L2Nu',
   'DY': 'DYJetsToLL_centralUL17',
