@@ -92,7 +92,6 @@ def make_1d_quad_plot(quad_params,xaxis_name,yaxis_name,title,xaxis_range=[-10,1
         s1 = str(round(s1,2))
         s2 = str(round(s2,2))
         rstr = f"{tag}: {s0} + {s1}*{xvar} + {s2}*{xvar}$^2$"
-        print("str!!!",rstr)
         return rstr
 
     # Get the quad fit params from the list
@@ -219,3 +218,27 @@ def eval_fit(fit_dict,wcpt_dict):
             wc2_val = wcpt_dict[wc2]
         xsec = xsec + wc1_val*wc2_val*coeff_val
     return xsec
+
+
+# Evaluate a 1d quadratic at a given point
+def eval_1d_quad( quad_params_1d,x):
+    if len(quad_params_1d) != 3:
+        raise Exception(f"Error: Wrong number of parameters specified for 1d quadratic. Require 3, received {len(quad_params)}.")
+    y = quad_params_1d[0] + quad_params_1d[1]*x + quad_params_1d[2]*x*x
+    return y
+
+
+# Takes as input 1d quadratic fit params, and returns the x value where y crosses some threshold
+def find_where_fit_crosses_threshold(quad_params_1d,threshold):
+
+    # Get the individual params
+    if len(quad_params_1d) != 3:
+        raise Exception(f"Error: Wrong number of parameters specified for 1d quadratic. Require 3, received {len(quad_params)}.")
+    s0 = quad_params_1d[0]
+    s1 = quad_params_1d[1]
+    s2 = quad_params_1d[2]
+
+    x_p = (-s1 + np.sqrt(s1*s1 - 4.0*s2*(s0-threshold)) )/(2.0*s2)
+    x_m = (-s1 - np.sqrt(s1*s1 - 4.0*s2*(s0-threshold)) )/(2.0*s2)
+
+    return [x_m,x_p]
