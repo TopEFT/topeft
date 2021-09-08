@@ -71,7 +71,7 @@ args = parser.parse_args()
 
 year  = args.year
 lumiJson  = args.lumiJson
-path  = ['histos/data.pkl.gz', 'histos/MC.pkl.gz']#args.path
+path  = 'histos/DY.pkl.gz'#['histos/data.pkl.gz', 'histos/MC.pkl.gz']#args.path
 var = args.variable
 ch = args.channel
 njets = args.njets
@@ -81,11 +81,11 @@ output = args.output
 
 # determine SR or AR
 appl = []
-if   ch == '2lss_CR': appl = ['isSR_2lss', 'isAR_2lss']
-elif "2lss" in ch   : appl = 'isSR_2lss'
-elif "3l" in ch     : appl = 'isSR_3l' # 3 lepton control region requires 3 tight leptons
-elif "4l" in ch     : appl = 'isSR_4l'
-elif "CR" in ch     : appl = ['isSR_2lss', 'isAR_2lss']
+if   ch == '2lss_CR': appl = ['isSR_2l', 'isAR_2l']
+elif "2lss" in ch   : appl = ['isSR_2l']
+elif "3l" in ch     : appl = ['isSR_3l'] # 3 lepton control region requires 3 tight leptons
+elif "4l" in ch     : appl = ['isSR_4l']
+elif "CR" in ch     : appl = ['isSR_2l', 'isAR_2l']
 
 if ch == '2lss'     : ch   = ['2lss_p', '2lss_m']
 if ch == '3l'       : ch   = ["3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_onZ_1b", "3l_m_onZ_1b"]
@@ -99,6 +99,8 @@ if flav == "all":
   if "2lss" in ch: flav_lst = ['ee', 'mm', 'em']
   if "3l"   in ch: flav_lst = ['eee', 'mmm', 'eem', 'mme']
   if "4l"   in ch: flav_lst = ['llll']
+  if "CRtt" in ch: flav_lst = ['em']
+  if "CRZ"  in ch: flav_lst = ['ee', 'mm']
 else             : flav_lst = [flav]
 
 # Convert string to list
@@ -159,6 +161,6 @@ def Draw(var, categories, label=''):
 categories = {
  'channel'    : ch_list,
  'systematic' : ['nominal'],
- 'appl'       : [appl],
+ 'appl'       : appl,
 }
 Draw(var, categories, title)

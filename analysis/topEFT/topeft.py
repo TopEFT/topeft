@@ -281,7 +281,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         weights_dict = {}
         genw = np.ones_like(events["event"]) if (isData or len(self._wc_names_lst)>0) else events["genWeight"]
         if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
-        for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR"]:
+        for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
             weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
@@ -317,20 +317,23 @@ class AnalysisProcessor(processor.ProcessorABC):
         zpeak_mask = (abs((ll_fo_pairs.l0+ll_fo_pairs.l1).mass - 91.2)<10.0) 
         sfos_mask = (ll_fo_pairs.l0.pdgId == -ll_fo_pairs.l1.pdgId)
         sfosz_mask = ak.flatten(ak.any((zpeak_mask & sfos_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
+        zpeak_mask = ak.flatten(ak.any((zpeak_mask),axis=1,keepdims=True))
 
         # Pass trigger mask
         pass_trg = trgPassNoOverlap(events,isData,dataset,str(year))
 
         # b jet masks
         bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # This is the requirement for 2lss and 4l
-        bmask_exactly0med = (nbtagsm==0) # Used for 3lCR
+        bmask_exactly0med = (nbtagsm==0) # Used for 3lCR and CRZ
         bmask_exactly1med = (nbtagsm==1) # Used for 3l
+        bmask_exactly2med = (nbtagsm==2) # Used for CRtt
         bmask_atleast2med = (nbtagsm>=2) # Used for 3l
         bmask_1or2med     =((nbtagsm==1) | (nbtagsm==2)) # Used for 2lssCR
 
         # Charge masks
         charge2l_p = ak.fill_none(((l0.charge+l1.charge)>0),False)
         charge2l_m = ak.fill_none(((l0.charge+l1.charge)<0),False)
+        charge2los = ak.fill_none(((l0.charge+l1.charge)==0),False)
         charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
         charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
@@ -343,6 +346,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("2lss_p", (events.is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_m", (events.is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_CR", (events.is2l & (charge2l_p | charge2l_m) & bmask_1or2med & pass_trg))
+        
+        # 2los selection
+        selections.add("2los_CRtt", (events.is2l & charge2los & bmask_exactly2med & pass_trg))
+        selections.add("2los_CRZ", (events.is2l & charge2los & zpeak_mask & bmask_exactly0med & pass_trg))
 
         # 3l selection
         selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_mask & bmask_exactly1med & pass_trg))
@@ -377,6 +384,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("atleast_4j", (njets>=4))
         selections.add("atleast_5j", (njets>=5))
         selections.add("atleast_7j", (njets>=7))
+        selections.add("atleast_0j", (njets>=0))
 
         # AR/SR categories
         selections.add("isSR_2l",  events.is2l_SR)
@@ -384,9 +392,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("isSR_3l",  events.is3l_SR)
         selections.add("isAR_3l", ~events.is3l_SR)
         selections.add("isSR_4l",  events.is4l_SR)
-        
-        mask2lssCR = (events.is2l & (charge2l_p | charge2l_m) & bmask_1or2med & pass_trg & (njets==2) & events.is2l_SR)
-        mask3lCR   = (events.is3l & bmask_exactly0med & pass_trg & (njets>=1) & events.is3l_SR)
 
 
         ######### Variables for the dense axes of the hists ##########
@@ -449,7 +454,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                 "njets_lst"    : ["atleast_1j"],
                 "appl_lst"     : ['isSR_3l'], # 3 tight leptons
-            }
+            },
+            "2los_CRtt" : {
+                "lep_chan_lst" : ["2los_CRtt"],
+                "lep_flav_lst" : ["em"],
+                "njets_lst"    : ["exactly_2j"],
+                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
+            },
+            "2los_CRZ" : {
+                "lep_chan_lst" : ["2los_CRZ"],
+                "lep_flav_lst" : ["ee", "mm"],
+                "njets_lst"    : ["atleast_0j"],
+                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
+            }            
         }
 
         hout = self.accumulator.identity()
@@ -529,6 +546,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         "eft_coeff"     : eft_coeffs_cut,
                                         "eft_err_coeff" : eft_w2_coeffs_cut,
                                     }
+                                    
+                                    if (("j0" in dense_axis_name) & ("CRZ" in ch_name)): continue
                                     hout[dense_axis_name].fill(**axes_fill_info_dict)
 
                                     # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
