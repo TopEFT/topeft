@@ -285,11 +285,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
             weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
-            if ((ch_name == "2l") | (ch_name == "2l_CR")):
+            if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
-            if ((ch_name == "3l") | (ch_name == "3l_CR")):
+            if "3l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
-            if ch_name == "4l":
+            if "4l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
 
         # Systematics
