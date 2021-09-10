@@ -325,10 +325,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         # b jet masks
         bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # This is the requirement for 2lss and 4l
         bmask_exactly0med = (nbtagsm==0) # Used for 3lCR and CRZ
-        bmask_exactly1med = (nbtagsm==1) # Used for 3l
+        bmask_exactly1med = (nbtagsm==1) # Used for 3l and 2lssCR
         bmask_exactly2med = (nbtagsm==2) # Used for CRtt
         bmask_atleast2med = (nbtagsm>=2) # Used for 3l
-        bmask_1or2med     =((nbtagsm==1) | (nbtagsm==2)) # Used for 2lssCR
 
         # Charge masks
         charge2l_p = ak.fill_none(((l0.charge+l1.charge)>0),False)
@@ -345,7 +344,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # 2lss selection
         selections.add("2lss_p", (events.is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_m", (events.is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_CR", (events.is2l & (charge2l_p | charge2l_m) & bmask_1or2med & pass_trg))
+        selections.add("2lss_CR", (events.is2l & (charge2l_p | charge2l_m) & bmask_exactly1med & pass_trg))
         
         # 2los selection
         selections.add("2los_CRtt", (events.is2l & charge2los & bmask_exactly2med & pass_trg))
