@@ -1,0 +1,32 @@
+{
+  "xsec": 0.2529,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_1.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_10.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_11.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_12.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_13.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_14.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_15.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_16.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_17.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_18.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_2.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_3.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_4.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_5.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_6.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_7.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_8.root",
+    "/store/user/jrgonzal/nanoAODcrab/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/mc2018_28apr2021_TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/210427_230816/0000/tree_9.root"
+  ],
+  "nEvents": 14542666,
+  "nGenEvents": 4876491.715182641,
+  "nSumOfWeights": 19992000,
+  "isData": false
+}

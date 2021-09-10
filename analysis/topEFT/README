@@ -1,0 +1,3 @@
+To run analysis on coffea-casa please use:
+
+`python analysis/topEFT/coffea_casa_run.py --prefix root://xcache// topcoffea/json/TTZToLLNuNu_M10.json`
