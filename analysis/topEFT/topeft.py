@@ -49,7 +49,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, split_by_lepton_flavor=False, dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, dtype=np.float32):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -75,6 +75,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
+        self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
+        self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
 
     @property
     def accumulator(self):
@@ -422,8 +424,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ########## Fill the histograms ##########
 
-        # This dictionary keeps track of which selections go with which categories
-        cat_dict = {
+        # This dictionary keeps track of which selections go with which SR categories
+        sr_cat_dict = {
             "2l" : {
                 "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
@@ -442,6 +444,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "njets_lst"    : ["exactly_2j" , "exactly_3j" , "atleast_4j"],
                 "appl_lst"     : ['isSR_4l'],
             },
+        }
+
+        # This dictionary keeps track of which selections go with which CR categories
+        cr_cat_dict = {
             "2l_CR" : {
                 "lep_chan_lst" : ["2lss_CR"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
@@ -468,6 +474,18 @@ class AnalysisProcessor(processor.ProcessorABC):
             }            
         }
 
+        # Include SRs and CRs unless we asked to skip them
+        cat_dict = {}
+        if not self._skip_signal_regions:
+            cat_dict.update(sr_cat_dict)
+        if not self._skip_control_regions:
+            cat_dict.update(cr_cat_dict)
+        if (not self._skip_signal_regions and not self._skip_control_regions):
+            for k in sr_cat_dict:
+                if k in cr_cat_dict:
+                    raise Exception(f"The key {k} is in both CR and SR dictionaries.")
+
+        # Initialize the out object
         hout = self.accumulator.identity()
 
         # Fill sum of weights hist
