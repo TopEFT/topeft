@@ -33,6 +33,7 @@ class YieldTools():
 
         self.APPL_DICT = {
             "2lss" : "isSR_2l",
+            "2los" : "isSR_2l",
             "3l"   : "isSR_3l",
             "4l"   : "isSR_4l",
         }
