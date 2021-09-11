@@ -161,7 +161,7 @@ factory.json
 # Remember to replace USER in the manager-name of the configuration file with
 # your user id.
 conda activate topcoffea-env
-condor_submit_workers -Tcondor -Cfactory.json
+work_queue_factory -Tcondor -Cfactory.json
 ```
 
 The greatest advantage of using a configuration file for the factory is that
