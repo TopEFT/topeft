@@ -316,10 +316,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######### Masks we need for the selection  ##########
 
         # Get mask for events that have two sf os leps close to z peak
-        ll_fo_pairs = ak.combinations(l_fo_conept_sorted_padded, 2, fields=["l0","l1"])
-        zpeak_mask = (abs((ll_fo_pairs.l0+ll_fo_pairs.l1).mass - 91.2)<10.0) 
-        sfos_mask = (ll_fo_pairs.l0.pdgId == -ll_fo_pairs.l1.pdgId)
-        sfosz_mask = ak.flatten(ak.any((zpeak_mask & sfos_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
+        sfosz_3l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3])
+        sfosz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2])
 
         # Pass trigger mask
         pass_trg = trgPassNoOverlap(events,isData,dataset,str(year))
@@ -345,12 +343,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("2lss_m", (events.is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
 
         # 3l selection
-        selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_mask & bmask_exactly1med & pass_trg))
-        selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_mask & bmask_exactly1med & pass_trg))
-        selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_mask & bmask_atleast2med & pass_trg))
-        selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_mask & bmask_atleast2med & pass_trg))
-        selections.add("3l_onZ_1b", (events.is3l & sfosz_mask & bmask_exactly1med & pass_trg))
-        selections.add("3l_onZ_2b", (events.is3l & sfosz_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
 
         # 4l selection
         selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))

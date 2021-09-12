@@ -335,3 +335,12 @@ def addLepCatMasks(events):
     events['is_emmm'] = ((n_e_4l==1) & (n_m_4l==3))
     events['is_mmmm'] = ((n_e_4l==0) & (n_m_4l==4))
     events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
+
+
+# Returns a mask for events with a same flavor opposite sign pair close to the Z
+def get_Z_peak_mask(lep_collection):
+    ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
+    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<10.0) 
+    sfos_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
+    sfosz_mask = ak.flatten(ak.any((zpeak_mask & sfos_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
+    return sfosz_mask
