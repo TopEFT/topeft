@@ -316,8 +316,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######### Masks we need for the selection  ##########
 
         # Get mask for events that have two sf os leps close to z peak
-        sfosz_3l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3])
-        sfosz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2])
+        sfosz_3l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
+        sfosz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
 
         # Pass trigger mask
         pass_trg = trgPassNoOverlap(events,isData,dataset,str(year))
