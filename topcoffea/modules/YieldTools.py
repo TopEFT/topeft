@@ -2,6 +2,7 @@ import gzip
 import json
 import pickle
 import numpy as np
+import coffea
 from coffea import hist
 #from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
@@ -171,14 +172,20 @@ class YieldTools():
 
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
-        cats = []
+
         #if h_name is None: h_name = "njets" # Guess a hist that we usually have
         if h_name is None: h_name = "ht" # Guess a hist that we usually have
-        for i in range(len(hin_dict[h_name].axes())):
-            if axis == hin_dict[h_name].axes()[i].name:
-                for cat in hin_dict[h_name].axes()[i].identifiers():
-                    cats.append(cat.name)
-        return cats
+
+        # Chek if what we have is the output of the processsor, if so, get a specific hist from it
+        if isinstance(hin_dict,coffea.processor.accumulator.dict_accumulator):
+            hin_dict = hin_dict[h_name]
+
+        # Note: Use h.identifiers('axis') here, not axis.identifiers() (since according to Nick Smith "the axis may hold identifiers longer than the hist that uses it (hists can share axes)", but h.identifiers('axis') will get the ones actually contained in the histogram)
+        cats_lst = []
+        for identifier in hin_dict.identifiers(axis):
+            cats_lst.append(identifier.name)
+
+        return cats_lst
 
 
     # This should return true if the hist is split by lep flavor, definitely not a bullet proof check..
@@ -397,14 +404,11 @@ class YieldTools():
 
 
     # Print out all the info about all the axes in a hist
-    def print_hist_info(self,path):
+    def print_hist_info(self,path,h_name="njets"):
 
         if type(path) is str: hin_dict = self.get_hist_from_pkl(path)
         else: hin_dict = path
 
-        #h_name = "ht"
-        h_name = "njets"
-        #h_name = "SumOfEFTweights"
         for i in range(len(hin_dict[h_name].axes())):
             print(f"\n{i} Aaxis name:",hin_dict[h_name].axes()[i].name)
             for cat in hin_dict[h_name].axes()[i].identifiers():
