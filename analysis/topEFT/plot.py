@@ -71,7 +71,7 @@ args = parser.parse_args()
 
 year  = args.year
 lumiJson  = args.lumiJson
-path  = 'histos/DY.pkl.gz'#['histos/data.pkl.gz', 'histos/MC.pkl.gz']#args.path
+path  = ['histos/data_BtoD.pkl.gz', 'histos/MC.pkl.gz', 'histos/DY.pkl.gz']#args.path
 var = args.variable
 ch = args.channel
 njets = args.njets
