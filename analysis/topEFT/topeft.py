@@ -320,16 +320,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         pass_trg = trgPassNoOverlap(events,isData,dataset,str(year))
 
         # b jet masks
-        bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # This is the requirement for 2lss and 4l
-        bmask_exactly0med = (nbtagsm==0) # Used for 3lCR and CRZ
-        bmask_exactly1med = (nbtagsm==1) # Used for 3l and 2lssCR
+        bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
+        bmask_exactly0med = (nbtagsm==0) # Used for 3l CR and 2los Z CR
+        bmask_exactly1med = (nbtagsm==1) # Used for 3l SR and 2lss CR
         bmask_exactly2med = (nbtagsm==2) # Used for CRtt
-        bmask_atleast2med = (nbtagsm>=2) # Used for 3l
+        bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
 
         # Charge masks
         charge2l_p = ak.fill_none(((l0.charge+l1.charge)>0),False)
         charge2l_m = ak.fill_none(((l0.charge+l1.charge)<0),False)
-        charge2los = ak.fill_none(((l0.charge+l1.charge)==0),False)
+        charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
         charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
         charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
@@ -344,8 +344,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("2lss_CR", (events.is2l & (charge2l_p | charge2l_m) & bmask_exactly1med & pass_trg))
         
         # 2los selection
-        selections.add("2los_CRtt", (events.is2l & charge2los & bmask_exactly2med & pass_trg))
-        selections.add("2los_CRZ", (events.is2l & charge2los & sfosz_2l_mask & bmask_exactly0med & pass_trg))
+        selections.add("2los_CRtt", (events.is2l & charge2l_0 & bmask_exactly2med & pass_trg))
+        selections.add("2los_CRZ", (events.is2l & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
         # 3l selection
         selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
