@@ -860,7 +860,8 @@ from collections import defaultdict
 # See: https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun2LegacyAnalysis
 
 ### 2016 ###
-naod_version = "MiniAODv1_NanoAODv2-v1"
+year = 'Run2016'
+naod_version  = "MiniAODv1_NanoAODv2-v1"
 dataset_names = ["DoubleEG","DoubleMuon","SingleElectron","SingleMuon"]
 dataset_eras = [# See: https://twiki.cern.ch/twiki/bin/view/CMS/PdmVDatasetsUL2016
     'B-ver1_HIPM_UL2016',
@@ -874,46 +875,101 @@ dataset_eras = [# See: https://twiki.cern.ch/twiki/bin/view/CMS/PdmVDatasetsUL20
     'H-UL2016',
 ]
 
+version_overwrite = {
+    'DoubleEG': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=DoubleEG%2FRun2016
+        'F-UL2016': 'MiniAODv1_NanoAODv2-v2',
+    },
+    'DoubleMuon': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=DoubleMuon%2FRun2016
+        'F-UL2016': 'MiniAODv1_NanoAODv2-v2',
+    },
+    'SingleElectron': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=SingleElectron%2FRun2016
+        'E-UL2016': 'MiniAODv1_NanoAODv2-v2',
+        'F-UL2016': 'MiniAODv1_NanoAODv2-v2',
+    },
+    'SingleMuon': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=SingleMuon%2FRun2016
+        'F-UL2016': 'MiniAODv1_NanoAODv2-v4',
+    },
+}
+
 data_2016_dict = defaultdict(lambda: {'path': '','histAxisName': 'data', 'xsecName': ''})
 for era in dataset_eras:
     for ds_name in dataset_names:
         key_name = "{name}_{era}".format(name=ds_name,era=era)
-        ds_path = "/{ds}/Run2016{era}_{ver}/NANOAOD".format(ds=ds_name,era=era,ver=naod_version)
+        version = naod_version
+        if ds_name in version_overwrite:
+            if era in version_overwrite[ds_name]:
+                version = version_overwrite[ds_name][era]
+        ds_path = "/{ds}/{year}{era}_{ver}/NANOAOD".format(year=year,ds=ds_name,era=era,ver=version)
         data_2016_dict[key_name]['path'] = ds_path
 
 ### 2017 ###
-naod_version = "MiniAODv1_NanoAODv2-v1"
+year = 'Run2017'
+naod_version  = "MiniAODv1_NanoAODv2-v1"
 dataset_names = ["SingleMuon","SingleElectron","DoubleMuon","DoubleEG","MuonEG"]
 dataset_eras = [# Note: Eras G and H correspond to 5 TeV and lowPU, so ignore them
     'B-UL2017',
     'C-UL2017',
     'D-UL2017',
-    'E-UL2017', # Note: SingleElectron and SingleMuon era E are missing as they are marked as "invalid" on DAS
-    'F-UL2017', # Note: SingleMuon era F is missing as it is marked as "invalid" on DAS
+    'E-UL2017',
+    'F-UL2017',
 ]
+
+version_overwrite = {
+    'SingleMuon': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=SingleMuon%2FRun2017
+        'E-UL2017': 'MiniAODv1_NanoAODv2-v2',
+        'F-UL2017': 'MiniAODv1_NanoAODv2-v2',
+    },
+    'SingleElectron': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=SingleElectron%2FRun2017
+        'E-UL2017': 'MiniAODv1_NanoAODv2-v2',
+        'F-UL2017': 'MiniAODv1_NanoAODv2-v3',
+    }
+}
 
 data_2017_dict = defaultdict(lambda: {'path': '','histAxisName': 'data', 'xsecName': ''})
 for era in dataset_eras:
     for ds_name in dataset_names:
         key_name = "{name}_{era}".format(name=ds_name,era=era)
-        ds_path = "/{ds}/Run2017{era}_{ver}/NANOAOD".format(ds=ds_name,era=era,ver=naod_version)
+        version = naod_version
+        if ds_name in version_overwrite:
+            if era in version_overwrite[ds_name]:
+                version = version_overwrite[ds_name][era]
+        ds_path = "/{ds}/{year}{era}_{ver}/NANOAOD".format(year=year,ds=ds_name,era=era,ver=version)
         data_2017_dict[key_name]['path'] = ds_path
 
 ### 2018 ###
-naod_version = "MiniAODv1_NanoAODv2-v1"
+year = 'Run2018'
+naod_version  = "MiniAODv1_NanoAODv2-v1"
 dataset_names = ["SingleMuon","EGamma","DoubleMuon","MuonEG"]
 dataset_eras = [
     'A-UL2018',
-    'B-UL2018', # Note: DoubleMuon era B is missing as it is marked as "invalid" on DAS
+    'B-UL2018',
     'C-UL2018',
     'D-UL2018',
 ]
+version_overwrite = {
+    'SingleMuon': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=SingleMuon%2FRun2018
+        'A-UL2018': 'MiniAODv1_NanoAODv2-v2',
+        'B-UL2018': 'MiniAODv1_NanoAODv2-v2',
+        'C-UL2018': 'MiniAODv1_NanoAODv2-v2',
+        'D-UL2018': 'MiniAODv1_NanoAODv2-v2',
+    },
+    'EGamma': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=EGamma%2FRun2018
+        'D-UL2018': 'MiniAODv1_NanoAODv2-v2',
+    },
+    'DoubleMuon': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=DoubleMuon%2FRun2018
+        'B-UL2018': 'MiniAODv1_NanoAODv2-v2',
+    },
+}
 
 data_2018_dict = defaultdict(lambda: {'path': '','histAxisName': 'data', 'xsecName': ''})
 for era in dataset_eras:
     for ds_name in dataset_names:
         key_name = "{name}_{era}".format(name=ds_name,era=era)
-        ds_path = "/{ds}/Run2018{era}_{ver}/NANOAOD".format(ds=ds_name,era=era,ver=naod_version)
+        version = naod_version
+        if ds_name in version_overwrite:
+            if era in version_overwrite[ds_name]:
+                version = version_overwrite[ds_name][era]
+        ds_path = "/{ds}/{year}{era}_{ver}/NANOAOD".format(year=year,ds=ds_name,era=era,ver=version)
         data_2018_dict[key_name]['path'] = ds_path
 
 ########### TESTING ########### 
@@ -1026,3 +1082,4 @@ def main():
 
 
 main()
+
