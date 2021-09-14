@@ -197,6 +197,19 @@ executor_args = {
     'chunks_per_accum': 25,
     'chunks_accum_in_mem': 2,
 
+    # terminate workers on which tasks have been running longer than average.
+    # This is useful for temporary conditions on worker nodes where a task will
+    # be finish faster is ran in another worker.
+    # the time limit is computed by multipliying the average runtime of tasks
+    # by the value of 'fast_terminate_workers'.  Since some tasks can be
+    # legitimately slow, no task can trigger the termination of workers twice.
+    #
+    # warning: small values (e.g. close to 1) may cause the workflow to misbehave,
+    # as most tasks will be terminated.
+    #
+    # Less than 1 disables it.
+    'fast_terminate_workers': 0,
+
     # print messages when tasks are submitted, finished, etc.,
     # together with their resource allocation and usage. If a task
     # fails, its standard output is also printed, so we can turn

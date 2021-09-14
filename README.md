@@ -1,4 +1,6 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5258003.svg)](https://doi.org/10.5281/zenodo.5258003)
 [![CI](https://github.com/TopEFT/topcoffea/actions/workflows/main.yml/badge.svg)](https://github.com/TopEFT/topcoffea/actions/workflows/main.yml)
+[![Coffea-casa](https://img.shields.io/badge/launch-Coffea--casa-green)](https://cmsaf-jh.unl.edu/hub/spawn)
 
 # topcoffea
 Top quark analyses using the Coffea framework
@@ -58,7 +60,7 @@ python work_queue_run.py ../../topcoffea/cfg/your_cfg.cfg
 ```
 Next, submit some workers. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
 ```
-conda activate topcoffea-env
+conda activate coffea-env
 condor_submit_workers -M ${USER}-workqueue-coffea -t 900 --cores 12 --memory 48000 --disk 100000 10
 ```
 The workers will terminate themselves after 15 minutes of inactivity.
@@ -75,13 +77,13 @@ scram b -j8
 ```
 
 #### Set up Repo
-This package is designed to be used with the cms-govner CombineHarvester fork. Install within the same CMSSW release. See https://github.com/cms-govner/CombineHarvester
+This package is designed to be used with the CombineHarvester fork. Install within the same CMSSW release. See https://github.com/cms-analysis/CombineHarvester
 
 ##### Combine
 Currently working with tag `v8.2.0`:
 
 ```
-git clone https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit.git HiggsAnalysis/CombinedLimit
+git clone git@github.com:cms-analysis/HiggsAnalysis-CombinedLimit.git HiggsAnalysis/CombinedLimit
 cd HiggsAnalysis/CombinedLimit/
 git checkout v8.2.0
 cd -
@@ -93,13 +95,13 @@ Otherwise, this package should be compatible with most CMSSW releases. It still 
 ##### EFTFit
 ```
 cd $CMSSW_BASE/src/
-git clone https://github.com/cms-govner/EFTFit.git EFTFit
+git clone git@github.com:cms-govner/EFTFit.git EFTFit
 scram b -j8
 ```
 
 ##### CombineHarvester
 ```
-git clone https://github.com/cms-govner/CombineHarvester.git CombineHarvester
+git clone git@github.com:cms-analysis/CombineHarvester.git
 scram b -j8
 ```
 This might case errors, but you can safely ignore them.
@@ -111,8 +113,23 @@ This might case errors, but you can safely ignore them.
 ##### In CMSSW
 - Enter `CMSSW_10_2_13/src/EFTFit/Fitter/test` (wherever you have it installed) and run `cmsenv` to initialize CMSSW
 - Copy all .txt and .root files created by `python analysis/topEFT/datacard_maker.py` (in the `histos` directory of your TopCoffea ananlyzer)
-- Run `combineCards.py ttx_multileptons-* > combinedcard.txt` to merge them all into one txt file
+- Run `combineCards.py ttx_multileptons-* > combinedcard.txt` to merge them all into one txt file. **DO NOT** merge multiple variables!
 - Run `text2workspace.py combinedcard.txt -o wps.root -P EFTFit.Fitter.AnomalousCouplingEFTNegative:analiticAnomalousCouplingEFTNegative --X-allow-no-background` to generate the workspace file
     - Specify a subset of WCs using e.g. `--PO cpt,ctp,cptb,cQlMi,cQl3i,ctlTi,ctli,cbW,cpQM,cpQ3,ctei,cQei,ctW,ctlSi,ctZ,ctG`
-- Run combine
-  - Example `combineTool.py  wps.root -M MultiDimFit --algo grid -t -1 --setParameters  ctW=0,ctp=0,cpQM=0,ctli=0,cQei=0,ctZ=0,cQlMi=0,cQl3i=0,ctG=0,ctlTi=0,cbW=0,cpQ3=0,ctei=0,cpt=0,ctlSi=0,cptb=0,cQq13=0,cQq83=0,cQq11=0,ctq1=0,cQq81=0,ctq8=0,r=1 -P ctW --freezeParameters ctG,ctp,cpQM,ctli,cQei,ctZ,cQlMi,cQl3i,ctlTi,cbW,cpQ3,ctei,cpt,ctlSi,cptb,cQq13,cQq83,cQq11,ctq1,cQq81,ctq8,r --setParameterRanges ctW=-6,6 --trackParameters cQei --points 200 --job-mode condor --split-point 20`
+- Run combine with our EFTFit tools
+  - Example:
+```
+python -i ../scripts/EFTFitter.py
+fitter.batch1DScanEFT(basename='.081921.njet.ptbl.Float', batch='condor', workspace='wps.root')
+```
+  - Once all jobs are finished run `fitter.batchRetrieve1DScansEFT(basename='.081921.njet.ptbl.Float', batch='condor')` (again inside `python -i ../scripts/EFTFitter.py`) to collect them in the `EFTFit/Fitter/fit_files` folder
+  - To make simple 1D plots, use:
+```
+python -i ../scripts/EFTPlotter.py
+plotter.BatchLLPlot1DEFT(basename='.081121.njet.16wc.Float')
+```
+  - To make comparison plots (e.g. `njets` vs. `njets+ptbl`)
+```
+python -i ../scripts/EFTPlotter.py
+plotter.BestScanPlot(basename_float='.081721.njet.Float', basename_freeze='.081821.njet.ptbl.Float', filename='_float_njet_ptbl', titles=['N_{jet} prof.', 'N_{jet}+p_{T}(b+l) prof.'], printFOM=True)
+```

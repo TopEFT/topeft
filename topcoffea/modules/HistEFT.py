@@ -45,7 +45,7 @@ class HistEFT(coffea.hist.Hist):
         is_eft_bin = (self._sumw[key].shape != self._dense_shape)
       else:
         is_eft_bin = isinstance(self._sumw[key],np.ndarray)
-      
+
       if is_eft_bin:
         # EFT bins that already existed prior to calling sumw2 can't
         # be converted into bins with errors
@@ -142,7 +142,7 @@ class HistEFT(coffea.hist.Hist):
       # Wait! If weight is not None, but some axes have EFT weights,
       # the base class _init_sumw2() will do the wrong thing, so call
       # ours here!
-      if weight is not None:
+      if weight is not None and self._sumw2 is None:
         self._init_sumw2()
       # Put the weights back in!  We're just going to rely on the
       # regular coffea.hist.Hist fill method to handle this.
