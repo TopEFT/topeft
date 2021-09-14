@@ -62,7 +62,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         "ptbl"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 200, 0, 2000)),
         "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ",50 , 60, 130)),
         "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
-        "nbtagsl"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsl",  "Loose btag multiplicity ", 5, 0, 5)),
+        "nbtagsl" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsl",  "Loose btag multiplicity ", 5, 0, 5)),
         "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 25, 0, 200)),
         "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 25, 0, 200)),
         "l0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",   "Leading lep $\eta$", 30, -3.0, 3.0)),
@@ -123,8 +123,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Electron selection
         e["isPres"] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
         e["isLooseE"] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
-        e["isFO"]  = isFOElec(e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
-        e["isTightLep"] =  tightSelElec(e.isFO, e.mvaTTH)
+        e["isFO"] = isFOElec(e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
+        e["isTightLep"] = tightSelElec(e.isFO, e.mvaTTH)
 
         # Build loose collections
         m_loose = mu[mu.isPres & mu.isLooseM]
@@ -133,7 +133,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Compute pair invariant masses, for all flavors all signes
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
-        events["minMllAFAS"]=ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
+        events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
@@ -156,14 +156,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
         tau["isGood"]  =  tau["isClean"] & tau["isPres"]
         tau = tau[tau.isGood] # use these to clean jets
-        tau["isTight"]= isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+        tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
 
 
         #################### Jets ####################
 
         # Jet cleaning, before any jet selection
-        #vetos_tocleanjets= ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
-        vetos_tocleanjets= ak.with_name( l_fo, "PtEtaPhiMCandidate")
+        #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
+        vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
         tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
         cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
@@ -172,10 +172,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Jet energy corrections
         if not isData:
-            cleanedJets["pt_raw"]=(1 - cleanedJets.rawFactor)*cleanedJets.pt
-            cleanedJets["mass_raw"]=(1 - cleanedJets.rawFactor)*cleanedJets.mass
-            cleanedJets["pt_gen"]=ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-            cleanedJets["rho"]= ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
+            cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
+            cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
+            cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
+            cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
             events_cache = events.caches[0]
             corrected_jets = jet_factory.build(cleanedJets, lazy_cache=events_cache)
             '''
@@ -191,7 +191,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 jets = corrected_jets.JES_jes.down
             '''
 
-        cleanedJets["isGood"]  = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
+        cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
         goodJets = cleanedJets[cleanedJets.isGood]
 
         # Count jets
@@ -310,7 +310,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
 
-        ######### Masks we need for the selection  ##########
+        ######### Masks we need for the selection ##########
 
         # Get mask for events that have two sf os leps close to z peak
         sfosz_3l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
@@ -400,7 +400,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
         
         # Define invariant mass hists
-        mll_0_1 = (l0+l1).mass     #invmass for leading two leps
+        mll_0_1 = (l0+l1).mass # Invmass for leading two leps
 
         # Counts
         counts = np.ones_like(events['event'])
@@ -413,7 +413,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         varnames["j0pt"]    = ak.flatten(j0.pt)
         varnames["j0eta"]   = ak.flatten(j0.eta)
         varnames["njets"]   = njets
-        varnames["nbtagsl"]  = nbtagsl
+        varnames["nbtagsl"] = nbtagsl
         varnames["invmass"] = mll_0_1
         varnames["ptbl"]    = ak.flatten(ptbl)
 
