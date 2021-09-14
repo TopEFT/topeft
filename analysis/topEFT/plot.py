@@ -71,7 +71,7 @@ args = parser.parse_args()
 
 year  = args.year
 lumiJson  = args.lumiJson
-path  = 'histos/DY.pkl.gz'#['histos/data.pkl.gz', 'histos/MC.pkl.gz']#args.path
+path  = ['histos/data_BtoD.pkl.gz', 'histos/MC.pkl.gz', 'histos/DY.pkl.gz']#args.path
 var = args.variable
 ch = args.channel
 njets = args.njets
@@ -81,11 +81,9 @@ output = args.output
 
 # determine SR or AR
 appl = []
-if   ch == '2lss_CR': appl = ['isSR_2l', 'isAR_2l']
-elif "2lss" in ch   : appl = ['isSR_2l']
-elif "3l" in ch     : appl = ['isSR_3l'] # 3 lepton control region requires 3 tight leptons
-elif "4l" in ch     : appl = ['isSR_4l']
-elif "CR" in ch     : appl = ['isSR_2l', 'isAR_2l']
+if "2l" in ch: appl = ['isSR_2l']
+if "3l" in ch: appl = ['isSR_3l']
+if "4l" in ch: appl = ['isSR_4l']
 
 if ch == '2lss'     : ch   = ['2lss_p', '2lss_m']
 if ch == '3l'       : ch   = ["3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_onZ_1b", "3l_m_onZ_1b"]

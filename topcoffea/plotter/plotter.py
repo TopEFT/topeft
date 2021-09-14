@@ -181,6 +181,14 @@ class plotter:
     if categories == None: categories = self.categories
     h = self.hists[hname]
     sow = self.hists['SumOfEFTweights']
+    
+    print(categories)
+    print("unintegrated hist: {}".format(h))
+    print("unintegrated proc: {}".format(h.identifiers('process')))
+    print("unintegrated chan: {}".format(h.identifiers('channel')))
+    print("unintegrated syst: {}".format(h.identifiers('systematic')))
+    print("unintegrated appl: {}".format(h.identifiers('appl')))
+    
     for cat in categories: 
       h = h.integrate(cat, categories[cat])
     if isinstance(process, str) and ',' in process: process = process.split(',')
@@ -290,7 +298,7 @@ class plotter:
     if not self.yRange is None: ax.set_ylim(yRange[0],yRange[1])
 
     # Labels
-    CMS  = plt.text(0., 1., r"$\bf{CMS}$ Preliminary", fontsize=16, horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
+    #CMS  = plt.text(0., 1., r"$\bf{CMS}$ Preliminary", fontsize=16, horizontalalignment='left', verticalalignment='bottom', transform=ax.transAxes)
     lumi = plt.text(1., 1., r"%1.1f %s (%s)"%(self.lumi, self.lumiunit, self.sqrts), fontsize=20, horizontalalignment='right', verticalalignment='bottom', transform=ax.transAxes)
 
     if not self.region is None:
