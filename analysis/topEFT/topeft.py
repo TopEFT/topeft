@@ -449,25 +449,25 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_chan_lst" : ["2lss_CR"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
                 "njets_lst"    : ["exactly_1j" , "exactly_2j"],
-                "appl_lst"     : ['isSR_2l'],
+                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
             },
             "3l_CR" : {
                 "lep_chan_lst" : ["3l_CR"],
                 "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                 "njets_lst"    : ["atleast_1j"],
-                "appl_lst"     : ['isSR_3l'],
+                "appl_lst"     : ['isSR_3l'], # 3 tight leptons
             },
             "2los_CRtt" : {
                 "lep_chan_lst" : ["2los_CRtt"],
                 "lep_flav_lst" : ["em"],
                 "njets_lst"    : ["exactly_2j"],
-                "appl_lst"     : ['isSR_2l'],
+                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
             },
             "2los_CRZ" : {
                 "lep_chan_lst" : ["2los_CRZ"],
                 "lep_flav_lst" : ["ee", "mm"],
                 "njets_lst"    : ["atleast_0j"],
-                "appl_lst"     : ['isSR_2l'],
+                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
             }            
         }
 
