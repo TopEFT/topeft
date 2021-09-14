@@ -1,5 +1,5 @@
 {
-  "xsec": 1,
+  "xsec": 0.05565,
   "year": "2016APV",
   "treeName": "Events",
   "histAxisName": "WZZ_APV_centralUL16",

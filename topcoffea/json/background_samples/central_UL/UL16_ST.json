@@ -1,5 +1,5 @@
 {
-  "xsec": 1,
+  "xsec": 3.68,
   "year": "2016",
   "treeName": "Events",
   "histAxisName": "ST_centralUL16",
@@ -19,7 +19,11 @@
     "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/40000/EAE1C3B0-8507-6249-A041-59CBEB932636.root",
     "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/50000/D425ABE5-01BE-BF49-8BC4-35714E916A00.root",
     "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/E0A940B8-AFA5-2A48-B8E1-A82A54953D06.root",
+    "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/50000/CC3EBA3D-89B2-9446-AC68-5CAC2C92C7C3.root",
+    "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/FE66F2DD-FEB7-084A-9EE2-EAB53BE4D1EA.root",
+    "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/221C1DEA-8890-0F46-9366-C8CDC5CAFA79.root",
     "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/40000/C32006E8-C525-AA44-A348-CE2356C4818B.root",
+    "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/50000/5FF2D40E-7863-8A4E-BDE4-6821811EB395.root",
     "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/50000/1D1D9638-6F2E-E74F-B169-7434FAC00F19.root",
     "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/40000/B0A62642-8E06-334C-A3CF-2B7E709FAD32.root",
     "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/3A6117DA-FA3C-D54A-B79D-82E76D159645.root",
@@ -27,14 +31,10 @@
     "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/280000/41A09F3A-06D1-8D4D-9F0D-DEC0CC7A7E42.root",
     "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/2B381E08-B4B2-5D48-87AA-B10C0A0315DD.root",
     "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/50000/83C767C8-73AE-B043-9949-CB19E4EC8330.root",
-    "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/40000/CEFF544F-F10D-6745-AD6C-C0D794CD1579.root",
-    "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/50000/5FF2D40E-7863-8A4E-BDE4-6821811EB395.root",
-    "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/50000/CC3EBA3D-89B2-9446-AC68-5CAC2C92C7C3.root",
-    "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/FE66F2DD-FEB7-084A-9EE2-EAB53BE4D1EA.root",
-    "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/221C1DEA-8890-0F46-9366-C8CDC5CAFA79.root"
+    "/store/mc/RunIISummer20UL16NanoAODv2/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/40000/CEFF544F-F10D-6745-AD6C-C0D794CD1579.root"
   ],
   "nEvents": 6275000,
   "nGenEvents": 6275000,
-  "nSumOfWeights": 22286424.9803868,
+  "nSumOfWeights": 22286424.980386805,
   "isData": false
 }
