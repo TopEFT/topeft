@@ -585,10 +585,10 @@ central_UL17_bkg_dict = {
         "xsecName": "WZZ",
     },
 
-    "UL17_ZZ" : {
-        "path" : "/ZZ_TuneCP5_13TeV-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+    "UL17_ZZTo4L" : {
+        "path" : "/ZZTo4L_13TeV_powheg_pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM", # NOTE: PLACEHOLDER till a UL sample is available
         "histAxisName": "ZZTo4L_centralUL17",
-        "xsecName": "ZZ",
+        "xsecName": "ZZTo4L",
     },
 
     "UL17_ZZZ" : {
@@ -696,10 +696,10 @@ central_UL18_bkg_dict = {
         "histAxisName": "WZZ_ext_centralUL18",
         "xsecName": "WZZ",
     },
-    "UL18_ZZ" : {
-        "path" : "/ZZ_TuneCP5_13TeV-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
-        "histAxisName": "ZZ_centralUL18",
-        "xsecName": "ZZ",
+    "UL18_ZZTo4L" : {
+        "path" : "/ZZTo4L_TuneCP5_13TeV_powheg_pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
+        "histAxisName": "ZZTo4L_centralUL18",
+        "xsecName": "ZZTo4L",
     },
     "UL18_ZZZ_ext" : {
         "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
@@ -790,6 +790,11 @@ central_UL16_bkg_dict = {
         "histAxisName": "WZZ_centralUL16",
         "xsecName": "WZZ",
     },
+    "UL16_ZZTo4L" : {
+        "path" : "/ZZTo4L_13TeV_powheg_pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1/NANOAODSIM", # NOTE: PLACEHOLDER till a UL sample is available
+        "histAxisName": "ZZTo4L_centralUL16",
+        "xsecName": "ZZTo4L",
+    },
     "UL16_ZZZ" : {
         "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
         "histAxisName": "ZZZ_centralUL16",
@@ -863,6 +868,11 @@ central_UL16APV_bkg_dict = {
         "path" : "/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM",
         "histAxisName": "WZZ_APV_centralUL16",
         "xsecName": "WZZ",
+    },
+    "UL16_ZZTo4L_APV" : {
+        "path" : "/ZZTo4L_13TeV_powheg_pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1/NANOAODSIM", # NOTE: PLACEHOLDER till a UL sample is available
+        "histAxisName": "ZZTo4L_APV_centralUL16",
+        "xsecName": "ZZTo4L",
     },
     "UL16_ZZZ_APV" : {
         "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
