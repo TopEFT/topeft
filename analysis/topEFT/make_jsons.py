@@ -451,7 +451,7 @@ central_UL18_dict = {
         "xsecName": "ttHnobb",
     },
     "UL18_TTWJetsToLNu" : {
-        "path" : "/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
+        "path" : "/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM", # Could update to v16?
         "histAxisName": "ttW_centralUL18",
         "xsecName": "TTWJetsToLNu",
     },
@@ -525,17 +525,6 @@ central_UL17_bkg_dict = {
         "xsecName": "TT",
     },
 
-    "UL17_TTWJetsToLNu" : {
-        "path" : "/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
-        "histAxisName": "TTWJetsToLNu_centralUL17",
-        "xsecName": "TTWJetsToLNu",
-    },
-
-    "UL17_TTZToLLNuNu" : {
-        "path" : "/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
-        "histAxisName": "TTZToLLNuNu_centralUL17",
-        "xsecName": "TTZToLLNuNu_M_10",
-    },
 
     "UL17_WJetsToLNu" : {
         "path" : "/WJetsToLNu_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
@@ -650,16 +639,6 @@ central_UL18_bkg_dict = {
         "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
         "histAxisName": "TTJets_centralUL18",
         "xsecName": "TT",
-    },
-    "UL18_TTWJetsToLNu" : {
-        "path" : "/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
-        "histAxisName": "TTWJetsToLNu_centralUL18",
-        "xsecName": "TTWJetsToLNu",
-    },
-    "UL18_TTZToLLNuNu" : {
-        "path" : "/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
-        "histAxisName": "TTZToLLNuNu_centralUL18",
-        "xsecName": "TTZToLLNuNu_M_10",
     },
     "UL18_WJetsToLNu" : {
         "path" : "/WJetsToLNu_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
