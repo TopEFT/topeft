@@ -483,8 +483,8 @@ central_UL17_bkg_dict = {
         "xsecName": "DYJetsToLL_M_50_MLM",
     },
 
-    "UL17_ST_top_t-channel" : {
-        "path" : "/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer19UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+    "UL17_ST_top_s-channel" : {
+        "path" : "/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM",
         "histAxisName": "ST_top_s-channel_centralUL17",
         "xsecName": "ST_top_s-channel",
     },
@@ -605,7 +605,7 @@ central_UL18_bkg_dict = {
         "histAxisName": "DY50_centralUL18",
         "xsecName": "DYJetsToLL_M_50_MLM",
     },
-    "UL18_ST_top_t-channel" : {
+    "UL18_ST_top_s-channel" : {
         "path" : "/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
         "histAxisName": "ST_top_s-channel_centralUL18",
         "xsecName": "ST_top_s-channel",
