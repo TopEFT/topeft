@@ -1,8 +1,8 @@
 {
-  "xsec": 19.4674104,
+  "xsec": 35.85,
   "year": "2017",
   "treeName": "Events",
-  "histAxisName": "tbarW_noFullHad_centralUL17",
+  "histAxisName": "tbarW_centralUL17",
   "options": "",
   "WCnames": [],
   "files": [
