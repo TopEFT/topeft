@@ -597,7 +597,7 @@ central_UL17_bkg_dict = {
         "xsecName": "ZZZ",
     },
 
-    "UL17_ZZZ" : {
+    "UL17_ZZZ_ext" : {
         "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8_ext1-v1/NANOAODSIM",
         "histAxisName": "ZZZ_centralUL17",
         "xsecName": "ZZZ",
@@ -701,7 +701,7 @@ central_UL18_bkg_dict = {
         "histAxisName": "ZZ_centralUL18",
         "xsecName": "ZZ",
     },
-    "UL18_ZZZ" : {
+    "UL18_ZZZ_ext" : {
         "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
         "histAxisName": "ZZZ_centralUL18",
         "xsecName": "ZZZ",
