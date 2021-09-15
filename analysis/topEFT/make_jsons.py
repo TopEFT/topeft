@@ -502,15 +502,15 @@ central_UL17_bkg_dict = {
     },
 
     "UL17_tbarW" : {
-        "path" : "/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "path" : "/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
         "histAxisName": "tbarW_centralUL17",
-        "xsecName": "tbarW_noFullHad",
+        "xsecName": "ST_tW_antitop_5f_inclusiveDecays",
     },
 
     "UL17_tW" : {
-        "path" : "/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "path" : "/ST_tW_top_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
         "histAxisName": "tW_centralUL17",
-        "xsecName": "tW_noFullHad",
+        "xsecName": "ST_tW_antitop_5f_inclusiveDecays",
     },
 
     "UL17_TTGJets" : {
@@ -621,12 +621,12 @@ central_UL18_bkg_dict = {
         "xsecName": "ST_antitop_t-channel",
     },
     "UL18_tbarW" : {
-        "path" : "/ST_tW_antitop_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
+        "path" : "/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM",
         "histAxisName": "tbarW_centralUL18",
         "xsecName": "ST_tW_antitop_5f_inclusiveDecays",
     },
     "UL18_tW" : {
-        "path" : "/ST_tW_top_5f_NoFullyHadronicDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
+        "path" : "/ST_tW_top_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
         "histAxisName": "tW_centralUL18",
         "xsecName": "ST_tW_top_5f_inclusiveDecays",
     },
@@ -705,12 +705,12 @@ central_UL16_bkg_dict = {
         "xsecName": "ST_top_s-channel",
     },
     "UL16_tbarW" : {
-        "path" : "/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM",
+        "path" : "/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v2/NANOAODSIM",
         "histAxisName": "tbarW_centralUL16",
         "xsecName": "ST_tW_antitop_5f_inclusiveDecays",
     },
     "UL16_tW" : {
-        "path" : "/ST_tW_top_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM",
+        "path" : "/ST_tW_top_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v2/NANOAODSIM",
         "histAxisName": "tW_centralUL16",
         "xsecName": "ST_tW_top_5f_inclusiveDecays",
     },
@@ -1095,5 +1095,6 @@ def main():
     # make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
 
 
-main()
+if __name__ == "__main__":
+    main()
 
