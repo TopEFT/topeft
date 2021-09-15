@@ -405,6 +405,22 @@ central_2017_dict = {
     },
 }
 
+central_UL16_dict = {
+    "UL16_ttHnobb" : {
+        "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
+        "histAxisName": "ttHJet_centralUL16",
+        "xsecName": "ttHnobb",
+    },
+}
+
+central_UL16APV_dict = {
+    "UL16_ttHnobb_APV" : {
+        "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIISummer20UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM",
+        "histAxisName": "ttHJet_APV_centralUL16",
+        "xsecName": "ttHnobb",
+    },
+}
+
 central_UL17_dict = {
     "UL17_ttHnobb" : {
         "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIISummer20UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
@@ -427,6 +443,32 @@ central_UL17_dict = {
         "xsecName": "tZq",
     },
 }
+
+central_UL18_dict = {
+    "UL18_ttHnobb" : {
+        "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
+        "histAxisName": "ttH_centralUL18",
+        "xsecName": "ttHnobb",
+    },
+    "UL18_TTWJetsToLNu" : {
+        "path" : "/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
+        "histAxisName": "ttW_centralUL18",
+        "xsecName": "TTWJetsToLNu",
+    },
+    "UL18_TTZToLLNuNu_M_10" : {
+        "path" : "/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
+        "histAxisName": "ttZ_centralUL18",
+        "xsecName": "TTZToLLNuNu_M_10",
+    },
+    "UL18_tZq" : {
+        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer19UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
+        "histAxisName": "tZq_centralUL18",
+        "xsecName": "tZq",
+    },
+}
+
+
+########### Central background samples ###########
 
 central_UL17_bkg_dict = {
     "UL17_DY10to50" : {
@@ -562,28 +604,6 @@ central_UL17_bkg_dict = {
     },
 }
 
-central_UL18_dict = {
-    "UL18_ttHnobb" : {
-        "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
-        "histAxisName": "ttH_centralUL18",
-        "xsecName": "ttHnobb",
-    },
-    "UL18_TTWJetsToLNu" : {
-        "path" : "/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
-        "histAxisName": "ttW_centralUL18",
-        "xsecName": "TTWJetsToLNu",
-    },
-    "UL18_TTZToLLNuNu_M_10" : {
-        "path" : "/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
-        "histAxisName": "ttZ_centralUL18",
-        "xsecName": "TTZToLLNuNu_M_10",
-    },
-    "UL18_tZq" : {
-        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer19UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
-        "histAxisName": "tZq_centralUL18",
-        "xsecName": "tZq",
-    },
-}
 
 central_UL18_bkg_dict = {
     "UL18_DY10to50" : {
@@ -688,21 +708,6 @@ central_UL18_bkg_dict = {
     },
 }
 
-central_UL16_dict = {
-    "UL16_ttHnobb" : {
-        "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
-        "histAxisName": "ttHJet_centralUL16",
-        "xsecName": "ttHnobb",
-    },
-}
-
-central_UL16APV_dict = {
-    "UL16_ttHnobb_APV" : {
-        "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIISummer20UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM",
-        "histAxisName": "ttHJet_APV_centralUL16",
-        "xsecName": "ttHnobb",
-    },
-}
 
 central_UL16_bkg_dict = {
     "UL16_DY10to50" : {
@@ -994,6 +999,7 @@ test_dict = {
         "xsecName" : "DYJetsToLL_M_50_MLM", # Not sure if this is actually the right xsec, I just picked one of the DY ones
     }
 }
+
 ########### Functions for makign the jsons ###########
 
 # Wrapper for createJSON.py
