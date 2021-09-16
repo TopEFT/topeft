@@ -92,8 +92,7 @@ def main():
     if xsecName in xsecdic.keys():
       xsec = xsecdic[xsecName]
     else:
-      print('Setting xsec=1 for dataset %s'%xsecName)
-      xsec = 1
+      raise Exception(f"Error: There is no xsec for process \"{xsecName}\" included the xsec cfg file.")
 
   sampdic = {}
   sampdic['xsec']         = xsec

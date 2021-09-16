@@ -1,8 +1,8 @@
 {
-  "xsec": 1,
+  "xsec": 1.0,
   "year": "2017",
   "treeName": "Events",
-  "histAxisName": "data",
+  "histAxisName": "data_UL17",
   "options": "",
   "WCnames": [],
   "files": [
