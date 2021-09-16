@@ -22,6 +22,8 @@
     "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/280000/49FC9335-3183-1B46-9FFF-07BA84DD0FF4.root",
     "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/50000/1DB789D7-F698-4B41-959F-FDB1E82B3BFC.root",
     "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/280000/CC6040B5-DF72-414A-8B51-9B3FD403424F.root",
+    "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/280000/EFAEC9E1-19F7-6B47-8EC8-76933D8F149E.root",
+    "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/280000/6826BD38-3802-F54A-A04B-9A648E8EE95D.root",
     "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/EF48BB30-8510-3C49-B9A4-431E91E6A7C0.root",
     "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/280000/B2FD9AD0-0942-764A-AC55-077DBA24C28A.root",
     "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/280000/7520EE06-4BE6-F24E-9DB0-AFBA3F0D18A0.root",
@@ -41,12 +43,10 @@
     "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/577860EF-D168-054F-BDBA-067C2BA07E1B.root",
     "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/3F00FBF2-8316-3C4C-AC6E-E14DC017A1F0.root",
     "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/AFB56BEC-DAE0-8641-A00C-50D4F9F57BCE.root",
-    "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/5BA17371-86C1-CF48-AAF0-B0F16CF1B36F.root",
-    "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/280000/6826BD38-3802-F54A-A04B-9A648E8EE95D.root",
-    "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/280000/EFAEC9E1-19F7-6B47-8EC8-76933D8F149E.root"
+    "/store/mc/RunIISummer19UL16NanoAODv2/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v15-v1/270000/5BA17371-86C1-CF48-AAF0-B0F16CF1B36F.root"
   ],
   "nEvents": 22799100,
   "nGenEvents": 22799100,
-  "nSumOfWeights": 1457799313.329072,
+  "nSumOfWeights": 1457799313.3290718,
   "isData": false
 }
