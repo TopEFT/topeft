@@ -98,6 +98,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0] 
 
+        conversionDatasets=[x%y for x in ['TTGJets_centralUL%d'] for y in [16,17,18]]
+        nonpromptDatasets =[x%y for x in ['TTJets_centralUL%d','DY50_centralUL%d','DY10to50_centralUL%d','tbarW_centralUL%d','tW_centralUL%d','tbarW_centralUL%d'] for y in [16,17,18]]
+
+        whatis='prompt'
+        if isData:
+            whatis='data'
+        elif dataset in conversionDatasets: 
+            whatis='conversions'
+        elif dataset in nonpromptDatasets:
+            whatis='nonprompt'
+            
+
+
         # Initialize objects
         met  = events.MET
         e    = events.Electron
@@ -235,8 +248,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         events["l_fo_conept_sorted"] = l_fo_conept_sorted
 
         # The event selection
-        add2lMaskAndSFs(events, year, isData)
-        add3lMaskAndSFs(events, year, isData)
+        add2lMaskAndSFs(events, year, isData, whatis)
+        add3lMaskAndSFs(events, year, isData, whatis)
         add4lMaskAndSFs(events, year, isData)
         addLepCatMasks(events)
 
