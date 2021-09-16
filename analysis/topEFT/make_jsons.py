@@ -680,7 +680,7 @@ central_UL18_bkg_dict = {
         "histAxisName": "ZZTo4L_centralUL18",
         "xsecName": "ZZTo4L",
     },
-    "UL18_ZZZ_ext" : {
+    "UL18_ZZZ" : {
         "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
         "histAxisName": "ZZZ_centralUL18",
         "xsecName": "ZZZ",
@@ -703,6 +703,16 @@ central_UL16_bkg_dict = {
         "path" : "/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM",
         "histAxisName": "ST_top_s-channel_centralUL16",
         "xsecName": "ST_top_s-channel",
+    },
+    "UL16_ST_top_t-channel" : {
+        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer19UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM",
+        "histAxisName": "ST_top_t-channel_centralUL16",
+        "xsecName": "ST_top_t-channel",
+    },
+    "UL16_ST_antitop_t-channel" : {
+        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer19UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM",
+        "histAxisName": "ST_antitop_t-channel_centralUL16",
+        "xsecName": "ST_antitop_t-channel",
     },
     "UL16_tbarW" : {
         "path" : "/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v2/NANOAODSIM",
@@ -798,10 +808,20 @@ central_UL16APV_bkg_dict = {
         "histAxisName": "DY50_APV_centralUL16",
         "xsecName": "DYJetsToLL_M_50_MLM",
     },
-    "UL16_ST_top_s-channel" : {
+    "UL16_ST_top_s-channel_APV" : {
         "path" : "/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
-        "histAxisName": "ST_top_s-channel_centralUL16",
+        "histAxisName": "ST_top_s-channel_APV_centralUL16",
         "xsecName": "ST_top_s-channel",
+    },
+    "UL16_ST_top_t-channel_APV" : {
+        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer19UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM",
+        "histAxisName": "ST_top_t-channel_APV_centralUL16",
+        "xsecName": "ST_top_t-channel",
+    },
+    "UL16_ST_antitop_t-channel_APV" : {
+        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer19UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM",
+        "histAxisName": "ST_antitop_t-channel_APV_centralUL16",
+        "xsecName": "ST_antitop_t-channel",
     },
     "UL16_tbarW_APV" : {
         "path" : "/ST_tW_antitop_5f_inclusiveDecays_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
