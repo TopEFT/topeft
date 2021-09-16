@@ -2,10 +2,14 @@
 #   - It runs createJSON.py for each sample that you include in a dictionary, and moves the resulting json file to the directory you specify
 #   - If the private NAOD has to be remade, the version numbers should be updated in the dictionaries here, then just rerun the script to remake the jsons
 
+import json
 import subprocess
 import os
 from topcoffea.modules.paths import topcoffea_path
+from topcoffea.modules.samples import loadxsecdic
 
+########### The XSs from xsec.cfg ###########
+XSECDIC = loadxsecdic("../../topcoffea/cfg/xsec.cfg",True)
 
 ########### Private UL signal samples ###########
 
@@ -1036,6 +1040,36 @@ test_dict = {
 
 ########### Functions for makign the jsons ###########
 
+# Replace a value in one of the JSONs
+def replace_val_in_json(path_to_json_file,key,new_val,verbose=True):
+
+    # Replace value if it's different than what's in the JSON
+    with open(path_to_json_file) as json_file:
+       json_dict = json.load(json_file)
+    if new_val == json_dict[key]:
+        if verbose:
+            print(f"\tValues already agree, both are {new_val}")
+    else:
+        if verbose:
+            print(f"\tOld value for {key}: {json_dict[key]}")
+            print(f"\tNew value for {key}: {new_val}")
+        json_dict[key] = new_val
+
+        # Save new json
+        with open(path_to_json_file, "w") as out_file:
+            json.dump(json_dict, out_file, indent=2)
+
+
+# Loop through a dictionary of samples and replace the xsec in the JSON with what's in xsec.cfg
+def replace_xsec_for_dict_of_samples(samples_dict,out_dir):
+    for sample_name,sample_info in samples_dict.items():
+        path_to_json = os.path.join(out_dir,sample_name+".json")
+        xsecName = sample_info["xsecName"]
+        new_xsec = XSECDIC[xsecName]
+        print(f"\nReplacing XSEC for {sample_name} JSON with the value from xsec.cfg for \"{xsecName}\":")
+        print("\tPath to json:",path_to_json)
+        replace_val_in_json(path_to_json,"xsec",new_xsec)
+
 # Wrapper for createJSON.py
 def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,on_das=False):
 
@@ -1100,7 +1134,9 @@ def main():
     out_dir_data_2017 = os.path.join(topcoffea_path("json"),"data_samples/2017/")
     out_dir_data_2018 = os.path.join(topcoffea_path("json"),"data_samples/2018/")
 
-    # Private UL
+    ######### Make/remake JSONs #########
+
+    # Private UL samples
     #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL18_dict,"/hadoop","2018",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL16_dict,"/hadoop","2016",out_dir_private_UL)
@@ -1110,7 +1146,7 @@ def main():
     #make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
     #make_jsons_for_dict_of_samples(private_UL17_dict_b1b4_local,"","2017",out_dir_private_UL_subset_local)
 
-    # Central signal
+    # Central signal samples
     #make_jsons_for_dict_of_samples(central_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_2016,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL16_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_2016APV,on_das=True)
@@ -1121,19 +1157,26 @@ def main():
     #make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
     #make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
 
-    # Central background
+    # Central background samples
     #make_jsons_for_dict_of_samples(central_UL17_bkg_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL18_bkg_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL16_bkg_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_bkg_UL,on_das=True)
 
-    # Data
+    # Data samples
     #make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
     #make_jsons_for_dict_of_samples(data_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_data_2017,on_das=True)
     #make_jsons_for_dict_of_samples(data_2018_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_data_2018,on_das=True)
 
     # Testing finding list of files with xrdfs ls
     #make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
+
+
+    ######### Just replace xsec in JSON with whatever is in xsec.cfg #########
+    #replace_xsec_for_dict_of_samples(central_UL17_bkg_dict,out_dir_central_bkg_UL)
+    #replace_xsec_for_dict_of_samples(central_UL18_bkg_dict,out_dir_central_bkg_UL)
+    #replace_xsec_for_dict_of_samples(central_UL16_bkg_dict,out_dir_central_bkg_UL)
+    #replace_xsec_for_dict_of_samples(central_UL16APV_bkg_dict,out_dir_central_bkg_UL)
 
 
 if __name__ == "__main__":
