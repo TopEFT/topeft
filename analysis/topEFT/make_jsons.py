@@ -1064,6 +1064,7 @@ def make_json(sample_dir,sample_name,prefix,sample_yr,xsec_name,hist_axis_name,o
 # Convenience function for running make_json() on all entries in a dictionary of samples, and moving the results to out_dir
 def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False):
     for sample_name,sample_info in samples_dict.items():
+        print(f"\n\nMaking JSON for {sample_name}...")
         path = sample_info["path"]
         hist_axis_name = sample_info["histAxisName"]
         xsec_name = sample_info["xsecName"]
@@ -1132,7 +1133,7 @@ def main():
     #make_jsons_for_dict_of_samples(data_2018_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_data_2018,on_das=True)
 
     # Testing finding list of files with xrdfs ls
-    # make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
+    #make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
 
 
 if __name__ == "__main__":
