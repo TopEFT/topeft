@@ -833,10 +833,20 @@ central_UL16APV_bkg_dict = {
         "histAxisName": "tW_APV_centralUL16",
         "xsecName": "ST_tW_top_5f_inclusiveDecays",
     },
+    "UL16_TTGJets_APV" : {
+        "path" : "/TTGJets_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM", # NOTE: PLACEHOLDER There is not UL16APV sample available yet, so using UL16 as a tmp placeholder till the correct one is available
+        "histAxisName": "TTGJets_APV_centralUL16",
+        "xsecName": "TTGJets",
+    },
     "UL16_TTJets_APV" : {
         "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM",
         "histAxisName": "TTJets_APV_centralUL16",
         "xsecName": "TT",
+    },
+    "UL16_WWTo2L2Nu_APV" : {
+        "path" : "/WWTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
+        "histAxisName": "WWTo2L2Nu_APV_centralUL16",
+        "xsecName": "WWTo2L2Nu",
     },
     "UL16_WJetsToLNu_APV" : {
         "path" : "/WJetsToLNu_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer19UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM",
@@ -852,6 +862,16 @@ central_UL16APV_bkg_dict = {
         "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM",
         "histAxisName": "WWW_APV_centralUL16",
         "xsecName": "WWW",
+    },
+    "UL16_WWZ_4F_APV" : {
+        "path" : "/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
+        "histAxisName": "WWZ_4F_APV_centralUL16",
+        "xsecName": "WWZ",
+    },
+    "UL16_WWZ_APV_ext" : {
+        "path" : "/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM",
+        "histAxisName": "WWZ_4F_APV_centralUL16",
+        "xsecName": "WWZ",
     },
     "UL16_WZTo3LNu_APV" : {
         "path" : "/WZTo3LNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM",
