@@ -4,7 +4,7 @@ from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.modules.GetValuesFromJsons import get_lumi
 import cloudpickle
 from collections import defaultdict 
-import re 
+import re, gzip
 
 class DataDrivenProducer: 
     def __init__(self, inputHist, outputName, doDDFakes=True, doDDFlips=False):
