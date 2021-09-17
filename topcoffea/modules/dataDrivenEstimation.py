@@ -139,13 +139,13 @@ class DataDrivenProducer:
 
             self.outHist[key]=newhist
 
-        def dumpToPickle(self):
-            with gzip.open(self.outputName + ".pkl.gz", "wb") as fout:
-                cloudpickle.dump(self.outHist, fout)
+    def dumpToPickle(self):
+        with gzip.open(self.outputName + ".pkl.gz", "wb") as fout:
+            cloudpickle.dump(self.outHist, fout)
 
 
-        def getDataDrivenHistogram(self):
-            return self.outHist
+    def getDataDrivenHistogram(self):
+        return self.outHist
 
 
 if __name__ == "__main__":
