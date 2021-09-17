@@ -101,13 +101,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         conversionDatasets=[x%y for x in ['TTGJets_centralUL%d'] for y in [16,17,18]]
         nonpromptDatasets =[x%y for x in ['TTJets_centralUL%d','DY50_centralUL%d','DY10to50_centralUL%d','tbarW_centralUL%d','tW_centralUL%d','tbarW_centralUL%d'] for y in [16,17,18]]
 
-        whatis='prompt'
+        sampleType='prompt'
         if isData:
-            whatis='data'
+            sampleType='data'
         elif dataset in conversionDatasets: 
-            whatis='conversions'
+            sampleType='conversions'
         elif dataset in nonpromptDatasets:
-            whatis='nonprompt'
+            sampleType='nonprompt'
             
 
 
@@ -248,8 +248,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         events["l_fo_conept_sorted"] = l_fo_conept_sorted
 
         # The event selection
-        add2lMaskAndSFs(events, year, isData, whatis)
-        add3lMaskAndSFs(events, year, isData, whatis)
+        add2lMaskAndSFs(events, year, isData, sampleType)
+        add3lMaskAndSFs(events, year, isData, sampleType)
         add4lMaskAndSFs(events, year, isData)
         addLepCatMasks(events)
 

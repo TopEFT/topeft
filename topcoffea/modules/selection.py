@@ -182,7 +182,7 @@ def trgPassNoOverlap(events,is_data,dataset,year):
 
 
 # 2l selection (we do not make the ss requirement here)
-def add2lMaskAndSFs(events, year, isData, whatis):
+def add2lMaskAndSFs(events, year, isData, sampleType):
 
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
@@ -208,15 +208,15 @@ def add2lMaskAndSFs(events, year, isData, whatis):
     mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge)
     
     # mc matching requirement (already passed for data)
-    if whatis == 'prompt':
+    if sampleType == 'prompt':
         lep1_match=((padded_FOs[:,0].genPartFlav==1) | (padded_FOs[:,0].genPartFlav == 15))    
         lep2_match=((padded_FOs[:,1].genPartFlav==1) | (padded_FOs[:,1].genPartFlav == 15))
         mask = mask & lep1_match & lep2_match
-    elif whatis =='conversions':
+    elif sampleType =='conversions':
         lep1_match=(padded_FOs[:,0].genPartFlav==22)
         lep2_match=(padded_FOs[:,1].genPartFlav==22)
         mask = mask & ( lep1_match | lep2_match ) 
-    elif whatis == 'nonprompt':
+    elif sampleType == 'nonprompt':
         lep1_match=((padded_FOs[:,0].genPartFlav!=1) & (padded_FOs[:,0].genPartFlav != 15) & (padded_FOs[:,0].genPartFlav != 22))
         lep2_match=((padded_FOs[:,1].genPartFlav!=1) & (padded_FOs[:,1].genPartFlav != 15) & (padded_FOs[:,1].genPartFlav != 22))
         mask = mask & ( lep1_match | lep2_match ) 
@@ -240,7 +240,7 @@ def add2lMaskAndSFs(events, year, isData, whatis):
 
 
 # 3l selection
-def add3lMaskAndSFs(events, year, isData, whatis):
+def add3lMaskAndSFs(events, year, isData, sampleType):
 
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
@@ -265,17 +265,17 @@ def add3lMaskAndSFs(events, year, isData, whatis):
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
     mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3 )
 
-    if whatis == 'prompt':
+    if sampleType == 'prompt':
         lep1_match=((padded_FOs[:,0].genPartFlav==1) | (padded_FOs[:,0].genPartFlav == 15))    
         lep2_match=((padded_FOs[:,1].genPartFlav==1) | (padded_FOs[:,1].genPartFlav == 15))
         lep3_match=((padded_FOs[:,2].genPartFlav==1) | (padded_FOs[:,2].genPartFlav == 15))
         mask = mask & lep1_match & lep2_match & lep3_match
-    elif whatis =='conversions':
+    elif sampleType =='conversions':
         lep1_match=(padded_FOs[:,0].genPartFlav==22)
         lep2_match=(padded_FOs[:,1].genPartFlav==22)
         lep3_match=(padded_FOs[:,2].genPartFlav==22)
         mask = mask & ( lep1_match | lep2_match | lep3_match ) 
-    elif whatis == 'nonprompt':
+    elif sampleType == 'nonprompt':
         lep1_match=((padded_FOs[:,0].genPartFlav!=1) & (padded_FOs[:,0].genPartFlav != 15) & (padded_FOs[:,0].genPartFlav != 22))
         lep2_match=((padded_FOs[:,1].genPartFlav!=1) & (padded_FOs[:,1].genPartFlav != 15) & (padded_FOs[:,1].genPartFlav != 22))
         lep3_match=((padded_FOs[:,2].genPartFlav!=1) & (padded_FOs[:,2].genPartFlav != 15) & (padded_FOs[:,2].genPartFlav != 22))
