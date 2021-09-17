@@ -8,7 +8,7 @@ import re
 
 class DataDrivenProducer: 
     def __init__(self, inputHist, outputName, doDDFakes=True, doDDFlips=False):
-        self.yt=YieldTools()
+        yt=YieldTools()
         if type(inputHist) == str and inputHist.endswith('.pkl.gz'): # we are plugging a pickle file
             self.inhist=yt.get_hist_from_pkl(inputHist)
         else: # we already have the histogram
