@@ -152,13 +152,24 @@ def main():
                 raise Exception
 
             # Create the plots
-            fig, ax = plt.subplots(1, 1, figsize=(11,7))
+            #fig, ax = plt.subplots(1, 1, figsize=(11,7))
+
+            fig, (ax, rax) = plt.subplots(
+                nrows=2,
+                ncols=1,
+                figsize=(7,7),
+                gridspec_kw={"height_ratios": (3, 1)},
+                sharex=True
+            )
+            fig.subplots_adjust(hspace=.07)
+
             cm = plt.get_cmap('tab20')
             NUM_COLORS = 16
             ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
 
             hist.plot1d(
                 histo_mc_tmp,
+                ax=ax,
                 stack=True,
                 density=unit_norm_bool,
                 clear=False,
@@ -166,12 +177,28 @@ def main():
 
             hist.plot1d(
                 histo_data_tmp,
+                ax=ax,
                 error_opts = DATA_ERR_OPS,
                 stack=False,
                 density=unit_norm_bool,
                 clear=False,
             )
 
+            hist.plotratio(
+                num=histo_mc_tmp.sum("sample"),
+                denom=histo_data_tmp.sum("sample"),
+                ax=rax,
+                error_opts=DATA_ERR_OPS,
+                denom_fill_opts={},
+                guide_opts={},
+                unc='num',
+                clear=False,
+            )
+
+            rax.set_ylabel('Ratio')
+            rax.set_ylim(0,2)
+
+            ax.set_xlabel(None)
             ax.autoscale(axis='y')
             title = hist_cat+"_"+var_name
             if unit_norm_bool:
