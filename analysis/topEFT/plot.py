@@ -71,7 +71,8 @@ args = parser.parse_args()
 
 year  = args.year
 lumiJson  = args.lumiJson
-path  = ['histos/data_BtoD.pkl.gz', 'histos/MC.pkl.gz', 'histos/DY.pkl.gz']#args.path
+path  = ['histos/data.pkl.gz', 'histos/MC.pkl.gz']#args.path
+#path  = '/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/topcoffea_data-mc/furong_branch/topcoffea/analysis/topEFT/histos/sep16_data_bkg_lepflav.pkl.gz'
 var = args.variable
 ch = args.channel
 njets = args.njets
@@ -95,7 +96,7 @@ if var == 'njets': njets = None
 flav_lst = []
 if flav == "all":
   if "2lss" in ch: flav_lst = ['ee', 'mm', 'em']
-  if "3l"   in ch: flav_lst = ['eee', 'mmm', 'eem', 'mme']
+  if "3l"   in ch: flav_lst = ['eee', 'mmm', 'eem', 'emm']
   if "4l"   in ch: flav_lst = ['llll']
   if "CRtt" in ch: flav_lst = ['em']
   if "CRZ"  in ch: flav_lst = ['ee', 'mm']
@@ -118,16 +119,17 @@ with open(lumiJson) as jf:
 processDic = {
   'Diboson': 'WZTo2L2Q_centralUL17, WZTo3LNu_centralUL17, ZZTo4L_centralUL17, WWTo2L2Nu_centralUL17',
   'Triboson': 'WWW_centralUL17, WZG_centralUL17, WWZ_centralUL17, WZZ_centralUL17, ZZZ_centralUL17, WZZ_centralUL17',
-  'ttH': 'ttHnobb, ttHH',
+  'ttH': 'ttH_central2017',
   'ttll': 'ttZ_centralUL17',
-  'ttlv': 'TTWJetsToLNu, ttWW, ttWZ',
+  'ttlv': 'ttW_central2017',
   'tllq': 'tZq_centralUL17',
-  'tHq': 'tHq',
+  'tHq': 'tHq_central2017',
+  'tttt': 'tttt_central2017',
   'TT': 'TTTo2L2Nu',
   'DY': 'DYJetsToLL_centralUL17',
-  'data' : 'data',
+  'data' : 'data_UL17',
 }
-bkglist = ['TT', 'DY', 'Diboson', 'Triboson', 'ttlv', 'ttll', 'ttH', 'tllq', 'tHq']
+bkglist = ['TT', 'DY', 'Diboson', 'Triboson', 'ttlv', 'ttll', 'ttH', 'tllq', 'tHq', 'tttt']
 allbkg  = ['Diboson', 'Triboson', 'ttH', 'ttll', 'ttlv', 'tllq', 'tHq']
 
 colordic ={
@@ -139,6 +141,7 @@ colordic ={
   'ttlv': '#009900',
   'tllq': '#ff66ff',
   'tHq' : '#00ffff',
+  'tttt': '#00ff00',
   'TT': '#ffff33',
   'DY': '#33ff33',
 }
