@@ -2,6 +2,7 @@ import os
 import datetime
 import argparse
 import matplotlib.pyplot as plt
+from cycler import cycler
 
 from coffea import hist
 from topcoffea.modules.HistEFT import HistEFT
@@ -10,8 +11,10 @@ from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.modules.GetValuesFromJsons import get_lumi
 from topcoffea.plotter.make_html import make_html
 
-# Some options for plotting the data
+# Some options for plotting the data and MC
 DATA_ERR_OPS = {'linestyle':'none', 'marker': '.', 'markersize': 10., 'color':'k', 'elinewidth': 1,}
+MC_ERROR_OPS = {'label': 'Stat. Unc.', 'hatch': '////', 'facecolor': 'none', 'edgecolor': (0,0,0,.5), 'linewidth': 0}
+FILL_OPS = {}
 
 # The channels that define the CR categories
 CR_CHAN_DICT = {
@@ -61,9 +64,38 @@ CR_CHAN_DICT_NO_J = {
     ],
 }
 
-def main():
+CR_GRP_MAP = {
+    "DY" : [],
+    "Ttbar" : [],
+    "Diboson" : [],
+    "Triboson" : [],
+    "Single top" : [],
+    "Singleboson" : [],
+}
 
-    yt = YieldTools()
+
+yt = YieldTools()
+
+# Group bins in a hist, returns a new hist
+def group_bins(histo,bin_map):
+
+    # Construct the map of bins to remap
+    bins_to_remap_lst = []
+    for grp_name,bins_in_grp in bin_map.items():
+        bins_to_remap_lst.extend(bins_in_grp)
+    for bin_name in yt.get_cat_lables(histo,"sample"):
+        if bin_name not in bins_to_remap_lst:
+            bin_map[bin_name] = bin_name
+
+    # Remap the bins
+    old_ax = histo.axis("sample")
+    new_ax = hist.Cat(old_ax.name,old_ax.label)
+    new_histo = histo.group(old_ax,new_ax,bin_map)
+
+    return new_histo
+
+
+def main():
 
     # Set up the command line parser
     parser = argparse.ArgumentParser()
@@ -99,6 +131,25 @@ def main():
             mc_sample_lst.append(sample_name)
     print("\nMC samples:",sample_lst)
 
+    # Fill group map (should we just fully hard code this?)
+    for proc_name in sample_lst:
+        if "data" in proc_name:
+            continue
+        elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name:
+            CR_GRP_MAP["Single top"].append(proc_name)
+        elif "DY" in proc_name:
+            CR_GRP_MAP["DY"].append(proc_name)
+        elif "TT" in proc_name:
+            CR_GRP_MAP["Ttbar"].append(proc_name)
+        elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
+            CR_GRP_MAP["Triboson"].append(proc_name)
+        elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
+            CR_GRP_MAP["Diboson"].append(proc_name)
+        elif "WJets" in proc_name:
+            CR_GRP_MAP["Singleboson"].append(proc_name)
+        else:
+            raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+
     # Loop over hists and make plots
     skip_lst = ["SumOfEFTweights"] # Skip this hist
     for var_name in hin_dict.keys():
@@ -115,6 +166,10 @@ def main():
         hist_data = hin_dict[var_name].copy()
         hist_data = hist_data.remove(mc_sample_lst,"sample")
         hist_data = hist_data.integrate("systematic","nominal")
+
+
+        #hist_mc = group_bins(hist_mc,{"TEST NEW NAME":["WZTo3LNu_centralUL17","ZZTo4L_centralUL17"]})
+        hist_mc = group_bins(hist_mc,CR_GRP_MAP)
 
         # Normalize the MC hists
         hist_mc.scale(1000.0*get_lumi(args.year))
@@ -151,9 +206,8 @@ def main():
             else:
                 raise Exception
 
-            # Create the plots
-            #fig, ax = plt.subplots(1, 1, figsize=(11,7))
 
+            # Create the plots
             fig, (ax, rax) = plt.subplots(
                 nrows=2,
                 ncols=1,
@@ -163,18 +217,28 @@ def main():
             )
             fig.subplots_adjust(hspace=.07)
 
-            cm = plt.get_cmap('tab20')
-            NUM_COLORS = 16
-            ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
+            # Loop over some colors
+            #cm = plt.get_cmap('tab10')
+            #NUM_COLORS = 15
+            colors = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c']
+            colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
+            #ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
+            ax.set_prop_cycle(cycler(color=colors))
 
+            # Plot the MC
             hist.plot1d(
                 histo_mc_tmp,
+                #overlay="sample",
                 ax=ax,
                 stack=True,
+                line_opts=None,
+                fill_opts=FILL_OPS,
                 density=unit_norm_bool,
+                error_opts=MC_ERROR_OPS,
                 clear=False,
             )
 
+            # Plot the data
             hist.plot1d(
                 histo_data_tmp,
                 ax=ax,
@@ -183,7 +247,10 @@ def main():
                 density=unit_norm_bool,
                 clear=False,
             )
+            ax.set_xlabel(None)
+            ax.autoscale(axis='y')
 
+            # Make the ratio plot
             hist.plotratio(
                 num=histo_mc_tmp.sum("sample"),
                 denom=histo_data_tmp.sum("sample"),
@@ -194,17 +261,15 @@ def main():
                 unc='num',
                 clear=False,
             )
-
             rax.set_ylabel('Ratio')
             rax.set_ylim(0,2)
 
-            ax.set_xlabel(None)
-            ax.autoscale(axis='y')
+            # Save the figure
             title = hist_cat+"_"+var_name
             if unit_norm_bool:
                 title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
-            ax.clear()
+
 
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp:
