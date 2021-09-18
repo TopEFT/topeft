@@ -68,6 +68,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         "l0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",   "Leading lep $\eta$", 30, -3.0, 3.0)),
         "j0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
         "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 200, 0, 2000)),
+        "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
         })
 
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
@@ -408,6 +409,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Variables we will loop over when filling hists
         varnames = {}
         varnames["ht"]      = ht
+        varnames["met"]     = met.pt
         varnames["l0pt"]    = l0.conept
         varnames["l0eta"]   = l0.eta
         varnames["j0pt"]    = ak.flatten(j0.pt)
