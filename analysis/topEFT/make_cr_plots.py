@@ -96,7 +96,7 @@ def group_bins(histo,bin_map):
 
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
-def make_cr_plot(h_mc,h_data,unit_norm_bool):
+def make_cr_fig(h_mc,h_data,unit_norm_bool):
 
     colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
 
@@ -158,6 +158,93 @@ def make_cr_plot(h_mc,h_data,unit_norm_bool):
 
 
 
+# Wrapper function to loop over all CR categories and make plots for all variables
+# The input hist should include both the data and MC
+def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
+
+    # Construct list of MC samples
+    sample_lst = yt.get_cat_lables(dict_of_hists,"sample")
+    mc_sample_lst = []
+    for sample_name in sample_lst:
+        if "data" not in sample_name:
+            mc_sample_lst.append(sample_name)
+    print("\nMC samples:",sample_lst)
+
+    # Fill group map (should we just fully hard code this?)
+    for proc_name in sample_lst:
+        if "data" in proc_name:
+            continue
+        elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name:
+            CR_GRP_MAP["Single top"].append(proc_name)
+        elif "DY" in proc_name:
+            CR_GRP_MAP["DY"].append(proc_name)
+        elif "TT" in proc_name:
+            CR_GRP_MAP["Ttbar"].append(proc_name)
+        elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
+            CR_GRP_MAP["Triboson"].append(proc_name)
+        elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
+            CR_GRP_MAP["Diboson"].append(proc_name)
+        elif "WJets" in proc_name:
+            CR_GRP_MAP["Singleboson"].append(proc_name)
+        else:
+            raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+
+    # Loop over hists and make plots
+    skip_lst = ["SumOfEFTweights"] # Skip this hist
+    for var_name in dict_of_hists.keys():
+        if (var_name in skip_lst): continue
+        if (var_name == "njets"):
+            cat_hist = CR_CHAN_DICT_NO_J
+        else: cat_hist = CR_CHAN_DICT
+        print("\nVar name:",var_name)
+
+        # Extract the MC and data hists (do we need to make copies here?)
+        hist_mc = dict_of_hists[var_name].copy()
+        hist_mc = hist_mc.remove(["data_UL17"],"sample")
+        hist_data = dict_of_hists[var_name].copy()
+        hist_data = hist_data.remove(mc_sample_lst,"sample")
+
+        # Group the samples by process type
+        hist_mc = group_bins(hist_mc,CR_GRP_MAP)
+
+        # Normalize the MC hists
+        hist_mc.scale(1000.0*get_lumi(year))
+
+        # Loop over the CR categories
+        for hist_cat in cat_hist.keys():
+            if (hist_cat == "cr_2los_Z" and "j0" in var_name): continue # The 2los Z category does not require jets
+            print("\n\tCategory:",hist_cat)
+
+            # Make a sub dir for this category
+            save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
+            if not os.path.exists(save_dir_path_tmp):
+                os.mkdir(save_dir_path_tmp)
+
+            # Integrate to get the categories we want
+            # NOTE: Once we merge PR #98, integrating the appl axis should not be necessary
+            axes_to_integrate_dict = {}
+            axes_to_integrate_dict["systematic"] = "nominal"
+            axes_to_integrate_dict["channel"] = cat_hist[hist_cat]
+            if "2l" in hist_cat:
+                axes_to_integrate_dict["appl"] = "isSR_2l"
+            elif "3l" in hist_cat:
+                axes_to_integrate_dict["appl"] = "isSR_3l"
+            else:
+                raise Exception
+            hist_mc_integrated = yt.integrate_out_cats(hist_mc,axes_to_integrate_dict)
+            hist_data_integrated = yt.integrate_out_cats(hist_data,axes_to_integrate_dict)
+
+            # Create and save the figure
+            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool)
+            title = hist_cat+"_"+var_name
+            if unit_norm_bool: title = title + "_unitnorm"
+            fig.savefig(os.path.join(save_dir_path_tmp,title))
+
+            # Make an index.html file if saving to web area
+            if "www" in save_dir_path_tmp:
+                make_html(save_dir_path_tmp)
+
+
 def main():
 
     # Set up the command line parser
@@ -186,98 +273,7 @@ def main():
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
     #exit()
 
-
-
-
-
-    #################
-
-    # Construct list of MC samples
-    sample_lst = yt.get_cat_lables(hin_dict,"sample")
-    mc_sample_lst = []
-    for sample_name in sample_lst:
-        if "data" not in sample_name:
-            mc_sample_lst.append(sample_name)
-    print("\nMC samples:",sample_lst)
-
-    # Fill group map (should we just fully hard code this?)
-    for proc_name in sample_lst:
-        if "data" in proc_name:
-            continue
-        elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name:
-            CR_GRP_MAP["Single top"].append(proc_name)
-        elif "DY" in proc_name:
-            CR_GRP_MAP["DY"].append(proc_name)
-        elif "TT" in proc_name:
-            CR_GRP_MAP["Ttbar"].append(proc_name)
-        elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
-            CR_GRP_MAP["Triboson"].append(proc_name)
-        elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
-            CR_GRP_MAP["Diboson"].append(proc_name)
-        elif "WJets" in proc_name:
-            CR_GRP_MAP["Singleboson"].append(proc_name)
-        else:
-            raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
-
-    # Loop over hists and make plots
-    skip_lst = ["SumOfEFTweights"] # Skip this hist
-    for var_name in hin_dict.keys():
-        if (var_name in skip_lst): continue
-        if (var_name == "njets"):
-            cat_hist = CR_CHAN_DICT_NO_J
-        else: cat_hist = CR_CHAN_DICT
-        print("\nVar name:",var_name)
-
-        # Extract the MC and data hists
-        hist_mc = hin_dict[var_name].copy()
-        hist_mc = hist_mc.remove(["data_UL17"],"sample")
-        hist_mc = hist_mc.integrate("systematic","nominal")
-        hist_data = hin_dict[var_name].copy()
-        hist_data = hist_data.remove(mc_sample_lst,"sample")
-        hist_data = hist_data.integrate("systematic","nominal")
-
-        #hist_mc = group_bins(hist_mc,{"TEST NEW NAME":["WZTo3LNu_centralUL17","ZZTo4L_centralUL17"]})
-        hist_mc = group_bins(hist_mc,CR_GRP_MAP)
-
-        # Normalize the MC hists
-        hist_mc.scale(1000.0*get_lumi(args.year))
-
-        # Loop over the CR categories
-        for hist_cat in cat_hist.keys():
-
-            print("\n\tCategory:",hist_cat)
-
-            # The 2los Z category does not require jets
-            if (hist_cat == "cr_2los_Z" and "j0" in var_name): continue
-
-            # Make a sub dir for this category
-            save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
-            if not os.path.exists(save_dir_path_tmp):
-                os.mkdir(save_dir_path_tmp)
-
-            # Integrate to get the categories we want
-            # NOTE: Once we merge PR #98, integrating the appl axis should not be necessary
-            axes_to_integrate_dict = {}
-            axes_to_integrate_dict["channel"] = cat_hist[hist_cat]
-            if "2l" in hist_cat:
-                axes_to_integrate_dict["appl"] = "isSR_2l"
-            elif "3l" in hist_cat:
-                axes_to_integrate_dict["appl"] = "isSR_3l"
-            else:
-                raise Exception
-            hist_mc_integrated = yt.integrate_out_cats(hist_mc,axes_to_integrate_dict)
-            hist_data_integrated = yt.integrate_out_cats(hist_data,axes_to_integrate_dict)
-
-            # Create and save the figure
-            fig = make_cr_plot(hist_mc_integrated,hist_data_integrated,unit_norm_bool)
-            title = hist_cat+"_"+var_name
-            if unit_norm_bool: title = title + "_unitnorm"
-            fig.savefig(os.path.join(save_dir_path_tmp,title))
-
-            # Make an index.html file if saving to web area
-            if "www" in save_dir_path_tmp:
-                make_html(save_dir_path_tmp)
-
+    make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
 
 if __name__ == "__main__":
     main()
