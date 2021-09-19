@@ -249,24 +249,22 @@ def main():
             if not os.path.exists(save_dir_path_tmp):
                 os.mkdir(save_dir_path_tmp)
 
-            # Integrate over the channels
+            # Copy, do we need to do this?
             histo_data_tmp = hist_data.copy()
-            histo_data_tmp = histo_data_tmp.integrate("channel",cat_hist[hist_cat])
             histo_mc_tmp = hist_mc.copy()
-            histo_mc_tmp = histo_mc_tmp.integrate("channel",cat_hist[hist_cat])
 
-            # Integrate over the appl category
-            # NOTE: Once we merge PR #98 this should not be necessary
+            # Integrate to get the categories we want
+            # NOTE: Once we merge PR #98, integrating the appl axis should not be necessary
+            axes_to_integrate_dict = {}
+            axes_to_integrate_dict["channel"] = cat_hist[hist_cat]
             if "2l" in hist_cat:
-                if "appl" in histo_mc_tmp.axes():
-                    histo_mc_tmp = histo_mc_tmp.integrate("appl","isSR_2l")
-                if "appl" in histo_data_tmp.axes():
-                    histo_data_tmp = histo_data_tmp.integrate("appl","isSR_2l")
+                axes_to_integrate_dict["appl"] = "isSR_2l"
             elif "3l" in hist_cat:
-                histo_mc_tmp = histo_mc_tmp.integrate("appl","isSR_3l")
-                histo_data_tmp = histo_data_tmp.integrate("appl","isSR_3l")
+                axes_to_integrate_dict["appl"] = "isSR_3l"
             else:
                 raise Exception
+            histo_mc_tmp = yt.integrate_out_cats(histo_mc_tmp,axes_to_integrate_dict)
+            histo_data_tmp = yt.integrate_out_cats(histo_data_tmp,axes_to_integrate_dict)
 
             # Create and save the figure
             fig = make_cr_plot(histo_mc_tmp,histo_data_tmp,unit_norm_bool)
