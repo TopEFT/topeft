@@ -71,10 +71,40 @@ CR_GRP_MAP = {
     "Triboson" : [],
     "Single top" : [],
     "Singleboson" : [],
+    "data" : [],
 }
 
 
 yt = YieldTools()
+
+# Get a subset of the elements from a list of strings given a whitelist and/or blacklist of substrings
+def filter_lst_of_strs(in_lst,substr_whitelist=[],substr_blacklist=[]):
+
+    # Check all elements are strings
+    if not (all(isinstance(x,str) for x in in_lst) and all(isinstance(x,str) for x in substr_whitelist) and all(isinstance(x,str) for x in substr_blacklist)):
+        raise Exception("Error: This function only filters lists of strings, one of the elements in one of the input lists is not a str.")
+    for elem in substr_whitelist:
+        if elem in substr_blacklist:
+            raise Exception(f"Error: Cannot whitelist and blacklist the same element (\"{elem}\").")
+
+    # Append to the return list
+    out_lst = []
+    for element in in_lst:
+        blacklisted = False
+        whitelisted = True
+        for substr in substr_blacklist:
+            if substr in element:
+                # If any of the substrings are in the element, blacklist it
+                blacklisted = True
+        for substr in substr_whitelist:
+            if substr not in element:
+                # If any of the substrings are NOT in the element, do not whitelist it
+                whitelisted = False
+        if whitelisted and not blacklisted:
+            out_lst.append(element)
+
+    return out_lst
+
 
 # Figures out which year a sample is from, retruns the lumi for that year
 def get_lumi_for_sample(sample_name):
@@ -181,15 +211,32 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
 def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
     # Construct list of MC samples
-    print("\nAll samples:",yt.get_cat_lables(dict_of_hists,"sample"))
-    mc_sample_lst = []
-    for sample_name in yt.get_cat_lables(dict_of_hists,"sample"):
-        if "data" not in sample_name:
-            mc_sample_lst.append(sample_name)
+    mc_wl = []
+    mc_bl = ["data"]
+    data_wl = ["data"]
+    data_bl = []
+    if year is None:
+        pass # Don't think we actually need to do anything here?
+    elif year == "2017":
+        mc_wl.append("UL17")
+        data_wl.append("UL17")
+    elif year == "2018":
+        mc_wl.append("UL18")
+        data_wl.append("UL18")
+    else: raise Exception # Not sure what to do about 2016 vs UL16 yet
+
+    all_samples = yt.get_cat_lables(dict_of_hists,"sample")
+    mc_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
+    data_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+    print("\nAll samples:",all_samples)
+    print("\nMC samples:",mc_sample_lst)
+    print("\nData samples:",data_sample_lst)
 
     # Fill group map (should we just fully hard code this?)
     for proc_name in mc_sample_lst:
-        if "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name:
+        if "data" in proc_name:
+            CR_GRP_MAP["Data"].append(proc_name)
+        elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name:
             CR_GRP_MAP["Single top"].append(proc_name)
         elif "DY" in proc_name:
             CR_GRP_MAP["DY"].append(proc_name)
@@ -214,7 +261,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         print("\nVar name:",var_name)
 
         # Extract the MC and data hists
-        hist_mc = dict_of_hists[var_name].remove(["data_UL17"],"sample")
+        hist_mc = dict_of_hists[var_name].remove(data_sample_lst,"sample")
         hist_data = dict_of_hists[var_name].remove(mc_sample_lst,"sample")
 
         # Normalize the MC hists
@@ -265,10 +312,9 @@ def main():
     # Set up the command line parser
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
-    parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
-    parser.add_argument("-y", "--year", default="2017", help = "The year of the sample")
-    parser.add_argument("-t", "--tag", default="Sample", help = "A string to describe the pkl file")
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
+    parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
+    parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
     args = parser.parse_args()
 
     # Whether or not to unit norm the plots
