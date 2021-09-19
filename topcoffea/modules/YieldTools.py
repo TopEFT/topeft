@@ -201,7 +201,7 @@ class YieldTools():
 
     # Takes a histogram and a dictionary that specifies categories, integrates out the categories listed in the dictionry
     def integrate_out_cats(self,h,cuts_dict):
-        h_ret = h
+        h_ret = h.copy()
         for axis_name,cat_lst in cuts_dict.items():
             h_ret = h_ret.integrate(axis_name,cat_lst)
         return h_ret
