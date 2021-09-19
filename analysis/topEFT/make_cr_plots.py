@@ -95,6 +95,69 @@ def group_bins(histo,bin_map):
     return new_histo
 
 
+# Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
+def make_cr_plot(h_mc,h_data,unit_norm_bool):
+
+    colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
+
+    # Create the figure
+    fig, (ax, rax) = plt.subplots(
+        nrows=2,
+        ncols=1,
+        figsize=(7,7),
+        gridspec_kw={"height_ratios": (3, 1)},
+        sharex=True
+    )
+    fig.subplots_adjust(hspace=.07)
+
+    # Set up the colors
+    ax.set_prop_cycle(cycler(color=colors))
+
+    # Plot the MC
+    hist.plot1d(
+        h_mc,
+        #overlay="sample",
+        ax=ax,
+        stack=True,
+        line_opts=None,
+        fill_opts=FILL_OPS,
+        density=unit_norm_bool,
+        error_opts=MC_ERROR_OPS,
+        clear=False,
+    )
+
+    # Plot the data
+    hist.plot1d(
+        h_data,
+        ax=ax,
+        error_opts = DATA_ERR_OPS,
+        stack=False,
+        density=unit_norm_bool,
+        clear=False,
+    )
+
+    # Make the ratio plot
+    hist.plotratio(
+        num=h_mc.sum("sample"),
+        denom=h_data.sum("sample"),
+        ax=rax,
+        error_opts=DATA_ERR_OPS,
+        denom_fill_opts={},
+        guide_opts={},
+        unc='num',
+        clear=False,
+    )
+
+    # Scale the y axis and labels
+    ax.autoscale(axis='y')
+    ax.set_xlabel(None)
+    rax.set_ylabel('Ratio')
+    rax.set_ylim(0,2)
+
+    return fig
+
+
+
 def main():
 
     # Set up the command line parser
@@ -167,7 +230,6 @@ def main():
         hist_data = hist_data.remove(mc_sample_lst,"sample")
         hist_data = hist_data.integrate("systematic","nominal")
 
-
         #hist_mc = group_bins(hist_mc,{"TEST NEW NAME":["WZTo3LNu_centralUL17","ZZTo4L_centralUL17"]})
         hist_mc = group_bins(hist_mc,CR_GRP_MAP)
 
@@ -206,70 +268,11 @@ def main():
             else:
                 raise Exception
 
-
-            # Create the plots
-            fig, (ax, rax) = plt.subplots(
-                nrows=2,
-                ncols=1,
-                figsize=(7,7),
-                gridspec_kw={"height_ratios": (3, 1)},
-                sharex=True
-            )
-            fig.subplots_adjust(hspace=.07)
-
-            # Loop over some colors
-            #cm = plt.get_cmap('tab10')
-            #NUM_COLORS = 15
-            colors = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c']
-            colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
-            #ax.set_prop_cycle('color', [cm(1.*i/NUM_COLORS) for i in range(NUM_COLORS)])
-            ax.set_prop_cycle(cycler(color=colors))
-
-            # Plot the MC
-            hist.plot1d(
-                histo_mc_tmp,
-                #overlay="sample",
-                ax=ax,
-                stack=True,
-                line_opts=None,
-                fill_opts=FILL_OPS,
-                density=unit_norm_bool,
-                error_opts=MC_ERROR_OPS,
-                clear=False,
-            )
-
-            # Plot the data
-            hist.plot1d(
-                histo_data_tmp,
-                ax=ax,
-                error_opts = DATA_ERR_OPS,
-                stack=False,
-                density=unit_norm_bool,
-                clear=False,
-            )
-            ax.set_xlabel(None)
-            ax.autoscale(axis='y')
-
-            # Make the ratio plot
-            hist.plotratio(
-                num=histo_mc_tmp.sum("sample"),
-                denom=histo_data_tmp.sum("sample"),
-                ax=rax,
-                error_opts=DATA_ERR_OPS,
-                denom_fill_opts={},
-                guide_opts={},
-                unc='num',
-                clear=False,
-            )
-            rax.set_ylabel('Ratio')
-            rax.set_ylim(0,2)
-
-            # Save the figure
+            # Create and save the figure
+            fig = make_cr_plot(histo_mc_tmp,histo_data_tmp,unit_norm_bool)
             title = hist_cat+"_"+var_name
-            if unit_norm_bool:
-                title = title + "_unitnorm"
+            if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
-
 
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp:
