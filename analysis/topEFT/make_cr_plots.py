@@ -186,6 +186,12 @@ def main():
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
     #exit()
 
+
+
+
+
+    #################
+
     # Construct list of MC samples
     sample_lst = yt.get_cat_lables(hin_dict,"sample")
     mc_sample_lst = []
@@ -249,10 +255,6 @@ def main():
             if not os.path.exists(save_dir_path_tmp):
                 os.mkdir(save_dir_path_tmp)
 
-            # Copy, do we need to do this?
-            histo_data_tmp = hist_data.copy()
-            histo_mc_tmp = hist_mc.copy()
-
             # Integrate to get the categories we want
             # NOTE: Once we merge PR #98, integrating the appl axis should not be necessary
             axes_to_integrate_dict = {}
@@ -263,11 +265,11 @@ def main():
                 axes_to_integrate_dict["appl"] = "isSR_3l"
             else:
                 raise Exception
-            histo_mc_tmp = yt.integrate_out_cats(histo_mc_tmp,axes_to_integrate_dict)
-            histo_data_tmp = yt.integrate_out_cats(histo_data_tmp,axes_to_integrate_dict)
+            hist_mc_integrated = yt.integrate_out_cats(hist_mc,axes_to_integrate_dict)
+            hist_data_integrated = yt.integrate_out_cats(hist_data,axes_to_integrate_dict)
 
             # Create and save the figure
-            fig = make_cr_plot(histo_mc_tmp,histo_data_tmp,unit_norm_bool)
+            fig = make_cr_plot(hist_mc_integrated,hist_data_integrated,unit_norm_bool)
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
