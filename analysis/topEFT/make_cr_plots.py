@@ -76,6 +76,16 @@ CR_GRP_MAP = {
 
 yt = YieldTools()
 
+# Figures out which year a sample is from, retruns the lumi for that year
+def get_lumi_for_sample(sample_name):
+    if "UL17" in sample_name:
+        lumi = 1000.0*get_lumi("2017")
+    elif "UL18" in sample_name:
+        lumi = 1000.0*get_lumi("2018")
+    else:
+        raise Exception("Note yet sure how to handle UL16 vas UL16APV, so just crash for now")
+    return lumi
+
 # Group bins in a hist, returns a new hist
 def group_bins(histo,bin_map):
 
@@ -118,11 +128,9 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
         sum_mc = 0
         sum_data = 0
         for sample in h_mc.values():
-            sum_sample = sum(h_mc.values()[sample])
-            sum_mc = sum_mc + sum_sample
+            sum_mc = sum_mc + sum(h_mc.values()[sample])
         for sample in h_data.values():
-            sum_sample = sum(h_data.values()[sample])
-            sum_data = sum_data + sum_sample
+            sum_data = sum_data + sum(h_data.values()[sample])
         h_mc.scale(1.0/sum_mc)
         h_data.scale(1.0/sum_data)
 
@@ -163,7 +171,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
     ax.autoscale(axis='y')
     ax.set_xlabel(None)
     rax.set_ylabel('Ratio')
-    rax.set_ylim(0,2)
+    rax.set_ylim(0.5,1.5)
 
     return fig
 
@@ -209,11 +217,14 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         hist_mc = dict_of_hists[var_name].remove(["data_UL17"],"sample")
         hist_data = dict_of_hists[var_name].remove(mc_sample_lst,"sample")
 
+        # Normalize the MC hists
+        sample_lumi_dict = {}
+        for sample_name in mc_sample_lst:
+            sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
+        hist_mc.scale(sample_lumi_dict,axis="sample")
+
         # Group the samples by process type
         hist_mc = group_bins(hist_mc,CR_GRP_MAP)
-
-        # Normalize the MC hists
-        hist_mc.scale(1000.0*get_lumi(year))
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
