@@ -157,24 +157,20 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
     return fig
 
 
-
 # Wrapper function to loop over all CR categories and make plots for all variables
 # The input hist should include both the data and MC
 def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
     # Construct list of MC samples
-    sample_lst = yt.get_cat_lables(dict_of_hists,"sample")
+    print("\nAll samples:",yt.get_cat_lables(dict_of_hists,"sample"))
     mc_sample_lst = []
-    for sample_name in sample_lst:
+    for sample_name in yt.get_cat_lables(dict_of_hists,"sample"):
         if "data" not in sample_name:
             mc_sample_lst.append(sample_name)
-    print("\nMC samples:",sample_lst)
 
     # Fill group map (should we just fully hard code this?)
-    for proc_name in sample_lst:
-        if "data" in proc_name:
-            continue
-        elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name:
+    for proc_name in mc_sample_lst:
+        if "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name:
             CR_GRP_MAP["Single top"].append(proc_name)
         elif "DY" in proc_name:
             CR_GRP_MAP["DY"].append(proc_name)
@@ -191,18 +187,16 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
     # Loop over hists and make plots
     skip_lst = ["SumOfEFTweights"] # Skip this hist
-    for var_name in dict_of_hists.keys():
+    for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
-            cat_hist = CR_CHAN_DICT_NO_J
-        else: cat_hist = CR_CHAN_DICT
+            cr_cat_dict = CR_CHAN_DICT_NO_J
+        else:  cr_cat_dict= CR_CHAN_DICT
         print("\nVar name:",var_name)
 
-        # Extract the MC and data hists (do we need to make copies here?)
-        hist_mc = dict_of_hists[var_name].copy()
-        hist_mc = hist_mc.remove(["data_UL17"],"sample")
-        hist_data = dict_of_hists[var_name].copy()
-        hist_data = hist_data.remove(mc_sample_lst,"sample")
+        # Extract the MC and data hists
+        hist_mc = dict_of_hists[var_name].remove(["data_UL17"],"sample")
+        hist_data = dict_of_hists[var_name].remove(mc_sample_lst,"sample")
 
         # Group the samples by process type
         hist_mc = group_bins(hist_mc,CR_GRP_MAP)
@@ -211,7 +205,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         hist_mc.scale(1000.0*get_lumi(year))
 
         # Loop over the CR categories
-        for hist_cat in cat_hist.keys():
+        for hist_cat in cr_cat_dict.keys():
             if (hist_cat == "cr_2los_Z" and "j0" in var_name): continue # The 2los Z category does not require jets
             print("\n\tCategory:",hist_cat)
 
@@ -224,7 +218,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             # NOTE: Once we merge PR #98, integrating the appl axis should not be necessary
             axes_to_integrate_dict = {}
             axes_to_integrate_dict["systematic"] = "nominal"
-            axes_to_integrate_dict["channel"] = cat_hist[hist_cat]
+            axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
             if "2l" in hist_cat:
                 axes_to_integrate_dict["appl"] = "isSR_2l"
             elif "3l" in hist_cat:
@@ -241,8 +235,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             fig.savefig(os.path.join(save_dir_path_tmp,title))
 
             # Make an index.html file if saving to web area
-            if "www" in save_dir_path_tmp:
-                make_html(save_dir_path_tmp)
+            if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
 
 
 def main():
