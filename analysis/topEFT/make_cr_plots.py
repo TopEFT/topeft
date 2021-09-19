@@ -113,6 +113,19 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
     # Set up the colors
     ax.set_prop_cycle(cycler(color=colors))
 
+    # Normalize if we want to dod that
+    if unit_norm_bool:
+        sum_mc = 0
+        sum_data = 0
+        for sample in h_mc.values():
+            sum_sample = sum(h_mc.values()[sample])
+            sum_mc = sum_mc + sum_sample
+        for sample in h_data.values():
+            sum_sample = sum(h_data.values()[sample])
+            sum_data = sum_data + sum_sample
+        h_mc.scale(1.0/sum_mc)
+        h_data.scale(1.0/sum_data)
+
     # Plot the MC
     hist.plot1d(
         h_mc,
@@ -121,7 +134,6 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
         stack=True,
         line_opts=None,
         fill_opts=FILL_OPS,
-        density=unit_norm_bool,
         error_opts=MC_ERROR_OPS,
         clear=False,
     )
@@ -132,7 +144,6 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
         ax=ax,
         error_opts = DATA_ERR_OPS,
         stack=False,
-        density=unit_norm_bool,
         clear=False,
     )
 
