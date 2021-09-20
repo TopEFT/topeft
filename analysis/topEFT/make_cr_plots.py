@@ -71,7 +71,7 @@ CR_GRP_MAP = {
     "Triboson" : [],
     "Single top" : [],
     "Singleboson" : [],
-    "data" : [],
+    "Data" : [],
 }
 
 
@@ -225,15 +225,23 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         data_wl.append("UL18")
     else: raise Exception # Not sure what to do about 2016 vs UL16 yet
 
+    # Get the list of samples we want to plot
+    samples_to_rm_from_mc_hist = []
+    samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists,"sample")
     mc_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
     data_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+    for sample_name in all_samples:
+        if sample_name not in mc_sample_lst:
+            samples_to_rm_from_mc_hist.append(sample_name)
+        if sample_name not in data_sample_lst:
+            samples_to_rm_from_data_hist.append(sample_name)
     print("\nAll samples:",all_samples)
     print("\nMC samples:",mc_sample_lst)
     print("\nData samples:",data_sample_lst)
 
     # Fill group map (should we just fully hard code this?)
-    for proc_name in mc_sample_lst:
+    for proc_name in all_samples:
         if "data" in proc_name:
             CR_GRP_MAP["Data"].append(proc_name)
         elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name:
@@ -261,8 +269,8 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         print("\nVar name:",var_name)
 
         # Extract the MC and data hists
-        hist_mc = dict_of_hists[var_name].remove(data_sample_lst,"sample")
-        hist_data = dict_of_hists[var_name].remove(mc_sample_lst,"sample")
+        hist_mc = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
+        hist_data = dict_of_hists[var_name].remove(samples_to_rm_from_data_hist,"sample")
 
         # Normalize the MC hists
         sample_lumi_dict = {}
@@ -272,6 +280,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
         # Group the samples by process type
         hist_mc = group_bins(hist_mc,CR_GRP_MAP)
+        hist_data = group_bins(hist_data,CR_GRP_MAP)
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
