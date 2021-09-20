@@ -13,7 +13,7 @@ from cycler import cycler
 from topcoffea.plotter.OutText import OutText
 
 class plotter:
-  def __init__(self, path, prDic={}, colors={}, bkgList=[], dataName='data', outpath='./temp/', lumi=59.7, sigList=[]):
+  def __init__(self, path, prDic={}, colors={}, bkgList=[], dataName='data', outpath='./temp/', output=None, lumi=59.7, sigList=[]):
     self.SetPath(path)
     self.SetProcessDic(prDic)
     self.SetBkgProcesses(bkgList)
@@ -21,6 +21,7 @@ class plotter:
     self.SetDataName(dataName)
     self.Load()
     self.SetOutpath(outpath)
+    self.SetOutput(output)
     self.SetLumi(lumi)
     self.SetColors(colors)
     self.SetRegion()
@@ -48,11 +49,13 @@ class plotter:
     ''' Get a dictionary histoname : histogram '''
     if path != '': self.SetPath(path)
     self.hists = {}
-    with gzip.open(self.path) as fin:
-      hin = pickle.load(fin)
-      for k in hin.keys():
-        if k in self.hists: self.hists[k]+=hin[k]
-        else:               self.hists[k]=hin[k]
+    listpath = self.path if isinstance(self.path, list) else [self.path]
+    for path in listpath:
+      with gzip.open(path) as fin:
+        hin = pickle.load(fin)
+        for k in hin.keys():
+          if k in self.hists: self.hists[k]+=hin[k]
+          else:               self.hists[k]=hin[k]
     self.GroupProcesses()
 
   def SetProcessDic(self, prdic, sampleLabel='sample', processLabel='process'):
@@ -104,6 +107,10 @@ class plotter:
   def SetOutpath(self, outpath='./temp/'):
     ''' Set output path '''
     self.outpath = outpath
+    
+  def SetOutput(self, output=None):
+    ''' Set output name '''
+    self.output = output
 
   def SetColors(self, colors={}):
     ''' Set a dictionary with a color for each process '''
@@ -183,13 +190,13 @@ class plotter:
       h = h.group("process", hist.Cat("process", "process"), prdic)
     elif isinstance(process, str): 
       h = h[process].sum("process")
-      sow = sow[process].sum("process")
+      sow = sow[process].sum("sample")
     nwc = sow._nwc
     if nwc > 0:
         sow.set_sm()
         sow = sow.integrate("sample")
         sow = np.sum(sow.values()[()])
-        h.scale(1. / sow) # Divie EFT samples by sum of weights at SM
+        h.scale(1. / sow) # Divide EFT samples by sum of weights at SM
     return h
 
   def doData(self, hname):
@@ -291,7 +298,10 @@ class plotter:
     
     # Save
     os.system('mkdir -p %s'%self.outpath)
-    fig.savefig(os.path.join(self.outpath, hname+'_'+'_'.join(self.region.split())+'.png'))
+    if self.output is None: 
+      self.output = hname
+      fig.savefig(os.path.join(self.outpath, self.output+'.png'))
+    else: fig.savefig(os.path.join(self.outpath, hname+'_'+'_'.join(self.region.split())+'.png'))
 
   def GetYields(self, var='counts'):
     sumy = 0

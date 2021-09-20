@@ -33,6 +33,8 @@ parser.add_argument('--treename'       , default='Events', help = 'Name of the t
 parser.add_argument('--do-errors'      , action='store_true', help = 'Save the w**2 coefficients')
 parser.add_argument('--do-systs', action='store_true', help = 'Run over systematic samples (takes longer)')
 parser.add_argument('--split-lep-flavor', action='store_true', help = 'Split up categories by lepton flavor')
+parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
+parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
 parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
 
 args = parser.parse_args()
@@ -47,6 +49,8 @@ treename   = args.treename
 do_errors  = args.do_errors
 do_systs   = args.do_systs
 split_lep_flavor = args.split_lep_flavor
+skip_sr    = args.skip_sr
+skip_cr    = args.skip_cr
 wc_lst = args.wc_list if args.wc_list is not None else []
 
 ### Load samples from json
@@ -145,7 +149,7 @@ if len(wc_lst) > 0:
 else:
  print('No Wilson coefficients specified')
 
-processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors,do_systs,split_lep_flavor)
+processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
 
 executor_args = {
     'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
