@@ -245,7 +245,7 @@ class plotter:
     ax.set_prop_cycle(cycler(color=colors))
 
     fill_opts  = self.fill_opts
-    error_opts = None#self.error_opts
+    error_opts = self.error_opts
     data_err_opts = self.data_err_opts
     if not self.doStack:
       error_opts = None
