@@ -11,6 +11,12 @@ from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.modules.GetValuesFromJsons import get_lumi
 from topcoffea.plotter.make_html import make_html
 
+# This script takes an input pkl file that should have both data and background MC included.
+# Use the -y option to specify a year, if no year is specified, all years will be included.
+# There are various other options available from the command line.
+# For example, to make unit normalized plots for 2018, with the timestamp appended to the directory name, you would run:    
+#     python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2018 -t -u
+
 # Some options for plotting the data and MC
 DATA_ERR_OPS = {'linestyle':'none', 'marker': '.', 'markersize': 10., 'color':'k', 'elinewidth': 1,}
 MC_ERROR_OPS = {'label': 'Stat. Unc.', 'hatch': '////', 'facecolor': 'none', 'edgecolor': (0,0,0,.5), 'linewidth': 0}
