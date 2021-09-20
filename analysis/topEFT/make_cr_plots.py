@@ -322,6 +322,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
+    parser.add_argument("-n", "--output-name", default="cr_plots", help = "A name for the output directory")
+    parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
     parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
     args = parser.parse_args()
@@ -332,7 +334,9 @@ def main():
     # Make a tmp output directory in curren dir a different dir is not specified
     timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
     save_dir_path = args.output_path
-    outdir_name = "cr_plots_"+timestamp_tag
+    outdir_name = args.output_name
+    if args.include_timestamp_tag:
+        outdir_name = outdir_name + "_" + timestamp_tag
     save_dir_path = os.path.join(save_dir_path,outdir_name)
     os.mkdir(save_dir_path)
 
