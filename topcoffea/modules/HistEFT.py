@@ -19,6 +19,7 @@ import awkward as ak
 import numbers
 
 from coffea.hist.hist_tools import DenseAxis
+from topcoffea.modules.utils import regex_match
 
 import topcoffea.modules.eft_helper as efth
 
@@ -81,6 +82,97 @@ class HistEFT(coffea.hist.Hist):
           part1, _, part2 = wc_string.rpartition(', ')
           msg += ('Defined Wilson coefficients: '+part1 + ', and ' + part2+'.')
         raise LookupError(msg)
+
+  def split_by_terms(self,axis_bins,axis_name='sample'):
+    """ Split the EFT contributions by unique term from the quadratic parameterization
+    Parameters
+    ----------
+        axis_bins : list
+            A list of axis bins that should correspond to bins with an EFT parmeterization. These
+            bins will be summed together and the resulting parameterization split term-by-term to
+            fill a set of new bins in the same axis. Typically, this should correspond to one or
+            more of the private EFT MC samples. The axis bin strings can be regular expressions
+            which will be used to find any matches in the axis.
+        axis_name : str
+            The name of the sparse axis that is to be regrouped. This should almsot always
+            correspond to whichever sparse axis defines the different MC process samples.
+
+    Returns:
+        A new HistEFT with the matched axis bins summed over and the resulting EFT parameterization
+        split up term-by-term, with each term appearing as a new bin in the specified axis. The
+        original axis bins are removed from the axis before returning the histogram
+
+    TODO: We could probably preserve the EFT quadratic information by filling the new histogram with
+          the quadratic coefficient that corresponds to the specific bin being filled.
+    """
+    if self.dense_dim() > 1:
+      raise RuntimeError("Splitting by terms not implemented for histograms with more than 1 dense axis")
+    if not axis_name in self._axes
+      raise KeyError(f"No axis {axis_name} found in {self}")
+    dense_ax = self.dense_axes()[0]
+
+    # Combine together bins that we want to have included in the EFT contributions
+    old_ax = self.axis(axis_name)
+    new_ax = coffea.hist.Cat(old_ax.name,old_ax.label)
+
+    GROUP_NAME = 'signals'
+
+    ident_names = [x.name for x in self.identifiers(axis_name)]
+    to_group = {GROUP_NAME: regex_match(ident_names,regex_lst=axis_bins)}
+    for ident in old_ax.identifiers():  # Should this be 'old_ax' or self.identifiers()?
+      n = ident.name
+      if not n in to_group[GROUP_NAME]:
+        to_group[n] = [n]
+    new_h = self.group(old_ax,new_ax,to_group)
+
+    # Now begin the actual splitting
+    wcs = np.hstack(("sm",new_h._wcnames))
+    wc_vals = np.hstack((np.ones(1),new_h._wcs))
+
+    # First we evaluate the wc0*wc1 part of the quadratic, since this will be the same for every
+    #   bin in the histogram. Each element of 'wc_terms' will correspond to a different term of
+    #   the quadratic, so all that is left is to get the structure constants and multiply
+    #   element-by-element to get the expected yield
+    n_wcs = len(wcs)
+    n_terms = int(n_wcs*(n_wcs+1)/2)
+    iarr = np.zeros(2)
+    wc_terms = np.zeros(n_terms)
+    for idx in range(n_terms):
+      efth.quadratic_term_to_factors(idx,iarr)
+      i,j = [int(x) for x in iarr]
+      val = wc_vals[i]*wc_vals[j]
+      wc_terms[idx] = val
+
+    # This relies heavily on the fact that the ordering of the sparse axes matches the ordering
+    #   in the sparse_key tuple that you get from self._sumw
+    sparse_axes = [x.name for x in new_h.sparse_axes()]
+    sparse_keys = [x for x in new_h._sumw.keys()]
+    for sparse_key in sparse_keys:
+      v = new_h._sumw[sparse_key]
+      if new_h.dense_dim() > 0:
+        is_eft_bin = (v.shape != new_h._dense_shape)
+      else:
+        is_eft_bin = isinstance(v,np.ndarray)
+
+      if is_eft_bin:
+        bins = v[1:-2,...]  # Chop off the '*-flow' bins
+        term_vals = bins*wc_terms
+        for idx,wgts in enumerate(term_vals.T):
+          efth.quadratic_term_to_factors(idx,iarr)    # Get the 'name' of this term
+          i,j = [int(x) for x in iarr]
+          n1 = wcs[i]
+          n2 = wcs[j]
+          fill_info = {}
+          # Just to reiterate, this for loop relies on the fact that the ordering of the sparse axes
+          #   matches the ordering of the sparse key tuple that you get from self._sumw
+          for sp_axis_name,sp_axis_bin in zip(sparse_axes,sparse_key):
+            fill_info[sp_axis_name] = sp_axis_bin
+          fill_info[dense_ax.name] = dense_ax.centers()
+          fill_info['weight'] = wgts
+          fill_info[axis_name] = f"{n1}.{n2}"  # This overwrites the category (which should've been GROUP_NAME)
+          new_h.fill(**fill_info)
+    new_h = new_h.remove([GROUP_NAME],axis_name)
+    return new_h
 
   def copy(self, content=True):
     """ Copy """
@@ -402,7 +494,6 @@ class HistEFT(coffea.hist.Hist):
               
     return out
 
-
   def group(self, old_axes, new_axis, mapping, overflow='none'): 
     """ Group a set of slices on old axes into a single new axis """
     ### WARNING: check that this function works properly... (TODO) --> Are the EFT coefficients properly grouped?
@@ -578,4 +669,3 @@ class HistEFT(coffea.hist.Hist):
       raise NotImplementedError("Scale dense dimension by a factor")
     else:
       raise TypeError("Could not interpret scale factor")
-
