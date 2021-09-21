@@ -126,7 +126,7 @@ class DataDrivenProducer:
                         #scale back by 1/lumi as if it were a MC, so it can be used transparently downstream
                         scaleDict={}
                         for name, year in addedNonPrompts:
-                            scaleDict[name]=1/(1000*get_lumi(year))
+                            scaleDict[name]=1/(1000*get_lumi('20'+year))
                         hFakes.scale( scaleDict, axis='sample')
                         
 
