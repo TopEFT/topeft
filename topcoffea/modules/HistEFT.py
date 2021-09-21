@@ -107,7 +107,7 @@ class HistEFT(coffea.hist.Hist):
     """
     if self.dense_dim() > 1:
       raise RuntimeError("Splitting by terms not implemented for histograms with more than 1 dense axis")
-    if not axis_name in self._axes
+    if not axis_name in self._axes:
       raise KeyError(f"No axis {axis_name} found in {self}")
     dense_ax = self.dense_axes()[0]
 
