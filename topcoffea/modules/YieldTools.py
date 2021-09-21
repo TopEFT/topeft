@@ -2,6 +2,7 @@ import gzip
 import json
 import pickle
 import numpy as np
+import coffea
 from coffea import hist
 #from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
@@ -33,6 +34,7 @@ class YieldTools():
 
         self.APPL_DICT = {
             "2lss" : "isSR_2l",
+            "2los" : "isSR_2l",
             "3l"   : "isSR_3l",
             "4l"   : "isSR_4l",
         }
@@ -135,6 +137,27 @@ class YieldTools():
             p = (float(a)-float(b))/float(b)
         return p
 
+    # Takes two dictionaries, returns the list of lists [common keys, keys unique to d1, keys unique to d2]
+    def get_common_keys(self,dict1,dict2):
+
+        common_lst = []
+        unique_1_lst = []
+        unique_2_lst = []
+
+        # Find common keys, and keys unique to d1
+        for k1 in dict1.keys():
+            if k1 in dict2.keys():
+                common_lst.append(k1)
+            else:
+                unique_1_lst.append(k1)
+
+        # Find keys unique to d2
+        for k2 in dict2.keys():
+            if k2 not in common_lst:
+                unique_2_lst.append(k2)
+
+        return [common_lst,unique_1_lst,unique_2_lst]
+
 
     # Get the per lepton e/m factor from e.g. eee and mmm yields
     def get_em_factor(self,e_val,m_val,nlep):
@@ -149,14 +172,20 @@ class YieldTools():
 
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
-        cats = []
+
         #if h_name is None: h_name = "njets" # Guess a hist that we usually have
         if h_name is None: h_name = "ht" # Guess a hist that we usually have
-        for i in range(len(hin_dict[h_name].axes())):
-            if axis == hin_dict[h_name].axes()[i].name:
-                for cat in hin_dict[h_name].axes()[i].identifiers():
-                    cats.append(cat.name)
-        return cats
+
+        # Chek if what we have is the output of the processsor, if so, get a specific hist from it
+        if isinstance(hin_dict,coffea.processor.accumulator.dict_accumulator):
+            hin_dict = hin_dict[h_name]
+
+        # Note: Use h.identifiers('axis') here, not axis.identifiers() (since according to Nick Smith "the axis may hold identifiers longer than the hist that uses it (hists can share axes)", but h.identifiers('axis') will get the ones actually contained in the histogram)
+        cats_lst = []
+        for identifier in hin_dict.identifiers(axis):
+            cats_lst.append(identifier.name)
+
+        return cats_lst
 
 
     # This should return true if the hist is split by lep flavor, definitely not a bullet proof check..
@@ -172,7 +201,7 @@ class YieldTools():
 
     # Takes a histogram and a dictionary that specifies categories, integrates out the categories listed in the dictionry
     def integrate_out_cats(self,h,cuts_dict):
-        h_ret = h
+        h_ret = h.copy()
         for axis_name,cat_lst in cuts_dict.items():
             h_ret = h_ret.integrate(axis_name,cat_lst)
         return h_ret
@@ -185,6 +214,7 @@ class YieldTools():
         h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [bin_val,bin_val+1]))
         return h
 
+            
 
     # Get the difference between values in nested dictionary, currently can get either percent diff, or absolute diff
     # Returns a dictionary in the same format (currently does not propagate errors, just returns None)
@@ -195,27 +225,32 @@ class YieldTools():
     #   }
     def get_diff_between_nested_dicts(self,dict1,dict2,difftype):
 
+        # Get list of keys common to both dictionaries
+        common_keys, d1_keys, d2_keys = self.get_common_keys(dict1,dict2)
+        if len(d1_keys+d2_keys) > 0:
+            print(f"\nWARNING, keys {d1_keys+d2_keys} are not in both dictionaries.")
+
         ret_dict = {}
-        for k1 in dict1.keys():
+        for k in common_keys:
 
-            if k1 in dict2.keys():
-                ret_dict[k1] = {}
-                for subk1 in dict1[k1].keys():
-                    if subk1 not in dict2[k1].keys():
-                        raise Exception("These dictionaries do not have the same structure. Exiting...")
-                    v1,e1 = dict1[k1][subk1]
-                    v2,e1 = dict2[k1][subk1]
-                    if difftype == "percent_diff":
-                        ret_diff = self.get_pdiff(v1,v2)
-                    elif difftype == "absolute_diff":
-                        ret_diff = v1 - v2
-                    else:
-                        raise Exception(f"Unknown diff type: {difftype}. Exiting...")
+            ret_dict[k] = {}
 
-                    ret_dict[k1][subk1] = (ret_diff,None)
-            else:
-                print(f"WARNING, key {k1} is not in both dictionaries. Continuing...")
-                continue
+            # Get list of sub keys common to both sub dictionaries
+            common_subkeys, d1_subkeys, d2_subkeys = self.get_common_keys(dict1[k],dict2[k])
+            if len(d1_subkeys+d2_subkeys) > 0:
+                print(f"\tWARNING, sub keys {d1_subkeys+d2_subkeys} are not in both dictionaries.")
+
+            for subk in common_subkeys:
+                v1,e1 = dict1[k][subk]
+                v2,e1 = dict2[k][subk]
+                if difftype == "percent_diff":
+                    ret_diff = self.get_pdiff(v1,v2)
+                elif difftype == "absolute_diff":
+                    ret_diff = v1 - v2
+                else:
+                    raise Exception(f"Unknown diff type: {difftype}. Exiting...")
+
+                ret_dict[k][subk] = (ret_diff,None)
 
         return ret_dict
 
@@ -369,14 +404,11 @@ class YieldTools():
 
 
     # Print out all the info about all the axes in a hist
-    def print_hist_info(self,path):
+    def print_hist_info(self,path,h_name="njets"):
 
         if type(path) is str: hin_dict = self.get_hist_from_pkl(path)
         else: hin_dict = path
 
-        #h_name = "ht"
-        h_name = "njets"
-        #h_name = "SumOfEFTweights"
         for i in range(len(hin_dict[h_name].axes())):
             print(f"\n{i} Aaxis name:",hin_dict[h_name].axes()[i].name)
             for cat in hin_dict[h_name].axes()[i].identifiers():
