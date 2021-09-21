@@ -33,7 +33,7 @@ class DataDrivenProducer:
             self.outHist['SumOfEFTweights']=self.inhist['SumOfEFTweights']
             SumOfEFTweights=self.inhist['SumOfEFTweights']
             SumOfEFTweights.set_sm()
-            self.smsow = {proc: SumOfEFTweights.integrate('sample', proc).values()[()][0] for proc in SumOfEFTweights.identifiers('sample')}
+            self.smsow = {proc: SumOfEFTweights.integrate('sample', proc).values()[()][0] for proc in SumOfEFTweights.identifiers('sample') if SumOfEFTweights.integrate('sample', proc)._nwc} # get only samples with EFT stuff
 
         for key,histo in self.inhist.items():
             if key == 'SumOfEFTweights': 
@@ -77,7 +77,7 @@ class DataDrivenProducer:
                     for appl in histo.integrate('sample',sample).identifiers('appl'):
                         if 'AR' not in appl.name: # we only care about AR 
                             continue
-                        smweight = self.smsow[sample.name] if sample.name in self.smsow else 1 # dont reweight central samples
+                        smweight = self.smsow[sample] if sample in self.smsow else 1 # dont reweight samples not in smsow
                         scale_dict[(appl, sample)] = 1000*get_lumi('20'+year)/smweight
                 histo.scale( scale_dict, axis=('appl','sample'))
 
