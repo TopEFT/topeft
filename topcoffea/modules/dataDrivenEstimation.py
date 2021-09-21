@@ -55,9 +55,7 @@ class DataDrivenProducer:
                     newhist = newhist + h # sum doesnt work for some reason...
             else:
 
-                # First we are gonna scale all MC processes in the AR by the luminosity
-                # we wont do anything to stuff in the SR because we only want the scaling for the 
-                # prompt subtraction
+                # First we are gonna scale all MC processes in  by the luminosity
                 name_regex='(?P<sample>.*)UL(?P<year>.*)'
                 pattern=re.compile(name_regex)
 
@@ -73,14 +71,12 @@ class DataDrivenProducer:
 
                     if self.dataName == sampleName or self.chargeFlipName == sampleName:
                         continue # We do not scale data or data-driven at all 
+                    smweight = self.smsow[sample] if sample in self.smsow else 1 # dont reweight samples not in smsow
+                    scale_dict[(sample, )] = 1000*get_lumi('20'+year)/smweight
 
-                    for appl in histo.integrate('sample',sample).identifiers('appl'):
-                        if 'AR' not in appl.name: # we only care about AR 
-                            continue
-                        smweight = self.smsow[sample] if sample in self.smsow else 1 # dont reweight samples not in smsow
-                        scale_dict[(appl, sample)] = 1000*get_lumi('20'+year)/smweight
-                histo.scale( scale_dict, axis=('appl','sample'))
-
+                prescale=histo.values().copy()
+                histo.scale( scale_dict, axis=('sample',))
+                postscale=histo.values()
 
                 # now for each year we actually perform the subtraction and integrate out the application regions
                 newhist=None
@@ -123,11 +119,6 @@ class DataDrivenProducer:
                         hPromptSub.scale(-1)
                         hFakes=hFakes+hPromptSub
 
-                        #scale back by 1/lumi as if it were a MC, so it can be used transparently downstream
-                        scaleDict={}
-                        for name, year in addedNonPrompts:
-                            scaleDict[name]=1/(1000*get_lumi('20'+year))
-                        hFakes.scale( scaleDict, axis='sample')
                         
 
                         # now adding them to the list of processes: 
@@ -135,6 +126,19 @@ class DataDrivenProducer:
                             newhist=hFakes
                         else:
                             newhist=newhist+hFakes
+
+                # scale back by 1/lumi all processes but data so they can be used transparently downtream
+                # mind that we scaled all mcs already above
+                scaleDict={}
+                for sample in newhist.identifiers('sample'):
+                    match = pattern.search(sample.name)
+                    sampleName=match.group('sample')
+                    if self.dataName == sampleName or self.chargeFlipName == sampleName:
+                        continue
+                    year=match.group('year')
+                    scaleDict[sample]=1/(1000*get_lumi('20'+year))
+                print(scaleDict)
+                newhist.scale( scaleDict, axis='sample')
             
 
             self.outHist[key]=newhist
