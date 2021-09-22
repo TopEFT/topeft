@@ -112,7 +112,8 @@ def AttachMuonSF(muons, year=2018):
   '''
   eta = np.abs(muons.eta)
   pt = muons.pt
-
+  
+  if '2016' in year: year=2016
   loose_sf  = SFevaluator['MuonLooseSF_{year}'.format(year=year)](eta,pt)
   loose_err = SFevaluator['MuonLooseSF_{year}_er'.format(year=year)](eta,pt)
 
@@ -132,7 +133,7 @@ def AttachElectronSF(electrons, year=2018):
   # eta = np.abs(electrons.eta)
   eta = electrons.eta
   pt = electrons.pt
-
+  if '2016' in year: year=2016
   # For the ElecRecoSF we dont take the absolute value of eta!
   reco_sf          = SFevaluator['ElecRecoSF_{year}'.format(year=year)](eta,pt)
   reco_sf_err      = SFevaluator['ElecRecoSF_{year}_er'.format(year=year)](eta,pt)

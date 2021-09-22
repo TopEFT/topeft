@@ -3,6 +3,11 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 ### Plotting Scripts
 
+* `make_cr_plots.py`:
+    - This script makes plots for all CRs categories. 
+    - The script takes as input a pkl file that should have both data and background MC included.
+    - Example usage: `python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2018 -t -u`
+
 * `genPlot.py`:
 
 * `plot.py`:

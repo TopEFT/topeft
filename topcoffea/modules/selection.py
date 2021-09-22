@@ -203,7 +203,7 @@ def add2lMaskAndSFs(events, year, isData):
 
     # 2l requirements:
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
-    dilep = (ak.num(FOs)) >= 2 
+    dilep = (ak.num(FOs)) >= 2
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
     mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge)
     events['is2l'] = ak.fill_none(mask,False)
@@ -335,3 +335,13 @@ def addLepCatMasks(events):
     events['is_emmm'] = ((n_e_4l==1) & (n_m_4l==3))
     events['is_mmmm'] = ((n_e_4l==0) & (n_m_4l==4))
     events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
+
+
+# Returns a mask for events with a same flavor opposite sign pair close to the Z
+# Mask will be True if any combination of 2 leptons from within the given collection satisfies the requirement
+def get_Z_peak_mask(lep_collection,pt_window):
+    ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
+    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<pt_window)
+    sfos_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
+    sfosz_mask = ak.flatten(ak.any((zpeak_mask & sfos_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
+    return sfosz_mask

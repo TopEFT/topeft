@@ -1,0 +1,33 @@
+{
+  "xsec": 3.68,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "ST_top_s-channel_centralUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/70000/3847EA81-6EF7-A14E-9EEE-BAB10ED91F70.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/70000/DF08C97A-27BE-D148-AC10-881A50BF4851.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/70000/5AF21A8B-E022-674A-BDC7-25FB484CC2F7.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/25512694-F4A4-E541-BB2E-688B94C70B0A.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/4D471B67-9280-B54B-9423-446616DC26AB.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/A33DAC37-D55A-0949-8777-0C1B06AD3ADE.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/99765A13-BE5B-8745-93DA-02C011DA9DA5.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/FFCE8491-D3E7-844A-ABE7-9A05A2B98409.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/A339AE16-7CAF-EB40-B6B3-0E3177B068FE.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/671A6210-22C3-0948-9CF0-4FD1ED9E8EE7.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/4E56432C-F800-174C-AC35-99919BEF1B8A.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/D93B03C3-2ABD-8843-8472-4C4874E96BDD.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/120000/957DD14B-055F-A64A-9FD3-975356103FCF.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/120000/6F471BFE-BFD5-0847-8C5A-626A7C865EF0.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/270000/E69AF5EF-7366-7345-A3A4-F09721CD2F9B.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/270000/FC68F518-B123-8B4D-A145-CF486DC5C661.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/270000/931EC8CA-5B2B-2C42-8FB4-A0AFDF5F12A3.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/130000/0139846D-D9B9-D34D-971F-F6855E4989CF.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/130000/6AD505E6-ABEF-4640-B8EA-F22820EE3203.root"
+  ],
+  "nEvents": 19365999,
+  "nGenEvents": 19365999,
+  "nSumOfWeights": 68767082.31869163,
+  "isData": false
+}

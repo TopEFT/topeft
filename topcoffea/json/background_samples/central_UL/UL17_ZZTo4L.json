@@ -1,0 +1,22 @@
+{
+  "xsec": 1.256,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "ZZTo4L_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIIFall17NanoAODv7/ZZTo4L_13TeV_powheg_pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/130000/69A1FA1F-68F3-4C4E-AC35-55932C0C80FF.root",
+    "/store/mc/RunIIFall17NanoAODv7/ZZTo4L_13TeV_powheg_pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/130000/0DAA44E9-AA51-ED45-90A9-CB4B0B676A3B.root",
+    "/store/mc/RunIIFall17NanoAODv7/ZZTo4L_13TeV_powheg_pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/130000/0B039A97-B848-4649-80CA-4ECDA193E3A4.root",
+    "/store/mc/RunIIFall17NanoAODv7/ZZTo4L_13TeV_powheg_pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/130000/D02159B7-841F-0D40-95B8-0FC204853760.root",
+    "/store/mc/RunIIFall17NanoAODv7/ZZTo4L_13TeV_powheg_pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/130000/4092A808-DE70-0543-A443-87851D8BAB71.root",
+    "/store/mc/RunIIFall17NanoAODv7/ZZTo4L_13TeV_powheg_pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/130000/922BC016-A3B0-F54F-B0B2-2BE221D113E6.root",
+    "/store/mc/RunIIFall17NanoAODv7/ZZTo4L_13TeV_powheg_pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/130000/AFB2AE21-CAFF-3D4E-B27D-D5F909618CC8.root",
+    "/store/mc/RunIIFall17NanoAODv7/ZZTo4L_13TeV_powheg_pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/120000/83D64732-6409-FC48-BD9E-51DC6397567D.root"
+  ],
+  "nEvents": 6964071,
+  "nGenEvents": 6964071,
+  "nSumOfWeights": 9226778.3608,
+  "isData": false
+}
