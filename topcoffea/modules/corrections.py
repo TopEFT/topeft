@@ -15,6 +15,7 @@ import pickle
 from coffea.jetmet_tools import FactorizedJetCorrector, JetCorrectionUncertainty
 from coffea.jetmet_tools import JECStack, CorrectedJetsFactory
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
+from topcoffea.modules.GetValuesFromJsons import get_param
 
 basepathFromTTH = 'data/fromTTH/'
 
@@ -86,6 +87,7 @@ extLepSF.finalize()
 SFevaluator = extLepSF.make_evaluator()
 
 def AttachPerLeptonFR(leps, flavor, year=2018):
+  if year == '2016APV': year = 2016
   fr=SFevaluator['{flavor}FR_{year}'.format(flavor=flavor,year=year)](np.abs(leps.eta), leps.conept )
   leps['fakefactor']=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
 
@@ -112,7 +114,7 @@ def AttachMuonSF(muons, year=2018):
   '''
   eta = np.abs(muons.eta)
   pt = muons.pt
-
+  if year == '2016APV': year = '2016'
   loose_sf  = SFevaluator['MuonLooseSF_{year}'.format(year=year)](eta,pt)
   loose_err = SFevaluator['MuonLooseSF_{year}_er'.format(year=year)](eta,pt)
 
@@ -132,7 +134,7 @@ def AttachElectronSF(electrons, year=2018):
   # eta = np.abs(electrons.eta)
   eta = electrons.eta
   pt = electrons.pt
-
+  if year == '2016APV': year = 2016
   # For the ElecRecoSF we dont take the absolute value of eta!
   reco_sf          = SFevaluator['ElecRecoSF_{year}'.format(year=year)](eta,pt)
   reco_sf_err      = SFevaluator['ElecRecoSF_{year}_er'.format(year=year)](eta,pt)
@@ -184,6 +186,7 @@ def GetBtagEff(eta, pt, flavor, year=2018):
 def GetBTagSF(eta, pt, flavor, year=2018, sys=0):
 
   # Efficiencies and SFs for UL only available for 2017 and 2018
+  if year == '2016APV': year = 2016
   if   year == 2016: SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/DeepFlav_2016.csv"),"MEDIUM")
   elif year == 2017: SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL17.csv"),"MEDIUM")
   elif year == 2018: SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18.csv"),"MEDIUM")
@@ -193,6 +196,58 @@ def GetBTagSF(eta, pt, flavor, year=2018, sys=0):
   elif sys==-1: SF=SFevaluatorBtag.eval("down",flavor,eta,pt)
 
   return (SF)
+
+###### Pileup reweighing
+##############################################
+## Get central PU data and MC profiles and calculate reweighting
+## Using the current UL recommendations in:
+##   https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData
+##   - 2018: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/PileUp/UltraLegacy/
+##   - 2017: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions17/13TeV/PileUp/UltraLegacy/
+##   - 2016: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/PileUp/UltraLegacy/
+##
+## MC histograms from:
+##    https://github.com/CMS-LUMI-POG/PileupTools/
+
+pudirpath = topcoffea_path('data/pileup/')
+
+def GetDataPUname(year='2017', var=0):
+  ''' Returns the name of the file to read pu observed distribution '''
+  if year == '2016APV': year = 2016
+  if   var== 0: ppxsec = get_param("pu_w")
+  elif var== 1: ppxsec = get_param("pu_w_up")
+  elif var==-1: ppxsec = get_param("pu_w_down")
+  year = str(year)
+  return 'PileupHistogram-goldenJSON-13tev-%s-%sub-99bins.root'%((year), str(ppxsec))
+
+MCPUfile = {'2016APV':'pileup_2016BF.root', '2016':'pileup_2016GH.root', '2017':'pileup_2017_shifts.root', '2018':'pileup_2018_shifts.root'}
+def GetMCPUname(year='2017'):
+  ''' Returns the name of the file to read pu MC profile '''
+  return MCPUfile[str(year)]
+
+PUfunc = {}
+### Load histograms and get lookup tables (extractors are not working here...)
+for year in ['2016', '2016APV', '2017', '2018']:
+  PUfunc[year] = {}
+  with uproot.open(pudirpath+GetMCPUname(year)) as fMC:
+    hMC = fMC['pileup']
+    PUfunc[year]['MC'] = lookup_tools.dense_lookup.dense_lookup(hMC .values(), hMC.axis(0).edges())
+  with uproot.open(pudirpath+GetDataPUname(year,  0)) as fData:
+    hD   = fData  ['pileup']
+    PUfunc[year]['Data'  ] = lookup_tools.dense_lookup.dense_lookup(hD  .values(), hD.axis(0).edges())
+  with uproot.open(pudirpath+GetDataPUname(year,  1)) as fDataUp:
+    hDUp = fDataUp['pileup']
+    PUfunc[year]['DataUp'] = lookup_tools.dense_lookup.dense_lookup(hDUp.values(), hD.axis(0).edges())
+  with uproot.open(pudirpath+GetDataPUname(year, -1)) as fDataDo:
+    hDDo = fDataDo['pileup']
+    PUfunc[year]['DataDo'] = lookup_tools.dense_lookup.dense_lookup(hDDo.values(), hD.axis(0).edges())
+
+def GetPUSF(nTrueInt, year, var=0):
+  year = str(year)
+  nMC  =PUfunc[year]['MC'](nTrueInt+1)
+  nData=PUfunc[year]['DataUp' if var == 1 else ('DataDo' if var == -1 else 'Data')](nTrueInt)
+  weights = np.divide(nData,nMC)
+  return weights
 
 ###### JEC corrections (2018)
 ##############################################

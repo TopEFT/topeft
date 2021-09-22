@@ -10,7 +10,7 @@ def get_lumi(year):
     return lumi
 
 # Retrun the param value from params.json for a given param name
-def get_cut(param_name):
+def get_param(param_name):
     param_json = topcoffea_path("json/params.json")
     with open(param_json) as f_params:
        params = json.load(f_params)

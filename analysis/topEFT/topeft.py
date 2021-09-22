@@ -12,9 +12,9 @@ from coffea.util import load, save
 from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
-from topcoffea.modules.GetValuesFromJsons import get_cut
+from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
@@ -203,11 +203,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Loose DeepJet WP
         # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
         if year == "2017":
-            btagwpl = get_cut("btag_wp_loose_UL17")
+            btagwpl = get_param("btag_wp_loose_UL17")
         elif year == "2018":
-            btagwpl = get_cut("btag_wp_loose_UL18")
+            btagwpl = get_param("btag_wp_loose_UL18")
         elif ((year=="2016") or (year=="2016APV")):
-            btagwpl = get_cut("btag_wp_loose_L16")
+            btagwpl = get_param("btag_wp_loose_L16")
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
@@ -217,11 +217,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Medium DeepJet WP
         # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
         if year == "2017": 
-            btagwpm = get_cut("btag_wp_medium_UL17")
+            btagwpm = get_param("btag_wp_medium_UL17")
         elif year == "2018":
-            btagwpm = get_cut("btag_wp_medium_UL18")
+            btagwpm = get_param("btag_wp_medium_UL18")
         elif ((year=="2016") or (year=="2016APV")):
-            btagwpm = get_cut("btag_wp_medium_L16")
+            btagwpm = get_param("btag_wp_medium_L16")
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
@@ -285,19 +285,20 @@ class AnalysisProcessor(processor.ProcessorABC):
         for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
-            weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
-            if "2l" in ch_name:
-                weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
-            if "3l" in ch_name:
-                weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
-            if "4l" in ch_name:
-                weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
+            if not isData:
+              weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
+              weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
+              if "2l" in ch_name:
+                  weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
+              if "3l" in ch_name:
+                  weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
+              if "4l" in ch_name:
+                  weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
 
         # Systematics
         systList = ["nominal"]
         if not isData:
-            if self._do_systematics: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
-
+            if self._do_systematics: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown",'PUUp', 'PUDown']
 
         ######### EFT coefficients ##########
 
