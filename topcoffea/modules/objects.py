@@ -26,7 +26,7 @@ def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
 def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
 
     # Get the btag wp for the year
-    if ((year == "2016") or (year == "L16APV")):
+    if ((year == "2016") or (year == "2016APV")):
         wploose  = get_param("btag_wp_loose_L16")
         wpmedium = get_param("btag_wp_medium_L16")
     elif (year == "2017"):
