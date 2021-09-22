@@ -257,14 +257,16 @@ class HistEFT(coffea.hist.Hist):
       for rkey in right.keys():
         lkey = tuple(self.axis(rax).index(rax[ridx]) for rax, ridx in zip(raxes, rkey))
         if lkey in left and left[lkey] is not None:
-          # Checking to make sure we don't accidentally try to sum a regular and EFT bin
-          if self.dense_dim() > 0:
-            if left[lkey].shape != right[rkey].shape:
-              raise ValueError("Attempt to add histogram bins with EFT weights to ones without.")
+          # Check if we're trying to sum a regular and EFT bin
+          if ((self.dense_dim() > 0) and (left[lkey].shape != right[rkey].shape)):
+            if left[lkey].shape[0] == right[rkey].shape[0]:
+              left[lkey][:,0] = left[lkey][:,0] + right[rkey]
+            else:
+              raise ValueError("Cannot sum hists with different numbers of bins")
+          elif ((self.dense_dim() < 1) and (isinstance(left[lkey],np.ndarray) != isinstance(right[rkey],np.ndarray))):
+            raise ValueError("Attempt to add histogram bins with EFT weights to ones without.")
           else:
-            if isinstance(left[lkey],np.ndarray) != isinstance(right[rkey],np.ndarray):
-              raise ValueError("Attempt to add histogram bins with EFT weights to ones without.")
-          left[lkey] += right[rkey]
+            left[lkey] += right[rkey]
         else:
           left[lkey] = copy.deepcopy(right[rkey])
 
@@ -375,14 +377,19 @@ class HistEFT(coffea.hist.Hist):
     for key in self._sumw.keys():
       new_key = tuple(k for i, k in enumerate(key) if i not in sparse_drop)
       if new_key in out._sumw:
-        # Check that we're not trying to combine EFT and non-EFT bins
-        if self.dense_dim() > 0:
-          if out._sumw[new_key].shape != self._sumw[key].shape:
-            raise ValueError("Attempt to sum bins with EFT weights to ones without.")
+        # Check if we're trying to combine EFT and non-EFT bins
+        if ((self.dense_dim() > 0) and (out._sumw[new_key].shape != self._sumw[key].shape)):
+          if out._sumw[new_key].shape[0] == self._sumw[key].shape[0]:
+            print("Adding the non eft biN!!!")
+            print("b out._sumw[new_key][:,0]",out._sumw[new_key][:,0])
+            out._sumw[new_key][:,0] = out._sumw[new_key][:,0] + self._sumw[key]
+            print("a out._sumw[new_key][:,0]",out._sumw[new_key][:,0])
+          else:
+            raise ValueError("Cannot sum hists with different numbers of bins")
+        elif ((self.dense_dim() == 0) and (isinstance(out._sumw[new_key],np.ndarray) != isinstance(self._sumw[key],np.ndarray))):
+          raise ValueError("Attempt to sum bins with EFT weights to ones without.")
         else:
-          if isinstance(out._sumw[new_key],np.ndarray) != isinstance(self._sumw[key],np.ndarray):
-            raise ValueError("Attempt to sum bins with EFT weights to ones without.")
-        out._sumw[new_key] += dense_op(self._sumw[key])
+          out._sumw[new_key] += dense_op(self._sumw[key])
         if self._sumw2 is not None:
           if self._sumw2[key] is not None:
             if out._sumw2[new_key] is not None:
