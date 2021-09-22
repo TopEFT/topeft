@@ -29,5 +29,9 @@
     "btag_wp_loose_UL18"  : 0.0490,
     "btag_wp_medium_L16"  : 0.3093,
     "btag_wp_medium_UL17" : 0.3040,
-    "btag_wp_medium_UL18" : 0.2783
+    "btag_wp_medium_UL18" : 0.2783,
+    
+    "pu_w" : 69200,
+    "pu_w_up" : 72400,
+    "pu_w_down" : 66000
 }
