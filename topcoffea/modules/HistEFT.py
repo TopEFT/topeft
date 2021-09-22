@@ -380,10 +380,7 @@ class HistEFT(coffea.hist.Hist):
         # Check if we're trying to combine EFT and non-EFT bins
         if ((self.dense_dim() > 0) and (out._sumw[new_key].shape != self._sumw[key].shape)):
           if out._sumw[new_key].shape[0] == self._sumw[key].shape[0]:
-            print("Adding the non eft biN!!!")
-            print("b out._sumw[new_key][:,0]",out._sumw[new_key][:,0])
             out._sumw[new_key][:,0] = out._sumw[new_key][:,0] + self._sumw[key]
-            print("a out._sumw[new_key][:,0]",out._sumw[new_key][:,0])
           else:
             raise ValueError("Cannot sum hists with different numbers of bins")
         elif ((self.dense_dim() == 0) and (isinstance(out._sumw[new_key],np.ndarray) != isinstance(self._sumw[key],np.ndarray))):
