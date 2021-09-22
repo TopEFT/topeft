@@ -19,6 +19,7 @@ setuptools.setup(
             "data/btagSF/UL/*.pkl.gz",
             "data/btagSF/UL/*.csv",
             "data/btagSF/*.csv",
+            "data/pileup/*.root"
         ],
     }
 )
