@@ -1,7 +1,7 @@
 import argparse
 from coffea import hist, processor
 from topcoffea.modules.YieldTools import YieldTools
-from topcoffea.modules.GetValuesFromJsons import get_lumi
+from topcoffea.modules.GetValuesFromJsons import get_lumi, get_cut
 import cloudpickle
 from collections import defaultdict 
 import re, gzip
@@ -21,7 +21,7 @@ class DataDrivenProducer:
         self.dataName='data'
         self.chargeFlipName='chargeFip' # place holder, to implement in the future
         self.outHist=None
-
+        self.promptSubtractionSamples=get_cut('prompt_subtraction_samples')
         self.DDFakes()
 
     def DDFakes(self):
@@ -105,10 +105,10 @@ class DataDrivenProducer:
                             if self.dataName==sampleName:
                                 newNameDictData[nonPromptName].append(sample.name)
                                 addedNonPrompts.append( (nonPromptName, year)) # keep it to rescale later
-                            else: 
-                                # To do: hard code a list of samples we actually want to subtract? 
-                                # if we run over, say, ttbar mc it doesn't make sense to subtract that
+                            elif sampleName in self.promptSubtractionSamples: 
                                 newNameDictNoData[nonPromptName].append(sample.name)
+                            else:
+                                print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
                         
                         hFakes=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
                     
