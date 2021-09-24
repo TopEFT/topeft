@@ -33,7 +33,7 @@ class DataDrivenProducer:
             self.outHist['SumOfEFTweights']=self.inhist['SumOfEFTweights']
             SumOfEFTweights=self.inhist['SumOfEFTweights']
             SumOfEFTweights.set_sm()
-            self.smsow = {proc: SumOfEFTweights.integrate('sample', proc).values()[()][0] for proc in SumOfEFTweights.identifiers('sample') if SumOfEFTweights.integrate('sample', proc)._nwc} # get only samples with EFT stuff
+            self.smsow = {proc: SumOfEFTweights.integrate('sample', proc).values()[()][0] for proc in SumOfEFTweights.identifiers('sample') if (len(SumOfEFTweights.integrate('sample', proc)._sumw[()].shape)==2)} # get only samples with EFT stuff
 
         for key,histo in self.inhist.items():
             if key == 'SumOfEFTweights': 
