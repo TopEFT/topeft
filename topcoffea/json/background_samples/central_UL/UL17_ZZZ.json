@@ -6,13 +6,24 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/mc/RunIISummer20UL17NanoAODv2/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/240000/493AE326-C532-B547-B5FA-7BD7EF95162C.root",
-    "/store/mc/RunIISummer20UL17NanoAODv2/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/30000/77C71D3B-1F56-D64D-A79A-2C8507416DEB.root",
-    "/store/mc/RunIISummer20UL17NanoAODv2/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/00000/7C3AD723-551F-754C-A5EA-B1B1AC52E89F.root",
-    "/store/mc/RunIISummer20UL17NanoAODv2/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v8-v1/230000/16BFACB7-7771-B840-8A7D-7494E5CC4D28.root"
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/270000/AB1B62F3-DF8F-BC4C-8FA4-A2B65BF64A36.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/130000/3E4D01BD-F202-0241-9496-1B56DF7C6E53.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/270000/34B95136-35EE-B549-9CA6-811A9517076F.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/280000/C862C5D8-7F95-894E-9FA9-BB4DF4E83DB7.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/130000/E72DED40-55BA-7C44-9985-29C19BFE945E.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/270000/0DF33197-A790-E743-8E53-546DF9FC2B28.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/270000/31FF0C1C-A5FC-694F-9DB2-5F3EB3E7A136.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/280000/6B6EAF3C-9677-5849-99F0-6AAF8B8798E5.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/120000/3877BF54-84D7-4D4C-8FD3-C2FF2331F786.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/280000/ECEE2B97-4142-2E40-85D9-6F68BABBA598.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/270000/2C0FD613-1F76-6144-89E9-046684531726.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/270000/29D7C5B5-57A0-6745-B5FF-95A780389841.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/280000/9A53BA24-4B1E-FF47-8159-157F2E1D04E8.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/70000/0CD8A2D1-E450-F846-8047-F0B2491B880E.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/280000/8D12E8A6-640C-3C48-BD48-2D773CBA2D87.root"
   ],
   "nEvents": 178000,
   "nGenEvents": 178000,
-  "nSumOfWeights": 2628.4716708940005,
+  "nSumOfWeights": 2628.471670894,
   "isData": false
 }
