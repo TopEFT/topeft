@@ -47,6 +47,8 @@
 	"ttllJet_private",
 	"ttlnuJet_private",
 	"tttt_private"
-    ]
-
+    ],
+    "pu_w" : 69200,
+    "pu_w_up" : 72400,
+    "pu_w_down" : 66000
 }

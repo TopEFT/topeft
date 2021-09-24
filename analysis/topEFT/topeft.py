@@ -12,9 +12,9 @@ from coffea.util import load, save
 from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 
-from topcoffea.modules.GetValuesFromJsons import get_cut
+from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
@@ -216,11 +216,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Loose DeepJet WP
         # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
         if year == "2017":
-            btagwpl = get_cut("btag_wp_loose_UL17")
+            btagwpl = get_param("btag_wp_loose_UL17")
         elif year == "2018":
-            btagwpl = get_cut("btag_wp_loose_UL18")
+            btagwpl = get_param("btag_wp_loose_UL18")
         elif ((year=="2016") or (year=="2016APV")):
-            btagwpl = get_cut("btag_wp_loose_L16")
+            btagwpl = get_param("btag_wp_loose_L16")
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
@@ -230,11 +230,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Medium DeepJet WP
         # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
         if year == "2017": 
-            btagwpm = get_cut("btag_wp_medium_UL17")
+            btagwpm = get_param("btag_wp_medium_UL17")
         elif year == "2018":
-            btagwpm = get_cut("btag_wp_medium_UL18")
+            btagwpm = get_param("btag_wp_medium_UL18")
         elif ((year=="2016") or (year=="2016APV")):
-            btagwpm = get_cut("btag_wp_medium_L16")
+            btagwpm = get_param("btag_wp_medium_L16")
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
@@ -311,7 +311,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Systematics
         systList = ["nominal"]
         if self._do_systematics and not isData: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
-
 
         ######### EFT coefficients ##########
 

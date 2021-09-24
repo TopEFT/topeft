@@ -1,7 +1,7 @@
 import argparse
 from coffea import hist, processor
 from topcoffea.modules.YieldTools import YieldTools
-from topcoffea.modules.GetValuesFromJsons import get_lumi, get_cut
+from topcoffea.modules.GetValuesFromJsons import get_lumi, get_param
 import cloudpickle
 from collections import defaultdict 
 import re, gzip
@@ -21,7 +21,7 @@ class DataDrivenProducer:
         self.dataName='data'
         self.chargeFlipName='chargeFip' # place holder, to implement in the future
         self.outHist=None
-        self.promptSubtractionSamples=get_cut('prompt_subtraction_samples')
+        self.promptSubtractionSamples=get_param('prompt_subtraction_samples')
         self.DDFakes()
 
     def DDFakes(self):
