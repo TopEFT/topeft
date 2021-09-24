@@ -260,9 +260,20 @@ class HistEFT(coffea.hist.Hist):
           # Check if we're trying to sum a regular and EFT bin
           if ((self.dense_dim() > 0) and (left[lkey].shape != right[rkey].shape)):
             if left[lkey].shape[0] == right[rkey].shape[0]:
-              left[lkey][:,0] = left[lkey][:,0] + right[rkey]
+              # Add the non-EFT bin contents to the 0th element (SM element) of the EFT bin
+              # But first we have to know which hist is the EFT one
+              if len(left[lkey].shape) == 2:
+                # The left hist is the one with eft weights
+                left[lkey][:,0] = left[lkey][:,0] + right[rkey] 
+              elif len(right[rkey].shape) == 2:
+                # The right hist is the one with eft weights
+                # So the SM part is right[rkey][:,0] + left[lkey]
+                # And the EFT part is right[rkey][:,1:]
+                left[lkey] = np.column_stack(((right[rkey][:,0] + left[lkey]),right[rkey][:,1:]))
+              else:
+                raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
             else:
-              raise ValueError("Cannot sum hists with different numbers of bins")
+              raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
           elif ((self.dense_dim() < 1) and (isinstance(left[lkey],np.ndarray) != isinstance(right[rkey],np.ndarray))):
             raise ValueError("Attempt to add histogram bins with EFT weights to ones without.")
           else:
@@ -380,9 +391,20 @@ class HistEFT(coffea.hist.Hist):
         # Check if we're trying to combine EFT and non-EFT bins
         if ((self.dense_dim() > 0) and (out._sumw[new_key].shape != self._sumw[key].shape)):
           if out._sumw[new_key].shape[0] == self._sumw[key].shape[0]:
-            out._sumw[new_key][:,0] = out._sumw[new_key][:,0] + self._sumw[key]
+            # Add the non-EFT bin contents to the 0th element (SM element) of the EFT bin
+            # But first we have to know which hist is the EFT one
+            if len(out._sumw[new_key].shape) == 2:
+              # The out hist is the one with eft weights
+              out._sumw[new_key][:,0] = out._sumw[new_key][:,0] + self._sumw[key]
+            elif len(self._sumw[key].shape) == 2:
+              # The original hist is the one with eft weights
+              # So the SM part is self._sumw[key][:,0] + out._sumw[new_key]
+              # And the EFT part is self._sumw[key][:,1:]
+              out._sumw[new_key] = np.column_stack(((self._sumw[key][:,0] + out._sumw[new_key]),self._sumw[key][:,1:]))
+            else:
+              raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
           else:
-            raise ValueError("Cannot sum hists with different numbers of bins")
+            raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
         elif ((self.dense_dim() == 0) and (isinstance(out._sumw[new_key],np.ndarray) != isinstance(self._sumw[key],np.ndarray))):
           raise ValueError("Attempt to sum bins with EFT weights to ones without.")
         else:
