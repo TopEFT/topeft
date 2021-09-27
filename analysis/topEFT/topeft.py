@@ -300,7 +300,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
             weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
             weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
-              if "2l" in ch_name:
             if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
