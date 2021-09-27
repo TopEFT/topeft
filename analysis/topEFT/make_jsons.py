@@ -531,7 +531,7 @@ central_UL17_bkg_dict = {
         "xsecName": "WWTo2L2Nu",
     },
     "UL17_WWW_4F" : {
-        "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM",
+        "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM", # NOTE: Watch to see if an "ext" sample becoms available
         "histAxisName": "WWW_centralUL17",
         "xsecName": "WWW",
     },
@@ -561,7 +561,7 @@ central_UL17_bkg_dict = {
         "xsecName": "ZZTo4L",
     },
     "UL17_ZZZ" : {
-        "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM",
+        "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM", # NOTE: Watch to see if an "ext" sample becoms available
         "histAxisName": "ZZZ_centralUL17",
         "xsecName": "ZZZ",
     },
