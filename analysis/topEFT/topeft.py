@@ -11,12 +11,14 @@ from coffea import hist, processor
 from coffea.util import load, save
 from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
+from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
 from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
 
 
@@ -111,6 +113,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu["conept"] = coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
         e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+
+        # Get the lumi mask for data
+        if year == "2016" or year == "2016APV":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
+        elif year == "2017":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt")
+        elif year == "2018":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt")
+        else:
+            raise ValueError(f"Error: Unknown year \"{year}\".")
+        lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
 
 
         #################### Object selection ####################
@@ -340,6 +353,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         selections = PackedSelection(dtype='uint64')
 
+        # Lumi mask (for data)
+        selections.add("is_good_lumi",lumi_mask)
+
         # 2lss selection
         selections.add("2lss_p", (events.is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
         selections.add("2lss_m", (events.is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
@@ -531,6 +547,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     flav_ch = None
                                     njet_ch = None
                                     cuts_lst = [appl,lep_chan]
+                                    if isData:
+                                        cuts_lst.append("is_good_lumi")
                                     if self._split_by_lepton_flavor:
                                         flav_ch = lep_flav
                                         cuts_lst.append(lep_flav)
