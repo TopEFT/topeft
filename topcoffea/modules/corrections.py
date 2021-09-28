@@ -75,35 +75,39 @@ extLepSF.add_weight_sets(["MuonTightSF_2018_er EGamma_SF2D_error %s"%topcoffea_p
 
 # Fake rate 
 # todo: check that these are the same as the "recorrected"
-extLepSF.add_weight_sets(["MuonFR_2016 FR_mva085_mu_data_comb_recorrected %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_2016_recorrected.root')])
-extLepSF.add_weight_sets(["MuonFR_2017 FR_mva085_mu_data_comb_recorrected %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_2017_recorrected.root')])
-extLepSF.add_weight_sets(["MuonFR_2018 FR_mva085_mu_data_comb_recorrected %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_2018_recorrected.root')])
-extLepSF.add_weight_sets(["ElecFR_2016 FR_mva080_el_data_comb_NC_recorrected %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_2016_recorrected.root')])
-extLepSF.add_weight_sets(["ElecFR_2017 FR_mva080_el_data_comb_NC_recorrected %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_2017_recorrected.root')])
-extLepSF.add_weight_sets(["ElecFR_2018 FR_mva080_el_data_comb_NC_recorrected %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_2018_recorrected.root')])
+for year in [2016, 2017, 2018]:
+  for syst in ['','_up','_down','_be1','_be2','_pt1','_pt2']:
+    extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb_recorrected{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
+    extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva080_el_data_comb_NC_recorrected{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
 
 
 extLepSF.finalize()
 SFevaluator = extLepSF.make_evaluator()
 
+
+ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 def AttachPerLeptonFR(leps, flavor, year=2018):
+  for syst in ffSysts:
+    fr=SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](np.abs(leps.eta), leps.conept )
+    leps['fakefactor%s'%syst]=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
   if year == '2016APV': year = 2016
   fr=SFevaluator['{flavor}FR_{year}'.format(flavor=flavor,year=year)](np.abs(leps.eta), leps.conept )
   leps['fakefactor']=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
 
 def fakeRateWeight2l(events, lep1, lep2):
-  
-  fakefactor_2l =  (~lep1.isTightLep | ~lep2.isTightLep)*(-1) # if all are tight the FF is 0 for safety reasons
-  fakefactor_2l =  fakefactor_2l*(lep1.isTightLep + (~lep1.isTightLep)*lep1.fakefactor)
-  fakefactor_2l =  fakefactor_2l*(lep2.isTightLep + (~lep2.isTightLep)*lep2.fakefactor)
-  events['fakefactor_2l']=fakefactor_2l
+  for syst in ffSysts:
+    fakefactor_2l =  (~lep1.isTightLep | ~lep2.isTightLep)*(-1) + (1)*(lep1.isTightLep & lep2.isTightLep) # if all are tight the FF is 1 because events are in the SR 
+    fakefactor_2l =  fakefactor_2l*(lep1.isTightLep + (~lep1.isTightLep)*getattr(lep1,'fakefactor%s'%syst))
+    fakefactor_2l =  fakefactor_2l*(lep2.isTightLep + (~lep2.isTightLep)*getattr(lep2,'fakefactor%s'%syst))
+    events['fakefactor_2l%s'%syst]=fakefactor_2l
 
 def fakeRateWeight3l(events, lep1, lep2, lep3):
-  fakefactor_3l = (~lep1.isTightLep | ~lep2.isTightLep | ~lep2.isTightLep)*(-1) # if all are tight the FF is 0 for safety reasons
-  fakefactor_3l = fakefactor_3l*(lep1.isTightLep + (~lep1.isTightLep)*lep1.fakefactor)
-  fakefactor_3l = fakefactor_3l*(lep2.isTightLep + (~lep2.isTightLep)*lep2.fakefactor)
-  fakefactor_3l = fakefactor_3l*(lep3.isTightLep + (~lep3.isTightLep)*lep3.fakefactor)
-  events['fakefactor_3l']=fakefactor_3l
+  for syst in ffSysts:
+    fakefactor_3l = (~lep1.isTightLep | ~lep2.isTightLep | ~lep3.isTightLep)*(-1) + (1)*(lep1.isTightLep & lep2.isTightLep & lep3.isTightLep) # if all are tight the FF is 1 because events are in the SR  and we dont want to weight them
+    fakefactor_3l = fakefactor_3l*(lep1.isTightLep + (~lep1.isTightLep)*getattr(lep1,'fakefactor%s'%syst))
+    fakefactor_3l = fakefactor_3l*(lep2.isTightLep + (~lep2.isTightLep)*getattr(lep2,'fakefactor%s'%syst))
+    fakefactor_3l = fakefactor_3l*(lep3.isTightLep + (~lep3.isTightLep)*getattr(lep3,'fakefactor%s'%syst))
+    events['fakefactor_3l%s'%syst]=fakefactor_3l
 
 
 def AttachMuonSF(muons, year=2018):

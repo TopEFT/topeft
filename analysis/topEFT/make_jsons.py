@@ -947,7 +947,7 @@ version_overwrite = {
     },
 }
 
-data_2016_dict = defaultdict(lambda: {'path': '','histAxisName': 'data_UL16', 'xsecName': 'data'})
+data_2016_dict = defaultdict(lambda: {'path': '','histAxisName': 'dataUL16', 'xsecName': 'data'})
 for era in dataset_eras:
     for ds_name in dataset_names:
         key_name = "{name}_{era}".format(name=ds_name,era=era)
@@ -981,7 +981,7 @@ version_overwrite = {
     }
 }
 
-data_2017_dict = defaultdict(lambda: {'path': '','histAxisName': 'data_UL17', 'xsecName': 'data'})
+data_2017_dict = defaultdict(lambda: {'path': '','histAxisName': 'dataUL17', 'xsecName': 'data'})
 for era in dataset_eras:
     for ds_name in dataset_names:
         key_name = "{name}_{era}".format(name=ds_name,era=era)
@@ -1017,7 +1017,7 @@ version_overwrite = {
     },
 }
 
-data_2018_dict = defaultdict(lambda: {'path': '','histAxisName': 'data_UL18', 'xsecName': 'data'})
+data_2018_dict = defaultdict(lambda: {'path': '','histAxisName': 'dataUL18', 'xsecName': 'data'})
 for era in dataset_eras:
     for ds_name in dataset_names:
         key_name = "{name}_{era}".format(name=ds_name,era=era)

@@ -30,7 +30,24 @@
     "btag_wp_medium_L16"  : 0.3093,
     "btag_wp_medium_UL17" : 0.3040,
     "btag_wp_medium_UL18" : 0.2783,
-    
+    "prompt_subtraction_samples": [
+	"TTGJets_central",
+	"WWW_central",
+	"WWZ_4F_central",
+	"WZTo3LNu_central",
+	"WZZ_central",
+	"ZZTo4L_central",
+	"ZZZ_central",
+	"WWW_4F_central",
+	"WWZ_central",
+	"WZZ_ext_central",
+	"tHq_private",
+	"tllq_private",
+	"ttHJet_private",
+	"ttllJet_private",
+	"ttlnuJet_private",
+	"tttt_private"
+    ],
     "pu_w" : 69200,
     "pu_w_up" : 72400,
     "pu_w_down" : 66000

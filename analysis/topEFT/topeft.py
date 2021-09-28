@@ -99,6 +99,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0] 
 
+        conversionDatasets=[x%y for x in ['TTGJets_centralUL%d'] for y in [16,17,18]]
+        nonpromptDatasets =[x%y for x in ['TTJets_centralUL%d','DY50_centralUL%d','DY10to50_centralUL%d','tbarW_centralUL%d','tW_centralUL%d','tbarW_centralUL%d'] for y in [16,17,18]]
+
+        sampleType='prompt'
+        if isData:
+            sampleType='data'
+        elif dataset in conversionDatasets: 
+            sampleType='conversions'
+        elif dataset in nonpromptDatasets:
+            sampleType='nonprompt'
+            
+
+
         # Initialize objects
         met  = events.MET
         e    = events.Electron
@@ -236,8 +249,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         events["l_fo_conept_sorted"] = l_fo_conept_sorted
 
         # The event selection
-        add2lMaskAndSFs(events, year, isData)
-        add3lMaskAndSFs(events, year, isData)
+        add2lMaskAndSFs(events, year, isData, sampleType)
+        add3lMaskAndSFs(events, year, isData, sampleType)
         add4lMaskAndSFs(events, year, isData)
         addLepCatMasks(events)
 
@@ -285,20 +298,20 @@ class AnalysisProcessor(processor.ProcessorABC):
         for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
-            if not isData:
-              weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
-              weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
-              if "2l" in ch_name:
-                  weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
-              if "3l" in ch_name:
-                  weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
-              if "4l" in ch_name:
-                  weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
+            weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
+            weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
+            if "2l" in ch_name:
+                weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
+                weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
+            if "3l" in ch_name:
+                weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
+                weights_dict[ch_name].add("FF"   , events.fakefactor_3l, events.fakefactor_3l_up, events.fakefactor_3l_down)
+            if "4l" in ch_name:
+                weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
 
         # Systematics
         systList = ["nominal"]
-        if not isData:
-            if self._do_systematics: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown",'PUUp', 'PUDown']
+        if self._do_systematics and not isData: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
 
         ######### EFT coefficients ##########
 
@@ -508,8 +521,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                     weights_object = weights_dict[nlep_cat]
-                    if isData: weight = np.ones(len(events)) # For data
-                    else: weight = weights_object.weight(weight_fluct) # For MC
+                    if isData : weight = weights_object.partial_weight(include=["FF"]) # for data, must include the FF
+                    else      : weight = weights_object.weight(weight_fluct) # For MC
 
                     # Get a mask for events that pass any of the njet requiremens in this nlep cat
                     # Useful in cases like njets hist where we don't store njets in a sparse axis
@@ -547,7 +560,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                     # Weights and eft coeffs
                                     weights_flat = weight[all_cuts_mask]
-                                    weights_ones = np.ones_like(weights_flat, dtype=np.int)
                                     eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
                                     eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
