@@ -11,12 +11,14 @@ from coffea import hist, processor
 from coffea.util import load, save
 from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
+from coffea.lumi_tools import LumiMask
 
-from topcoffea.modules.GetValuesFromJsons import get_cut
+from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
 
 
@@ -99,6 +101,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0] 
 
+        conversionDatasets=[x%y for x in ['TTGJets_centralUL%d'] for y in [16,17,18]]
+        nonpromptDatasets =[x%y for x in ['TTJets_centralUL%d','DY50_centralUL%d','DY10to50_centralUL%d','tbarW_centralUL%d','tW_centralUL%d','tbarW_centralUL%d'] for y in [16,17,18]]
+
+        sampleType='prompt'
+        if isData:
+            sampleType='data'
+        elif dataset in conversionDatasets: 
+            sampleType='conversions'
+        elif dataset in nonpromptDatasets:
+            sampleType='nonprompt'
+            
+
+
         # Initialize objects
         met  = events.MET
         e    = events.Electron
@@ -111,6 +126,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu["conept"] = coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
         e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+
+        # Get the lumi mask for data
+        if year == "2016" or year == "2016APV":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
+        elif year == "2017":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt")
+        elif year == "2018":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt")
+        else:
+            raise ValueError(f"Error: Unknown year \"{year}\".")
+        lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
 
 
         #################### Object selection ####################
@@ -203,11 +229,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Loose DeepJet WP
         # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
         if year == "2017":
-            btagwpl = get_cut("btag_wp_loose_UL17")
+            btagwpl = get_param("btag_wp_loose_UL17")
         elif year == "2018":
-            btagwpl = get_cut("btag_wp_loose_UL18")
+            btagwpl = get_param("btag_wp_loose_UL18")
         elif ((year=="2016") or (year=="2016APV")):
-            btagwpl = get_cut("btag_wp_loose_L16")
+            btagwpl = get_param("btag_wp_loose_L16")
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
@@ -217,11 +243,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Medium DeepJet WP
         # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
         if year == "2017": 
-            btagwpm = get_cut("btag_wp_medium_UL17")
+            btagwpm = get_param("btag_wp_medium_UL17")
         elif year == "2018":
-            btagwpm = get_cut("btag_wp_medium_UL18")
+            btagwpm = get_param("btag_wp_medium_UL18")
         elif ((year=="2016") or (year=="2016APV")):
-            btagwpm = get_cut("btag_wp_medium_L16")
+            btagwpm = get_param("btag_wp_medium_L16")
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
@@ -236,8 +262,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         events["l_fo_conept_sorted"] = l_fo_conept_sorted
 
         # The event selection
-        add2lMaskAndSFs(events, year, isData)
-        add3lMaskAndSFs(events, year, isData)
+        add2lMaskAndSFs(events, year, isData, sampleType)
+        add3lMaskAndSFs(events, year, isData, sampleType)
         add4lMaskAndSFs(events, year, isData)
         addLepCatMasks(events)
 
@@ -286,18 +312,19 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
             weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
+            weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
             if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
+                weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
             if "3l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
+                weights_dict[ch_name].add("FF"   , events.fakefactor_3l, events.fakefactor_3l_up, events.fakefactor_3l_down)
             if "4l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
 
         # Systematics
         systList = ["nominal"]
-        if not isData:
-            if self._do_systematics: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
-
+        if self._do_systematics and not isData: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
 
         ######### EFT coefficients ##########
 
@@ -338,6 +365,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######### Store boolean masks with PackedSelection ##########
 
         selections = PackedSelection(dtype='uint64')
+
+        # Lumi mask (for data)
+        selections.add("is_good_lumi",lumi_mask)
 
         # 2lss selection
         selections.add("2lss_p", (events.is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
@@ -428,19 +458,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
                 "njets_lst"    : ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
-                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
+                "appl_lst"     : ["isSR_2l" , "isAR_2l"],
             },
             "3l" : {
                 "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
                 "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                 "njets_lst"    : ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"],
-                "appl_lst"     : ['isSR_3l', 'isAR_3l'],
+                "appl_lst"     : ["isSR_3l", "isAR_3l"],
             },
             "4l" : {
                 "lep_chan_lst" : ["4l"],
                 "lep_flav_lst" : ["llll"], # Not keeping track of these separately
                 "njets_lst"    : ["exactly_2j" , "exactly_3j" , "atleast_4j"],
-                "appl_lst"     : ['isSR_4l'],
+                "appl_lst"     : ["isSR_4l"],
             },
         }
 
@@ -450,25 +480,25 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_chan_lst" : ["2lss_CR"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
                 "njets_lst"    : ["exactly_1j" , "exactly_2j"],
-                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
+                "appl_lst"     : ["isSR_2l" , "isAR_2l"],
             },
             "3l_CR" : {
                 "lep_chan_lst" : ["3l_CR"],
                 "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                 "njets_lst"    : ["atleast_1j"],
-                "appl_lst"     : ['isSR_3l'], # 3 tight leptons
+                "appl_lst"     : ["isSR_3l" , "isAR_3l"],
             },
             "2los_CRtt" : {
                 "lep_chan_lst" : ["2los_CRtt"],
                 "lep_flav_lst" : ["em"],
                 "njets_lst"    : ["exactly_2j"],
-                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
+                "appl_lst"     : ["isSR_2l" , "isAR_2l"],
             },
             "2los_CRZ" : {
                 "lep_chan_lst" : ["2los_CRZ"],
                 "lep_flav_lst" : ["ee", "mm"],
                 "njets_lst"    : ["atleast_0j"],
-                "appl_lst"     : ['isSR_2l' , 'isAR_2l'],
+                "appl_lst"     : ["isSR_2l" , "isAR_2l"],
             }            
         }
 
@@ -507,8 +537,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                     weights_object = weights_dict[nlep_cat]
-                    if isData: weight = np.ones(len(events)) # For data
-                    else: weight = weights_object.weight(weight_fluct) # For MC
+                    if isData : weight = weights_object.partial_weight(include=["FF"]) # for data, must include the FF
+                    else      : weight = weights_object.weight(weight_fluct) # For MC
 
                     # Get a mask for events that pass any of the njet requiremens in this nlep cat
                     # Useful in cases like njets hist where we don't store njets in a sparse axis
@@ -530,6 +560,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     flav_ch = None
                                     njet_ch = None
                                     cuts_lst = [appl,lep_chan]
+                                    if isData:
+                                        cuts_lst.append("is_good_lumi")
                                     if self._split_by_lepton_flavor:
                                         flav_ch = lep_flav
                                         cuts_lst.append(lep_flav)
@@ -546,7 +578,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                     # Weights and eft coeffs
                                     weights_flat = weight[all_cuts_mask]
-                                    weights_ones = np.ones_like(weights_flat, dtype=np.int)
                                     eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
                                     eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
