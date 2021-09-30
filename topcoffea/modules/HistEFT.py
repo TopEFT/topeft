@@ -257,9 +257,6 @@ class HistEFT(coffea.hist.Hist):
     def add_dict(left, right):
       for rkey in right.keys():
         lkey = tuple(self.axis(rax).index(rax[ridx]) for rax, ridx in zip(raxes, rkey))
-        #if lkey in left and left[lkey] is not None:
-        #if (lkey in left and left[lkey] is not None) and (rkey in right and right[rkey] is not None):
-
         # If the lkey is not already in left, just take the value from right
         # Note: We do not have to check if rkey is in right, since we're looping over right.keys()
         if lkey not in left:
