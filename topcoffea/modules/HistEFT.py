@@ -253,10 +253,19 @@ class HistEFT(coffea.hist.Hist):
       raise ValueError("Cannot add this histogram with histogram %r of dissimilar dimensions" % other)
     raxes = other.sparse_axes()
 
+    # Adds right to left
     def add_dict(left, right):
       for rkey in right.keys():
         lkey = tuple(self.axis(rax).index(rax[ridx]) for rax, ridx in zip(raxes, rkey))
-        if lkey in left and left[lkey] is not None:
+        #if lkey in left and left[lkey] is not None:
+        #if (lkey in left and left[lkey] is not None) and (rkey in right and right[rkey] is not None):
+
+        # If the lkey is not already in left, just take the value from right
+        # Note: We do not have to check if rkey is in right, since we're looping over right.keys()
+        if lkey not in left:
+          left[lkey] = copy.deepcopy(right[rkey])
+        # Check that neither value is none
+        elif (left[lkey] is not None) and (right[rkey] is not None):
           # Check if we're trying to sum a regular and EFT bin
           if ((self.dense_dim() > 0) and (left[lkey].shape != right[rkey].shape)):
             if left[lkey].shape[0] == right[rkey].shape[0]:
@@ -278,9 +287,13 @@ class HistEFT(coffea.hist.Hist):
             raise ValueError("Attempt to add histogram bins with EFT weights to ones without.")
           else:
             left[lkey] += right[rkey]
+        # If either or both are None, we want the out to be None
         else:
-          left[lkey] = copy.deepcopy(right[rkey])
+          left[lkey] = None
 
+    # Add the sumw2 values
+    print("self._sumw2",self._sumw2)
+    print("other._sumw2",other._sumw2)
     if self._sumw2 is None and other._sumw2 is None: pass
     elif self._sumw2 is None:
       self._init_sumw2()
@@ -300,7 +313,10 @@ class HistEFT(coffea.hist.Hist):
       add_dict(self._sumw2, temp)
     else:
       add_dict(self._sumw2, other._sumw2)
+
+    # Add the sumw values
     add_dict(self._sumw, other._sumw)
+
     return self 
 
   def __getitem__(self, keys):
@@ -386,8 +402,11 @@ class HistEFT(coffea.hist.Hist):
       return array
 
     for key in self._sumw.keys():
+
       new_key = tuple(k for i, k in enumerate(key) if i not in sparse_drop)
       if new_key in out._sumw:
+
+        # Handle the sumw values
         # Check if we're trying to combine EFT and non-EFT bins
         if ((self.dense_dim() > 0) and (out._sumw[new_key].shape != self._sumw[key].shape)):
           if out._sumw[new_key].shape[0] == self._sumw[key].shape[0]:
@@ -409,15 +428,19 @@ class HistEFT(coffea.hist.Hist):
           raise ValueError("Attempt to sum bins with EFT weights to ones without.")
         else:
           out._sumw[new_key] += dense_op(self._sumw[key])
+
+        # Handle the sumw2 values
         if self._sumw2 is not None:
           if self._sumw2[key] is not None:
             if out._sumw2[new_key] is not None:
               out._sumw2[new_key] += dense_op(self._sumw2[key])
             else:
-              raise ValueError('Cannot combine bins where only some have EFT error weights')
+              # If either sumw2 value is None, we will set the out sumw2 to None
+              out._sumw2[new_key] = None
           else:
             if out._sumw2[new_key] is not None:
-              raise ValueError('Tried to combine bins with and without EFT error weights')
+              # If either sumw2 value is None, we will set the out sumw2 to None
+              out._sumw2[new_key] = None
       else:
         out._sumw[new_key] = dense_op(self._sumw[key]).copy()
         if self._sumw2 is not None:
