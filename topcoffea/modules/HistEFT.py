@@ -273,9 +273,10 @@ class HistEFT(coffea.hist.Hist):
                 left[lkey][:,0] = left[lkey][:,0] + right[rkey] 
               elif len(right[rkey].shape) == 2:
                 # The right hist is the one with eft weights
-                # So the SM part is right[rkey][:,0] + left[lkey]
-                # And the EFT part is right[rkey][:,1:]
-                left[lkey] = np.column_stack(((right[rkey][:,0] + left[lkey]),right[rkey][:,1:]))
+                # So we want left to be equal to left plus right (where left is jsut added to the SM part of right), without modifying right
+                tmp = left[lkey]
+                left[lkey] = copy.deepcopy(right[rkey])
+                left[lkey][:,0] = left[lkey][:,0] + tmp
               else:
                 raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
             else:
@@ -289,8 +290,6 @@ class HistEFT(coffea.hist.Hist):
           left[lkey] = None
 
     # Add the sumw2 values
-    print("self._sumw2",self._sumw2)
-    print("other._sumw2",other._sumw2)
     if self._sumw2 is None and other._sumw2 is None: pass
     elif self._sumw2 is None:
       self._init_sumw2()
@@ -413,10 +412,11 @@ class HistEFT(coffea.hist.Hist):
               # The out hist is the one with eft weights
               out._sumw[new_key][:,0] = out._sumw[new_key][:,0] + self._sumw[key]
             elif len(self._sumw[key].shape) == 2:
-              # The original hist is the one with eft weights
-              # So the SM part is self._sumw[key][:,0] + out._sumw[new_key]
-              # And the EFT part is self._sumw[key][:,1:]
-              out._sumw[new_key] = np.column_stack(((self._sumw[key][:,0] + out._sumw[new_key]),self._sumw[key][:,1:]))
+              # The original hist self is the one with eft weights
+              # So we want out to be equal to self plus out (where out is jsut added to the SM part of self), without modifying self
+              tmp = out._sumw[new_key]
+              out._sumw[new_key] = copy.deepcopy(self._sumw[key])
+              out._sumw[new_key][:,0] = out._sumw[new_key][:,0] + tmp
             else:
               raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
           else:
