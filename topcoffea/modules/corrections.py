@@ -87,10 +87,10 @@ SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 def AttachPerLeptonFR(leps, flavor, year=2018):
+  if year == '2016APV': year = 2016
   for syst in ffSysts:
     fr=SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](np.abs(leps.eta), leps.conept )
     leps['fakefactor%s'%syst]=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
-  if year == '2016APV': year = 2016
   fr=SFevaluator['{flavor}FR_{year}'.format(flavor=flavor,year=year)](np.abs(leps.eta), leps.conept )
   leps['fakefactor']=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
 
