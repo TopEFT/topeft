@@ -350,15 +350,37 @@ class HistEFT(coffea.hist.Hist):
         continue
       if sparse_key in out._sumw:
         out._sumw[sparse_key] += dense_op(self._sumw[sparse_key])
+
+        # Handle the sumw2 values
+        # Note: This is copied directly from the implementation in sum(), with key->sparse_key, new_key->sparse_key
         if self._sumw2 is not None:
-          if self._sumw2[sparse_key] is not None:
-            if out._sumw2[sparse_key] is not None:
-              out._sumw2[sparse_key] += dense_op(self._sumw2[sparse_key])
+          # If neither sumw2 value is None, add them
+          # First check if we're trying to add regular errors to eft errors
+          # Note: This is really the same as in sumw, so would be better to have a function instead of copy paste
+          if (self._sumw2[sparse_key] is not None) and (out._sumw2[sparse_key] is not None):
+            if (out._sumw2[sparse_key].shape != self._sumw2[sparse_key].shape):
+              if out._sumw2[sparse_key].shape[0] == self._sumw2[sparse_key].shape[0]:
+                # Add the non-EFT bin contents to the 0th element (SM element) of the EFT bin
+                # But first we have to know which hist is the EFT one
+                if len(out._sumw2[sparse_key].shape) == 2:
+                  # The out hist is the one with eft weights
+                  out._sumw2[sparse_key][:,0] = out._sumw2[sparse_key][:,0] + self._sumw2[sparse_key]
+                elif len(self._sumw2[sparse_key].shape) == 2:
+                  # The original hist self is the one with eft weights
+                  # So we want out to be equal to self plus out (where out is jsut added to the SM part of self), without modifying self
+                  tmp2 = out._sumw2[sparse_key]
+                  out._sumw2[sparse_key] = copy.deepcopy(self._sumw2[sparse_key])
+                  out._sumw2[sparse_key][:,0] = out._sumw2[sparse_key][:,0] + tmp2
+                else:
+                  raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
+              else:
+                raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
             else:
-              raise ValueError('Cannot combine bins where only some have EFT error weights.')
+              out._sumw2[sparse_key] += dense_op(self._sumw2[sparse_key])
+          # If either sumw2 value is None, we will set the out sumw2 to None
           else:
-            if out_sumw2[sparse_key] is not None:
-              raise ValueError('Cannot combine bins where only some have EFT error weights.')
+            out._sumw2[sparse_key] = None
+
       else:
         out._sumw[sparse_key] = dense_op(self._sumw[sparse_key]).copy()
         if self._sumw2 is not None:
