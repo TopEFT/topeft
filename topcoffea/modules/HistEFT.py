@@ -273,7 +273,7 @@ class HistEFT(coffea.hist.Hist):
                 left[lkey][:,0] = left[lkey][:,0] + right[rkey] 
               elif len(right[rkey].shape) == 2:
                 # The right hist is the one with eft weights
-                # So we want left to be equal to left plus right (where left is jsut added to the SM part of right), without modifying right
+                # So we want left to be equal to left plus right (where left is just added to the SM part of right), without modifying right
                 tmp = left[lkey]
                 left[lkey] = copy.deepcopy(right[rkey])
                 left[lkey][:,0] = left[lkey][:,0] + tmp
@@ -367,7 +367,7 @@ class HistEFT(coffea.hist.Hist):
                   out._sumw2[sparse_key][:,0] = out._sumw2[sparse_key][:,0] + self._sumw2[sparse_key]
                 elif len(self._sumw2[sparse_key].shape) == 2:
                   # The original hist self is the one with eft weights
-                  # So we want out to be equal to self plus out (where out is jsut added to the SM part of self), without modifying self
+                  # So we want out to be equal to self plus out (where out is just added to the SM part of self), without modifying self
                   tmp2 = out._sumw2[sparse_key]
                   out._sumw2[sparse_key] = copy.deepcopy(self._sumw2[sparse_key])
                   out._sumw2[sparse_key][:,0] = out._sumw2[sparse_key][:,0] + tmp2
@@ -435,7 +435,7 @@ class HistEFT(coffea.hist.Hist):
               out._sumw[new_key][:,0] = out._sumw[new_key][:,0] + self._sumw[key]
             elif len(self._sumw[key].shape) == 2:
               # The original hist self is the one with eft weights
-              # So we want out to be equal to self plus out (where out is jsut added to the SM part of self), without modifying self
+              # So we want out to be equal to self plus out (where out is just added to the SM part of self), without modifying self
               tmp = out._sumw[new_key]
               out._sumw[new_key] = copy.deepcopy(self._sumw[key])
               out._sumw[new_key][:,0] = out._sumw[new_key][:,0] + tmp
@@ -463,7 +463,7 @@ class HistEFT(coffea.hist.Hist):
                   out._sumw2[new_key][:,0] = out._sumw2[new_key][:,0] + self._sumw2[key]
                 elif len(self._sumw2[key].shape) == 2:
                   # The original hist self is the one with eft weights
-                  # So we want out to be equal to self plus out (where out is jsut added to the SM part of self), without modifying self
+                  # So we want out to be equal to self plus out (where out is just added to the SM part of self), without modifying self
                   tmp2 = out._sumw2[new_key]
                   out._sumw2[new_key] = copy.deepcopy(self._sumw2[key])
                   out._sumw2[new_key][:,0] = out._sumw2[new_key][:,0] + tmp2
