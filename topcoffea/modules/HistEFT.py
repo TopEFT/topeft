@@ -428,16 +428,34 @@ class HistEFT(coffea.hist.Hist):
 
         # Handle the sumw2 values
         if self._sumw2 is not None:
-          if self._sumw2[key] is not None:
-            if out._sumw2[new_key] is not None:
-              out._sumw2[new_key] += dense_op(self._sumw2[key])
+          # If neither sumw2 value is None, add them
+          # First check if we're trying to add regular errors to eft errors
+          # Note: This is really the same as in sumw, so would be better to have a function instead of copy paste
+          if (self._sumw2[key] is not None) and (out._sumw2[new_key] is not None):
+            if (out._sumw2[new_key].shape != self._sumw2[key].shape):
+              if out._sumw2[new_key].shape[0] == self._sumw2[key].shape[0]:
+                # Add the non-EFT bin contents to the 0th element (SM element) of the EFT bin
+                # But first we have to know which hist is the EFT one
+                if len(out._sumw2[new_key].shape) == 2:
+                  # The out hist is the one with eft weights
+                  out._sumw2[new_key][:,0] = out._sumw2[new_key][:,0] + self._sumw2[key]
+                elif len(self._sumw2[key].shape) == 2:
+                  # The original hist self is the one with eft weights
+                  # So we want out to be equal to self plus out (where out is jsut added to the SM part of self), without modifying self
+                  tmp2 = out._sumw2[new_key]
+                  out._sumw2[new_key] = copy.deepcopy(self._sumw2[key])
+                  out._sumw2[new_key][:,0] = out._sumw2[new_key][:,0] + tmp2
+                else:
+                  raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
+              else:
+                raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
             else:
-              # If either sumw2 value is None, we will set the out sumw2 to None
-              out._sumw2[new_key] = None
+              out._sumw2[new_key] += dense_op(self._sumw2[key])
+          # If either sumw2 value is None, we will set the out sumw2 to None
           else:
-            if out._sumw2[new_key] is not None:
-              # If either sumw2 value is None, we will set the out sumw2 to None
-              out._sumw2[new_key] = None
+            out._sumw2[new_key] = None
+
+      # The new_key in not in out._sumw yet, so just take the val from self
       else:
         out._sumw[new_key] = dense_op(self._sumw[key]).copy()
         if self._sumw2 is not None:
