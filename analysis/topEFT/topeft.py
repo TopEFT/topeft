@@ -306,8 +306,12 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights_dict = {}
-        genw = np.ones_like(events["event"]) if (isData or len(self._wc_names_lst)>0) else events["genWeight"]
-        if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
+        if (isData or len(self._wc_names_lst)>0):
+            genw = np.ones_like(events["event"])
+        else:
+            genw = events["genWeight"]
+        if len(self._wc_names_lst) > 0:
+            sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
         for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
