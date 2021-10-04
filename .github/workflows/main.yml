@@ -6,10 +6,11 @@ on:
     - cron: '0 1 * * *' # Test every day at 1AM
   
 jobs:
-  install:
+  Full_Analysis:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
+        uses: actions/checkout@v2
 
       - name: Add conda to system path
         run: |
@@ -26,36 +27,30 @@ jobs:
       - name: Install topcoffea package
         run: |
           pip install -e .
-          pwd
-          ls
-  Full_Analysis:
-    needs: install
-    runs-on: ubuntu-latest
-    steps:
-      - run: wget http://www.crc.nd.edu/~ywan2/root_files/NAOD-00000_18449.root
+
+      - name: Download root files
+        run: |
+          wget http://www.crc.nd.edu/~ywan2/root_files/NAOD-00000_18449.root
+
       - name: Run processors over test files with futures executor
         run: |
-            pwd
-            ls
-            cd analysis/topEFT
-            time python run.py ../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.json -o output_check_yields
-      - name: Get yields
+          cd analysis/topEFT
+          time python run.py ../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.json -o output_check_yields
+
+      - name: Get yields 
         run: |
-            python get_yield_json.py -f histos/output_check_yields.pkl.gz -n output_check_yields
+          cd analysis/topEFT
+          python get_yield_json.py -f histos/output_check_yields.pkl.gz -n output_check_yields
+
       - name: Compare yields
         run: |
-            python comp_yields.py output_check_yields.json test/UL17_private_ttH_for_CI_yields.json -t1 "New yields" -t2 "Ref yields"
-  coverage:
-    needs: install
-    runs-on: ubuntu-latest
-    steps:
+          cd analysis/topEFT
+          python comp_yields.py output_check_yields.json test/UL17_private_ttH_for_CI_yields.json -t1 "New yields" -t2 "Ref yields"
       - name: Generate coverage report
         run: |
-            pwd
-            ls
-            conda install pytest pytest-cov
-            pytest --cov=./ --cov-report=xml
-      - name: Upload coverage to Codecov  
+          conda install pytest pytest-cov
+          pytest --cov=./ --cov-report=xml
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
