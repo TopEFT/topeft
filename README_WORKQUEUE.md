@@ -40,10 +40,9 @@ Once `conda` is installed, open a new terminal and create the base python
 environment for topcoffea:
 
 ```sh
-# you may choose other python version, e.g. 3.9
-conda create --name topcoffea-env python=3.8
+# you may choose other python version, e.g. 3.8
+conda create --name topcoffea-env -c conda-forge python=3.9 coffea xrootd ndcctools dill conda conda-pack
 conda activate topcoffea-env
-conda install -c conda-forge coffea xrootd ndcctools dill conda-pack
 
 # install topcoffea via pip. We install it in editable mode to ease the test of
 # changes in development. From the root directory of the topcoffea repository:

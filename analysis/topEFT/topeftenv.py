@@ -28,8 +28,8 @@ packages_json_template = string.Template('''
 {
     "base": {
         "conda": {
-            "defaults" : ["python=$py_version", "conda"],
-            "conda-forge" : ["conda-pack", "dill", "xrootd", "coffea"]
+            "defaults" : [],
+            "conda-forge" : ["python=$py_version", "conda", "conda-pack", "dill", "xrootd", "coffea"]
         }
     },
     "user": {
@@ -73,7 +73,7 @@ def _install_pip_requirements(base_env_tarball, env_path, pkg, location):
     _run_conda_command(
             env_path,
             'run',
-            'sh', '-c', 'cd {} && pip install . && pip uninstall --yes {}'.format(location, pkg))
+            'sh', '-c', 'cd {} && pip install  --use-feature=in-tree-build . && pip uninstall --yes {}'.format(location, pkg))
 
 def _create_base_env(packages_hash, pip_paths, force=False):
     pathlib.Path(env_dir_cache).mkdir(parents=True, exist_ok=True)
@@ -179,7 +179,7 @@ python_package_run -e {base_env_tarball} -u {env_dir} -- conda remove --yes --fo
 
 # install from pip local path
 set -e
-python_package_run -e {base_env_tarball} -u {env_dir} -- pip install {path}
+python_package_run -e {base_env_tarball} -u {env_dir} -- pip install  --use-feature=in-tree-build  {path}
     """.format(base_env_tarball=base_env_tarball, env_dir=env_dir, path=pip_path))
         pip_recipe.flush()
         try:
