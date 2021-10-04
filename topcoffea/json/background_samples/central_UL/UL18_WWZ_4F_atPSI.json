@@ -1,0 +1,19 @@
+{
+  "files": [
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WWZ_4F/A25FCCBC-6DCF-C14B-993C-E2237016B80E_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WWZ_4F/2244966A-B557-E440-B79B-5487339993C6_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WWZ_4F/E581EBC4-9604-AE4A-B176-99B8428783B0_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WWZ_4F/B64E1EB1-7B6D-FE4C-904F-BD0343620F80_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WWZ_4F/E2C28693-66D8-4A46-80E5-E2713A7CBA27_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "WWZ_4F_centralUL18", 
+  "isData": false, 
+  "WCnames": [], 
+  "nEvents": 248000, 
+  "nSumOfWeights": 42310.517360879996, 
+  "year": "2018", 
+  "nGenEvents": 248000, 
+  "xsec": 0.1651, 
+  "options": ""
+}

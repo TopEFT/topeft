@@ -1,0 +1,29 @@
+{
+  "files": [
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/AB1B62F3-DF8F-BC4C-8FA4-A2B65BF64A36_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/3E4D01BD-F202-0241-9496-1B56DF7C6E53_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/34B95136-35EE-B549-9CA6-811A9517076F_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/C862C5D8-7F95-894E-9FA9-BB4DF4E83DB7_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/E72DED40-55BA-7C44-9985-29C19BFE945E_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/0DF33197-A790-E743-8E53-546DF9FC2B28_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/31FF0C1C-A5FC-694F-9DB2-5F3EB3E7A136_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/6B6EAF3C-9677-5849-99F0-6AAF8B8798E5_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/3877BF54-84D7-4D4C-8FD3-C2FF2331F786_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/ECEE2B97-4142-2E40-85D9-6F68BABBA598_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/2C0FD613-1F76-6144-89E9-046684531726_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/29D7C5B5-57A0-6745-B5FF-95A780389841_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/9A53BA24-4B1E-FF47-8159-157F2E1D04E8_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/0CD8A2D1-E450-F846-8047-F0B2491B880E_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_ZZZ/8D12E8A6-640C-3C48-BD48-2D773CBA2D87_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "ZZZ_centralUL17", 
+  "isData": false, 
+  "WCnames": [], 
+  "nEvents": 178000, 
+  "nSumOfWeights": 2628.471670894, 
+  "year": "2017", 
+  "nGenEvents": 178000, 
+  "xsec": 0.01398, 
+  "options": ""
+}

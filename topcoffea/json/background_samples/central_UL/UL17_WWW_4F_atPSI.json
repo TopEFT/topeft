@@ -1,0 +1,30 @@
+{
+  "files": [
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/E3D1BBBB-2694-9147-B31B-235756041112_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/A19C5A02-4318-D04B-B5A8-712FFEB2298A_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/6138C440-80BC-D04F-B4EB-1057A12CECD3_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/FD450008-07A0-EB46-87CB-A7217189A819_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/59EA8D9C-24F3-754C-9646-9435B34A1B97_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/D3D27920-90BE-6349-BDFE-FB10A190FC50_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/87426FAB-DF93-9340-99AB-78442B27B936_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/0CD6F813-D749-EB49-98A5-61B10EC08158_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/FF37758C-0160-824D-AA1C-E1DD8B0B462F_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/1F4258A3-6CBE-B448-BE8B-B3BC962A9117_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/C329A520-8256-264F-8E3C-0F68FB63A6B9_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/BEFEC103-AF10-CD47-A722-FF19D7ED6CB0_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/A4A52B4F-0514-F241-B896-B70CE020E23E_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/48C51A96-6AE7-304B-AF8A-B9ABFE8ADA2F_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/BAB1BF4F-D074-5942-906A-2888827914EF_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WWW_4F/2E155D0C-091A-CA44-9B78-D85D03959DD4_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "WWW_centralUL17", 
+  "isData": false, 
+  "WCnames": [], 
+  "nEvents": 171000, 
+  "nSumOfWeights": 36869.1616059, 
+  "year": "2017", 
+  "nGenEvents": 171000, 
+  "xsec": 0.2086, 
+  "options": ""
+}

@@ -1,0 +1,22 @@
+{
+  "files": [
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//SingleMuon_F-UL2016/A27727E2-9979-3E4A-8A12-5FE5A5053397_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//SingleMuon_F-UL2016/DEE9A5D1-3B3B-EB4C-B414-60F9CECDCB6D_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//SingleMuon_F-UL2016/EB3E1D56-2A5B-0640-9FC7-AED436ECCDB8_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//SingleMuon_F-UL2016/A5F66BF3-12E1-624A-9F58-8AD3E5C8BB88_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//SingleMuon_F-UL2016/4C97E39F-FB8B-1748-AE5E-45AED14C0C88_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//SingleMuon_F-UL2016/6253CE88-11C1-5046-AE92-AC9CB585B6E5_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//SingleMuon_F-UL2016/DBEA366A-2057-F04D-8E3F-DB15F95E260D_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//SingleMuon_F-UL2016/854C1231-7672-8E46-892F-8510F2631A76_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "dataUL16", 
+  "isData": true, 
+  "WCnames": [], 
+  "nEvents": 8024195.0, 
+  "nSumOfWeights": 8024195.0, 
+  "year": "2016", 
+  "nGenEvents": 8024195.0, 
+  "xsec": 1.0, 
+  "options": ""
+}

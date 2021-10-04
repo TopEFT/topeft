@@ -1,0 +1,28 @@
+{
+  "files": [
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/69EAEA02-AF5D-DC4A-9AF3-FE341B88B0C9_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/486FBA82-50EC-DE48-A5B2-67D2A525AB28_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/1AA858F2-2DFB-334F-8EA9-503A7AA87C43_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/B0059D4B-9115-DF40-A3F8-2E397F77B3DE_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/8125C5AB-E01F-2743-ACD5-F8178D6FBFAD_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/220D8773-3D5D-B740-8F20-53A05B54E9CC_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/6BCF9941-1CA4-E44A-8910-07B5A6712914_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/DE016C63-F2E4-9643-8F75-893B202D30E6_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/E1E0E0A6-F23E-1145-8DBF-F1522B9D8F3E_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/68F4C919-3BE0-1740-AFFC-303E36C53459_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/788CF655-37E1-4646-9450-6FF111B1D1CA_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/4A08DC7F-0200-D34E-8339-36FBAF0D9BA2_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/F835274D-0512-D848-8A9E-8FA851B00898_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWW_4F/036A201B-D08F-874E-A356-49ED0932D07E_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "WWW_4F_centralUL16", 
+  "isData": false, 
+  "WCnames": [], 
+  "nEvents": 69000, 
+  "nSumOfWeights": 14869.109274660002, 
+  "year": "2016", 
+  "nGenEvents": 69000, 
+  "xsec": 0.2086, 
+  "options": ""
+}

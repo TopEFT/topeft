@@ -1,0 +1,23 @@
+{
+  "files": [
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_TTGJets/9F799FF9-53C4-4145-9171-B410A7D47F46_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_TTGJets/778FE2D0-C4E4-6E4C-8FC8-1F3D3335664F_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_TTGJets/1AB50185-598F-9E4C-98A2-0CCB8AD1FFEB_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_TTGJets/ED1281D7-8E9F-594B-94BD-04800FE9C26D_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_TTGJets/F916823A-00CF-914B-9D2E-7D82100ED27B_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_TTGJets/C2BF524C-C67B-3E46-A7D9-50406654A634_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_TTGJets/D0DB4F2C-3BE6-B54A-A419-1F1F2285F4C1_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_TTGJets/425C3118-0098-544A-8676-83298C2D301A_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_TTGJets/AED7D89A-4576-774F-B879-632BD10F0CE8_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "TTGJets_centralUL18", 
+  "isData": false, 
+  "WCnames": [], 
+  "nEvents": 4437068, 
+  "nSumOfWeights": 27849497.760000005, 
+  "year": "2018", 
+  "nGenEvents": 4437068, 
+  "xsec": 3.697, 
+  "options": ""
+}

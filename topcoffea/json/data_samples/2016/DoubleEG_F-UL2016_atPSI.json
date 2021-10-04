@@ -1,0 +1,17 @@
+{
+  "files": [
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_F-UL2016/3EDFAD83-DAD3-6D4E-A748-0C8AB37ADF5F_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_F-UL2016/CEECFB43-F117-3F46-A0DA-18D61E3371AF_Skim.root", 
+    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_F-UL2016/17EBDD9B-D5A2-EB40-B7AB-69248E12AB04_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "dataUL16", 
+  "isData": true, 
+  "WCnames": [], 
+  "nEvents": 4360689.0, 
+  "nSumOfWeights": 4360689.0, 
+  "year": "2016", 
+  "nGenEvents": 4360689.0, 
+  "xsec": 1.0, 
+  "options": ""
+}
