@@ -27,12 +27,12 @@ jobs:
       - name: Install topcoffea package
         run: |
           pip install -e .
-  Download_root_file:
+  download_root_file:
     needs: install
     runs-on: ubuntu-latest
     steps:
       - run: wget http://www.crc.nd.edu/~ywan2/root_files/NAOD-00000_18449.root
-  Run_TopCoffea:
+  run_TopCoffea:
     needs: Download_root_file
     runs-on: ubuntu-latest
     steps:
@@ -40,22 +40,22 @@ jobs:
         run: |
             cd analysis/topEFT
             time python run.py ../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.json -o output_check_yields
-  Get_Yields:
-    needs: Run_TopCoffea
+  get_yields:
+    needs: Run TopCoffea
     runs-on: ubuntu-latest
     steps:
       - name: Get yields
         run: |
             cd analysis/topEFT
             python get_yield_json.py -f histos/output_check_yields.pkl.gz -n output_check_yields
-  Compare_Yields:
-    needs: Get_Yields
+  compare_yields:
+    needs: Get Yields
     runs-on: ubuntu-latest
     steps:
       - name: Compare yields
         run: cd analysis/topEFT
          python comp_yields.py output_check_yields.json test/UL17_private_ttH_for_CI_yields.json -t1 "New yields" -t2 "Ref yields"
-  Coverage:
+  coverage:
     needs: install
     runs-on: ubuntu-latest
     steps:
