@@ -60,6 +60,8 @@ def _run_conda_command(environment, command, *args):
 
 def _install_conda_packages(env_path, channel, pkgs, from_local_pip=[]):
     pkgs = [p for p in pkgs if p not in from_local_pip]
+    if not pkgs:
+        return
     logger.info("Installing {} into {} via conda".format(','.join(pkgs), env_path))
     return _run_conda_command(
             env_path,
