@@ -48,8 +48,7 @@ jobs:
           python comp_yields.py output_check_yields.json test/UL17_private_ttH_for_CI_yields.json -t1 "New yields" -t2 "Ref yields"
       - name: Generate coverage report
         run: |
-          pip install pytest
-          pip install pytest-cov
+          conda install pytest pytest-cov
           pytest --cov=./ --cov-report=xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
