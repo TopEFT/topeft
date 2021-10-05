@@ -48,27 +48,6 @@ CR_CHAN_DICT = {
     ],
 }
 
-# The channels that define the CR categories nor the njets hist (where we do not keep track of jets in the sparse axis)
-CR_CHAN_DICT_NO_J = {
-    "cr_2los_Z" : [
-        "2los_ee_CRZ",
-        "2los_mm_CRZ",
-    ],
-    "cr_2los_tt" : [
-        "2los_em_CRtt",
-    ],
-    "cr_2lss" : [
-        "2lss_ee_CR",
-        "2lss_em_CR",
-        "2lss_mm_CR",
-    ],
-    "cr_3l" : [
-        "3l_eee_CR",
-        "3l_eem_CR",
-        "3l_emm_CR",
-        "3l_mmm_CR",
-    ],
-}
 
 CR_GRP_MAP = {
     "DY" : [],
@@ -82,6 +61,24 @@ CR_GRP_MAP = {
 
 
 yt = YieldTools()
+
+# Takes a dictionary where the keys are catetory names and keys are lists of bin names in the category, and a string indicating what type of info (njets, or lepflav) to remove
+# Returns a dictionary of the same structure, except with njet or lepflav info stripped off of the bin names
+# E.g. if a value was ["cat_a_1j","cat_b_1j","cat_b_2j"] and we passed "njets", we should return ["cat_a","cat_b"]
+def get_dict_with_stripped_bin_names(in_chan_dict,type_of_info_to_strip):
+    out_chan_dict = {}
+    for cat,bin_names in in_chan_dict.items():
+        out_chan_dict[cat] = []
+        for bin_name in bin_names:
+            if type_of_info_to_strip == "njets":
+                bin_name_no_njet = yt.get_str_without_njet(bin_name)
+            elif type_of_info_to_strip == "lepflav":
+                bin_name_no_njet = yt.get_str_without_lepflav(bin_name)
+            else:
+                raise Exception(f"Error: Unknown type of string to remove \"{type_of_info_to_strip}\".")
+            if bin_name_no_njet not in out_chan_dict[cat]:
+                out_chan_dict[cat].append(bin_name_no_njet)
+    return(out_chan_dict)
 
 # Get a subset of the elements from a list of strings given a whitelist and/or blacklist of substrings
 def filter_lst_of_strs(in_lst,substr_whitelist=[],substr_blacklist=[]):
@@ -144,7 +141,8 @@ def group_bins(histo,bin_map):
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
 def make_cr_fig(h_mc,h_data,unit_norm_bool):
 
-    colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
+    #colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
+    colors = ["tab:blue","brown","tab:orange",'tab:green',"tab:purple","tab:pink","tab:cyan"]
 
     # Create the figure
     fig, (ax, rax) = plt.subplots(
@@ -270,9 +268,14 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
-            cr_cat_dict = CR_CHAN_DICT_NO_J
-        else:  cr_cat_dict= CR_CHAN_DICT
+            # We do not keep track of jets in the sparse axis for the njets hists
+            cr_cat_dict = get_dict_with_stripped_bin_names(CR_CHAN_DICT,"njets")
+        else:  cr_cat_dict = CR_CHAN_DICT
+        # If the hist is not split by lepton flavor, the lep flav info should not be in the channel names we try to integrate over
+        if not yt.is_split_by_lepflav(dict_of_hists):
+            cr_cat_dict = get_dict_with_stripped_bin_names(cr_cat_dict,"lepflav")
         print("\nVar name:",var_name)
+        print("cr_cat_dict:",cr_cat_dict)
 
         # Extract the MC and data hists
         hist_mc = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
@@ -299,16 +302,21 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 os.mkdir(save_dir_path_tmp)
 
             # Integrate to get the categories we want
-            # NOTE: Once we merge PR #98, integrating the appl axis should not be necessary
             axes_to_integrate_dict = {}
             axes_to_integrate_dict["systematic"] = "nominal"
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
-            if "2l" in hist_cat:
-                axes_to_integrate_dict["appl"] = "isSR_2l"
-            elif "3l" in hist_cat:
-                axes_to_integrate_dict["appl"] = "isSR_3l"
+            # If we have calculated the nonprompt contribution, the appl axis has already been integrated out
+            if ("appl" in yt.get_axis_list(hist_mc)) and ("appl" in yt.get_axis_list(hist_data)):
+                if "2l" in hist_cat:
+                    axes_to_integrate_dict["appl"] = "isSR_2l"
+                elif "3l" in hist_cat:
+                    axes_to_integrate_dict["appl"] = "isSR_3l"
+                else:
+                    raise Exception
+            elif ("appl" not in yt.get_axis_list(hist_mc)) and ("appl" not in yt.get_axis_list(hist_data)):
+                print("Already integrated out the appl axis. Continuing...")
             else:
-                raise Exception
+                raise Exception("Error: appl axis is in one hist and not the other, this should not happen.")
             hist_mc_integrated = yt.integrate_out_cats(hist_mc,axes_to_integrate_dict)
             hist_data_integrated = yt.integrate_out_cats(hist_data,axes_to_integrate_dict)
 

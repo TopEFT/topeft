@@ -169,6 +169,13 @@ class YieldTools():
         h = pickle.load( gzip.open(path_to_pkl) )
         return h
 
+    # Takes a hist, and retruns a list of the axis names
+    def get_axis_list(self,histo):
+        axis_lst = []
+        for axis in histo.axes():
+            axis_lst.append(axis.name)
+        return axis_lst
+
 
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
@@ -186,6 +193,45 @@ class YieldTools():
             cats_lst.append(identifier.name)
 
         return cats_lst
+
+
+    # Remove the njet component of a category name, returns a new str
+    def get_str_without_njet(self,in_str):
+
+        # Check if the substring is an njet substr e.g. "2j"
+        def is_jet_str(substr):
+            if len(substr) != 2:
+                is_a_jet_str = False
+            elif not substr[0].isdigit():
+                is_a_jet_str = False
+            elif not substr[1] == "j":
+                is_a_jet_str = False
+            else:
+                is_a_jet_str = True
+            return is_a_jet_str
+
+        # Assumes the str is separated by underscores 
+        str_components_lst = in_str.split("_")
+        keep_lst = []
+        for component in str_components_lst:
+            if not is_jet_str(component):
+                keep_lst.append(component)
+        ret_str  = "_".join(keep_lst)
+        return(ret_str)
+
+
+    # Remove the lepflav component of a category name, returns a new str
+    def get_str_without_lepflav(self,in_str):
+        # The list of lep flavors we consider (this is a bit hardcoded...)
+        lepflav_lst = ["ee","em","mm","eee","eem","emm","mmm"]
+        # Assumes the str is separated by underscores 
+        str_components_lst = in_str.split("_")
+        keep_lst = []
+        for component in str_components_lst:
+            if not component in lepflav_lst:
+                keep_lst.append(component)
+        ret_str  = "_".join(keep_lst)
+        return(ret_str)
 
 
     # This should return true if the hist is split by lep flavor, definitely not a bullet proof check..
