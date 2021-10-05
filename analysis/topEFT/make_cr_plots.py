@@ -267,14 +267,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
     # Get the eft sum of weights at SM norm dict
-    sow_hist = dict_of_hists["SumOfEFTweights"]
-    sow_scale_dict = {}
-    for sample_name in sow_hist.identifiers('sample'):
-        sow_scale_dict[sample_name.name] = 1.0
-        is_eft = (len(sow_hist[sample_name]._sumw[sample_name,].shape) == 2)
-        if is_eft:
-            norm_val = sow_hist[sample_name].values()[sample_name.name,][0]
-            sow_scale_dict[sample_name.name] = 1.0/norm_val
+    eft_sow_scale_dict = yt.get_eft_sow_scale_dict(dict_of_hists["SumOfEFTweights"])
 
     # Loop over hists and make plots
     skip_lst = ["SumOfEFTweights"] # Skip this hist
@@ -299,7 +292,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         for sample_name in mc_sample_lst:
             sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
         hist_mc.scale(sample_lumi_dict,axis="sample")
-        hist_mc.scale(sow_scale_dict,axis="sample")
+        hist_mc.scale(eft_sow_scale_dict,axis="sample")
 
         # Group the samples by process type
         hist_mc = group_bins(hist_mc,CR_GRP_MAP)

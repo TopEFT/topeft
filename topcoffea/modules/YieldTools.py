@@ -260,6 +260,25 @@ class YieldTools():
         h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [bin_val,bin_val+1]))
         return h
 
+
+    # Get a dictionary with the sum of weights values the EFT samples need to be scaled by
+    def get_eft_sow_scale_dict(self,hin_dict):
+
+        # Chek if what we have is the output of the processsor, if so, get the sow hist from it
+        if isinstance(hin_dict,coffea.processor.accumulator.dict_accumulator): sow_hist = hin_dict["SumOfEFTweights"]
+        else: sow_hist = hin_dict
+
+        # Get the scale dictionary for each sample in the sample axis
+        # If a sample is eft, should scale by 1/(sum of weights at sm), if it's not an eft hist, should scale by 1
+        sow_scale_dict = {}
+        for sample_name in sow_hist.identifiers('sample'):
+            sow_scale_dict[sample_name.name] = 1.0
+            is_eft = (len(sow_hist[sample_name]._sumw[sample_name,].shape) == 2)
+            if is_eft:
+                norm_val = sow_hist[sample_name].values()[sample_name.name,][0]
+                sow_scale_dict[sample_name.name] = 1.0/norm_val
+
+        return sow_scale_dict
             
 
     # Get the difference between values in nested dictionary, currently can get either percent diff, or absolute diff
