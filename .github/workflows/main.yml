@@ -36,6 +36,7 @@ jobs:
         run: |
           conda install pytest pytest-cov
           conda install root_base -c conda-forge
+          mkdir histos
           pytest --cov=./ --cov-report=xml
 
       - name: Get yields 
