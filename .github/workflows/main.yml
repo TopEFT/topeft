@@ -6,7 +6,7 @@ on:
     - cron: '0 1 * * *' # Test every day at 1AM
   
 jobs:
-  install:
+  Full_Analysis:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -27,58 +27,30 @@ jobs:
       - name: Install topcoffea package
         run: |
           pip install -e .
-      - name: Cache node modules
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-node-modules
-        with:
-          # npm cache files are stored in `~/.npm` on Linux/macOS
-          path: ~/.npm
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-            ${{ runner.os }}-build-
-            ${{ runner.os }}-
-  Full_Analysis:
-    needs: install
-    runs-on: ubuntu-latest
-    steps:
-      - name: Load cache
-        uses: actions/cache@v2
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}
-      - name: Add conda to system path
+
+      - name: Download root files
         run: |
-          echo $CONDA/bin >> $GITHUB_PATH 
-      - run: wget http://www.crc.nd.edu/~ywan2/root_files/NAOD-00000_18449.root
+          wget http://www.crc.nd.edu/~ywan2/root_files/NAOD-00000_18449.root
+
       - name: Run processors over test files with futures executor
         run: |
-            cd analysis/topEFT
-            time python run.py ../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.json -o output_check_yields
-      - name: Get yields
+          cd analysis/topEFT
+          time python run.py ../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.json -o output_check_yields
+
+      - name: Get yields 
         run: |
-            python get_yield_json.py -f histos/output_check_yields.pkl.gz -n output_check_yields
+          cd analysis/topEFT
+          python get_yield_json.py -f histos/output_check_yields.pkl.gz -n output_check_yields
+
       - name: Compare yields
         run: |
-            python comp_yields.py output_check_yields.json test/UL17_private_ttH_for_CI_yields.json -t1 "New yields" -t2 "Ref yields"
-  coverage:
-    needs: install
-    runs-on: ubuntu-latest
-    steps:
-      - name: Load cache
-        uses: actions/cache@v2
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}
-      - name: Add conda to system path
-        run: |
-          echo $CONDA/bin >> $GITHUB_PATH 
+          cd analysis/topEFT
+          python comp_yields.py output_check_yields.json test/UL17_private_ttH_for_CI_yields.json -t1 "New yields" -t2 "Ref yields"
       - name: Generate coverage report
         run: |
-            conda install pytest pytest-cov
-            pytest --cov=./ --cov-report=xml
-      - name: Upload coverage to Codecov  
+          conda install pytest pytest-cov
+          pytest --cov=./ --cov-report=xml
+      - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
