@@ -1,8 +1,8 @@
 {
   "xsec": 0.2151,
-  "year": "2016APV",
+  "year": "2017",
   "treeName": "Events",
-  "histAxisName": "ttHJet_privateUL16APV",
+  "histAxisName": "ttHJet_privateUL17",
   "options": "",
   "WCnames": [
     "cpt",
