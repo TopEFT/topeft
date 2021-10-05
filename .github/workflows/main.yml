@@ -35,7 +35,7 @@ jobs:
       - name: Run processors over test files with futures executor
         run: |
           conda install pytest pytest-cov
-          conda install root -c conda-forge
+          conda install root_base -c conda-forge
           pytest --cov=./ --cov-report=xml
 
       - name: Get yields 

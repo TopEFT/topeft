@@ -9,6 +9,8 @@ def test_topcoffea():
         "topcoffea/json/test_samples/UL17_private_ttH_for_CI.json",
         "-o",
         "output_check_yields"
+        "-p",
+        "analysis/topEFT/histos/"
     ]
 
     # Run TopCoffea
@@ -18,7 +20,7 @@ def test_datacard():
     args = [
         "python",
         "analysis/topEFT/datacard_maker.py",
-        "histos/output_check_yields.pkl.gz",
+        "analysis/topEFT/histos/output_check_yields.pkl.gz",
         "-j",
         "0"
     ]
@@ -31,7 +33,7 @@ def test_datacard():
     args = [
         "python",
         "analysis/topEFT/datacard_maker.py",
-        "histos/output_check_yields.pkl.gz",
+        "analysis/topEFT/histos/output_check_yields.pkl.gz",
         "-j",
         "9"
     ]
@@ -44,7 +46,7 @@ def test_datacard():
     args = [
         "python",
         "analysis/topEFT/datacard_maker.py",
-        "histos/output_check_yields.pkl.gz",
+        "analysis/topEFT/histos/output_check_yields.pkl.gz",
         "-j",
         "6"
     ]
@@ -57,7 +59,7 @@ def test_datacard():
     args = [
         "python",
         "analysis/topEFT/datacard_maker.py",
-        "histos/output_check_yields.pkl.gz",
+        "analysis/topEFT/histos/output_check_yields.pkl.gz",
         "-j",
         "24"
     ]
