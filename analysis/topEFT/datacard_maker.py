@@ -85,7 +85,7 @@ class DatacardMaker():
         self.syst = list({k[3]:0 for k in self.hists['ptbl'].values().keys()})
         self.hsow = self.hists['SumOfEFTweights']
         self.hsow.set_sm()
-        self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples}
+        self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples if (len(self.hsow.integrate('sample', proc)._sumw[()].shape)==2)}
         with open(lumiJson) as jf:
             lumi = json.load(jf)
             self.lumi = lumi
@@ -111,7 +111,7 @@ class DatacardMaker():
                 if variable == 'njets':
                     chan = [c for c in self.channels[channel+'_'+charge] if 'j' not in c]
                 else:
-                    chan = [c for c in self.channels[channel+'_'+charge] if bins+'j' in c]
+                    chan = [c for c in self.channels[channel+'_'+charge] if 'j' in c]
                     channel = chan[0]
                 h = h.integrate('channel', chan)
             else:
@@ -160,23 +160,26 @@ class DatacardMaker():
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fout = uproot3.recreate(fname)
         #Scale each plot to the SM
+        processed = []
         for proc in self.samples:
-            if 'UL17' not in proc: continue # This is NOT a typo! We only need one year to determine the process name
+            simplified = proc.split('_central')[0].split('_private')[0].replace('_4F','').replace('_ext','')
+            if simplified in processed: continue # Only one process name per 3 years
+            processed.append(simplified)
             p = proc.split('_')[0]
-            ul = {'20'+k.split('UL')[1]:k for k in self.samples if p in k}
+            #ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k}
+            ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k and '16' in k}
             #Integrate out processes
             h_base = h.group('sample', hist.Cat('year', 'year'), ul)
             if h_base == {}:
                 print(f'Issue with {proc}')
                 continue
-            nwc = self.hsow._nwc
-            if nwc > 0:
-                years = {}
-                for year in ul:
-                    years[year] = self.lumi[year]/self.smsow[proc]
-                h_base.scale(years, axis='year')
+            years = {year : self.lumi[year] for year in ul}
+            if proc in self.smsow:
+                years = {year : self.lumi[year]/self.smsow[proc] for year in ul}
+            h_base.scale(years, axis='year')
             h_base = h_base.integrate('year')
             pname = self.rename[p]+'_' if p in self.rename else p+'_'
+            pname.replace('_4F','').replace('_ext','')
             if 'njet' in variable:
                 if   '2l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7]))
                 elif '3l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5]))
