@@ -166,8 +166,7 @@ class DatacardMaker():
             if simplified in processed: continue # Only one process name per 3 years
             processed.append(simplified)
             p = proc.split('_')[0]
-            #ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k}
-            ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k and '16' in k}
+            ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k}
             #Integrate out processes
             h_base = h.group('sample', hist.Cat('year', 'year'), ul)
             if h_base == {}:
