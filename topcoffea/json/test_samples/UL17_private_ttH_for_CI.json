@@ -1,6 +1,6 @@
 {
   "xsec": 0.2151,
-  "year": "2017",
+  "year": "2016APV",
   "treeName": "Events",
   "histAxisName": "ttHJet_privateUL16APV",
   "options": "",
@@ -29,7 +29,7 @@
     "ctG"
   ],
   "files": [
-    "../../NAOD-00000_18449.root"
+    "NAOD-00000_18449.root"
   ],
   "nEvents": 7993714,
   "nGenEvents": 40553247.0,
