@@ -56,6 +56,7 @@ CR_GRP_MAP = {
     "Triboson" : [],
     "Single top" : [],
     "Singleboson" : [],
+    "Nonprompt" : [],
     "Signal" : [],
     "Data" : [],
 }
@@ -143,7 +144,8 @@ def group_bins(histo,bin_map):
 def make_cr_fig(h_mc,h_data,unit_norm_bool):
 
     #colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
-    colors = ["tab:blue","brown","tab:orange",'tab:green',"tab:purple","tab:pink","tab:cyan"]
+    colors = ["tab:blue","brown","tab:orange",'tab:green',"tab:purple","tab:pink","tab:cyan","tan"]
+    colors = ["tab:blue","brown","tab:orange",'tan',"tab:purple","tab:pink","tab:cyan","tab:green"]
 
     # Create the figure
     fig, (ax, rax) = plt.subplots(
@@ -249,7 +251,10 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
     for proc_name in all_samples:
         if "data" in proc_name:
             CR_GRP_MAP["Data"].append(proc_name)
+        elif "nonprompt" in proc_name:
+            CR_GRP_MAP["Nonprompt"].append(proc_name)
         elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name):
+            print("SIGNAL HERE!!!",proc_name)
             CR_GRP_MAP["Signal"].append(proc_name)
         elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name:
             CR_GRP_MAP["Single top"].append(proc_name)

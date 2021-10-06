@@ -186,6 +186,8 @@ class YieldTools():
         # Chek if what we have is the output of the processsor, if so, get a specific hist from it
         if isinstance(hin_dict,coffea.processor.accumulator.dict_accumulator):
             hin_dict = hin_dict[h_name]
+        elif isinstance(hin_dict,dict):
+            hin_dict = hin_dict[h_name]
 
         # Note: Use h.identifiers('axis') here, not axis.identifiers() (since according to Nick Smith "the axis may hold identifiers longer than the hist that uses it (hists can share axes)", but h.identifiers('axis') will get the ones actually contained in the histogram)
         cats_lst = []
