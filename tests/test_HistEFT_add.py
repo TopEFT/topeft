@@ -234,3 +234,7 @@ def test_add_bab_errors():
     assert abs(bab.integrate('type','non-eft')._sumw[()][1] - 2*nevts*weight_val) < 1e-10
     assert abs(bab.integrate('type','non-eft')._sumw2[()][1] - (weight_val**2)*2*nevts) < 1e-10
     
+def test_split_by_terms():
+    integral = a.sum('type').values()[()].sum()
+    c = a.split_by_terms(['x'], 'type')
+    assert integral == c.integrate('type', [k[0] for k in c.values() if 'eft' not in k[0]]).values()[()].sum()

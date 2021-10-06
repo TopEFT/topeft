@@ -19,7 +19,9 @@ def main():
 
     # Set up the command line parser
     parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--input-path", default="/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch2/naodOnly_step/v2/nAOD_step_ttHJet_all22WCsStartPtCheckdim6TopMay20GST_run0/NAOD-00000_10769.root", help = "The path the input files should be saved to")
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
+    parser.add_argument("-r", "--redirector", default="root://deepthought.crc.nd.edu/", help = "The path the output files should be saved to")
     args = parser.parse_args()
 
     # Make a tmp output directory in curren dir a different dir is not specified
@@ -32,8 +34,8 @@ def main():
 
     # Open an example naod file
     # Maybe should pass this as an argument? Or even pass a cfg file like the run script does
-    redirector = "root://deepthought.crc.nd.edu/"
-    in_file = "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch2/naodOnly_step/v2/nAOD_step_ttHJet_all22WCsStartPtCheckdim6TopMay20GST_run0/NAOD-00000_10769.root"
+    redirector = args.redirector
+    in_file = args.input_path
     in_file = redirector + in_file
 
     # Get the events object and wc names from the input file
