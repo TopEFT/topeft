@@ -44,7 +44,6 @@ class DatacardMaker():
         self.ch2lssj.sort()
         self.ch3l1b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
         self.ch3l1b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
-        print(self.ch3l1b)
         self.ch3l1b_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'p' in k[1] and '1b' in k[1]})
         self.ch3l1b_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and 'p' in k[1] and '1b' in k[1]})
         self.ch3l1b_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'm' in k[1]  and '1b' in k[1]})
