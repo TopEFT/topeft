@@ -44,6 +44,30 @@ b = a.copy(content=False)
 a.fill(type='eft', x=np.full(nevts,0.5), eft_coeff=eft_fit_coeffs)
 b.fill(type='non-eft', x=np.full(nevts,0.5))
 
+def test_scale_a_weights():
+    assert np.all(np.abs(a_w.integrate('type','eft')._sumw[()][1] - weight_val*sums) < 1e-10) 
+    integral = a_w.integrate('type','eft').values()[()].sum()
+    a_w.set_wilson_coeff_from_array(np.ones(a_w._nwc))
+    assert a_w.integrate('type','eft').values()[()].sum() != integral
+    assert np.all(np.abs(a_w.integrate('type','eft')._sumw[()][1] - weight_val*sums) < 1e-10) 
+    ones = dict(zip(wc_names_lst, np.ones(a_w._nwc)))
+    a_w.set_wilson_coefficients(**ones)
+    assert a_w.integrate('type','eft').values()[()].sum() != integral #FIXME we should compute the actual values
+    a_w.set_sm()
+    assert a_w.integrate('type','eft').values()[()].sum() == integral
+
+def test_ac_deepcopy():
+    c_w = a_w.copy(content=True)
+    assert np.all(a_w.integrate('type','eft')._sumw[()] == c_w.integrate('type','eft')._sumw[()])
+    c_w.scale(1)
+    c_w.clear()
+    assert c_w._sumw == {}
+    assert c_w._sumw2 ==  None
+
+def test_group():
+    c_w = a_w.group('type', hist.Cat('all', 'all'), {'all': ['eft', 'non-eft']})
+    assert c_w.integrate('all').values()[()].sum() == a_w.integrate('type').values()[()].sum()
+
 def test_add_ab_noerrors():
     ab = a + b
     assert np.all(ab.integrate('type','eft')._sumw[()][1] == sums) 
