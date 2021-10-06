@@ -16,6 +16,21 @@ def test_topcoffea():
     # Run TopCoffea
     subprocess.run(args)
 
+def test_yields():
+    args = [
+        "python",
+        "analysis/topEFT/comp_yields.py",
+        "analysis/topEFT/output_check_yields.json",
+        "analysis/topEFT/test/UL17_private_ttH_for_CI_yields.json",
+        "-t1",
+        "New yields""",
+        "-t2",
+        "Ref yields"
+    ]
+
+    # Run comparison
+    subprocess.run(args)
+
 def test_datacard():
     args = [
         "python",
