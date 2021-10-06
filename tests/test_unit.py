@@ -106,7 +106,7 @@ def test_wcfit():
     print('--------------\n')
 
     print(f'Passed Checks: {all_chks}/{units}')
-    return (all_chks == units)
+    assert (all_chks == units)
 
 ########################### Stats unit tests ###########################
 
@@ -257,7 +257,7 @@ def test_stats():
     ###########################
 
     print(f'Passed Checks: {all_chks}/{units}')
-    return (all_chks == units)
+    assert (all_chks == units)
 
 ########################### HistEFT unit tests ###########################
 
@@ -497,23 +497,4 @@ def test_histeft():
     ###########################
 
     print(f'Passed Checks: {all_chks}/{units}')
-    return (all_chks == units)
-
-def run_unit_tests():
-    all_chks = True
-
-    all_chks = test_wcfit() and all_chks
-    print()
-
-    all_chks = test_stats() and all_chks
-    print()
-
-    all_chks = test_histeft() and all_chks
-    print()
-
-    print('All unit tests completed successfully!') if all_chks else print('Some unit tests failed!')
-
-    return
-
-if __name__ == '__main__':
-    run_unit_tests()
+    assert (all_chks == units)
