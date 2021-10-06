@@ -1,7 +1,9 @@
 ignore:
-  - "topcoffea/modules/DASsearch.py"     # Cannot run DAS client on GitHub
-  - "topcoffea/plotter"                  # Not currently using plotter
-  - "topcoffea/modules/HTMLGenerator.py" # Not currently using HTML generator
   - "topcoffea/modules/createJSON.py"    # Always done by hand
+  - "topcoffea/modules/DASsearch.py"     # Cannot run DAS client on GitHub
+  - "topcoffea/modules/fileReader.py"    # Only used when creating json files
+  - "topcoffea/modules/HTMLGenerator.py" # Not currently using HTML generator
+  - "topcoffea/modules/samples.py"       # Only used when creating json files
+  - "topcoffea/plotter"                  # Not currently using plotter
   - "tests"                              # Don't need to inventory unit tests, they are covered by design
   - "setup.py"                           # Run only when installing TopCoffea
