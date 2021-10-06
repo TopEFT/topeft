@@ -4,3 +4,4 @@ ignore:
   - "topcoffea/modules/HTMLGenerator.py" # Not currently using HTML generator
   - "topcoffea/modules/createJSON.py"    # Always done by hand
   - "tests"                              # Don't need to inventory unit tests, they are covered by design
+  - "setup.py"                           # Run only when installing TopCoffea
