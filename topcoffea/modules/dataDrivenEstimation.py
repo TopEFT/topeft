@@ -27,7 +27,7 @@ class DataDrivenProducer:
     def DDFakes(self):
         if self.outHist!=None:  # already some processing has been done, so using what is available
             self.inhist=self.outHist
-            
+
         self.outHist={}
         if 'SumOfEFTweights' in self.inhist:
             self.outHist['SumOfEFTweights']=self.inhist['SumOfEFTweights']
@@ -127,8 +127,8 @@ class DataDrivenProducer:
                         else:
                             newhist=newhist+hFakes
 
-                # scale back by 1/lumi all processes but data so they can be used transparently downtream
-                # mind that we scaled all mcs already above
+                # Scale back by 1/lumi all processes but data so they can be used transparently downstream
+                # Mind that we scaled all mcs already above
                 scaleDict={}
                 for sample in newhist.identifiers('sample'):
                     match = pattern.search(sample.name)
@@ -137,8 +137,10 @@ class DataDrivenProducer:
                         continue
                     year=match.group('year')
                     scaleDict[sample]=1/(1000*get_lumi('20'+year))
-                print(scaleDict)
                 newhist.scale( scaleDict, axis='sample')
+
+                # Scale back the EFT samples by sum of weights at SM so they can be used transparently downstream
+                newhist.scale( self.smsow, axis='sample')
             
 
             self.outHist[key]=newhist
