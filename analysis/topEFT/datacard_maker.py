@@ -82,10 +82,14 @@ class DatacardMaker():
         rename = {k.split('_')[0]: v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
         self.levels = list({k[2]:0 for k in self.hists['ptbl'].values().keys()})
-        self.syst = list({k[3]:0 for k in self.hists['ptbl'].values().keys()})
+        self.has_nonprompt = not any(['appl' in str(a) for a in self.hists['njets'].axes()]) # Check for nonprompt samples by looking for 'appl' axis
+        if self.has_nonprompt:
+            self.syst = list({k[2]:0 for k in self.hists['ptbl'].values().keys()}) # 'appl' axis was removed, systematics moves down a slot
+        else:
+            self.syst = list({k[3]:0 for k in self.hists['ptbl'].values().keys()})
         self.hsow = self.hists['SumOfEFTweights']
         self.hsow.set_sm()
-        self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples if (len(self.hsow.integrate('sample', proc)._sumw[()].shape)==2)}
+        self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples if any([proc in k[0] for k in self.hsow.values().keys()]) and (len(self.hsow.integrate('sample', proc)._sumw[()].shape)==2)}
         with open(lumiJson) as jf:
             lumi = json.load(jf)
             self.lumi = lumi
@@ -104,7 +108,10 @@ class DatacardMaker():
            print(self.channels.keys())
            print([[ch, ch in self.channels.keys()] for ch in channel])
            raise Exception(f'At least one channel in {channels} is not found in self.channels!')
-        h = self.hists[variable].integrate('appl', appl).integrate('systematic', systematics)
+        if self.has_nonprompt:
+            h = self.hists[variable].integrate('systematic', systematics) # 'appl' axis is removed in nonprmopt samples, everything is 'isSR'
+        else:
+            h = self.hists[variable].integrate('appl', appl).integrate('systematic', systematics)
         if isinstance(charges, str):
             charge = 'p' if charges == 'ch+' else 'm'
             if isinstance(bins, str):
@@ -241,9 +248,9 @@ class DatacardMaker():
                             fout[pname+name] = hist.export1d(h_mix)
         
         fout.close()
-        self.makeCardLevel(channel=channel, appl=appl, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
+        self.makeCardLevel(channel=channel, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
 
-    def makeCardLevel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], nbjet='2+bm', systematics='nominal', variable='njets'):
+    def makeCardLevel(self, channel=[], charges=['ch+','ch-'], nbjet='2+bm', systematics='nominal', variable='njets'):
         '''
         Create datacard files from temp uproot outputs
         Creates histograms for ``combine``:
@@ -353,8 +360,6 @@ class DatacardMaker():
                         allyields[name] = h_sm.Integral()
                         bkgcount += 1
                         d_bkgs[name] = h_sm
-                if allyields[name] < 0:# or allyields[name] < self.tolerance:
-                    allyields[name] = 0.
                 #processSyst(h_sm, systMap,fout)
                 h_sm.SetDirectory(fout)
                 h_sm.SetName(name)
@@ -435,6 +440,8 @@ class DatacardMaker():
                         #processSyst(h_mix, systMap,fout)
 
         #Write datacard
+        if any([v < 0 for v in allyields.values()]):
+            raise Exception('Danger! A bin is negative!')
         if systematics != 'nominal':
             cat = cat + '_' + systematics
         nuisances = [syst for syst in systMap]
@@ -569,14 +576,14 @@ if __name__ == '__main__':
     jobs = []
     for var in ['njets','ht','ptbl']:
         cards = [{'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                     {'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                     {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                     {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                     {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                     {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                     {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-                     {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-                     {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
+                 {'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+                 {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
         jobs.append(cards)
     njobs = len(jobs) * len(jobs[0])
     if job == -1:
