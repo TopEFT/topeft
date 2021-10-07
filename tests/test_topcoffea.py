@@ -1,5 +1,6 @@
 import subprocess
 import filecmp
+import topcoffea.modules.dataDrivenEstimation as dataDrivenEstimation
 
 def test_topcoffea():
     args = [
@@ -15,6 +16,10 @@ def test_topcoffea():
 
     # Run TopCoffea
     subprocess.run(args)
+
+def test_nonprompt():
+    a=dataDrivenEstimation.DataDrivenProducer('analysis/topEFT/histos/output_check_yields.pkl.gz', 'analysis/topEFT/histos/output_check_yields_nonprompt')
+    a.dumpToPickle() # Do we want to write this file when testing in CI? Maybe if we ever save the CI artifacts
 
 def test_make_yields():
     args = [
