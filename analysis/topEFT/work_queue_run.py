@@ -167,7 +167,7 @@ executor_args = {
     'stats_log': 'stats.log',
 
     'environment_file': topeftenv.get_environment(),
-    #'extra_input_files': ["topeft.py"],
+    'extra_input_files': ["topeft.py"],
 
     'schema': NanoAODSchema,
     'skipbadfiles': False,
