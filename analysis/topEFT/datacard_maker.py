@@ -12,7 +12,7 @@ import json
 from ROOT import TFile, TH1D, TH2D
 
 class DatacardMaker():
-    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[]):
+    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year=''):
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
@@ -22,6 +22,7 @@ class DatacardMaker():
         self.do_nuisance = do_nuisance
         if len(wcs)>0: self.coeffs = wcs
         self.coeffs = wcs if len(wcs)>0 else []
+        self.year = single_year
 
 
     def read(self):
@@ -73,6 +74,9 @@ class DatacardMaker():
         #Get list of samples and cut levels from histograms
         self.signal = ['ttH','tllq','ttll','ttlnu','tHq','tttt']
         self.samples = list({k[0]:0 for k in self.hists['ptbl'].values().keys()})
+        if self.year != '':
+            print(f'Only running over {year=}! If this was not intended, please remove the --year (or -y) flag.')
+            self.sampels = [k for k in self.samples if self.year[2:] in k]
         rename = {l: re.split('(Jet)?_[a-zA-Z]*1[6-8]', l)[0] for l in self.samples}
         rename = {k: 'Triboson' if bool(re.search('[WZ]{3}', v)) else v for k,v in rename.items()}
         rename = {k: 'Diboson' if bool(re.search('[WZ]{2}', v)) else v for k,v in rename.items()}
@@ -560,16 +564,18 @@ if __name__ == '__main__':
     parser.add_argument('--do-nuisance',    action='store_true', help = 'Include nuisance parameters')
     parser.add_argument('--POI',            default=[],          help = 'List of WCs (comma separated)')
     parser.add_argument('--job',      '-j', default='-1'       , help = 'Job to run')
+    parser.add_argument('--year',     '-y', default=''         , help = 'Run over single year')
     args = parser.parse_args()
     pklfile  = args.pklfile
     lumiJson = args.lumiJson
     do_nuisance = args.do_nuisance
     wcs = args.POI
     job = int(args.job)
+    year = args.year
     if isinstance(wcs, str): wcs = wcs.split(',')
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
-    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs)
+    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year)
     card.read()
     card.buildWCString()
     print(card.coeffs)
