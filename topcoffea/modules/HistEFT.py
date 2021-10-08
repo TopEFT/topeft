@@ -19,6 +19,7 @@ import awkward as ak
 import numbers
 
 from coffea.hist.hist_tools import DenseAxis
+from topcoffea.modules.utils import regex_match
 
 import topcoffea.modules.eft_helper as efth
 
@@ -81,6 +82,97 @@ class HistEFT(coffea.hist.Hist):
           part1, _, part2 = wc_string.rpartition(', ')
           msg += ('Defined Wilson coefficients: '+part1 + ', and ' + part2+'.')
         raise LookupError(msg)
+
+  def split_by_terms(self,axis_bins,axis_name='sample'):
+    """ Split the EFT contributions by unique term from the quadratic parameterization
+    Parameters
+    ----------
+        axis_bins : list
+            A list of axis bins that should correspond to bins with an EFT parmeterization. These
+            bins will be summed together and the resulting parameterization split term-by-term to
+            fill a set of new bins in the same axis. Typically, this should correspond to one or
+            more of the private EFT MC samples. The axis bin strings can be regular expressions
+            which will be used to find any matches in the axis.
+        axis_name : str
+            The name of the sparse axis that is to be regrouped. This should almsot always
+            correspond to whichever sparse axis defines the different MC process samples.
+
+    Returns:
+        A new HistEFT with the matched axis bins summed over and the resulting EFT parameterization
+        split up term-by-term, with each term appearing as a new bin in the specified axis. The
+        original axis bins are removed from the axis before returning the histogram
+
+    TODO: We could probably preserve the EFT quadratic information by filling the new histogram with
+          the quadratic coefficient that corresponds to the specific bin being filled.
+    """
+    if self.dense_dim() > 1:
+      raise RuntimeError("Splitting by terms not implemented for histograms with more than 1 dense axis")
+    if not axis_name in self._axes:
+      raise KeyError(f"No axis {axis_name} found in {self}")
+    dense_ax = self.dense_axes()[0]
+
+    # Combine together bins that we want to have included in the EFT contributions
+    old_ax = self.axis(axis_name)
+    new_ax = coffea.hist.Cat(old_ax.name,old_ax.label)
+
+    GROUP_NAME = 'signals'
+
+    ident_names = [x.name for x in self.identifiers(axis_name)]
+    to_group = {GROUP_NAME: regex_match(ident_names,regex_lst=axis_bins)}
+    for ident in old_ax.identifiers():  # Should this be 'old_ax' or self.identifiers()?
+      n = ident.name
+      if not n in to_group[GROUP_NAME]:
+        to_group[n] = [n]
+    new_h = self.group(old_ax,new_ax,to_group)
+
+    # Now begin the actual splitting
+    wcs = np.hstack(("sm",new_h._wcnames))
+    wc_vals = np.hstack((np.ones(1),new_h._wcs))
+
+    # First we evaluate the wc0*wc1 part of the quadratic, since this will be the same for every
+    #   bin in the histogram. Each element of 'wc_terms' will correspond to a different term of
+    #   the quadratic, so all that is left is to get the structure constants and multiply
+    #   element-by-element to get the expected yield
+    n_wcs = len(wcs)
+    n_terms = int(n_wcs*(n_wcs+1)/2)
+    iarr = np.zeros(2)
+    wc_terms = np.zeros(n_terms)
+    for idx in range(n_terms):
+      efth.quadratic_term_to_factors(idx,iarr)
+      i,j = [int(x) for x in iarr]
+      val = wc_vals[i]*wc_vals[j]
+      wc_terms[idx] = val
+
+    # This relies heavily on the fact that the ordering of the sparse axes matches the ordering
+    #   in the sparse_key tuple that you get from self._sumw
+    sparse_axes = [x.name for x in new_h.sparse_axes()]
+    sparse_keys = [x for x in new_h._sumw.keys()]
+    for sparse_key in sparse_keys:
+      v = new_h._sumw[sparse_key]
+      if new_h.dense_dim() > 0:
+        is_eft_bin = (v.shape != new_h._dense_shape)
+      else:
+        is_eft_bin = isinstance(v,np.ndarray)
+
+      if is_eft_bin:
+        bins = v[1:-2,...]  # Chop off the '*-flow' bins
+        term_vals = bins*wc_terms
+        for idx,wgts in enumerate(term_vals.T):
+          efth.quadratic_term_to_factors(idx,iarr)    # Get the 'name' of this term
+          i,j = [int(x) for x in iarr]
+          n1 = wcs[i]
+          n2 = wcs[j]
+          fill_info = {}
+          # Just to reiterate, this for loop relies on the fact that the ordering of the sparse axes
+          #   matches the ordering of the sparse key tuple that you get from self._sumw
+          for sp_axis_name,sp_axis_bin in zip(sparse_axes,sparse_key):
+            fill_info[sp_axis_name] = sp_axis_bin
+          fill_info[dense_ax.name] = dense_ax.centers()
+          fill_info['weight'] = wgts
+          fill_info[axis_name] = f"{n1}.{n2}"  # This overwrites the category (which should've been GROUP_NAME)
+          new_h.fill(**fill_info)
+    new_h = new_h.remove([GROUP_NAME],axis_name)
+    return new_h
 
   def copy(self, content=True):
     """ Copy """
@@ -253,21 +345,43 @@ class HistEFT(coffea.hist.Hist):
       raise ValueError("Cannot add this histogram with histogram %r of dissimilar dimensions" % other)
     raxes = other.sparse_axes()
 
+    # Adds right to left
     def add_dict(left, right):
       for rkey in right.keys():
         lkey = tuple(self.axis(rax).index(rax[ridx]) for rax, ridx in zip(raxes, rkey))
-        if lkey in left and left[lkey] is not None:
-          # Checking to make sure we don't accidentally try to sum a regular and EFT bin
-          if self.dense_dim() > 0:
-            if left[lkey].shape != right[rkey].shape:
-              raise ValueError("Attempt to add histogram bins with EFT weights to ones without.")
-          else:
-            if isinstance(left[lkey],np.ndarray) != isinstance(right[rkey],np.ndarray):
-              raise ValueError("Attempt to add histogram bins with EFT weights to ones without.")
-          left[lkey] += right[rkey]
-        else:
+        # If the lkey is not already in left, just take the value from right
+        # Note: We do not have to check if rkey is in right, since we're looping over right.keys()
+        if lkey not in left:
           left[lkey] = copy.deepcopy(right[rkey])
+        # Check that neither value is none
+        elif (left[lkey] is not None) and (right[rkey] is not None):
+          # Check if we're trying to sum a regular and EFT bin
+          if ((self.dense_dim() > 0) and (left[lkey].shape != right[rkey].shape)):
+            if left[lkey].shape[0] == right[rkey].shape[0]:
+              # Add the non-EFT bin contents to the 0th element (SM element) of the EFT bin
+              # But first we have to know which hist is the EFT one
+              if len(left[lkey].shape) == 2:
+                # The left hist is the one with eft weights
+                left[lkey][:,0] = left[lkey][:,0] + right[rkey] 
+              elif len(right[rkey].shape) == 2:
+                # The right hist is the one with eft weights
+                # So we want left to be equal to left plus right (where left is just added to the SM part of right), without modifying right
+                tmp = left[lkey]
+                left[lkey] = copy.deepcopy(right[rkey])
+                left[lkey][:,0] = left[lkey][:,0] + tmp
+              else:
+                raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
+            else:
+              raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
+          elif ((self.dense_dim() < 1) and (isinstance(left[lkey],np.ndarray) != isinstance(right[rkey],np.ndarray))):
+            raise ValueError("Attempt to add histogram bins with EFT weights to ones without.")
+          else:
+            left[lkey] += right[rkey]
+        # If either or both are None, we want the out to be None
+        else:
+          left[lkey] = None
 
+    # Add the sumw2 values
     if self._sumw2 is None and other._sumw2 is None: pass
     elif self._sumw2 is None:
       self._init_sumw2()
@@ -287,7 +401,10 @@ class HistEFT(coffea.hist.Hist):
       add_dict(self._sumw2, temp)
     else:
       add_dict(self._sumw2, other._sumw2)
+
+    # Add the sumw values
     add_dict(self._sumw, other._sumw)
+
     return self 
 
   def __getitem__(self, keys):
@@ -325,15 +442,37 @@ class HistEFT(coffea.hist.Hist):
         continue
       if sparse_key in out._sumw:
         out._sumw[sparse_key] += dense_op(self._sumw[sparse_key])
+
+        # Handle the sumw2 values
+        # Note: This is copied directly from the implementation in sum(), with key->sparse_key, new_key->sparse_key
         if self._sumw2 is not None:
-          if self._sumw2[sparse_key] is not None:
-            if out._sumw2[sparse_key] is not None:
-              out._sumw2[sparse_key] += dense_op(self._sumw2[sparse_key])
+          # If neither sumw2 value is None, add them
+          # First check if we're trying to add regular errors to eft errors
+          # Note: This is really the same as in sumw, so would be better to have a function instead of copy paste
+          if (self._sumw2[sparse_key] is not None) and (out._sumw2[sparse_key] is not None):
+            if (out._sumw2[sparse_key].shape != self._sumw2[sparse_key].shape):
+              if out._sumw2[sparse_key].shape[0] == self._sumw2[sparse_key].shape[0]:
+                # Add the non-EFT bin contents to the 0th element (SM element) of the EFT bin
+                # But first we have to know which hist is the EFT one
+                if len(out._sumw2[sparse_key].shape) == 2:
+                  # The out hist is the one with eft weights
+                  out._sumw2[sparse_key][:,0] = out._sumw2[sparse_key][:,0] + self._sumw2[sparse_key]
+                elif len(self._sumw2[sparse_key].shape) == 2:
+                  # The original hist self is the one with eft weights
+                  # So we want out to be equal to self plus out (where out is just added to the SM part of self), without modifying self
+                  tmp2 = out._sumw2[sparse_key]
+                  out._sumw2[sparse_key] = copy.deepcopy(self._sumw2[sparse_key])
+                  out._sumw2[sparse_key][:,0] = out._sumw2[sparse_key][:,0] + tmp2
+                else:
+                  raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
+              else:
+                raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
             else:
-              raise ValueError('Cannot combine bins where only some have EFT error weights.')
+              out._sumw2[sparse_key] += dense_op(self._sumw2[sparse_key])
+          # If either sumw2 value is None, we will set the out sumw2 to None
           else:
-            if out_sumw2[sparse_key] is not None:
-              raise ValueError('Cannot combine bins where only some have EFT error weights.')
+            out._sumw2[sparse_key] = None
+
       else:
         out._sumw[sparse_key] = dense_op(self._sumw[sparse_key]).copy()
         if self._sumw2 is not None:
@@ -373,25 +512,64 @@ class HistEFT(coffea.hist.Hist):
       return array
 
     for key in self._sumw.keys():
+
       new_key = tuple(k for i, k in enumerate(key) if i not in sparse_drop)
       if new_key in out._sumw:
-        # Check that we're not trying to combine EFT and non-EFT bins
-        if self.dense_dim() > 0:
-          if out._sumw[new_key].shape != self._sumw[key].shape:
-            raise ValueError("Attempt to sum bins with EFT weights to ones without.")
-        else:
-          if isinstance(out._sumw[new_key],np.ndarray) != isinstance(self._sumw[key],np.ndarray):
-            raise ValueError("Attempt to sum bins with EFT weights to ones without.")
-        out._sumw[new_key] += dense_op(self._sumw[key])
-        if self._sumw2 is not None:
-          if self._sumw2[key] is not None:
-            if out._sumw2[new_key] is not None:
-              out._sumw2[new_key] += dense_op(self._sumw2[key])
+
+        # Handle the sumw values
+        # Check if we're trying to combine EFT and non-EFT bins
+        if ((self.dense_dim() > 0) and (out._sumw[new_key].shape != self._sumw[key].shape)):
+          if out._sumw[new_key].shape[0] == self._sumw[key].shape[0]:
+            # Add the non-EFT bin contents to the 0th element (SM element) of the EFT bin
+            # But first we have to know which hist is the EFT one
+            if len(out._sumw[new_key].shape) == 2:
+              # The out hist is the one with eft weights
+              out._sumw[new_key][:,0] = out._sumw[new_key][:,0] + self._sumw[key]
+            elif len(self._sumw[key].shape) == 2:
+              # The original hist self is the one with eft weights
+              # So we want out to be equal to self plus out (where out is just added to the SM part of self), without modifying self
+              tmp = out._sumw[new_key]
+              out._sumw[new_key] = copy.deepcopy(self._sumw[key])
+              out._sumw[new_key][:,0] = out._sumw[new_key][:,0] + tmp
             else:
-              raise ValueError('Cannot combine bins where only some have EFT error weights')
+              raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
           else:
-            if out._sumw2[new_key] is not None:
-              raise ValueError('Tried to combine bins with and without EFT error weights')
+            raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
+        elif ((self.dense_dim() == 0) and (isinstance(out._sumw[new_key],np.ndarray) != isinstance(self._sumw[key],np.ndarray))):
+          raise ValueError("Attempt to sum bins with EFT weights to ones without.")
+        else:
+          out._sumw[new_key] += dense_op(self._sumw[key])
+
+        # Handle the sumw2 values
+        if self._sumw2 is not None:
+          # If neither sumw2 value is None, add them
+          # First check if we're trying to add regular errors to eft errors
+          # Note: This is really the same as in sumw, so would be better to have a function instead of copy paste
+          if (self._sumw2[key] is not None) and (out._sumw2[new_key] is not None):
+            if (out._sumw2[new_key].shape != self._sumw2[key].shape):
+              if out._sumw2[new_key].shape[0] == self._sumw2[key].shape[0]:
+                # Add the non-EFT bin contents to the 0th element (SM element) of the EFT bin
+                # But first we have to know which hist is the EFT one
+                if len(out._sumw2[new_key].shape) == 2:
+                  # The out hist is the one with eft weights
+                  out._sumw2[new_key][:,0] = out._sumw2[new_key][:,0] + self._sumw2[key]
+                elif len(self._sumw2[key].shape) == 2:
+                  # The original hist self is the one with eft weights
+                  # So we want out to be equal to self plus out (where out is just added to the SM part of self), without modifying self
+                  tmp2 = out._sumw2[new_key]
+                  out._sumw2[new_key] = copy.deepcopy(self._sumw2[key])
+                  out._sumw2[new_key][:,0] = out._sumw2[new_key][:,0] + tmp2
+                else:
+                  raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
+              else:
+                raise ValueError("Cannot sum these histograms, the values are not an expected shape.")
+            else:
+              out._sumw2[new_key] += dense_op(self._sumw2[key])
+          # If either sumw2 value is None, we will set the out sumw2 to None
+          else:
+            out._sumw2[new_key] = None
+
+      # The new_key in not in out._sumw yet, so just take the val from self
       else:
         out._sumw[new_key] = dense_op(self._sumw[key]).copy()
         if self._sumw2 is not None:
@@ -401,7 +579,6 @@ class HistEFT(coffea.hist.Hist):
             out._sumw2[new_key] = None
               
     return out
-
 
   def group(self, old_axes, new_axis, mapping, overflow='none'): 
     """ Group a set of slices on old axes into a single new axis """
@@ -578,4 +755,3 @@ class HistEFT(coffea.hist.Hist):
       raise NotImplementedError("Scale dense dimension by a factor")
     else:
       raise TypeError("Could not interpret scale factor")
-

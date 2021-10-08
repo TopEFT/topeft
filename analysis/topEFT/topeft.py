@@ -276,6 +276,18 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("The number of events passing FO 2l, 3l, and 4l selection:", ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
 
 
+        ######### EFT coefficients ##########
+
+        # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
+        # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
+        eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
+        if eft_coeffs is not None:
+            # Check to see if the ordering of WCs for this sample matches what want
+            if self._samples[dataset]["WCnames"] != self._wc_names_lst:
+                eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
+        eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
+
+
         ######### SFs, weights, systematics ##########
 
         # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
@@ -306,13 +318,18 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights_dict = {}
-        genw = np.ones_like(events["event"]) if (isData or len(self._wc_names_lst)>0) else events["genWeight"]
-        if len(self._wc_names_lst) > 0: sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
+        if (isData or (eft_coeffs is not None)):
+            genw = np.ones_like(events["event"])
+        else:
+            genw = events["genWeight"]
+        if (eft_coeffs is not None):
+            sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
         for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
             weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
             if not isData:
+                # Trying to calculate PU SFs for data causes a crash, and we don't apply this for data anyway, so just skip it in the case of data
                 weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
             if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
@@ -329,17 +346,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Systematics
         systList = ["nominal"]
         if self._do_systematics and not isData: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
-
-        ######### EFT coefficients ##########
-
-        # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
-        # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
-        eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
-        if eft_coeffs is not None:
-            # Check to see if the ordering of WCs for this sample matches what want
-            if self._samples[dataset]["WCnames"] != self._wc_names_lst:
-                eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
-        eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
 
         ######### Masks we need for the selection ##########
@@ -527,7 +533,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Fill sum of weights hist
         normweights = weights_dict["2l"].partial_weight(include=["norm"]) # Here we could have used 2l, 3l, or 4l, as the "norm" weights should be identical for all three
-        if len(self._wc_names_lst)>0: sowweights = np.ones_like(normweights)
+        if (eft_coeffs is not None): sowweights = np.ones_like(normweights)
         else: sowweights = normweights
         hout["SumOfEFTweights"].fill(sample=histAxisName, SumOfEFTweights=counts, weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
