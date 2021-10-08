@@ -16,6 +16,7 @@ class DataDrivenProducer:
         self.outputName=outputName
         if doDDFlips: 
             raise RuntimeError("Data driven flips not yet implemented")
+        self.verbose=False
         self.doDDFlips=doDDFlips
         self.doDDFakes=doDDFakes
         self.dataName='data'
@@ -72,7 +73,7 @@ class DataDrivenProducer:
                     if self.dataName == sampleName or self.chargeFlipName == sampleName:
                         continue # We do not scale data or data-driven at all 
                     smweight = self.smsow[sample] if sample in self.smsow else 1 # dont reweight samples not in smsow
-                    scale_dict[(sample, )] = 1000*get_lumi('20'+year)/smweight
+                    scale_dict[(sample, )] = 1000.0*get_lumi('20'+year)/smweight
 
                 prescale=histo.values().copy()
                 histo.scale( scale_dict, axis=('sample',))
@@ -108,7 +109,7 @@ class DataDrivenProducer:
                             elif sampleName in self.promptSubtractionSamples: 
                                 newNameDictNoData[nonPromptName].append(sample.name)
                             else:
-                                print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
+                                if self.verbose: print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
 
                         hFakes=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
 
@@ -134,7 +135,7 @@ class DataDrivenProducer:
                     if self.dataName == sampleName or self.chargeFlipName == sampleName:
                         continue
                     year=match.group('year')
-                    scaleDict[sample]=1/(1000*get_lumi('20'+year))
+                    scaleDict[sample]=1.0/(1000.0*get_lumi('20'+year))
                 newhist.scale( scaleDict, axis='sample')
 
                 # Scale back the EFT samples by sum of weights at SM so they can be used transparently downstream
