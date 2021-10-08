@@ -1,14 +1,14 @@
 {
   "files": [
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/33E9F0BF-7412-634E-B785-F55026787E0D_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/14185493-D8D5-5248-B3DE-6500296D5BE0_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/AB7BC69B-0953-094E-AD1B-74AA90D700A6_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/21379D43-9267-924F-873A-2C3804B5DEE0_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/2522E05C-93C5-244F-8730-A70693E5EFF6_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/62588C66-81E8-A747-8067-F175E9BCA5B0_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/C21689CD-0189-EB47-935C-25325479A89A_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/E8FA3539-CB69-7949-956B-217C2DB1F82D_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/EDD19BA8-D201-6248-9B21-66769A184A3C_Skim.root"
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/33E9F0BF-7412-634E-B785-F55026787E0D_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/14185493-D8D5-5248-B3DE-6500296D5BE0_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/AB7BC69B-0953-094E-AD1B-74AA90D700A6_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/21379D43-9267-924F-873A-2C3804B5DEE0_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/2522E05C-93C5-244F-8730-A70693E5EFF6_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/62588C66-81E8-A747-8067-F175E9BCA5B0_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/C21689CD-0189-EB47-935C-25325479A89A_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/E8FA3539-CB69-7949-956B-217C2DB1F82D_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZZ/EDD19BA8-D201-6248-9B21-66769A184A3C_Skim.root"
   ], 
   "treeName": "Events", 
   "histAxisName": "ZZZ_centralUL16APV", 

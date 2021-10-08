@@ -1,6 +1,6 @@
 {
   "files": [
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//SingleElectron_B-ver1_HIPM_UL2016/42DDEA69-6F7D-8240-A27D-AB709E7741E8_Skim.root"
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//SingleElectron_B-ver1_HIPM_UL2016/42DDEA69-6F7D-8240-A27D-AB709E7741E8_Skim.root"
   ], 
   "treeName": "Events", 
   "histAxisName": "dataUL16", 

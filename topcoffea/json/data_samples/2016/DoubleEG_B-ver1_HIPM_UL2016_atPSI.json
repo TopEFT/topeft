@@ -1,15 +1,15 @@
 {
   "files": [
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/58A35916-EF9B-6B4F-9CB6-6B499AFDDF82_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/D5CC26AF-712E-A44A-9829-E0322F420124_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/38CC902E-D252-3044-BB6D-742061433AE5_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/28BFB63A-BEE1-A148-92BA-E55E9F2BE00D_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/2147CB3D-A034-5848-A106-3766B69C442F_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/A2EF00D3-CADF-2949-8F80-041B9A4E0273_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/EC743282-0A83-0449-9945-A6C30B195F74_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/69124905-3159-7E41-BF9F-67CF8A38C539_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/5289C69E-2173-604D-926F-78505B305A19_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/FEB46F9A-EA68-F646-B53D-8B7AE6A315E0_Skim.root"
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/58A35916-EF9B-6B4F-9CB6-6B499AFDDF82_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/D5CC26AF-712E-A44A-9829-E0322F420124_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/38CC902E-D252-3044-BB6D-742061433AE5_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/28BFB63A-BEE1-A148-92BA-E55E9F2BE00D_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/2147CB3D-A034-5848-A106-3766B69C442F_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/A2EF00D3-CADF-2949-8F80-041B9A4E0273_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/EC743282-0A83-0449-9945-A6C30B195F74_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/69124905-3159-7E41-BF9F-67CF8A38C539_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/5289C69E-2173-604D-926F-78505B305A19_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleEG_B-ver1_HIPM_UL2016/FEB46F9A-EA68-F646-B53D-8B7AE6A315E0_Skim.root"
   ], 
   "treeName": "Events", 
   "histAxisName": "dataUL16", 

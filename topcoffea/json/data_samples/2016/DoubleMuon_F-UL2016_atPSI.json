@@ -1,7 +1,7 @@
 {
   "files": [
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleMuon_F-UL2016/BAF7DEF7-15ED-0A45-83CB-F0BE1620E05C_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleMuon_F-UL2016/27EAEBE6-2D43-4244-8FAC-06938447EDFF_Skim.root"
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleMuon_F-UL2016/BAF7DEF7-15ED-0A45-83CB-F0BE1620E05C_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleMuon_F-UL2016/27EAEBE6-2D43-4244-8FAC-06938447EDFF_Skim.root"
   ], 
   "treeName": "Events", 
   "histAxisName": "dataUL16", 

@@ -1,7 +1,7 @@
 {
   "files": [
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WZZ/35324637-46B2-F249-BFF0-1CBA1CFFFBA3_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WZZ/7EA2AD68-8098-D442-9A11-1A4AB14C25C1_Skim.root"
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WZZ/35324637-46B2-F249-BFF0-1CBA1CFFFBA3_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_WZZ/7EA2AD68-8098-D442-9A11-1A4AB14C25C1_Skim.root"
   ], 
   "treeName": "Events", 
   "histAxisName": "WZZ_centralUL17", 

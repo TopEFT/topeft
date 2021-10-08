@@ -1,9 +1,9 @@
 {
   "files": [
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_ZZZ/EA71F810-3009-294C-906A-0F2DBDAD3E43_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_ZZZ/2E96A5E9-C938-A149-BBBF-8FD81A9E5AD6_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_ZZZ/208C46AA-A718-DA45-B0E5-D08D1CF0051E_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_ZZZ/10365726-5ABB-524A-A5F7-507C2AE951F6_Skim.root"
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_ZZZ/EA71F810-3009-294C-906A-0F2DBDAD3E43_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_ZZZ/2E96A5E9-C938-A149-BBBF-8FD81A9E5AD6_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_ZZZ/208C46AA-A718-DA45-B0E5-D08D1CF0051E_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_ZZZ/10365726-5ABB-524A-A5F7-507C2AE951F6_Skim.root"
   ], 
   "treeName": "Events", 
   "histAxisName": "ZZZ_centralUL16", 

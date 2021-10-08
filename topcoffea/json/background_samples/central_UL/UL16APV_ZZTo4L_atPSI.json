@@ -1,12 +1,12 @@
 {
   "files": [
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/BB59BAF3-9039-9F46-94C9-750B8035A3CC_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/6DE067BA-2B6B-2C4C-BF00-2D0CECCDE220_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/27B234B9-A175-1948-B510-622B4F245729_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/8DE002E4-EC6B-C244-9FC3-30D04DA19E46_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/DC4F2719-3E32-1544-8BA3-1151535889D3_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/2156881B-D607-9849-A567-03DCCD0DFB27_Skim.root", 
-    "/pnfs/psi.ch/cms/trivcat/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/CA86507F-3CDD-9847-A033-2EA1AABE0DC0_Skim.root"
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/BB59BAF3-9039-9F46-94C9-750B8035A3CC_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/6DE067BA-2B6B-2C4C-BF00-2D0CECCDE220_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/27B234B9-A175-1948-B510-622B4F245729_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/8DE002E4-EC6B-C244-9FC3-30D04DA19E46_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/DC4F2719-3E32-1544-8BA3-1151535889D3_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/2156881B-D607-9849-A567-03DCCD0DFB27_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_ZZTo4L/CA86507F-3CDD-9847-A033-2EA1AABE0DC0_Skim.root"
   ], 
   "treeName": "Events", 
   "histAxisName": "ZZTo4L_centralUL16APV", 
