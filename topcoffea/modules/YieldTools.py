@@ -2,6 +2,7 @@ import gzip
 import json
 import pickle
 import numpy as np
+import copy
 import coffea
 from coffea import hist
 #from topcoffea.modules.HistEFT import HistEFT
@@ -169,6 +170,13 @@ class YieldTools():
         h = pickle.load( gzip.open(path_to_pkl) )
         return h
 
+    # Takes a hist, and retruns a list of the axis names
+    def get_axis_list(self,histo):
+        axis_lst = []
+        for axis in histo.axes():
+            axis_lst.append(axis.name)
+        return axis_lst
+
 
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
@@ -179,6 +187,8 @@ class YieldTools():
         # Chek if what we have is the output of the processsor, if so, get a specific hist from it
         if isinstance(hin_dict,coffea.processor.accumulator.dict_accumulator):
             hin_dict = hin_dict[h_name]
+        elif isinstance(hin_dict,dict):
+            hin_dict = hin_dict[h_name]
 
         # Note: Use h.identifiers('axis') here, not axis.identifiers() (since according to Nick Smith "the axis may hold identifiers longer than the hist that uses it (hists can share axes)", but h.identifiers('axis') will get the ones actually contained in the histogram)
         cats_lst = []
@@ -186,6 +196,45 @@ class YieldTools():
             cats_lst.append(identifier.name)
 
         return cats_lst
+
+
+    # Remove the njet component of a category name, returns a new str
+    def get_str_without_njet(self,in_str):
+
+        # Check if the substring is an njet substr e.g. "2j"
+        def is_jet_str(substr):
+            if len(substr) != 2:
+                is_a_jet_str = False
+            elif not substr[0].isdigit():
+                is_a_jet_str = False
+            elif not substr[1] == "j":
+                is_a_jet_str = False
+            else:
+                is_a_jet_str = True
+            return is_a_jet_str
+
+        # Assumes the str is separated by underscores 
+        str_components_lst = in_str.split("_")
+        keep_lst = []
+        for component in str_components_lst:
+            if not is_jet_str(component):
+                keep_lst.append(component)
+        ret_str  = "_".join(keep_lst)
+        return(ret_str)
+
+
+    # Remove the lepflav component of a category name, returns a new str
+    def get_str_without_lepflav(self,in_str):
+        # The list of lep flavors we consider (this is a bit hardcoded...)
+        lepflav_lst = ["ee","em","mm","eee","eem","emm","mmm"]
+        # Assumes the str is separated by underscores 
+        str_components_lst = in_str.split("_")
+        keep_lst = []
+        for component in str_components_lst:
+            if not component in lepflav_lst:
+                keep_lst.append(component)
+        ret_str  = "_".join(keep_lst)
+        return(ret_str)
 
 
     # This should return true if the hist is split by lep flavor, definitely not a bullet proof check..
@@ -214,6 +263,40 @@ class YieldTools():
         h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [bin_val,bin_val+1]))
         return h
 
+
+    # Get a dictionary with the sum of weights values the EFT samples need to be scaled by
+    def get_eft_sow_scale_dict(self,hin_dict):
+
+        # Chek if what we have is the output of the processsor, if so, get the sow hist from it
+        if isinstance(hin_dict,coffea.processor.accumulator.dict_accumulator): sow_hist = hin_dict["SumOfEFTweights"]
+        else: sow_hist = hin_dict
+
+        # Get the scale dictionary for each sample in the sample axis
+        # If a sample is eft, should scale by 1/(sum of weights at sm), if it's not an eft hist, should scale by 1
+        sow_scale_dict = {}
+        for sample_name in sow_hist.identifiers('sample'):
+            sow_scale_dict[sample_name.name] = 1.0
+            is_eft = (len(sow_hist[sample_name]._sumw[sample_name,].shape) == 2)
+            if is_eft:
+                norm_val = sow_hist[sample_name].values()[sample_name.name,][0]
+                sow_scale_dict[sample_name.name] = 1.0/norm_val
+
+        return sow_scale_dict
+
+
+    # Integrate appl axis if present, keeping only SR
+    def integrate_out_appl(self,histo,lep_cat):
+        histo_integrated = copy.deepcopy(histo)
+        if ("appl" in self.get_axis_list(histo)):
+            if "2l" in lep_cat:
+                histo_integrated = histo.integrate("appl","isSR_2l")
+            elif "3l" in lep_cat:
+                histo_integrated = histo.integrate("appl","isSR_3l")
+            elif "4l" in lep_cat:
+                histo_integrated = histo.integrate("appl","isSR_4l")
+            else: raise Exception(f"Error: Category \"{lep_cat}\" is not known.")
+        else: print("Already integrated out the appl axis. Continuing...")
+        return histo_integrated
             
 
     # Get the difference between values in nested dictionary, currently can get either percent diff, or absolute diff
