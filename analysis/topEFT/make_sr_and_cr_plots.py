@@ -1,4 +1,5 @@
 import os
+import copy
 import datetime
 import argparse
 import matplotlib.pyplot as plt
@@ -140,15 +141,18 @@ def get_lumi_for_sample(sample_name):
     return lumi
 
 # Group bins in a hist, returns a new hist
-def group_bins(histo,bin_map,axis_name="sample"):
+def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
+
+    bin_map = copy.deepcopy(bin_map) # Don't want to edit the original
 
     # Construct the map of bins to remap
     bins_to_remap_lst = []
     for grp_name,bins_in_grp in bin_map.items():
         bins_to_remap_lst.extend(bins_in_grp)
-    for bin_name in yt.get_cat_lables(histo,axis_name):
-        if bin_name not in bins_to_remap_lst:
-            bin_map[bin_name] = bin_name
+    if not drop_unspecified:
+        for bin_name in yt.get_cat_lables(histo,axis_name):
+            if bin_name not in bins_to_remap_lst:
+                bin_map[bin_name] = bin_name
 
     # Remap the bins
     old_ax = histo.axis(axis_name)
@@ -326,12 +330,14 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                 if not os.path.exists(save_dir_path_tmp):
                     os.mkdir(save_dir_path_tmp)
 
-                # Make the plots
-                for hist_cat in SR_CHAN_DICT.keys():
-                    hist_sig_integrated_appl = yt.integrate_out_appl(hist_sig,hist_cat)
+                # Group categories
+                hist_sig_grouped = group_bins(hist_sig,sr_cat_dict,"channel",drop_unspecified=True)
 
-                    fig = make_single_fig(hist_sig_integrated_appl.integrate("sample",proc_name),unit_norm_bool)
-                    title = proc_name+"_"+hist_cat+"_"+var_name
+                # Make the plots
+                for new_hist_cat in yt.get_cat_lables(hist_sig_grouped,"channel"):
+                    hist_sig_grouped = yt.integrate_out_appl(hist_sig_grouped,new_hist_cat)
+                    fig = make_single_fig(hist_sig_grouped.integrate("sample",proc_name),unit_norm_bool)
+                    title = proc_name+"_"+new_hist_cat+"_"+var_name
                     if unit_norm_bool: title = title + "_unitnorm"
                     fig.savefig(os.path.join(save_dir_path_tmp,title))
 

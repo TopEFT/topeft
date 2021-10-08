@@ -2,6 +2,7 @@ import gzip
 import json
 import pickle
 import numpy as np
+import copy
 import coffea
 from coffea import hist
 #from topcoffea.modules.HistEFT import HistEFT
@@ -285,6 +286,7 @@ class YieldTools():
 
     # Integrate appl axis if present, keeping only SR
     def integrate_out_appl(self,histo,lep_cat):
+        histo_integrated = copy.deepcopy(histo)
         if ("appl" in self.get_axis_list(histo)):
             if "2l" in lep_cat:
                 histo_integrated = histo.integrate("appl","isSR_2l")
@@ -292,7 +294,7 @@ class YieldTools():
                 histo_integrated = histo.integrate("appl","isSR_3l")
             elif "4l" in lep_cat:
                 histo_integrated = histo.integrate("appl","isSR_4l")
-            else: raise Exception(f"Error: Category \"{ lep_cat}\" is not known.")
+            else: raise Exception(f"Error: Category \"{lep_cat}\" is not known.")
         else: print("Already integrated out the appl axis. Continuing...")
         return histo_integrated
             
