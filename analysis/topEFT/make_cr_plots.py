@@ -48,6 +48,24 @@ CR_CHAN_DICT = {
     ],
 }
 
+SR_CHAN_DICT = {
+    "2lss_SR" : [
+        "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
+        "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
+    ],
+    "3l_SR" : [
+        "3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_eee_m_offZ_1b_5j",
+        "3l_m_offZ_2b_2j", "3l_m_offZ_2b_3j", "3l_m_offZ_2b_4j", "3l_eee_m_offZ_2b_5j",
+        "3l_p_offZ_1b_2j", "3l_p_offZ_1b_3j", "3l_p_offZ_1b_4j", "3l_eee_p_offZ_1b_5j",
+        "3l_p_offZ_2b_2j", "3l_p_offZ_2b_3j", "3l_p_offZ_2b_4j", "3l_eee_p_offZ_2b_5j",
+        "3l_onZ_1b_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   ,  "3l_eee_onZ_1b_5j",
+        "3l_onZ_2b_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   ,  "3l_eee_onZ_2b_5j",
+    ],
+    "4l_SR" : [
+        "4l_2j", "4l_3j", "4l_4j",
+    ]
+}
+
 
 CR_GRP_MAP = {
     "DY" : [],
@@ -211,7 +229,105 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
 
     return fig
 
+# Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
+def make_single_fig(histo,unit_norm_bool,bin_to_plot=None):
 
+    if bin_to_plot is not None: histo_to_plot = histo[bin_to_plot]
+    else: histo_to_plot = histo
+
+    fig, ax = plt.subplots(1, 1, figsize=(11,7))
+    hist.plot1d(
+        histo_to_plot,
+        stack=False,
+        density=unit_norm_bool,
+        clear=False,
+    )
+    ax.autoscale(axis='y')
+    return fig
+
+
+###################### Wrapper function for example SR plots ######################
+# Wrapper function to loop over all SR categories and make plots for all variables
+# Right now this function will only plot the signal samples
+# By default, will make two sets of plots: One with process overlay, one with channel overlay
+def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True):
+
+    # If selecting a year, append that year to the wight list
+    sig_wl = ["private"]
+    if year is None: pass
+    elif year == "2017": sig_wl.append("UL17")
+    elif year == "2018": sig_wl.append("UL18")
+    else: raise Exception # Not sure what to do about UL16 vs UL16APV yet
+
+    # Get the list of samples to actuall plot
+    all_samples = yt.get_cat_lables(dict_of_hists,"sample")
+    sig_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
+    if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
+    samples_to_rm_from_sig_hist = []
+    for sample_name in all_samples:
+        if sample_name not in sig_sample_lst:
+            samples_to_rm_from_sig_hist.append(sample_name)
+    print("\nAll samples:",all_samples)
+    print("\nSig samples:",sig_sample_lst)
+
+    # Get the eft sum of weights at SM norm dict
+    eft_sow_scale_dict = yt.get_eft_sow_scale_dict(dict_of_hists["SumOfEFTweights"])
+
+    # Loop over hists and make plots
+    skip_lst = ["SumOfEFTweights"] # Skip this hist
+    for idx,var_name in enumerate(dict_of_hists.keys()):
+        #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
+        if (var_name in skip_lst): continue
+        if (var_name == "njets"):
+            # We do not keep track of jets in the sparse axis for the njets hists
+            sr_cat_dict = get_dict_with_stripped_bin_names(SR_CHAN_DICT,"njets")
+        else:
+            sr_cat_dict = SR_CHAN_DICT
+        print("\nVar name:",var_name)
+        print("sr_cat_dict:",sr_cat_dict)
+
+        # Extract the signal hists
+        hist_sig = dict_of_hists[var_name].remove(samples_to_rm_from_sig_hist,"sample")
+
+        # Normalize the hists
+        sample_lumi_dict = {}
+        for sample_name in sig_sample_lst:
+            sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
+        hist_sig.scale(sample_lumi_dict,axis="sample")
+        hist_sig.scale(eft_sow_scale_dict,axis="sample")
+
+        if split_by_chan:
+            for hist_cat in SR_CHAN_DICT.keys(): 
+                # Integrate to get the categories we want
+                axes_to_integrate_dict = {}
+                axes_to_integrate_dict["systematic"] = "nominal"
+                # If we have calculated the nonprompt contribution, the appl axis has already been integrated out
+                if ("appl" in yt.get_axis_list(hist_sig)):
+                    if "2l" in hist_cat: axes_to_integrate_dict["appl"] = "isSR_2l"
+                    elif "3l" in hist_cat: axes_to_integrate_dict["appl"] = "isSR_3l"
+                    elif "4l" in hist_cat: axes_to_integrate_dict["appl"] = "isSR_4l"
+                    else: raise Exception(f"Error: Hist cat \"{hist_cat}\" is not known.")
+                else: print("Already integrated out the appl axis. Continuing...")
+
+                axes_to_integrate_dict["channel"] = sr_cat_dict[hist_cat]
+                hist_sig_integrated = yt.integrate_out_cats(hist_sig,axes_to_integrate_dict)
+
+                # Make a sub dir for this category
+                save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
+                if not os.path.exists(save_dir_path_tmp):
+                    os.mkdir(save_dir_path_tmp)
+
+                fig = make_single_fig(hist_sig_integrated,unit_norm_bool)
+                title = hist_cat+"_"+var_name
+                if unit_norm_bool: title = title + "_unitnorm"
+                fig.savefig(os.path.join(save_dir_path_tmp,title))
+
+                # Make an index.html file if saving to web area
+                if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+
+
+
+###################### Wrapper function for all CR plots ######################
 # Wrapper function to loop over all CR categories and make plots for all variables
 # The input hist should include both the data and MC
 def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
@@ -229,7 +345,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
     elif year == "2018":
         mc_wl.append("UL18")
         data_wl.append("UL18")
-    else: raise Exception # Not sure what to do about 2016 vs UL16 yet
+    else: raise Exception # Not sure what to do about UL16 vs UL16APV yet
 
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
@@ -371,7 +487,8 @@ def main():
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
     #exit()
 
-    make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    #make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
 
 if __name__ == "__main__":
     main()
