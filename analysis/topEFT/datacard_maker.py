@@ -12,7 +12,7 @@ import json
 from ROOT import TFile, TH1D, TH2D
 
 class DatacardMaker():
-    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[]):
+    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year=''):
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
@@ -22,6 +22,7 @@ class DatacardMaker():
         self.do_nuisance = do_nuisance
         if len(wcs)>0: self.coeffs = wcs
         self.coeffs = wcs if len(wcs)>0 else []
+        self.year = single_year
 
 
     def read(self):
@@ -40,7 +41,7 @@ class DatacardMaker():
         self.ch2lss_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_p' in k[1]})
         self.ch2lss_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_m' in k[1]})
         self.ch2lss_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_m' in k[1]})
-        self.ch2lssj  = list(set([j[-2:] for j in self.ch2lss_p if 'j' in j]))
+        self.ch2lssj  = list(set([j[-2:].replace('j','') for j in self.ch2lss_p if 'j' in j]))
         self.ch2lssj.sort()
         self.ch3l1b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
         self.ch3l1b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
@@ -60,19 +61,22 @@ class DatacardMaker():
         self.ch3lsfz1b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '1b' in k[1]})
         self.ch3lsfz2b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
         self.ch3lsfz2b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
-        self.ch3lj  = list(set([j[-2] for j in self.ch3l1b_p if 'j' in j]))
+        self.ch3lj  = list(set([j[-2].replace('j','') for j in self.ch3l1b_p if 'j' in j]))
         self.ch3lj.sort()
-        self.ch3lsfzj  = list(set([j[-2] for j in self.ch3l1b_p if 'j' in j]))
+        self.ch3lsfzj  = list(set([j[-2].replace('j','') for j in self.ch3l1b_p if 'j' in j]))
         self.ch3lsfzj.sort()
         self.ch4l = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '4l' in k[1]})
         self.ch4l += list({k[1]:0 for k in self.hists['njets'].values().keys() if '4l' in k[1]})
-        self.ch4lj = list(set([j[-2:] for j in self.ch4l if 'j' in j]))
+        self.ch4lj = list(set([j[-2:].replace('j','') for j in self.ch4l if 'j' in j]))
         self.ch4lj.sort()
         self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '4l': self.ch4l}
 
         #Get list of samples and cut levels from histograms
         self.signal = ['ttH','tllq','ttll','ttlnu','tHq','tttt']
         self.samples = list({k[0]:0 for k in self.hists['ptbl'].values().keys()})
+        if self.year != '':
+            print(f'Only running over {year=}! If this was not intended, please remove the --year (or -y) flag.')
+            self.sampels = [k for k in self.samples if self.year[2:] in k]
         rename = {l: re.split('(Jet)?_[a-zA-Z]*1[6-8]', l)[0] for l in self.samples}
         rename = {k: 'Triboson' if bool(re.search('[WZ]{3}', v)) else v for k,v in rename.items()}
         rename = {k: 'Diboson' if bool(re.search('[WZ]{2}', v)) else v for k,v in rename.items()}
@@ -82,10 +86,14 @@ class DatacardMaker():
         rename = {k.split('_')[0]: v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
         self.levels = list({k[2]:0 for k in self.hists['ptbl'].values().keys()})
-        self.syst = list({k[3]:0 for k in self.hists['ptbl'].values().keys()})
+        self.has_nonprompt = not any(['appl' in str(a) for a in self.hists['njets'].axes()]) # Check for nonprompt samples by looking for 'appl' axis
+        if self.has_nonprompt:
+            self.syst = list({k[2]:0 for k in self.hists['ptbl'].values().keys()}) # 'appl' axis was removed, systematics moves down a slot
+        else:
+            self.syst = list({k[3]:0 for k in self.hists['ptbl'].values().keys()})
         self.hsow = self.hists['SumOfEFTweights']
         self.hsow.set_sm()
-        self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples}
+        self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples if any([proc in k[0] for k in self.hsow.values().keys()]) and (len(self.hsow.integrate('sample', proc)._sumw[()].shape)==2)}
         with open(lumiJson) as jf:
             lumi = json.load(jf)
             self.lumi = lumi
@@ -104,7 +112,10 @@ class DatacardMaker():
            print(self.channels.keys())
            print([[ch, ch in self.channels.keys()] for ch in channel])
            raise Exception(f'At least one channel in {channels} is not found in self.channels!')
-        h = self.hists[variable].integrate('appl', appl).integrate('systematic', systematics)
+        if self.has_nonprompt:
+            h = self.hists[variable].integrate('systematic', systematics) # 'appl' axis is removed in nonprmopt samples, everything is 'isSR'
+        else:
+            h = self.hists[variable].integrate('appl', appl).integrate('systematic', systematics)
         if isinstance(charges, str):
             charge = 'p' if charges == 'ch+' else 'm'
             if isinstance(bins, str):
@@ -160,23 +171,25 @@ class DatacardMaker():
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fout = uproot3.recreate(fname)
         #Scale each plot to the SM
+        processed = []
         for proc in self.samples:
-            if 'UL17' not in proc: continue # This is NOT a typo! We only need one year to determine the process name
+            simplified = proc.split('_central')[0].split('_private')[0].replace('_4F','').replace('_ext','')
+            if simplified in processed: continue # Only one process name per 3 years
+            processed.append(simplified)
             p = proc.split('_')[0]
-            ul = {'20'+k.split('UL')[1]:k for k in self.samples if p in k}
+            ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k}
             #Integrate out processes
             h_base = h.group('sample', hist.Cat('year', 'year'), ul)
             if h_base == {}:
                 print(f'Issue with {proc}')
                 continue
-            nwc = self.hsow._nwc
-            if nwc > 0:
-                years = {}
-                for year in ul:
-                    years[year] = self.lumi[year]/self.smsow[proc]
-                h_base.scale(years, axis='year')
+            years = {year : self.lumi[year] for year in ul}
+            if proc in self.smsow:
+                years = {year : self.lumi[year]/self.smsow[proc] for year in ul}
+            h_base.scale(years, axis='year')
             h_base = h_base.integrate('year')
             pname = self.rename[p]+'_' if p in self.rename else p+'_'
+            pname.replace('_4F','').replace('_ext','')
             if 'njet' in variable:
                 if   '2l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7]))
                 elif '3l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5]))
@@ -239,9 +252,9 @@ class DatacardMaker():
                             fout[pname+name] = hist.export1d(h_mix)
         
         fout.close()
-        self.makeCardLevel(channel=channel, appl=appl, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
+        self.makeCardLevel(channel=channel, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
 
-    def makeCardLevel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], nbjet='2+bm', systematics='nominal', variable='njets'):
+    def makeCardLevel(self, channel=[], charges=['ch+','ch-'], nbjet='2+bm', systematics='nominal', variable='njets'):
         '''
         Create datacard files from temp uproot outputs
         Creates histograms for ``combine``:
@@ -351,8 +364,6 @@ class DatacardMaker():
                         allyields[name] = h_sm.Integral()
                         bkgcount += 1
                         d_bkgs[name] = h_sm
-                if allyields[name] < 0:# or allyields[name] < self.tolerance:
-                    allyields[name] = 0.
                 #processSyst(h_sm, systMap,fout)
                 h_sm.SetDirectory(fout)
                 h_sm.SetName(name)
@@ -433,6 +444,8 @@ class DatacardMaker():
                         #processSyst(h_mix, systMap,fout)
 
         #Write datacard
+        if any([v < 0 for v in allyields.values()]):
+            raise Exception('Danger! A bin is negative!')
         if systematics != 'nominal':
             cat = cat + '_' + systematics
         nuisances = [syst for syst in systMap]
@@ -551,30 +564,32 @@ if __name__ == '__main__':
     parser.add_argument('--do-nuisance',    action='store_true', help = 'Include nuisance parameters')
     parser.add_argument('--POI',            default=[],          help = 'List of WCs (comma separated)')
     parser.add_argument('--job',      '-j', default='-1'       , help = 'Job to run')
+    parser.add_argument('--year',     '-y', default=''         , help = 'Run over single year')
     args = parser.parse_args()
     pklfile  = args.pklfile
     lumiJson = args.lumiJson
     do_nuisance = args.do_nuisance
     wcs = args.POI
     job = int(args.job)
+    year = args.year
     if isinstance(wcs, str): wcs = wcs.split(',')
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
-    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs)
+    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year)
     card.read()
     card.buildWCString()
     print(card.coeffs)
     jobs = []
     for var in ['njets','ht','ptbl']:
         cards = [{'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                     {'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                     {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                     {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                     {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                     {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                     {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-                     {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-                     {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
+                 {'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                 {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+                 {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
         jobs.append(cards)
     njobs = len(jobs) * len(jobs[0])
     if job == -1:
