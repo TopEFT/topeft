@@ -140,18 +140,18 @@ def get_lumi_for_sample(sample_name):
     return lumi
 
 # Group bins in a hist, returns a new hist
-def group_bins(histo,bin_map):
+def group_bins(histo,bin_map,axis_name="sample"):
 
     # Construct the map of bins to remap
     bins_to_remap_lst = []
     for grp_name,bins_in_grp in bin_map.items():
         bins_to_remap_lst.extend(bins_in_grp)
-    for bin_name in yt.get_cat_lables(histo,"sample"):
+    for bin_name in yt.get_cat_lables(histo,axis_name):
         if bin_name not in bins_to_remap_lst:
             bin_map[bin_name] = bin_name
 
     # Remap the bins
-    old_ax = histo.axis("sample")
+    old_ax = histo.axis(axis_name)
     new_ax = hist.Cat(old_ax.name,old_ax.label)
     new_histo = histo.group(old_ax,new_ax,bin_map)
 
@@ -246,7 +246,7 @@ def make_single_fig(histo,unit_norm_bool):
 # Wrapper function to loop over all SR categories and make plots for all variables
 # Right now this function will only plot the signal samples
 # By default, will make two sets of plots: One with process overlay, one with channel overlay
-def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=False):
+def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True):
 
     # If selecting a year, append that year to the wight list
     sig_wl = ["private"]
@@ -317,7 +317,6 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                 if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
 
 
-        '''
         # Make plots for each process
         if split_by_proc:
             for proc_name in sig_sample_lst:
@@ -328,14 +327,16 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                     os.mkdir(save_dir_path_tmp)
 
                 # Make the plots
-                fig = make_single_fig(hist_sig_integrated.integrate("sample",proc_name),unit_norm_bool)
-                title = proc_name+"_"+var_name
-                if unit_norm_bool: title = title + "_unitnorm"
-                fig.savefig(os.path.join(save_dir_path_tmp,title))
+                for hist_cat in SR_CHAN_DICT.keys():
+                    hist_sig_integrated_appl = yt.integrate_out_appl(hist_sig,hist_cat)
 
-                # Make an index.html file if saving to web area
-                if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
-        '''
+                    fig = make_single_fig(hist_sig_integrated_appl.integrate("sample",proc_name),unit_norm_bool)
+                    title = proc_name+"_"+hist_cat+"_"+var_name
+                    if unit_norm_bool: title = title + "_unitnorm"
+                    fig.savefig(os.path.join(save_dir_path_tmp,title))
+
+                    # Make an index.html file if saving to web area
+                    if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
 
 
 
