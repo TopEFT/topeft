@@ -513,8 +513,9 @@ def main():
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
     #exit()
 
-    #make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
-    make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    # Make the plots
+    make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
 
 if __name__ == "__main__":
     main()
