@@ -281,6 +281,20 @@ class YieldTools():
                 sow_scale_dict[sample_name.name] = 1.0/norm_val
 
         return sow_scale_dict
+
+
+    # Integrate appl axis if present, keeping only SR
+    def integrate_out_appl(self,histo,lep_cat):
+        if ("appl" in self.get_axis_list(histo)):
+            if "2l" in lep_cat:
+                histo_integrated = histo.integrate("appl","isSR_2l")
+            elif "3l" in lep_cat:
+                histo_integrated = histo.integrate("appl","isSR_3l")
+            elif "4l" in lep_cat:
+                histo_integrated = histo.integrate("appl","isSR_4l")
+            else: raise Exception(f"Error: Category \"{ lep_cat}\" is not known.")
+        else: print("Already integrated out the appl axis. Continuing...")
+        return histo_integrated
             
 
     # Get the difference between values in nested dictionary, currently can get either percent diff, or absolute diff

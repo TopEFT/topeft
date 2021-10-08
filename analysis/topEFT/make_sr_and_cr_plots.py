@@ -230,14 +230,10 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
-def make_single_fig(histo,unit_norm_bool,bin_to_plot=None):
-
-    if bin_to_plot is not None: histo_to_plot = histo[bin_to_plot]
-    else: histo_to_plot = histo
-
+def make_single_fig(histo,unit_norm_bool):
     fig, ax = plt.subplots(1, 1, figsize=(11,7))
     hist.plot1d(
-        histo_to_plot,
+        histo,
         stack=False,
         density=unit_norm_bool,
         clear=False,
@@ -250,7 +246,7 @@ def make_single_fig(histo,unit_norm_bool,bin_to_plot=None):
 # Wrapper function to loop over all SR categories and make plots for all variables
 # Right now this function will only plot the signal samples
 # By default, will make two sets of plots: One with process overlay, one with channel overlay
-def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True):
+def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=False):
 
     # If selecting a year, append that year to the wight list
     sig_wl = ["private"]
@@ -286,8 +282,9 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
         print("\nVar name:",var_name)
         print("sr_cat_dict:",sr_cat_dict)
 
-        # Extract the signal hists
+        # Extract the signal hists, and integrate over systematic axis
         hist_sig = dict_of_hists[var_name].remove(samples_to_rm_from_sig_hist,"sample")
+        hist_sig = hist_sig.integrate("systematic","nominal")
 
         # Normalize the hists
         sample_lumi_dict = {}
@@ -296,34 +293,49 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
         hist_sig.scale(sample_lumi_dict,axis="sample")
         hist_sig.scale(eft_sow_scale_dict,axis="sample")
 
+
+        # Make plots for each SR category
         if split_by_chan:
             for hist_cat in SR_CHAN_DICT.keys(): 
-                # Integrate to get the categories we want
-                axes_to_integrate_dict = {}
-                axes_to_integrate_dict["systematic"] = "nominal"
-                # If we have calculated the nonprompt contribution, the appl axis has already been integrated out
-                if ("appl" in yt.get_axis_list(hist_sig)):
-                    if "2l" in hist_cat: axes_to_integrate_dict["appl"] = "isSR_2l"
-                    elif "3l" in hist_cat: axes_to_integrate_dict["appl"] = "isSR_3l"
-                    elif "4l" in hist_cat: axes_to_integrate_dict["appl"] = "isSR_4l"
-                    else: raise Exception(f"Error: Hist cat \"{hist_cat}\" is not known.")
-                else: print("Already integrated out the appl axis. Continuing...")
-
-                axes_to_integrate_dict["channel"] = sr_cat_dict[hist_cat]
-                hist_sig_integrated = yt.integrate_out_cats(hist_sig,axes_to_integrate_dict)
 
                 # Make a sub dir for this category
                 save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
                 if not os.path.exists(save_dir_path_tmp):
                     os.mkdir(save_dir_path_tmp)
 
-                fig = make_single_fig(hist_sig_integrated,unit_norm_bool)
+                # Integrate to get the SR category we want to plot
+                hist_sig_integrated_ch = yt.integrate_out_appl(hist_sig,hist_cat)
+                hist_sig_integrated_ch = hist_sig_integrated_ch.integrate("channel",sr_cat_dict[hist_cat])
+
+                # Make the plots
+                fig = make_single_fig(hist_sig_integrated_ch,unit_norm_bool)
                 title = hist_cat+"_"+var_name
                 if unit_norm_bool: title = title + "_unitnorm"
                 fig.savefig(os.path.join(save_dir_path_tmp,title))
 
                 # Make an index.html file if saving to web area
                 if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+
+
+        '''
+        # Make plots for each process
+        if split_by_proc:
+            for proc_name in sig_sample_lst:
+
+                # Make a sub dir for this category
+                save_dir_path_tmp = os.path.join(save_dir_path,proc_name)
+                if not os.path.exists(save_dir_path_tmp):
+                    os.mkdir(save_dir_path_tmp)
+
+                # Make the plots
+                fig = make_single_fig(hist_sig_integrated.integrate("sample",proc_name),unit_norm_bool)
+                title = proc_name+"_"+var_name
+                if unit_norm_bool: title = title + "_unitnorm"
+                fig.savefig(os.path.join(save_dir_path_tmp,title))
+
+                # Make an index.html file if saving to web area
+                if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+        '''
 
 
 
@@ -462,7 +474,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
-    parser.add_argument("-n", "--output-name", default="cr_plots", help = "A name for the output directory")
+    parser.add_argument("-n", "--output-name", default="plots", help = "A name for the output directory")
     parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
     parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
