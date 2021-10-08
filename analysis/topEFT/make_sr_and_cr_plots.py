@@ -235,6 +235,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
 def make_single_fig(histo,unit_norm_bool):
+    #print("\nPlotting values:",histo.values())
     fig, ax = plt.subplots(1, 1, figsize=(11,7))
     hist.plot1d(
         histo,
@@ -334,15 +335,21 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                 hist_sig_grouped = group_bins(hist_sig,sr_cat_dict,"channel",drop_unspecified=True)
 
                 # Make the plots
-                for new_hist_cat in yt.get_cat_lables(hist_sig_grouped,"channel"):
-                    hist_sig_grouped = yt.integrate_out_appl(hist_sig_grouped,new_hist_cat)
-                    fig = make_single_fig(hist_sig_grouped.integrate("sample",proc_name),unit_norm_bool)
-                    title = proc_name+"_"+new_hist_cat+"_"+var_name
+                for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,"channel"):
+
+                    # Integrate
+                    hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
+                    hist_sig_grouped_tmp = yt.integrate_out_appl(hist_sig_grouped_tmp,grouped_hist_cat)
+                    hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("sample",proc_name)
+
+                    # Make plots
+                    fig = make_single_fig(hist_sig_grouped_tmp[grouped_hist_cat],unit_norm_bool)
+                    title = proc_name+"_"+grouped_hist_cat+"_"+var_name
                     if unit_norm_bool: title = title + "_unitnorm"
                     fig.savefig(os.path.join(save_dir_path_tmp,title))
 
-                    # Make an index.html file if saving to web area
-                    if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+                # Make an index.html file if saving to web area
+                if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
 
 
 
