@@ -101,18 +101,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0] 
 
+        # Set the sampleType (used for MC matching requirement)
         conversionDatasets=[x%y for x in ['TTGJets_centralUL%d'] for y in [16,17,18]]
         nonpromptDatasets =[x%y for x in ['TTJets_centralUL%d','DY50_centralUL%d','DY10to50_centralUL%d','tbarW_centralUL%d','tW_centralUL%d','tbarW_centralUL%d'] for y in [16,17,18]]
-
-        sampleType='prompt'
+        sampleType = 'prompt'
         if isData:
-            sampleType='data'
+            sampleType = 'data'
         elif dataset in conversionDatasets: 
-            sampleType='conversions'
+            sampleType = 'conversions'
         elif dataset in nonpromptDatasets:
-            sampleType='nonprompt'
-            
-
+            sampleType = 'nonprompt'
 
         # Initialize objects
         met  = events.MET

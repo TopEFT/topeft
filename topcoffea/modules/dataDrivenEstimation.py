@@ -16,6 +16,7 @@ class DataDrivenProducer:
         self.outputName=outputName
         if doDDFlips: 
             raise RuntimeError("Data driven flips not yet implemented")
+        self.verbose=False
         self.doDDFlips=doDDFlips
         self.doDDFakes=doDDFakes
         self.dataName='data'
@@ -27,7 +28,7 @@ class DataDrivenProducer:
     def DDFakes(self):
         if self.outHist!=None:  # already some processing has been done, so using what is available
             self.inhist=self.outHist
-            
+
         self.outHist={}
         if 'SumOfEFTweights' in self.inhist:
             self.outHist['SumOfEFTweights']=self.inhist['SumOfEFTweights']
@@ -72,7 +73,7 @@ class DataDrivenProducer:
                     if self.dataName == sampleName:
                         continue # We do not scale data
                     smweight = self.smsow[sample] if sample in self.smsow else 1 # dont reweight samples not in smsow
-                    scale_dict[(sample, )] = 1000*get_lumi('20'+year)/smweight
+                    scale_dict[(sample, )] = 1000.0*get_lumi('20'+year)/smweight
 
                 prescale=histo.values().copy()
                 histo.scale( scale_dict, axis=('sample',))
@@ -112,6 +113,7 @@ class DataDrivenProducer:
                             else:
                                 newhist=newhist+hFlips
                                 
+
                         else:
                             # if we are in the nonprompt application region, we also integrate the application region axis
                             # and construct the new sample 'nonprompt'
@@ -145,8 +147,8 @@ class DataDrivenProducer:
                             else:
                                 newhist=newhist+hFakes
 
-                # scale back by 1/lumi all processes but data so they can be used transparently downtream
-                # mind that we scaled all mcs already above
+                # Scale back by 1/lumi all processes but data so they can be used transparently downstream
+                # Mind that we scaled all mcs already above
                 scaleDict={}
                 for sample in newhist.identifiers('sample'):
                     match = pattern.search(sample.name)
@@ -154,14 +156,18 @@ class DataDrivenProducer:
                     if self.dataName == sampleName:
                         continue
                     year=match.group('year')
-                    scaleDict[sample]=1/(1000*get_lumi('20'+year))
+                    scaleDict[sample]=1.0/(1000.0*get_lumi('20'+year))
                 newhist.scale( scaleDict, axis='sample')
-            
+
+                # Scale back the EFT samples by sum of weights at SM so they can be used transparently downstream
+                newhist.scale( self.smsow, axis='sample')
 
             self.outHist[key]=newhist
 
     def dumpToPickle(self):
-        with gzip.open(self.outputName + ".pkl.gz", "wb") as fout:
+        if not self.outputName.endswith(".pkl.gz"):
+            self.outputName = self.outputName + ".pkl.gz"
+        with gzip.open(self.outputName, "wb") as fout:
             cloudpickle.dump(self.outHist, fout)
 
 
@@ -176,6 +182,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
     args = parser.parse_args()
-
 
     DataDrivenProducer(args.pkl_file_path, '')

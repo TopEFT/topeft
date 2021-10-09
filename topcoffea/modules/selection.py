@@ -207,7 +207,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
     mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge)
     
-    # mc matching requirement (already passed for data)
+    # MC matching requirement (already passed for data)
     if sampleType == 'prompt':
         lep1_match=((padded_FOs[:,0].genPartFlav==1) | (padded_FOs[:,0].genPartFlav == 15))    
         lep2_match=((padded_FOs[:,1].genPartFlav==1) | (padded_FOs[:,1].genPartFlav == 15))
@@ -220,9 +220,10 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
         lep1_match=((padded_FOs[:,0].genPartFlav!=1) & (padded_FOs[:,0].genPartFlav != 15) & (padded_FOs[:,0].genPartFlav != 22))
         lep2_match=((padded_FOs[:,1].genPartFlav!=1) & (padded_FOs[:,1].genPartFlav != 15) & (padded_FOs[:,1].genPartFlav != 22))
         mask = mask & ( lep1_match | lep2_match ) 
-
-
-
+    elif sampleType == "data":
+        pass
+    else:
+        raise Exception(f"Error: Unknown sampleType {sampleType}.")
 
     events['is2l'] = ak.fill_none(mask,False)
 
@@ -265,6 +266,7 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
     mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3 )
 
+    # MC matching requirement (already passed for data)
     if sampleType == 'prompt':
         lep1_match=((padded_FOs[:,0].genPartFlav==1) | (padded_FOs[:,0].genPartFlav == 15))    
         lep2_match=((padded_FOs[:,1].genPartFlav==1) | (padded_FOs[:,1].genPartFlav == 15))
@@ -280,7 +282,10 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
         lep2_match=((padded_FOs[:,1].genPartFlav!=1) & (padded_FOs[:,1].genPartFlav != 15) & (padded_FOs[:,1].genPartFlav != 22))
         lep3_match=((padded_FOs[:,2].genPartFlav!=1) & (padded_FOs[:,2].genPartFlav != 15) & (padded_FOs[:,2].genPartFlav != 22))
         mask = mask & ( lep1_match | lep2_match | lep3_match ) 
-
+    elif sampleType == "data":
+        pass
+    else:
+        raise Exception(f"Error: Unknown sampleType {sampleType}.")
 
     events['is3l'] = ak.fill_none(mask,False)
 

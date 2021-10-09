@@ -17,6 +17,7 @@ from coffea.nanoevents import NanoAODSchema
 import topeft
 from topcoffea.modules import samples
 from topcoffea.modules import fileReader
+from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
 
 if __name__ == '__main__':
 
@@ -37,6 +38,7 @@ if __name__ == '__main__':
   parser.add_argument('--split-lep-flavor', action='store_true', help = 'Split up categories by lepton flavor')
   parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
   parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
+  parser.add_argument('--do-np', action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
   parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
   
   args = parser.parse_args()
@@ -55,6 +57,7 @@ if __name__ == '__main__':
   split_lep_flavor = args.split_lep_flavor
   skip_sr          = args.skip_sr
   skip_cr          = args.skip_cr
+  do_np            = args.do_np
   wc_lst = args.wc_list if args.wc_list is not None else []
 
   if dotest:
@@ -169,12 +172,19 @@ if __name__ == '__main__':
   print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
   print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
  
-  # This is taken from the DM photon analysis...
-  # Pickle is not very fast or memory efficient, will be replaced by something better soon
-  #    with lz4f.open("pods/"+options.year+"/"+dataset+".pkl.gz", mode="xb", compression_level=5) as fout:
-  if not outpath.endswith('/'): outpath += '/'
+  # Save the output
   if not os.path.isdir(outpath): os.system("mkdir -p %s"%outpath)
-  print('Saving output in %s...'%(outpath + outname + ".pkl.gz"))
-  with gzip.open(outpath + outname + ".pkl.gz", "wb") as fout:
+  out_pkl_file = os.path.join(outpath,outname+".pkl.gz")
+  print(f"\nSaving output in {out_pkl_file}...")
+  with gzip.open(out_pkl_file, "wb") as fout:
     cloudpickle.dump(output, fout)
-  print('Done!')
+  print("Done!")
+
+  # Run the data driven estimation, save the output
+  if do_np:
+    print("\nDoing the nonprompt estimation...")
+    out_pkl_file_np = os.path.join(outpath,outname+"_np.pkl.gz")
+    ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_np)
+    print(f"Saving output in {out_pkl_file_np}...")
+    ddp.dumpToPickle()
+    print("Done!")
