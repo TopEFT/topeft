@@ -366,7 +366,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         charge2l_p = ak.fill_none(((l0.charge)>0),False)
         charge2l_m = ak.fill_none(((l0.charge)<0),False)
         charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
-        charge2l_pm = ak.fill_none(((l0.charge+l1.charge)!=0),False)
+        charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
         charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
         charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
@@ -423,8 +423,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("atleast_0j", (njets>=0))
 
         # AR/SR categories
-        selections.add("isSR_2lSS", ( events.is2l_SR) & charge2l_pm) 
-        selections.add("isAR_2lSS", (~events.is2l_SR) & charge2l_pm) 
+        selections.add("isSR_2lSS", ( events.is2l_SR) & charge2l_1) 
+        selections.add("isAR_2lSS", (~events.is2l_SR) & charge2l_1) 
         selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # we need another naming for the sideband for the charge flip
         selections.add("isSR_2lOS", ( events.is2l_SR) & charge2l_0) 
         selections.add("isAR_2lOS", (~events.is2l_SR) & charge2l_0) 
