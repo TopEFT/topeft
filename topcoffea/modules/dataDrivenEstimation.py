@@ -20,7 +20,6 @@ class DataDrivenProducer:
         self.doDDFlips=doDDFlips
         self.doDDFakes=doDDFakes
         self.dataName='data'
-        self.chargeFlipName='chargeFip' # place holder, to implement in the future
         self.outHist=None
         self.promptSubtractionSamples=get_param('prompt_subtraction_samples')
         self.DDFakes()
@@ -94,8 +93,7 @@ class DataDrivenProducer:
                     else:
                         if "isAR_2lSS_OS"==ident.name:
                             if key =='njets':
-                                for k, thing in hAR.values().items():
-                                    print('hola', k,thing)
+
                             # we are in the flips application region and theres no "prompt" subtraction, so we just have to rename data to flips, put it in the right axis and we are done
                             newNameDictData=defaultdict(list)
                             for sample in hAR.identifiers('sample'):
