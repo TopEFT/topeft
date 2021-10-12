@@ -7,3 +7,11 @@ ignore:
   - "topcoffea/plotter"                  # Not currently using plotter
   - "tests"                              # Don't need to inventory unit tests, they are covered by design
   - "setup.py"                           # Run only when installing TopCoffea
+coverage:
+  status:
+    project:
+      default:
+        threshold: 50%
+    patch:
+      default:
+        threshold: 50%
