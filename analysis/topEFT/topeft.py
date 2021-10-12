@@ -471,7 +471,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
                 "njets_lst"    : ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
-                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS","isAR_2lSS_OS"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
             },
             "3l" : {
                 "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
@@ -493,7 +493,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_chan_lst" : ["2lss_CR"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
                 "njets_lst"    : ["exactly_1j" , "exactly_2j"],
-                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isAR_2lSS_OS"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
             },
             "3l_CR" : {
                 "lep_chan_lst" : ["3l_CR"],
