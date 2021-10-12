@@ -92,8 +92,6 @@ class DataDrivenProducer:
                             newhist=newhist+hAR
                     else:
                         if "isAR_2lSS_OS"==ident.name:
-                            if key =='njets':
-
                             # we are in the flips application region and theres no "prompt" subtraction, so we just have to rename data to flips, put it in the right axis and we are done
                             newNameDictData=defaultdict(list)
                             for sample in hAR.identifiers('sample'):
