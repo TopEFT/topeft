@@ -49,6 +49,13 @@ CR_CHAN_DICT = {
     ],
 }
 
+CR_APPL_DICT = {
+    "cr_2los_Z" : "isSR_2lOS",
+    "cr_2los_tt" : "isSR_2lOS",
+    "cr_2lss" : "isSR_2lSS",
+    "cr_3l" : "isSR_3l",
+}
+
 SR_CHAN_DICT = {
     "2lss_SR" : [
         "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
@@ -76,6 +83,7 @@ CR_GRP_MAP = {
     "Single top" : [],
     "Singleboson" : [],
     "Nonprompt" : [],
+    "Flips" : [],
     "Signal" : [],
     "Data" : [],
 }
@@ -163,10 +171,10 @@ def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
 
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool):
+def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
 
     #colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
-    colors = ["tab:blue","brown","tab:orange",'tan',"tab:purple","tab:pink","tab:cyan","tab:green"]
+    colors = ["tab:blue","brown","tab:orange",'tan',"tab:purple","tab:pink","tab:cyan","tab:green","tab:red"]
 
     # Create the figure
     fig, (ax, rax) = plt.subplots(
@@ -230,6 +238,9 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
     ax.set_xlabel(None)
     rax.set_ylabel('Ratio')
     rax.set_ylim(0.5,1.5)
+
+    # Set the x axis lims
+    if set_x_lim: plt.xlim(set_x_lim)
 
     return fig
 
@@ -394,6 +405,8 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             CR_GRP_MAP["Data"].append(proc_name)
         elif "nonprompt" in proc_name:
             CR_GRP_MAP["Nonprompt"].append(proc_name)
+        elif "flips" in proc_name:
+            CR_GRP_MAP["Flips"].append(proc_name)
         elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name):
             CR_GRP_MAP["Signal"].append(proc_name)
         elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name:
@@ -459,12 +472,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
             # If we have calculated the nonprompt contribution, the appl axis has already been integrated out
             if ("appl" in yt.get_axis_list(hist_mc)) and ("appl" in yt.get_axis_list(hist_data)):
-                if "2l" in hist_cat:
-                    axes_to_integrate_dict["appl"] = "isSR_2l"
-                elif "3l" in hist_cat:
-                    axes_to_integrate_dict["appl"] = "isSR_3l"
-                else:
-                    raise Exception
+                axes_to_integrate_dict["appl"] = CR_APPL_DICT[hist_cat]
             elif ("appl" not in yt.get_axis_list(hist_mc)) and ("appl" not in yt.get_axis_list(hist_data)):
                 print("Already integrated out the appl axis. Continuing...")
             else:
@@ -473,7 +481,9 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             hist_data_integrated = yt.integrate_out_cats(hist_data,axes_to_integrate_dict)
 
             # Create and save the figure
-            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool)
+            x_range = None
+            if var_name == "ht": x_range = (0,250)
+            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range)
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
