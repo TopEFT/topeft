@@ -20,7 +20,6 @@ class DataDrivenProducer:
         self.doDDFlips=doDDFlips
         self.doDDFakes=doDDFakes
         self.dataName='data'
-        self.chargeFlipName='chargeFip' # place holder, to implement in the future
         self.outHist=None
         self.promptSubtractionSamples=get_param('prompt_subtraction_samples')
         self.DDFakes()
@@ -70,8 +69,8 @@ class DataDrivenProducer:
                     if year not in ['16','17','18']:
                         raise RuntimeError(f"Sample {sample} does not match the naming convention")
 
-                    if self.dataName == sampleName or self.chargeFlipName == sampleName:
-                        continue # We do not scale data or data-driven at all 
+                    if self.dataName == sampleName:
+                        continue # We do not scale data
                     smweight = self.smsow[sample] if sample in self.smsow else 1 # dont reweight samples not in smsow
                     scale_dict[(sample, )] = 1000.0*get_lumi('20'+year)/smweight
 
@@ -92,39 +91,57 @@ class DataDrivenProducer:
                         else:
                             newhist=newhist+hAR
                     else:
-                        # if we are in the application region, we also integrate the application region axis
-                        # and construct the new sample 'nonprompt'
-
-                        # we look at data only, and rename it to fakes
-                        newNameDictData=defaultdict(list); newNameDictNoData=defaultdict(list)
-                        addedNonPrompts=[]
-                        for sample in hAR.identifiers('sample'):
-                            match = pattern.search(sample.name)
-                            sampleName=match.group('sample')
-                            year=match.group('year')
-                            nonPromptName='nonpromptUL%s'%year
-                            if self.dataName==sampleName:
-                                newNameDictData[nonPromptName].append(sample.name)
-                                addedNonPrompts.append( (nonPromptName, year)) # keep it to rescale later
-                            elif sampleName in self.promptSubtractionSamples: 
-                                newNameDictNoData[nonPromptName].append(sample.name)
+                        if "isAR_2lSS_OS"==ident.name:
+                            # we are in the flips application region and theres no "prompt" subtraction, so we just have to rename data to flips, put it in the right axis and we are done
+                            newNameDictData=defaultdict(list)
+                            for sample in hAR.identifiers('sample'):
+                                match = pattern.search(sample.name)
+                                sampleName=match.group('sample')
+                                year=match.group('year')
+                                nonPromptName='flipsUL%s'%year
+                                if self.dataName==sampleName:
+                                    newNameDictData[nonPromptName].append(sample.name)
+                            hFlips=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
+                            
+                            # now adding them to the list of processes: 
+                            if newhist==None:
+                                newhist=hFlips
                             else:
-                                if self.verbose: print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
+                                newhist=newhist+hFlips
+                                
 
-                        hFakes=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
-
-                        # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
-                        hPromptSub=hAR.group('sample', hist.Cat('sample','sample'), newNameDictNoData )
-
-                        # now we actually make the subtraction
-                        hPromptSub.scale(-1)
-                        hFakes=hFakes+hPromptSub
-
-                        # now adding them to the list of processes: 
-                        if newhist==None:
-                            newhist=hFakes
                         else:
-                            newhist=newhist+hFakes
+                            # if we are in the nonprompt application region, we also integrate the application region axis
+                            # and construct the new sample 'nonprompt'
+                            
+                            # we look at data only, and rename it to fakes
+                            newNameDictData=defaultdict(list); newNameDictNoData=defaultdict(list)
+                            for sample in hAR.identifiers('sample'):
+                                match = pattern.search(sample.name)
+                                sampleName=match.group('sample')
+                                year=match.group('year')
+                                nonPromptName='nonpromptUL%s'%year
+                                if self.dataName==sampleName:
+                                    newNameDictData[nonPromptName].append(sample.name)
+                                elif sampleName in self.promptSubtractionSamples: 
+                                    newNameDictNoData[nonPromptName].append(sample.name)
+                                else:
+                                    print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
+                            
+                            hFakes=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
+                            
+                            # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
+                            hPromptSub=hAR.group('sample', hist.Cat('sample','sample'), newNameDictNoData )
+                            
+                            # now we actually make the subtraction
+                            hPromptSub.scale(-1)
+                            hFakes=hFakes+hPromptSub
+                            
+                            # now adding them to the list of processes: 
+                            if newhist==None:
+                                newhist=hFakes
+                            else:
+                                newhist=newhist+hFakes
 
                 # Scale back by 1/lumi all processes but data so they can be used transparently downstream
                 # Mind that we scaled all mcs already above
@@ -132,7 +149,7 @@ class DataDrivenProducer:
                 for sample in newhist.identifiers('sample'):
                     match = pattern.search(sample.name)
                     sampleName=match.group('sample')
-                    if self.dataName == sampleName or self.chargeFlipName == sampleName:
+                    if self.dataName == sampleName:
                         continue
                     year=match.group('year')
                     scaleDict[sample]=1.0/(1000.0*get_lumi('20'+year))
@@ -160,7 +177,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
-    parser.add_argument("-y", "--year", default="2017", help = "The year of the sample")
     args = parser.parse_args()
 
-    DataDrivenProducer(args.pkl_file_path, '',args.year)
+    DataDrivenProducer(args.pkl_file_path, '')

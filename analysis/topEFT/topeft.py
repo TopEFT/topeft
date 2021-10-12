@@ -332,6 +332,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
+                if isData:
+                    weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
+
             if "3l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_3l, events.fakefactor_3l_up, events.fakefactor_3l_down)
@@ -360,9 +363,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
 
         # Charge masks
-        charge2l_p = ak.fill_none(((l0.charge+l1.charge)>0),False)
-        charge2l_m = ak.fill_none(((l0.charge+l1.charge)<0),False)
+        charge2l_p = ak.fill_none(((l0.charge)>0),False)
+        charge2l_m = ak.fill_none(((l0.charge)<0),False)
         charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
+        charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
         charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
         charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
@@ -419,8 +423,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("atleast_0j", (njets>=0))
 
         # AR/SR categories
-        selections.add("isSR_2l",  events.is2l_SR)
-        selections.add("isAR_2l", ~events.is2l_SR)
+        selections.add("isSR_2lSS", ( events.is2l_SR) & charge2l_1) 
+        selections.add("isAR_2lSS", (~events.is2l_SR) & charge2l_1) 
+        selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # we need another naming for the sideband for the charge flip
+        selections.add("isSR_2lOS", ( events.is2l_SR) & charge2l_0) 
+        selections.add("isAR_2lOS", (~events.is2l_SR) & charge2l_0) 
+
         selections.add("isSR_3l",  events.is3l_SR)
         selections.add("isAR_3l", ~events.is3l_SR)
         selections.add("isSR_4l",  events.is4l_SR)
@@ -463,7 +471,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
                 "njets_lst"    : ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
-                "appl_lst"     : ["isSR_2l" , "isAR_2l"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
             },
             "3l" : {
                 "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
@@ -485,7 +493,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_chan_lst" : ["2lss_CR"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
                 "njets_lst"    : ["exactly_1j" , "exactly_2j"],
-                "appl_lst"     : ["isSR_2l" , "isAR_2l"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
             },
             "3l_CR" : {
                 "lep_chan_lst" : ["3l_CR"],
@@ -497,13 +505,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_chan_lst" : ["2los_CRtt"],
                 "lep_flav_lst" : ["em"],
                 "njets_lst"    : ["exactly_2j"],
-                "appl_lst"     : ["isSR_2l" , "isAR_2l"],
+                "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
             },
             "2los_CRZ" : {
                 "lep_chan_lst" : ["2los_CRZ"],
                 "lep_flav_lst" : ["ee", "mm"],
                 "njets_lst"    : ["atleast_0j"],
-                "appl_lst"     : ["isSR_2l" , "isAR_2l"],
+                "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
             }            
         }
 
@@ -542,7 +550,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                     weights_object = weights_dict[nlep_cat]
-                    if isData : weight = weights_object.partial_weight(include=["FF"]) # for data, must include the FF
+                    if isData : weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l", "2l_CR"] else [])) # for data, must include the FF. The flip rate we only apply to 2lss regions
                     else      : weight = weights_object.weight(weight_fluct) # For MC
 
                     # Get a mask for events that pass any of the njet requiremens in this nlep cat

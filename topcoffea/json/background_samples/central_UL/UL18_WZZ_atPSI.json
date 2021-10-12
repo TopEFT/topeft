@@ -1,0 +1,29 @@
+{
+  "files": [
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/ED2BD057-14A0-F74A-953F-8B4A1A3CFF75_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/AB6DD556-3F57-8B43-AD13-D6641ADFB74E_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/FAD07B16-C3D1-B14B-A2DC-7C91CFCB0212_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/18BDE013-ACED-754D-9EDB-832EBAE78837_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/5E36BC1D-1786-D24F-8420-5341F34489F8_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/BA40E667-9F9B-E249-A6C1-093FFB645353_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/AF7F795D-77FA-CB4B-94DF-25E09C7182E5_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/16055380-27EF-AB42-A640-7924EC7E4CA1_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/13F24CB1-1D05-2048-B05E-2530D59BBF6A_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/29DE255A-5C00-1B44-8D46-5FAC0F9A5DE7_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/546302EF-6838-A14C-8540-D9CE0A627FD2_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/F2E0CF9F-DA2B-EF44-80FC-67E309468FFF_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/1F763731-6146-6D49-AF1C-6B1C04AFF7E1_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/15081C13-5A35-6A4A-B37D-257036765936_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WZZ/66A6E893-89E2-D940-88FC-840239947C8D_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "WZZ_centralUL18", 
+  "isData": false, 
+  "WCnames": [], 
+  "nEvents": 300000, 
+  "nSumOfWeights": 17121.264030234, 
+  "year": "2018", 
+  "nGenEvents": 300000, 
+  "xsec": 0.05565, 
+  "options": ""
+}

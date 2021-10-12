@@ -1,0 +1,20 @@
+{
+  "files": [
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_TTGJets/A2204F43-75E3-C947-99CA-7865DA0977DA_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_TTGJets/50DB6B2E-5279-E642-A0BF-F57BF4D7F70E_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_TTGJets/4645F539-F7CA-564A-A949-E2D78D5A496D_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_TTGJets/984C5CE3-BCE3-8F46-BAE0-DE0CA71796AF_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_TTGJets/4841B901-E9A5-2A49-B774-447C39D8D8B5_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL17_TTGJets/E7FED13F-BD56-2C4E-BD5E-87E2193BA090_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "TTGJets_centralUL17", 
+  "isData": false, 
+  "WCnames": [], 
+  "nEvents": 3534208, 
+  "nSumOfWeights": 22157555.754240006, 
+  "year": "2017", 
+  "nGenEvents": 3534208, 
+  "xsec": 3.697, 
+  "options": ""
+}

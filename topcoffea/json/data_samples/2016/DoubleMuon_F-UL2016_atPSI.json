@@ -1,0 +1,16 @@
+{
+  "files": [
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleMuon_F-UL2016/BAF7DEF7-15ED-0A45-83CB-F0BE1620E05C_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//DoubleMuon_F-UL2016/27EAEBE6-2D43-4244-8FAC-06938447EDFF_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "dataUL16", 
+  "isData": true, 
+  "WCnames": [], 
+  "nEvents": 2429162.0, 
+  "nSumOfWeights": 2429162.0, 
+  "year": "2016", 
+  "nGenEvents": 2429162.0, 
+  "xsec": 1.0, 
+  "options": ""
+}

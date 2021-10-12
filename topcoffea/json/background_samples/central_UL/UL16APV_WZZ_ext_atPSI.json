@@ -1,0 +1,24 @@
+{
+  "files": [
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_WZZ_ext/78EE3208-C3C9-6A4F-BE46-FBCCE27ADC15_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_WZZ_ext/6C55D5FB-EA7B-3145-8D4B-5C53039A80E7_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_WZZ_ext/B66A43ED-7687-0744-A523-17CEEF565C07_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_WZZ_ext/4BABE9AE-0EA7-3242-8CB4-F85E72211878_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_WZZ_ext/39F63AB7-6AC5-E946-A0EA-3FEA0A211D44_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_WZZ_ext/98AACF78-E7B8-5A4D-9F9D-FCC803000104_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_WZZ_ext/175941CD-3A20-624A-918E-11A0EABADA45_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_WZZ_ext/B6915BA7-9927-1243-B534-3ABBA800E59E_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_WZZ_ext/C345FCB1-7682-F946-92B8-944821BA61A2_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16APV_WZZ_ext/E5290DEB-5607-2347-B15B-09C31B6B5802_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "WZZ_centralUL16APV", 
+  "isData": false, 
+  "WCnames": [], 
+  "nEvents": 5394000, 
+  "nSumOfWeights": 308416.900468794, 
+  "year": "2016APV", 
+  "nGenEvents": 5394000, 
+  "xsec": 0.05565, 
+  "options": ""
+}
