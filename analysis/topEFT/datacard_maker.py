@@ -99,7 +99,7 @@ class DatacardMaker():
             self.lumi = lumi
         self.lumi = {year : 1000*lumi for year,lumi in self.lumi.items()}
 
-    def analyzeChannel(self, channel=[], appl='isSR_2lss', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
+    def analyzeChannel(self, channel=[], appl='isSR_2lSS', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
         if variable != 'njets' and isinstance(bins, list) and len(bins)>0:
             for jbin in bins:
                 self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=jbin)
@@ -581,8 +581,8 @@ if __name__ == '__main__':
     print(card.coeffs)
     jobs = []
     for var in ['njets','ht','ptbl']:
-        cards = [{'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 {'channel':'2lss', 'appl':'isSR_2l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+        cards = [{'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                 {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
                  {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
                  {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
                  {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
