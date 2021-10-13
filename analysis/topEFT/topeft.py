@@ -15,7 +15,7 @@ from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, apply_roccor
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
@@ -51,7 +51,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, dtype=np.float32, muonSyst='nominal'):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -78,7 +78,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
-
+        self._muonSyst=muonSyst # Calculate muon Rochester uncertainties
     @property
     def accumulator(self):
         return self._accumulator
@@ -99,8 +99,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         isData       = self._samples[dataset]["isData"]
         datasets     = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
-            if d in dataset: dataset = dataset.split('_')[0] 
-
+            if d in dataset: dataset = dataset.split('_')[0]
         conversionDatasets=[x%y for x in ['TTGJets_centralUL%d'] for y in [16,17,18]]
         nonpromptDatasets =[x%y for x in ['TTJets_centralUL%d','DY50_centralUL%d','DY10to50_centralUL%d','tbarW_centralUL%d','tW_centralUL%d','tbarW_centralUL%d'] for y in [16,17,18]]
 
@@ -126,7 +125,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu["conept"] = coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
         e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
-
+        
+        # Update muon kinematics with Rochester correction
+        mu["pt_raw"]=mu.pt
+        if self._muonSyst == 'MuonESup' : mu["pt"]=apply_roccor(mu, isData, var=1)
+        elif self._muonSyst == 'MuonESdo' : mu["pt"]=apply_roccor(mu, isData, var=-1)
+        else: mu["pt"]=apply_roccor(mu, isData, var=0)
+        '''
+        mu["pt_roch_up"]=apply_roccor(mu, isData, var=1)
+        mu["pt_roch_do"]=apply_roccor(mu, isData, var=-1)
+        '''
+        
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
             golden_json_path = topcoffea_path("data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
@@ -233,7 +242,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         elif year == "2018":
             btagwpl = get_param("btag_wp_loose_UL18")
         elif ((year=="2016") or (year=="2016APV")):
-            btagwpl = get_param("btag_wp_loose_L16")
+            btagwpl = get_param("btag_wp_loose_UL16APV")
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
@@ -247,7 +256,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         elif year == "2018":
             btagwpm = get_param("btag_wp_medium_UL18")
         elif ((year=="2016") or (year=="2016APV")):
-            btagwpm = get_param("btag_wp_medium_L16")
+            btagwpm = get_param("btag_wp_medium_UL16APV")
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
@@ -315,7 +324,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             btagSFUp = pDataUp/pMC
             btagSFDo = pDataUp/pMC
 
-
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights_dict = {}
         if (isData or (eft_coeffs is not None)):
@@ -342,8 +350,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Systematics
         systList = ["nominal"]
-        if self._do_systematics and not isData: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
-
+        if (self._do_systematics and not isData and self._muonSyst == 'nominal'): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown"]
+        elif (self._do_systematics and not isData and self._muonSyst != 'nominal'): systList = [self._muonSyst]
 
         ######### Masks we need for the selection ##########
 
@@ -537,7 +545,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used (weight_fluct=None)
                 weight_fluct = syst
-                if syst in ["nominal","JERUp","JERDown","JESUp","JESDown"]: weight_fluct = None # No weight systematic for these variations
+                if syst in ["nominal","JERUp","JERDown","JESUp","JESDown","MuonESup","MuonESdo"]: weight_fluct = None # No weight systematic for these variations
 
                 # Loop over nlep categories "2l", "3l", "4l"
                 for nlep_cat in cat_dict.keys():

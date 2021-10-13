@@ -16,6 +16,7 @@ from coffea.jetmet_tools import FactorizedJetCorrector, JetCorrectionUncertainty
 from coffea.jetmet_tools import JECStack, CorrectedJetsFactory
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from topcoffea.modules.GetValuesFromJsons import get_param
+from coffea.lookup_tools import txt_converters, rochester_lookup
 
 basepathFromTTH = 'data/fromTTH/'
 
@@ -86,8 +87,8 @@ SFevaluator = extLepSF.make_evaluator()
 
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
-def AttachPerLeptonFR(leps, flavor, year=2018):
-  if year == '2016APV': year = 2016
+def AttachPerLeptonFR(leps, flavor, year='2018'):
+  if year == '2016APV': year = '2016'
   for syst in ffSysts:
     fr=SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](np.abs(leps.eta), leps.conept )
     leps['fakefactor%s'%syst]=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
@@ -110,7 +111,7 @@ def fakeRateWeight3l(events, lep1, lep2, lep3):
     events['fakefactor_3l%s'%syst]=fakefactor_3l
 
 
-def AttachMuonSF(muons, year=2018):
+def AttachMuonSF(muons, year='2018'):
   '''
     Description:
       Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the muons array passed to this function. These
@@ -129,7 +130,7 @@ def AttachMuonSF(muons, year=2018):
   muons['sf_hi']  = (loose_sf + loose_err) * (tight_sf + tight_err)
   muons['sf_lo']  = (loose_sf - loose_err) * (tight_sf - tight_err)
 
-def AttachElectronSF(electrons, year=2018):
+def AttachElectronSF(electrons, year='2018'):
   '''
     Description:
       Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the electrons array passed to this function. These
@@ -138,7 +139,7 @@ def AttachElectronSF(electrons, year=2018):
   # eta = np.abs(electrons.eta)
   eta = electrons.eta
   pt = electrons.pt
-  if year == '2016APV': year = 2016
+  if year == '2016APV': year = '2016'
   # For the ElecRecoSF we dont take the absolute value of eta!
   reco_sf          = SFevaluator['ElecRecoSF_{year}'.format(year=year)](eta,pt)
   reco_sf_err      = SFevaluator['ElecRecoSF_{year}_er'.format(year=year)](eta,pt)
@@ -162,8 +163,8 @@ def AttachElectronSF(electrons, year=2018):
 # Hard-coded to DeepJet algorithm, medium WP
 
 # MC efficiencies
-def GetMCeffFunc(WP='medium', flav='b', year=2018):
-  pathToBtagMCeff = topcoffea_path('data/btagSF/UL/btagMCeff_%i.pkl.gz'%year)
+def GetMCeffFunc(WP='medium', flav='b', year='2018'):
+  pathToBtagMCeff = topcoffea_path('data/btagSF/UL/btagMCeff_%s.pkl.gz'%year)
   hists = {}
   with gzip.open(pathToBtagMCeff) as fin:
     hin = pickle.load(fin)
@@ -180,20 +181,19 @@ def GetMCeffFunc(WP='medium', flav='b', year=2018):
   fun = lambda pt, abseta, flav : getnum(pt,abseta,flav)/getden(pt,abseta,flav)
   return fun
 
-MCeffFunc_2018 = GetMCeffFunc('medium', 2018)
-MCeffFunc_2017 = GetMCeffFunc('medium', 2017)
+MCeffFunc_2018 = GetMCeffFunc('medium', '2018')
+MCeffFunc_2017 = GetMCeffFunc('medium', '2017')
 
-def GetBtagEff(eta, pt, flavor, year=2018):
-  if year==2017: return MCeffFunc_2017(pt, eta, flavor)
+def GetBtagEff(eta, pt, flavor, year='2018'):
+  if year=='2017': return MCeffFunc_2017(pt, eta, flavor)
   else         : return MCeffFunc_2018(pt, eta, flavor)
 
-def GetBTagSF(eta, pt, flavor, year=2018, sys=0):
+def GetBTagSF(eta, pt, flavor, year='2018', sys=0):
 
-  # Efficiencies and SFs for UL only available for 2017 and 2018
-  if year == '2016APV': year = 2016
-  if   year == 2016: SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/DeepFlav_2016.csv"),"MEDIUM")
-  elif year == 2017: SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL17.csv"),"MEDIUM")
-  elif year == 2018: SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18.csv"),"MEDIUM")
+  # Efficiencies and SFs for UL only available for 2016APV, 2017 and 2018
+  if   (year == '2016' or year == '2016APV'): SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_106XUL16SF.csv"),"MEDIUM")
+  elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL17.csv"),"MEDIUM")
+  elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18.csv"),"MEDIUM")
 
   if   sys==0 : SF=SFevaluatorBtag.eval("central",flavor,eta,pt)
   elif sys==1 : SF=SFevaluatorBtag.eval("up",flavor,eta,pt)
@@ -217,7 +217,7 @@ pudirpath = topcoffea_path('data/pileup/')
 
 def GetDataPUname(year='2017', var=0):
   ''' Returns the name of the file to read pu observed distribution '''
-  if year == '2016APV': year = 2016
+  if year == '2016APV': year = '2016'
   if   var== 0: ppxsec = get_param("pu_w")
   elif var== 1: ppxsec = get_param("pu_w_up")
   elif var==-1: ppxsec = get_param("pu_w_down")
@@ -275,3 +275,38 @@ jet_factory = CorrectedJetsFactory(name_map, jec_stack)
 # test
 #val = evaluator['MuonTightSF_2016'](np.array([1.2, 0.3]),np.array([24.5, 51.3]))
 #print('val = ', val)
+
+###### Muon Rochester corrections
+################################################################
+# https://gitlab.cern.ch/akhukhun/roccor
+# https://github.com/CoffeaTeam/coffea/blob/master/coffea/lookup_tools/rochester_lookup.py
+if year=='2016': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2016aUL.txt"), loaduncs=True)
+elif year=='2016APV': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2016bUL.txt"), loaduncs=True)
+elif year=='2017': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2017UL.txt"), loaduncs=True)
+elif year=='2018': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2018UL.txt"), loaduncs=True)
+rochester = rochester_lookup.rochester_lookup(rochester_data)
+def apply_roccor(mu, is_data, var=0):
+    if not is_data:
+        hasgen = ~np.isnan(ak.fill_none(mu.matched_gen.pt, np.nan))
+        mc_rand = np.random.rand(*ak.to_numpy(ak.flatten(mu.pt)).shape)
+        mc_rand = ak.unflatten(mc_rand, ak.num(mu.pt, axis=1))
+        corrections = np.array(ak.flatten(ak.ones_like(mu.pt)))
+        errors = np.array(ak.flatten(ak.ones_like(mu.pt)))
+        
+        mc_kspread = rochester.kSpreadMC(mu.charge[hasgen],mu.pt[hasgen],mu.eta[hasgen],mu.phi[hasgen],mu.matched_gen.pt[hasgen])
+        mc_ksmear = rochester.kSmearMC(mu.charge[~hasgen],mu.pt[~hasgen],mu.eta[~hasgen],mu.phi[~hasgen],mu.nTrackerLayers[~hasgen],mc_rand[~hasgen])
+        errspread = rochester.kSpreadMCerror(mu.charge[hasgen],mu.pt[hasgen],mu.eta[hasgen],mu.phi[hasgen],mu.matched_gen.pt[hasgen])
+        errsmear = rochester.kSmearMCerror(mu.charge[~hasgen],mu.pt[~hasgen],mu.eta[~hasgen],mu.phi[~hasgen],mu.nTrackerLayers[~hasgen],mc_rand[~hasgen])
+        hasgen_flat = np.array(ak.flatten(hasgen))
+        corrections[hasgen_flat] = np.array(ak.flatten(mc_kspread))
+        corrections[~hasgen_flat] = np.array(ak.flatten(mc_ksmear))
+        errors[hasgen_flat] = np.array(ak.flatten(errspread))
+        errors[~hasgen_flat] = np.array(ak.flatten(errsmear))
+        corrections = ak.unflatten(corrections, ak.num(mu.pt, axis=1))
+        errors = ak.unflatten(errors, ak.num(mu.pt, axis=1))
+    else:
+        corrections = rochester.kScaleDT(mu.charge, mu.pt, mu.eta, mu.phi)
+        errors = rochester.kScaleDTerror(mu.charge, mu.pt, mu.eta, mu.phi)
+    if var==0: return(mu.pt * corrections) #nominal
+    elif var==1: return(mu.pt * corrections + mu.pt * errors) #up 
+    elif var==-1: return(mu.pt * corrections - mu.pt * errors) #down
