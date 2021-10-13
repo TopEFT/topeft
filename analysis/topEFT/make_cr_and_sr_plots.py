@@ -138,8 +138,13 @@ def get_lumi_for_sample(sample_name):
         lumi = 1000.0*get_lumi("2017")
     elif "UL18" in sample_name:
         lumi = 1000.0*get_lumi("2018")
+    elif "UL16APV" in sample_name:
+        lumi = 1000.0*get_lumi("2016APV")
+    elif "UL16" in sample_name:
+        # Should not be here unless "UL16APV" not in sample_name
+        lumi = 1000.0*get_lumi("2016")
     else:
-        raise Exception("Note yet sure how to handle UL16 vas UL16APV, so just crash for now")
+        raise Exception(f"Error: Unknown year \"{year}\".")
     return lumi
 
 # Group bins in a hist, returns a new hist
@@ -183,7 +188,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
     # Set up the colors
     ax.set_prop_cycle(cycler(color=colors))
 
-    # Normalize if we want to dod that
+    # Normalize if we want to do that
     if unit_norm_bool:
         sum_mc = 0
         sum_data = 0
@@ -376,7 +381,10 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
     elif year == "2018":
         mc_wl.append("UL18")
         data_wl.append("UL18")
-    else: raise Exception # Not sure what to do about UL16 vs UL16APV yet
+    elif year == "2016":
+        mc_wl.append("UL16")   # Includes UL16 and UL16APV
+        data_wl.append("UL16") # Includes UL16 and UL16APV
+    else: raise Exception(f"Error: Unknown year \"{year}\".")
 
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
