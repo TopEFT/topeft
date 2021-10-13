@@ -49,6 +49,7 @@ CR_CHAN_DICT = {
     ],
 }
 
+
 SR_CHAN_DICT = {
     "2lss_SR" : [
         "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
@@ -76,6 +77,7 @@ CR_GRP_MAP = {
     "Single top" : [],
     "Singleboson" : [],
     "Nonprompt" : [],
+    "Flips" : [],
     "Signal" : [],
     "Data" : [],
 }
@@ -136,8 +138,13 @@ def get_lumi_for_sample(sample_name):
         lumi = 1000.0*get_lumi("2017")
     elif "UL18" in sample_name:
         lumi = 1000.0*get_lumi("2018")
+    elif "UL16APV" in sample_name:
+        lumi = 1000.0*get_lumi("2016APV")
+    elif "UL16" in sample_name:
+        # Should not be here unless "UL16APV" not in sample_name
+        lumi = 1000.0*get_lumi("2016")
     else:
-        raise Exception("Note yet sure how to handle UL16 vas UL16APV, so just crash for now")
+        raise Exception(f"Error: Unknown year \"{year}\".")
     return lumi
 
 # Group bins in a hist, returns a new hist
@@ -163,10 +170,10 @@ def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
 
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool):
+def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
 
     #colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
-    colors = ["tab:blue","brown","tab:orange",'tan',"tab:purple","tab:pink","tab:cyan","tab:green"]
+    colors = ["tab:blue","brown","tab:orange",'tan',"tab:purple","tab:pink","tab:cyan","tab:green","tab:red"]
 
     # Create the figure
     fig, (ax, rax) = plt.subplots(
@@ -181,7 +188,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
     # Set up the colors
     ax.set_prop_cycle(cycler(color=colors))
 
-    # Normalize if we want to dod that
+    # Normalize if we want to do that
     if unit_norm_bool:
         sum_mc = 0
         sum_data = 0
@@ -231,6 +238,9 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
     rax.set_ylabel('Ratio')
     rax.set_ylim(0.5,1.5)
 
+    # Set the x axis lims
+    if set_x_lim: plt.xlim(set_x_lim)
+
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
@@ -260,7 +270,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     elif year == "2018": sig_wl.append("UL18")
     else: raise Exception # Not sure what to do about UL16 vs UL16APV yet
 
-    # Get the list of samples to actuall plot
+    # Get the list of samples to actually plot
     all_samples = yt.get_cat_lables(dict_of_hists,"sample")
     sig_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
@@ -371,7 +381,10 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
     elif year == "2018":
         mc_wl.append("UL18")
         data_wl.append("UL18")
-    else: raise Exception # Not sure what to do about UL16 vs UL16APV yet
+    elif year == "2016":
+        mc_wl.append("UL16")   # Includes UL16 and UL16APV
+        data_wl.append("UL16") # Includes UL16 and UL16APV
+    else: raise Exception(f"Error: Unknown year \"{year}\".")
 
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
@@ -394,6 +407,8 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             CR_GRP_MAP["Data"].append(proc_name)
         elif "nonprompt" in proc_name:
             CR_GRP_MAP["Nonprompt"].append(proc_name)
+        elif "flips" in proc_name:
+            CR_GRP_MAP["Flips"].append(proc_name)
         elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name):
             CR_GRP_MAP["Signal"].append(proc_name)
         elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name:
@@ -457,23 +472,13 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             axes_to_integrate_dict = {}
             axes_to_integrate_dict["systematic"] = "nominal"
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
-            # If we have calculated the nonprompt contribution, the appl axis has already been integrated out
-            if ("appl" in yt.get_axis_list(hist_mc)) and ("appl" in yt.get_axis_list(hist_data)):
-                if "2l" in hist_cat:
-                    axes_to_integrate_dict["appl"] = "isSR_2l"
-                elif "3l" in hist_cat:
-                    axes_to_integrate_dict["appl"] = "isSR_3l"
-                else:
-                    raise Exception
-            elif ("appl" not in yt.get_axis_list(hist_mc)) and ("appl" not in yt.get_axis_list(hist_data)):
-                print("Already integrated out the appl axis. Continuing...")
-            else:
-                raise Exception("Error: appl axis is in one hist and not the other, this should not happen.")
-            hist_mc_integrated = yt.integrate_out_cats(hist_mc,axes_to_integrate_dict)
-            hist_data_integrated = yt.integrate_out_cats(hist_data,axes_to_integrate_dict)
+            hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)
+            hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)
 
             # Create and save the figure
-            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool)
+            x_range = None
+            if var_name == "ht": x_range = (0,250)
+            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range)
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
