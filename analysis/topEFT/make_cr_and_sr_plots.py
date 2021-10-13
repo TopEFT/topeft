@@ -49,12 +49,6 @@ CR_CHAN_DICT = {
     ],
 }
 
-CR_APPL_DICT = {
-    "cr_2los_Z" : "isSR_2lOS",
-    "cr_2los_tt" : "isSR_2lOS",
-    "cr_2lss" : "isSR_2lSS",
-    "cr_3l" : "isSR_3l",
-}
 
 SR_CHAN_DICT = {
     "2lss_SR" : [
@@ -271,7 +265,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     elif year == "2018": sig_wl.append("UL18")
     else: raise Exception # Not sure what to do about UL16 vs UL16APV yet
 
-    # Get the list of samples to actuall plot
+    # Get the list of samples to actually plot
     all_samples = yt.get_cat_lables(dict_of_hists,"sample")
     sig_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
@@ -470,15 +464,8 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             axes_to_integrate_dict = {}
             axes_to_integrate_dict["systematic"] = "nominal"
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
-            # If we have calculated the nonprompt contribution, the appl axis has already been integrated out
-            if ("appl" in yt.get_axis_list(hist_mc)) and ("appl" in yt.get_axis_list(hist_data)):
-                axes_to_integrate_dict["appl"] = CR_APPL_DICT[hist_cat]
-            elif ("appl" not in yt.get_axis_list(hist_mc)) and ("appl" not in yt.get_axis_list(hist_data)):
-                print("Already integrated out the appl axis. Continuing...")
-            else:
-                raise Exception("Error: appl axis is in one hist and not the other, this should not happen.")
-            hist_mc_integrated = yt.integrate_out_cats(hist_mc,axes_to_integrate_dict)
-            hist_data_integrated = yt.integrate_out_cats(hist_data,axes_to_integrate_dict)
+            hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)
+            hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)
 
             # Create and save the figure
             x_range = None

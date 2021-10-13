@@ -288,14 +288,19 @@ class YieldTools():
     def integrate_out_appl(self,histo,lep_cat):
         histo_integrated = copy.deepcopy(histo)
         if ("appl" in self.get_axis_list(histo)):
-            if "2l" in lep_cat:
-                histo_integrated = histo.integrate("appl","isSR_2l")
+            if "2lss" in lep_cat:
+                sr_bin = self.APPL_DICT["2lss"]
+            elif "2los" in lep_cat:
+                sr_bin = self.APPL_DICT["2los"]
             elif "3l" in lep_cat:
-                histo_integrated = histo.integrate("appl","isSR_3l")
+                sr_bin = self.APPL_DICT["3l"]
             elif "4l" in lep_cat:
-                histo_integrated = histo.integrate("appl","isSR_4l")
-            else: raise Exception(f"Error: Category \"{lep_cat}\" is not known.")
-        else: print("Already integrated out the appl axis. Continuing...")
+                sr_bin = self.APPL_DICT["4l"]
+            else:
+                raise Exception(f"Error: Category \"{lep_cat}\" is not known.")
+            histo_integrated = histo.integrate("appl",sr_bin)
+        else:
+            print("Already integrated out the appl axis. Continuing...")
         return histo_integrated
             
 
