@@ -311,7 +311,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
             btagSF   = pData  /pMC
             btagSFUp = pDataUp/pMC
-            btagSFDo = pDataUp/pMC
+            btagSFDo = pDataDo/pMC
 
 
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
@@ -334,7 +334,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
                 if isData:
                     weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
-
             if "3l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_3l, events.fakefactor_3l_up, events.fakefactor_3l_down)
@@ -343,7 +342,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Systematics
         systList = ["nominal"]
-        if self._do_systematics and not isData: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
+        if self._do_systematics and not isData: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown"]
 
 
         ######### Masks we need for the selection ##########
