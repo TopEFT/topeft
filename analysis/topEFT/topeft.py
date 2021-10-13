@@ -363,8 +363,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
 
         # Charge masks
-        charge2l_p = ak.fill_none(((l0.charge)>0),False)
-        charge2l_m = ak.fill_none(((l0.charge)<0),False)
+        chargel0_p = ak.fill_none(((l0.charge)>0),False)
+        chargel0_m = ak.fill_none(((l0.charge)<0),False)
         charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
         charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
         charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
@@ -379,9 +379,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("is_good_lumi",lumi_mask)
 
         # 2lss selection
-        selections.add("2lss_p", (events.is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m", (events.is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_CR", (events.is2l & (charge2l_p | charge2l_m) & bmask_exactly1med & pass_trg))
+        selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+        selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+        selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
         
         # 2los selection
         selections.add("2los_CRtt", (events.is2l & charge2l_0 & bmask_exactly2med & pass_trg))
