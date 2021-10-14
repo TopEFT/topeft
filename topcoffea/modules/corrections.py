@@ -87,7 +87,7 @@ SFevaluator = extLepSF.make_evaluator()
 
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
-def AttachPerLeptonFR(leps, flavor, year='2018'):
+def AttachPerLeptonFR(leps, flavor, year):
   if year == '2016APV': year = '2016'
   for syst in ffSysts:
     fr=SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](np.abs(leps.eta), leps.conept )
@@ -111,7 +111,7 @@ def fakeRateWeight3l(events, lep1, lep2, lep3):
     events['fakefactor_3l%s'%syst]=fakefactor_3l
 
 
-def AttachMuonSF(muons, year='2018'):
+def AttachMuonSF(muons, year):
   '''
     Description:
       Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the muons array passed to this function. These
@@ -120,6 +120,7 @@ def AttachMuonSF(muons, year='2018'):
   eta = np.abs(muons.eta)
   pt = muons.pt
   if year == '2016APV': year = '2016'
+  if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
   loose_sf  = SFevaluator['MuonLooseSF_{year}'.format(year=year)](eta,pt)
   loose_err = SFevaluator['MuonLooseSF_{year}_er'.format(year=year)](eta,pt)
 
@@ -130,7 +131,7 @@ def AttachMuonSF(muons, year='2018'):
   muons['sf_hi']  = (loose_sf + loose_err) * (tight_sf + tight_err)
   muons['sf_lo']  = (loose_sf - loose_err) * (tight_sf - tight_err)
 
-def AttachElectronSF(electrons, year='2018'):
+def AttachElectronSF(electrons, year):
   '''
     Description:
       Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the electrons array passed to this function. These
@@ -140,6 +141,7 @@ def AttachElectronSF(electrons, year='2018'):
   eta = electrons.eta
   pt = electrons.pt
   if year == '2016APV': year = '2016'
+  if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
   # For the ElecRecoSF we dont take the absolute value of eta!
   reco_sf          = SFevaluator['ElecRecoSF_{year}'.format(year=year)](eta,pt)
   reco_sf_err      = SFevaluator['ElecRecoSF_{year}_er'.format(year=year)](eta,pt)
@@ -163,7 +165,8 @@ def AttachElectronSF(electrons, year='2018'):
 # Hard-coded to DeepJet algorithm, medium WP
 
 # MC efficiencies
-def GetMCeffFunc(WP='medium', flav='b', year='2018'):
+def GetMCeffFunc(year, WP='medium', flav='b'):
+  if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
   pathToBtagMCeff = topcoffea_path('data/btagSF/UL/btagMCeff_%s.pkl.gz'%year)
   hists = {}
   with gzip.open(pathToBtagMCeff) as fin:
@@ -181,24 +184,24 @@ def GetMCeffFunc(WP='medium', flav='b', year='2018'):
   fun = lambda pt, abseta, flav : getnum(pt,abseta,flav)/getden(pt,abseta,flav)
   return fun
 
-MCeffFunc_2018 = GetMCeffFunc('medium', '2018')
-MCeffFunc_2017 = GetMCeffFunc('medium', '2017')
+MCeffFunc_2018 = GetMCeffFunc('2018','medium')
+MCeffFunc_2017 = GetMCeffFunc('2017','medium')
 
-def GetBtagEff(eta, pt, flavor, year='2018'):
+def GetBtagEff(eta, pt, flavor, year):
+  if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
   if year=='2017': return MCeffFunc_2017(pt, eta, flavor)
   else         : return MCeffFunc_2018(pt, eta, flavor)
 
-def GetBTagSF(eta, pt, flavor, year='2018', sys=0):
-
+def GetBTagSF(eta, pt, flavor, year, sys=0):
   # Efficiencies and SFs for UL only available for 2016APV, 2017 and 2018
   if   (year == '2016' or year == '2016APV'): SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_106XUL16SF.csv"),"MEDIUM")
   elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL17.csv"),"MEDIUM")
   elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18.csv"),"MEDIUM")
-
+  else: raise Exception(f"Error: Unknown year \"{year}\".")
+  
   if   sys==0 : SF=SFevaluatorBtag.eval("central",flavor,eta,pt)
   elif sys==1 : SF=SFevaluatorBtag.eval("up",flavor,eta,pt)
   elif sys==-1: SF=SFevaluatorBtag.eval("down",flavor,eta,pt)
-
   return (SF)
 
 ###### Pileup reweighing
@@ -215,7 +218,7 @@ def GetBTagSF(eta, pt, flavor, year='2018', sys=0):
 
 pudirpath = topcoffea_path('data/pileup/')
 
-def GetDataPUname(year='2017', var=0):
+def GetDataPUname(year, var=0):
   ''' Returns the name of the file to read pu observed distribution '''
   if year == '2016APV': year = '2016'
   if   var== 0: ppxsec = get_param("pu_w")
@@ -225,7 +228,7 @@ def GetDataPUname(year='2017', var=0):
   return 'PileupHistogram-goldenJSON-13tev-%s-%sub-99bins.root'%((year), str(ppxsec))
 
 MCPUfile = {'2016APV':'pileup_2016BF.root', '2016':'pileup_2016GH.root', '2017':'pileup_2017_shifts.root', '2018':'pileup_2018_shifts.root'}
-def GetMCPUname(year='2017'):
+def GetMCPUname(year):
   ''' Returns the name of the file to read pu MC profile '''
   return MCPUfile[str(year)]
 
@@ -248,6 +251,7 @@ for year in ['2016', '2016APV', '2017', '2018']:
 
 def GetPUSF(nTrueInt, year, var=0):
   year = str(year)
+  if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
   nMC  =PUfunc[year]['MC'](nTrueInt+1)
   nData=PUfunc[year]['DataUp' if var == 1 else ('DataDo' if var == -1 else 'Data')](nTrueInt)
   weights = np.divide(nData,nMC)

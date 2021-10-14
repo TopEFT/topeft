@@ -305,9 +305,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         btagSFDo = np.ones_like(ht)
         if not isData:
             pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
-            bJetSF   = GetBTagSF(abseta, pt, flav)
-            bJetSFUp = GetBTagSF(abseta, pt, flav, sys=1)
-            bJetSFDo = GetBTagSF(abseta, pt, flav, sys=-1)
+            bJetSF   = GetBTagSF(abseta, pt, flav, year)
+            bJetSFUp = GetBTagSF(abseta, pt, flav, year,sys=1)
+            bJetSFDo = GetBTagSF(abseta, pt, flav, year,sys=-1)
 
             bJetEff  = GetBtagEff(abseta, pt, flav, year)
             bJetEff_data   = bJetEff*bJetSF
@@ -318,11 +318,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
             pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
             pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)
-
             pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-            btagSF   = pData  /pMC
-            btagSFUp = pDataUp/pMC
-            btagSFDo = pDataUp/pMC
 
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights_dict = {}
@@ -335,23 +331,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
-            weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
             if not isData:
                 # Trying to calculate PU SFs for data causes a crash, and we don't apply this for data anyway, so just skip it in the case of data
                 weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
-            if "2l" in ch_name:
-                weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
-                weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
-            if "3l" in ch_name:
-                weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
-                weights_dict[ch_name].add("FF"   , events.fakefactor_3l, events.fakefactor_3l_up, events.fakefactor_3l_down)
-            if "4l" in ch_name:
-                weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
-
+                weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC)
+                if "2l" in ch_name:
+                    weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
+                    weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
+                if "3l" in ch_name:
+                    weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
+                    weights_dict[ch_name].add("FF"   , events.fakefactor_3l, events.fakefactor_3l_up, events.fakefactor_3l_down)
+                if "4l" in ch_name:
+                    weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
         # Systematics
         systList = ["nominal"]
         if (self._do_systematics and not isData and self._muonSyst == 'nominal'): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown"]
-        elif (self._do_systematics and not isData and self._muonSyst != 'nominal'): systList = [self._muonSyst]
+        elif (self._do_systematics and self._muonSyst != 'nominal'): systList = [self._muonSyst]
 
         ######### Masks we need for the selection ##########
 
