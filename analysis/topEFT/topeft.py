@@ -294,10 +294,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         btagSFDo = np.ones_like(ht)
         if not isData:
             pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
-            bJetSF   = GetBTagSF(abseta, pt, flav)
-            bJetSFUp = GetBTagSF(abseta, pt, flav, sys=1)
-            bJetSFDo = GetBTagSF(abseta, pt, flav, sys=-1)
 
+            bJetSF   = GetBTagSF(abseta, pt, flav, year)
+            bJetSFUp = GetBTagSF(abseta, pt, flav, year, sys=1)
+            bJetSFDo = GetBTagSF(abseta, pt, flav, year, sys=-1)
             bJetEff  = GetBtagEff(abseta, pt, flav, year)
             bJetEff_data   = bJetEff*bJetSF
             bJetEff_dataUp = bJetEff*bJetSFUp
