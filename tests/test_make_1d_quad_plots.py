@@ -8,7 +8,7 @@ def test_make_1d_quad_plots():
         "-i",
         "NAOD-00000_18449.root",
         "-r",
-        "/afs/crc.nd.edu/user/b/byates2/topcoffea/"
+        "./"
     ]
 
     # Run make_1d_quad
