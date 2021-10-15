@@ -4,12 +4,12 @@ Run `conda install pytest` to install
 Optionally `conda install pytest-cov` to generate a local coverage report
 
 ## Running
-Run `pytest` from the root directory of topcoffea. This will find the `tests` folder, and run all python scripts starting with `test_`.
+Run `pytest` from the root directory of topcoffea. It will find the `tests` folder, and run all python scripts starting with `test_`.
 
 ## Local reports
 Running `pytest --cov` will print a report at the end.
 Running `pytest --cov --cov-report html` will generate an html directory that can be copied to `~/www/` to view in the browser.
-By default, pytest on prints failure messages. The flags `-rP` will print all messages (`-r` is for better formatting, and `-P` is for printing messages from tests which passed).
+By default, pytest only prints failure messages. The flags `-rP` will print all messages (`-r` is for better formatting, and `-P` is for printing messages from tests which passed).
 
 ## Contents of the `tests` folder
 ### `tests/test_HistEFT_add.py`
