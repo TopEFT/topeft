@@ -64,11 +64,11 @@ if __name__ == '__main__':
   # Figure out which hists to include
   if args.hist_list == ["ana"]:
     # Here we hardcode a list of hists used for the analysis
-    hist_list = ["njets","ht","ptbl"]
+    hist_lst = ["njets","ht","ptbl"]
   else:
     # We want to specify a custom list
     # If we don't specify this argument, it will be None, and the processor will fill all hists 
-    hist_list = args.hist_list
+    hist_lst = args.hist_list
 
   if dotest:
     nchunks = 2
@@ -170,7 +170,7 @@ if __name__ == '__main__':
   else:
     print('No Wilson coefficients specified')
  
-  processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_list,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
+  processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
 
   # Run the processor and get the output
   tstart = time.time()
