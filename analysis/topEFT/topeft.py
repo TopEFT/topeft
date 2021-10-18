@@ -51,7 +51,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, dtype=np.float32):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -73,11 +73,23 @@ class AnalysisProcessor(processor.ProcessorABC):
         "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
         })
 
+        # Set the list of hists to fill
+        if hist_lst is None:
+            # If the hist list is none, assume we want to fill all hists
+            self._hist_lst = list(self._accumulator.keys())
+        else:
+            # Otherwise, just fill the specified subset of hists
+            for hist_to_include in hist_lst:
+                if hist_to_include not in self._accumulator.keys():
+                    raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
+            self._hist_lst = hist_lst # Which hists to fill
+
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
+
 
     @property
     def accumulator(self):
@@ -536,6 +548,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Loop over the hists we want to fill
         for dense_axis_name, dense_axis_vals in varnames.items():
+            if dense_axis_name not in self._hist_lst:
+                print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
+                continue
 
             # Loop over the systematics
             for syst in systList:
