@@ -1,6 +1,22 @@
 # How to fit the results
 
-#### CMSSW
+The first step is to produce the datacard text files and root files that combine will use, and this step takes place within `topcoffea`.  The next step is to run combine, which takes place inside of a CMSSW release, outside of `topcoffea`.
+
+## Creating the datacards
+
+The first step is to produce the datacard text files and root files that combine will use. This step takes place within `topcoffea`.
+- ROOT is required, so install it first iwth `conda install -c conda-forge root`
+- Run `python analysis/topEFT/datacard_maker.py` (see `analysis/topEFT/README.md` for details)
+
+## Running combine
+
+ The next step is to run combine. This takes place inside of a CMSSW release, outside of `topcoffea`.
+ 
+ ### Setting up
+ 
+  In order to run combine, you will need to get the appropriate CMSSW release and clone several repositories.
+
+#### Set up the CMSSW release
 Install CMSSW_10_2_13 ***OUTSIDE OF YOUR TOPCOFFEA DIR AND NOT IN CONDA***
 ```
 export SCRAM_ARCH=slc7_amd64_gcc700
@@ -9,10 +25,7 @@ cd CMSSW_10_2_13/src
 scram b -j8
 ```
 
-#### Set up Repo
-This package is designed to be used with the CombineHarvester fork. Install within the same CMSSW release. See https://github.com/cms-analysis/CombineHarvester
-
-##### Combine
+#### Get the Combine repository
 Currently working with tag `v8.2.0`:
 
 ```
@@ -23,27 +36,27 @@ cd -
 scram b -j8
 ```
 
-Otherwise, this package should be compatible with most CMSSW releases. It still requires the HiggsCombineTool package though. See https://github.com/cms-analysis/HiggsAnalysis-CombinedLimit/wiki/gettingstarted#for-end-users-that-dont-need-to-commit-or-do-any-development
-
-##### EFTFit
+#### Get the EFTFit repository
 ```
 cd $CMSSW_BASE/src/
 git clone git@github.com:cms-govner/EFTFit.git EFTFit
 scram b -j8
 ```
 
-##### CombineHarvester
+#### Get the CombineHarvester repository
+This package is designed to be used with the CombineHarvester fork. 
+
 ```
 git clone git@github.com:cms-analysis/CombineHarvester.git
 scram b -j8
 ```
-This might case errors, but you can safely ignore them.
+This might cause errors, but you can safely ignore them.
 
-#### Fitting
-##### In TopCoffea
-- ROOT is required, so install it first iwth `conda install -c conda-forge root`
-- Run `python analysis/topEFT/datacard_maker.py` (see `analysis/topEFT/README.md` for details)
-##### In CMSSW
+### Fitting
+
+Now we can actually run combine to perform the fits.
+
+#### In CMSSW
 - Enter `CMSSW_10_2_13/src/EFTFit/Fitter/test` (wherever you have it installed) and run `cmsenv` to initialize CMSSW
 - Copy all .txt and .root files created by `python analysis/topEFT/datacard_maker.py` (in the `histos` directory of your TopCoffea ananlyzer)
 - Run `combineCards.py ttx_multileptons-* > combinedcard.txt` to merge them all into one txt file. **DO NOT** merge multiple variables!
