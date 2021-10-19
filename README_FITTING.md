@@ -14,7 +14,7 @@ The first step is to produce the datacard text files and root files that combine
  
  ### Setting up
  
-  In order to run combine, you will need to get the appropriate CMSSW release and clone several repositories.
+  In order to run combine, you will need to get the appropriate CMSSW release and to clone several repositories.
 
 #### Set up the CMSSW release
 Install CMSSW_10_2_13 ***OUTSIDE OF YOUR TOPCOFFEA DIR AND NOT IN CONDA***
@@ -44,37 +44,50 @@ scram b -j8
 ```
 
 #### Get the CombineHarvester repository
-This package is designed to be used with the CombineHarvester fork. 
+This package is designed to be used with the CombineHarvester fork. This might cause errors when compiling, but you can safely ignore them.
 
 ```
 git clone git@github.com:cms-analysis/CombineHarvester.git
 scram b -j8
 ```
-This might cause errors, but you can safely ignore them.
+
 
 ### Fitting
 
 Now we can actually run combine to perform the fits.
 
-#### In CMSSW
-- Enter `CMSSW_10_2_13/src/EFTFit/Fitter/test` (wherever you have it installed) and run `cmsenv` to initialize CMSSW
-- Copy all .txt and .root files created by `python analysis/topEFT/datacard_maker.py` (in the `histos` directory of your TopCoffea ananlyzer)
+#### Running the fits
+- Make sure you have done a `cmsenv` inside of `CMSSW_10_2_13/src/` (wherever you have it installed)
+- Enter `CMSSW_10_2_13/src/EFTFit/Fitter/test`
+- Copy all .txt and .root files created by `python analysis/topEFT/datacard_maker.py` (in the `histos` directory of your toplevel topcoffea directory)
 - Run `combineCards.py ttx_multileptons-* > combinedcard.txt` to merge them all into one txt file. **DO NOT** merge multiple variables!
-- Run `text2workspace.py combinedcard.txt -o wps.root -P EFTFit.Fitter.AnomalousCouplingEFTNegative:analiticAnomalousCouplingEFTNegative --X-allow-no-background` to generate the workspace file
-    - Specify a subset of WCs using e.g. `--PO cpt,ctp,cptb,cQlMi,cQl3i,ctlTi,ctli,cbW,cpQM,cpQ3,ctei,cQei,ctW,ctlSi,ctZ,ctG`
+- Run the following command to generate the workspace file:
+    ```
+    text2workspace.py combinedcard.txt -o wps.root -P EFTFit.Fitter.AnomalousCouplingEFTNegative:analiticAnomalousCouplingEFTNegative --X-allow-no-background
+    ``` 
+    You can Specify a subset of WCs using `--PO`, e.g.:
+    ```
+    text2workspace.py combinedcard.txt -o wps.root -P EFTFit.Fitter.AnomalousCouplingEFTNegative:analiticAnomalousCouplingEFTNegative --X-allow-no-background --PO cpt,ctp,cptb,cQlMi,cQl3i,ctlTi,ctli,cbW,cpQM,cpQ3,ctei,cQei,ctW,ctlSi,ctZ,ctG
+    ```
 - Run combine with our EFTFit tools
   - Example:
-```
-python -i ../scripts/EFTFitter.py
-fitter.batch1DScanEFT(basename='.081921.njet.ptbl.Float', batch='condor', workspace='wps.root')
-```
-  - Once all jobs are finished run `fitter.batchRetrieve1DScansEFT(basename='.081921.njet.ptbl.Float', batch='condor')` (again inside `python -i ../scripts/EFTFitter.py`) to collect them in the `EFTFit/Fitter/fit_files` folder
-  - To make simple 1D plots, use:
+    ```
+    python -i ../scripts/EFTFitter.py
+    fitter.batch1DScanEFT(basename='.081921.njet.ptbl.Float', batch='condor', workspace='wps.root')
+    ```
+  - Once all jobs are finished, run the following (again inside `python -i ../scripts/EFTFitter.py`) to collect them in the `EFTFit/Fitter/fit_files` folder: 
+    ```
+    fitter.batchRetrieve1DScansEFT(basename='.081921.njet.ptbl.Float', batch='condor')
+    ````
+
+#### Plot making
+
+To make simple 1D plots, use:
 ```
 python -i ../scripts/EFTPlotter.py
 plotter.BatchLLPlot1DEFT(basename='.081121.njet.16wc.Float')
 ```
-  - To make comparison plots (e.g. `njets` vs. `njets+ptbl`)
+To make comparison plots (e.g. `njets` vs. `njets+ptbl`):
 ```
 python -i ../scripts/EFTPlotter.py
 plotter.BestScanPlot(basename_float='.081721.njet.Float', basename_freeze='.081821.njet.ptbl.Float', filename='_float_njet_ptbl', titles=['N_{jet} prof.', 'N_{jet}+p_{T}(b+l) prof.'], printFOM=True)
