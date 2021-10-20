@@ -337,8 +337,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
-            weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
             if not isData:
+                # We only calculate these values if not isData
+                weights_dict[ch_name].add("btagSF",pData/pMC,pDataUp/pMC,pDataDo/pMC)
                 # Trying to calculate PU SFs for data causes a crash, and we don't apply this for data anyway, so just skip it in the case of data
                 weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
             if "2l" in ch_name:
