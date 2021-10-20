@@ -11,6 +11,9 @@ Top quark analyses using the Coffea framework
    Subfolders with different analyses: creating histograms, applying selections...
    Also including plotter scripts and/or jupyter files
 
+- `tests`:
+   Scripts for testing the code with `pytest`. For additional details, please see the [README](https://github.com/TopEFT/topcoffea/blob/master/tests/README.md) in the `tests` directory.
+
 - `topcoffea/cfg`:
   Configuration files (lists of samples, cross sections...)
 
