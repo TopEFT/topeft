@@ -16,7 +16,7 @@ class DatacardMaker():
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
-        self.levels = ['base', '2jets', '4jets', '4j1b', '4j2b']
+        self.ignore = ['DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTGJets', 'TTJets', 'tW', 'WJetsToLNu']
         self.fin = infile
         self.tolerance = 1e-7
         self.do_nuisance = do_nuisance
@@ -81,11 +81,10 @@ class DatacardMaker():
         rename = {k: 'Triboson' if bool(re.search('[WZ]{3}', v)) else v for k,v in rename.items()}
         rename = {k: 'Diboson' if bool(re.search('[WZ]{2}', v)) else v for k,v in rename.items()}
         rename = {k: 'convs' if bool(re.search('TTG', v)) else v for k,v in rename.items()}
-        rename = {k: 'fakes' if bool(re.search('(^tW)|(^tbarW)|(^WJet)|(^t_)|(^tbar_)|(^TT)|(^DY)', v)) else v for k,v in rename.items()}
+        rename = {k: 'fakes' if bool(re.search('nonprompt', v)) else v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
         rename = {k.split('_')[0]: v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
-        self.levels = list({k[2]:0 for k in self.hists['ptbl'].values().keys()})
         self.has_nonprompt = not any(['appl' in str(a) for a in self.hists['njets'].axes()]) # Check for nonprompt samples by looking for 'appl' axis
         if self.has_nonprompt:
             self.syst = list({k[2]:0 for k in self.hists['ptbl'].values().keys()}) # 'appl' axis was removed, systematics moves down a slot
@@ -104,6 +103,15 @@ class DatacardMaker():
             for jbin in bins:
                 self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=jbin)
             return
+        def export1d(h, name, cat, fout):
+            if 'data_obs' in name:
+                fout['data_obs'] = hist.export1d(h['nominal'])
+            else:
+                for syst,histo in h.items():
+                    if syst == 'nominal':
+                        fout[name+cat] = hist.export1d(histo)
+                    else:
+                        fout[name+cat+'_'+syst] = hist.export1d(histo)
         def export2d(h):
             return h.to_hist().to_numpy()
         if isinstance(channel, str) and channel not in self.channels:
@@ -113,9 +121,9 @@ class DatacardMaker():
            print([[ch, ch in self.channels.keys()] for ch in channel])
            raise Exception(f'At least one channel in {channels} is not found in self.channels!')
         if self.has_nonprompt:
-            h = self.hists[variable].integrate('systematic', systematics) # 'appl' axis is removed in nonprmopt samples, everything is 'isSR'
+            h = self.hists[variable] # 'appl' axis is removed in nonprmopt samples, everything is 'isSR'
         else:
-            h = self.hists[variable].integrate('appl', appl).integrate('systematic', systematics)
+            h = self.hists[variable].integrate('appl', appl)
         if isinstance(charges, str):
             charge = 'p' if charges == 'ch+' else 'm'
             if isinstance(bins, str):
@@ -173,6 +181,7 @@ class DatacardMaker():
         #Scale each plot to the SM
         processed = []
         for proc in self.samples:
+            if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
             simplified = proc.split('_central')[0].split('_private')[0].replace('_4F','').replace('_ext','')
             if simplified in processed: continue # Only one process name per 3 years
             processed.append(simplified)
@@ -180,7 +189,7 @@ class DatacardMaker():
             ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k}
             #Integrate out processes
             h_base = h.group('sample', hist.Cat('year', 'year'), ul)
-            if h_base == {}:
+            if h_base.values() == {}:
                 print(f'Issue with {proc}')
                 continue
             years = {year : self.lumi[year] for year in ul}
@@ -188,7 +197,7 @@ class DatacardMaker():
                 years = {year : self.lumi[year]/self.smsow[proc] for year in ul}
             h_base.scale(years, axis='year')
             h_base = h_base.integrate('year')
-            pname = self.rename[p]+'_' if p in self.rename else p+'_'
+            pname = self.rename[p]+'_' if p in self.rename else p
             pname.replace('_4F','').replace('_ext','')
             if 'njet' in variable:
                 if   '2l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7]))
@@ -199,31 +208,34 @@ class DatacardMaker():
             if 'ptbl' in variable:
                 h_base = h_base.rebin('ptbl', hist.Bin("ptbl", "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$", 10, h_base.axis(variable).edges()[0], h_base.axis(variable).edges()[-1]))
             #Save the SM plot
-            h_sm = h_base
-            h_sm.set_sm()
+            h_bases = {syst: h_base.integrate('systematic', syst) for syst in self.syst}
+            h_base = h_base.integrate('systematic', 'nominal')
+            h_sm = h_bases
+            for hists in h_sm.values():
+                hists.set_sm()
             if len(h_base.axes())>1:
-                fout[pname+'sm'] = export2d(h_sm)
+                fout[pname+'sm'] = export2d(h_bases)
             else:
-                fout[p+'_sm'] = hist.export1d(h_sm) # Special case for SM b/c background names overlap
+                export1d(h_sm, p, '_sm', fout) # Special case for SM b/c background names overlap (p not pname)
             #Asimov data: data_obs = MC at SM (all WCs = 0)
             if len(h_base.axes())>1:
                 fout['data_obs'] = export2d(h_sm)
             else:
-                fout['data_obs'] = hist.export1d(h_sm)
+                export1d(h_sm, 'data_obs', 'sm', fout)
             
             if p in self.signal or self.rename[p] in self.signal:
-                h_lin = h_base; h_quad = []; h_mix = []
-                yields = []
+                h_lin = h_bases; h_quad = None; h_mix = None
                 for name,wcpt in self.wcs:
                     #Scale plot to the WCPoint
                     #Handle linear and quadratic terms
                     if 'lin' in name:
-                        h_lin = h_base
-                        h_lin.set_wilson_coeff_from_array(wcpt)
+                        h_lin = h_bases
+                        for hists in h_lin.values():
+                            hists.set_wilson_coeff_from_array(wcpt)
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_lin)
                         else:
-                            fout[pname+name] = hist.export1d(h_lin)
+                            export1d(h_lin, pname, name, fout)
                         if variable == 'njets':
                             if isinstance(charges, str):
                                 cat = '_'.join([channel, charge, ])  
@@ -237,19 +249,21 @@ class DatacardMaker():
                             else:
                                 cat = '_'.join([channel, maxb, variable])
                     elif 'quad' in name and 'mix' not in name:
-                        h_quad = h_base
-                        h_quad.set_wilson_coeff_from_array(wcpt)
+                        h_quad = h_bases
+                        for hists in h_quad.values():
+                            hists.set_wilson_coeff_from_array(wcpt)
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_quad)
                         else:
-                            fout[pname+name] = hist.export1d(h_quad)
+                            export1d(h_quad, pname, name, fout)
                     else:
-                        h_mix = h_base
-                        h_mix.set_wilson_coeff_from_array(wcpt)
+                        h_mix = h_bases
+                        for hists in h_mix.values():
+                            hists.set_wilson_coeff_from_array(wcpt)
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_mix)
                         else:
-                            fout[pname+name] = hist.export1d(h_mix)
+                            export1d(h_mix, pname, name, fout)
         
         fout.close()
         self.makeCardLevel(channel=channel, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
@@ -262,22 +276,17 @@ class DatacardMaker():
         ``S+L_i+Q_i`` sets ``WC_i=1`` and the rest to ``0``
         ``S+L_i+L_j+Q_i+Q_j+2 M_IJ`` set ``WC_i=1``, ``WC_j=1`` and the rest to ``0``
         '''
-        def processSyst(hist, systMap,fout):
-            for s in self.syst_terms:
-                if s in systMap:
-                    systMap[s].append(name)
-                else:
-                    systMap[s] = [name]
-                '''
-                This part is a hack to inject fact systematics for testing only!
-                '''
-                h_sys = data_obs.Clone(name+'_'+s+'Up')
-                h_sys.Scale(1.1/h_sys.Integral())
-                h_sys.SetDirectory(fout)
-                h_sys.Write()
-                h_sys.SetName(h_sys.GetName().replace('Up', 'Down'))
-                h_sys.Scale(0.9/h_sys.Integral())
-                h_sys.Write()
+        def processSyst(process, systMap, d_hists, fout):
+            for syst in self.syst:
+                if 'nonprompt' in syst and '4l' in channel: continue # 4l does not include non-prompt background
+                if any([process+'_'+syst in d for d in d_hists]):
+                    h_sys = d_hists[process+'_'+syst]
+                    if syst in systMap:
+                        systMap[syst].update({process: round(h_sys.Integral(), 3)})
+                    else:
+                        systMap[syst] = {process: round(h_sys.Integral(), 3)}
+                    h_sys.SetDirectory(fout)
+                    h_sys.Write()
         def getHist(d_hists,name):
             h = d_hists[name]
             xmin = h.GetXaxis().GetXmin()
@@ -319,6 +328,8 @@ class DatacardMaker():
         samples = list(set([proc.split('_')[0] for proc in self.samples]))
         samples.sort()
         for proc in samples:
+            if 'nonprompt' in proc and '4l' in channel: continue # 4l does not include non-prompt background
+            if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
             p = self.rename[proc] if proc in self.rename else proc
             name = 'data_obs'
             if name not in d_hists:
@@ -364,7 +375,7 @@ class DatacardMaker():
                         allyields[name] = h_sm.Integral()
                         bkgcount += 1
                         d_bkgs[name] = h_sm
-                #processSyst(h_sm, systMap,fout)
+                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
                 h_sm.SetDirectory(fout)
                 h_sm.SetName(name)
                 h_sm.SetTitle(name)
@@ -393,7 +404,7 @@ class DatacardMaker():
                     if allyields[name] < 0:
                         allyields[name] = 0.
 
-                    #processSyst(h_lin, systMap,fout)
+                    if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
                 name = '_'.join([pname[:-1],'quad',wc])
                 if name not in d_hists:
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
@@ -417,7 +428,7 @@ class DatacardMaker():
                     h_quad.Write()
                     if allyields[name] < 0:
                         allyields[name] = 0.
-                    #processSyst(h_quad, systMap,fout)
+                    if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
 
                 for wc2 in [self.coeffs[w2] for w2 in range(n)]:
                     name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
@@ -441,11 +452,10 @@ class DatacardMaker():
                         allyields[name] = h_mix.Integral()
                         if allyields[name] < 0:
                             allyields[name] = 0.
-                        #processSyst(h_mix, systMap,fout)
+                        if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
 
         #Write datacard
-        if any([v < 0 for v in allyields.values()]):
-            raise Exception('Danger! A bin is negative!')
+        allyields = {k : (v if v>0 else 0) for k,v in allyields.items()}
         if systematics != 'nominal':
             cat = cat + '_' + systematics
         nuisances = [syst for syst in systMap]
@@ -454,12 +464,12 @@ class DatacardMaker():
         cat = 'bin_'+cat
         datacard.write('##----------------------------------\n')
         datacard.write('bin         %s\n' % cat)
-        datacard.write('observation %%.%df\n' % np.abs(3) % allyields['data_obs'])
+        datacard.write('observation %%.%df\n' % 3 % allyields['data_obs'])
         #datacard.write('observation %%.%df\n' % np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])) % allyields['data_obs'])
         datacard.write('##----------------------------------\n')
         klen = max([7, len(cat)]+[len(p[0]) for p in iproc.keys()])
         kpatt = " %%%ds "  % klen
-        fpatt = " %%%d.%df " % (klen,np.abs(3))#3)
+        fpatt = " %%%d.%df " % (klen,np.abs(3))
         #fpatt = " %%%d.%df " % (klen,np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])))#3)
         npatt = "%%-%ds " % max([len('process')]+list(map(len,nuisances)))
         datacard.write('##----------------------------------\n')
@@ -470,9 +480,9 @@ class DatacardMaker():
         datacard.write((npatt % 'rate   ')+(" "*6)+(" ".join([fpatt % allyields[p] for p in procs]))+"\n")
         datacard.write('##----------------------------------\n')
         if self.do_nuisance:
-            for name in nuisances:
-                systEff = dict((p,"1" if p in systMap[name] else "-") for p in procs)
-                datacard.write(('%s %5s' % (npatt % name,'shape')) + " ".join([kpatt % systEff[p]  for p in procs]) +"\n")
+            for syst in nuisances:
+                systEff = dict((p,systMap[syst][p] if p in systMap[syst] else "-") for p in procs)
+                datacard.write(('%s %5s' % (npatt % syst,'shape')) + " ".join([kpatt % systEff[p]  for p in procs]) +"\n")
         
         fout.Close()
 
@@ -524,7 +534,7 @@ class DatacardMaker():
                     else: wcpt.append([f'quad_mixed_{wc1}_{wc2}', wl])
         self.wcs     = wcpt
         return wcpt
-    def condor_job(self, pklfile, njobs):
+    def condor_job(self, pklfile, njobs, do_nuisance):
         os.system('mkdir -p %s/condor' % os.getcwd())
         os.system('mkdir -p %s/condor/log' % os.getcwd())
         target = '%s/condor_submit.sh' % os.getcwd()
@@ -534,14 +544,20 @@ class DatacardMaker():
         condorFile.write('conda activate %s\n' % os.environ['CONDA_DEFAULT_ENV'])
         condorFile.write('cluster=$1\n')
         condorFile.write('job=$2\n')
+        condorFile.write('syst=$3\n')
         condorFile.write('\n')
-        condorFile.write('python analysis/topEFT/datacard_maker.py %s --job "${job}"\n' % pklfile)
+        condorFile.write('if [[ "$syst" -eq "1" ]]; then\n')
+        condorFile.write('  python analysis/topEFT/datacard_maker.py %s --job "${job}" --do-nuisance\n' % pklfile)
+        condorFile.write('else\n')
+        condorFile.write('  python analysis/topEFT/datacard_maker.py %s --job "${job}"\n' % pklfile)
+        condorFile.write('fi\n')
         os.system('chmod 777 condor_submit.sh')
         target = '%s/condor/datacardmaker' % os.getcwd()
         condorFile = open(target,'w')
         condorFile.write('universe              = vanilla\n')
         condorFile.write('executable            = condor_submit.sh\n')
-        condorFile.write('arguments             = $(ClusterID) $(ProcId)\n')
+        if do_nuisance: condorFile.write('arguments             = $(ClusterID) $(ProcId) 1\n')
+        else: condorFile.write('arguments             = $(ClusterID) $(ProcId)\n')
         condorFile.write('output                = condor/log/$(ClusterID)_$(ProcId).out\n')
         condorFile.write('error                 = condor/log/$(ClusterID)_$(ProcId).err\n')
         condorFile.write('log                   = condor/log/$(ClusterID).log\n')
@@ -575,10 +591,12 @@ if __name__ == '__main__':
     if isinstance(wcs, str): wcs = wcs.split(',')
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
+    if do_nuisance: print('Running with nuisance parameters, this will take a bit longer')
+    if job > -1: print('Only running one job locally')
+    else: print('Submitting all jobs to condor')
     card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year)
     card.read()
     card.buildWCString()
-    print(card.coeffs)
     jobs = []
     for var in ['njets','ht','ptbl']:
         cards = [{'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
@@ -593,10 +611,9 @@ if __name__ == '__main__':
         jobs.append(cards)
     njobs = len(jobs) * len(jobs[0])
     if job == -1:
-        card.condor_job(pklfile, njobs)
+        card.condor_job(pklfile, njobs, do_nuisance)
     elif job < njobs:
         d = jobs[job//len(jobs[0])][job%len(jobs[0])]
-        print(d)
         card.analyzeChannel(**d)
     else:
         raise Exception(f'Job number {job} outside of range {njobs}!')
