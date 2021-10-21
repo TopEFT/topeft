@@ -65,7 +65,7 @@ Now we can actually run combine to perform the fits.
 - Make sure you have done a `cmsenv` inside of `CMSSW_10_2_13/src/` (wherever you have it installed)
 - Enter `CMSSW_10_2_13/src/EFTFit/Fitter/test`
 - Copy all .txt and .root files created by `python analysis/topEFT/datacard_maker.py` (in the `histos` directory of your toplevel topcoffea directory)
-- Run `combineCards.py ttx_multileptons-* > combinedcard.txt` to merge them all into one txt file. **DO NOT** merge multiple variables!
+- Run `combineCards.py ttx_multileptons-*.txt > combinedcard.txt` to merge them all into one txt file. **DO NOT** merge multiple variables!
 - Run the following command to generate the workspace file:
     ```
     text2workspace.py combinedcard.txt -o wps.root -P EFTFit.Fitter.AnomalousCouplingEFTNegative:analiticAnomalousCouplingEFTNegative --X-allow-no-background
