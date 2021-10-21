@@ -16,7 +16,8 @@ class DatacardMaker():
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
-        self.ignore = ['DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTGJets', 'TTJets', 'tW', 'WJetsToLNu']
+        self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTGJets', 'TTJets', 'tW', 'WJetsToLNu']
+        self.skip = {'4l': 'nonprompt'} # E.g. 4l does not include non-prompt background
         self.fin = infile
         self.tolerance = 1e-7
         self.do_nuisance = do_nuisance
@@ -278,15 +279,17 @@ class DatacardMaker():
         '''
         def processSyst(process, systMap, d_hists, fout):
             for syst in self.syst:
-                if 'nonprompt' in syst and '4l' in channel: continue # 4l does not include non-prompt background
+                if channel in self.skip and syst in self.skip[channel]: continue
                 if any([process+'_'+syst in d for d in d_hists]):
                     h_sys = d_hists[process+'_'+syst]
+                    h_sys.SetDirectory(fout)
+                    h_sys.Write()
+                    if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
+                    syst = syst.replace('Up', '') # Remove 'Up' to get just the systematic name
                     if syst in systMap:
                         systMap[syst].update({process: round(h_sys.Integral(), 3)})
                     else:
                         systMap[syst] = {process: round(h_sys.Integral(), 3)}
-                    h_sys.SetDirectory(fout)
-                    h_sys.Write()
         def getHist(d_hists,name):
             h = d_hists[name]
             xmin = h.GetXaxis().GetXmin()
@@ -328,7 +331,7 @@ class DatacardMaker():
         samples = list(set([proc.split('_')[0] for proc in self.samples]))
         samples.sort()
         for proc in samples:
-            if 'nonprompt' in proc and '4l' in channel: continue # 4l does not include non-prompt background
+            if channel in self.skip and proc in self.skip[channel]: continue
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
             p = self.rename[proc] if proc in self.rename else proc
             name = 'data_obs'
@@ -481,7 +484,7 @@ class DatacardMaker():
         datacard.write('##----------------------------------\n')
         if self.do_nuisance:
             for syst in nuisances:
-                systEff = dict((p,systMap[syst][p] if p in systMap[syst] else "-") for p in procs)
+                systEff = dict((p,"1" if p in systMap[syst] else "-") for p in procs)
                 datacard.write(('%s %5s' % (npatt % syst,'shape')) + " ".join([kpatt % systEff[p]  for p in procs]) +"\n")
         
         fout.Close()
