@@ -21,8 +21,8 @@ class DatacardMaker():
         self.fin = infile
         self.tolerance = 1e-7
         self.do_nuisance = do_nuisance
-        if len(wcs)>0: self.coeffs = wcs
         self.coeffs = wcs if len(wcs)>0 else []
+        if len(self.coeffs) > 0: print(f'Using the subset {self.coeffs}')
         self.year = single_year
 
 
@@ -183,6 +183,7 @@ class DatacardMaker():
         processed = []
         for proc in self.samples:
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
+            if channel in self.skip and self.skip[channel] in proc: continue
             simplified = proc.split('_central')[0].split('_private')[0].replace('_4F','').replace('_ext','')
             if simplified in processed: continue # Only one process name per 3 years
             processed.append(simplified)
@@ -279,7 +280,7 @@ class DatacardMaker():
         '''
         def processSyst(process, systMap, d_hists, fout):
             for syst in self.syst:
-                if channel in self.skip and syst in self.skip[channel]: continue
+                if channel in self.skip and self.skip[channel] in syst: continue
                 if any([process+'_'+syst in d for d in d_hists]):
                     h_sys = d_hists[process+'_'+syst]
                     h_sys.SetDirectory(fout)
@@ -331,7 +332,7 @@ class DatacardMaker():
         samples = list(set([proc.split('_')[0] for proc in self.samples]))
         samples.sort()
         for proc in samples:
-            if channel in self.skip and proc in self.skip[channel]: continue
+            if channel in self.skip and self.skip[channel] in proc: continue
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
             p = self.rename[proc] if proc in self.rename else proc
             name = 'data_obs'
@@ -537,7 +538,7 @@ class DatacardMaker():
                     else: wcpt.append([f'quad_mixed_{wc1}_{wc2}', wl])
         self.wcs     = wcpt
         return wcpt
-    def condor_job(self, pklfile, njobs, do_nuisance):
+    def condor_job(self, pklfile, njobs, wcs, do_nuisance):
         os.system('mkdir -p %s/condor' % os.getcwd())
         os.system('mkdir -p %s/condor/log' % os.getcwd())
         target = '%s/condor_submit.sh' % os.getcwd()
@@ -547,13 +548,14 @@ class DatacardMaker():
         condorFile.write('conda activate %s\n' % os.environ['CONDA_DEFAULT_ENV'])
         condorFile.write('cluster=$1\n')
         condorFile.write('job=$2\n')
-        condorFile.write('syst=$3\n')
         condorFile.write('\n')
-        condorFile.write('if [[ "$syst" -eq "1" ]]; then\n')
-        condorFile.write('  python analysis/topEFT/datacard_maker.py %s --job "${job}" --do-nuisance\n' % pklfile)
-        condorFile.write('else\n')
-        condorFile.write('  python analysis/topEFT/datacard_maker.py %s --job "${job}"\n' % pklfile)
-        condorFile.write('fi\n')
+        args = []
+        if do_nuisance: args.append('--do-nuisance')
+        if len(wcs) > 0: args.append('--POI ' + ','.join(wcs))
+        if len(args) > 0:
+            condorFile.write('python analysis/topEFT/datacard_maker.py %s --job "${job}" %s\n' % (pklfile, ' '.join(args)))
+        else:
+            condorFile.write('python analysis/topEFT/datacard_maker.py %s --job "${job}"\n' % pklfile)
         os.system('chmod 777 condor_submit.sh')
         target = '%s/condor/datacardmaker' % os.getcwd()
         condorFile = open(target,'w')
@@ -614,7 +616,7 @@ if __name__ == '__main__':
         jobs.append(cards)
     njobs = len(jobs) * len(jobs[0])
     if job == -1:
-        card.condor_job(pklfile, njobs, do_nuisance)
+        card.condor_job(pklfile, njobs, wcs, do_nuisance)
     elif job < njobs:
         d = jobs[job//len(jobs[0])][job%len(jobs[0])]
         card.analyzeChannel(**d)
