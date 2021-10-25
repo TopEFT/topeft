@@ -87,10 +87,7 @@ class DatacardMaker():
         rename = {k.split('_')[0]: v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
         self.has_nonprompt = not any(['appl' in str(a) for a in self.hists['njets'].axes()]) # Check for nonprompt samples by looking for 'appl' axis
-        if self.has_nonprompt:
-            self.syst = list({k[2]:0 for k in self.hists['ptbl'].values().keys()}) # 'appl' axis was removed, systematics moves down a slot
-        else:
-            self.syst = list({k[3]:0 for k in self.hists['ptbl'].values().keys()})
+        self.syst = list({k[2]:0 for k in self.hists['ptbl'].values().keys()})
         self.hsow = self.hists['SumOfEFTweights']
         self.hsow.set_sm()
         self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples if any([proc in k[0] for k in self.hsow.values().keys()]) and (len(self.hsow.integrate('sample', proc)._sumw[()].shape)==2)}
