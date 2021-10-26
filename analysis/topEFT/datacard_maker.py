@@ -17,7 +17,7 @@ class DatacardMaker():
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTGJets', 'TTJets', 'tW', 'WJetsToLNu']
-        self.skip = {'4l': 'nonprompt'} # E.g. 4l does not include non-prompt background
+        self.skip = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         self.fin = infile
         self.tolerance = 1e-7
         self.do_nuisance = do_nuisance
@@ -70,8 +70,9 @@ class DatacardMaker():
         self.ch4l += list({k[1]:0 for k in self.hists['njets'].values().keys() if '4l' in k[1]})
         self.ch4lj = list(set([j[-2:].replace('j','') for j in self.ch4l if 'j' in j]))
         self.ch4lj.sort()
-        self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '4l': self.ch4l}
-        self.skip = {**self.skip, **{k: 'data' for k in self.channels}} # Skip all data!
+        self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l_p_offZ_1b': self.ch3l1b_p, '3l_m_offZ_1b': self.ch3l1b_m, '3l_p_offZ_2b': self.ch3l2b_p, '3l_m_offZ_2b': self.ch3l2b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '3l_onZ_1b': self.ch3lsfz1b, '3l_onZ_2b': self.ch3lsfz2b, '4l': self.ch4l}
+        self.skip = {**self.skip, **{'data': [k for k in self.channels]}} # Skip all data!
+        self.skip = {**self.skip, **{'flips': [k for k in self.channels if '2l' not in k]}} # Charge flips only in 2lss channels
 
         #Get list of samples and cut levels from histograms
         self.signal = ['ttH','tllq','ttll','ttlnu','tHq','tttt']
@@ -97,6 +98,16 @@ class DatacardMaker():
             lumi = json.load(jf)
             self.lumi = lumi
         self.lumi = {year : 1000*lumi for year,lumi in self.lumi.items()}
+
+    def should_skip_process(self, proc, channel):
+        for proc_skip,channel_skip in self.skip.items():
+            if proc_skip in proc or proc_skip in self.rename[proc]:
+                if isinstance(channel_skip, list):
+                    if any(channel_skip in channel for channel_skip in self.skip[proc_skip]):
+                        return True # Should skip this process for this channel
+                elif channel_skip in channel:
+                        return True # Should skip this process for this channel
+        return False # Nothing to skip
 
     def analyzeChannel(self, channel=[], appl='isSR_2lSS', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
         if variable != 'njets' and isinstance(bins, list) and len(bins)>0:
@@ -182,7 +193,7 @@ class DatacardMaker():
         processed = []
         for proc in self.samples:
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
-            if channel in self.skip and self.skip[channel] in proc: continue
+            if self.should_skip_process(proc, channel): continue
             simplified = proc.split('_central')[0].split('_private')[0].replace('_4F','').replace('_ext','')
             if simplified in processed: continue # Only one process name per 3 years
             processed.append(simplified)
@@ -331,8 +342,8 @@ class DatacardMaker():
         samples = list(set([proc.split('_')[0] for proc in self.samples]))
         samples.sort()
         for proc in samples:
-            if channel in self.skip and self.skip[channel] in proc: continue
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
+            if self.should_skip_process(proc, channel): continue
             p = self.rename[proc] if proc in self.rename else proc
             name = 'data_obs'
             if name not in d_hists:
