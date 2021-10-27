@@ -42,18 +42,26 @@ def load_json_file(fpath):
 # Generate/Update a dictionary for storing info from a cfg file
 def update_cfg(jsn,name,**kwargs):
     cfg = kwargs.pop('cfg',None)
+    max_files = kwargs.pop('max_files',0)
     if not cfg:
-        cfg = {
-            'jsons': {},
-        }
-    cfg['jsons'][name] = jsn
+        #cfg = {
+            #'jsons': {},
+        #}
+        cfg = {}
+    #cfg['jsons'][name] = jsn
+    cfg[name] = {}
+    cfg[name].update(jsn)
+    if max_files:
+        # Only keep the first "max_files"
+        del cfg[name]['files'][max_files:]
     # Inject/Modify info related to the json sample
-    for k,v in kwargs:
-        cfg['jsons'][name][k] = v
+    for k,v in kwargs.items():
+        #cfg['jsons'][name][k] = v
+        cfg[name][k] = v
     return cfg
 
 # Read from a cfg file
-def read_cfg_file(fpath,cfg={}):
+def read_cfg_file(fpath,cfg={},max_files=0):
     cfg_dir,fname = os.path.split(fpath)
     if not cfg_dir:
         raise RuntimeError(f"No cfg directory in {fpath}")
@@ -74,5 +82,5 @@ def read_cfg_file(fpath,cfg={}):
                 sample = sample.replace(".json","")
                 full_path = pjoin(cfg_dir,l)
                 jsn = load_json_file(full_path)
-                cfg = update_cfg(jsn,sample,cfg=cfg,redirector=xrd_src)
+                cfg = update_cfg(jsn,sample,cfg=cfg,max_files=max_files,redirector=xrd_src)
     return cfg

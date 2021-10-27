@@ -21,8 +21,9 @@ parser.add_argument('--chunksize','-s' , default=100000, help = 'Number of event
 parser.add_argument('--nchunks','-c'   , default=None, help = 'You can choose to run only a number of chunks')
 parser.add_argument('--outname','-o'   , default='plotsTopEFT', help = 'Name of the output file with histograms')
 parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the output directory')
+parser.add_argument('--max-files','-N' , default=0, help = 'If specified, limit the number of root files per sample. Useful for testing')
 parser.add_argument('--treename'       , default='Events', help = 'Name of the tree inside the files')
-parser.add_argument('--xrd',           , default='', help = 'The XRootD redirector to use when reading directly from json files')
+parser.add_argument('--xrd'            , default='', help = 'The XRootD redirector to use when reading directly from json files')
 parser.add_argument('--wc-list'        , action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
 
 args = parser.parse_args()
@@ -33,6 +34,7 @@ outname    = args.outname
 outpath    = args.outpath
 treename   = args.treename
 xrd        = args.xrd
+max_files  = int(args.max_files)
 wc_lst     = args.wc_list if args.wc_list is not None else []
 
 samples_to_process = {}
@@ -43,15 +45,17 @@ for fn in inputFiles:
         samples_to_process = update_cfg(jsn,
             name=sample,
             cfg=samples_to_process,
+            max_files=max_files,
             redirector=xrd
         )
     elif fn.endswith('.cfg'):
-        samples_to_process = read_cfg_file(fn,cfg=samples_to_process)
+        samples_to_process = read_cfg_file(fn,cfg=samples_to_process,max_files=max_files)
     else:
         raise RuntimeError(f"Unknown input file: {fn}")
 
 flist = {}
-for sample_name,jsn in samples_to_process:
+#for sample_name,jsn in samples_to_process['jsons'].items():
+for sample_name,jsn in samples_to_process.items():
     xrd_src = jsn['redirector']
     flist[sample_name] = [f"{xrd_src}{fn}" for fn in jsn['files']]
 
@@ -61,10 +65,10 @@ for sample_name,jsn in samples_to_process:
             if wc not in wc_lst:
                 wc_lst.append(wc)
 
-    jsn_txt = jsn.dumps(jsn,indent=2,sort_keys=True)
+    jsn_txt = json.dumps(jsn,indent=2,sort_keys=True)
 
     # Strips off the leading and closing curly brackets, along with any associated newlines
-    jsn_txt = jsn_txt[1:-1].strip("\n",1).rstrip("\n",1)
+    jsn_txt = jsn_txt[1:-1].strip("\n",)
 
     s = ""
     s += f">> {sample_name}\n"
@@ -165,6 +169,7 @@ output = processor.run_uproot_job(flist,
     chunksize=chunksize,
     maxchunks=nchunks
 )
+#output = processor.run_uproot_job(flist, treename=treename, processor_instance=processor_instance, executor=processor.futures_executor, executor_args={"schema": NanoAODSchema,'workers': 1}, chunksize=chunksize, maxchunks=nchunks)
 dt = time.time() - tstart
 
 # Save the output
@@ -172,6 +177,6 @@ if not os.path.isdir(outpath): os.system(f"mkdir -p {outpuath}")
 out_pkl_file = os.path.join(outpath,outname+".pkl.gz")
 print(f"\nSaving output in {out_pkl_file}...")
 with gzip.open(out_pkl_file, "wb") as fout:
-  cloudpickle.dump(output, fout)
+    cloudpickle.dump(output, fout)
 
 print("Done!")
