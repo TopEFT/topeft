@@ -21,8 +21,8 @@ def regex_match(lst,regex_lst):
                 break
     return matches
 
-# Read from a json file
-def load_json_file(fpath):
+# Read from a sample json file
+def load_sample_json_file(fpath):
     if not os.path.exists(fpath):
         raise RuntimeError(f"fpath '{fpath}' does not exist!")
     with open(fpath) as f:
@@ -41,14 +41,8 @@ def load_json_file(fpath):
 
 # Generate/Update a dictionary for storing info from a cfg file
 def update_cfg(jsn,name,**kwargs):
-    cfg = kwargs.pop('cfg',None)
+    cfg = kwargs.pop('cfg',{})
     max_files = kwargs.pop('max_files',0)
-    if not cfg:
-        #cfg = {
-            #'jsons': {},
-        #}
-        cfg = {}
-    #cfg['jsons'][name] = jsn
     cfg[name] = {}
     cfg[name].update(jsn)
     if max_files:
@@ -56,7 +50,6 @@ def update_cfg(jsn,name,**kwargs):
         del cfg[name]['files'][max_files:]
     # Inject/Modify info related to the json sample
     for k,v in kwargs.items():
-        #cfg['jsons'][name][k] = v
         cfg[name][k] = v
     return cfg
 
@@ -81,6 +74,6 @@ def read_cfg_file(fpath,cfg={},max_files=0):
                 sample = os.path.basename(l)
                 sample = sample.replace(".json","")
                 full_path = pjoin(cfg_dir,l)
-                jsn = load_json_file(full_path)
+                jsn = load_sample_json_file(full_path)
                 cfg = update_cfg(jsn,sample,cfg=cfg,max_files=max_files,redirector=xrd_src)
     return cfg

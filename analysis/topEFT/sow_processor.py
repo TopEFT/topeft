@@ -19,7 +19,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histogram
         self._accumulator = processor.dict_accumulator({
-            "SumOfEFTweights": HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2))
+            "SumOfWeights": HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfWeights", "sow", 1, 0, 2))
         })
 
     @property
@@ -34,15 +34,8 @@ class AnalysisProcessor(processor.ProcessorABC):
     def process(self, events):
 
         # Dataset parameters
-        dataset = events.metadata["dataset"]
-        histAxisName = self._samples[dataset]["histAxisName"]
-        # year         = self._samples[dataset]["year"]
-        # xsec         = self._samples[dataset]["xsec"]
-        # sow          = self._samples[dataset]["nSumOfWeights"]
-        isData       = self._samples[dataset]["isData"]
-        datasets     = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
-        for d in datasets: 
-            if d in dataset: dataset = dataset.split('_')[0]
+        dataset = events.metadata["dataset"]    # This should be the name of the .json file (without the .json part)
+        isData  = self._samples[dataset]["isData"]
 
         eft_coeffs = None
         eft_w2_coeffs = None
@@ -63,7 +56,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             wgts = events["genWeight"]
 
         hout = self.accumulator.identity()
-        hout["SumOfEFTweights"].fill(sample=histAxisName, SumOfEFTweights=counts, weight=wgts, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights"].fill(sample=dataset, SumOfWeights=counts, weight=wgts, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
         return hout
 

@@ -13,35 +13,35 @@ import topeftenv
 
 import sow_processor
 
-from topcoffea.modules.utils import load_json_file, read_cfg_file, update_cfg
+from topcoffea.modules.utils import load_sample_json_file, read_cfg_file, update_cfg
 
 parser = argparse.ArgumentParser(description='You can customize your run')
 parser.add_argument('inputFiles'       , nargs='?', default='', help = 'Json or cfg file(s) containing files and metadata')
-parser.add_argument('--chunksize','-s' , default=100000, help = 'Number of events per chunk')
-parser.add_argument('--nchunks','-c'   , default=None, help = 'You can choose to run only a number of chunks')
-parser.add_argument('--outname','-o'   , default='plotsTopEFT', help = 'Name of the output file with histograms')
+parser.add_argument('--chunksize','-s' , default=100000, type=int, help = 'Number of events per chunk')
+parser.add_argument('--max-files','-N' , default=0, type=int, help = 'If specified, limit the number of root files per sample. Useful for testing')
+parser.add_argument('--nchunks','-c'   , default=0, type=int help = 'You can choose to run only a number of chunks')
+parser.add_argument('--outname','-o'   , default='sowTopEFT', help = 'Name of the output file with histograms')
 parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the output directory')
-parser.add_argument('--max-files','-N' , default=0, help = 'If specified, limit the number of root files per sample. Useful for testing')
 parser.add_argument('--treename'       , default='Events', help = 'Name of the tree inside the files')
 parser.add_argument('--xrd'            , default='', help = 'The XRootD redirector to use when reading directly from json files')
 parser.add_argument('--wc-list'        , action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
 
 args = parser.parse_args()
 inputFiles = args.inputFiles.replace(' ','').split(',')  # Remove whitespace and split by commas
-chunksize  = int(args.chunksize)
-nchunks    = int(args.nchunks) if not args.nchunks is None else args.nchunks
+chunksize  = args.chunksize
+nchunks    = args.nchunks if args.nchunks else None
 outname    = args.outname
 outpath    = args.outpath
 treename   = args.treename
 xrd        = args.xrd
-max_files  = int(args.max_files)
+max_files  = args.max_files
 wc_lst     = args.wc_list if args.wc_list is not None else []
 
 samples_to_process = {}
 for fn in inputFiles:
     if fn.endswith('.json'):
         sample = os.path.basename(f).replace('.json','')
-        jsn = load_json_file(fn)
+        jsn = load_sample_json_file(fn)
         samples_to_process = update_cfg(jsn,
             name=sample,
             cfg=samples_to_process,
