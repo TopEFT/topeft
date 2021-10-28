@@ -53,7 +53,7 @@ def test_datacard():
     args = [
         "python",
         "analysis/topEFT/datacard_maker.py",
-        "analysis/topEFT/histos/output_check_yields.pkl.gz",
+        "analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz",
         "-j",
         "0",
         "--do-nuisance"
