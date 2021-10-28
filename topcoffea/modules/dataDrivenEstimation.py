@@ -7,18 +7,14 @@ from collections import defaultdict
 import re, gzip
 
 class DataDrivenProducer: 
-    def __init__(self, inputHist, outputName, doDDFakes=True, doDDFlips=False):
+    def __init__(self, inputHist, outputName):
         yt=YieldTools()
         if type(inputHist) == str and inputHist.endswith('.pkl.gz'): # we are plugging a pickle file
             self.inhist=yt.get_hist_from_pkl(inputHist)
         else: # we already have the histogram
             self.inhist=inputHist
         self.outputName=outputName
-        if doDDFlips: 
-            raise RuntimeError("Data driven flips not yet implemented")
         self.verbose=False
-        self.doDDFlips=doDDFlips
-        self.doDDFakes=doDDFakes
         self.dataName='data'
         self.outHist=None
         self.promptSubtractionSamples=get_param('prompt_subtraction_samples')
@@ -45,118 +41,108 @@ class DataDrivenProducer:
                 self.outHist[key]=histo.integrate('appl')
                 continue
 
-            if not self.doDDFakes:
-                # if we are not gonna use the data-driven, then we don't care about the application region, so we get rid of it, and the associated dimension
-                srs=[ histo.integrate('appl',ident) for ident in histo.identifiers('appl') if 'SR' in ident.name]
-                if not len(srs):
-                    raise RuntimeError(f"Histogram {key} does not have any signal region")
-                newhist=srs[0]
-                for h in srs[1:]:
-                    newhist = newhist + h # sum doesnt work for some reason...
-            else:
+            # First we are gonna scale all MC processes in  by the luminosity
+            name_regex='(?P<sample>.*)UL(?P<year>.*)'
+            pattern=re.compile(name_regex)
 
-                # First we are gonna scale all MC processes in  by the luminosity
-                name_regex='(?P<sample>.*)UL(?P<year>.*)'
-                pattern=re.compile(name_regex)
+            scale_dict={}
+            for sample in histo.identifiers('sample'):
+                match = pattern.search(sample.name)
+                sampleName=match.group('sample')
+                year=match.group('year')
+                if not match: 
+                    raise RuntimeError(f"Sample {sample} does not match the naming convention")
+                if year not in ['16','17','18']:
+                    raise RuntimeError(f"Sample {sample} does not match the naming convention")
 
-                scale_dict={}
-                for sample in histo.identifiers('sample'):
-                    match = pattern.search(sample.name)
-                    sampleName=match.group('sample')
-                    year=match.group('year')
-                    if not match: 
-                        raise RuntimeError(f"Sample {sample} does not match the naming convention")
-                    if year not in ['16','17','18']:
-                        raise RuntimeError(f"Sample {sample} does not match the naming convention")
+                if self.dataName == sampleName:
+                    continue # We do not scale data
+                smweight = self.smsow[sample] if sample in self.smsow else 1 # dont reweight samples not in smsow
+                scale_dict[(sample, )] = 1000.0*get_lumi('20'+year)/smweight
 
-                    if self.dataName == sampleName:
-                        continue # We do not scale data
-                    smweight = self.smsow[sample] if sample in self.smsow else 1 # dont reweight samples not in smsow
-                    scale_dict[(sample, )] = 1000.0*get_lumi('20'+year)/smweight
+            prescale=histo.values().copy()
+            histo.scale( scale_dict, axis=('sample',))
+            postscale=histo.values()
 
-                prescale=histo.values().copy()
-                histo.scale( scale_dict, axis=('sample',))
-                postscale=histo.values()
+            # now for each year we actually perform the subtraction and integrate out the application regions
+            newhist=None
+            for ident in histo.identifiers('appl'):
+                hAR=histo.integrate('appl', ident)
 
-                # now for each year we actually perform the subtraction and integrate out the application regions
-                newhist=None
-                for ident in histo.identifiers('appl'):
-                    hAR=histo.integrate('appl', ident)
-
-                    if 'isAR' not in ident.name:
-                        # if we are in the signal region, we just take the 
-                        # whole histogram integrating out the application region axis
-                        if newhist==None:
-                            newhist=hAR
-                        else:
-                            newhist=newhist+hAR
+                if 'isAR' not in ident.name:
+                    # if we are in the signal region, we just take the 
+                    # whole histogram integrating out the application region axis
+                    if newhist==None:
+                        newhist=hAR
                     else:
-                        if "isAR_2lSS_OS"==ident.name:
-                            # we are in the flips application region and theres no "prompt" subtraction, so we just have to rename data to flips, put it in the right axis and we are done
-                            newNameDictData=defaultdict(list)
-                            for sample in hAR.identifiers('sample'):
-                                match = pattern.search(sample.name)
-                                sampleName=match.group('sample')
-                                year=match.group('year')
-                                nonPromptName='flipsUL%s'%year
-                                if self.dataName==sampleName:
-                                    newNameDictData[nonPromptName].append(sample.name)
-                            hFlips=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
-                            
-                            # now adding them to the list of processes: 
-                            if newhist==None:
-                                newhist=hFlips
-                            else:
-                                newhist=newhist+hFlips
-                                
-
+                        newhist=newhist+hAR
+                else:
+                    if "isAR_2lSS_OS"==ident.name:
+                        # we are in the flips application region and theres no "prompt" subtraction, so we just have to rename data to flips, put it in the right axis and we are done
+                        newNameDictData=defaultdict(list)
+                        for sample in hAR.identifiers('sample'):
+                            match = pattern.search(sample.name)
+                            sampleName=match.group('sample')
+                            year=match.group('year')
+                            nonPromptName='flipsUL%s'%year
+                            if self.dataName==sampleName:
+                                newNameDictData[nonPromptName].append(sample.name)
+                        hFlips=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
+                        
+                        # now adding them to the list of processes: 
+                        if newhist==None:
+                            newhist=hFlips
                         else:
-                            # if we are in the nonprompt application region, we also integrate the application region axis
-                            # and construct the new sample 'nonprompt'
+                            newhist=newhist+hFlips
                             
-                            # we look at data only, and rename it to fakes
-                            newNameDictData=defaultdict(list); newNameDictNoData=defaultdict(list)
-                            for sample in hAR.identifiers('sample'):
-                                match = pattern.search(sample.name)
-                                sampleName=match.group('sample')
-                                year=match.group('year')
-                                nonPromptName='nonpromptUL%s'%year
-                                if self.dataName==sampleName:
-                                    newNameDictData[nonPromptName].append(sample.name)
-                                elif sampleName in self.promptSubtractionSamples: 
-                                    newNameDictNoData[nonPromptName].append(sample.name)
-                                else:
-                                    print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
-                            
-                            hFakes=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
-                            
-                            # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
-                            hPromptSub=hAR.group('sample', hist.Cat('sample','sample'), newNameDictNoData )
-                            
-                            # now we actually make the subtraction
-                            hPromptSub.scale(-1)
-                            hFakes=hFakes+hPromptSub
-                            
-                            # now adding them to the list of processes: 
-                            if newhist==None:
-                                newhist=hFakes
+
+                    else:
+                        # if we are in the nonprompt application region, we also integrate the application region axis
+                        # and construct the new sample 'nonprompt'
+                        
+                        # we look at data only, and rename it to fakes
+                        newNameDictData=defaultdict(list); newNameDictNoData=defaultdict(list)
+                        for sample in hAR.identifiers('sample'):
+                            match = pattern.search(sample.name)
+                            sampleName=match.group('sample')
+                            year=match.group('year')
+                            nonPromptName='nonpromptUL%s'%year
+                            if self.dataName==sampleName:
+                                newNameDictData[nonPromptName].append(sample.name)
+                            elif sampleName in self.promptSubtractionSamples: 
+                                newNameDictNoData[nonPromptName].append(sample.name)
                             else:
-                                newhist=newhist+hFakes
+                                print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
+                        
+                        hFakes=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
+                        
+                        # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
+                        hPromptSub=hAR.group('sample', hist.Cat('sample','sample'), newNameDictNoData )
+                        
+                        # now we actually make the subtraction
+                        hPromptSub.scale(-1)
+                        hFakes=hFakes+hPromptSub
+                        
+                        # now adding them to the list of processes: 
+                        if newhist==None:
+                            newhist=hFakes
+                        else:
+                            newhist=newhist+hFakes
 
-                # Scale back by 1/lumi all processes but data so they can be used transparently downstream
-                # Mind that we scaled all mcs already above
-                scaleDict={}
-                for sample in newhist.identifiers('sample'):
-                    match = pattern.search(sample.name)
-                    sampleName=match.group('sample')
-                    if self.dataName == sampleName:
-                        continue
-                    year=match.group('year')
-                    scaleDict[sample]=1.0/(1000.0*get_lumi('20'+year))
-                newhist.scale( scaleDict, axis='sample')
+            # Scale back by 1/lumi all processes but data so they can be used transparently downstream
+            # Mind that we scaled all mcs already above
+            scaleDict={}
+            for sample in newhist.identifiers('sample'):
+                match = pattern.search(sample.name)
+                sampleName=match.group('sample')
+                if self.dataName == sampleName:
+                    continue
+                year=match.group('year')
+                scaleDict[sample]=1.0/(1000.0*get_lumi('20'+year))
+            newhist.scale( scaleDict, axis='sample')
 
-                # Scale back the EFT samples by sum of weights at SM so they can be used transparently downstream
-                newhist.scale( self.smsow, axis='sample')
+            # Scale back the EFT samples by sum of weights at SM so they can be used transparently downstream
+            newhist.scale( self.smsow, axis='sample')
 
             self.outHist[key]=newhist
 

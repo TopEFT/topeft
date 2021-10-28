@@ -492,13 +492,22 @@ class YieldTools():
 
 
     # Print out all the info about all the axes in a hist
-    def print_hist_info(self,path,h_name="njets"):
+    def print_hist_info(self,path,h_name="njets",verbose=False):
 
+        # Get the dict
         if type(path) is str: hin_dict = self.get_hist_from_pkl(path)
         else: hin_dict = path
 
+        # Print info about all keys
+        print("\nThe keys of the dict are:",list(hin_dict.keys()))
+        if verbose:
+            for k in hin_dict.keys():
+                print(f"\n{k}: {hin_dict[k].values()}")
+
+        # Print info about axes for one key
+        print(f"\nPrinting info for key \"{h_name}\":")
         for i in range(len(hin_dict[h_name].axes())):
-            print(f"\n{i} Aaxis name:",hin_dict[h_name].axes()[i].name)
+            print(f"\n    {i} Aaxis name:",hin_dict[h_name].axes()[i].name)
             for cat in hin_dict[h_name].axes()[i].identifiers():
                 print(f"\t{cat}")
 
