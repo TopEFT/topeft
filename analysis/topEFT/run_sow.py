@@ -19,7 +19,7 @@ parser = argparse.ArgumentParser(description='You can customize your run')
 parser.add_argument('inputFiles'       , nargs='?', default='', help = 'Json or cfg file(s) containing files and metadata')
 parser.add_argument('--chunksize','-s' , default=100000, type=int, help = 'Number of events per chunk')
 parser.add_argument('--max-files','-N' , default=0, type=int, help = 'If specified, limit the number of root files per sample. Useful for testing')
-parser.add_argument('--nchunks','-c'   , default=0, type=int help = 'You can choose to run only a number of chunks')
+parser.add_argument('--nchunks','-c'   , default=0, type=int, help = 'You can choose to run only a number of chunks')
 parser.add_argument('--outname','-o'   , default='sowTopEFT', help = 'Name of the output file with histograms')
 parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the output directory')
 parser.add_argument('--treename'       , default='Events', help = 'Name of the tree inside the files')
@@ -103,6 +103,8 @@ executor_args = {
 
     'schema': NanoAODSchema,
     'skipbadfiles': False,
+
+    'wrapper': "python_package_run_with_retries",
 
     # use mid-range compression for chunks results. 9 is the default for work
     # queue in coffea. Valid values are 0 (minimum compression, less memory
