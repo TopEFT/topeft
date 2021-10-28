@@ -170,8 +170,8 @@ def AttachElectronSF(electrons, year=2018):
 # Hard-coded to DeepJet algorithm, medium WP
 
 # MC efficiencies
-def GetMCeffFunc(WP='medium', flav='b', year=2018):
-  pathToBtagMCeff = topcoffea_path('data/btagSF/UL/btagMCeff_%i.pkl.gz'%year)
+def GetMCeffFunc(WP='medium', flav='b', year="2018"):
+  pathToBtagMCeff = topcoffea_path('data/btagSF/UL/btagMCeff_%s.pkl.gz'%year)
   hists = {}
   with gzip.open(pathToBtagMCeff) as fin:
     hin = pickle.load(fin)
@@ -188,20 +188,22 @@ def GetMCeffFunc(WP='medium', flav='b', year=2018):
   fun = lambda pt, abseta, flav : getnum(pt,abseta,flav)/getden(pt,abseta,flav)
   return fun
 
-MCeffFunc_2018 = GetMCeffFunc('medium', 2018)
-MCeffFunc_2017 = GetMCeffFunc('medium', 2017)
+MCeffFunc_2018 = GetMCeffFunc('medium', "2018")
+MCeffFunc_2017 = GetMCeffFunc('medium', "2017")
 
-def GetBtagEff(eta, pt, flavor, year=2018):
-  if year==2017: return MCeffFunc_2017(pt, eta, flavor)
-  else         : return MCeffFunc_2018(pt, eta, flavor)
+def GetBtagEff(eta, pt, flavor, year="2018"):
+  if year=="2017": return MCeffFunc_2017(pt, eta, flavor)
+  elif year=="2018": return MCeffFunc_2018(pt, eta, flavor)
+  else: raise Exception(f"Error: Unknown year \"{year}\".")
 
-def GetBTagSF(eta, pt, flavor, year=2018, sys=0):
+def GetBTagSF(eta, pt, flavor, year="2018", sys=0):
 
   # Efficiencies and SFs for UL only available for 2017 and 2018
-  if year == '2016APV': year = 2016
-  if   year == 2016: SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/DeepFlav_2016.csv"),"MEDIUM")
-  elif year == 2017: SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL17.csv"),"MEDIUM")
-  elif year == 2018: SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18.csv"),"MEDIUM")
+  if year == "2016APV": year = "2016"
+  if   year == "2016": SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/DeepFlav_2016.csv"),"MEDIUM")
+  elif year == "2017": SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL17.csv"),"MEDIUM")
+  elif year == "2018": SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18.csv"),"MEDIUM")
+  else: raise Exception(f"Error: Unknown year \"{year}\".")
 
   if   sys==0 : SF=SFevaluatorBtag.eval("central",flavor,eta,pt)
   elif sys==1 : SF=SFevaluatorBtag.eval("up",flavor,eta,pt)
