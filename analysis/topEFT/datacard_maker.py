@@ -312,6 +312,8 @@ class DatacardMaker():
                 for s in ['Up','Down']:
                     h_sys = d_hists[process+'_'+syst+s]
                     h_sys.SetDirectory(fout)
+                    if s == 'Up': h_sys.Scale(1 + val)
+                    elif s == 'Down': h_sys.Scale(1 - val)
                     h_sys.Write()
                     if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
                     if syst in systMap:
