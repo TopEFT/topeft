@@ -55,7 +55,8 @@ def test_datacard():
         "analysis/topEFT/datacard_maker.py",
         "analysis/topEFT/histos/output_check_yields.pkl.gz",
         "-j",
-        "0"
+        "0",
+        "--do-nuisance"
     ]
 
     # Run datacard maker
