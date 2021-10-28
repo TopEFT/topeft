@@ -40,6 +40,7 @@ if __name__ == '__main__':
   parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
   parser.add_argument('--do-np', action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
   parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
+  parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
   
   args = parser.parse_args()
   jsonFiles        = args.jsonFiles
@@ -59,6 +60,15 @@ if __name__ == '__main__':
   skip_cr          = args.skip_cr
   do_np            = args.do_np
   wc_lst = args.wc_list if args.wc_list is not None else []
+
+  # Figure out which hists to include
+  if args.hist_list == ["ana"]:
+    # Here we hardcode a list of hists used for the analysis
+    hist_lst = ["njets","ht","ptbl"]
+  else:
+    # We want to specify a custom list
+    # If we don't specify this argument, it will be None, and the processor will fill all hists 
+    hist_lst = args.hist_list
 
   if dotest:
     nchunks = 2
@@ -160,7 +170,7 @@ if __name__ == '__main__':
   else:
     print('No Wilson coefficients specified')
  
-  processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
+  processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
 
   # Run the processor and get the output
   tstart = time.time()

@@ -51,7 +51,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, dtype=np.float32):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -73,11 +73,23 @@ class AnalysisProcessor(processor.ProcessorABC):
         "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
         })
 
+        # Set the list of hists to fill
+        if hist_lst is None:
+            # If the hist list is none, assume we want to fill all hists
+            self._hist_lst = list(self._accumulator.keys())
+        else:
+            # Otherwise, just fill the specified subset of hists
+            for hist_to_include in hist_lst:
+                if hist_to_include not in self._accumulator.keys():
+                    raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
+            self._hist_lst = hist_lst # Which hists to fill
+
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
+
 
     @property
     def accumulator(self):
@@ -294,10 +306,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         btagSFDo = np.ones_like(ht)
         if not isData:
             pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
-            bJetSF   = GetBTagSF(abseta, pt, flav)
-            bJetSFUp = GetBTagSF(abseta, pt, flav, sys=1)
-            bJetSFDo = GetBTagSF(abseta, pt, flav, sys=-1)
 
+            bJetSF   = GetBTagSF(abseta, pt, flav, year)
+            bJetSFUp = GetBTagSF(abseta, pt, flav, year, sys=1)
+            bJetSFDo = GetBTagSF(abseta, pt, flav, year, sys=-1)
             bJetEff  = GetBtagEff(abseta, pt, flav, year)
             bJetEff_data   = bJetEff*bJetSF
             bJetEff_dataUp = bJetEff*bJetSFUp
@@ -311,7 +323,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
             btagSF   = pData  /pMC
             btagSFUp = pDataUp/pMC
-            btagSFDo = pDataUp/pMC
+            btagSFDo = pDataDo/pMC
 
 
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
@@ -325,8 +337,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
-            weights_dict[ch_name].add("btagSF", btagSF, btagSFUp, btagSFDo)
             if not isData:
+                # We only calculate these values if not isData
+                weights_dict[ch_name].add("btagSF",pData/pMC,pDataUp/pMC,pDataDo/pMC)
                 # Trying to calculate PU SFs for data causes a crash, and we don't apply this for data anyway, so just skip it in the case of data
                 weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
             if "2l" in ch_name:
@@ -334,7 +347,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
                 if isData:
                     weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
-
             if "3l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_3l, events.fakefactor_3l_up, events.fakefactor_3l_down)
@@ -343,7 +355,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Systematics
         systList = ["nominal"]
-        if self._do_systematics and not isData: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown"]
+        if self._do_systematics and not isData: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown"]
 
 
         ######### Masks we need for the selection ##########
@@ -537,6 +549,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Loop over the hists we want to fill
         for dense_axis_name, dense_axis_vals in varnames.items():
+            if dense_axis_name not in self._hist_lst:
+                print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
+                continue
 
             # Loop over the systematics
             for syst in systList:
