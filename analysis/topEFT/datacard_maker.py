@@ -16,6 +16,7 @@ class DatacardMaker():
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
+        self.syst_special = {'charge_flips': 0.3} # 30% flat uncertainty for charge flips
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTGJets', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         self.fin = infile
@@ -119,9 +120,13 @@ class DatacardMaker():
                 fout['data_obs'] = hist.export1d(h['nominal'])
             else:
                 for syst,histo in h.items():
+                    rename = self.rename[name] if name in  self.rename else ''
                     if syst == 'nominal':
                         fout[name+cat] = hist.export1d(histo)
-                    else:
+                        if rename in self.syst_special:
+                            fout[rename+cat+'_flatUp'] = hist.export1d(histo)
+                            fout[rename+cat+'_flatDown'] = hist.export1d(histo)
+                    elif rename not in self.syst_special:
                         fout[name+cat+'_'+syst] = hist.export1d(histo)
         def export2d(h):
             return h.to_hist().to_numpy()
@@ -301,6 +306,19 @@ class DatacardMaker():
                         systMap[syst].update({process: round(h_sys.Integral(), 3)})
                     else:
                         systMap[syst] = {process: round(h_sys.Integral(), 3)}
+            for syst_special,val in self.syst_special.items():
+                if syst_special not in process: continue
+                syst = 'flat'
+                for s in ['Up','Down']:
+                    h_sys = d_hists[process+'_'+syst+s]
+                    h_sys.SetDirectory(fout)
+                    h_sys.Write()
+                    if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
+                    if syst in systMap:
+                        systMap[syst].update({process: round(h_sys.Integral(), 3)})
+                    else:
+                        systMap[syst] = {process: round(h_sys.Integral(), 3)}
+                    
         def getHist(d_hists,name):
             h = d_hists[name]
             xmin = h.GetXaxis().GetXmin()
