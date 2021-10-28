@@ -28,7 +28,7 @@ def test_make_yields():
         "-f",
         "analysis/topEFT/histos/output_check_yields.pkl.gz",
         "-n",
-        "analysis/topEFT/output_check_yields.json"
+        "analysis/topEFT/output_check_yields"
     ]
 
     # Produce json
