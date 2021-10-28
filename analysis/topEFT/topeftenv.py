@@ -75,7 +75,7 @@ def _install_pip_packages(env_path, pkgs):
         _run_conda_command(
                 env_path,
                 'run',
-                'sh', '-c', 'pip install {}'.format(pkg))
+                'sh', '-c', 'pip install "{}"'.format(pkg))
 
 def _install_pip_requirements(base_env_tarball, env_path, pkg, location):
     logger.info("Installing requirements of {} into {} via pip".format(location, env_path))
