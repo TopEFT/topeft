@@ -89,7 +89,7 @@ processor_instance = sow_processor.AnalysisProcessor(samples_to_process,wc_lst)
 executor_args = {
     'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
 
-    'xrootdtimeout': 180,
+    'xrootdtimeout': 900,
 
     # find a port to run work queue in this range:
     'port': [9123,9130],
