@@ -29,10 +29,10 @@ packages_json_template = string.Template('''
     "base": {
         "conda": {
             "defaults" : [],
-            "conda-forge" : ["python=$py_version", "conda", "conda-pack", "dill", "xrootd", "coffea"]
+            "conda-forge" : ["python=$py_version", "conda", "conda-pack", "dill", "xrootd"]
         },
         "pip": [
-            "uproot>=4.1.6"
+            "coffea", "uproot>=4.1.6"
         ]
     }
 }
@@ -135,6 +135,7 @@ def _find_local_pip():
         # is in the last column
         (pkg, version, location) = line.split()
         path_of[pkg] = location
+    del path_of["coffea"]
     return path_of
 
 def _commits_local_pip(paths):

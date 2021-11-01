@@ -167,7 +167,7 @@ processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,do_err
 executor_args = {
     'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
 
-    'xrootdtimeout': 180,
+    'xrootdtimeout': 900,
 
     # find a port to run work queue in this range:
     'port': [9123,9130],
@@ -176,7 +176,7 @@ executor_args = {
     'transactions_log': 'tr.log',
     'stats_log': 'stats.log',
 
-    'environment_file': topeftenv.get_environment(),
+    'environment_file': topeftenv.get_environment(unstaged='ignore'),
     'extra_input_files': ["topeft.py"],
 
     'schema': NanoAODSchema,
@@ -193,7 +193,7 @@ executor_args = {
     # values, if specified below. if a maximum is not specified, the task waits
     # forever until a larger worker connects.
     'resource_monitor': True,
-    'resources_mode': 'auto',
+    'resources_mode': 'max-throughput',
 
     # this resource values may be omitted when using
     # resources_mode: 'auto', but they do make the initial portion
