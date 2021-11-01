@@ -135,7 +135,6 @@ def _find_local_pip():
         # is in the last column
         (pkg, version, location) = line.split()
         path_of[pkg] = location
-    del path_of["coffea"]
     return path_of
 
 def _commits_local_pip(paths):
