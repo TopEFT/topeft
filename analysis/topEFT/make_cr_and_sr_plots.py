@@ -1,4 +1,5 @@
 import os
+import copy
 import datetime
 import argparse
 import matplotlib.pyplot as plt
@@ -48,27 +49,25 @@ CR_CHAN_DICT = {
     ],
 }
 
-# The channels that define the CR categories nor the njets hist (where we do not keep track of jets in the sparse axis)
-CR_CHAN_DICT_NO_J = {
-    "cr_2los_Z" : [
-        "2los_ee_CRZ",
-        "2los_mm_CRZ",
+
+SR_CHAN_DICT = {
+    "2lss_SR" : [
+        "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
+        "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
     ],
-    "cr_2los_tt" : [
-        "2los_em_CRtt",
+    "3l_SR" : [
+        "3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_m_offZ_1b_5j",
+        "3l_m_offZ_2b_2j", "3l_m_offZ_2b_3j", "3l_m_offZ_2b_4j", "3l_m_offZ_2b_5j",
+        "3l_p_offZ_1b_2j", "3l_p_offZ_1b_3j", "3l_p_offZ_1b_4j", "3l_p_offZ_1b_5j",
+        "3l_p_offZ_2b_2j", "3l_p_offZ_2b_3j", "3l_p_offZ_2b_4j", "3l_p_offZ_2b_5j",
+        "3l_onZ_1b_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
+        "3l_onZ_2b_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
     ],
-    "cr_2lss" : [
-        "2lss_ee_CR",
-        "2lss_em_CR",
-        "2lss_mm_CR",
-    ],
-    "cr_3l" : [
-        "3l_eee_CR",
-        "3l_eem_CR",
-        "3l_emm_CR",
-        "3l_mmm_CR",
-    ],
+    "4l_SR" : [
+        "4l_2j", "4l_3j", "4l_4j",
+    ]
 }
+
 
 CR_GRP_MAP = {
     "DY" : [],
@@ -77,11 +76,32 @@ CR_GRP_MAP = {
     "Triboson" : [],
     "Single top" : [],
     "Singleboson" : [],
+    "Nonprompt" : [],
+    "Flips" : [],
+    "Signal" : [],
     "Data" : [],
 }
 
 
 yt = YieldTools()
+
+# Takes a dictionary where the keys are catetory names and keys are lists of bin names in the category, and a string indicating what type of info (njets, or lepflav) to remove
+# Returns a dictionary of the same structure, except with njet or lepflav info stripped off of the bin names
+# E.g. if a value was ["cat_a_1j","cat_b_1j","cat_b_2j"] and we passed "njets", we should return ["cat_a","cat_b"]
+def get_dict_with_stripped_bin_names(in_chan_dict,type_of_info_to_strip):
+    out_chan_dict = {}
+    for cat,bin_names in in_chan_dict.items():
+        out_chan_dict[cat] = []
+        for bin_name in bin_names:
+            if type_of_info_to_strip == "njets":
+                bin_name_no_njet = yt.get_str_without_njet(bin_name)
+            elif type_of_info_to_strip == "lepflav":
+                bin_name_no_njet = yt.get_str_without_lepflav(bin_name)
+            else:
+                raise Exception(f"Error: Unknown type of string to remove \"{type_of_info_to_strip}\".")
+            if bin_name_no_njet not in out_chan_dict[cat]:
+                out_chan_dict[cat].append(bin_name_no_njet)
+    return(out_chan_dict)
 
 # Get a subset of the elements from a list of strings given a whitelist and/or blacklist of substrings
 def filter_lst_of_strs(in_lst,substr_whitelist=[],substr_blacklist=[]):
@@ -118,23 +138,31 @@ def get_lumi_for_sample(sample_name):
         lumi = 1000.0*get_lumi("2017")
     elif "UL18" in sample_name:
         lumi = 1000.0*get_lumi("2018")
+    elif "UL16APV" in sample_name:
+        lumi = 1000.0*get_lumi("2016APV")
+    elif "UL16" in sample_name:
+        # Should not be here unless "UL16APV" not in sample_name
+        lumi = 1000.0*get_lumi("2016")
     else:
-        raise Exception("Note yet sure how to handle UL16 vas UL16APV, so just crash for now")
+        raise Exception(f"Error: Unknown year \"{year}\".")
     return lumi
 
 # Group bins in a hist, returns a new hist
-def group_bins(histo,bin_map):
+def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
+
+    bin_map = copy.deepcopy(bin_map) # Don't want to edit the original
 
     # Construct the map of bins to remap
     bins_to_remap_lst = []
     for grp_name,bins_in_grp in bin_map.items():
         bins_to_remap_lst.extend(bins_in_grp)
-    for bin_name in yt.get_cat_lables(histo,"sample"):
-        if bin_name not in bins_to_remap_lst:
-            bin_map[bin_name] = bin_name
+    if not drop_unspecified:
+        for bin_name in yt.get_cat_lables(histo,axis_name):
+            if bin_name not in bins_to_remap_lst:
+                bin_map[bin_name] = bin_name
 
     # Remap the bins
-    old_ax = histo.axis("sample")
+    old_ax = histo.axis(axis_name)
     new_ax = hist.Cat(old_ax.name,old_ax.label)
     new_histo = histo.group(old_ax,new_ax,bin_map)
 
@@ -142,9 +170,10 @@ def group_bins(histo,bin_map):
 
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool):
+def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
 
-    colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
+    #colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
+    colors = ["tab:blue","brown","tab:orange",'tan',"tab:purple","tab:pink","tab:cyan","tab:green","tab:red"]
 
     # Create the figure
     fig, (ax, rax) = plt.subplots(
@@ -159,7 +188,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
     # Set up the colors
     ax.set_prop_cycle(cycler(color=colors))
 
-    # Normalize if we want to dod that
+    # Normalize if we want to do that
     if unit_norm_bool:
         sum_mc = 0
         sum_data = 0
@@ -209,9 +238,132 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool):
     rax.set_ylabel('Ratio')
     rax.set_ylim(0.5,1.5)
 
+    # Set the x axis lims
+    if set_x_lim: plt.xlim(set_x_lim)
+
+    return fig
+
+# Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
+def make_single_fig(histo,unit_norm_bool):
+    #print("\nPlotting values:",histo.values())
+    fig, ax = plt.subplots(1, 1, figsize=(11,7))
+    hist.plot1d(
+        histo,
+        stack=False,
+        density=unit_norm_bool,
+        clear=False,
+    )
+    ax.autoscale(axis='y')
     return fig
 
 
+###################### Wrapper function for example SR plots ######################
+# Wrapper function to loop over all SR categories and make plots for all variables
+# Right now this function will only plot the signal samples
+# By default, will make two sets of plots: One with process overlay, one with channel overlay
+def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True):
+
+    # If selecting a year, append that year to the wight list
+    sig_wl = ["private"]
+    if year is None: pass
+    elif year == "2017": sig_wl.append("UL17")
+    elif year == "2018": sig_wl.append("UL18")
+    else: raise Exception # Not sure what to do about UL16 vs UL16APV yet
+
+    # Get the list of samples to actually plot
+    all_samples = yt.get_cat_lables(dict_of_hists,"sample")
+    sig_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
+    if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
+    samples_to_rm_from_sig_hist = []
+    for sample_name in all_samples:
+        if sample_name not in sig_sample_lst:
+            samples_to_rm_from_sig_hist.append(sample_name)
+    print("\nAll samples:",all_samples)
+    print("\nSig samples:",sig_sample_lst)
+
+    # Get the eft sum of weights at SM norm dict
+    eft_sow_scale_dict = yt.get_eft_sow_scale_dict(dict_of_hists["SumOfEFTweights"])
+
+    # Loop over hists and make plots
+    skip_lst = ["SumOfEFTweights"] # Skip this hist
+    for idx,var_name in enumerate(dict_of_hists.keys()):
+        #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
+        if (var_name in skip_lst): continue
+        if (var_name == "njets"):
+            # We do not keep track of jets in the sparse axis for the njets hists
+            sr_cat_dict = get_dict_with_stripped_bin_names(SR_CHAN_DICT,"njets")
+        else:
+            sr_cat_dict = SR_CHAN_DICT
+        print("\nVar name:",var_name)
+        print("sr_cat_dict:",sr_cat_dict)
+
+        # Extract the signal hists, and integrate over systematic axis
+        hist_sig = dict_of_hists[var_name].remove(samples_to_rm_from_sig_hist,"sample")
+        hist_sig = hist_sig.integrate("systematic","nominal")
+
+        # Normalize the hists
+        sample_lumi_dict = {}
+        for sample_name in sig_sample_lst:
+            sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
+        hist_sig.scale(sample_lumi_dict,axis="sample")
+        hist_sig.scale(eft_sow_scale_dict,axis="sample")
+
+
+        # Make plots for each SR category
+        if split_by_chan:
+            for hist_cat in SR_CHAN_DICT.keys(): 
+
+                # Make a sub dir for this category
+                save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
+                if not os.path.exists(save_dir_path_tmp):
+                    os.mkdir(save_dir_path_tmp)
+
+                # Integrate to get the SR category we want to plot
+                hist_sig_integrated_ch = yt.integrate_out_appl(hist_sig,hist_cat)
+                hist_sig_integrated_ch = hist_sig_integrated_ch.integrate("channel",sr_cat_dict[hist_cat])
+
+                # Make the plots
+                fig = make_single_fig(hist_sig_integrated_ch,unit_norm_bool)
+                title = hist_cat+"_"+var_name
+                if unit_norm_bool: title = title + "_unitnorm"
+                fig.savefig(os.path.join(save_dir_path_tmp,title))
+
+                # Make an index.html file if saving to web area
+                if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+
+
+        # Make plots for each process
+        if split_by_proc:
+            for proc_name in sig_sample_lst:
+
+                # Make a sub dir for this category
+                save_dir_path_tmp = os.path.join(save_dir_path,proc_name)
+                if not os.path.exists(save_dir_path_tmp):
+                    os.mkdir(save_dir_path_tmp)
+
+                # Group categories
+                hist_sig_grouped = group_bins(hist_sig,sr_cat_dict,"channel",drop_unspecified=True)
+
+                # Make the plots
+                for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,"channel"):
+
+                    # Integrate
+                    hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
+                    hist_sig_grouped_tmp = yt.integrate_out_appl(hist_sig_grouped_tmp,grouped_hist_cat)
+                    hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("sample",proc_name)
+
+                    # Make plots
+                    fig = make_single_fig(hist_sig_grouped_tmp[grouped_hist_cat],unit_norm_bool)
+                    title = proc_name+"_"+grouped_hist_cat+"_"+var_name
+                    if unit_norm_bool: title = title + "_unitnorm"
+                    fig.savefig(os.path.join(save_dir_path_tmp,title))
+
+                # Make an index.html file if saving to web area
+                if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+
+
+
+###################### Wrapper function for all CR plots ######################
 # Wrapper function to loop over all CR categories and make plots for all variables
 # The input hist should include both the data and MC
 def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
@@ -229,7 +381,10 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
     elif year == "2018":
         mc_wl.append("UL18")
         data_wl.append("UL18")
-    else: raise Exception # Not sure what to do about 2016 vs UL16 yet
+    elif year == "2016":
+        mc_wl.append("UL16")   # Includes UL16 and UL16APV
+        data_wl.append("UL16") # Includes UL16 and UL16APV
+    else: raise Exception(f"Error: Unknown year \"{year}\".")
 
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
@@ -250,6 +405,12 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
     for proc_name in all_samples:
         if "data" in proc_name:
             CR_GRP_MAP["Data"].append(proc_name)
+        elif "nonprompt" in proc_name:
+            CR_GRP_MAP["Nonprompt"].append(proc_name)
+        elif "flips" in proc_name:
+            CR_GRP_MAP["Flips"].append(proc_name)
+        elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name):
+            CR_GRP_MAP["Signal"].append(proc_name)
         elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name:
             CR_GRP_MAP["Single top"].append(proc_name)
         elif "DY" in proc_name:
@@ -265,14 +426,22 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         else:
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
+    # Get the eft sum of weights at SM norm dict
+    eft_sow_scale_dict = yt.get_eft_sow_scale_dict(dict_of_hists["SumOfEFTweights"])
+
     # Loop over hists and make plots
     skip_lst = ["SumOfEFTweights"] # Skip this hist
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
-            cr_cat_dict = CR_CHAN_DICT_NO_J
-        else:  cr_cat_dict= CR_CHAN_DICT
+            # We do not keep track of jets in the sparse axis for the njets hists
+            cr_cat_dict = get_dict_with_stripped_bin_names(CR_CHAN_DICT,"njets")
+        else:  cr_cat_dict = CR_CHAN_DICT
+        # If the hist is not split by lepton flavor, the lep flav info should not be in the channel names we try to integrate over
+        if not yt.is_split_by_lepflav(dict_of_hists):
+            cr_cat_dict = get_dict_with_stripped_bin_names(cr_cat_dict,"lepflav")
         print("\nVar name:",var_name)
+        print("cr_cat_dict:",cr_cat_dict)
 
         # Extract the MC and data hists
         hist_mc = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
@@ -283,6 +452,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         for sample_name in mc_sample_lst:
             sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
         hist_mc.scale(sample_lumi_dict,axis="sample")
+        hist_mc.scale(eft_sow_scale_dict,axis="sample")
 
         # Group the samples by process type
         hist_mc = group_bins(hist_mc,CR_GRP_MAP)
@@ -299,21 +469,16 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 os.mkdir(save_dir_path_tmp)
 
             # Integrate to get the categories we want
-            # NOTE: Once we merge PR #98, integrating the appl axis should not be necessary
             axes_to_integrate_dict = {}
             axes_to_integrate_dict["systematic"] = "nominal"
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
-            if "2l" in hist_cat:
-                axes_to_integrate_dict["appl"] = "isSR_2l"
-            elif "3l" in hist_cat:
-                axes_to_integrate_dict["appl"] = "isSR_3l"
-            else:
-                raise Exception
-            hist_mc_integrated = yt.integrate_out_cats(hist_mc,axes_to_integrate_dict)
-            hist_data_integrated = yt.integrate_out_cats(hist_data,axes_to_integrate_dict)
+            hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)
+            hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)
 
             # Create and save the figure
-            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool)
+            x_range = None
+            if var_name == "ht": x_range = (0,250)
+            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range)
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
@@ -328,7 +493,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
-    parser.add_argument("-n", "--output-name", default="cr_plots", help = "A name for the output directory")
+    parser.add_argument("-n", "--output-name", default="plots", help = "A name for the output directory")
     parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
     parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
@@ -353,7 +518,9 @@ def main():
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
     #exit()
 
+    # Make the plots
     make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
 
 if __name__ == "__main__":
     main()

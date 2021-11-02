@@ -51,7 +51,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, dtype=np.float32, muonSyst='nominal'):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, dtype=np.float32, muonSyst='nominal'):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -73,6 +73,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
         })
 
+        # Set the list of hists to fill
+        if hist_lst is None:
+            # If the hist list is none, assume we want to fill all hists
+            self._hist_lst = list(self._accumulator.keys())
+        else:
+            # Otherwise, just fill the specified subset of hists
+            for hist_to_include in hist_lst:
+                if hist_to_include not in self._accumulator.keys():
+                    raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
+            self._hist_lst = hist_lst # Which hists to fill
+
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
@@ -80,6 +91,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
         self._muonSyst=muonSyst # Calculate muon Rochester uncertainties
         
+
     @property
     def accumulator(self):
         return self._accumulator
@@ -100,19 +112,18 @@ class AnalysisProcessor(processor.ProcessorABC):
         isData       = self._samples[dataset]["isData"]
         datasets     = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
-            if d in dataset: dataset = dataset.split('_')[0]
+            if d in dataset: dataset = dataset.split('_')[0] 
+
+        # Set the sampleType (used for MC matching requirement)
         conversionDatasets=[x%y for x in ['TTGJets_centralUL%d'] for y in [16,17,18]]
         nonpromptDatasets =[x%y for x in ['TTJets_centralUL%d','DY50_centralUL%d','DY10to50_centralUL%d','tbarW_centralUL%d','tW_centralUL%d','tbarW_centralUL%d'] for y in [16,17,18]]
-
-        sampleType='prompt'
+        sampleType = 'prompt'
         if isData:
-            sampleType='data'
+            sampleType = 'data'
         elif dataset in conversionDatasets: 
-            sampleType='conversions'
+            sampleType = 'conversions'
         elif dataset in nonpromptDatasets:
-            sampleType='nonprompt'
-            
-
+            sampleType = 'nonprompt'
 
         # Initialize objects
         met  = events.MET
@@ -240,7 +251,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         elif year == "2018":
             btagwpl = get_param("btag_wp_loose_UL18")
         elif ((year=="2016") or (year=="2016APV")):
-            btagwpl = get_param("btag_wp_loose_UL16APV")
+            btagwpl = get_param("btag_wp_loose_L16")
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
@@ -254,7 +265,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         elif year == "2018":
             btagwpm = get_param("btag_wp_medium_UL18")
         elif ((year=="2016") or (year=="2016APV")):
-            btagwpm = get_param("btag_wp_medium_UL16APV")
+            btagwpm = get_param("btag_wp_medium_L16")
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
@@ -303,10 +314,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         btagSFDo = np.ones_like(ht)
         if not isData:
             pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
+
             bJetSF   = GetBTagSF(abseta, pt, flav, year)
             bJetSFUp = GetBTagSF(abseta, pt, flav, year,sys=1)
             bJetSFDo = GetBTagSF(abseta, pt, flav, year,sys=-1)
-
             bJetEff  = GetBtagEff(abseta, pt, flav, year)
             bJetEff_data   = bJetEff*bJetSF
             bJetEff_dataUp = bJetEff*bJetSFUp
@@ -315,8 +326,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             pMC     = ak.prod(bJetEff       [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJetsMedium]), axis=-1)
             pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
             pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
-            pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)
+            pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
             pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
+
+
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights_dict = {}
         if (isData or (eft_coeffs is not None)):
@@ -329,11 +342,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
             if not isData:
+                # We only calculate these values if not isData
+                weights_dict[ch_name].add("btagSF",pData/pMC,pDataUp/pMC,pDataDo/pMC)
                 # Trying to calculate PU SFs for data causes a crash, and we don't apply this for data anyway, so just skip it in the case of data
                 weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
-                weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC)
                 # Prefiring weights only available in nanoAODv9**
-                #weights_dict[ch_name].add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
+                weights_dict[ch_name].add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
                 
                 if "2l" in ch_name:
                     weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
@@ -345,8 +359,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                     weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
         # Systematics
         systList = ["nominal"]
-        if (self._do_systematics and not isData and self._muonSyst == 'nominal'): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown"]#,"PreFiringUp","PreFiringDown"]
+        if (self._do_systematics and not isData and self._muonSyst == 'nominal'): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown"]
         elif (self._do_systematics and self._muonSyst != 'nominal'): systList = [self._muonSyst]
+
 
         ######### Masks we need for the selection ##########
 
@@ -365,9 +380,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
 
         # Charge masks
-        charge2l_p = ak.fill_none(((l0.charge+l1.charge)>0),False)
-        charge2l_m = ak.fill_none(((l0.charge+l1.charge)<0),False)
+        chargel0_p = ak.fill_none(((l0.charge)>0),False)
+        chargel0_m = ak.fill_none(((l0.charge)<0),False)
         charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
+        charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
         charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
         charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
@@ -380,9 +396,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("is_good_lumi",lumi_mask)
 
         # 2lss selection
-        selections.add("2lss_p", (events.is2l & charge2l_p & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_m", (events.is2l & charge2l_m & bmask_atleast1med_atleast2loose & pass_trg))
-        selections.add("2lss_CR", (events.is2l & (charge2l_p | charge2l_m) & bmask_exactly1med & pass_trg))
+        selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+        selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+        selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
         
         # 2los selection
         selections.add("2los_CRtt", (events.is2l & charge2l_0 & bmask_exactly2med & pass_trg))
@@ -424,8 +440,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("atleast_0j", (njets>=0))
 
         # AR/SR categories
-        selections.add("isSR_2l",  events.is2l_SR)
-        selections.add("isAR_2l", ~events.is2l_SR)
+        selections.add("isSR_2lSS", ( events.is2l_SR) & charge2l_1) 
+        selections.add("isAR_2lSS", (~events.is2l_SR) & charge2l_1) 
+        selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # we need another naming for the sideband for the charge flip
+        selections.add("isSR_2lOS", ( events.is2l_SR) & charge2l_0) 
+        selections.add("isAR_2lOS", (~events.is2l_SR) & charge2l_0) 
+
         selections.add("isSR_3l",  events.is3l_SR)
         selections.add("isAR_3l", ~events.is3l_SR)
         selections.add("isSR_4l",  events.is4l_SR)
@@ -468,7 +488,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
                 "njets_lst"    : ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
-                "appl_lst"     : ["isSR_2l" , "isAR_2l"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
             },
             "3l" : {
                 "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
@@ -490,7 +510,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_chan_lst" : ["2lss_CR"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
                 "njets_lst"    : ["exactly_1j" , "exactly_2j"],
-                "appl_lst"     : ["isSR_2l" , "isAR_2l"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
             },
             "3l_CR" : {
                 "lep_chan_lst" : ["3l_CR"],
@@ -502,13 +522,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_chan_lst" : ["2los_CRtt"],
                 "lep_flav_lst" : ["em"],
                 "njets_lst"    : ["exactly_2j"],
-                "appl_lst"     : ["isSR_2l" , "isAR_2l"],
+                "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
             },
             "2los_CRZ" : {
                 "lep_chan_lst" : ["2los_CRZ"],
                 "lep_flav_lst" : ["ee", "mm"],
                 "njets_lst"    : ["atleast_0j"],
-                "appl_lst"     : ["isSR_2l" , "isAR_2l"],
+                "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
             }            
         }
 
@@ -534,6 +554,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Loop over the hists we want to fill
         for dense_axis_name, dense_axis_vals in varnames.items():
+            if dense_axis_name not in self._hist_lst:
+                print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
+                continue
 
             # Loop over the systematics
             for syst in systList:
@@ -547,7 +570,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                     weights_object = weights_dict[nlep_cat]
-                    if isData : weight = weights_object.partial_weight(include=["FF"]) # for data, must include the FF
+                    if isData : weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l", "2l_CR"] else [])) # for data, must include the FF. The flip rate we only apply to 2lss regions
                     else      : weight = weights_object.weight(weight_fluct) # For MC
 
                     # Get a mask for events that pass any of the njet requiremens in this nlep cat

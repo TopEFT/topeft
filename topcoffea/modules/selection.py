@@ -109,25 +109,24 @@ dataset_dict = {
 #   - Otherwise, you may be removing events that show up in other datasets you're not using
 exclude_dict = {
     "2016": {
-        "SingleMuon"     : [],
-        "SingleElectron" : dataset_dict["2016"]["SingleMuon"],
-        "DoubleMuon"     : dataset_dict["2016"]["SingleMuon"] + dataset_dict["2016"]["SingleElectron"],
-        "DoubleEG"       : dataset_dict["2016"]["SingleMuon"] + dataset_dict["2016"]["SingleElectron"] + dataset_dict["2016"]["DoubleMuon"],
-        "MuonEG"         : dataset_dict["2016"]["SingleMuon"] + dataset_dict["2016"]["SingleElectron"] + dataset_dict["2016"]["DoubleMuon"] + dataset_dict["2016"]["DoubleEG"],
+        "DoubleMuon"     : [],
+        "DoubleEG"       : dataset_dict["2016"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2016"]["DoubleMuon"] + dataset_dict["2016"]["DoubleEG"],
+        "SingleMuon"     : dataset_dict["2016"]["DoubleMuon"] + dataset_dict["2016"]["DoubleEG"] + dataset_dict["2016"]["MuonEG"],
+        "SingleElectron" : dataset_dict["2016"]["DoubleMuon"] + dataset_dict["2016"]["DoubleEG"] + dataset_dict["2016"]["MuonEG"] + dataset_dict["2016"]["SingleMuon"],
     },
     "2017": {
-        "SingleMuon"     : [],
-        "SingleElectron" : dataset_dict["2017"]["SingleMuon"],
-        "DoubleMuon"     : dataset_dict["2017"]["SingleMuon"] + dataset_dict["2017"]["SingleElectron"],
-        "DoubleEG"       : dataset_dict["2017"]["SingleMuon"] + dataset_dict["2017"]["SingleElectron"] + dataset_dict["2017"]["DoubleMuon"],
-        "MuonEG"         : dataset_dict["2017"]["SingleMuon"] + dataset_dict["2017"]["SingleElectron"] + dataset_dict["2017"]["DoubleMuon"] + dataset_dict["2017"]["DoubleEG"],
+        "DoubleMuon"     : [],
+        "DoubleEG"       : dataset_dict["2017"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2017"]["DoubleMuon"] + dataset_dict["2017"]["DoubleEG"],
+        "SingleMuon"     : dataset_dict["2017"]["DoubleMuon"] + dataset_dict["2017"]["DoubleEG"] + dataset_dict["2017"]["MuonEG"],
+        "SingleElectron" : dataset_dict["2017"]["DoubleMuon"] + dataset_dict["2017"]["DoubleEG"] + dataset_dict["2017"]["MuonEG"] + dataset_dict["2017"]["SingleMuon"],
     },
     "2018": {
-        "SingleMuon"     : [],
-        "EGamma"         : dataset_dict["2018"]["SingleMuon"],
-        "DoubleMuon"     : dataset_dict["2018"]["SingleMuon"] + dataset_dict["2018"]["EGamma"],
-        "DoubleEG"       : dataset_dict["2018"]["SingleMuon"] + dataset_dict["2018"]["EGamma"] + dataset_dict["2018"]["DoubleMuon"],
-        "MuonEG"         : dataset_dict["2018"]["SingleMuon"] + dataset_dict["2018"]["EGamma"] + dataset_dict["2018"]["DoubleMuon"] + dataset_dict["2018"]["DoubleEG"],
+        "DoubleMuon"     : [],
+        "EGamma"         : dataset_dict["2018"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2018"]["DoubleMuon"] + dataset_dict["2018"]["EGamma"],
+        "SingleMuon"     : dataset_dict["2018"]["DoubleMuon"] + dataset_dict["2018"]["EGamma"] + dataset_dict["2018"]["MuonEG"],
     },
 }
 
@@ -175,6 +174,7 @@ def trgPassNoOverlap(events,is_data,dataset,year):
 
     # In case of data, check if events overlap with other datasets
     if is_data:
+        trg_passes = passesTrgInLst(events,dataset_dict[year][dataset])
         trg_overlaps = passesTrgInLst(events, exclude_dict[year][dataset])
 
     # Return true if passes trg and does not overlap
@@ -207,7 +207,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
     mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge)
     
-    # mc matching requirement (already passed for data)
+    # MC matching requirement (already passed for data)
     if sampleType == 'prompt':
         lep1_match=((padded_FOs[:,0].genPartFlav==1) | (padded_FOs[:,0].genPartFlav == 15))    
         lep2_match=((padded_FOs[:,1].genPartFlav==1) | (padded_FOs[:,1].genPartFlav == 15))
@@ -220,9 +220,10 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
         lep1_match=((padded_FOs[:,0].genPartFlav!=1) & (padded_FOs[:,0].genPartFlav != 15) & (padded_FOs[:,0].genPartFlav != 22))
         lep2_match=((padded_FOs[:,1].genPartFlav!=1) & (padded_FOs[:,1].genPartFlav != 15) & (padded_FOs[:,1].genPartFlav != 22))
         mask = mask & ( lep1_match | lep2_match ) 
-
-
-
+    elif sampleType == "data":
+        pass
+    else:
+        raise Exception(f"Error: Unknown sampleType {sampleType}.")
 
     events['is2l'] = ak.fill_none(mask,False)
 
@@ -265,6 +266,7 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
     mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3 )
 
+    # MC matching requirement (already passed for data)
     if sampleType == 'prompt':
         lep1_match=((padded_FOs[:,0].genPartFlav==1) | (padded_FOs[:,0].genPartFlav == 15))    
         lep2_match=((padded_FOs[:,1].genPartFlav==1) | (padded_FOs[:,1].genPartFlav == 15))
@@ -280,7 +282,10 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
         lep2_match=((padded_FOs[:,1].genPartFlav!=1) & (padded_FOs[:,1].genPartFlav != 15) & (padded_FOs[:,1].genPartFlav != 22))
         lep3_match=((padded_FOs[:,2].genPartFlav!=1) & (padded_FOs[:,2].genPartFlav != 15) & (padded_FOs[:,2].genPartFlav != 22))
         mask = mask & ( lep1_match | lep2_match | lep3_match ) 
-
+    elif sampleType == "data":
+        pass
+    else:
+        raise Exception(f"Error: Unknown sampleType {sampleType}.")
 
     events['is3l'] = ak.fill_none(mask,False)
 

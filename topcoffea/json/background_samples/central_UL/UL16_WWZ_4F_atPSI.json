@@ -1,0 +1,22 @@
+{
+  "files": [
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWZ_4F/F576B6DD-1357-9E4D-8001-73DD3749502F_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWZ_4F/1879CF4A-F03D-754B-97AA-F8E781186CDD_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWZ_4F/200C9DE9-0F06-4646-8CD4-F1AE79B89A89_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWZ_4F/CE31D6F7-580F-784B-BE93-F02F9DDBEEC6_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWZ_4F/37689321-B7D9-4E48-9651-BBA50CECB364_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWZ_4F/3CE80F99-C9C3-8D4C-9B21-EF7BF673C257_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWZ_4F/386BC248-6FB6-634E-B921-B84D49BDCF10_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WWZ_4F/C00DDDA8-693E-A449-8017-8FF7969A7DFD_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "WWZ_4F_centralUL16", 
+  "isData": false, 
+  "WCnames": [], 
+  "nEvents": 67000, 
+  "nSumOfWeights": 11495.724679200002, 
+  "year": "2016", 
+  "nGenEvents": 67000, 
+  "xsec": 0.1651, 
+  "options": ""
+}

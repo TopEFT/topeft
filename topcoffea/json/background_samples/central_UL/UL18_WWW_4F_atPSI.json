@@ -1,0 +1,19 @@
+{
+  "files": [
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WWW_4F/059FD01D-45FF-9648-A2B0-62BA97441F0E_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WWW_4F/45536FE0-4DE7-4E43-B43E-DE0ED0EF4B87_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WWW_4F/2D098776-10C1-654A-928B-A7F298D65BDB_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WWW_4F/6EA62051-8A50-3145-AC8C-FAE38D3FDE59_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL18_WWW_4F/2EE2817D-914A-0D4F-A13E-206F6D491894_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "WWW_4F_centralUL18", 
+  "isData": false, 
+  "WCnames": [], 
+  "nEvents": 240000, 
+  "nSumOfWeights": 51638.257653960005, 
+  "year": "2018", 
+  "nGenEvents": 240000, 
+  "xsec": 0.2086, 
+  "options": ""
+}

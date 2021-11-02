@@ -1,0 +1,32 @@
+{
+  "files": [
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/21F8ED29-2343-D847-BD5E-30BC633D1AEE_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/E8CBEACF-9F22-5342-A2A7-C92CD7F23F82_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/A5B49134-EB95-C347-BCB3-AC28CC2C21F1_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/182C1E29-9A71-AB4F-B032-053350BDB13C_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/B9848154-05C0-8C48-A556-FBE7393831DB_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/C356C563-2F25-144E-BE13-8E671EADB4E9_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/7EB374C3-F7E7-0D4D-9EED-6AE677F1C4EE_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/BFE8D8ED-2FD9-DF40-B528-F822F65B1B9A_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/A4DBC6FA-C4D9-134E-A28A-C8043B41CDD2_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/5C65A676-F219-304C-9182-BC824BE9F123_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/BDCEE5D4-57D0-3249-AA8A-2E39E532A8D4_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/48D4EB75-8C0A-D345-AA65-5F73ECAFFDF0_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/8F0E4798-6EDF-A645-9754-B14CCD0B140F_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/EDC35B9A-9C20-C44D-98E0-0A0E52A9DF79_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/B87E0B97-886F-344E-9207-936B6F0C0EFD_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/56A8191D-6B32-0A45-BD25-ECA7AD1579FB_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/EBD4410A-87EE-D843-96CA-C888BD7465CC_Skim.root", 
+    "/store/user/sesanche/NanoAOD_ULv8_sep28//UL16_WZZ/EABCF2C6-C685-C243-9ABB-3533932384FB_Skim.root"
+  ], 
+  "treeName": "Events", 
+  "histAxisName": "WZZ_centralUL16", 
+  "isData": false, 
+  "WCnames": [], 
+  "nEvents": 137000, 
+  "nSumOfWeights": 7833.564293412001, 
+  "year": "2016", 
+  "nGenEvents": 137000, 
+  "xsec": 0.05565, 
+  "options": ""
+}

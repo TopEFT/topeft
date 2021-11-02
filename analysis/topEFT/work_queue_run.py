@@ -18,6 +18,7 @@ from coffea.nanoevents import NanoAODSchema
 import topeft
 from topcoffea.modules import samples
 from topcoffea.modules import fileReader
+from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
 import topeftenv
 
 import argparse
@@ -35,7 +36,9 @@ parser.add_argument('--do-systs', action='store_true', help = 'Run over systemat
 parser.add_argument('--split-lep-flavor', action='store_true', help = 'Split up categories by lepton flavor')
 parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
 parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
+parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
 parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
+parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
 
 args = parser.parse_args()
 jsonFiles  = args.jsonFiles
@@ -51,7 +54,17 @@ do_systs   = args.do_systs
 split_lep_flavor = args.split_lep_flavor
 skip_sr    = args.skip_sr
 skip_cr    = args.skip_cr
+do_np      = args.do_np
 wc_lst = args.wc_list if args.wc_list is not None else []
+
+# Figure out which hists to include
+if args.hist_list == ["ana"]:
+  # Here we hardcode a list of hists used for the analysis
+  hist_lst = ["njets","ht","ptbl"]
+else:
+  # We want to specify a custom list
+  # If we don't specify this argument, it will be None, and the processor will fill all hists 
+  hist_lst = args.hist_list
 
 ### Load samples from json
 samplesdict = {}
@@ -149,10 +162,12 @@ if len(wc_lst) > 0:
 else:
  print('No Wilson coefficients specified')
 
-processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
+processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
 
 executor_args = {
     'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
+
+    'xrootdtimeout': 180,
 
     # find a port to run work queue in this range:
     'port': [9123,9130],
@@ -193,7 +208,7 @@ executor_args = {
     # exploratory mode.
     'cores': 1,
     'disk': 8000,   #MB
-    'memory': 8000, #MB
+    'memory': 10000, #MB
 
     # control the size of accumulation tasks. Results are
     # accumulated in groups of size chunks_per_accum, keeping at
@@ -233,14 +248,19 @@ nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() i
 nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
 print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
-# This is taken from the DM photon analysis...
-# Pickle is not very fast or memory efficient, will be replaced by something
-# better soon
-#    with lz4f.open("pods/"+options.year+"/"+dataset+".pkl.gz", mode="xb", compression_level=5) as fout:
-if not outpath.endswith('/'): outpath += '/'
+# Save the output
 if not os.path.isdir(outpath): os.system("mkdir -p %s"%outpath)
-print('Saving output in %s...'%(outpath + outname + ".pkl.gz"))
-with gzip.open(outpath + outname + ".pkl.gz", "wb") as fout:
+out_pkl_file = os.path.join(outpath,outname+".pkl.gz")
+print(f"\nSaving output in {out_pkl_file}...")
+with gzip.open(out_pkl_file, "wb") as fout:
   cloudpickle.dump(output, fout)
-print('Done!')
+print("Done!")
 
+# Run the data driven estimation, save the output
+if do_np:
+  print("\nDoing the nonprompt estimation...")
+  out_pkl_file_np = os.path.join(outpath,outname+"_np.pkl.gz")
+  ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_np)
+  print(f"Saving output in {out_pkl_file_np}...")
+  ddp.dumpToPickle()
+  print("Done!")
