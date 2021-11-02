@@ -23,18 +23,26 @@ py_version = "{}.{}.{}".format(
 
 
 # Define packages to install from different conda channels.
-# This is defines as json so that we can easily checksum the contents.
+# This is defines as string so that we can easily checksum the contents.
 packages_json_template = string.Template('''
 {
-    "base": {
-        "conda": {
-            "defaults" : [],
-            "conda-forge" : ["python=$py_version", "conda", "conda-pack", "dill", "xrootd"]
-        },
-        "pip": [
-            "coffea", "uproot>=4.1.6"
+    "conda": {
+        "channels": [
+            "conda-forge"
+        ],
+        "packages": [
+            "python=$py_version",
+            "pip",
+            "conda",
+            "conda-pack",
+            "dill",
+            "xrootd"
         ]
-    }
+    },
+    "pip": [
+        "coffea",
+        "topcoffea"
+        ]
 }
 ''')
 
