@@ -10,7 +10,7 @@ Notes for ND users: When running steps involving condor, you will need to make s
 ## Creating the datacards
 
 The first step is to produce the datacard text files and root files that combine will use. This step takes place within `topcoffea`.
-- ROOT is required, so install it first iwth `conda install -c conda-forge root`
+- ROOT is required, so install it first iwth `conda install -c conda-forge root_base`
 - Run `python analysis/topEFT/datacard_maker.py` (see `analysis/topEFT/README.md` for details)
 
 ## Running combine
