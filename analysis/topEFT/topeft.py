@@ -79,6 +79,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
         self._muonSyst=muonSyst # Calculate muon Rochester uncertainties
+        
     @property
     def accumulator(self):
         return self._accumulator
