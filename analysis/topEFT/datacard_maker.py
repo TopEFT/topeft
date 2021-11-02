@@ -123,9 +123,6 @@ class DatacardMaker():
                     rename = self.rename[name] if name in  self.rename else ''
                     if syst == 'nominal':
                         fout[name+cat] = hist.export1d(histo)
-                        if rename in self.syst_special:
-                            fout[rename+cat+'_flatUp'] = hist.export1d(histo)
-                            fout[rename+cat+'_flatDown'] = hist.export1d(histo)
                     elif rename not in self.syst_special:
                         fout[name+cat+'_'+syst] = hist.export1d(histo)
         def export2d(h):
@@ -233,7 +230,10 @@ class DatacardMaker():
             if len(h_base.axes())>1:
                 fout[pname+'sm'] = export2d(h_bases)
             else:
-                export1d(h_sm, p, '_sm', fout) # Special case for SM b/c background names overlap (p not pname)
+                if any([sig in p for sig in self.signal]):
+                    export1d(h_sm, pname, 'sm', fout) # Special case for SM b/c background names overlap (p not pname)
+                else:
+                    export1d(h_sm, p, '_sm', fout) # Special case for SM b/c background names overlap (p not pname)
             #Asimov data: data_obs = MC at SM (all WCs = 0)
             if len(h_base.axes())>1:
                 fout['data_obs'] = export2d(h_sm)
@@ -293,11 +293,19 @@ class DatacardMaker():
         ``S+L_i+Q_i`` sets ``WC_i=1`` and the rest to ``0``
         ``S+L_i+L_j+Q_i+Q_j+2 M_IJ`` set ``WC_i=1``, ``WC_j=1`` and the rest to ``0``
         '''
+        def getHist(d_hists,name):
+            h = d_hists[name]
+            xmin = h.GetXaxis().GetXmin()
+            xmax = h.GetXaxis().GetXmax()
+            xwidth = h.GetXaxis().GetBinWidth(1)
+            h.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
+            return h
+
         def processSyst(process, systMap, d_hists, fout):
             for syst in self.syst:
                 if channel in self.skip and self.skip[channel] in syst: continue
                 if any([process+'_'+syst in d for d in d_hists]):
-                    h_sys = d_hists[process+'_'+syst]
+                    h_sys = getHist(d_hists, '_'.join([process,syst]))#d_hists[process+'_'+syst]
                     h_sys.SetDirectory(fout)
                     h_sys.Write()
                     if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
@@ -308,26 +316,19 @@ class DatacardMaker():
                         systMap[syst] = {process: round(h_sys.Integral(), 3)}
             for syst_special,val in self.syst_special.items():
                 if syst_special not in process: continue
-                syst = 'flat'
-                for s in ['Up','Down']:
-                    h_sys = d_hists[process+'_'+syst+s]
-                    h_sys.SetDirectory(fout)
-                    if s == 'Up': h_sys.Scale(1 + val)
-                    elif s == 'Down': h_sys.Scale(1 - val)
-                    h_sys.Write()
-                    if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
-                    if syst in systMap:
-                        systMap[syst].update({process: round(h_sys.Integral(), 3)})
-                    else:
-                        systMap[syst] = {process: round(h_sys.Integral(), 3)}
+                #syst = 'flat'
+                #for s in ['Up','Down']:
+                    #h_sys = d_hists[process+'_'+syst+s]
+                    #h_sys.SetDirectory(fout)
+                    #if s == 'Up': h_sys.Scale(1 + val)
+                    #elif s == 'Down': h_sys.Scale(1 - val)
+                    #h_sys.Write()
+                    #if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
+                if syst in systMap:
+                    systMap[syst_special+'_flat_rate'].update({process: 1+val})
+                else:
+                    systMap[syst_special+'_flat_rate'] = {process: 1+val}
                     
-        def getHist(d_hists,name):
-            h = d_hists[name]
-            xmin = h.GetXaxis().GetXmin()
-            xmax = h.GetXaxis().GetXmax()
-            xwidth = h.GetXaxis().GetBinWidth(1)
-            h.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
-            return h
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
@@ -373,9 +374,15 @@ class DatacardMaker():
             These lines are for testing only, and create Asimov data based on all processes provided
             '''
             if isinstance(data_obs, list):
-                data_obs = getHist(d_hists,proc+'_sm').Clone('data_obs') # Special case for SM b/c background names overlap
+                if any([sig in proc for sig in self.signal]):
+                    data_obs = getHist(d_hists,p+'_sm').Clone('data_obs')
+                else:
+                    data_obs = getHist(d_hists,proc+'_sm').Clone('data_obs') # Special case for SM b/c background names overlap
             else:
-                data_obs.Add(getHist(d_hists,proc+'_sm').Clone('data_obs')) # Special case for SM b/c background names overlap
+                if any([sig in proc for sig in self.signal]):
+                    data_obs.Add(getHist(d_hists,p+'_sm').Clone('data_obs'))
+                else:
+                    data_obs.Add(getHist(d_hists,proc+'_sm').Clone('data_obs')) # Special case for SM b/c background names overlap
             data_obs.SetDirectory(fout)
             allyields[name] = data_obs.Integral()
             fout.Delete(name+';1')
@@ -385,7 +392,10 @@ class DatacardMaker():
             if name not in d_hists and proc+'_sm' not in d_hists:
                 print(f'{name} not found in {channel}!')
                 continue
-            h_sm = getHist(d_hists, proc+'_sm') # Special case for SM b/c background names overlap
+            if any([sig in proc for sig in self.signal]):
+                h_sm = getHist(d_hists, name)
+            else:
+                h_sm = getHist(d_hists, proc+'_sm') # Special case for SM b/c background names overlap
             if True or h_sm.Integral() > self.tolerance or p not in self.signal:
                 if p in self.signal:
                     if name in iproc:
@@ -515,8 +525,12 @@ class DatacardMaker():
         datacard.write('##----------------------------------\n')
         if self.do_nuisance:
             for syst in nuisances:
-                systEff = dict((p,"1" if p in systMap[syst] else "-") for p in procs)
-                datacard.write(('%s %5s' % (npatt % syst,'shape')) + " ".join([kpatt % systEff[p]  for p in procs]) +"\n")
+                systEff = dict((p,"1" if p in systMap[syst] else "-") for p in procs if 'rate' not in syst)
+                systEffRate = dict((p,systMap[syst][p] if p in systMap[syst] else "-") for p in procs if 'rate' in syst)
+                if 'rate' in syst:
+                    datacard.write(('%s %5s' % (npatt % syst.replace('_rate',''),'lnN')) + " ".join([kpatt % systEffRate[p]  for p in procs if p in systEffRate]) +"\n")
+                else:
+                    datacard.write(('%s %5s' % (npatt % syst,'shape')) + " ".join([kpatt % systEff[p]  for p in procs if p in systEff]) +"\n")
         
         fout.Close()
 
