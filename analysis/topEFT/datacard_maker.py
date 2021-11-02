@@ -316,14 +316,6 @@ class DatacardMaker():
                         systMap[syst] = {process: round(h_sys.Integral(), 3)}
             for syst_special,val in self.syst_special.items():
                 if syst_special not in process: continue
-                #syst = 'flat'
-                #for s in ['Up','Down']:
-                    #h_sys = d_hists[process+'_'+syst+s]
-                    #h_sys.SetDirectory(fout)
-                    #if s == 'Up': h_sys.Scale(1 + val)
-                    #elif s == 'Down': h_sys.Scale(1 - val)
-                    #h_sys.Write()
-                    #if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
                 if syst in systMap:
                     systMap[syst_special+'_flat_rate'].update({process: 1+val})
                 else:
