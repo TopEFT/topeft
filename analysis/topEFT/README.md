@@ -48,6 +48,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - Example usage: `python analysis/topEFT/datacard_maker.py histos/all_private_njet_opt.pkl.gz`
     - More cards can be made by adding addtional calls to `analyzeChannel()` (see file for details).
     - (Optional) Specify a subset of WCs using e.g. `--POI cpt,ctp,cptb,cQlMi,cQl3i,ctlTi,ctli,cbW,cpQM,cpQ3,ctei,cQei,ctW,ctlSi,ctZ,ctG`
+    - To run over the systematics in a pkl file, use the `--do-nuisance` flag. This will increase the processing time, but shouldn't take more than 10 miutes for all the condor jobs to finish.
 
 * `drawSliders.py`:
  

@@ -28,7 +28,7 @@ def test_make_yields():
         "-f",
         "analysis/topEFT/histos/output_check_yields.pkl.gz",
         "-n",
-        "analysis/topEFT/output_check_yields.json"
+        "analysis/topEFT/output_check_yields"
     ]
 
     # Produce json
@@ -53,9 +53,10 @@ def test_datacard():
     args = [
         "python",
         "analysis/topEFT/datacard_maker.py",
-        "analysis/topEFT/histos/output_check_yields.pkl.gz",
+        "analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz",
         "-j",
-        "0"
+        "0",
+        "--do-nuisance"
     ]
 
     # Run datacard maker
