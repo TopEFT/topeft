@@ -131,10 +131,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         if self._muonSyst == 'MuonESup' : mu["pt"]=apply_roccor(mu, isData, var=1)
         elif self._muonSyst == 'MuonESdo' : mu["pt"]=apply_roccor(mu, isData, var=-1)
         else: mu["pt"]=apply_roccor(mu, isData, var=0)
-        '''
-        mu["pt_roch_up"]=apply_roccor(mu, isData, var=1)
-        mu["pt_roch_do"]=apply_roccor(mu, isData, var=-1)
-        '''
+
         
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
@@ -319,7 +316,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
             pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)
             pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
         weights_dict = {}
         if (isData or (eft_coeffs is not None)):
@@ -335,6 +331,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Trying to calculate PU SFs for data causes a crash, and we don't apply this for data anyway, so just skip it in the case of data
                 weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
                 weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC)
+                # Prefiring weights only available in nanoAODv9**
+                #weights_dict[ch_name].add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
+                
                 if "2l" in ch_name:
                     weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
                     weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
@@ -345,7 +344,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
         # Systematics
         systList = ["nominal"]
-        if (self._do_systematics and not isData and self._muonSyst == 'nominal'): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown"]
+        if (self._do_systematics and not isData and self._muonSyst == 'nominal'): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown"]#,"PreFiringUp","PreFiringDown"]
         elif (self._do_systematics and self._muonSyst != 'nominal'): systList = [self._muonSyst]
 
         ######### Masks we need for the selection ##########

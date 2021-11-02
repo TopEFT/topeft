@@ -194,7 +194,8 @@ def GetBtagEff(eta, pt, flavor, year):
 
 def GetBTagSF(eta, pt, flavor, year, sys=0):
   # Efficiencies and SFs for UL only available for 2016APV, 2017 and 2018
-  if   (year == '2016' or year == '2016APV'): SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_106XUL16SF.csv"),"MEDIUM")
+  # light flavor SFs and unc. missed for 2016APV
+  if   (year == '2016' or year == '2016APV'): SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/DeepFlav_2016.csv"),"MEDIUM")#UL/DeepJet_106XUL16SF.csv"),"MEDIUM") 
   elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL17.csv"),"MEDIUM")
   elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18.csv"),"MEDIUM")
   else: raise Exception(f"Error: Unknown year \"{year}\".")
