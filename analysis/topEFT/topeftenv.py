@@ -47,85 +47,22 @@ packages_json_template = string.Template('''
 ''')
 
 packages_json = packages_json_template.substitute(py_version=py_version)
-packages = json.loads(str(packages_json))
 
 
-def _run_conda_command(environment, command, *args):
-    all_args = ['conda', command]
-    if command != 'run':
-        all_args.append('--yes')
-    all_args = all_args + ['--prefix={}'.format(str(environment))] + list(args)
+def _create_env(env_name, force=False):
+    if force:
+        logger.info("Forcing rebuilding of {}".format(env_name))
+        pathlib.Path(env_name).unlink(missing_ok=True)
+    elif pathlib.Path(env_name).exists():
+        logger.info("Found in cache {}".format(env_name))
+        return env_name
 
-    try:
-        subprocess.check_output(all_args, stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as e:
-        logging.warning("Error executing: {}".format(' '.join(all_args)))
-        print(e.output.decode())
-        sys.exit(1)
-
-def _install_conda_packages(env_path, channel, pkgs, from_local_pip=[]):
-    pkgs = [p for p in pkgs if p not in from_local_pip]
-    if not pkgs:
-        return
-    logger.info("Installing {} into {} via conda".format(','.join(pkgs), env_path))
-    return _run_conda_command(
-            env_path,
-            'install',
-            '-c',
-            channel,
-            *pkgs)
-
-def _install_pip_packages(env_path, pkgs):
-    if not pkgs:
-        return
-    for pkg in pkgs:
-        logger.info("Installing {} into {} via pip".format(pkg, env_path))
-        _run_conda_command(
-                env_path,
-                'run',
-                'sh', '-c', 'pip install "{}"'.format(pkg))
-
-def _install_pip_requirements(base_env_tarball, env_path, pkg, location):
-    logger.info("Installing requirements of {} into {} via pip".format(location, env_path))
-    _run_conda_command(
-            env_path,
-            'run',
-            'sh', '-c', 'cd {} && pip install  --use-feature=in-tree-build . && pip uninstall --yes {}'.format(location, pkg))
-
-def _create_base_env(packages_hash, pip_paths, force=False):
-    pathlib.Path(env_dir_cache).mkdir(parents=True, exist_ok=True)
-    output=pathlib.Path(env_dir_cache).joinpath("base_env_{}.tar.gz".format(packages_hash))
-
-    with tempfile.TemporaryDirectory() as base_env_path:
-        logger.info("Looking for base environment {}...".format(output))
-
-        if force:
-            logger.info("Forcing rebuilding of {}".format(output))
-            pathlib.Path(output).unlink(missing_ok=True)
-
-        if pathlib.Path(output).exists():
-            logger.info("Found in cache {}".format(output))
-            return str(output)
-
-        logger.info("Creating environment {}".format(base_env_path))
-        _run_conda_command(base_env_path, 'create')
-
-        for (channel, pkgs) in packages['base']['conda'].items():
-            _install_conda_packages(base_env_path, channel, pkgs, pip_paths.keys())
-
-        _install_pip_packages(base_env_path, packages['base']['pip'])
-
-        for (pkg, location) in pip_paths.items():
-            _install_pip_requirements(output, base_env_path, pkg, location)
-
-        logger.info("Generating {} environment file".format(output))
-        try:
-            subprocess.check_output(['conda-pack', '--prefix', base_env_path, '--output', str(output)], stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            print(e.output.decode())
-            sys.exit(1)
-
-    return str(output)
+    with tempfile.NamedTemporaryFile() as f:
+        f.write(packages_json.encode())
+        f.flush()
+        logger.info("Creating environment {}".format(env_name))
+        subprocess.check_call(['poncho_package_create', f.name, env_name])
+        return env_name
 
 
 def _find_local_pip():
@@ -133,7 +70,6 @@ def _find_local_pip():
 
     # drop first two lines, which are just a header
     edit_raw = edit_raw.split('\n')[2:]
-
     path_of = {}
     for line in edit_raw:
         if not line:
@@ -144,6 +80,7 @@ def _find_local_pip():
         (pkg, version, location) = line.split()
         path_of[pkg] = location
     return path_of
+
 
 def _commits_local_pip(paths):
     commits = {}
@@ -164,7 +101,10 @@ def _commits_local_pip(paths):
             commits[pkg] = 'HEAD'
     return commits
 
+
 def _compute_commit(paths, commits):
+    if not commits:
+        return "fixed"
     # list commits according to paths ordering
     values = [commits[p] for p in paths]
     if 'HEAD' in values:
@@ -173,41 +113,17 @@ def _compute_commit(paths, commits):
         return 'HEAD'
     return hashlib.sha256(''.join(values).encode()).hexdigest()[0:8]
 
+
 def _clean_cache(cache_size, *current_files):
-    base_envs = sorted(glob.glob(os.path.join(env_dir_cache, 'base_env_*')), key=lambda f: -os.stat(f).st_mtime)
-    full_envs = sorted(glob.glob(os.path.join(env_dir_cache, 'full_env_*')), key=lambda f: -os.stat(f).st_mtime)
-
-    for f in base_envs[cache_size:]:
-        if not f in current_files:
-            logger.info("Trimming cached environment file {}".format(f))
-            os.remove(f)
-    for f in full_envs[cache_size:]:
+    envs = sorted(glob.glob(os.path.join(env_dir_cache, 'env_*.tar.gz')), key=lambda f: -os.stat(f).st_mtime)
+    for f in envs[cache_size:]:
         if not f in current_files:
             logger.info("Trimming cached environment file {}".format(f))
             os.remove(f)
 
-def _install_local_pip(base_env_tarball, env_dir, pip_path):
-    logger.info("Installing {} from editable pip".format(pip_path))
-
-    with tempfile.NamedTemporaryFile(mode='w') as pip_recipe:
-        pip_recipe.write("""
-#! /bin/bash
-# remove if conda installed:
-pip_name=$(cd {path} && python setup.py --name)
-python_package_run -e {base_env_tarball} -u {env_dir} -- conda remove --yes --force "$pip_name"
-
-# install from pip local path
-set -e
-python_package_run -e {base_env_tarball} -u {env_dir} -- pip install  --use-feature=in-tree-build  {path}
-    """.format(base_env_tarball=base_env_tarball, env_dir=env_dir, path=pip_path))
-        pip_recipe.flush()
-        try:
-            subprocess.check_output(['/bin/bash', pip_recipe.name], stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            print(e.output.decode())
-            sys.exit(1)
 
 def get_environment(force=False, unstaged='rebuild', cache_size=3):
+    # ensure cache directory exists
     pathlib.Path(env_dir_cache).mkdir(parents=True, exist_ok=True)
 
     packages_hash = hashlib.sha256(packages_json.encode()).hexdigest()[0:8]
@@ -215,10 +131,8 @@ def get_environment(force=False, unstaged='rebuild', cache_size=3):
     pip_commits = _commits_local_pip(pip_paths)
     pip_check = _compute_commit(pip_paths, pip_commits)
 
-    base_env_tarball = _create_base_env(packages_hash, pip_paths, force)
-    full_env_tarball = pathlib.Path(env_dir_cache).joinpath("full_env_{}_{}".format(packages_hash, pip_check)).with_suffix(".tar.gz")
-
-    _clean_cache(cache_size, base_env_tarball, full_env_tarball)
+    env_name = str(pathlib.Path(env_dir_cache).joinpath("env_spec_{}_edit_{}".format(packages_hash, pip_check)).with_suffix(".tar.gz"))
+    _clean_cache(cache_size, env_name)
 
     if pip_check == 'HEAD':
         changed = [p for p in pip_commits if pip_commits[p] == 'HEAD']
@@ -228,31 +142,8 @@ def get_environment(force=False, unstaged='rebuild', cache_size=3):
             force = True
             logger.warning("Rebuilding environment because unstaged changes in {}".format(', '.join([pathlib.Path(p).name for p in changed])))
 
-    if force:
-        logger.warning("Forcing rebuild of {}".format(full_env_tarball))
-        pathlib.Path(full_env_tarball).unlink(missing_ok=True)
+    return _create_env(env_name, force)
 
-    if pathlib.Path(full_env_tarball).exists():
-        logger.info("Found in cache {}".format(full_env_tarball))
-        return str(full_env_tarball)
-
-    with tempfile.TemporaryDirectory() as tmp_env:
-        for path in pip_paths.values():
-            _install_local_pip(base_env_tarball, tmp_env, path)
-
-        logger.info("Generating {} environment file".format(full_env_tarball))
-        try:
-            # remove flag file that marks environment as expanded
-            os.remove(os.path.join(tmp_env ,'.python_package_run_expanded'))
-        except FileNotFoundError:
-            pass
-
-        try:
-            subprocess.check_output(['conda-pack', '--prefix', tmp_env, '--output', str(full_env_tarball)], stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as e:
-            print(e.output.decode())
-            sys.exit(1)
-    return str(full_env_tarball)
 
 
 class UnstagedChanges(Exception):
