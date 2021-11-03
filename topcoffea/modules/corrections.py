@@ -201,7 +201,7 @@ def GetBtagEff(eta, pt, flavor, year):
   if year=='2017': return MCeffFunc_2017(pt, eta, flavor)
   else         : return MCeffFunc_2018(pt, eta, flavor)
 
-def GetBTagSF(eta, pt, flavor, year, sys=0):
+def GetBTagSF(eta, pt, flavor, year, sys='nominal'):
   # Efficiencies and SFs for UL only available for 2016APV, 2017 and 2018
   # light flavor SFs and unc. missed for 2016APV
   if   (year == '2016' or year == '2016APV'): SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/DeepFlav_2016.csv"),"MEDIUM")#UL/DeepJet_106XUL16SF.csv"),"MEDIUM") 
@@ -209,9 +209,9 @@ def GetBTagSF(eta, pt, flavor, year, sys=0):
   elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18.csv"),"MEDIUM")
   else: raise Exception(f"Error: Unknown year \"{year}\".")
 
-  if   sys==0 : SF=SFevaluatorBtag.eval("central",flavor,eta,pt)
-  elif sys==1 : SF=SFevaluatorBtag.eval("up",flavor,eta,pt)
-  elif sys==-1: SF=SFevaluatorBtag.eval("down",flavor,eta,pt)
+  if   sys=='nominal' : SF=SFevaluatorBtag.eval("central",flavor,eta,pt)
+  elif sys=='up' : SF=SFevaluatorBtag.eval("up",flavor,eta,pt)
+  elif sys=='down': SF=SFevaluatorBtag.eval("down",flavor,eta,pt)
   return (SF)
 
 ###### Pileup reweighing
@@ -231,9 +231,9 @@ pudirpath = topcoffea_path('data/pileup/')
 def GetDataPUname(year, var=0):
   ''' Returns the name of the file to read pu observed distribution '''
   if year == '2016APV': year = '2016'
-  if   var== 0: ppxsec = get_param("pu_w")
-  elif var== 1: ppxsec = get_param("pu_w_up")
-  elif var==-1: ppxsec = get_param("pu_w_down")
+  if   var== 'nominal': ppxsec = get_param("pu_w")
+  elif var== 'up': ppxsec = get_param("pu_w_up")
+  elif var== 'down': ppxsec = get_param("pu_w_down")
   year = str(year)
   return 'PileupHistogram-goldenJSON-13tev-%s-%sub-99bins.root'%((year), str(ppxsec))
 
@@ -249,21 +249,21 @@ for year in ['2016', '2016APV', '2017', '2018']:
   with uproot.open(pudirpath+GetMCPUname(year)) as fMC:
     hMC = fMC['pileup']
     PUfunc[year]['MC'] = lookup_tools.dense_lookup.dense_lookup(hMC .values(), hMC.axis(0).edges())
-  with uproot.open(pudirpath+GetDataPUname(year,  0)) as fData:
+  with uproot.open(pudirpath+GetDataPUname(year,  'nominal')) as fData:
     hD   = fData  ['pileup']
     PUfunc[year]['Data'  ] = lookup_tools.dense_lookup.dense_lookup(hD  .values(), hD.axis(0).edges())
-  with uproot.open(pudirpath+GetDataPUname(year,  1)) as fDataUp:
+  with uproot.open(pudirpath+GetDataPUname(year,  'up')) as fDataUp:
     hDUp = fDataUp['pileup']
     PUfunc[year]['DataUp'] = lookup_tools.dense_lookup.dense_lookup(hDUp.values(), hD.axis(0).edges())
-  with uproot.open(pudirpath+GetDataPUname(year, -1)) as fDataDo:
+  with uproot.open(pudirpath+GetDataPUname(year, 'down')) as fDataDo:
     hDDo = fDataDo['pileup']
     PUfunc[year]['DataDo'] = lookup_tools.dense_lookup.dense_lookup(hDDo.values(), hD.axis(0).edges())
 
-def GetPUSF(nTrueInt, year, var=0):
+def GetPUSF(nTrueInt, year, var='nominal'):
   year = str(year)
   if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
   nMC  =PUfunc[year]['MC'](nTrueInt+1)
-  nData=PUfunc[year]['DataUp' if var == 1 else ('DataDo' if var == -1 else 'Data')](nTrueInt)
+  nData=PUfunc[year]['DataUp' if var == 'up' else ('DataDo' if var == 'down' else 'Data')](nTrueInt)
   weights = np.divide(nData,nMC)
   return weights
 
@@ -285,7 +285,7 @@ name_map['ptGenJet'] = 'pt_gen'
 name_map['ptRaw'] = 'pt_raw'
 name_map['massRaw'] = 'mass_raw'
 name_map['Rho'] = 'rho'
-jet_factory = CorrectedJetsFactory(name_map, jec_stack)
+ApplyJetCorrections = CorrectedJetsFactory(name_map, jec_stack)
 # test
 #val = evaluator['MuonTightSF_2016'](np.array([1.2, 0.3]),np.array([24.5, 51.3]))
 #print('val = ', val)
@@ -299,7 +299,7 @@ elif year=='2016APV': rochester_data = txt_converters.convert_rochester_file(top
 elif year=='2017': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2017UL.txt"), loaduncs=True)
 elif year=='2018': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2018UL.txt"), loaduncs=True)
 rochester = rochester_lookup.rochester_lookup(rochester_data)
-def apply_roccor(mu, is_data, var=0):
+def ApplyRochesterCorrections(mu, is_data, var=0):
     if not is_data:
         hasgen = ~np.isnan(ak.fill_none(mu.matched_gen.pt, np.nan))
         mc_rand = np.random.rand(*ak.to_numpy(ak.flatten(mu.pt)).shape)
@@ -321,6 +321,6 @@ def apply_roccor(mu, is_data, var=0):
     else:
         corrections = rochester.kScaleDT(mu.charge, mu.pt, mu.eta, mu.phi)
         errors = rochester.kScaleDTerror(mu.charge, mu.pt, mu.eta, mu.phi)
-    if var==0: return(mu.pt * corrections) #nominal
-    elif var==1: return(mu.pt * corrections + mu.pt * errors) #up 
-    elif var==-1: return(mu.pt * corrections - mu.pt * errors) #down
+    if var=='nominal': return(mu.pt * corrections) #nominal
+    elif var=='up': return(mu.pt * corrections + mu.pt * errors) #up 
+    elif var=='down': return(mu.pt * corrections - mu.pt * errors) #down
