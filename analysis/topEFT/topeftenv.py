@@ -29,13 +29,10 @@ packages_json_template = string.Template('''
     "base": {
         "conda": {
             "defaults" : [],
-            "conda-forge" : ["python=$py_version", "conda", "conda-pack", "dill", "xrootd", "coffea"]
-        }
-    },
-    "user": {
-        "conda": [
-        ],
+            "conda-forge" : ["python=$py_version", "conda", "conda-pack", "dill", "xrootd"]
+        },
         "pip": [
+            "coffea", "uproot>=4.1.6"
         ]
     }
 }
@@ -70,6 +67,16 @@ def _install_conda_packages(env_path, channel, pkgs, from_local_pip=[]):
             channel,
             *pkgs)
 
+def _install_pip_packages(env_path, pkgs):
+    if not pkgs:
+        return
+    for pkg in pkgs:
+        logger.info("Installing {} into {} via pip".format(pkg, env_path))
+        _run_conda_command(
+                env_path,
+                'run',
+                'sh', '-c', 'pip install "{}"'.format(pkg))
+
 def _install_pip_requirements(base_env_tarball, env_path, pkg, location):
     logger.info("Installing requirements of {} into {} via pip".format(location, env_path))
     _run_conda_command(
@@ -97,6 +104,8 @@ def _create_base_env(packages_hash, pip_paths, force=False):
 
         for (channel, pkgs) in packages['base']['conda'].items():
             _install_conda_packages(base_env_path, channel, pkgs, pip_paths.keys())
+
+        _install_pip_packages(base_env_path, packages['base']['pip'])
 
         for (pkg, location) in pip_paths.items():
             _install_pip_requirements(output, base_env_path, pkg, location)
