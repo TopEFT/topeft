@@ -424,7 +424,7 @@ class DatacardMaker():
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                     continue
                 h_lin = getHist(d_hists, name)
-                if h_lin.Integral() > 0 and h_lin.Integral() / h_sm.Integral() > self.tolerance:
+                if h_lin.Integral() > 0:
                     if name in iproc:
                         allyields[name] += h_lin.Integral()
                         d_sigs[name].Add(h_lin)
@@ -449,7 +449,7 @@ class DatacardMaker():
                 h_quad.Add(h_lin, -2)
                 h_quad.Add(h_sm)
                 h_quad.Scale(0.5)
-                if h_quad.Integral() > 0 and h_quad.Integral() / h_sm.Integral() > self.tolerance:
+                if h_quad.Integral() > 0:
                     if name in iproc:
                         allyields[name] += h_quad.Integral()
                         d_sigs[name].Add(h_quad)
@@ -472,7 +472,7 @@ class DatacardMaker():
                         print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                         continue
                     h_mix = getHist(d_hists, name)
-                    if h_mix.Integral() > 0 and h_mix.Integral() / h_sm.Integral() > self.tolerance:
+                    if h_mix.Integral() > 0:
                         if name in iproc:
                             allyields[name] += h_mix.Integral()
                             d_sigs[name].Add(h_mix)
