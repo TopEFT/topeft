@@ -54,7 +54,7 @@
     "/store/user/kmohrman/FullProduction/FullR2/UL18/Round1/Batch2/naodOnly_step/v1/nAOD_step_ttllNuNuJetNoHiggs_all22WCsStartPtCheckdim6TopMay20GST_run0/NAOD-00000_9490.root"
   ],
   "nEvents": 5394397,
-  "nGenEvents": 35087748.0,
-  "nSumOfWeights": 35087748,
+  "nGenEvents": 35087748,
+  "nSumOfWeights": 7010.801678373011,
   "isData": false
 }

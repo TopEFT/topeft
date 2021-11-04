@@ -45,6 +45,7 @@ def update_json(fname,dry_run=False,outname=None,verbose=False,**kwargs):
             to be saved in the same directory as the original w/o making sure the file path is correct
     '''
     jsn = load_sample_json_file(fname)
+    jsn.pop('redirector')   # Don't currently store this info in the json
     if verbose:
         h,t = os.path.split(fname)
         print(f"Updating {t}")
@@ -61,7 +62,7 @@ def update_json(fname,dry_run=False,outname=None,verbose=False,**kwargs):
     if dry_run:
         return
     new_file = fname if outname is None else outname
-    with open(new_file) as f:
+    with open(new_file,'w') as f:
         print(f'>> Writing updated file to {new_file}')
         json.dump(jsn,f,indent=2)
 
