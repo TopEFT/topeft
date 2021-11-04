@@ -32,7 +32,7 @@ packages_json_template = string.Template('''
             "conda-forge" : ["python=$py_version", "conda", "conda-pack", "dill", "xrootd"]
         },
         "pip": [
-            "uproot>=4.1.6","coffea"
+            "coffea", "uproot>=4.1.6"
         ]
     }
 }
