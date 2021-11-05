@@ -20,6 +20,7 @@ setuptools.setup(
             "data/btagSF/UL/*.csv",
             "data/btagSF/*.csv",
             "data/pileup/*.root",
+            "data/MuonScale/*txt",
             "data/goldenJsons/*.txt",
         ],
     }

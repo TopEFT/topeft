@@ -15,7 +15,7 @@ from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, jet_factory, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
@@ -51,7 +51,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -89,7 +89,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
-
+        self._muonSyst=muonSyst # Calculate muon Rochester uncertainties
+        
 
     @property
     def accumulator(self):
@@ -136,7 +137,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu["conept"] = coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
         e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+        
+        # Update muon kinematics with Rochester correction
+        mu["pt_raw"]=mu.pt
+        if self._muonSyst == 'MuonESUp' : mu["pt"]=ApplyRochesterCorrections(mu, isData, var='up')
+        elif self._muonSyst == 'MuonESDown' : mu["pt"]=ApplyRochesterCorrections(mu, isData, var='down')
+        else: mu["pt"]=ApplyRochesterCorrections(mu, isData, var='nominal')
 
+        
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
             golden_json_path = topcoffea_path("data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
@@ -214,7 +222,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
             cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
             events_cache = events.caches[0]
-            corrected_jets = jet_factory.build(cleanedJets, lazy_cache=events_cache)
+            corrected_jets = ApplyJetCorrections.build(cleanedJets, lazy_cache=events_cache)
             '''
             # SYSTEMATICS
             jets = corrected_jets
@@ -308,8 +316,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
 
             bJetSF   = GetBTagSF(abseta, pt, flav, year)
-            bJetSFUp = GetBTagSF(abseta, pt, flav, year, sys=1)
-            bJetSFDo = GetBTagSF(abseta, pt, flav, year, sys=-1)
+            bJetSFUp = GetBTagSF(abseta, pt, flav, year, sys='up')
+            bJetSFDo = GetBTagSF(abseta, pt, flav, year, sys='down')
             bJetEff  = GetBtagEff(abseta, pt, flav, year)
             bJetEff_data   = bJetEff*bJetSF
             bJetEff_dataUp = bJetEff*bJetSFUp
@@ -318,12 +326,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             pMC     = ak.prod(bJetEff       [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJetsMedium]), axis=-1)
             pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
             pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
-            pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)
-
+            pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
             pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-            btagSF   = pData  /pMC
-            btagSFUp = pDataUp/pMC
-            btagSFDo = pDataDo/pMC
 
 
         # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
@@ -339,9 +343,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
             if not isData:
                 # We only calculate these values if not isData
-                weights_dict[ch_name].add("btagSF",pData/pMC,pDataUp/pMC,pDataDo/pMC)
+                weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC)
                 # Trying to calculate PU SFs for data causes a crash, and we don't apply this for data anyway, so just skip it in the case of data
-                weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 1), GetPUSF(events.Pileup.nTrueInt, year, -1))
+                weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 'up'), GetPUSF(events.Pileup.nTrueInt, year, 'down'))
+                # Prefiring weights only available in nanoAODv9**
+                weights_dict[ch_name].add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
             if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
@@ -355,7 +361,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Systematics
         systList = ["nominal"]
-        if self._do_systematics and not isData: systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown"]
+        if (self._do_systematics and not isData and self._muonSyst == 'nominal'): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown"]
+        elif (self._do_systematics and self._muonSyst != 'nominal'): systList = [self._muonSyst]
 
 
         ######### Masks we need for the selection ##########
@@ -558,7 +565,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used (weight_fluct=None)
                 weight_fluct = syst
-                if syst in ["nominal","JERUp","JERDown","JESUp","JESDown"]: weight_fluct = None # No weight systematic for these variations
+                if syst in ["nominal","JERUp","JERDown","JESUp","JESDown","MuonESUp","MuonESDown"]: weight_fluct = None # No weight systematic for these variations
 
                 # Loop over nlep categories "2l", "3l", "4l"
                 for nlep_cat in cat_dict.keys():
