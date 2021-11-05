@@ -79,7 +79,7 @@ Now we can actually run combine to perform the fits.
   - Example:
     ```
     python -i ../scripts/EFTFitter.py
-    fitter.batch1DScanEFT(basename='.081921.njet.ptbl.Float', batch='condor', workspace='wps.root')
+    fitter.batch1DScanEFT(basename='.081921.njet.ptbl.Float', batch='condor', workspace='wps.root', other=['-t', '-1'])
     ```
   - Once all jobs are finished, run the following (again inside `python -i ../scripts/EFTFitter.py`) to collect them in the `EFTFit/Fitter/fit_files` folder: 
     ```
