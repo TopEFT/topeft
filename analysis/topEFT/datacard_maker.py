@@ -8,6 +8,7 @@ import numpy as np
 import os
 import re
 import json
+from copy import deepcopy 
 
 from ROOT import TFile, TH1D, TH2D
 
@@ -20,7 +21,7 @@ class DatacardMaker():
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         self.fin = infile
-        self.tolerance = 1e-7
+        self.tolerance = 1e-5
         self.do_nuisance = do_nuisance
         self.coeffs = wcs if len(wcs)>0 else []
         if len(self.coeffs) > 0: print(f'Using the subset {self.coeffs}')
@@ -299,7 +300,7 @@ class DatacardMaker():
             xmax = h.GetXaxis().GetXmax()
             xwidth = h.GetXaxis().GetBinWidth(1)
             h.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
-            return h
+            return deepcopy(h) # to protect d_hists from modifications 
 
         def processSyst(process, systMap, d_hists, fout):
             for syst in self.syst:
@@ -354,6 +355,7 @@ class DatacardMaker():
         d_bkgs = {} # Store backgrounds for summing
         samples = list(set([proc.split('_')[0] for proc in self.samples]))
         samples.sort()
+        selectedWCsForProc={}
         for proc in samples:
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
             if self.should_skip_process(proc, channel): continue
@@ -418,29 +420,64 @@ class DatacardMaker():
                 h_sm.Write()
                 if p not in self.signal:
                     continue
+
+            # lets select now the coefficients that actually have an impact
+            selectedWCs=[]
+
             for n,wc in enumerate(self.coeffs):
+                
+                # check if linear terms are non null
+                name = '_'.join([pname[:-1],'lin',wc])
+                tmp = getHist(d_hists, name); tmp.Add(h_sm,-1)
+
+
+                if abs(tmp.Integral() / h_sm.Integral()) > self.tolerance:
+                    selectedWCs.append(wc)
+                    continue                    
+
+                # check if quadratic terms are non null
+                name = '_'.join([pname[:-1],'quad',wc])
+                tmp = getHist(d_hists, name); tmp.Add(h_sm,-1)
+                if abs(tmp.Integral() / h_sm.Integral()) > self.tolerance:
+                    selectedWCs.append(wc)
+                    continue
+
+                # check if crossed terms are non null
+                anyIsNonZero=False
+                for wc2 in [self.coeffs[w2] for w2 in range(n)]:
+                    name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
+                    name2 = '_'.join([pname[:-1],'lin',wc2])
+                    h_mix = getHist(d_hists, name)
+                    h_lin2 = getHist(d_hists, name2)
+                    tmp=deepcopy(h_mix); tmp.Add(h_lin2,-1) # should be S+L1+Q1+M12, if its small we can skip it 
+                    if abs(tmp.Integral() / h_sm.Integral()) > self.tolerance:
+                        selectedWCs.append(wc)
+                        break
+
+            selectedWCsForProc[pname[:-1]]=selectedWCs
+            for n,wc in enumerate(selectedWCs):
                 name = '_'.join([pname[:-1],'lin',wc])
                 if name not in d_hists:
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                     continue
                 h_lin = getHist(d_hists, name)
-                if h_lin.Integral() > 0 and h_lin.Integral() / h_sm.Integral() > self.tolerance:
-                    if name in iproc:
-                        allyields[name] += h_lin.Integral()
-                        d_sigs[name].Add(h_lin)
-                        fout.Delete(name+';1')
-                        h_lin = d_sigs[name]
-                    else:
-                        signalcount -= 1
-                        iproc[name] = signalcount
-                        allyields[name] = h_lin.Integral()
-                        d_sigs[name] = h_lin
-                    h_lin.SetDirectory(fout)
-                    h_lin.Write()
-                    if allyields[name] < 0:
-                        allyields[name] = 0.
+                if name in iproc:
+                    allyields[name] += h_lin.Integral()
+                    d_sigs[name].Add(h_lin)
+                    fout.Delete(name+';1')
+                    h_lin = d_sigs[name]
+                else:
+                    signalcount -= 1
+                    iproc[name] = signalcount
+                    allyields[name] = h_lin.Integral()
+                    d_sigs[name] = h_lin
+                h_lin.SetDirectory(fout)
+                h_lin.Write()
+                if allyields[name] < 0:
+                    allyields[name] = 0.
 
-                    if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+
                 name = '_'.join([pname[:-1],'quad',wc])
                 if name not in d_hists:
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
@@ -449,47 +486,52 @@ class DatacardMaker():
                 h_quad.Add(h_lin, -2)
                 h_quad.Add(h_sm)
                 h_quad.Scale(0.5)
-                if h_quad.Integral() > 0 and h_quad.Integral() / h_sm.Integral() > self.tolerance:
-                    if name in iproc:
-                        allyields[name] += h_quad.Integral()
-                        d_sigs[name].Add(h_quad)
-                        fout.Delete(name+';1')
-                        h_quad = d_sigs[name]
-                    else:
-                        signalcount -= 1
-                        iproc[name] = signalcount
-                        allyields[name] = h_quad.Integral()
-                        d_sigs[name] = h_quad
-                    h_quad.SetDirectory(fout)
-                    h_quad.Write()
-                    if allyields[name] < 0:
-                        allyields[name] = 0.
-                    if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if name in iproc:
+                    allyields[name] += h_quad.Integral()
+                    d_sigs[name].Add(h_quad)
+                    fout.Delete(name+';1')
+                    h_quad = d_sigs[name]
+                else:
+                    signalcount -= 1
+                    iproc[name] = signalcount
+                    allyields[name] = h_quad.Integral()
+                    d_sigs[name] = h_quad
+                h_quad.SetDirectory(fout)
+                h_quad.Write()
+                if allyields[name] < 0:
+                    allyields[name] = 0.
+                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                
 
-                for wc2 in [self.coeffs[w2] for w2 in range(n)]:
+                for wc2 in [selectedWCs[w2] for w2 in range(n)]:
+                    
                     name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
+                    name2 = '_'.join([pname[:-1],'lin',wc2])
                     if name not in d_hists:
                         print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                         continue
                     h_mix = getHist(d_hists, name)
-                    if h_mix.Integral() > 0 and h_mix.Integral() / h_sm.Integral() > self.tolerance:
-                        if name in iproc:
-                            allyields[name] += h_mix.Integral()
-                            d_sigs[name].Add(h_mix)
-                            fout.Delete(name+';1')
-                            h_mix = d_sigs[name]
-                        else:
-                            signalcount -= 1
-                            iproc[name] = signalcount
-                            allyields[name] = h_mix.Integral()
-                            d_sigs[name] = h_mix
-                        h_mix.SetDirectory(fout)
-                        h_mix.Write()
+                    skipMe=False
+                    if name in iproc:
+                        allyields[name] += h_mix.Integral()
+                        d_sigs[name].Add(h_mix)
+                        fout.Delete(name+';1')
+                        h_mix = d_sigs[name]
+                    else:
+                        signalcount -= 1
+                        iproc[name] = signalcount
                         allyields[name] = h_mix.Integral()
-                        if allyields[name] < 0:
-                            allyields[name] = 0.
-                        if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                        d_sigs[name] = h_mix
+                    h_mix.SetDirectory(fout)
+                    h_mix.Write()
+                    allyields[name] = h_mix.Integral()
+                    if allyields[name] < 0:
+                        allyields[name] = 0.
+                    if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
 
+        selectedWCsFile=open(f'histos/selectedWCs-{cat}.txt','w')
+        json.dump(selectedWCsForProc, selectedWCsFile)
+        selectedWCsFile.close()
         #Write datacard
         allyields = {k : (v if v>0 else 0) for k,v in allyields.items()}
         if systematics != 'nominal':
@@ -650,6 +692,7 @@ if __name__ == '__main__':
                  {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
                  {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
         jobs.append(cards)
+
     njobs = len(jobs) * len(jobs[0])
     if job == -1:
         card.condor_job(pklfile, njobs, wcs, do_nuisance)
