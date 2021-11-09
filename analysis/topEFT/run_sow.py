@@ -104,8 +104,6 @@ executor_args = {
     'schema': NanoAODSchema,
     'skipbadfiles': False,
 
-    'wrapper': "python_package_run_with_retries",
-
     # use mid-range compression for chunks results. 9 is the default for work
     # queue in coffea. Valid values are 0 (minimum compression, less memory
     # usage) to 16 (maximum compression, more memory usage).
