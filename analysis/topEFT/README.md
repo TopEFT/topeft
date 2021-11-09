@@ -42,7 +42,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - Example usage: `source check_yields.sh`
 
 * `remake_ci_ref_datacard.py`:
-    - This script runs the datacard maker tests. The `--final` flag will allow the assert lines to fail if anything is wrong
+    - This script runs the datacard maker tests.
     - Example usage: `python remake_ci_ref_datacard.py`
 * `remake_ci_ref_datacard.sh`:
     - This script runs `remake_ci_ref_datacard.py` and copies the resulting reference files to the `analysis/topEFT/test`
