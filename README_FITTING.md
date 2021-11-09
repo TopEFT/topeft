@@ -44,7 +44,7 @@ scram b -j8
 #### Get the EFTFit repository
 ```
 cd $CMSSW_BASE/src/
-git clone git@github.com:cms-govner/EFTFit.git EFTFit
+git clone https://github.com/TopEFT/EFTFit.git EFTFit
 scram b -j8
 ```
 
