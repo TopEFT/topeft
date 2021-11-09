@@ -41,6 +41,13 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - This script calls `run.py` (to run the `topeft` processor over a sample), `get_yield_json.py` (to find the yields, and save them to a json file), and `comp_yields.py` (to compare these yields to reference yields).
     - Example usage: `source check_yields.sh`
 
+* `remake_ci_ref_datacard.py`:
+    - This script runs the datacard maker tests. The `--final` flag will allow the assert lines to fail if anything is wrong
+    - Example usage: `python remake_ci_ref_datacard.py`
+* `remake_ci_ref_datacard.sh`:
+    - This script runs `remake_ci_ref_datacard.py` and copies the resulting reference files to the `analysis/topEFT/test`
+    - Example usage: `sh remake_ci_ref_datacard.sh`
+
 ### Other scripts
 
 * `datacard_maker.py`:
