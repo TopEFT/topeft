@@ -1,4 +1,8 @@
+import os
 import re
+import json
+
+pjoin = os.path.join
 
 # Match strings using one or more regular expressions
 def regex_match(lst,regex_lst):
@@ -16,3 +20,60 @@ def regex_match(lst,regex_lst):
                 matches.append(s)
                 break
     return matches
+
+# Read from a sample json file
+def load_sample_json_file(fpath):
+    if not os.path.exists(fpath):
+        raise RuntimeError(f"fpath '{fpath}' does not exist!")
+    with open(fpath) as f:
+        jsn = json.load(f)
+    jsn['redirector'] = None
+    # Cleanup any spurious double slashes
+    for i,fn in enumerate(jsn['files']):
+        fn = fn.replace("//","/")
+        jsn['files'][i] = fn
+    # Make sure that the json was unpacked correctly
+    jsn['xsec']          = float(jsn['xsec'])
+    jsn['nEvents']       = int(jsn['nEvents'])
+    jsn['nGenEvents']    = int(jsn['nGenEvents'])
+    jsn['nSumOfWeights'] = float(jsn['nSumOfWeights'])
+    return jsn
+
+# Generate/Update a dictionary for storing info from a cfg file
+def update_cfg(jsn,name,**kwargs):
+    cfg = kwargs.pop('cfg',{})
+    max_files = kwargs.pop('max_files',0)
+    cfg[name] = {}
+    cfg[name].update(jsn)
+    if max_files:
+        # Only keep the first "max_files"
+        del cfg[name]['files'][max_files:]
+    # Inject/Modify info related to the json sample
+    for k,v in kwargs.items():
+        cfg[name][k] = v
+    return cfg
+
+# Read from a cfg file
+def read_cfg_file(fpath,cfg={},max_files=0):
+    cfg_dir,fname = os.path.split(fpath)
+    if not cfg_dir:
+        raise RuntimeError(f"No cfg directory in {fpath}")
+    if not os.path.exists(cfg_dir):
+        raise RuntimeError(f"{cfg_dir} does not exist!")
+    xrd_src = None
+    with open(fpath) as f:
+        print(' >> Reading json from cfg file...')
+        for l in f:
+            l = l.strip().split("#")[0]     # Chop off anything after a comment
+            if not len(l): continue         # Ignore fully commented lines
+            if l.startswith("root:"):
+                # Note: This implicitly assumes that a redirector line will appear before any json
+                #   paths in the cfg file
+                xrd_src = l
+            else:
+                sample = os.path.basename(l)
+                sample = sample.replace(".json","")
+                full_path = pjoin(cfg_dir,l)
+                jsn = load_sample_json_file(full_path)
+                cfg = update_cfg(jsn,sample,cfg=cfg,max_files=max_files,redirector=xrd_src)
+    return cfg
