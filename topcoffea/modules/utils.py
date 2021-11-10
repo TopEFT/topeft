@@ -33,18 +33,20 @@ def get_files(top_dir,ignore_dirs=[],match_files=[],ignore_files=[],recursive=Tr
     found = []
     for root, dirs, files in os.walk(top_dir):
         if recursive:
-            dir_matches = regex_match(dirs,regex_lst=ignore_dirs)
-            for m in dir_matches:
-                print(f"Skipping directory: {m}")
-                dirs.remove(m)
+            if ignore_dirs:
+                dir_matches = regex_match(dirs,regex_lst=ignore_dirs)
+                for m in dir_matches:
+                    print(f"Skipping directory: {m}")
+                    dirs.remove(m)
         else:
             dirs = []
         if match_files:
             files = regex_match(files,match_files)
-        file_matches = regex_match(files,regex_lst=ignore_files)
-        for m in file_matches:
-            print(f"Skipping file: {m}")
-            files.remove(m)     # Removes 'm' from the file list, not the actual file on disk
+        if ignore_files:
+            file_matches = regex_match(files,regex_lst=ignore_files)
+            for m in file_matches:
+                print(f"Skipping file: {m}")
+                files.remove(m)     # Removes 'm' from the file list, not the actual file on disk
         for f in files:
             fpath = os.path.join(root,f)
             found.append(fpath)
