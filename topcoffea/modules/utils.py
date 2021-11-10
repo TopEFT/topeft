@@ -21,7 +21,7 @@ def regex_match(lst,regex_lst):
                 break
     return matches
 
-def get_files(top_dir,ignore_dirs=[],match_files=[],ignore_files=[]):
+def get_files(top_dir,ignore_dirs=[],match_files=[],ignore_files=[],recursive=True):
     '''
         Description:
             Walks through an entire directory structure searching for files. Returns a list of
@@ -32,10 +32,13 @@ def get_files(top_dir,ignore_dirs=[],match_files=[],ignore_files=[]):
     '''
     found = []
     for root, dirs, files in os.walk(top_dir):
-        dir_matches = regex_match(dirs,regex_lst=ignore_dirs)
-        for m in dir_matches:
-            print(f"Skipping directory: {m}")
-            dirs.remove(m)
+        if recursive:
+            dir_matches = regex_match(dirs,regex_lst=ignore_dirs)
+            for m in dir_matches:
+                print(f"Skipping directory: {m}")
+                dirs.remove(m)
+        else:
+            dirs = []
         if match_files:
             files = regex_match(files,match_files)
         file_matches = regex_match(files,regex_lst=ignore_files)

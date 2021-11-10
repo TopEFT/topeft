@@ -43,6 +43,7 @@ def main():
 
     args = parser.parse_args()
     hist_paths   = args.hist_paths
+    json_dir     = args.json_dir
     ignore_dirs  = args.ignore_dirs
     match_files  = args.match_files
     ignore_files = args.ignore_files
@@ -55,10 +56,10 @@ def main():
     match_files.extend(['.*\\.json'])                   # Make sure to always only find .json files
     ignore_files.extend(['lumi.json','params.json'])    # These are not sample json files
 
-    json_fpaths = get_files(topcoffea_path("json"),
-        ignore_dirs=['subsets_of_private_UL_.*','private_UL_backup'],
-        match_files=['.*\\.json'],
-        ignore_files=['lumi.json','params.json']
+    json_fpaths = get_files(json_dir,
+        ignore_dirs=ignore_dirs,
+        match_files=match_files,
+        ignore_files=ignore_files
     )
 
     for fpath in hist_paths:
