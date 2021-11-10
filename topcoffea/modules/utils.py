@@ -21,6 +21,32 @@ def regex_match(lst,regex_lst):
                 break
     return matches
 
+def get_files(top_dir,ignore_dirs=[],match_files=[],ignore_files=[]):
+    '''
+        Description:
+            Walks through an entire directory structure searching for files. Returns a list of
+            matching files with absolute path included.
+
+            Can optionally be given list of regular
+            expressions to skip certain directories/files or only match certain types of files
+    '''
+    found = []
+    for root, dirs, files in os.walk(top_dir):
+        dir_matches = regex_match(dirs,regex_lst=ignore_dirs)
+        for m in dir_matches:
+            print(f"Skipping directory: {m}")
+            dirs.remove(m)
+        if match_files:
+            files = regex_match(files,match_files)
+        file_matches = regex_match(files,regex_lst=ignore_files)
+        for m in file_matches:
+            print(f"Skipping file: {m}")
+            files.remove(m)     # Removes 'm' from the file list, not the actual file on disk
+        for f in files:
+            fpath = os.path.join(root,f)
+            found.append(fpath)
+    return found
+
 # Read from a sample json file
 def load_sample_json_file(fpath):
     if not os.path.exists(fpath):
@@ -77,3 +103,36 @@ def read_cfg_file(fpath,cfg={},max_files=0):
                 jsn = load_sample_json_file(full_path)
                 cfg = update_cfg(jsn,sample,cfg=cfg,max_files=max_files,redirector=xrd_src)
     return cfg
+
+def update_json(fname,dry_run=False,outname=None,verbose=False,**kwargs):
+    '''
+        Description:
+            Attempts to open a json file, modify one or more of the outermost keys, and then save
+            the new json. If dry_run is set to true, then skip writing to an output file. If outname
+            is None then the file name will be set to the original and overwrite it.
+
+        Note:
+            fname will in general will be the full file path to the desired file, so don't expect it
+            to be saved in the same directory as the original w/o making sure the file path is correct
+    '''
+    jsn = load_sample_json_file(fname)
+    jsn.pop('redirector')   # Don't currently store this info in the json
+    if verbose:
+        h,t = os.path.split(fname)
+        print(f"Updating {t}")
+    for k,new in kwargs.items():
+        if not k in jsn:
+            raise KeyError(f"Unknown json key specified: {k}")
+        old = jsn[k]
+        # if type(old) != type(new):
+        if not isinstance(old,type(new)):
+            raise TypeError(f"New should at least be a base class of old: {type(old)} vs {type(new)}")
+        if verbose:
+            print(f"\t{k}: {old} --> {new}")
+        jsn[k] = new
+    if dry_run:
+        return
+    new_file = fname if outname is None else outname
+    with open(new_file,'w') as f:
+        print(f'>> Writing updated file to {new_file}')
+        json.dump(jsn,f,indent=2)
