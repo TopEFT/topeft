@@ -21,7 +21,7 @@ def regex_match(lst,regex_lst):
                 break
     return matches
 
-def get_files(top_dir,ignore_dirs=[],match_files=[],ignore_files=[],recursive=True):
+def get_files(top_dir,**kwargs):
     '''
         Description:
             Walks through an entire directory structure searching for files. Returns a list of
@@ -30,22 +30,34 @@ def get_files(top_dir,ignore_dirs=[],match_files=[],ignore_files=[],recursive=Tr
             Can optionally be given list of regular
             expressions to skip certain directories/files or only match certain types of files
     '''
+    ignore_dirs  = kwargs.pop('ignore_dirs',[])
+    match_files  = kwargs.pop('match_files',[])
+    ignore_files = kwargs.pop('ignore_files',[])
+    recursive    = kwargs.pop('recursive',False)
+    verbose      = kwargs.pop('verbose',False)
     found = []
+    if verbose:
+        print(f"Searching in {top_dir}")
+        print(f"\tRecurse: {recursive}")
+        print(f"\tignore_dirs: {ignore_dirs}")
+        print(f"\tmatch_files: {match_files}")
+        print(f"\tignore_files: {ignore_files}")
     for root, dirs, files in os.walk(top_dir):
         if recursive:
             if ignore_dirs:
                 dir_matches = regex_match(dirs,regex_lst=ignore_dirs)
                 for m in dir_matches:
-                    print(f"Skipping directory: {m}")
+                    if verbose:
+                        print(f"\tSkipping directory: {m}")
                     dirs.remove(m)
         else:
             dirs = []
-        if match_files:
-            files = regex_match(files,match_files)
+        files = regex_match(files,match_files)
         if ignore_files:
             file_matches = regex_match(files,regex_lst=ignore_files)
             for m in file_matches:
-                print(f"Skipping file: {m}")
+                if verbose:
+                    print(f"\tSkipping file: {m}")
                 files.remove(m)     # Removes 'm' from the file list, not the actual file on disk
         for f in files:
             fpath = os.path.join(root,f)

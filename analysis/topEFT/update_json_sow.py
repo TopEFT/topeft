@@ -59,7 +59,9 @@ def main():
     json_fpaths = get_files(json_dir,
         ignore_dirs=ignore_dirs,
         match_files=match_files,
-        ignore_files=ignore_files
+        ignore_files=ignore_files,
+        recursive=True,
+        verbose=True
     )
 
     for fpath in hist_paths:

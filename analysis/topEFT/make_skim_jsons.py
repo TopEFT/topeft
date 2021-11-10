@@ -28,7 +28,8 @@ def main():
     json_fpaths = get_files(json_dir,
         ignore_dirs  = ignore_dirs,
         match_files  = match_files,
-        ignore_files = ignore_files
+        ignore_files = ignore_files,
+        recursive = True
     )
 
     # Example
@@ -39,7 +40,8 @@ def main():
     template_json_fpath = get_files(
         top_dir = pjoin(json_dir,"data_samples/2017"),
         match_files  = ["SingleMuon_C.*UL2017\\.json"],
-        ignore_files = [".*_atPSI\\.json"]
+        ignore_files = [".*_atPSI\\.json"],
+        verbose = True
     )
     for fp in template_json_fpath:
         print(fp)
