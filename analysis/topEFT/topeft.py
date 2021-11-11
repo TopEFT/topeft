@@ -70,7 +70,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ]
         # Create the histograms
         self._accumulator = processor.dict_accumulator()
-        self._accumulator['SumOfEFTweights'] = HistEFT("SumOfWeights",self.wc_names_lst,
+        self._accumulator['SumOfEFTweights'] = HistEFT("SumOfWeights",self._wc_names_lst,
                                                     hist.Cat("sample","sample"),
                                                     hist.Bin("SumOfEFTweights","sow",1,0,2)
                                                 )

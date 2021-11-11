@@ -69,7 +69,7 @@ if __name__ == '__main__':
         nchunks = 2
         chunksize = 10000
         nworkers = 1
-        print(f"Running a fast test with {nworkers:i} workers, {nchunks:i} chunks of {chunksize:i} events")
+        print(f"Running a fast test with {nworkers:d} workers, {nchunks:d} chunks of {chunksize:d} events")
 
     ### Load samples from json
     samplesdict = {}
@@ -145,11 +145,11 @@ if __name__ == '__main__':
         print(f"   - histAxisName : {samplesdict[sname]['histAxisName']}")
         print(f"   - options      : {samplesdict[sname]['options']}")
         print(f"   - tree         : {samplesdict[sname]['treeName']}")
-        print(f"   - nEvents      : {samplesdict[sname]['nEvents']:i}")
-        print(f"   - nGenEvents   : {samplesdict[sname]['nGenEvents']:i}")
+        print(f"   - nEvents      : {samplesdict[sname]['nEvents']:d}")
+        print(f"   - nGenEvents   : {samplesdict[sname]['nGenEvents']:d}")
         print(f"   - SumWeights   : {samplesdict[sname]['nSumOfWeights']:f}")
         print(f"   - Prefix       : {samplesdict[sname]['redirector']}")
-        print(f"   - nFiles       : {len(samplesdict[sname]['files']):i}")
+        print(f"   - nFiles       : {len(samplesdict[sname]['files']):d}")
         for fname in samplesdict[sname]['files']:
             print(f"     {fname}")
 
@@ -206,7 +206,7 @@ if __name__ == '__main__':
     nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
     nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
     print(f"Filled {nbins:.0f} bins, nonzero bins: {100*nfilled/nbins:1.1f} %")
-    print(f"Processing time: {dt:1.2f} s with {nworkers:i} ({dt*nworkers:.2f} s cpu overall)")
+    print(f"Processing time: {dt:1.2f} s with {nworkers:d} ({dt*nworkers:.2f} s cpu overall)")
 
     # Save the output
     if not os.path.isdir(outpath):

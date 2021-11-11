@@ -135,11 +135,11 @@ for sname in samplesdict.keys():
     print(f"   - histAxisName : {samplesdict[sname]['histAxisName']}")
     print(f"   - options      : {samplesdict[sname]['options']}")
     print(f"   - tree         : {samplesdict[sname]['treeName']}")
-    print(f"   - nEvents      : {samplesdict[sname]['nEvents']:i}")
-    print(f"   - nGenEvents   : {samplesdict[sname]['nGenEvents']:i}")
+    print(f"   - nEvents      : {samplesdict[sname]['nEvents']:d}")
+    print(f"   - nGenEvents   : {samplesdict[sname]['nGenEvents']:d}")
     print(f"   - SumWeights   : {samplesdict[sname]['nSumOfWeights']:f}")
     print(f"   - Prefix       : {samplesdict[sname]['redirector']}")
-    print(f"   - nFiles       : {len(samplesdict[sname]['files']):i}")
+    print(f"   - nFiles       : {len(samplesdict[sname]['files']):d}")
     for fname in samplesdict[sname]['files']:
         print(f"     {fname}")
 
