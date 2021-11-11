@@ -159,6 +159,10 @@ def main():
     json.dump(sampdic, outfile, indent=2)
     print('>> New json file: %s'%outname)
 
+  if '_ext' in outname:
+    combine_json_ext(outname) # Merge with non-ext version
+    os.remove(outname) # Remove (now) outdated ext version
+
 if __name__ == '__main__':
   main()
 
