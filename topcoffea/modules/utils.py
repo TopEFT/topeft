@@ -133,7 +133,7 @@ def update_json(fname,dry_run=False,outname=None,verbose=False,**kwargs):
             to be saved in the same directory as the original w/o making sure the file path is correct
     '''
     jsn = load_sample_json_file(fname)
-    jsn.pop('redirector')   # Don't currently store this info in the json
+    jsn.pop('redirector',None)   # Don't currently store this info in the json
     if verbose:
         h,t = os.path.split(fname)
         print(f"Updating {t}")
@@ -141,11 +141,20 @@ def update_json(fname,dry_run=False,outname=None,verbose=False,**kwargs):
         if not k in jsn:
             raise KeyError(f"Unknown json key specified: {k}")
         old = jsn[k]
-        # if type(old) != type(new):
         if not isinstance(old,type(new)):
             raise TypeError(f"New should at least be a base class of old: {type(old)} vs {type(new)}")
         if verbose:
-            print(f"\t{k}: {old} --> {new}")
+            if isinstance(old,list):
+                s = f"\tOld {k}: [\n"
+                s += ",\n".join([f"\t\t{x}" for x in old])
+                s += "\n\t]"
+                print(s)
+                s = f"\tNew {k}: [\n"
+                s += ",\n".join([f"\t\t{x}" for x in new])
+                s += "\n\t]"
+                print(s)
+            else:
+                print(f"\t{k}: {old} --> {new}")
         jsn[k] = new
     if dry_run:
         return
