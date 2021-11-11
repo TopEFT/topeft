@@ -59,7 +59,6 @@ def main():
             dir_fpath = pjoin(src_dir,d)
             if not os.path.isdir(dir_fpath): continue
             hadoop_dataset_dirs.append(dir_fpath)
-    hadoop_dataset_dirs = ["/hadoop/store/user/awightma/skims/NanoAOD_ULv8/v1/SingleMuon_C_UL2017"]
     for hdir in hadoop_dataset_dirs:
         dataset = os.path.split(hdir)[1]
         matched_json_fp = find_json_match(hdir,template_json_fpaths)
