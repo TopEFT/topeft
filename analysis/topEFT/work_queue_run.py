@@ -162,7 +162,15 @@ if len(wc_lst) > 0:
 else:
  print('No Wilson coefficients specified')
 
-processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
+processor_instance = topeft.AnalysisProcessor(samplesdict,
+    wc_name_lst = wc_lst,
+    hist_lst = hist_lst,
+    do_errors = do_errors,
+    do_systematics = do_systs,
+    split_by_lepton_flavor = split_lep_flavor,
+    skip_signal_regions = skip_sr,
+    skip_control_regions = skip_cr
+)
 
 executor_args = {
     'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),

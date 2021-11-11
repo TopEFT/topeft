@@ -51,28 +51,38 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32):
-
+    def __init__(self, samples, **kwargs):
         self._samples = samples
-        self._wc_names_lst = wc_names_lst
-        self._dtype = dtype
+        self._wc_names_lst = kwargs.pop('wc_names_lst',[])
+        self._dtype = kwargs.pop('dtype',np.float32)
 
+        hist_bin_info = [
+            ("invmass", "$m_{\ell\ell}$ (GeV) ",      20, 0,  200),
+            ("njets",   "Jet multiplicity ",          10, 0,   10),
+            ("nbtagsl", "Loose btag multiplicity ",    5, 0,    5),
+            ("l0pt",    "Leading lep $p_{T}$ (GeV)",  25, 0,  200),
+            ("j0pt",    "Leading jet  $p_{T}$ (GeV)", 25, 0,  200),
+            ("l0eta",   "Leading lep $\eta$",         30,-3,    3),
+            ("j0eta",   "Leading jet  $\eta$",        30,-3,    3),
+            ("ht",      "H$_{T}$ (GeV)",             200, 0, 2000),
+            ("met",     "MET (GeV)",                  40, 0,  400),
+            ("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 200, 0, 2000),
+        ]
         # Create the histograms
-        self._accumulator = processor.dict_accumulator({
-        "SumOfEFTweights" : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
-        "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
-        "ptbl"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 200, 0, 2000)),
-        "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ",50 , 60, 130)),
-        "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
-        "nbtagsl" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsl",  "Loose btag multiplicity ", 5, 0, 5)),
-        "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 25, 0, 200)),
-        "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 25, 0, 200)),
-        "l0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",   "Leading lep $\eta$", 30, -3.0, 3.0)),
-        "j0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
-        "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 200, 0, 2000)),
-        "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
-        })
-
+        self._accumulator = processor.dict_accumulator()
+        self._accumulator['SumOfEFTweights'] = HistEFT("SumOfWeights",self.wc_names_lst,
+                                                    hist.Cat("sample","sample"),
+                                                    hist.Bin("SumOfEFTweights","sow",1,0,2)
+                                                )
+        for name,label,nbins,lo,hi in hist_bin_info:
+            self._accumulator[name] = HistEFT("Events",self._wc_names_lst,
+                                          hist.Cat("sample","sample"),
+                                          hist.Cat("channel","channel"),
+                                          hist.Cat("systematic","Systematic Uncertainty"),
+                                          hist.Cat("appl","AR/SR"),
+                                          hist.Bin(name,label,nbins,lo,hi)
+                                        )
+        hist_lst = kwargs.pop('hist_lst',None)
         # Set the list of hists to fill
         if hist_lst is None:
             # If the hist list is none, assume we want to fill all hists
@@ -84,12 +94,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                     raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
             self._hist_lst = hist_lst # Which hists to fill
 
-        self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
-        self._do_systematics = do_systematics # Whether to process systematic samples
-        self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
-        self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
-        self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
-        self._muonSyst=muonSyst # Calculate muon Rochester uncertainties
+        self._do_errors      = kwargs.pop('do_errors',False)                        # Whether to calculate and store the w**2 coefficients
+        self._do_systematics = kwargs.pop('do_systematics',False)                   # Whether to process systematic samples
+        self._muonSyst       = kwargs.pop('muonSyst','nominal')                     # Calculate muon Rochester uncertainties
+        self._split_by_lepton_flavor = kwargs.pop('split_by_lepton_flavor',False)   # Whether to keep track of lepton flavors individually
+        self._skip_signal_regions    = kwargs.pop('skip_signal_regions',False)      # Whether to skip the SR categories
+        self._skip_control_regions   = kwargs.pop('skip_control_regions',False)     # Whether to skip the CR categories
         
 
     @property
