@@ -1,0 +1,25 @@
+{
+  "xsec": 1.0,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "dataUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleMuon_F_HIPM_UL2016/output_1214.root",
+    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleMuon_F_HIPM_UL2016/output_2415.root",
+    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleMuon_F_HIPM_UL2016/output_2416.root",
+    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleMuon_F_HIPM_UL2016/output_3350.root",
+    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleMuon_F_HIPM_UL2016/output_3351.root",
+    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleMuon_F_HIPM_UL2016/output_3352.root",
+    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleMuon_F_HIPM_UL2016/output_3877.root",
+    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleMuon_F_HIPM_UL2016/output_3878.root",
+    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleMuon_F_HIPM_UL2016/output_3879.root",
+    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleMuon_F_HIPM_UL2016/output_4290.root",
+    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleMuon_F_HIPM_UL2016/output_622.root"
+  ],
+  "nEvents": 17900759,
+  "nGenEvents": 17900759,
+  "nSumOfWeights": 17900759.0,
+  "isData": true
+}
