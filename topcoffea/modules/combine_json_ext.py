@@ -11,6 +11,7 @@ def combine_json_ext(ext_name):
     try:
         jsonFile = open(nom_name,'r')
     except FileNotFoundError:
+        print(f'{nom_name} not found!')
         return
     nom = json.load(jsonFile) # Load the JSON information for the nominal file
 
