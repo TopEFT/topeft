@@ -498,7 +498,7 @@ class DatacardMaker():
                 h_lin.SetDirectory(fout)
                 h_lin.Write()
                 if allyields[name] < 0:
-                    allyields[name] = 0.
+                    raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
 
                 if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
 
@@ -524,7 +524,7 @@ class DatacardMaker():
                 h_quad.SetDirectory(fout)
                 h_quad.Write()
                 if allyields[name] < 0:
-                    allyields[name] = 0.
+                    raise Exception(f"This value {allyields[name]} should not be negative (except potentially due to rounding errors, if the value is tiny), check for bugs upstream.")
                 if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
                 
 
@@ -552,7 +552,7 @@ class DatacardMaker():
                     h_mix.Write()
                     allyields[name] = h_mix.Integral()
                     if allyields[name] < 0:
-                        allyields[name] = 0.
+                        raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
                     if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
 
         selectedWCsFile=open(f'histos/selectedWCs-{cat}.txt','w')
