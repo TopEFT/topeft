@@ -308,7 +308,28 @@ class DatacardMaker():
                 if any([process+'_'+syst in d for d in d_hists]):
                     h_sys = getHist(d_hists, '_'.join([process,syst]))#d_hists[process+'_'+syst]
                     h_sys.SetDirectory(fout)
+
+                    # Need to handle quad term to get "Q"
+                    if (("quad" in process) and ("mixed" not in process)):
+
+                        # Get the parts of the name (from e.g. "ttH_quad_ctG")
+                        proc_str = process.split("_")[0]
+                        wc_str = process.split("_")[2]
+
+                        # Construct the names for the corresponding sm and lin terms, and get the hists
+                        name_s = '_'.join([proc_str,'sm'])
+                        name_l = '_'.join([proc_str,'lin',wc])
+                        h_s_sys = getHist(d_hists, '_'.join([name_s,syst]))
+                        h_l_sys = getHist(d_hists, '_'.join([name_l,syst]))
+
+                        # Find the Q term (Q = (Histo(WC=2) - 2*Histo(WC=1) + Histo(WC=0))/2)
+                        h_sys.Add(h_l_sys, -2)
+                        h_sys.Add(h_s_sys)
+                        h_sys.Scale(0.5)
+
+                    # Write output
                     h_sys.Write()
+
                     if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
                     syst = syst.replace('Up', '') # Remove 'Up' to get just the systematic name
                     if syst in systMap:
