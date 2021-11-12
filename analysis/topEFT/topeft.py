@@ -58,6 +58,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         hist_bin_info = [
             ("invmass", "$m_{\ell\ell}$ (GeV) ",      20, 0,  200),
+            ("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 200, 0, 2000),
+            ("invmass", "$m_{\ell\ell}$ (GeV) ",      50,60,  130),
             ("njets",   "Jet multiplicity ",          10, 0,   10),
             ("nbtagsl", "Loose btag multiplicity ",    5, 0,    5),
             ("l0pt",    "Leading lep $p_{T}$ (GeV)",  25, 0,  200),
@@ -66,7 +68,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             ("j0eta",   "Leading jet  $\eta$",        30,-3,    3),
             ("ht",      "H$_{T}$ (GeV)",             200, 0, 2000),
             ("met",     "MET (GeV)",                  40, 0,  400),
-            ("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 200, 0, 2000),
         ]
         # Create the histograms
         self._accumulator = processor.dict_accumulator()
@@ -100,7 +101,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._split_by_lepton_flavor = kwargs.pop('split_by_lepton_flavor',False)   # Whether to keep track of lepton flavors individually
         self._skip_signal_regions    = kwargs.pop('skip_signal_regions',False)      # Whether to skip the SR categories
         self._skip_control_regions   = kwargs.pop('skip_control_regions',False)     # Whether to skip the CR categories
-        
+
+        if kwargs:
+            extra_args = []
+            for k,v in kwargs.items():
+                extra_args.append(k)
+            raise RuntimeError(f"Found leftover keyword arguments: {extra_args}")
 
     @property
     def accumulator(self):

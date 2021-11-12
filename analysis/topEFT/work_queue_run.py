@@ -167,7 +167,7 @@ else:
     print('No Wilson coefficients specified')
 
 processor_instance = topeft.AnalysisProcessor(samplesdict,
-    wc_name_lst = wc_lst,
+    wc_names_lst = wc_lst,
     hist_lst = hist_lst,
     do_errors = do_errors,
     do_systematics = do_systs,
