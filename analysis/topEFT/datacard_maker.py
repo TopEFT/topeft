@@ -37,7 +37,7 @@ class DatacardMaker():
             self.hists = pickle.load(fin)
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
-        #Get list of channels
+        # Get list of channels
         self.ch2lss = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1]})
         self.ch2lss += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1]})
         self.ch2lss_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_p' in k[1]})
@@ -76,7 +76,7 @@ class DatacardMaker():
         self.skip = {**self.skip, **{'data': [k for k in self.channels]}} # Skip all data!
         self.skip = {**self.skip, **{'flips': [k for k in self.channels if '2l' not in k]}} # Charge flips only in 2lss channels
 
-        #Get list of samples and cut levels from histograms
+        # Get list of samples and cut levels from histograms
         self.signal = ['ttH','tllq','ttll','ttlnu','tHq','tttt']
         self.samples = list({k[0]:0 for k in self.hists['ptbl'].values().keys()})
         if self.year != '':
@@ -192,7 +192,7 @@ class DatacardMaker():
                 cat = '_'.join([channel, maxb, variable])
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fout = uproot3.recreate(fname)
-        #Scale each plot to the SM
+        # Scale each plot to the SM
         processed = []
         for proc in self.samples:
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
@@ -202,7 +202,7 @@ class DatacardMaker():
             processed.append(simplified)
             p = proc.split('_')[0]
             ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k}
-            #Integrate out processes
+            # Integrate out processes
             h_base = h.group('sample', hist.Cat('year', 'year'), ul)
             if h_base.values() == {}:
                 print(f'Issue with {proc}')
@@ -222,7 +222,7 @@ class DatacardMaker():
                 h_base = h_base.rebin('ht', hist.Bin("ht", "H$_{T}$ (GeV)", 10, h_base.axis(variable).edges()[0], h_base.axis(variable).edges()[-1]))
             if 'ptbl' in variable:
                 h_base = h_base.rebin('ptbl', hist.Bin("ptbl", "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$", 10, h_base.axis(variable).edges()[0], h_base.axis(variable).edges()[-1]))
-            #Save the SM plot
+            # Save the SM plot
             h_bases = {syst: h_base.integrate('systematic', syst) for syst in self.syst}
             h_base = h_base.integrate('systematic', 'nominal')
             h_sm = h_bases
@@ -235,17 +235,17 @@ class DatacardMaker():
                     export1d(h_sm, pname, 'sm', fout) # Special case for SM b/c background names overlap (p not pname)
                 else:
                     export1d(h_sm, p, '_sm', fout) # Special case for SM b/c background names overlap (p not pname)
-            #Asimov data: data_obs = MC at SM (all WCs = 0)
+            # Asimov data: data_obs = MC at SM (all WCs = 0)
             if len(h_base.axes())>1:
                 fout['data_obs'] = export2d(h_sm)
             else:
                 export1d(h_sm, 'data_obs', 'sm', fout)
-            
+
             if p in self.signal or self.rename[p] in self.signal:
                 h_lin = h_bases; h_quad = None; h_mix = None
                 for name,wcpt in self.wcs:
-                    #Scale plot to the WCPoint
-                    #Handle linear and quadratic terms
+                    # Scale plot to the WCPoint
+                    # Handle linear and quadratic terms
                     if 'lin' in name:
                         h_lin = h_bases
                         for hists in h_lin.values():
@@ -290,8 +290,9 @@ class DatacardMaker():
         '''
         Create datacard files from temp uproot outputs
         Creates histograms for ``combine``:
-        ``S`` is theSM
+        ``S`` is the SM
         ``S+L_i+Q_i`` sets ``WC_i=1`` and the rest to ``0``
+        ``Q`` is built from the ``WC=0``, ``WC=1``, and ``WC=2`` pieces
         ``S+L_i+L_j+Q_i+Q_j+2 M_IJ`` set ``WC_i=1``, ``WC_j=1`` and the rest to ``0``
         '''
         def getHist(d_hists,name):
@@ -306,7 +307,7 @@ class DatacardMaker():
             for syst in self.syst:
                 if channel in self.skip and self.skip[channel] in syst: continue
                 if any([process+'_'+syst in d for d in d_hists]):
-                    h_sys = getHist(d_hists, '_'.join([process,syst]))#d_hists[process+'_'+syst]
+                    h_sys = getHist(d_hists, '_'.join([process,syst]))
                     h_sys.SetDirectory(fout)
 
                     # Need to handle quad term to get "Q"
@@ -442,28 +443,27 @@ class DatacardMaker():
                 if p not in self.signal:
                     continue
 
-            # lets select now the coefficients that actually have an impact
+            # Let's select now the coefficients that actually have an impact
             selectedWCs=[]
 
             for n,wc in enumerate(self.coeffs):
                 
-                # check if linear terms are non null
+                # Check if linear terms are non null
                 name = '_'.join([pname[:-1],'lin',wc])
                 tmp = getHist(d_hists, name); tmp.Add(h_sm,-1)
-
 
                 if abs(tmp.Integral() / h_sm.Integral()) > self.tolerance:
                     selectedWCs.append(wc)
                     continue                    
 
-                # check if quadratic terms are non null
+                # Check if quadratic terms are non null
                 name = '_'.join([pname[:-1],'quad',wc])
                 tmp = getHist(d_hists, name); tmp.Add(h_sm,-1)
                 if abs(tmp.Integral() / h_sm.Integral()) > self.tolerance:
                     selectedWCs.append(wc)
                     continue
 
-                # check if crossed terms are non null
+                # Check if crossed terms are non null
                 anyIsNonZero=False
                 for wc2 in [self.coeffs[w2] for w2 in range(n)]:
                     name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
@@ -475,8 +475,11 @@ class DatacardMaker():
                         selectedWCs.append(wc)
                         break
 
+            # Find the "S+L+Q", "Q", and "S+Li+Lj+Qi+Qj+2Mij" pieces
             selectedWCsForProc[pname[:-1]]=selectedWCs
             for n,wc in enumerate(selectedWCs):
+
+                # Get the "S+L+Q" piece
                 name = '_'.join([pname[:-1],'lin',wc])
                 if name not in d_hists:
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
@@ -499,6 +502,7 @@ class DatacardMaker():
 
                 if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
 
+                # Get the "Q" piece
                 name = '_'.join([pname[:-1],'quad',wc])
                 if name not in d_hists:
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
@@ -524,6 +528,7 @@ class DatacardMaker():
                 if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
                 
 
+                # Get the "S+Li+Lj+Qi+Qj+2Mij" piece
                 for wc2 in [selectedWCs[w2] for w2 in range(n)]:
                     
                     name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
@@ -553,7 +558,8 @@ class DatacardMaker():
         selectedWCsFile=open(f'histos/selectedWCs-{cat}.txt','w')
         json.dump(selectedWCsForProc, selectedWCsFile)
         selectedWCsFile.close()
-        #Write datacard
+
+        # Write datacard
         allyields = {k : (v if v>0 else 0) for k,v in allyields.items()}
         if systematics != 'nominal':
             cat = cat + '_' + systematics
@@ -599,7 +605,7 @@ class DatacardMaker():
         wcpt = []
         if len(wc)==0:
             wcpt = None
-        #Case for a single wc
+        # Case for a single wc
         elif isinstance(wc, str):
             wl = {k:0 for k in self.coeffs}
             wl[wc] = 1.
@@ -610,7 +616,7 @@ class DatacardMaker():
             wl[wc] = 1.
             wl = np.array(list(wl.values()))
             wcpt.append([f'lin_{wc}', wl])
-        #Case for 2+ wcs
+        # Case for 2+ wcs
         else:
             pairs = [[wc[w1],wc[w2]] for w1 in range(len(wc)) for w2 in range(0, w1+1)]
             wcpt = []
