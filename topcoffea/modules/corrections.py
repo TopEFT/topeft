@@ -267,28 +267,34 @@ def GetPUSF(nTrueInt, year, var='nominal'):
   weights = np.divide(nData,nMC)
   return weights
 
-###### JEC corrections (2018)
+###### JEC corrections
 ##############################################
-extJEC = lookup_tools.extractor()
-extJEC.add_weight_sets(["* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L2Relative_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L2Residual_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L1FastJet_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L3Absolute_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L1RC_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_Uncertainty_AK4PFchs.junc.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L2L3Residual_AK4PFchs.txt')])
-extJEC.finalize()
-JECevaluator = extJEC.make_evaluator()
-jec_names = ["Summer19UL18_V5_MC_L2Relative_AK4PFchs","Summer19UL18_V5_MC_L2Residual_AK4PFchs","Summer19UL18_V5_MC_L1FastJet_AK4PFchs","Summer19UL18_V5_MC_L3Absolute_AK4PFchs","Summer19UL18_V5_MC_L1RC_AK4PFchs","Summer19UL18_V5_MC_Uncertainty_AK4PFchs","Summer19UL18_V5_MC_L2L3Residual_AK4PFchs"] 
-jec_inputs = {name: JECevaluator[name] for name in jec_names}
-jec_stack = JECStack(jec_inputs)
-name_map = jec_stack.blank_name_map
-name_map['JetPt'] = 'pt'
-name_map['JetMass'] = 'mass'
-name_map['JetEta'] = 'eta'
-name_map['JetA'] = 'area'
-name_map['ptGenJet'] = 'pt_gen'
-name_map['ptRaw'] = 'pt_raw'
-name_map['massRaw'] = 'mass_raw'
-name_map['Rho'] = 'rho'
-ApplyJetCorrections = CorrectedJetsFactory(name_map, jec_stack)
-# test
-#val = evaluator['MuonTightSF_2016'](np.array([1.2, 0.3]),np.array([24.5, 51.3]))
-#print('val = ', val)
+# JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
+# JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC
+
+def ApplyJetCorrections(year):
+  if year=='2016': jec_tag='16_V7'; jer_tag='Summer20UL16_JRV3'
+  elif year=='2016APV': jec_tag='16APV_V7'; jer_tag='Summer20UL16APV_JRV3'
+  elif year=='2017': jec_tag='17_V5'; jer_tag='Summer19UL17_JRV2'
+  elif year=='2018': jec_tag='18_V5'; jer_tag='Summer19UL18_JRV2'
+  else: raise Exception(f"Error: Unknown year \"{year}\".")
+  extJEC = lookup_tools.extractor()
+  extJEC.add_weight_sets(["* * "+topcoffea_path('data/JER/%s_MC_SF_AK4PFchs.jersf.txt'%jer_tag),"* * "+topcoffea_path('data/JER/%s_MC_PtResolution_AK4PFchs.jr.txt'%jer_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L1FastJet_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L2Relative_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_Uncertainty_AK4PFchs.junc.txt'%jec_tag)])
+  jec_names = ["%s_MC_SF_AK4PFchs"%jer_tag,"%s_MC_PtResolution_AK4PFchs"%jer_tag,"Summer19UL%s_MC_L1FastJet_AK4PFchs"%jec_tag,"Summer19UL%s_MC_L2Relative_AK4PFchs"%jec_tag,"Summer19UL%s_MC_Uncertainty_AK4PFchs"%jec_tag]
+  extJEC.finalize()
+  JECevaluator = extJEC.make_evaluator()
+  jec_inputs = {name: JECevaluator[name] for name in jec_names}
+  jec_stack = JECStack(jec_inputs)
+  name_map = jec_stack.blank_name_map
+  name_map['JetPt'] = 'pt'
+  name_map['JetMass'] = 'mass'
+  name_map['JetEta'] = 'eta'
+  name_map['JetA'] = 'area'
+  name_map['ptGenJet'] = 'pt_gen'
+  name_map['ptRaw'] = 'pt_raw'
+  name_map['massRaw'] = 'mass_raw'
+  name_map['Rho'] = 'rho'
+  return CorrectedJetsFactory(name_map, jec_stack)
 
 ###### Muon Rochester corrections
 ################################################################

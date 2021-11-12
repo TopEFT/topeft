@@ -51,7 +51,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', jetSyst='nominal', dtype=np.float32):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -90,6 +90,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
         self._muonSyst=muonSyst # Calculate muon Rochester uncertainties
+        self._jetSyst=jetSyst # Calculate muon Rochester uncertainties
+
         
 
     @property
@@ -215,26 +217,30 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Selecting jets and cleaning them
         jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
+
         # Jet energy corrections
         if not isData:
-            cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
-            cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
-            cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-            cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
-            events_cache = events.caches[0]
-            corrected_jets = ApplyJetCorrections.build(cleanedJets, lazy_cache=events_cache)
-            '''
-            # SYSTEMATICS
-            jets = corrected_jets
-            if(self.jetSyst == 'JERUp'):
-                jets = corrected_jets.JER.up
-            elif(self.jetSyst == 'JERDown'):
-                jets = corrected_jets.JER.down
-            elif(self.jetSyst == 'JESUp'):
-                jets = corrected_jets.JES_jes.up
-            elif(self.jetSyst == 'JESDown'):
-                jets = corrected_jets.JES_jes.down
-            '''
+          cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
+          cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
+          cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
+          cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
+          events_cache = events.caches[0]
+          cleanedJets = ApplyJetCorrections(year).build(cleanedJets, lazy_cache=events_cache)
+          #print('pt raw', cleanedJets.pt_raw)
+          #print('pt corr', cleanedJets.pt)
+          #print('pt jerup', cleanedJets.JER.up.pt)
+          #print('pt jerdown', cleanedJets.JER.down.pt)
+          #print('pt jesup', cleanedJets.JES_jes.up.pt)
+          #print('pt jesdown', cleanedJets.JES_jes.down.pt)
+          # SYSTEMATICS
+          if(self._jetSyst == 'JERUp'):
+            cleanedJets = cleanedJets.JER.up
+          elif(self._jetSyst == 'JERDown'):
+            cleanedJets = cleanedJets.JER.down
+          elif(self._jetSyst == 'JESUp'):
+            cleanedJets = cleanedJets.JES_jes.up
+          elif(self._jetSyst == 'JESDown'):
+            cleanedJets = cleanedJets.JES_jes.down
 
         cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
         goodJets = cleanedJets[cleanedJets.isGood]
@@ -361,8 +367,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Systematics
         systList = ["nominal"]
-        if (self._do_systematics and not isData and self._muonSyst == 'nominal'): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown"]
-        elif (self._do_systematics and self._muonSyst != 'nominal'): systList = [self._muonSyst]
+        if (self._do_systematics and not isData and self._muonSyst == 'nominal' and self._jetSyst == 'nominal'): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown"]
+        elif (self._do_systematics and self._muonSyst != 'nominal' and self._jetSyst == 'nominal'): systList = [self._muonSyst]
+        elif (self._do_systematics and self._muonSyst == 'nominal'and self._jetSyst != 'nominal'): systList = [self._jetSyst]
 
 
         ######### Masks we need for the selection ##########
