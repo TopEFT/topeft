@@ -219,10 +219,10 @@ class DatacardMaker():
                 elif '3l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5]))
                 elif '4l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4]))
             if 'ht' in variable:
-                h_base = h_base.rebin('ht', hist.Bin("ht", "H$_{T}$ (GeV)", 10, h_base.axis(variable).edges()[0], h_base.axis(variable).edges()[-1]))
+                h_base = h_base.rebin('ht', hist.Bin("ht", "H$_{T}$ (GeV)", [0, 100, 200, 300, 400, 600, 800, 1400, 2000]))
             if 'ptbl' in variable:
-                h_base = h_base.rebin('ptbl', hist.Bin("ptbl", "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$", 10, h_base.axis(variable).edges()[0], h_base.axis(variable).edges()[-1]))
-            # Save the SM plot
+                h_base = h_base.rebin('ptbl', hist.Bin("ptbl", "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$", [0, 50, 100, 200, 400, 2000]))
+            #Save the SM plot
             h_bases = {syst: h_base.integrate('systematic', syst) for syst in self.syst}
             h_base = h_base.integrate('systematic', 'nominal')
             h_sm = h_bases
