@@ -1,6 +1,5 @@
-# This script reproduces the reference datacard file that the CI compares agains
+# This script reproduces the reference datacard file that the CI compares against
 # Run this script when you want to update the reference file
-# Make sure you've run pytest already, to generate the files to copy
 
 if [[ "$PWD" == *"analysis/topEFT"* ]]; then
     cwd=$PWD
@@ -22,6 +21,6 @@ python -c 'import tests.test_topcoffea; tests.test_topcoffea.test_datacard_3l()'
 cp histos/ttx_multileptons-3l_sfz_1b.txt analysis/topEFT/test/ttx_multileptons-3l_sfz_1b_ref.txt
 python -c 'import tests.test_topcoffea; tests.test_topcoffea.test_datacard_3l_ptbl()'
 cp histos/ttx_multileptons-3l_onZ_1b_2j_ptbl.txt analysis/topEFT/test/ttx_multileptons-3l_onZ_1b_2j_ptbl_ref.txt
-echo -e "\nRunning onces more to make sure everyting worked\nErrors ARE important!\n"
+echo -e "\nRunning once more to make sure everyting worked\nErrors ARE important!\n"
 python analysis/topEFT/remake_ci_ref_datacard.py
 cd $cwd
