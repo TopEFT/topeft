@@ -249,7 +249,6 @@ class DatacardMaker():
                     if 'lin' in name:
                         h_lin = h_bases
                         for hists in h_lin.values():
-                            #hists.set_wilson_coeff_from_array(wcpt)
                             hists.set_wilson_coefficients(**wcpt)
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_lin)
@@ -270,7 +269,6 @@ class DatacardMaker():
                     elif 'quad' in name and 'mix' not in name:
                         h_quad = h_bases
                         for hists in h_quad.values():
-                            #hists.set_wilson_coeff_from_array(wcpt)
                             hists.set_wilson_coefficients(**wcpt)
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_quad)
@@ -279,7 +277,6 @@ class DatacardMaker():
                     else:
                         h_mix = h_bases
                         for hists in h_mix.values():
-                            #hists.set_wilson_coeff_from_array(wcpt)
                             hists.set_wilson_coefficients(**wcpt)
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_mix)
