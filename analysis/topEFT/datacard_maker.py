@@ -684,7 +684,7 @@ if __name__ == '__main__':
     parser.add_argument('pklfile'           , nargs='?', default=''           , help = 'Pickle file with histograms')
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
     parser.add_argument('--do-nuisance',    action='store_true', help = 'Include nuisance parameters')
-    parser.add_argument('--POI',            action='extend', nargs='+', default=[],  help = 'List of WCs (comma separated)')
+    parser.add_argument('--POI',            default=[],  help = 'List of WCs (comma separated)')
     parser.add_argument('--job',      '-j', default='-1'       , help = 'Job to run')
     parser.add_argument('--year',     '-y', default=''         , help = 'Run over single year')
     args = parser.parse_args()
