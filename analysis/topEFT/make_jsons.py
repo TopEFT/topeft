@@ -261,64 +261,6 @@ private_UL16APV_dict = {
     },
 }
 
-update17_dict = {
-    "UL17_WWW_4F_ext" : {
-        "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9_ext1-v2/NANOAODSIM",
-        "histAxisName": "WWW_centralUL17",
-        "xsecName": "WWW",
-    },
-    "UL17_WZZ_ext" : {
-        "path" : "/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9_ext1-v2/NANOAODSIM",
-        "histAxisName": "WZZ_centralUL17",
-        "xsecName": "WZZ",
-    },
-    "UL17_ZZZ_ext" : {
-        "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9_ext1-v2/NANOAODSIM",
-        "histAxisName": "ZZZ_centralUL17",
-        "xsecName": "ZZZ",
-    },
-}
-update18_dict = {
-    "UL18_WZZ_ext" : {
-        "path" : "/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1_ext1-v2/NANOAODSIM",
-        "histAxisName": "WZZ_ext_centralUL18",
-        "xsecName": "WZZ",
-    },
-}
-update16_dict = {
-    "UL16_WWW_4F_ext" : {
-        "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17_ext1-v1/NANOAODSIM",
-        "histAxisName": "WWW_4F_centralUL16",
-        "xsecName": "WWW",
-    },
-    "UL16_WWZ_ext" : {
-        "path" : "/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17_ext1-v1/NANOAODSIM",
-        "histAxisName": "WWZ_4F_centralUL16",
-        "xsecName": "WWZ",
-    },
-    "UL16_WZZ_ext" : {
-        "path" : "/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17_ext1-v1/NANOAODSIM",
-        "histAxisName": "WZZ_centralUL16",
-        "xsecName": "WZZ",
-    },
-    "UL16_ZZZ_ext" : {
-        "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17_ext1-v1/NANOAODSIM",
-        "histAxisName": "ZZZ_centralUL16",
-        "xsecName": "ZZZ",
-    },
-}
-update16APV_dict = {
-    "UL16APV_WWW_4F_ext" : {
-        "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM",
-        "histAxisName": "WWW_centralUL16APV",
-        "xsecName": "WWW",
-    },
-    "UL16APV_WWZ_4F_ext" : {
-        "path" : "/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM",
-        "histAxisName": "WWZ_4F_centralUL16APV",
-        "xsecName": "WWZ",
-    },
-}
 
 ########### TOP-19-001 samples and subsets of UL17 locally at ND on /scratch365 and at UNL ###########
 
@@ -1206,10 +1148,6 @@ def main():
     #make_jsons_for_dict_of_samples(central_UL18_bkg_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL16_bkg_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_bkg_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_bkg_UL,on_das=True)
-    make_jsons_for_dict_of_samples(update17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_bkg_UL,on_das=True)
-    make_jsons_for_dict_of_samples(update18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_bkg_UL,on_das=True)
-    make_jsons_for_dict_of_samples(update16_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_bkg_UL,on_das=True)
-    make_jsons_for_dict_of_samples(update16APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_bkg_UL,on_das=True)
 
     # Data samples
     #make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
