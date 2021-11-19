@@ -6,19 +6,8 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_1034.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_1035.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_1984.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_1985.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_1986.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_1987.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_2919.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_2920.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_2921.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_2922.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_2923.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_418.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/MuonEG_D_UL2017/output_419.root"
+    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2017/2021_11_16/v1/MuonEG_D_UL2017/output_1567.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2017/2021_11_16/v1/MuonEG_D_UL2017/output_1589.root"
   ],
   "nEvents": 9164365,
   "nGenEvents": 9164365,

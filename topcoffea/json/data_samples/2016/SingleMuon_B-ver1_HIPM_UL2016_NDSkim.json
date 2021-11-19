@@ -6,12 +6,7 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/SingleMuon_B_ver1_HIPM_UL2016/output_1138.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/SingleMuon_B_ver1_HIPM_UL2016/output_2235.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/SingleMuon_B_ver1_HIPM_UL2016/output_2236.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/SingleMuon_B_ver1_HIPM_UL2016/output_3168.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/SingleMuon_B_ver1_HIPM_UL2016/output_3169.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/SingleMuon_B_ver1_HIPM_UL2016/output_535.root"
+    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2016/2021_11_18/v1/SingleMuon_B_ver1_HIPM_UL2016/output_1365.root"
   ],
   "nEvents": 2789243,
   "nGenEvents": 2789243,

@@ -6,16 +6,7 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleEG_B_ver1_HIPM_UL2016/output_1207.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleEG_B_ver1_HIPM_UL2016/output_2399.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleEG_B_ver1_HIPM_UL2016/output_2400.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleEG_B_ver1_HIPM_UL2016/output_3329.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleEG_B_ver1_HIPM_UL2016/output_3330.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleEG_B_ver1_HIPM_UL2016/output_3331.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleEG_B_ver1_HIPM_UL2016/output_3863.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleEG_B_ver1_HIPM_UL2016/output_3864.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleEG_B_ver1_HIPM_UL2016/output_3865.root",
-    "/store/user/awightma/skims/NanoAOD_ULv8/v1/DoubleEG_B_ver1_HIPM_UL2016/output_614.root"
+    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2016/2021_11_18/v1/DoubleEG_B_ver1_HIPM_UL2016/output_1723.root"
   ],
   "nEvents": 5686987,
   "nGenEvents": 5686987,
