@@ -305,7 +305,7 @@ elif year=='2016APV': rochester_data = txt_converters.convert_rochester_file(top
 elif year=='2017': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2017UL.txt"), loaduncs=True)
 elif year=='2018': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2018UL.txt"), loaduncs=True)
 rochester = rochester_lookup.rochester_lookup(rochester_data)
-def ApplyRochesterCorrections(mu, is_data, var=0):
+def ApplyRochesterCorrections(mu, is_data, var='nominal'):
     if not is_data:
         hasgen = ~np.isnan(ak.fill_none(mu.matched_gen.pt, np.nan))
         mc_rand = np.random.rand(*ak.to_numpy(ak.flatten(mu.pt)).shape)
