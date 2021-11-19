@@ -19,23 +19,44 @@ def find_json_match(hadoop_skim_dir,json_fpaths):
     return None
 
 def main():
-    parser = argparse.ArgumentParser(description='You want options? We got options!')
-    parser.add_argument('src_dirs',       nargs='+', metavar='SRC_DIR', help='Path(s) to toplevel directory that contains the lobster skims we want to match to')
+    parser = argparse.ArgumentParser(description='Utility script for creating/updating JSON files for skimmed data')
+    parser.add_argument('src_dirs',       nargs='*', default=[], metavar='SRC_DIR', help='Path(s) to toplevel directory that contains the lobster skims we want to match to, can also be specified with the "--file" option instead')
+    parser.add_argument('--file','-f',    nargs='?', metavar='FILE', help='Text file with paths to the src directories that contain the lobster skims')
     parser.add_argument('--json-dir',     nargs='?', default=topcoffea_path("json"), metavar='DIR', help='Path to the directory with JSON files you want to update. Will recurse down into all sub-directories looking for any .json files along the way')
-    parser.add_argument('--ignore-dirs',  nargs='*', default=[], metavar='DIR')
-    parser.add_argument('--match-files',  nargs='*', default=[], metavar='FILE')
-    parser.add_argument('--ignore-files', nargs='*', default=[], metavar='FILE')
+    parser.add_argument('--skim-postfix', default='_NDSkim',metavar='NAME', help='Postfix string to differentiate the skim json from the original, defaults to "_NDSkim"')
+    parser.add_argument('--ignore-dirs',  nargs='*', default=[], metavar='PATTERN')
+    parser.add_argument('--match-files',  nargs='*', default=[], metavar='PATTERN')
+    parser.add_argument('--ignore-files', nargs='*', default=[], metavar='PATTERN')
     parser.add_argument('--dry-run', '-n', action='store_true', help='Run the script, but do not actually modify the JSON files')
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
 
     args = parser.parse_args()
     src_dirs     = args.src_dirs
     json_dir     = args.json_dir
+    src_file     = args.file
+    postfix      = args.skim_postfix
     ignore_dirs  = args.ignore_dirs
     match_files  = args.match_files
     ignore_files = args.ignore_files
     dry_run      = args.dry_run
     verbose      = args.verbose
+
+    if src_file:
+        with open(src_file) as f:
+            for l in f.readlines():
+                l = l.strip()
+                l = l.split('#')[0]
+                if len(l) == 0:
+                    continue
+                if not os.path.isdir(l):
+                    print(f"[WARNING]: Not a valid src directory, skipping -- {l}")
+                    continue
+                src_dirs.append(l)
+
+    if len(src_dirs) == 0:
+        print("[ERROR] No src directories have been specified!")
+        parser.print_help()
+        return
 
     # These sub-directories have duplicated JSON names with those from private_UL
     ignore_dirs.extend(['subsets_of_private_UL_.*','private_UL_backup'])
@@ -59,10 +80,14 @@ def main():
             dir_fpath = pjoin(src_dir,d)
             if not os.path.isdir(dir_fpath): continue
             hadoop_dataset_dirs.append(dir_fpath)
+    print("Skim directories:")
+    for hdir in hadoop_dataset_dirs:
+        print(f"\t{hdir}")
+    print("Attempting to find matching json templates...")
     for hdir in hadoop_dataset_dirs:
         dataset = os.path.split(hdir)[1]
         matched_json_fp = find_json_match(hdir,template_json_fpaths)
-        print(f"Match: {matched_json_fp}")
+        print(f"\tMatch: {matched_json_fp}")
         if not matched_json_fp:
             missing_templates.append(hdir)
             continue
@@ -70,24 +95,24 @@ def main():
         updates = {
             "files": [x.replace("/hadoop","") for x in get_files(hdir,match_files=[".*\\.root"])]
         }
-        outname = os.path.split(matched_json_fp)[1].replace(".json","_NDSkim.json")
+        outname = os.path.split(matched_json_fp)[1].replace(".json",f"{postfix}.json")
         outname = pjoin(template_json_dir,outname)
         update_json(matched_json_fp,dry_run=dry_run,outname=outname,verbose=verbose,**updates)
         template_json_fpaths.remove(matched_json_fp)
     # These are lobster skims for which we couldn't find a matching json template
     if missing_templates:
-        print(f"No matching json template found:")
+        print(f"Skims with no matching json template found:")
         for x in missing_templates:
             print(f"\t{x}")
     else:
-        print(f"No matching json template found: {missing_templates}")
+        print(f"Skims with no matching json template found: {missing_templates}")
     # These are json templates for which we couldn't find a lobster skim
     if template_json_fpaths:
-        print(f"No matching skim found:")
+        print(f"Json templates with no matching skim found:")
         for x in template_json_fpaths:
             print(f"\t{x}")
     else:
-        print(f"No matching skim found: {template_json_fpaths}")
+        print(f"Json templates with no matching skim found: {template_json_fpaths}")
 
 
 if __name__ == "__main__":
