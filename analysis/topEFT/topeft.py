@@ -161,6 +161,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
         # Initialize the out object
         hout = self.accumulator.identity()
+        
         ################### Object selection ####################
         # Electron selection
         e["isPres"] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
@@ -171,10 +172,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Update muon kinematics with Rochester corrections
         mu["pt_raw"]=mu.pt
         met_raw=met
-        for v in ['MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']:
+        for syst_var in ['MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']:
           mu["pt"]=mu.pt_raw
-          if v == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(mu, isData, var='up')
-          elif v == 'MuonESDown': mu["pt"]=ApplyRochesterCorrections(mu, isData, var='down')
+          if syst_var == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(mu, isData, var='up')
+          elif syst_var == 'MuonESDown': mu["pt"]=ApplyRochesterCorrections(mu, isData, var='down')
           else: mu["pt"]=ApplyRochesterCorrections(mu, isData, var='nominal')
           # Muon selection
           mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
@@ -234,11 +235,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             events_cache = events.caches[0]
             cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
             # SYSTEMATICS
-            if(v == 'JERUp'): cleanedJets = cleanedJets.JER.up
-            elif(v == 'JERDown'): cleanedJets = cleanedJets.JER.down
-            elif(v == 'JESUp'): cleanedJets = cleanedJets.JES_jes.up
-            elif(v == 'JESDown'): cleanedJets = cleanedJets.JES_jes.down
-            met=ApplyJetCorrections(year, corr_type='met').build(met_raw,cleanedJets, lazy_cache=events_cache)
+            if(syst_var == 'JERUp'): cleanedJets = cleanedJets.JER.up
+            elif(syst_var == 'JERDown'): cleanedJets = cleanedJets.JER.down
+            elif(syst_var == 'JESUp'): cleanedJets = cleanedJets.JES_jes.up
+            elif(syst_var == 'JESDown'): cleanedJets = cleanedJets.JES_jes.down
+            met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
           cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
           goodJets = cleanedJets[cleanedJets.isGood]
 
@@ -351,9 +352,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           # Systematics
           systList = ["nominal"]
-          if (self._do_systematics and not isData and v == 'nominal'): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown"]
-          elif (self._do_systematics and not isData and v != 'nominal'): systList = [v]
-          #systList=['MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown',"nominal","lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown"]
+          if (self._do_systematics and not isData and syst_var == 'nominal'): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown"]
+          elif (self._do_systematics and not isData and syst_var != 'nominal'): systList = [syst_var]
 
           ######### Masks we need for the selection ##########
 
