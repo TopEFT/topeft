@@ -13,7 +13,7 @@ import awkward as ak
 import gzip
 import pickle
 from coffea.jetmet_tools import FactorizedJetCorrector, JetCorrectionUncertainty
-from coffea.jetmet_tools import JECStack, CorrectedJetsFactory
+from coffea.jetmet_tools import JECStack, CorrectedJetsFactory, CorrectedMETFactory
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from topcoffea.modules.GetValuesFromJsons import get_param
 from coffea.lookup_tools import txt_converters, rochester_lookup
@@ -272,7 +272,7 @@ def GetPUSF(nTrueInt, year, var='nominal'):
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
 # JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC
 
-def ApplyJetCorrections(year):
+def ApplyJetCorrections(year, corr_type):
   if year=='2016': jec_tag='16_V7'; jer_tag='Summer20UL16_JRV3'
   elif year=='2016APV': jec_tag='16APV_V7'; jer_tag='Summer20UL16APV_JRV3'
   elif year=='2017': jec_tag='17_V5'; jer_tag='Summer19UL17_JRV2'
@@ -289,11 +289,17 @@ def ApplyJetCorrections(year):
   name_map['JetPt'] = 'pt'
   name_map['JetMass'] = 'mass'
   name_map['JetEta'] = 'eta'
+  name_map['JetPhi'] = 'phi'
   name_map['JetA'] = 'area'
   name_map['ptGenJet'] = 'pt_gen'
   name_map['ptRaw'] = 'pt_raw'
   name_map['massRaw'] = 'mass_raw'
   name_map['Rho'] = 'rho'
+  name_map['METpt'] = 'pt'
+  name_map['METphi'] = 'phi'
+  name_map['UnClusteredEnergyDeltaX'] = 'MetUnclustEnUpDeltaX'
+  name_map['UnClusteredEnergyDeltaY'] = 'MetUnclustEnUpDeltaY'
+  if corr_type=='met': return CorrectedMETFactory(name_map)
   return CorrectedJetsFactory(name_map, jec_stack)
 
 ###### Muon Rochester corrections

@@ -170,6 +170,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         
         # Update muon kinematics with Rochester corrections
         mu["pt_raw"]=mu.pt
+        met_raw=met
         for v in ['MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']:
           mu["pt"]=mu.pt_raw
           if v == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(mu, isData, var='up')
@@ -224,7 +225,6 @@ class AnalysisProcessor(processor.ProcessorABC):
           # Selecting jets and cleaning them
           jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
-
           # Jet energy corrections
           if not isData:
             cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
@@ -232,14 +232,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
             cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
             events_cache = events.caches[0]
-            cleanedJets = ApplyJetCorrections(year).build(cleanedJets, lazy_cache=events_cache)
-          
+            cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
             # SYSTEMATICS
             if(v == 'JERUp'): cleanedJets = cleanedJets.JER.up
             elif(v == 'JERDown'): cleanedJets = cleanedJets.JER.down
             elif(v == 'JESUp'): cleanedJets = cleanedJets.JES_jes.up
             elif(v == 'JESDown'): cleanedJets = cleanedJets.JES_jes.down
-
+            met=ApplyJetCorrections(year, corr_type='met').build(met_raw,cleanedJets, lazy_cache=events_cache)
           cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
           goodJets = cleanedJets[cleanedJets.isGood]
 
