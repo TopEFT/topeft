@@ -744,7 +744,7 @@ central_UL16_bkg_dict = {
         "histAxisName": "WWZ_4F_centralUL16",
         "xsecName": "WWZ",
     },
-    "UL16_WWZ_ext" : {
+    "UL16_WWZ_4F_ext" : {
         "path" : "/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17_ext1-v1/NANOAODSIM",
         "histAxisName": "WWZ_4F_centralUL16",
         "xsecName": "WWZ",
@@ -1094,11 +1094,11 @@ def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False
         )
         out_name = sample_name+".json"
 
+        subprocess.run(["mv",out_name,out_dir]) 
         if '_ext' in out_name:
           combine_json_ext(out_dir+'/'+out_name) # Merge with non-ext version
-          os.remove(out_name) # Remove (now) outdated ext version
+          os.remove(out_dir+'/'+out_name) # Remove (now) outdated ext version
 
-        else: subprocess.run(["mv",out_name,out_dir]) 
         print("sample name:",sample_name)
         print("\tpath:",path,"\n\thistAxisName:",hist_axis_name,"\n\txsecName",xsec_name,"\n\tout name:",out_name,"\n\tout dir:",out_dir)
 
