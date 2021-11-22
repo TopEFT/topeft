@@ -249,7 +249,7 @@ class DatacardMaker():
                     if 'lin' in name:
                         h_lin = h_bases
                         for hists in h_lin.values():
-                            hists.set_wilson_coeff_from_array(wcpt)
+                            hists.set_wilson_coefficients(**wcpt)
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_lin)
                         else:
@@ -269,7 +269,7 @@ class DatacardMaker():
                     elif 'quad' in name and 'mix' not in name:
                         h_quad = h_bases
                         for hists in h_quad.values():
-                            hists.set_wilson_coeff_from_array(wcpt)
+                            hists.set_wilson_coefficients(**wcpt)
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_quad)
                         else:
@@ -277,7 +277,7 @@ class DatacardMaker():
                     else:
                         h_mix = h_bases
                         for hists in h_mix.values():
-                            hists.set_wilson_coeff_from_array(wcpt)
+                            hists.set_wilson_coefficients(**wcpt)
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_mix)
                         else:
@@ -609,12 +609,10 @@ class DatacardMaker():
         elif isinstance(wc, str):
             wl = {k:0 for k in self.coeffs}
             wl[wc] = 1.
-            wl = np.array(list(wl.values()))
             wcpt.append([f'lin_{wc}', wl])
         elif len(wc)==1:
             wl = {k:0 for k in self.coeffs}
             wl[wc] = 1.
-            wl = np.array(list(wl.values()))
             wcpt.append([f'lin_{wc}', wl])
         # Case for 2+ wcs
         else:
@@ -627,7 +625,6 @@ class DatacardMaker():
             for n,w in enumerate(wc):
                 wl = {k:0 for k in self.coeffs}
                 wl[w] = 1.
-                wl = np.array(list(wl.values()))
                 wcpt.append([f'lin_{w}', wl])
             #quadratic terms
                 for m,w in enumerate([[w,wc[w2]] for w2 in range(0, n+1)]):
@@ -638,7 +635,6 @@ class DatacardMaker():
                         wl[wc1] = 2.
                     else:
                         wl[wc1] = 1.; wl[wc2] = 1.;
-                    wl = np.array(list(wl.values()))
                     if(wc1==wc2):  wcpt.append([f'quad_{wc1}', wl])
                     else: wcpt.append([f'quad_mixed_{wc1}_{wc2}', wl])
         self.wcs     = wcpt
@@ -688,7 +684,7 @@ if __name__ == '__main__':
     parser.add_argument('pklfile'           , nargs='?', default=''           , help = 'Pickle file with histograms')
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
     parser.add_argument('--do-nuisance',    action='store_true', help = 'Include nuisance parameters')
-    parser.add_argument('--POI',            default=[],          help = 'List of WCs (comma separated)')
+    parser.add_argument('--POI',            default=[],  help = 'List of WCs (comma separated)')
     parser.add_argument('--job',      '-j', default='-1'       , help = 'Job to run')
     parser.add_argument('--year',     '-y', default=''         , help = 'Run over single year')
     args = parser.parse_args()
