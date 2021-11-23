@@ -23,6 +23,7 @@ def main():
     parser.add_argument('src_dirs',       nargs='*', default=[], metavar='SRC_DIR', help='Path(s) to toplevel directory that contains the lobster skims we want to match to, can also be specified with the "--file" option instead')
     parser.add_argument('--file','-f',    nargs='?', metavar='FILE', help='Text file with paths to the src directories that contain the lobster skims')
     parser.add_argument('--json-dir',     nargs='?', default=topcoffea_path("json"), metavar='DIR', help='Path to the directory with JSON files you want to update. Will recurse down into all sub-directories looking for any .json files along the way')
+    parser.add_argument('--output-dir',   nargs='?', default='', metavar='DIR', help='Path to an output directory to save the generated json skim files, if not specified will save to the same directory that the template json is located')
     parser.add_argument('--skim-postfix', default='_NDSkim',metavar='NAME', help='Postfix string to differentiate the skim json from the original, defaults to "_NDSkim"')
     parser.add_argument('--ignore-dirs',  nargs='*', default=[], metavar='PATTERN')
     parser.add_argument('--match-files',  nargs='*', default=[], metavar='PATTERN')
@@ -33,6 +34,7 @@ def main():
     args = parser.parse_args()
     src_dirs     = args.src_dirs
     json_dir     = args.json_dir
+    out_dir      = args.output_dir
     src_file     = args.file
     postfix      = args.skim_postfix
     ignore_dirs  = args.ignore_dirs
@@ -56,6 +58,10 @@ def main():
     if len(src_dirs) == 0:
         print("[ERROR] No src directories have been specified!")
         parser.print_help()
+        return
+
+    if out_dir and not os.path.exists(out_dir):
+        print(f"[ERROR] output directory does not exist: {out_dir}")
         return
 
     # These sub-directories have duplicated JSON names with those from private_UL
@@ -96,7 +102,10 @@ def main():
             "files": [x.replace("/hadoop","") for x in get_files(hdir,match_files=[".*\\.root"])]
         }
         outname = os.path.split(matched_json_fp)[1].replace(".json",f"{postfix}.json")
-        outname = pjoin(template_json_dir,outname)
+        if out_dir:
+            outname = pjoin(out_dir,outname)
+        else:
+            outname = pjoin(template_json_dir,outname)
         update_json(matched_json_fp,dry_run=dry_run,outname=outname,verbose=verbose,**updates)
         template_json_fpaths.remove(matched_json_fp)
     # These are lobster skims for which we couldn't find a matching json template
