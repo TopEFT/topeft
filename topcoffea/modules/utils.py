@@ -51,7 +51,7 @@ def get_files(top_dir,**kwargs):
                         print(f"\tSkipping directory: {m}")
                     dirs.remove(m)
         else:
-            dirs = []
+            dirs.clear()
         files = regex_match(files,match_files)
         if ignore_files:
             file_matches = regex_match(files,regex_lst=ignore_files)
