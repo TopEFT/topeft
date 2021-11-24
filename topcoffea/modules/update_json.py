@@ -9,7 +9,13 @@ def update_json(fname,dry_run=False,outname=None,verbose=False,**kwargs):
             Attempts to open a json file, modify one or more of the outermost keys, and then save
             the new json. If dry_run is set to true, then skip writing to an output file. If outname
             is None then the file name will be set to the original and overwrite it.
-
+        Arguments:
+            fname -- The full file path to the json file that is to be updated/modified
+            dry_run -- If true will do everything except actually write the resulting json to file
+            outname -- If not None will write to a json file with this name
+            verbose -- If true will include additional print outs about what is being updated
+            **kwargs -- The key/value pairs to update in original json. The keys must already exist
+                        in the original file or a KeyError will be raised
         Note:
             fname will in general will be the full file path to the desired file, so don't expect it
             to be saved in the same directory as the original w/o making sure the file path is correct
