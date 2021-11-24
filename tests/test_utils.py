@@ -78,24 +78,24 @@ def test_get_files():
     assert (len(file_list) == 1)
     assert (pjoin(path,"README.md") in file_list)
 
-def test_make_skim_jsons():
-    # This test can only be run from a machine that has the ND hadoop cluster mounted on it
-    if os.environ['HOSTNAME'] != 'earth.crc.nd.edu':
-        return
+# def test_make_skim_jsons():
+#     # This test can only be run from a machine that has the ND hadoop cluster mounted on it
+#     if os.environ['HOSTNAME'] != 'earth.crc.nd.edu':
+#         return
 
-    args = [
-        "python",
-        "analysis/topEFT/make_skim_jsons.py",
-        "--json-dir",
-        topcoffea_path("json/data_samples"),
-        "--file",
-        "analysis/topEFT/ND_data_skim_locations.txt",
-        "--output-dir",
-        "."
-    ]
-    cmd_str = " ".join(args)
-    print(f"Test command: {cmd_str}")
-    subprocess.run(args)
+#     args = [
+#         "python",
+#         "analysis/topEFT/make_skim_jsons.py",
+#         "--json-dir",
+#         topcoffea_path("json/data_samples"),
+#         "--file",
+#         "analysis/topEFT/ND_data_skim_locations.txt",
+#         "--output-dir",
+#         "."
+#     ]
+#     cmd_str = " ".join(args)
+#     print(f"Test command: {cmd_str}")
+#     subprocess.run(args)
 
 if __name__ == "__main__":
     test_get_files()
