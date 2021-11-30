@@ -32,7 +32,7 @@
     "NAOD-00000_18449.root"
   ],
   "nEvents": 7993714,
-  "nGenEvents": 40553247.0,
-  "nSumOfWeights": 40553247,
+  "nGenEvents": 40553247,
+  "nSumOfWeights": 40553247.0,
   "isData": false
 }
