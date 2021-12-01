@@ -13,6 +13,12 @@ __pycache__/*
 */.ipynb_checkpoints/*
 .DS_Store
 
+# User generated files from runnign code
+analysis/topEFT/wq-executor-tmp-*
+analysis/topEFT/wq-*.summary
+analysis/topEFT/envs
+analysis/topEFT/histos
+
 # Project files
 .ropeproject
 .project

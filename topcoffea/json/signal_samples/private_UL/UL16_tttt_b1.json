@@ -77,7 +77,7 @@
     "/store/user/kmohrman/FullProduction/FullR2/UL16/Round1/Batch1/naodOnly_step/v1/nAOD_step_tttt_FourtopsMay3v1_run0/NAOD-00000_9776.root"
   ],
   "nEvents": 7500000,
-  "nGenEvents": 14995500.0,
-  "nSumOfWeights": 14995500,
+  "nGenEvents": 14995500,
+  "nSumOfWeights": 94.36125901896327,
   "isData": false
 }

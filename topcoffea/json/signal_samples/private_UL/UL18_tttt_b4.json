@@ -117,7 +117,7 @@
     "/store/user/kmohrman/FullProduction/FullR2/UL18/Round1/Batch4/naodOnly_step/v1/nAOD_step_tttt_FourtopsMay3v1_run0/NAOD-00000_9926.root"
   ],
   "nEvents": 14902000,
-  "nGenEvents": 29746500.0,
-  "nSumOfWeights": 29746500,
+  "nGenEvents": 29746500,
+  "nSumOfWeights": 187.55443212752405,
   "isData": false
 }

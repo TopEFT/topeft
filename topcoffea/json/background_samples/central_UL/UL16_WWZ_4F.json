@@ -13,10 +13,17 @@
     "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/120000/37689321-B7D9-4E48-9651-BBA50CECB364.root",
     "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/280000/3CE80F99-C9C3-8D4C-9B21-EF7BF673C257.root",
     "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/130000/386BC248-6FB6-634E-B921-B84D49BDCF10.root",
-    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/70000/C00DDDA8-693E-A449-8017-8FF7969A7DFD.root"
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/70000/C00DDDA8-693E-A449-8017-8FF7969A7DFD.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17_ext1-v1/120000/28E93F0A-36FB-864C-A13F-978C649946DB.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17_ext1-v1/120000/B51249A4-F609-0845-AECC-F062196CD733.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17_ext1-v1/120000/98B5CCC0-97A4-A249-A18D-51379381177A.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17_ext1-v1/120000/6A9C1237-C169-424F-B8AE-C91F18D3F040.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17_ext1-v1/270000/014EDCE9-9249-1B43-8A92-2186424C4E14.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17_ext1-v1/270000/A65BE5BD-6F16-A24B-AA38-D164705B02E2.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17_ext1-v1/120000/EFA32BC8-E364-0A42-8914-93B9B02C8646.root"
   ],
-  "nEvents": 67000,
-  "nGenEvents": 67000,
-  "nSumOfWeights": 11495.724679200002,
+  "nEvents": 4662000,
+  "nGenEvents": 4662000,
+  "nSumOfWeights": 796209.4046733598,
   "isData": false
 }
