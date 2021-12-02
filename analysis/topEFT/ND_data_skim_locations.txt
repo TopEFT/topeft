@@ -1,0 +1,4 @@
+/hadoop/store/user/awightma/skims/data/NanoAOD_ULv8_UL2016/2021_11_18/v1
+/hadoop/store/user/awightma/skims/data/NanoAOD_ULv8_UL2017/2021_11_16/v1
+/hadoop/store/user/awightma/skims/data/NanoAOD_ULv8_UL2018/2021_11_16/v1
+/hadoop/store/user/awightma/skims/data/NanoAOD_ULv8_UL2018/DoubleMuon_D_UL2018/2021_11_19/v1

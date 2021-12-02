@@ -1,0 +1,15 @@
+{
+  "xsec": 1.0,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "dataUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2016/2021_11_18/v1/DoubleEG_B_ver1_HIPM_UL2016/output_1723.root"
+  ],
+  "nEvents": 5686987,
+  "nGenEvents": 5686987,
+  "nSumOfWeights": 5686987.0,
+  "isData": true
+}

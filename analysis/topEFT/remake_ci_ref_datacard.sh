@@ -1,4 +1,4 @@
-# This script reproduces the reference datacard file that the CI compares agains
+# This script reproduces the reference datacard file that the CI compares against
 # Run this script when you want to update the reference file
 
 if [[ "$PWD" == *"analysis/topEFT"* ]]; then

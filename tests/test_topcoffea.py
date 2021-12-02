@@ -11,7 +11,8 @@ def test_topcoffea():
         "-o",
         "output_check_yields",
         "-p",
-        "analysis/topEFT/histos/"
+        "analysis/topEFT/histos/",
+        "--do-systs"
     ]
 
     # Run TopCoffea
@@ -49,7 +50,7 @@ def test_compare_yields():
     # Run comparison
     subprocess.run(args)
 
-def test_datacard():
+def test_datacard_2l_nuis():
     args = [
         "python",
         "analysis/topEFT/datacard_maker.py",
@@ -64,6 +65,7 @@ def test_datacard():
 
     assert filecmp.cmp('histos/ttx_multileptons-2lss_p_2b.txt', 'analysis/topEFT/test/ttx_multileptons-2lss_p_2b_ref.txt')
 
+def test_datacard_2l_ht():
     args = [
         "python",
         "analysis/topEFT/datacard_maker.py",
@@ -77,6 +79,7 @@ def test_datacard():
 
     assert filecmp.cmp('histos/ttx_multileptons-2lss_p_4j_2b_ht.txt', 'analysis/topEFT/test/ttx_multileptons-2lss_p_4j_2b_ht_ref.txt')
 
+def test_datacard_3l():
     args = [
         "python",
         "analysis/topEFT/datacard_maker.py",
@@ -90,6 +93,7 @@ def test_datacard():
 
     assert filecmp.cmp('histos/ttx_multileptons-3l_sfz_1b.txt', 'analysis/topEFT/test/ttx_multileptons-3l_sfz_1b_ref.txt')
 
+def test_datacard_3l_ptbl():
     args = [
         "python",
         "analysis/topEFT/datacard_maker.py",

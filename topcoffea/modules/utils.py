@@ -1,4 +1,8 @@
+import os
 import re
+import json
+
+pjoin = os.path.join
 
 # Match strings using one or more regular expressions
 def regex_match(lst,regex_lst):
@@ -16,3 +20,104 @@ def regex_match(lst,regex_lst):
                 matches.append(s)
                 break
     return matches
+
+def get_files(top_dir,**kwargs):
+    '''
+        Description:
+            Walks through an entire directory structure searching for files. Returns a list of
+            matching files with absolute path included.
+
+            Can optionally be given list of regular
+            expressions to skip certain directories/files or only match certain types of files
+    '''
+    ignore_dirs  = kwargs.pop('ignore_dirs',[])
+    match_files  = kwargs.pop('match_files',[])
+    ignore_files = kwargs.pop('ignore_files',[])
+    recursive    = kwargs.pop('recursive',False)
+    verbose      = kwargs.pop('verbose',False)
+    found = []
+    if verbose:
+        print(f"Searching in {top_dir}")
+        print(f"\tRecurse: {recursive}")
+        print(f"\tignore_dirs: {ignore_dirs}")
+        print(f"\tmatch_files: {match_files}")
+        print(f"\tignore_files: {ignore_files}")
+    for root, dirs, files in os.walk(top_dir):
+        if recursive:
+            if ignore_dirs:
+                dir_matches = regex_match(dirs,regex_lst=ignore_dirs)
+                for m in dir_matches:
+                    if verbose:
+                        print(f"\tSkipping directory: {m}")
+                    dirs.remove(m)
+        else:
+            dirs.clear()
+        files = regex_match(files,match_files)
+        if ignore_files:
+            file_matches = regex_match(files,regex_lst=ignore_files)
+            for m in file_matches:
+                if verbose:
+                    print(f"\tSkipping file: {m}")
+                files.remove(m)     # Removes 'm' from the file list, not the actual file on disk
+        for f in files:
+            fpath = os.path.join(root,f)
+            found.append(fpath)
+    return found
+
+# Read from a sample json file
+def load_sample_json_file(fpath):
+    if not os.path.exists(fpath):
+        raise RuntimeError(f"fpath '{fpath}' does not exist!")
+    with open(fpath) as f:
+        jsn = json.load(f)
+    jsn['redirector'] = None
+    # Cleanup any spurious double slashes
+    for i,fn in enumerate(jsn['files']):
+        fn = fn.replace("//","/")
+        jsn['files'][i] = fn
+    # Make sure that the json was unpacked correctly
+    jsn['xsec']          = float(jsn['xsec'])
+    jsn['nEvents']       = int(jsn['nEvents'])
+    jsn['nGenEvents']    = int(jsn['nGenEvents'])
+    jsn['nSumOfWeights'] = float(jsn['nSumOfWeights'])
+    return jsn
+
+# Generate/Update a dictionary for storing info from a cfg file
+def update_cfg(jsn,name,**kwargs):
+    cfg = kwargs.pop('cfg',{})
+    max_files = kwargs.pop('max_files',0)
+    cfg[name] = {}
+    cfg[name].update(jsn)
+    if max_files:
+        # Only keep the first "max_files"
+        del cfg[name]['files'][max_files:]
+    # Inject/Modify info related to the json sample
+    for k,v in kwargs.items():
+        cfg[name][k] = v
+    return cfg
+
+# Read from a cfg file
+def read_cfg_file(fpath,cfg={},max_files=0):
+    cfg_dir,fname = os.path.split(fpath)
+    if not cfg_dir:
+        raise RuntimeError(f"No cfg directory in {fpath}")
+    if not os.path.exists(cfg_dir):
+        raise RuntimeError(f"{cfg_dir} does not exist!")
+    xrd_src = None
+    with open(fpath) as f:
+        print(' >> Reading json from cfg file...')
+        for l in f:
+            l = l.strip().split("#")[0]     # Chop off anything after a comment
+            if not len(l): continue         # Ignore fully commented lines
+            if l.startswith("root:"):
+                # Note: This implicitly assumes that a redirector line will appear before any json
+                #   paths in the cfg file
+                xrd_src = l
+            else:
+                sample = os.path.basename(l)
+                sample = sample.replace(".json","")
+                full_path = pjoin(cfg_dir,l)
+                jsn = load_sample_json_file(full_path)
+                cfg = update_cfg(jsn,sample,cfg=cfg,max_files=max_files,redirector=xrd_src)
+    return cfg
+
