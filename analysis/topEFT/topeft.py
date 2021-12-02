@@ -15,7 +15,7 @@ from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
@@ -237,10 +237,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             events_cache = events.caches[0]
             cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
             # SYSTEMATICS
-            if(syst_var == 'JERUp'): cleanedJets = cleanedJets.JER.up
-            elif(syst_var == 'JERDown'): cleanedJets = cleanedJets.JER.down
-            elif(syst_var == 'JESUp'): cleanedJets = cleanedJets.JES_jes.up
-            elif(syst_var == 'JESDown'): cleanedJets = cleanedJets.JES_jes.down
+            cleanedJets=ApplyJetSystematics(cleanedJets,syst_var)
             met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
           cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
           goodJets = cleanedJets[cleanedJets.isGood]

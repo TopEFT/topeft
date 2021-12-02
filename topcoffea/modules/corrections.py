@@ -267,7 +267,7 @@ def GetPUSF(nTrueInt, year, var='nominal'):
   weights = np.divide(nData,nMC)
   return weights
 
-###### JEC corrections
+###### JEC 
 ##############################################
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
 # JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC
@@ -302,6 +302,12 @@ def ApplyJetCorrections(year, corr_type):
   if corr_type=='met': return CorrectedMETFactory(name_map)
   return CorrectedJetsFactory(name_map, jec_stack)
 
+def ApplyJetSystematics(cleanedJets,syst_var):
+  if(syst_var == 'JERUp'): return cleanedJets.JER.up
+  elif(syst_var == 'JERDown'): return cleanedJets.JER.down
+  elif(syst_var == 'JESUp'): return cleanedJets.JES_jes.up
+  elif(syst_var == 'JESDown'): return cleanedJets.JES_jes.down
+  else: return cleanedJets
 ###### Muon Rochester corrections
 ################################################################
 # https://gitlab.cern.ch/akhukhun/roccor
