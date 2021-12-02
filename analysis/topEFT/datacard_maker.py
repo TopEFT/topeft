@@ -8,6 +8,7 @@ import numpy as np
 import os
 import re
 import json
+from copy import deepcopy 
 
 from ROOT import TFile, TH1D, TH2D
 
@@ -20,7 +21,7 @@ class DatacardMaker():
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         self.fin = infile
-        self.tolerance = 1e-7
+        self.tolerance = 1e-5
         self.do_nuisance = do_nuisance
         self.coeffs = wcs if len(wcs)>0 else []
         if len(self.coeffs) > 0: print(f'Using the subset {self.coeffs}')
@@ -36,7 +37,7 @@ class DatacardMaker():
             self.hists = pickle.load(fin)
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
-        #Get list of channels
+        # Get list of channels
         self.ch2lss = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1]})
         self.ch2lss += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1]})
         self.ch2lss_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_p' in k[1]})
@@ -75,7 +76,7 @@ class DatacardMaker():
         self.skip = {**self.skip, **{'data': [k for k in self.channels]}} # Skip all data!
         self.skip = {**self.skip, **{'flips': [k for k in self.channels if '2l' not in k]}} # Charge flips only in 2lss channels
 
-        #Get list of samples and cut levels from histograms
+        # Get list of samples and cut levels from histograms
         self.signal = ['ttH','tllq','ttll','ttlnu','tHq','tttt']
         self.samples = list({k[0]:0 for k in self.hists['ptbl'].values().keys()})
         if self.year != '':
@@ -191,7 +192,7 @@ class DatacardMaker():
                 cat = '_'.join([channel, maxb, variable])
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fout = uproot3.recreate(fname)
-        #Scale each plot to the SM
+        # Scale each plot to the SM
         processed = []
         for proc in self.samples:
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
@@ -201,7 +202,7 @@ class DatacardMaker():
             processed.append(simplified)
             p = proc.split('_')[0]
             ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k}
-            #Integrate out processes
+            # Integrate out processes
             h_base = h.group('sample', hist.Cat('year', 'year'), ul)
             if h_base.values() == {}:
                 print(f'Issue with {proc}')
@@ -221,7 +222,7 @@ class DatacardMaker():
                 h_base = h_base.rebin('ht', hist.Bin("ht", "H$_{T}$ (GeV)", 10, h_base.axis(variable).edges()[0], h_base.axis(variable).edges()[-1]))
             if 'ptbl' in variable:
                 h_base = h_base.rebin('ptbl', hist.Bin("ptbl", "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$", 10, h_base.axis(variable).edges()[0], h_base.axis(variable).edges()[-1]))
-            #Save the SM plot
+            # Save the SM plot
             h_bases = {syst: h_base.integrate('systematic', syst) for syst in self.syst}
             h_base = h_base.integrate('systematic', 'nominal')
             h_sm = h_bases
@@ -234,21 +235,21 @@ class DatacardMaker():
                     export1d(h_sm, pname, 'sm', fout) # Special case for SM b/c background names overlap (p not pname)
                 else:
                     export1d(h_sm, p, '_sm', fout) # Special case for SM b/c background names overlap (p not pname)
-            #Asimov data: data_obs = MC at SM (all WCs = 0)
+            # Asimov data: data_obs = MC at SM (all WCs = 0)
             if len(h_base.axes())>1:
                 fout['data_obs'] = export2d(h_sm)
             else:
                 export1d(h_sm, 'data_obs', 'sm', fout)
-            
+
             if p in self.signal or self.rename[p] in self.signal:
                 h_lin = h_bases; h_quad = None; h_mix = None
                 for name,wcpt in self.wcs:
-                    #Scale plot to the WCPoint
-                    #Handle linear and quadratic terms
+                    # Scale plot to the WCPoint
+                    # Handle linear and quadratic terms
                     if 'lin' in name:
                         h_lin = h_bases
                         for hists in h_lin.values():
-                            hists.set_wilson_coeff_from_array(wcpt)
+                            hists.set_wilson_coefficients(**wcpt)
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_lin)
                         else:
@@ -268,7 +269,7 @@ class DatacardMaker():
                     elif 'quad' in name and 'mix' not in name:
                         h_quad = h_bases
                         for hists in h_quad.values():
-                            hists.set_wilson_coeff_from_array(wcpt)
+                            hists.set_wilson_coefficients(**wcpt)
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_quad)
                         else:
@@ -276,7 +277,7 @@ class DatacardMaker():
                     else:
                         h_mix = h_bases
                         for hists in h_mix.values():
-                            hists.set_wilson_coeff_from_array(wcpt)
+                            hists.set_wilson_coefficients(**wcpt)
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_mix)
                         else:
@@ -289,8 +290,9 @@ class DatacardMaker():
         '''
         Create datacard files from temp uproot outputs
         Creates histograms for ``combine``:
-        ``S`` is theSM
+        ``S`` is the SM
         ``S+L_i+Q_i`` sets ``WC_i=1`` and the rest to ``0``
+        ``Q`` is built from the ``WC=0``, ``WC=1``, and ``WC=2`` pieces
         ``S+L_i+L_j+Q_i+Q_j+2 M_IJ`` set ``WC_i=1``, ``WC_j=1`` and the rest to ``0``
         '''
         def getHist(d_hists,name):
@@ -299,15 +301,36 @@ class DatacardMaker():
             xmax = h.GetXaxis().GetXmax()
             xwidth = h.GetXaxis().GetBinWidth(1)
             h.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
-            return h
+            return deepcopy(h) # to protect d_hists from modifications 
 
         def processSyst(process, systMap, d_hists, fout):
             for syst in self.syst:
                 if channel in self.skip and self.skip[channel] in syst: continue
                 if any([process+'_'+syst in d for d in d_hists]):
-                    h_sys = getHist(d_hists, '_'.join([process,syst]))#d_hists[process+'_'+syst]
+                    h_sys = getHist(d_hists, '_'.join([process,syst]))
                     h_sys.SetDirectory(fout)
+
+                    # Need to handle quad term to get "Q"
+                    if (("quad" in process) and ("mixed" not in process)):
+
+                        # Get the parts of the name (from e.g. "ttH_quad_ctG")
+                        proc_str = process.split("_")[0]
+                        wc_str = process.split("_")[2]
+
+                        # Construct the names for the corresponding sm and lin terms, and get the hists
+                        name_s = '_'.join([proc_str,'sm'])
+                        name_l = '_'.join([proc_str,'lin',wc])
+                        h_s_sys = getHist(d_hists, '_'.join([name_s,syst]))
+                        h_l_sys = getHist(d_hists, '_'.join([name_l,syst]))
+
+                        # Find the Q term (Q = (Histo(WC=2) - 2*Histo(WC=1) + Histo(WC=0))/2)
+                        h_sys.Add(h_l_sys, -2)
+                        h_sys.Add(h_s_sys)
+                        h_sys.Scale(0.5)
+
+                    # Write output
                     h_sys.Write()
+
                     if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
                     syst = syst.replace('Up', '') # Remove 'Up' to get just the systematic name
                     if syst in systMap:
@@ -354,6 +377,7 @@ class DatacardMaker():
         d_bkgs = {} # Store backgrounds for summing
         samples = list(set([proc.split('_')[0] for proc in self.samples]))
         samples.sort()
+        selectedWCsForProc={}
         for proc in samples:
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
             if self.should_skip_process(proc, channel): continue
@@ -418,29 +442,67 @@ class DatacardMaker():
                 h_sm.Write()
                 if p not in self.signal:
                     continue
+
+            # Let's select now the coefficients that actually have an impact
+            selectedWCs=[]
+
             for n,wc in enumerate(self.coeffs):
+                
+                # Check if linear terms are non null
+                name = '_'.join([pname[:-1],'lin',wc])
+                tmp = getHist(d_hists, name); tmp.Add(h_sm,-1)
+
+                if abs(tmp.Integral() / h_sm.Integral()) > self.tolerance:
+                    selectedWCs.append(wc)
+                    continue                    
+
+                # Check if quadratic terms are non null
+                name = '_'.join([pname[:-1],'quad',wc])
+                tmp = getHist(d_hists, name); tmp.Add(h_sm,-1)
+                if abs(tmp.Integral() / h_sm.Integral()) > self.tolerance:
+                    selectedWCs.append(wc)
+                    continue
+
+                # Check if crossed terms are non null
+                anyIsNonZero=False
+                for wc2 in [self.coeffs[w2] for w2 in range(n)]:
+                    name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
+                    name2 = '_'.join([pname[:-1],'lin',wc2])
+                    h_mix = getHist(d_hists, name)
+                    h_lin2 = getHist(d_hists, name2)
+                    tmp=deepcopy(h_mix); tmp.Add(h_lin2,-1) # should be S+L1+Q1+M12, if its small we can skip it 
+                    if abs(tmp.Integral() / h_sm.Integral()) > self.tolerance:
+                        selectedWCs.append(wc)
+                        break
+
+            # Find the "S+L+Q", "Q", and "S+Li+Lj+Qi+Qj+2Mij" pieces
+            selectedWCsForProc[pname[:-1]]=selectedWCs
+            for n,wc in enumerate(selectedWCs):
+
+                # Get the "S+L+Q" piece
                 name = '_'.join([pname[:-1],'lin',wc])
                 if name not in d_hists:
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                     continue
                 h_lin = getHist(d_hists, name)
-                if h_lin.Integral() > 0 and h_lin.Integral() / h_sm.Integral() > self.tolerance:
-                    if name in iproc:
-                        allyields[name] += h_lin.Integral()
-                        d_sigs[name].Add(h_lin)
-                        fout.Delete(name+';1')
-                        h_lin = d_sigs[name]
-                    else:
-                        signalcount -= 1
-                        iproc[name] = signalcount
-                        allyields[name] = h_lin.Integral()
-                        d_sigs[name] = h_lin
-                    h_lin.SetDirectory(fout)
-                    h_lin.Write()
-                    if allyields[name] < 0:
-                        allyields[name] = 0.
+                if name in iproc:
+                    allyields[name] += h_lin.Integral()
+                    d_sigs[name].Add(h_lin)
+                    fout.Delete(name+';1')
+                    h_lin = d_sigs[name]
+                else:
+                    signalcount -= 1
+                    iproc[name] = signalcount
+                    allyields[name] = h_lin.Integral()
+                    d_sigs[name] = h_lin
+                h_lin.SetDirectory(fout)
+                h_lin.Write()
+                if allyields[name] < 0:
+                    raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
 
-                    if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+
+                # Get the "Q" piece
                 name = '_'.join([pname[:-1],'quad',wc])
                 if name not in d_hists:
                     print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
@@ -449,48 +511,55 @@ class DatacardMaker():
                 h_quad.Add(h_lin, -2)
                 h_quad.Add(h_sm)
                 h_quad.Scale(0.5)
-                if h_quad.Integral() > 0 and h_quad.Integral() / h_sm.Integral() > self.tolerance:
-                    if name in iproc:
-                        allyields[name] += h_quad.Integral()
-                        d_sigs[name].Add(h_quad)
-                        fout.Delete(name+';1')
-                        h_quad = d_sigs[name]
-                    else:
-                        signalcount -= 1
-                        iproc[name] = signalcount
-                        allyields[name] = h_quad.Integral()
-                        d_sigs[name] = h_quad
-                    h_quad.SetDirectory(fout)
-                    h_quad.Write()
-                    if allyields[name] < 0:
-                        allyields[name] = 0.
-                    if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if name in iproc:
+                    allyields[name] += h_quad.Integral()
+                    d_sigs[name].Add(h_quad)
+                    fout.Delete(name+';1')
+                    h_quad = d_sigs[name]
+                else:
+                    signalcount -= 1
+                    iproc[name] = signalcount
+                    allyields[name] = h_quad.Integral()
+                    d_sigs[name] = h_quad
+                h_quad.SetDirectory(fout)
+                h_quad.Write()
+                if allyields[name] < 0:
+                    raise Exception(f"This value {allyields[name]} should not be negative (except potentially due to rounding errors, if the value is tiny), check for bugs upstream.")
+                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                
 
-                for wc2 in [self.coeffs[w2] for w2 in range(n)]:
+                # Get the "S+Li+Lj+Qi+Qj+2Mij" piece
+                for wc2 in [selectedWCs[w2] for w2 in range(n)]:
+                    
                     name = '_'.join([pname[:-1],'quad_mixed',wc,wc2])
+                    name2 = '_'.join([pname[:-1],'lin',wc2])
                     if name not in d_hists:
                         print(f'Histogram {name} not found in {channel}! Probably below the tolerance. If so, ignore this message!')
                         continue
                     h_mix = getHist(d_hists, name)
-                    if h_mix.Integral() > 0 and h_mix.Integral() / h_sm.Integral() > self.tolerance:
-                        if name in iproc:
-                            allyields[name] += h_mix.Integral()
-                            d_sigs[name].Add(h_mix)
-                            fout.Delete(name+';1')
-                            h_mix = d_sigs[name]
-                        else:
-                            signalcount -= 1
-                            iproc[name] = signalcount
-                            allyields[name] = h_mix.Integral()
-                            d_sigs[name] = h_mix
-                        h_mix.SetDirectory(fout)
-                        h_mix.Write()
+                    skipMe=False
+                    if name in iproc:
+                        allyields[name] += h_mix.Integral()
+                        d_sigs[name].Add(h_mix)
+                        fout.Delete(name+';1')
+                        h_mix = d_sigs[name]
+                    else:
+                        signalcount -= 1
+                        iproc[name] = signalcount
                         allyields[name] = h_mix.Integral()
-                        if allyields[name] < 0:
-                            allyields[name] = 0.
-                        if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                        d_sigs[name] = h_mix
+                    h_mix.SetDirectory(fout)
+                    h_mix.Write()
+                    allyields[name] = h_mix.Integral()
+                    if allyields[name] < 0:
+                        raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
+                    if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
 
-        #Write datacard
+        selectedWCsFile=open(f'histos/selectedWCs-{cat}.txt','w')
+        json.dump(selectedWCsForProc, selectedWCsFile)
+        selectedWCsFile.close()
+
+        # Write datacard
         allyields = {k : (v if v>0 else 0) for k,v in allyields.items()}
         if systematics != 'nominal':
             cat = cat + '_' + systematics
@@ -536,18 +605,16 @@ class DatacardMaker():
         wcpt = []
         if len(wc)==0:
             wcpt = None
-        #Case for a single wc
+        # Case for a single wc
         elif isinstance(wc, str):
             wl = {k:0 for k in self.coeffs}
             wl[wc] = 1.
-            wl = np.array(list(wl.values()))
             wcpt.append([f'lin_{wc}', wl])
         elif len(wc)==1:
             wl = {k:0 for k in self.coeffs}
             wl[wc] = 1.
-            wl = np.array(list(wl.values()))
             wcpt.append([f'lin_{wc}', wl])
-        #Case for 2+ wcs
+        # Case for 2+ wcs
         else:
             pairs = [[wc[w1],wc[w2]] for w1 in range(len(wc)) for w2 in range(0, w1+1)]
             wcpt = []
@@ -558,7 +625,6 @@ class DatacardMaker():
             for n,w in enumerate(wc):
                 wl = {k:0 for k in self.coeffs}
                 wl[w] = 1.
-                wl = np.array(list(wl.values()))
                 wcpt.append([f'lin_{w}', wl])
             #quadratic terms
                 for m,w in enumerate([[w,wc[w2]] for w2 in range(0, n+1)]):
@@ -569,7 +635,6 @@ class DatacardMaker():
                         wl[wc1] = 2.
                     else:
                         wl[wc1] = 1.; wl[wc2] = 1.;
-                    wl = np.array(list(wl.values()))
                     if(wc1==wc2):  wcpt.append([f'quad_{wc1}', wl])
                     else: wcpt.append([f'quad_mixed_{wc1}_{wc2}', wl])
         self.wcs     = wcpt
@@ -619,7 +684,7 @@ if __name__ == '__main__':
     parser.add_argument('pklfile'           , nargs='?', default=''           , help = 'Pickle file with histograms')
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
     parser.add_argument('--do-nuisance',    action='store_true', help = 'Include nuisance parameters')
-    parser.add_argument('--POI',            default=[],          help = 'List of WCs (comma separated)')
+    parser.add_argument('--POI',            default=[],  help = 'List of WCs (comma separated)')
     parser.add_argument('--job',      '-j', default='-1'       , help = 'Job to run')
     parser.add_argument('--year',     '-y', default=''         , help = 'Run over single year')
     args = parser.parse_args()
@@ -650,6 +715,7 @@ if __name__ == '__main__':
                  {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
                  {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
         jobs.append(cards)
+
     njobs = len(jobs) * len(jobs[0])
     if job == -1:
         card.condor_job(pklfile, njobs, wcs, do_nuisance)
