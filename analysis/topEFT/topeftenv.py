@@ -12,6 +12,8 @@ import glob
 import os
 import string
 
+import coffea
+
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
 
@@ -20,6 +22,8 @@ env_dir_cache = 'envs'
 py_version = "{}.{}.{}".format(
         sys.version_info[0], sys.version_info[1], sys.version_info[2]
         )  # 3.8 or 3.9, or etc.
+
+coffea_version = coffea.__version__
 
 
 # Define packages to install from different conda channels.
@@ -40,13 +44,13 @@ packages_json_template = string.Template('''
         ]
     },
     "pip": [
-        "coffea",
+        "coffea==$coffea_version",
         "topcoffea"
         ]
 }
 ''')
 
-packages_json = packages_json_template.substitute(py_version=py_version)
+packages_json = packages_json_template.substitute(py_version=py_version,coffea_version=coffea_version)
 
 
 def _create_env(env_name, force=False):
