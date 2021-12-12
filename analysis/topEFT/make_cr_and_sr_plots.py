@@ -76,6 +76,7 @@ CR_GRP_MAP = {
     "Triboson" : [],
     "Single top" : [],
     "Singleboson" : [],
+    "Conv": [],
     "Nonprompt" : [],
     "Flips" : [],
     "Signal" : [],
@@ -415,7 +416,9 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             CR_GRP_MAP["Single top"].append(proc_name)
         elif "DY" in proc_name:
             CR_GRP_MAP["DY"].append(proc_name)
-        elif "TT" in proc_name:
+        elif "TTG" in proc_name:
+            CR_GRP_MAP["Conv"].append(proc_name)
+        elif "TTJets" in proc_name:
             CR_GRP_MAP["Ttbar"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             CR_GRP_MAP["Triboson"].append(proc_name)
@@ -474,6 +477,12 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
             hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)
             hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)
+
+            # Remove samples that are not relevant for the given category
+            if hist_cat == "cr_2los_tt":
+                hist_mc_integrated = hist_mc_integrated.remove(["Nonprompt"],"sample")
+            if hist_cat == "cr_2lss":
+                hist_mc_integrated = hist_mc_integrated.remove(["Ttbar"],"sample")
 
             # Create and save the figure
             x_range = None
