@@ -223,14 +223,14 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
 
     # Make the ratio plot
     hist.plotratio(
-        num=h_mc.sum("sample"),
-        denom=h_data.sum("sample"),
-        ax=rax,
-        error_opts=DATA_ERR_OPS,
-        denom_fill_opts={},
-        guide_opts={},
-        unc='num',
-        clear=False,
+        num = h_data.sum("sample"),
+        denom = h_mc.sum("sample"),
+        ax = rax,
+        error_opts = DATA_ERR_OPS,
+        denom_fill_opts = {},
+        guide_opts = {},
+        unc = 'num',
+        clear = False,
     )
 
     # Scale the y axis and labels
