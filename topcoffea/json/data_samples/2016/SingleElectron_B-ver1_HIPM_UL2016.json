@@ -1,0 +1,15 @@
+{
+  "xsec": 1.0,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "dataUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/data/Run2016B/SingleElectron/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/130000/956AE607-98F0-A54A-B19F-DFC390D76EF5.root"
+  ],
+  "nEvents": 1422819.0,
+  "nGenEvents": 1422819.0,
+  "nSumOfWeights": 1422819.0,
+  "isData": true
+}

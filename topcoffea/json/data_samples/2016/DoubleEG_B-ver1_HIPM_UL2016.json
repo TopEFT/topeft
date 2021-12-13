@@ -1,0 +1,24 @@
+{
+  "xsec": 1.0,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "dataUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/data/Run2016B/DoubleEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/70000/4A93F6C9-A686-0B4F-8C48-8E20890FC090.root",
+    "/store/data/Run2016B/DoubleEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/280000/0475EF51-B32B-3842-87A1-4401BB753DD9.root",
+    "/store/data/Run2016B/DoubleEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/280000/486F6296-BD55-364B-82C1-96B5989CCD6B.root",
+    "/store/data/Run2016B/DoubleEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/70000/6803219E-E05F-E342-B183-15CB8252ABB1.root",
+    "/store/data/Run2016B/DoubleEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/70000/42E0923F-4714-0D4D-A9CB-84D8E714C557.root",
+    "/store/data/Run2016B/DoubleEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/70000/B0312AF7-B8EA-484B-BE19-A1F4BD4F6DEC.root",
+    "/store/data/Run2016B/DoubleEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/70000/675E07D5-FBA4-704A-B103-F06FBB6D80AF.root",
+    "/store/data/Run2016B/DoubleEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/70000/D453D68F-C0FC-7D4C-8A06-214DA5D706DE.root",
+    "/store/data/Run2016B/DoubleEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/70000/02B30CEC-8D83-BE49-9B75-4AD3FE8FF447.root",
+    "/store/data/Run2016B/DoubleEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/70000/4825282E-8176-8543-8E61-6F22F80EA4DB.root"
+  ],
+  "nEvents": 5686987.0,
+  "nGenEvents": 5686987.0,
+  "nSumOfWeights": 5686987.0,
+  "isData": true
+}
