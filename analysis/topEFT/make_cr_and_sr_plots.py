@@ -483,6 +483,9 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 hist_mc_integrated = hist_mc_integrated.remove(["Nonprompt"],"sample")
             if hist_cat == "cr_2lss":
                 hist_mc_integrated = hist_mc_integrated.remove(["Ttbar"],"sample")
+                hist_mc_integrated = hist_mc_integrated.remove(["DY"],"sample")
+            if hist_cat == "cr_3l":
+                hist_mc_integrated = hist_mc_integrated.remove(["DY"],"sample")
 
             # Create and save the figure
             x_range = None
