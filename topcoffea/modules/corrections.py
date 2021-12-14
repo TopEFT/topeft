@@ -291,10 +291,6 @@ def AttachPSWeights(events):
   # Add down variation event weights
   events['ISRDown'] = ak.flatten(ps_weights_list[PSmask[ISRdown]])
   events['FSRDown'] = ak.flatten(ps_weights_list[PSmask[FSRdown]])
-  #ps_weights_list[PSWeights['ISRup']:PSWeights['FSRup']+1] # +1 because in [n:m] m is exclusive
-  #ps_weights_list[PSWeights['ISRdown']:PSWeights['FSRdown']+1], ps_weights_list[PSWeights['ISRup']:PSWeights['FSRup']+1] # +1 because in [n:m] m is exclusive
-  #else:
-  #    raise Exception(f'Variation {var} not found!')
 
 ###### JEC 
 ##############################################
