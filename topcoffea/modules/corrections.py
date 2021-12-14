@@ -308,7 +308,7 @@ def AttachScaleWeights(events):
   scale_mask.append(ak.Array(ak.local_index(scale_weights_list)==renormUp_factDown))
   scale_mask.append(ak.Array(ak.local_index(scale_weights_list)==renormUp))
   scale_mask.append(ak.Array(ak.local_index(scale_weights_list)==renormUp_factUp))
-  events['renormDown_factDown'] = ak.flatten(scale_weights_list[scale_mask[renormDown_factDown]])
+  events['renorm_factDown'] = ak.flatten(scale_weights_list[scale_mask[renormDown_factDown]])
   events['renormDown']          = ak.flatten(scale_weights_list[scale_mask[renormDown]])
   events['renormDown_factUp']   = ak.flatten(scale_weights_list[scale_mask[renormDown_factUp]])
   events['factDown']            = ak.flatten(scale_weights_list[scale_mask[factDown]])
@@ -316,7 +316,7 @@ def AttachScaleWeights(events):
   events['factUp']              = ak.flatten(scale_weights_list[scale_mask[factUp]])
   events['renormUp_factDown']   = ak.flatten(scale_weights_list[scale_mask[renormUp_factDown]])
   events['renormUp']            = ak.flatten(scale_weights_list[scale_mask[renormUp]])
-  events['renormUp_factUp']     = ak.flatten(scale_weights_list[scale_mask[renormUp_factUp]])
+  events['renorm_factUp']     = ak.flatten(scale_weights_list[scale_mask[renormUp_factUp]])
 
 
 def AttachPdfWeights(events):
