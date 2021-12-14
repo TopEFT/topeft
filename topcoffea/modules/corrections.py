@@ -267,6 +267,35 @@ def GetPUSF(nTrueInt, year, var='nominal'):
   weights = np.divide(nData,nMC)
   return weights
 
+def AttachPSWeights(events):
+  '''
+  Return a list of PS weights
+  PS weights (w_var / w_nominal); [0] is ISR=0.5 FSR=1; [1] is ISR=1 FSR=0.5; [2] is ISR=2 FSR=1; [3] is ISR=1 FSR=2
+  '''
+  PSWeights = {'ISR': 0, 'FSR': 1, 'ISRdown': 0, 'FSRdown': 1, 'ISRup': 2, 'FSRup': 3}
+  ISR = 0; FSR = 1; ISRdown = 0; FSRdown = 1; ISRup = 2; FSRup = 3
+  PSmask = []
+  if events.PSWeight is None:
+      raise Exception(f'PSWeight not found in {fname}!')
+  ps_weights_list   = ak.Array(events.PSWeight)
+  PSmask.append(ak.Array(ak.local_index(ps_weights_list)==ISRdown))
+  PSmask.append(ak.Array(ak.local_index(ps_weights_list)==FSRdown))
+  PSmask.append(ak.Array(ak.local_index(ps_weights_list)==ISRup))
+  PSmask.append(ak.Array(ak.local_index(ps_weights_list)==FSRup))
+  # Add nominal as 1 just to make things similar
+  events['ISRnom']  = np.ones(len(events))
+  events['FSRnom']  = np.ones(len(events))
+  # Add up variation event weights
+  events['ISRup']   = ak.flatten(ps_weights_list[PSmask[ISRup]])
+  events['FSRup']   = ak.flatten(ps_weights_list[PSmask[FSRup]])
+  # Add down variation event weights
+  events['ISRdown'] = ak.flatten(ps_weights_list[PSmask[ISRdown]])
+  events['FSRdown'] = ak.flatten(ps_weights_list[PSmask[FSRdown]])
+  #ps_weights_list[PSWeights['ISRup']:PSWeights['FSRup']+1] # +1 because in [n:m] m is exclusive
+  #ps_weights_list[PSWeights['ISRdown']:PSWeights['FSRdown']+1], ps_weights_list[PSWeights['ISRup']:PSWeights['FSRup']+1] # +1 because in [n:m] m is exclusive
+  #else:
+  #    raise Exception(f'Variation {var} not found!')
+
 ###### JEC 
 ##############################################
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
