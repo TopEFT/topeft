@@ -15,7 +15,7 @@ from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachPdfWeights, AttachScaleWeights
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
@@ -149,6 +149,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError(f"Error: Unknown year \"{year}\".")
         lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
 
+        ######### Event weights ###########
+
+        # Attach PS weights (ISR/FSR)
+        AttachPSWeights(events)
+        # Attach scale weights (renormalization/factorization)
+        AttachScaleWeights(events) # FIXME use these!
+        # Attach PDF weights
+        AttachPdfWeights(events) # FIXME use these!
+
         ######### EFT coefficients ##########
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
@@ -172,7 +181,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Update muon kinematics with Rochester corrections
         mu["pt_raw"]=mu.pt
         met_raw=met
-        if self._do_systematics : syst_var_list = ['ISRUp','ISRDown','FSRUp','FSRDown','MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']
+        if self._do_systematics : syst_var_list = ['ISRUp','ISRDown','FSRUp','FSRDown','renormUp','renormDown','factUp','factDown','MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']
         else: syst_var_list = ['nominal']
         for syst_var in syst_var_list:
           mu["pt"]=mu.pt_raw
@@ -319,9 +328,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
             pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
 
-          # Attach PS weights (ISR/FSR)
-          AttachPSWeights(events)
-
           # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
           weights_dict = {}
           if (isData or (eft_coeffs is not None)):
@@ -343,6 +349,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # FSR/ISR weights
                 weights_dict[ch_name].add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
                 weights_dict[ch_name].add('FSR', events.FSRnom, events.FSRUp, events.FSRDown)
+                # renorm/fact scale
+                weights_dict[ch_name].add('renorm', events.nom, events.renormUp, events.renormDown)
+                weights_dict[ch_name].add('fact',   events.nom, events.factUp,   events.factDown)
             if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
@@ -356,7 +365,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           # Systematics
           systList = ["nominal"]
-          if (self._do_systematics and not isData and syst_var == 'nominal'): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown"]
+          if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown"]
           elif (self._do_systematics and not isData and syst_var != 'nominal'): systList = [syst_var]
 
           ######### Masks we need for the selection ##########

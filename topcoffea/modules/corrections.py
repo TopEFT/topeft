@@ -272,7 +272,6 @@ def AttachPSWeights(events):
   Return a list of PS weights
   PS weights (w_var / w_nominal); [0] is ISR=0.5 FSR=1; [1] is ISR=1 FSR=0.5; [2] is ISR=2 FSR=1; [3] is ISR=1 FSR=2
   '''
-  PSWeights = {'ISR': 0, 'FSR': 1, 'ISRdown': 0, 'FSRdown': 1, 'ISRup': 2, 'FSRup': 3}
   ISR = 0; FSR = 1; ISRdown = 0; FSRdown = 1; ISRup = 2; FSRup = 3
   PSmask = []
   if events.PSWeight is None:
@@ -292,7 +291,45 @@ def AttachPSWeights(events):
   events['ISRDown'] = ak.flatten(ps_weights_list[PSmask[ISRdown]])
   events['FSRDown'] = ak.flatten(ps_weights_list[PSmask[FSRdown]])
 
-###### JEC 
+def AttachScaleWeights(events):
+  '''
+  Return a list of scale weights
+  LHE scale variation weights (w_var / w_nominal); [0] is renscfact=0.5d0 facscfact=0.5d0 ; [1] is renscfact=0.5d0 facscfact=1d0 ; [2] is renscfact=0.5d0 facscfact=2d0 ; [3] is renscfact=1d0 facscfact=0.5d0 ; [4] is renscfact=1d0 facscfact=1d0 ; [5] is renscfact=1d0 facscfact=2d0 ; [6] is renscfact=2d0 facscfact=0.5d0 ; [7] is renscfact=2d0 facscfact=1d0 ; [8] is renscfact=2d0 facscfact=2d0
+  '''
+  scale_weights_list   = ak.Array(events.LHEScaleWeight)
+  renormDown_factDown = 0; renormDown = 1; renormDown_factUp = 2; factDown = 3; nominal = 4; factUp = 5; renormUp_factDown = 6; renormUp = 7; renormUp_factUp = 8;
+  scale_mask = []
+  scale_mask.append(ak.Array(ak.local_index(scale_weights_list)==renormDown_factDown))
+  scale_mask.append(ak.Array(ak.local_index(scale_weights_list)==renormDown))
+  scale_mask.append(ak.Array(ak.local_index(scale_weights_list)==renormDown_factUp))
+  scale_mask.append(ak.Array(ak.local_index(scale_weights_list)==factDown))
+  scale_mask.append(ak.Array(ak.local_index(scale_weights_list)==nominal))
+  scale_mask.append(ak.Array(ak.local_index(scale_weights_list)==factUp))
+  scale_mask.append(ak.Array(ak.local_index(scale_weights_list)==renormUp_factDown))
+  scale_mask.append(ak.Array(ak.local_index(scale_weights_list)==renormUp))
+  scale_mask.append(ak.Array(ak.local_index(scale_weights_list)==renormUp_factUp))
+  events['renormDown_factDown'] = ak.flatten(scale_weights_list[scale_mask[renormDown_factDown]])
+  events['renormDown']          = ak.flatten(scale_weights_list[scale_mask[renormDown]])
+  events['renormDown_factUp']   = ak.flatten(scale_weights_list[scale_mask[renormDown_factUp]])
+  events['factDown']            = ak.flatten(scale_weights_list[scale_mask[factDown]])
+  events['nom']                 = np.ones(len(events))
+  events['factUp']              = ak.flatten(scale_weights_list[scale_mask[factUp]])
+  events['renormUp_factDown']   = ak.flatten(scale_weights_list[scale_mask[renormUp_factDown]])
+  events['renormUp']            = ak.flatten(scale_weights_list[scale_mask[renormUp]])
+  events['renormUp_factUp']     = ak.flatten(scale_weights_list[scale_mask[renormUp_factUp]])
+
+
+def AttachPdfWeights(events):
+  '''
+  Return a list of PDF weights
+  Should be 100 weights for NNPDF 3.1
+  '''
+  if events.LHEPdfWeight is None:
+      raise Exception(f'LHEPdfWeight not found in {fname}!')
+  pdf_weight = ak.Array(events.LHEPdfWeight)
+  #events['Pdf'] = ak.Array(events.nLHEPdfWeight) # FIXME not working
+
+####### JEC 
 ##############################################
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
 # JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC
