@@ -286,11 +286,11 @@ def AttachPSWeights(events):
   events['ISRnom']  = np.ones(len(events))
   events['FSRnom']  = np.ones(len(events))
   # Add up variation event weights
-  events['ISRup']   = ak.flatten(ps_weights_list[PSmask[ISRup]])
-  events['FSRup']   = ak.flatten(ps_weights_list[PSmask[FSRup]])
+  events['ISRUp']   = ak.flatten(ps_weights_list[PSmask[ISRup]])
+  events['FSRUp']   = ak.flatten(ps_weights_list[PSmask[FSRup]])
   # Add down variation event weights
-  events['ISRdown'] = ak.flatten(ps_weights_list[PSmask[ISRdown]])
-  events['FSRdown'] = ak.flatten(ps_weights_list[PSmask[FSRdown]])
+  events['ISRDown'] = ak.flatten(ps_weights_list[PSmask[ISRdown]])
+  events['FSRDown'] = ak.flatten(ps_weights_list[PSmask[FSRdown]])
   #ps_weights_list[PSWeights['ISRup']:PSWeights['FSRup']+1] # +1 because in [n:m] m is exclusive
   #ps_weights_list[PSWeights['ISRdown']:PSWeights['FSRdown']+1], ps_weights_list[PSWeights['ISRup']:PSWeights['FSRup']+1] # +1 because in [n:m] m is exclusive
   #else:
