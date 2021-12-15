@@ -352,7 +352,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # renorm/fact scale
                 weights_dict[ch_name].add('renorm', events.nom, events.renormUp, events.renormDown)
                 weights_dict[ch_name].add('fact',   events.nom, events.factUp,   events.factDown)
-                weights_dict[ch_name].add('renormfact', events.nom, events.renorm_factUp, events.renorm_factDown)
+                weights_dict[ch_name].add('renorm_fact', events.nom, events.renorm_factUp, events.renorm_factDown)
             if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
