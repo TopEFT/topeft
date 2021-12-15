@@ -184,7 +184,6 @@ class AnalysisProcessor(processor.ProcessorABC):
           mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
           mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTH, mu.jetRelIso, year)
           mu["isTightLep"]= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
-
           # Build loose collections
           m_loose = mu[mu.isPres & mu.isLooseM]
           e_loose = e[e.isPres & e.isLooseE]
@@ -246,7 +245,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           njets = ak.num(goodJets)
           ht = ak.sum(goodJets.pt,axis=-1)
           j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
-
+          
           # Loose DeepJet WP
           # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
           if year == "2017":
@@ -318,7 +317,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
             pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
             pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-
 
           # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
           weights_dict = {}
@@ -540,7 +538,8 @@ class AnalysisProcessor(processor.ProcessorABC):
           normweights = weights_dict["2l"].partial_weight(include=["norm"]) # Here we could have used 2l, 3l, or 4l, as the "norm" weights should be identical for all three
           if (eft_coeffs is not None): sowweights = np.ones_like(normweights)
           else: sowweights = normweights
-          hout["SumOfEFTweights"].fill(sample=histAxisName, SumOfEFTweights=counts, weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+          if syst_var=='nominal':
+            hout["SumOfEFTweights"].fill(sample=histAxisName, SumOfEFTweights=counts, weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
           # Loop over the hists we want to fill
           for dense_axis_name, dense_axis_vals in varnames.items():
