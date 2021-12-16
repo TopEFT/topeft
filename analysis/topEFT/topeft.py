@@ -149,15 +149,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError(f"Error: Unknown year \"{year}\".")
         lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
 
-        ######### Event weights ###########
-
-        # Attach PS weights (ISR/FSR)
-        AttachPSWeights(events)
-        # Attach scale weights (renormalization/factorization)
-        AttachScaleWeights(events) # FIXME use these!
-        # Attach PDF weights
-        AttachPdfWeights(events) # FIXME use these!
-
         ######### EFT coefficients ##########
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
@@ -339,6 +330,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
             if not isData:
+
+                ######### Event weights ###########
+
+                # Attach PS weights (ISR/FSR)
+                AttachPSWeights(events)
+                # Attach scale weights (renormalization/factorization)
+                #AttachScaleWeights(events) # FIXME use after nanoAOD fix
+                # Attach PDF weights
+                #AttachPdfWeights(events) # FIXME use these!
+
                 # We only calculate these values if not isData
                 weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC)
                 # Trying to calculate PU SFs for data causes a crash, and we don't apply this for data anyway, so just skip it in the case of data
@@ -349,9 +350,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_dict[ch_name].add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
                 weights_dict[ch_name].add('FSR', events.FSRnom, events.FSRUp, events.FSRDown)
                 # renorm/fact scale
-                weights_dict[ch_name].add('renorm', events.nom, events.renormUp, events.renormDown)
-                weights_dict[ch_name].add('fact',   events.nom, events.factUp,   events.factDown)
-                weights_dict[ch_name].add('renorm_fact', events.nom, events.renorm_factUp, events.renorm_factDown)
+                # FIXME enable after fixing LHE weights
+                #weights_dict[ch_name].add('renorm', events.nom, events.renormUp, events.renormDown)
+                #weights_dict[ch_name].add('fact',   events.nom, events.factUp,   events.factDown)
+                #weights_dict[ch_name].add('renorm_fact', events.nom, events.renorm_factUp, events.renorm_factDown)
             if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
