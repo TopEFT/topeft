@@ -290,17 +290,17 @@ def AttachScaleWeights(events):
   Return a list of scale weights
   LHE scale variation weights (w_var / w_nominal); [0] is renscfact=0.5d0 facscfact=0.5d0 ; [1] is renscfact=0.5d0 facscfact=1d0 ; [2] is renscfact=0.5d0 facscfact=2d0 ; [3] is renscfact=1d0 facscfact=0.5d0 ; [4] is renscfact=1d0 facscfact=1d0 ; [5] is renscfact=1d0 facscfact=2d0 ; [6] is renscfact=2d0 facscfact=0.5d0 ; [7] is renscfact=2d0 facscfact=1d0 ; [8] is renscfact=2d0 facscfact=2d0
   '''
-  scale_weights = events.LHEScaleWeight
   renormDown_factDown = 0; renormDown = 1; renormDown_factUp = 2; factDown = 3; nominal = 4; factUp = 5; renormUp_factDown = 6; renormUp = 7; renormUp_factUp = 8;
-  events['renorm_factDown']    = ak.Array(scale_weights[:,renormDown_factDown])
-  events['renormDown']         = ak.Array(scale_weights[:,renormDown])
-  events['renormDown_factUp']  = ak.Array(scale_weights[:,renormDown_factUp])
-  events['factDown']           = ak.Array(scale_weights[:,factDown])
+  scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
+  events['renorm_factDown']    = scale_weights[:,renormDown_factDown]
+  events['renormDown']         = scale_weights[:,renormDown]
+  events['renormDown_factUp']  = scale_weights[:,renormDown_factUp]
+  events['factDown']           = scale_weights[:,factDown]
   events['nom']                = ak.ones_like(scale_weights[:,0])
-  events['factUp']             = ak.Array(scale_weights[:,factUp])
-  events['renormUp_factDown']  = ak.Array(scale_weights[:,renormUp_factDown])
-  events['renormUp']           = ak.Array(scale_weights[:,renormUp])
-  events['renorm_factUp']      = ak.Array(scale_weights[:,renormUp_factUp])
+  events['factUp']             = scale_weights[:,factUp]
+  events['renormUp_factDown']  = scale_weights[:,renormUp_factDown]
+  events['renormUp']           = scale_weights[:,renormUp]
+  events['renorm_factUp']      = scale_weights[:,renormUp_factUp]
 
 
 def AttachPdfWeights(events):

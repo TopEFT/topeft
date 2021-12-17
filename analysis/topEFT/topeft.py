@@ -172,8 +172,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Update muon kinematics with Rochester corrections
         mu["pt_raw"]=mu.pt
         met_raw=met
-        #if self._do_systematics : syst_var_list = ['ISRUp','ISRDown','FSRUp','FSRDown','renormUp','renormDown','factUp','factDown','renorm_factUp','renorm_factDown','MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal'] # FIXME restore after fixing LHE weights
-        if self._do_systematics : syst_var_list = ['ISRUp','ISRDown','FSRUp','FSRDown','MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']
+        if self._do_systematics : syst_var_list = ['ISRUp','ISRDown','FSRUp','FSRDown','renormUp','renormDown','factUp','factDown','renorm_factUp','renorm_factDown','MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']
         else: syst_var_list = ['nominal']
         for syst_var in syst_var_list:
           mu["pt"]=mu.pt_raw
@@ -337,7 +336,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Attach PS weights (ISR/FSR)
                 AttachPSWeights(events)
                 # Attach scale weights (renormalization/factorization)
-                #AttachScaleWeights(events) # FIXME use after nanoAOD LHE fix
+                AttachScaleWeights(events)
                 # Attach PDF weights
                 #AttachPdfWeights(events) # FIXME use these!
 
@@ -351,10 +350,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_dict[ch_name].add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
                 weights_dict[ch_name].add('FSR', events.FSRnom, events.FSRUp, events.FSRDown)
                 # renorm/fact scale
-                # FIXME enable after fixing LHE weights
-                #weights_dict[ch_name].add('renorm', events.nom, events.renormUp, events.renormDown)
-                #weights_dict[ch_name].add('fact',   events.nom, events.factUp,   events.factDown)
-                #weights_dict[ch_name].add('renorm_fact', events.nom, events.renorm_factUp, events.renorm_factDown)
+                weights_dict[ch_name].add('renorm', events.nom, events.renormUp, events.renormDown)
+                weights_dict[ch_name].add('fact',   events.nom, events.factUp,   events.factDown)
+                weights_dict[ch_name].add('renorm_fact', events.nom, events.renorm_factUp, events.renorm_factDown)
             if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
@@ -368,7 +366,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           # Systematics
           systList = ["nominal"]
-          if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown"]#,"renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown"] # FIXME resotre after fixing LHE weights
+          if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown"]
           elif (self._do_systematics and not isData and syst_var != 'nominal'): systList = [syst_var]
 
           ######### Masks we need for the selection ##########
