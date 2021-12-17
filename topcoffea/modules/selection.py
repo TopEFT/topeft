@@ -131,6 +131,14 @@ exclude_dict = {
 }
 
 
+# Dictionary of njet bins
+analysis_bins = {'njets': {'2l': [4,5,6,7,8],
+                           '3l': [2,3,4,5,6],
+                           '4l': [2,3,4,5] },
+                 'ptbl' : [0, 100, 200, 400, 2000],
+                 'ht'   : [0, 100, 200, 300, 400, 2000] }
+
+
 # This is a helper function called by trgPassNoOverlap
 #   - Takes events objects, and a lits of triggers
 #   - Returns an array the same length as events, elements are true if the event passed at least one of the triggers and false otherwise
