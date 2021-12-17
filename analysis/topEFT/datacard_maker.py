@@ -9,7 +9,6 @@ import os
 import re
 import json
 from copy import deepcopy 
-from topcoffea.modules.selection import analysis_bins
 
 from ROOT import TFile, TH1D, TH2D
 
@@ -22,6 +21,12 @@ class DatacardMaker():
         self.syst_special = {'charge_flips': 0.3} # 30% flat uncertainty for charge flips
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
+        # Dictionary of njet bins
+        self.analysis_bins = {'njets': {'2l': [4,5,6,7,10], # Last bin in topeft.py is 10, this should grab the overflow
+                                        '3l': [2,3,4,5,10],
+                                        '4l': [2,3,4,10] },
+                              'ptbl' : [0, 100, 200, 400, 2000],
+                              'ht'   : [0, 100, 200, 300, 400, 2000] }
         self.fin = infile
         self.tolerance = 1e-5
         self.do_nuisance = do_nuisance
@@ -226,9 +231,9 @@ class DatacardMaker():
             pname = self.rename[p]+'_' if p in self.rename else p
             pname.replace('_4F','').replace('_ext','')
             if 'njet' in variable:
-                h_base = h_base.rebin(variable, hist.Bin(variable,  h.axis(variable).label, analysis_bins[variable][channel[:2]]))
+                h_base = h_base.rebin(variable, hist.Bin(variable,  h.axis(variable).label, self.analysis_bins[variable][channel[:2]]))
             else:
-                h_base = h_base.rebin(variable, hist.Bin(variable,  h.axis(variable).label, analysis_bins[variable]))
+                h_base = h_base.rebin(variable, hist.Bin(variable,  h.axis(variable).label, self.analysis_bins[variable]))
             # Save the SM plot
             h_bases = {syst: h_base.integrate('systematic', syst) for syst in self.syst}
             h_base = h_base.integrate('systematic', 'nominal')
@@ -486,7 +491,7 @@ class DatacardMaker():
             # Find the "S+L+Q", "Q", and "S+Li+Lj+Qi+Qj+2Mij" pieces
             selectedWCsForProc[pname[:-1]]=selectedWCs
             for n,wc in enumerate(selectedWCs):
-                if selfdo_sm: break
+                if self.do_sm: break
 
                 # Get the "S+L+Q" piece
                 name = '_'.join([pname[:-1],'lin',wc])
