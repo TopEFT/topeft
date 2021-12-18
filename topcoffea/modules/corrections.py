@@ -267,7 +267,53 @@ def GetPUSF(nTrueInt, year, var='nominal'):
   weights = np.divide(nData,nMC)
   return weights
 
-###### JEC 
+def AttachPSWeights(events):
+  '''
+  Return a list of PS weights
+  PS weights (w_var / w_nominal); [0] is ISR=0.5 FSR=1; [1] is ISR=1 FSR=0.5; [2] is ISR=2 FSR=1; [3] is ISR=1 FSR=2
+  '''
+  ISR = 0; FSR = 1; ISRdown = 0; FSRdown = 1; ISRup = 2; FSRup = 3
+  if events.PSWeight is None:
+      raise Exception(f'PSWeight not found in {fname}!')
+  # Add nominal as 1 just to make things similar
+  events['ISRnom']  = ak.ones_like(events.PSWeight[:,0])
+  events['FSRnom']  = ak.ones_like(events.PSWeight[:,0])
+  # Add up variation event weights
+  events['ISRUp']   = events.PSWeight[:, ISRup]
+  events['FSRUp']   = events.PSWeight[:, FSRup]
+  # Add down variation event weights
+  events['ISRDown'] = events.PSWeight[:, ISRdown]
+  events['FSRDown'] = events.PSWeight[:, FSRdown]
+
+def AttachScaleWeights(events):
+  '''
+  Return a list of scale weights
+  LHE scale variation weights (w_var / w_nominal); [0] is renscfact=0.5d0 facscfact=0.5d0 ; [1] is renscfact=0.5d0 facscfact=1d0 ; [2] is renscfact=0.5d0 facscfact=2d0 ; [3] is renscfact=1d0 facscfact=0.5d0 ; [4] is renscfact=1d0 facscfact=1d0 ; [5] is renscfact=1d0 facscfact=2d0 ; [6] is renscfact=2d0 facscfact=0.5d0 ; [7] is renscfact=2d0 facscfact=1d0 ; [8] is renscfact=2d0 facscfact=2d0
+  '''
+  renormDown_factDown = 0; renormDown = 1; renormDown_factUp = 2; factDown = 3; nominal = 4; factUp = 5; renormUp_factDown = 6; renormUp = 7; renormUp_factUp = 8;
+  scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
+  events['renorm_factDown']    = scale_weights[:,renormDown_factDown]
+  events['renormDown']         = scale_weights[:,renormDown]
+  events['renormDown_factUp']  = scale_weights[:,renormDown_factUp]
+  events['factDown']           = scale_weights[:,factDown]
+  events['nom']                = ak.ones_like(scale_weights[:,0])
+  events['factUp']             = scale_weights[:,factUp]
+  events['renormUp_factDown']  = scale_weights[:,renormUp_factDown]
+  events['renormUp']           = scale_weights[:,renormUp]
+  events['renorm_factUp']      = scale_weights[:,renormUp_factUp]
+
+
+def AttachPdfWeights(events):
+  '''
+  Return a list of PDF weights
+  Should be 100 weights for NNPDF 3.1
+  '''
+  if events.LHEPdfWeight is None:
+      raise Exception(f'LHEPdfWeight not found in {fname}!')
+  pdf_weight = ak.Array(events.LHEPdfWeight)
+  #events['Pdf'] = ak.Array(events.nLHEPdfWeight) # FIXME not working
+
+####### JEC 
 ##############################################
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
 # JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC

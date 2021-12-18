@@ -43,7 +43,7 @@ wc_names_lst = [
 
 hists = {}
 hists["SumOfEFTweights"] =  HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2))
-hists["ptbl"] =  HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 200, 0, 2000))
+hists["ptbl"] =  HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b-jet+l_{min(dR)}}$ (GeV) ", 200, 0, 2000))
 hists["njets"] =  HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10))
 hists["nbtagsl"] =  HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsl",   "Jet multiplicity ", 10, 0, 10))
 hists["ht"] =  HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 200, 0, 2000))
@@ -54,6 +54,7 @@ weight_val = 1.0
 sow_scale = 1e4
 hists["SumOfEFTweights"].fill(sample='ttHJet_privateUL17', SumOfEFTweights=nevts, weight=nevts*sow_scale, eft_coeff=eft_fit_coeffs)
 hists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
+hists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='testUp', weight=nevts, eft_coeff=eft_fit_coeffs)
 hists["ptbl"].fill(ptbl=40, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
 sm_weight = np.zeros(nevts)
 sm_weight[0] = 1
@@ -78,7 +79,8 @@ def test_datacard_maker():
         "analysis/topEFT/datacard_maker.py",
         "tests/test_datacard.pkl.gz",
         "-j",
-        "0"
+        "0",
+        "--do-nuisance"
     ]
 
     # Run datacard maker
