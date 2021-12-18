@@ -54,6 +54,7 @@ weight_val = 1.0
 sow_scale = 1e4
 hists["SumOfEFTweights"].fill(sample='ttHJet_privateUL17', SumOfEFTweights=nevts, weight=nevts*sow_scale, eft_coeff=eft_fit_coeffs)
 hists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
+hists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='testUp', weight=nevts, eft_coeff=eft_fit_coeffs)
 hists["ptbl"].fill(ptbl=40, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
 sm_weight = np.zeros(nevts)
 sm_weight[0] = 1
@@ -78,7 +79,8 @@ def test_datacard_maker():
         "analysis/topEFT/datacard_maker.py",
         "tests/test_datacard.pkl.gz",
         "-j",
-        "0"
+        "0",
+        "--do-nuisance"
     ]
 
     # Run datacard maker

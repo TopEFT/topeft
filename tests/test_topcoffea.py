@@ -12,8 +12,7 @@ def test_topcoffea():
         "-o",
         "output_check_yields",
         "-p",
-        "analysis/topEFT/histos/",
-        "--do-systs"
+        "analysis/topEFT/histos/"
     ]
 
     # Run TopCoffea
@@ -55,14 +54,13 @@ def test_compare_yields():
     # Run comparison
     subprocess.run(args)
 
-def test_datacard_2l_nuis():
+def test_datacard_2l():
     args = [
         "python",
         "analysis/topEFT/datacard_maker.py",
         "analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz",
         "-j",
         "0",
-        "--do-nuisance"
     ]
 
     # Run datacard maker
