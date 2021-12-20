@@ -224,8 +224,9 @@ class DatacardMaker():
             h_base = h_base.integrate('year')
             pname = self.rename[p]+'_' if p in self.rename else p
             pname.replace('_4F','').replace('_ext','')
-            if 'njet' in variable:
-                h_base = h_base.rebin(variable, hist.Bin(variable,  h.axis(variable).label, self.analysis_bins[variable][channel[:2]]))
+            if isinstance(self.analysis_bins[variable],dict):
+                lep_bin = channel.split('_')[0].replace('ss','')
+                h_base = h_base.rebin(variable, hist.Bin(variable,  h.axis(variable).label, self.analysis_bins[variable][lep_bin]))
             else:
                 h_base = h_base.rebin(variable, hist.Bin(variable,  h.axis(variable).label, self.analysis_bins[variable]))
             # Save the SM plot
