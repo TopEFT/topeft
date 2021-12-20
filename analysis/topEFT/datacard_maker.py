@@ -22,11 +22,6 @@ class DatacardMaker():
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         # Dictionary of njet bins
-        self.analysis_bins = {'njets': {'2l': [4,5,6,7,10], # Last bin in topeft.py is 10, this should grab the overflow
-                                        '3l': [2,3,4,5,10],
-                                        '4l': [2,3,4,10] },
-                              'ptbl' : [0, 100, 200, 400, 2000],
-                              'ht'   : [0, 100, 200, 300, 400, 2000] }
         self.fin = infile
         self.tolerance = 1e-5
         self.do_nuisance = do_nuisance
@@ -43,6 +38,11 @@ class DatacardMaker():
         print(f'Loading {self.fin}')
         with gzip.open(self.fin) as fin:
             self.hists = pickle.load(fin)
+        self.analysis_bins = {'njets': {'2l': [4,5,6,7,self.hists['njets'].axis('njets').edges()[-1]], # Last bin in topeft.py is 10, this should grab the overflow
+                                        '3l': [2,3,4,5,self.hists['njets'].axis('njets').edges()[-1]],
+                                        '4l': [2,3,4,self.hists['njets'].axis('njets').edges()[-1]] },
+                              'ptbl' : [0, 100, 200, 400, self.hists['ptbl'].axis('ptbl').edges()[-1]],
+                              'ht'   : [0, 100, 200, 300, 400, self.hists['ht'].axis('ht').edges()[-1]] }
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         # Get list of channels
