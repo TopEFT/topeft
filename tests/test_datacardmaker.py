@@ -56,6 +56,7 @@ hists["SumOfEFTweights"].fill(sample='ttHJet_privateUL17', SumOfEFTweights=nevts
 hists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
 hists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='testUp', weight=nevts, eft_coeff=eft_fit_coeffs)
 hists["ptbl"].fill(ptbl=40, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
+hists["ptbl"].fill(ptbl=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='testUp', weight=nevts, eft_coeff=eft_fit_coeffs)
 sm_weight = np.zeros(nevts)
 sm_weight[0] = 1
 sm_njets4 = sums*sm_weight
