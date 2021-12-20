@@ -1,0 +1,30 @@
+{
+  "xsec": 1.0,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "dataUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_373.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_381.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_387.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_392.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_397.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_401.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_408.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_415.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_416.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_424.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_430.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_435.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_450.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_451.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_452.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_B_ver2_HIPM_UL2016/output_453.root"
+  ],
+  "nEvents": 158145722,
+  "nGenEvents": 158145722,
+  "nSumOfWeights": 158145722.0,
+  "isData": true
+}

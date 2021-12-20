@@ -1,0 +1,30 @@
+{
+  "xsec": 1.0,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "dataUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1013.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1111.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1128.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1154.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1197.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1198.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1199.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1235.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1254.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1261.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1271.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1279.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1286.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1287.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1309.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_E_UL2017/output_1314.root"
+  ],
+  "nEvents": 102122055,
+  "nGenEvents": 102122055,
+  "nSumOfWeights": 102122055.0,
+  "isData": true
+}

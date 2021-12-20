@@ -1,0 +1,33 @@
+{
+  "xsec": 1.0,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "dataUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_1016.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_1158.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_1259.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_126.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_1328.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_176.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_1842.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_1911.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_285.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_337.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_408.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_483.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_606.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_607.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_63.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_716.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_825.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_826.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/DoubleMuon_B_UL2018/output_915.root"
+  ],
+  "nEvents": 35057758,
+  "nGenEvents": 35057758,
+  "nSumOfWeights": 35057758.0,
+  "isData": true
+}

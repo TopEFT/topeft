@@ -1,0 +1,32 @@
+{
+  "xsec": 1.0,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "dataUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1110.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1163.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1207.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1208.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1209.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1230.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1237.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1239.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1244.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1267.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1278.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1285.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1306.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1307.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1310.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1311.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1312.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_C_UL2017/output_1313.root"
+  ],
+  "nEvents": 136637888,
+  "nGenEvents": 136637888,
+  "nSumOfWeights": 136637888.0,
+  "isData": true
+}

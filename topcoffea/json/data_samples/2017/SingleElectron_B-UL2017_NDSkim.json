@@ -1,0 +1,22 @@
+{
+  "xsec": 1.0,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "dataUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_B_UL2017/output_1123.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_B_UL2017/output_1162.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_B_UL2017/output_1195.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_B_UL2017/output_1206.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_B_UL2017/output_1251.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_B_UL2017/output_1284.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_B_UL2017/output_1305.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_B_UL2017/output_863.root"
+  ],
+  "nEvents": 60537490,
+  "nGenEvents": 60537490,
+  "nSumOfWeights": 60537490.0,
+  "isData": true
+}

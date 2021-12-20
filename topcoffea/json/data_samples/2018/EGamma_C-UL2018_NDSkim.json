@@ -1,0 +1,28 @@
+{
+  "xsec": 1.0,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "dataUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1181.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1406.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1533.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1542.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1553.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1565.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1582.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1607.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1616.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1642.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1664.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1675.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1691.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/EGamma_C_UL2018/output_1704.root"
+  ],
+  "nEvents": 147827904,
+  "nGenEvents": 147827904,
+  "nSumOfWeights": 147827904.0,
+  "isData": true
+}

@@ -1,0 +1,16 @@
+{
+  "xsec": 1.0,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "dataUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_B_UL2017/output_1053.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_B_UL2017/output_1088.root"
+  ],
+  "nEvents": 4453465,
+  "nGenEvents": 4453465,
+  "nSumOfWeights": 4453465.0,
+  "isData": true
+}

@@ -1,0 +1,28 @@
+{
+  "xsec": 1.0,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "dataUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_515.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_528.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_529.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_536.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_537.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_546.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_550.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_553.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_557.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_560.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_565.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_566.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_578.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_H_UL2016/output_579.root"
+  ],
+  "nEvents": 129021893,
+  "nGenEvents": 129021893,
+  "nSumOfWeights": 129021893.0,
+  "isData": true
+}

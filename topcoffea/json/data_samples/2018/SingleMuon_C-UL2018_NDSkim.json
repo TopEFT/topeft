@@ -1,0 +1,32 @@
+{
+  "xsec": 1.0,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "dataUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1184.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1371.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1411.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1456.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1538.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1573.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1586.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1594.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1621.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1636.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1686.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1707.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1758.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1990.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1991.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1992.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1993.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/SingleMuon_C_UL2018/output_1994.root"
+  ],
+  "nEvents": 109986009,
+  "nGenEvents": 109986009,
+  "nSumOfWeights": 109986009.0,
+  "isData": true
+}

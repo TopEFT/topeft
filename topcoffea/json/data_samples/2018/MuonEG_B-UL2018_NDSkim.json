@@ -1,0 +1,18 @@
+{
+  "xsec": 1.0,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "dataUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/MuonEG_B_UL2018/output_1408.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/MuonEG_B_UL2018/output_1634.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/MuonEG_B_UL2018/output_1693.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1/MuonEG_B_UL2018/output_1737.root"
+  ],
+  "nEvents": 16211567,
+  "nGenEvents": 16211567,
+  "nSumOfWeights": 16211567.0,
+  "isData": true
+}
