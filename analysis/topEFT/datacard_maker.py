@@ -248,7 +248,8 @@ class DatacardMaker():
             else:
                 export1d(h_sm, 'data_obs', 'sm', fout)
 
-            if not self.do_sm and (p in self.signal or self.rename[p] in self.signal):
+            isSignal = p in self.signal or self.rename[p] in self.signal
+            if not self.do_sm and isSignal:
                 h_lin = h_bases; h_quad = None; h_mix = None
                 for name,wcpt in self.wcs:
                     # Scale plot to the WCPoint
