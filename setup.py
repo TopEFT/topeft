@@ -16,6 +16,7 @@ setuptools.setup(
             "data/fromTTH/lepSF/*/*/*.root",
             "data/fromTTH/lepSF/*/*/*/*.root",
             "data/JEC/*.txt",
+            "data/JER/*.txt",
             "data/btagSF/UL/*.pkl.gz",
             "data/btagSF/UL/*.csv",
             "data/btagSF/*.csv",
