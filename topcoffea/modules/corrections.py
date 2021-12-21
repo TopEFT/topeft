@@ -302,10 +302,33 @@ def AttachPdfWeights(events):
   Return a list of PDF weights
   Should be 100 weights for NNPDF 3.1
   '''
-  if events.LHEPdfWeight is None:
+  if events['LHEPdfWeight'] is None:
       raise Exception(f'LHEPdfWeight not found in {fname}!')
-  pdf_weight = ak.Array(events.LHEPdfWeight)
-  #events['Pdf'] = ak.Array(events.nLHEPdfWeight) # FIXME not working
+  events['nPdf'] = len(events['LHEPdfWeight'][0])
+  pdf_weights    = ak.fill_none(ak.pad_none(events['LHEPdfWeight'], len(events['LHEPdfWeight'][0])), 1).to_numpy() - 1 # FIXME this is a bandaid until we understand _why_ some are empty 
+  events['nom']     = ak.ones_like(pdf_weights[:,0])
+  events['PDFUp']   = np.sqrt(np.sum(np.square(pdf_weights - 1), axis=1))
+  events['PDFDown'] = np.sqrt(np.sum(np.square(ak.fill_none(ak.pad_none(events['LHEPdfWeight'], len(events['LHEPdfWeight'][0])), 1).to_numpy() - 1), axis=1))
+  #for ipdf in range(events['nPdf'][0]):
+  #    events['Pdf{}'.format(ipdf)] = pdf_weights[:, ipdf]
+
+def ApplyPdfWeights(events, hout, all_cuts_mask, axes_fill_info_dict, dense_axis_name):
+    h_nom = hout[dense_axis_name]#.integrate("systematic", "nominal")
+    h_nom.scale(-1) # For subtracting later
+    h_pdfs = [h_nom.copy() for i in range(events["nPdf"][0])] # Need nPdf copies
+    for ipdf,h_pdf in enumerate(h_pdfs):
+        weight = events["Pdf{}".format(ipdf)][all_cuts_mask]
+        axes_fill_info_dict["weight"] = weight
+        h_pdf.fill(**axes_fill_info_dict)
+        h_pdf.add(h_nom)
+        for key,val in h_pdf._sumw.items():
+            h_pdf._sumw[key] = val**2
+    for ipdf,h_pdf in enumerate(1,h_pdfs): # Add all to h_pdf0
+        h_pdfs[0].add(h_pdf)
+    for key,val in h_pdfs[0]._sumw.items():
+        h_pdfs[0]._sumw[key] = val**(0.5)
+    print(h_pdfs.values())
+    return h_pdfs
 
 ####### JEC 
 ##############################################

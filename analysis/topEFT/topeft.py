@@ -182,7 +182,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Update muon kinematics with Rochester corrections
         mu["pt_raw"]=mu.pt
         met_raw=met
-        if self._do_systematics : syst_var_list = ['MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']
+        if self._do_systematics : syst_var_list = ['ISRUp','ISRDown','FSRUp','FSRDown','renormUp','renormDown','factUp','factDown','renorm_factUp','renorm_factDown','MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','PDFUp','nominal']
         else: syst_var_list = ['nominal']
         for syst_var in syst_var_list:
             mu["pt"]=mu.pt_raw
@@ -351,7 +351,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     # Attach scale weights (renormalization/factorization)
                     AttachScaleWeights(events)
                     # Attach PDF weights
-                    #AttachPdfWeights(events) # FIXME use these!
+                    AttachPdfWeights(events) # FIXME use these!
 
                     # We only calculate these values if not isData
                     weights_dict[ch_name].add("btagSF", pData/pMC, copy.deepcopy(pDataUp/pMC), copy.deepcopy(pDataDo/pMC))
@@ -382,7 +382,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 
             # Systematics
             systList = ["nominal"]
-            if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown"]
+            if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown","PDFUp"]
             elif (self._do_systematics and not isData and syst_var != 'nominal'): systList = [syst_var]
 
             ######### Masks we need for the selection ##########
@@ -678,7 +678,7 @@ class AnalysisProcessor(processor.ProcessorABC):
               for syst in systList:
                   # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used (weight_fluct=None)
                   weight_fluct = syst
-                  if syst in ["nominal","JERUp","JERDown","JESUp","JESDown","MuonESUp","MuonESDown"]: weight_fluct = None # No weight systematic for these variations
+                  if syst in ["nominal","JERUp","JERDown","JESUp","JESDown","MuonESUp","MuonESDown","PDFUp"]: weight_fluct = None # No weight systematic for these variations
 
                   # Loop over nlep categories "2l", "3l", "4l"
                   for nlep_cat in cat_dict.keys():
