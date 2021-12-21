@@ -13,19 +13,22 @@ from copy import deepcopy
 from ROOT import TFile, TH1D, TH2D
 
 class DatacardMaker():
-    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year=''):
+    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False):
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
+        self.rename = {**self.rename, **{'ttH_centralUL17': 'ttH', 'ttH_centralUL16': 'ttH', 'ttH_centralUL18': 'ttH', 'ttHJetToNonbb_M125_centralUL16': 'ttH', 'ttHJetToNonbb_M125_APV_centralUL16': 'ttH', 'ttW_centralUL17': 'ttW', 'ttZ_centralUL17': 'ttZ', 'tZq_centralUL17': 'tllq', 'ttH_centralUL17': 'ttH', 'ttW_centralUL18': 'ttW', 'ttZ_centralUL18': 'ttZ', 'tZq_centralUL18': 'tllq', 'ttH_centralUL18': 'ttH'}}
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
         self.syst_special = {'charge_flips': 0.3} # 30% flat uncertainty for charge flips
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
-        self.skip = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
+        self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
+        # Dictionary of njet bins
         self.fin = infile
         self.tolerance = 1e-5
         self.do_nuisance = do_nuisance
         self.coeffs = wcs if len(wcs)>0 else []
         if len(self.coeffs) > 0: print(f'Using the subset {self.coeffs}')
         self.year = single_year
+        self.do_sm = do_sm
 
 
     def read(self):
@@ -35,6 +38,11 @@ class DatacardMaker():
         print(f'Loading {self.fin}')
         with gzip.open(self.fin) as fin:
             self.hists = pickle.load(fin)
+        self.analysis_bins = {'njets': {'2l': [4,5,6,7,self.hists['njets'].axis('njets').edges()[-1]], # Last bin in topeft.py is 10, this should grab the overflow
+                                        '3l': [2,3,4,5,self.hists['njets'].axis('njets').edges()[-1]],
+                                        '4l': [2,3,4,self.hists['njets'].axis('njets').edges()[-1]] },
+                              'ptbl' : [0, 100, 200, 400, self.hists['ptbl'].axis('ptbl').edges()[-1]],
+                              'ht'   : [0, 100, 200, 300, 400, self.hists['ht'].axis('ht').edges()[-1]] }
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         # Get list of channels
@@ -73,8 +81,8 @@ class DatacardMaker():
         self.ch4lj = list(set([j[-2:].replace('j','') for j in self.ch4l if 'j' in j]))
         self.ch4lj.sort()
         self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l_p_offZ_1b': self.ch3l1b_p, '3l_m_offZ_1b': self.ch3l1b_m, '3l_p_offZ_2b': self.ch3l2b_p, '3l_m_offZ_2b': self.ch3l2b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '3l_onZ_1b': self.ch3lsfz1b, '3l_onZ_2b': self.ch3lsfz2b, '4l': self.ch4l}
-        self.skip = {**self.skip, **{'data': [k for k in self.channels]}} # Skip all data!
-        self.skip = {**self.skip, **{'flips': [k for k in self.channels if '2l' not in k]}} # Charge flips only in 2lss channels
+        self.skip_process_channels = {**self.skip_process_channels, **{'data': [k for k in self.channels]}} # Skip all data!
+        self.skip_process_channels = {**self.skip_process_channels, **{'flips': [k for k in self.channels if '2l' not in k]}} # Charge flips only in 2lss channels
 
         # Get list of samples and cut levels from histograms
         self.signal = ['ttH','tllq','ttll','ttlnu','tHq','tttt']
@@ -82,6 +90,8 @@ class DatacardMaker():
         if self.year != '':
             print(f'Only running over {year=}! If this was not intended, please remove the --year (or -y) flag.')
             self.sampels = [k for k in self.samples if self.year[2:] in k]
+        if self.do_sm:
+            print('Only running over SM!')
         rename = {l: re.split('(Jet)?_[a-zA-Z]*1[6-8]', l)[0] for l in self.samples}
         rename = {k: 'Triboson' if bool(re.search('[WZ]{3}', v)) else v for k,v in rename.items()}
         rename = {k: 'Diboson' if bool(re.search('[WZ]{2}', v)) else v for k,v in rename.items()}
@@ -102,10 +112,10 @@ class DatacardMaker():
         self.lumi = {year : 1000*lumi for year,lumi in self.lumi.items()}
 
     def should_skip_process(self, proc, channel):
-        for proc_skip,channel_skip in self.skip.items():
+        for proc_skip,channel_skip in self.skip_process_channels.items():
             if proc_skip in proc or proc_skip in self.rename[proc]:
                 if isinstance(channel_skip, list):
-                    if any(channel_skip in channel for channel_skip in self.skip[proc_skip]):
+                    if any(channel_skip in channel for channel_skip in self.skip_process_channels[proc_skip]):
                         return True # Should skip this process for this channel
                 elif channel_skip in channel:
                         return True # Should skip this process for this channel
@@ -214,14 +224,11 @@ class DatacardMaker():
             h_base = h_base.integrate('year')
             pname = self.rename[p]+'_' if p in self.rename else p
             pname.replace('_4F','').replace('_ext','')
-            if 'njet' in variable:
-                if   '2l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [4,5,6,7]))
-                elif '3l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4,5]))
-                elif '4l' in channel: h_base = h_base.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [2,3,4]))
-            if 'ht' in variable:
-                h_base = h_base.rebin('ht', hist.Bin("ht", "H$_{T}$ (GeV)", [0, 100, 200, 300, 400, 2000]))
-            if 'ptbl' in variable:
-                h_base = h_base.rebin('ptbl', hist.Bin("ptbl", "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$", [0, 50, 100, 200, 400, 2000]))
+            if isinstance(self.analysis_bins[variable],dict):
+                lep_bin = channel.split('_')[0].split('l')[0] + 'l'
+                h_base = h_base.rebin(variable, hist.Bin(variable,  h.axis(variable).label, self.analysis_bins[variable][lep_bin]))
+            else:
+                h_base = h_base.rebin(variable, hist.Bin(variable,  h.axis(variable).label, self.analysis_bins[variable]))
             # Save the SM plot
             h_bases = {syst: h_base.integrate('systematic', syst) for syst in self.syst}
             h_base = h_base.integrate('systematic', 'nominal')
@@ -241,7 +248,8 @@ class DatacardMaker():
             else:
                 export1d(h_sm, 'data_obs', 'sm', fout)
 
-            if p in self.signal or self.rename[p] in self.signal:
+            isSignal = p in self.signal or self.rename[p] in self.signal
+            if not self.do_sm and isSignal:
                 h_lin = h_bases; h_quad = None; h_mix = None
                 for name,wcpt in self.wcs:
                     # Scale plot to the WCPoint
@@ -300,12 +308,12 @@ class DatacardMaker():
             xmin = h.GetXaxis().GetXmin()
             xmax = h.GetXaxis().GetXmax()
             xwidth = h.GetXaxis().GetBinWidth(1)
-            h.GetXaxis().SetRangeUser(xmin, xmax + xwidth) #Include overflow bin in ROOT
+            h.GetXaxis().SetRangeUser(xmin, xmax + 1.5*xwidth) #Include overflow bin in ROOT
             return deepcopy(h) # to protect d_hists from modifications 
 
         def processSyst(process, systMap, d_hists, fout):
             for syst in self.syst:
-                if channel in self.skip and self.skip[channel] in syst: continue
+                if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
                 if any([process+'_'+syst in d for d in d_hists]):
                     h_sys = getHist(d_hists, '_'.join([process,syst]))
                     h_sys.SetDirectory(fout)
@@ -447,6 +455,7 @@ class DatacardMaker():
             selectedWCs=[]
 
             for n,wc in enumerate(self.coeffs):
+                if self.do_sm: break
                 
                 # Check if linear terms are non null
                 name = '_'.join([pname[:-1],'lin',wc])
@@ -478,6 +487,7 @@ class DatacardMaker():
             # Find the "S+L+Q", "Q", and "S+Li+Lj+Qi+Qj+2Mij" pieces
             selectedWCsForProc[pname[:-1]]=selectedWCs
             for n,wc in enumerate(selectedWCs):
+                if self.do_sm: break
 
                 # Get the "S+L+Q" piece
                 name = '_'.join([pname[:-1],'lin',wc])
@@ -639,7 +649,7 @@ class DatacardMaker():
                     else: wcpt.append([f'quad_mixed_{wc1}_{wc2}', wl])
         self.wcs     = wcpt
         return wcpt
-    def condor_job(self, pklfile, njobs, wcs, do_nuisance):
+    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm):
         os.system('mkdir -p %s/condor' % os.getcwd())
         os.system('mkdir -p %s/condor/log' % os.getcwd())
         target = '%s/condor_submit.sh' % os.getcwd()
@@ -653,6 +663,7 @@ class DatacardMaker():
         args = []
         if do_nuisance: args.append('--do-nuisance')
         if len(wcs) > 0: args.append('--POI ' + ','.join(wcs))
+        if do_sm: args.append('--do-sm')
         if len(args) > 0:
             condorFile.write('python analysis/topEFT/datacard_maker.py %s --job "${job}" %s\n' % (pklfile, ' '.join(args)))
         else:
@@ -687,6 +698,7 @@ if __name__ == '__main__':
     parser.add_argument('--POI',            default=[],  help = 'List of WCs (comma separated)')
     parser.add_argument('--job',      '-j', default='-1'       , help = 'Job to run')
     parser.add_argument('--year',     '-y', default=''         , help = 'Run over single year')
+    parser.add_argument('--do-sm',          action='store_true', help = 'Run over SM only')
     args = parser.parse_args()
     pklfile  = args.pklfile
     lumiJson = args.lumiJson
@@ -694,13 +706,14 @@ if __name__ == '__main__':
     wcs = args.POI
     job = int(args.job)
     year = args.year
+    do_sm = args.do_sm
     if isinstance(wcs, str): wcs = wcs.split(',')
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
     if do_nuisance: print('Running with nuisance parameters, this will take a bit longer')
     if job > -1: print('Only running one job locally')
     else: print('Submitting all jobs to condor')
-    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year)
+    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm)
     card.read()
     card.buildWCString()
     jobs = []
@@ -718,7 +731,7 @@ if __name__ == '__main__':
 
     njobs = len(jobs) * len(jobs[0])
     if job == -1:
-        card.condor_job(pklfile, njobs, wcs, do_nuisance)
+        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm)
     elif job < njobs:
         d = jobs[job//len(jobs[0])][job%len(jobs[0])]
         card.analyzeChannel(**d)
