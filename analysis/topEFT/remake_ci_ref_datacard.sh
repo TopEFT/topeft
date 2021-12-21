@@ -13,7 +13,7 @@ python -c 'import tests.test_topcoffea; tests.test_topcoffea.test_nonprompt()'
 fi
 echo -e "Running initial scans\nIgnore any errors.\n"
 mkdir -p histos
-python -c 'import tests.test_topcoffea; tests.test_topcoffea.test_datacard_2l_nuis()'
+python -c 'import tests.test_topcoffea; tests.test_topcoffea.test_datacard_2l()'
 cp histos/ttx_multileptons-2lss_p_2b.txt analysis/topEFT/test/ttx_multileptons-2lss_p_2b_ref.txt
 python -c 'import tests.test_topcoffea; tests.test_topcoffea.test_datacard_2l_ht()'
 cp histos/ttx_multileptons-2lss_p_4j_2b_ht.txt analysis/topEFT/test/ttx_multileptons-2lss_p_4j_2b_ht_ref.txt

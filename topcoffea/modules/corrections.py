@@ -13,7 +13,7 @@ import awkward as ak
 import gzip
 import pickle
 from coffea.jetmet_tools import FactorizedJetCorrector, JetCorrectionUncertainty
-from coffea.jetmet_tools import JECStack, CorrectedJetsFactory
+from coffea.jetmet_tools import JECStack, CorrectedJetsFactory, CorrectedMETFactory
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from topcoffea.modules.GetValuesFromJsons import get_param
 from coffea.lookup_tools import txt_converters, rochester_lookup
@@ -267,29 +267,93 @@ def GetPUSF(nTrueInt, year, var='nominal'):
   weights = np.divide(nData,nMC)
   return weights
 
-###### JEC corrections (2018)
-##############################################
-extJEC = lookup_tools.extractor()
-extJEC.add_weight_sets(["* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L2Relative_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L2Residual_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L1FastJet_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L3Absolute_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L1RC_AK4PFchs.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_Uncertainty_AK4PFchs.junc.txt'),"* * "+topcoffea_path('data/JEC/Summer19UL18_V5_MC_L2L3Residual_AK4PFchs.txt')])
-extJEC.finalize()
-JECevaluator = extJEC.make_evaluator()
-jec_names = ["Summer19UL18_V5_MC_L2Relative_AK4PFchs","Summer19UL18_V5_MC_L2Residual_AK4PFchs","Summer19UL18_V5_MC_L1FastJet_AK4PFchs","Summer19UL18_V5_MC_L3Absolute_AK4PFchs","Summer19UL18_V5_MC_L1RC_AK4PFchs","Summer19UL18_V5_MC_Uncertainty_AK4PFchs","Summer19UL18_V5_MC_L2L3Residual_AK4PFchs"] 
-jec_inputs = {name: JECevaluator[name] for name in jec_names}
-jec_stack = JECStack(jec_inputs)
-name_map = jec_stack.blank_name_map
-name_map['JetPt'] = 'pt'
-name_map['JetMass'] = 'mass'
-name_map['JetEta'] = 'eta'
-name_map['JetA'] = 'area'
-name_map['ptGenJet'] = 'pt_gen'
-name_map['ptRaw'] = 'pt_raw'
-name_map['massRaw'] = 'mass_raw'
-name_map['Rho'] = 'rho'
-ApplyJetCorrections = CorrectedJetsFactory(name_map, jec_stack)
-# test
-#val = evaluator['MuonTightSF_2016'](np.array([1.2, 0.3]),np.array([24.5, 51.3]))
-#print('val = ', val)
+def AttachPSWeights(events):
+  '''
+  Return a list of PS weights
+  PS weights (w_var / w_nominal); [0] is ISR=0.5 FSR=1; [1] is ISR=1 FSR=0.5; [2] is ISR=2 FSR=1; [3] is ISR=1 FSR=2
+  '''
+  ISR = 0; FSR = 1; ISRdown = 0; FSRdown = 1; ISRup = 2; FSRup = 3
+  if events.PSWeight is None:
+      raise Exception(f'PSWeight not found in {fname}!')
+  # Add nominal as 1 just to make things similar
+  events['ISRnom']  = ak.ones_like(events.PSWeight[:,0])
+  events['FSRnom']  = ak.ones_like(events.PSWeight[:,0])
+  # Add up variation event weights
+  events['ISRUp']   = events.PSWeight[:, ISRup]
+  events['FSRUp']   = events.PSWeight[:, FSRup]
+  # Add down variation event weights
+  events['ISRDown'] = events.PSWeight[:, ISRdown]
+  events['FSRDown'] = events.PSWeight[:, FSRdown]
 
+def AttachScaleWeights(events):
+  '''
+  Return a list of scale weights
+  LHE scale variation weights (w_var / w_nominal); [0] is renscfact=0.5d0 facscfact=0.5d0 ; [1] is renscfact=0.5d0 facscfact=1d0 ; [2] is renscfact=0.5d0 facscfact=2d0 ; [3] is renscfact=1d0 facscfact=0.5d0 ; [4] is renscfact=1d0 facscfact=1d0 ; [5] is renscfact=1d0 facscfact=2d0 ; [6] is renscfact=2d0 facscfact=0.5d0 ; [7] is renscfact=2d0 facscfact=1d0 ; [8] is renscfact=2d0 facscfact=2d0
+  '''
+  renormDown_factDown = 0; renormDown = 1; renormDown_factUp = 2; factDown = 3; nominal = 4; factUp = 5; renormUp_factDown = 6; renormUp = 7; renormUp_factUp = 8;
+  scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
+  events['renorm_factDown']    = scale_weights[:,renormDown_factDown]
+  events['renormDown']         = scale_weights[:,renormDown]
+  events['renormDown_factUp']  = scale_weights[:,renormDown_factUp]
+  events['factDown']           = scale_weights[:,factDown]
+  events['nom']                = ak.ones_like(scale_weights[:,0])
+  events['factUp']             = scale_weights[:,factUp]
+  events['renormUp_factDown']  = scale_weights[:,renormUp_factDown]
+  events['renormUp']           = scale_weights[:,renormUp]
+  events['renorm_factUp']      = scale_weights[:,renormUp_factUp]
+
+
+def AttachPdfWeights(events):
+  '''
+  Return a list of PDF weights
+  Should be 100 weights for NNPDF 3.1
+  '''
+  if events.LHEPdfWeight is None:
+      raise Exception(f'LHEPdfWeight not found in {fname}!')
+  pdf_weight = ak.Array(events.LHEPdfWeight)
+  #events['Pdf'] = ak.Array(events.nLHEPdfWeight) # FIXME not working
+
+####### JEC 
+##############################################
+# JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
+# JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC
+
+def ApplyJetCorrections(year, corr_type):
+  if year=='2016': jec_tag='16_V7'; jer_tag='Summer20UL16_JRV3'
+  elif year=='2016APV': jec_tag='16APV_V7'; jer_tag='Summer20UL16APV_JRV3'
+  elif year=='2017': jec_tag='17_V5'; jer_tag='Summer19UL17_JRV2'
+  elif year=='2018': jec_tag='18_V5'; jer_tag='Summer19UL18_JRV2'
+  else: raise Exception(f"Error: Unknown year \"{year}\".")
+  extJEC = lookup_tools.extractor()
+  extJEC.add_weight_sets(["* * "+topcoffea_path('data/JER/%s_MC_SF_AK4PFchs.jersf.txt'%jer_tag),"* * "+topcoffea_path('data/JER/%s_MC_PtResolution_AK4PFchs.jr.txt'%jer_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L1FastJet_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L2Relative_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_Uncertainty_AK4PFchs.junc.txt'%jec_tag)])
+  jec_names = ["%s_MC_SF_AK4PFchs"%jer_tag,"%s_MC_PtResolution_AK4PFchs"%jer_tag,"Summer19UL%s_MC_L1FastJet_AK4PFchs"%jec_tag,"Summer19UL%s_MC_L2Relative_AK4PFchs"%jec_tag,"Summer19UL%s_MC_Uncertainty_AK4PFchs"%jec_tag]
+  extJEC.finalize()
+  JECevaluator = extJEC.make_evaluator()
+  jec_inputs = {name: JECevaluator[name] for name in jec_names}
+  jec_stack = JECStack(jec_inputs)
+  name_map = jec_stack.blank_name_map
+  name_map['JetPt'] = 'pt'
+  name_map['JetMass'] = 'mass'
+  name_map['JetEta'] = 'eta'
+  name_map['JetPhi'] = 'phi'
+  name_map['JetA'] = 'area'
+  name_map['ptGenJet'] = 'pt_gen'
+  name_map['ptRaw'] = 'pt_raw'
+  name_map['massRaw'] = 'mass_raw'
+  name_map['Rho'] = 'rho'
+  name_map['METpt'] = 'pt'
+  name_map['METphi'] = 'phi'
+  name_map['UnClusteredEnergyDeltaX'] = 'MetUnclustEnUpDeltaX'
+  name_map['UnClusteredEnergyDeltaY'] = 'MetUnclustEnUpDeltaY'
+  if corr_type=='met': return CorrectedMETFactory(name_map)
+  return CorrectedJetsFactory(name_map, jec_stack)
+
+def ApplyJetSystematics(cleanedJets,syst_var):
+  if(syst_var == 'JERUp'): return cleanedJets.JER.up
+  elif(syst_var == 'JERDown'): return cleanedJets.JER.down
+  elif(syst_var == 'JESUp'): return cleanedJets.JES_jes.up
+  elif(syst_var == 'JESDown'): return cleanedJets.JES_jes.down
+  else: return cleanedJets
 ###### Muon Rochester corrections
 ################################################################
 # https://gitlab.cern.ch/akhukhun/roccor
@@ -299,7 +363,7 @@ elif year=='2016APV': rochester_data = txt_converters.convert_rochester_file(top
 elif year=='2017': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2017UL.txt"), loaduncs=True)
 elif year=='2018': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2018UL.txt"), loaduncs=True)
 rochester = rochester_lookup.rochester_lookup(rochester_data)
-def ApplyRochesterCorrections(mu, is_data, var=0):
+def ApplyRochesterCorrections(mu, is_data, var='nominal'):
     if not is_data:
         hasgen = ~np.isnan(ak.fill_none(mu.matched_gen.pt, np.nan))
         mc_rand = np.random.rand(*ak.to_numpy(ak.flatten(mu.pt)).shape)
