@@ -225,7 +225,7 @@ class DatacardMaker():
             pname = self.rename[p]+'_' if p in self.rename else p
             pname.replace('_4F','').replace('_ext','')
             if isinstance(self.analysis_bins[variable],dict):
-                lep_bin = channel.split('_')[0].replace('ss','')
+                lep_bin = channel.split('_')[0].split('l')[0] + 'l'
                 h_base = h_base.rebin(variable, hist.Bin(variable,  h.axis(variable).label, self.analysis_bins[variable][lep_bin]))
             else:
                 h_base = h_base.rebin(variable, hist.Bin(variable,  h.axis(variable).label, self.analysis_bins[variable]))
