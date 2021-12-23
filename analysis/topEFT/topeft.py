@@ -62,6 +62,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         "SumOfEFTweights" : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
         "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
         "ptbl"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 200, 0, 2000)),
+        "ptz"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptz",      "$p_{T}$ Z (GeV)", 25, 0, 1000)),
         "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ",50 , 60, 130)),
         "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
         "nbtagsl" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsl",  "Loose btag multiplicity ", 5, 0, 5)),
@@ -72,6 +73,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 200, 0, 2000)),
         "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
         })
+
+
 
         # Set the list of hists to fill
         if hist_lst is None:
@@ -347,7 +350,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Prefiring weights only available in nanoAODv9**
                 weights_dict[ch_name].add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
                 # FSR/ISR weights
-                weights_dict[ch_name].add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
+                #weights_dict[ch_name].add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
                 weights_dict[ch_name].add('FSR', events.FSRnom, events.FSRUp, events.FSRDown)
                 # renorm/fact scale
                 weights_dict[ch_name].add('renorm', events.nom, events.renormUp, events.renormDown)
@@ -465,6 +468,9 @@ class AnalysisProcessor(processor.ProcessorABC):
           ptbl_lep = l_fo_conept_sorted
           ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
           ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
+
+          # Z pt (pt of the ll pair that form the Z for the onZ categories) 
+          ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)     
         
           # Define invariant mass hists
           mll_0_1 = (l0+l1).mass # Invmass for leading two leps
@@ -484,6 +490,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           varnames["nbtagsl"] = nbtagsl
           varnames["invmass"] = mll_0_1
           varnames["ptbl"]    = ak.flatten(ptbl)
+          varnames["ptz"]     = ptz
 
 
           ########## Fill the histograms ##########
@@ -632,6 +639,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     }
                                     
                                     if (("j0" in dense_axis_name) & ("CRZ" in ch_name)): continue
+                                    if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                     hout[dense_axis_name].fill(**axes_fill_info_dict)
 
                                     # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
