@@ -313,6 +313,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
         # Make plots for each SR category
         if split_by_chan:
             for hist_cat in SR_CHAN_DICT.keys(): 
+                if ((var_name == "ptz") and ("3l" not in hist_cat)): continue
 
                 # Make a sub dir for this category
                 save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
