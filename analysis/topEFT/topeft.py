@@ -74,8 +74,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
         })
 
-
-
         # Set the list of hists to fill
         if hist_lst is None:
             # If the hist list is none, assume we want to fill all hists
@@ -350,7 +348,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Prefiring weights only available in nanoAODv9**
                 weights_dict[ch_name].add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
                 # FSR/ISR weights
-                #weights_dict[ch_name].add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
+                weights_dict[ch_name].add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
                 weights_dict[ch_name].add('FSR', events.FSRnom, events.FSRUp, events.FSRDown)
                 # renorm/fact scale
                 weights_dict[ch_name].add('renorm', events.nom, events.renormUp, events.renormDown)
