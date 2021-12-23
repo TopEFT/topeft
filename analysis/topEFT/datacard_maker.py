@@ -42,7 +42,9 @@ class DatacardMaker():
                                         '3l': [2,3,4,5,self.hists['njets'].axis('njets').edges()[-1]],
                                         '4l': [2,3,4,self.hists['njets'].axis('njets').edges()[-1]] },
                               'ptbl' : [0, 100, 200, 400, self.hists['ptbl'].axis('ptbl').edges()[-1]],
-                              'ht'   : [0, 100, 200, 300, 400, self.hists['ht'].axis('ht').edges()[-1]] }
+                              'ht'   : [0, 100, 200, 300, 400, self.hists['ht'].axis('ht').edges()[-1]],
+                              'ptz'  : [0, 80, 200, 320, 440, self.hists['ptz'].axis('ptz').edges()[-1]]
+        }
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         # Get list of channels
@@ -728,8 +730,16 @@ if __name__ == '__main__':
                  {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
                  {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
         jobs.append(cards)
+    for var in ['ptz']:
+        cards = [
+            {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+            {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+        ]
+        jobs.append(cards)
 
-    njobs = len(jobs) * len(jobs[0])
+    njobs = 0
+    for j in jobs:
+        njobs = njobs + len(j)
     if job == -1:
         card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm)
     elif job < njobs:
