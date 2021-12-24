@@ -40,11 +40,13 @@ class DatacardMaker():
             self.hists = pickle.load(fin)
         self.analysis_bins = {'njets': {'2l': [4,5,6,7,self.hists['njets'].axis('njets').edges()[-1]], # Last bin in topeft.py is 10, this should grab the overflow
                                         '3l': [2,3,4,5,self.hists['njets'].axis('njets').edges()[-1]],
-                                        '4l': [2,3,4,self.hists['njets'].axis('njets').edges()[-1]] },
-                              'ptbl' : [0, 100, 200, 400, self.hists['ptbl'].axis('ptbl').edges()[-1]],
-                              'ht'   : [0, 100, 200, 300, 400, self.hists['ht'].axis('ht').edges()[-1]],
-                              'ptz'  : [0, 80, 200, 320, 440, self.hists['ptz'].axis('ptz').edges()[-1]]
-        }
+                                        '4l': [2,3,4,self.hists['njets'].axis('njets').edges()[-1]] }}
+        if 'ptbl' in self.hists:
+            self.analysis_bins['ptbl'] = [0, 100, 200, 400, self.hists['ptbl'].axis('ptbl').edges()[-1]]
+        if 'ht' in self.hists:
+            self.analysis_bins['ht'] = [0, 100, 200, 300, 400, self.hists['ht'].axis('ht').edges()[-1]]
+        if 'ptz' in self.hists:
+            self.analysis_bins['ptz'] = [0, 80, 200, 320, 440, self.hists['ptz'].axis('ptz').edges()[-1]]
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         # Get list of channels
