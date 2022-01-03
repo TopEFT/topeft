@@ -386,3 +386,35 @@ def get_Z_peak_mask(lep_collection,pt_window):
     sfos_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
     sfosz_mask = ak.flatten(ak.any((zpeak_mask & sfos_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
     return sfosz_mask
+
+# Testing out some hadronic top stuff
+def get_hadt_mass(jet_collection,btagwpl,pt_window=10):
+
+    jjj_triplets = ak.combinations(jet_collection, 3, fields=["i0","i1","i2"])
+    triplets_with_1b_mask  = ((ak.values_astype(jjj_triplets.i0.btagDeepFlavB>btagwpl,int)+ak.values_astype(jjj_triplets.i1.btagDeepFlavB>btagwpl,np.int32)+ak.values_astype(jjj_triplets.i2.btagDeepFlavB>btagwpl,np.int32))==1)
+
+    jjb_triplets = jjj_triplets[triplets_with_1b_mask]
+
+    jjb_mass = (jjb_triplets.i0+jjb_triplets.i1+jjb_triplets.i2).mass
+    jjb_pt = (jjb_triplets.i0+jjb_triplets.i1+jjb_triplets.i2).pt
+
+    jj_mass = ak.where( jjb_triplets.i0.btagDeepFlavB>btagwpl,(jjb_triplets.i1+jjb_triplets.i2).mass,( ak.where( jjb_triplets.i1.btagDeepFlavB>btagwpl,(jjb_triplets.i0+jjb_triplets.i2).mass, (jjb_triplets.i0+jjb_triplets.i1).mass)))
+
+    # Some placeholders for now
+    t_mass = 165.0
+    w_mass = 70.0
+    t_width = 10.0
+    w_width = 10.0
+    chisq_threhsold = 1000000000.0
+    #chisq_threhsold = 40.0
+    #chisq_threhsold = 100.0
+
+    chi_sq = (((jjb_mass-t_mass)*(jjb_mass-t_mass)/((t_width)*(t_width))) + ((jj_mass-w_mass)*(jj_mass-w_mass)/((w_width)*(w_width))))
+    chi_sq_min_idx = ak.argmin(chi_sq,keepdims=True,axis=1)
+    jjb_mass_best = jjb_mass[chi_sq_min_idx]
+    jjb_pt_best = jjb_pt[chi_sq_min_idx]
+    jj_mass_best = jj_mass[chi_sq_min_idx]
+
+    has_hatd_candidate_mask = ak.fill_none(ak.any((chi_sq<chisq_threhsold),axis=1),False)
+
+    return has_hatd_candidate_mask,ak.flatten(chi_sq[chi_sq_min_idx]),ak.flatten(jjb_mass_best),ak.flatten(jjb_pt_best),ak.flatten(jj_mass_best),jjb_mass,jj_mass

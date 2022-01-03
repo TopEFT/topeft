@@ -71,6 +71,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         "j0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
         "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 200, 0, 2000)),
         "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
+        "hadtmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadtmass", "Mass of had t (GeV)", 40, 0, 400)),
+        "hadwmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadwmass", "Mass of had W (GeV)", 20, 0, 200)),
+        "hadtpt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadtpt",   "Pt of had t (GeV)", 100, 0, 1000)),
+        "chisq"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq",    "Chi sq for had top reco", 100, 0, 50.0)),
         })
 
         # Set the list of hists to fill
@@ -459,6 +463,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           ######### Variables for the dense axes of the hists ##########
 
+          # Hadronic top
+          has_hatd_candidate_mask,chisq,hadtmass,hadtpt,hadwmass,mjjb,mjj = get_hadt_mass(goodJets,btagwpl)
+
           # Calculate ptbl
           ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
           ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt,axis=-1,keepdims=True)] # Only save hardest b-jet
@@ -484,6 +491,14 @@ class AnalysisProcessor(processor.ProcessorABC):
           varnames["nbtagsl"] = nbtagsl
           varnames["invmass"] = mll_0_1
           varnames["ptbl"]    = ak.flatten(ptbl)
+
+          # For the hadronic top studies
+          varnames["hadtmass"] = hadtmass
+          varnames["hadwmass"] = hadwmass
+          varnames["hadtpt"] = hadtpt
+          varnames["chisq"] = chisq
+          #varnames["mjjb"] = mjjb
+          #varnames["mjj"] = mjj
 
 
           ########## Fill the histograms ##########
@@ -611,6 +626,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     # Get the cuts mask for all selections
                                     if dense_axis_name == "njets":
                                         all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
+                                    elif dense_axis_name in ["hadtmass","hadwmass","chisq","hadtpt","mjj","mjjb"]:
+                                        all_cuts_mask = (selections.all(*cuts_lst) & has_hatd_candidate_mask)
                                     else:
                                         all_cuts_mask = selections.all(*cuts_lst)
 
@@ -630,8 +647,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         "eft_coeff"     : eft_coeffs_cut,
                                         "eft_err_coeff" : eft_w2_coeffs_cut,
                                     }
-                                    
+
+                                    # Should do this in a better way, maybe have a dictionary
                                     if (("j0" in dense_axis_name) & ("CRZ" in ch_name)): continue
+                                    if (("hadtmass" in dense_axis_name) & ("2j" in njet_val)): continue
+                                    if (("hadwmass" in dense_axis_name) & ("2j" in njet_val)): continue
+                                    if (("hadtpt" in dense_axis_name) & ("2j" in njet_val)): continue
+                                    if (("chisq" in dense_axis_name) & ("2j" in njet_val)): continue
+                                    if (("mjj" in dense_axis_name) & ("2j" in njet_val)): continue # Also works for mjjb
+
                                     hout[dense_axis_name].fill(**axes_fill_info_dict)
 
                                     # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
