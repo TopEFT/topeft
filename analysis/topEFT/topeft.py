@@ -517,81 +517,70 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           ########## Fill the histograms ##########
 
+          channel_blacklist = [
+              ["4l_hadtop",           "exactly_2j"], # Need at least 3j for hadronic top
+              ["3l_p_offZ_1b_hadtop", "exactly_2j"], # Need at least 3j for hadronic top
+              ["3l_m_offZ_1b_hadtop", "exactly_2j"], # Need at least 3j for hadronic top
+              ["3l_p_offZ_2b_hadtop", "exactly_2j"], # Need at least 3j for hadronic top
+              ["3l_m_offZ_2b_hadtop", "exactly_2j"], # Need at least 3j for hadronic top
+              ["3l_onZ_1b_hadtop",    "exactly_2j"], # Need at least 3j for hadronic top
+              ["3l_onZ_2b_hadtop",    "exactly_2j"], # Need at least 3j for hadronic top
+              ["3l_p_offZ_2b_hadtop", "exactly_3j"], # If 3j, two cannot be b for hadronic top
+              ["3l_m_offZ_2b_hadtop", "exactly_3j"], # If 3j, two cannot be b for hadronic top
+              ["3l_onZ_2b_hadtop",    "exactly_3j"], # If 3j, two cannot be b for hadronic top
+          ]
+
           # This dictionary keeps track of which selections go with which SR categories
           sr_cat_dict = {
-            "2l" : {
-                "lep_flav_lst" : ["ee" , "em" , "mm"],
-                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                "njets_dict"   : {
-                    "exactly_4j" : ["2lss_p" , "2lss_m", "2lss_p_hadtop" , "2lss_m_hadtop"],
-                    "exactly_5j" : ["2lss_p" , "2lss_m", "2lss_p_hadtop" , "2lss_m_hadtop"],
-                    "exactly_6j" : ["2lss_p" , "2lss_m", "2lss_p_hadtop" , "2lss_m_hadtop"],
-                    "atleast_7j" : ["2lss_p" , "2lss_m", "2lss_p_hadtop" , "2lss_m_hadtop"],
-                },
-            },
-            "3l" : {
-                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                "njets_dict"   : {
-                    "exactly_2j" : [
-                        "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                    ],
-                    "exactly_3j" : [
-                        "3l_p_offZ_1b"        , "3l_m_offZ_1b"        , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b"        , "3l_onZ_2b",
-                        "3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" ,                                   "3l_onZ_1b_hadtop" ,
-                    ],
-                    "exactly_4j" : [
-                        "3l_p_offZ_1b"        , "3l_m_offZ_1b"        , "3l_p_offZ_2b"        , "3l_m_offZ_2b"        , "3l_onZ_1b"        , "3l_onZ_2b",
-                        "3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
-                    ],
-                    "atleast_5j" : [
-                        "3l_p_offZ_1b"        , "3l_m_offZ_1b"        , "3l_p_offZ_2b"        , "3l_m_offZ_2b"        , "3l_onZ_1b"        , "3l_onZ_2b",
-                        "3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
-                    ],
-                },
-            },
-            "4l" : {
-                "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                "appl_lst"     : ["isSR_4l"],
-                "njets_dict"   : {
-                    "exactly_2j" : ["4l" , "4l_hadtop"],
-                    "exactly_3j" : ["4l" , "4l_hadtop"],
-                    "atleast_4j" : ["4l" , "4l_hadtop"],
-                },
-            },
+              "2l" : {
+                  "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_p_hadtop" , "2lss_m_hadtop"],
+                  "lep_flav_lst" : ["ee" , "em" , "mm"],
+                  "njets_lst"    : ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
+                  "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+              },
+              "3l" : {
+                  "lep_chan_lst" : [
+                      "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                      "3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
+                  ],
+                  "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                  "njets_lst"    : ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"],
+                  "appl_lst"     : ["isSR_3l", "isAR_3l"],
+              },
+              "4l" : {
+                  "lep_chan_lst" : ["4l","4l_hadtop"],
+                  "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                  "njets_lst"    : ["exactly_2j" , "exactly_3j" , "atleast_4j"],
+                  "appl_lst"     : ["isSR_4l"],
+              },
           }
 
           # This dictionary keeps track of which selections go with which CR categories
           cr_cat_dict = {
             "2l_CR" : {
+                "lep_chan_lst" : ["2lss_CR"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "njets_lst"    : ["exactly_1j" , "exactly_2j"],
                 "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                "njets_dict"   : {
-                    "exactly_1j" : ["2lss_CR"],
-                    "exactly_2j" : ["2lss_CR"],
-                },
             },
             "3l_CR" : {
+                "lep_chan_lst" : ["3l_CR"],
                 "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                "njets_lst"    : ["atleast_1j"],
                 "appl_lst"     : ["isSR_3l" , "isAR_3l"],
-                "njets_dict"   : {
-                    "atleast_1j" : ["3l_CR"],
-                },
             },
             "2los_CRtt" : {
+                "lep_chan_lst" : ["2los_CRtt"],
                 "lep_flav_lst" : ["em"],
+                "njets_lst"    : ["exactly_2j"],
                 "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                "njets_dict"   : {
-                    "exactly_2j" : ["2los_CRtt"],
-                },
             },
             "2los_CRZ" : {
+                "lep_chan_lst" : ["2los_CRZ"],
                 "lep_flav_lst" : ["ee", "mm"],
+                "njets_lst"    : ["atleast_0j"],
                 "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                "njets_dict"   : {
-                    "atleast_0j" : ["2los_CRZ"],
-                },
-            }            
+            }
           }
 
           # Include SRs and CRs unless we asked to skip them
@@ -636,19 +625,38 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Get a mask for events that pass any of the njet requiremens in this nlep cat
                     # Useful in cases like njets hist where we don't store njets in a sparse axis
-                    njets_any_mask = selections.any(*cat_dict[nlep_cat]["njets_dict"].keys())
+                    njets_any_mask = selections.any(*cat_dict[nlep_cat]["njets_lst"])
 
                     # Loop over the appropriate AR and SR for this channel
                     for appl in cat_dict[nlep_cat]["appl_lst"]:
 
                         # Loop over the njets list for each channel
-                        for njet_val in cat_dict[nlep_cat]["njets_dict"].keys():
+                        for njet_val in cat_dict[nlep_cat]["njets_lst"]:
 
                             # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
-                            for lep_chan in cat_dict[nlep_cat]["njets_dict"][njet_val]:
+                            for lep_chan in cat_dict[nlep_cat]["lep_chan_lst"]:
 
                                 # Loop over the lep flavor list for each channel
                                 for lep_flav in cat_dict[nlep_cat]["lep_flav_lst"]:
+
+                                    # Skip the blacklisted combinations
+                                    this_cat = [appl,njet_val,lep_chan,lep_flav]
+                                    blacklisted = False
+                                    for sub_bl in channel_blacklist:
+                                        sub_blacklisted = True
+                                        for item in sub_bl:
+                                            if item not in this_cat: sub_blacklisted = False
+                                        if sub_blacklisted: blacklisted = True
+                                    if blacklisted: continue
+
+                                    # Should do this in a better way, maybe have a dictionary
+                                    if (("j0" in dense_axis_name) & ("CRZ" in ch_name)): continue
+                                    if (("hadtmass" in dense_axis_name) & ("2j" in njet_val)): continue
+                                    if (("hadwmass" in dense_axis_name) & ("2j" in njet_val)): continue
+                                    if (("hadtpt" in dense_axis_name) & ("2j" in njet_val)): continue
+                                    if (("chisq" in dense_axis_name) & ("2j" in njet_val)): continue
+                                    if (("mjj" in dense_axis_name) & ("2j" in njet_val)): continue # Also works for mjjb
+                                    if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
 
                                     # Construct the hist name
                                     flav_ch = None
@@ -688,15 +696,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         "eft_coeff"     : eft_coeffs_cut,
                                         "eft_err_coeff" : eft_w2_coeffs_cut,
                                     }
-
-                                    # Should do this in a better way, maybe have a dictionary
-                                    if (("j0" in dense_axis_name) & ("CRZ" in ch_name)): continue
-                                    if (("hadtmass" in dense_axis_name) & ("2j" in njet_val)): continue
-                                    if (("hadwmass" in dense_axis_name) & ("2j" in njet_val)): continue
-                                    if (("hadtpt" in dense_axis_name) & ("2j" in njet_val)): continue
-                                    if (("chisq" in dense_axis_name) & ("2j" in njet_val)): continue
-                                    if (("mjj" in dense_axis_name) & ("2j" in njet_val)): continue # Also works for mjjb
-                                    if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
 
                                     hout[dense_axis_name].fill(**axes_fill_info_dict)
 
