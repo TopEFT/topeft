@@ -600,11 +600,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                     # Loop over the appropriate AR and SR for this channel
                     for appl in cat_dict[nlep_cat]["appl_lst"]:
 
-                        # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
-                        for lep_chan in cat_dict[nlep_cat]["lep_chan_lst"]:
+                        # Loop over the njets list for each channel
+                        for njet_val in cat_dict[nlep_cat]["njets_lst"]:
 
-                            # Loop over the njets list for each channel
-                            for njet_val in cat_dict[nlep_cat]["njets_lst"]:
+                            # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
+                            for lep_chan in cat_dict[nlep_cat]["lep_chan_lst"]:
 
                                 # Loop over the lep flavor list for each channel
                                 for lep_flav in cat_dict[nlep_cat]["lep_flav_lst"]:
@@ -661,8 +661,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                     if not self._split_by_lepton_flavor: break
 
-                                # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
-                                if dense_axis_name == "njets": break
+                            # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
+                            if dense_axis_name == "njets": break
 
         return hout
 
