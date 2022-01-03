@@ -269,7 +269,8 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     if year is None: pass
     elif year == "2017": sig_wl.append("UL17")
     elif year == "2018": sig_wl.append("UL18")
-    else: raise Exception # Not sure what to do about UL16 vs UL16APV yet
+    elif year == "2016": sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
+    else: raise Exception
 
     # Get the list of samples to actually plot
     all_samples = yt.get_cat_lables(dict_of_hists,"sample")

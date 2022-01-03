@@ -173,7 +173,7 @@ output = processor.run_uproot_job(flist,
 dt = time.time() - tstart
 
 # Save the output
-if not os.path.isdir(outpath): os.system(f"mkdir -p {outpuath}")
+if not os.path.isdir(outpath): os.system(f"mkdir -p {outpath}")
 out_pkl_file = os.path.join(outpath,outname+".pkl.gz")
 print(f"\nSaving output in {out_pkl_file}...")
 with gzip.open(out_pkl_file, "wb") as fout:

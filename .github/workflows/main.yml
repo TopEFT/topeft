@@ -30,7 +30,7 @@ jobs:
 
       - name: Download root files
         run: |
-          wget http://www.crc.nd.edu/~ywan2/root_files/NAOD-00000_18449.root
+          wget http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194.root
 
       - name: Run processors over test files with futures executor
         run: |
