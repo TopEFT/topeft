@@ -415,6 +415,6 @@ def get_hadt_mass(jet_collection,btagwpl,pt_window=10):
     jjb_pt_best = jjb_pt[chi_sq_min_idx]
     jj_mass_best = jj_mass[chi_sq_min_idx]
 
-    has_hatd_candidate_mask = ak.fill_none(ak.any((chi_sq<chisq_threhsold),axis=1),False)
+    has_hadt_candidate_mask = ak.fill_none(ak.any((chi_sq<chisq_threhsold),axis=1),False)
 
-    return has_hatd_candidate_mask,ak.flatten(chi_sq[chi_sq_min_idx]),ak.flatten(jjb_mass_best),ak.flatten(jjb_pt_best),ak.flatten(jj_mass_best),jjb_mass,jj_mass
+    return has_hadt_candidate_mask,ak.flatten(chi_sq[chi_sq_min_idx]),ak.flatten(jjb_mass_best),ak.flatten(jjb_pt_best),ak.flatten(jj_mass_best),jjb_mass,jj_mass

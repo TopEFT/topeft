@@ -375,6 +375,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           ######### Masks we need for the selection ##########
 
+          # Hadronic top (should maybe split this up into multiple functions)
+          has_hadt_candidate_mask,chisq,hadtmass,hadtpt,hadwmass,mjjb,mjj = get_hadt_mass(goodJets,btagwpl)
+
           # Get mask for events that have two sf os leps close to z peak
           sfosz_3l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
           sfosz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
@@ -462,9 +465,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
           ######### Variables for the dense axes of the hists ##########
-
-          # Hadronic top
-          has_hatd_candidate_mask,chisq,hadtmass,hadtpt,hadwmass,mjjb,mjj = get_hadt_mass(goodJets,btagwpl)
 
           # Calculate ptbl
           ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
@@ -627,7 +627,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     if dense_axis_name == "njets":
                                         all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
                                     elif dense_axis_name in ["hadtmass","hadwmass","chisq","hadtpt","mjj","mjjb"]:
-                                        all_cuts_mask = (selections.all(*cuts_lst) & has_hatd_candidate_mask)
+                                        all_cuts_mask = (selections.all(*cuts_lst) & has_hadt_candidate_mask)
                                     else:
                                         all_cuts_mask = selections.all(*cuts_lst)
 
