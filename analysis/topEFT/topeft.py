@@ -506,50 +506,66 @@ class AnalysisProcessor(processor.ProcessorABC):
           # This dictionary keeps track of which selections go with which SR categories
           sr_cat_dict = {
             "2l" : {
-                "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
-                "njets_lst"    : ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
                 "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                "njets_dict"   : {
+                    "exactly_4j" : ["2lss_p" , "2lss_m"],
+                    "exactly_5j" : ["2lss_p" , "2lss_m"],
+                    "exactly_6j" : ["2lss_p" , "2lss_m"],
+                    "atleast_7j" : ["2lss_p" , "2lss_m"],
+                },
             },
             "3l" : {
-                "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
                 "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                "njets_lst"    : ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"],
                 "appl_lst"     : ["isSR_3l", "isAR_3l"],
+                "njets_dict"   : {
+                    "exactly_2j" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                    "exactly_3j" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                    "exactly_4j" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                    "atleast_5j" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                },
             },
             "4l" : {
-                "lep_chan_lst" : ["4l"],
                 "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                "njets_lst"    : ["exactly_2j" , "exactly_3j" , "atleast_4j"],
                 "appl_lst"     : ["isSR_4l"],
+                "njets_dict"   : {
+                    "exactly_2j" : ["4l"],
+                    "exactly_3j" : ["4l"],
+                    "atleast_4j" : ["4l"],
+                },
             },
           }
 
           # This dictionary keeps track of which selections go with which CR categories
           cr_cat_dict = {
             "2l_CR" : {
-                "lep_chan_lst" : ["2lss_CR"],
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
-                "njets_lst"    : ["exactly_1j" , "exactly_2j"],
                 "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                "njets_dict"   : {
+                    "exactly_1j" : ["2lss_CR"],
+                    "exactly_2j" : ["2lss_CR"],
+                },
             },
             "3l_CR" : {
-                "lep_chan_lst" : ["3l_CR"],
                 "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                "njets_lst"    : ["atleast_1j"],
                 "appl_lst"     : ["isSR_3l" , "isAR_3l"],
+                "njets_dict"   : {
+                    "atleast_1j" : ["3l_CR"],
+                },
             },
             "2los_CRtt" : {
-                "lep_chan_lst" : ["2los_CRtt"],
                 "lep_flav_lst" : ["em"],
-                "njets_lst"    : ["exactly_2j"],
                 "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+                "njets_dict"   : {
+                    "exactly_2j" : ["2los_CRtt"],
+                },
             },
             "2los_CRZ" : {
-                "lep_chan_lst" : ["2los_CRZ"],
                 "lep_flav_lst" : ["ee", "mm"],
-                "njets_lst"    : ["atleast_0j"],
                 "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+                "njets_dict"   : {
+                    "atleast_0j" : ["2los_CRZ"],
+                },
             }            
           }
 
@@ -595,16 +611,16 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Get a mask for events that pass any of the njet requiremens in this nlep cat
                     # Useful in cases like njets hist where we don't store njets in a sparse axis
-                    njets_any_mask = selections.any(*cat_dict[nlep_cat]["njets_lst"])
+                    njets_any_mask = selections.any(*cat_dict[nlep_cat]["njets_dict"].keys())
 
                     # Loop over the appropriate AR and SR for this channel
                     for appl in cat_dict[nlep_cat]["appl_lst"]:
 
                         # Loop over the njets list for each channel
-                        for njet_val in cat_dict[nlep_cat]["njets_lst"]:
+                        for njet_val in cat_dict[nlep_cat]["njets_dict"].keys():
 
                             # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
-                            for lep_chan in cat_dict[nlep_cat]["lep_chan_lst"]:
+                            for lep_chan in cat_dict[nlep_cat]["njets_dict"][njet_val]:
 
                                 # Loop over the lep flavor list for each channel
                                 for lep_flav in cat_dict[nlep_cat]["lep_flav_lst"]:
