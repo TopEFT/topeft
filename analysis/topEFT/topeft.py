@@ -409,8 +409,10 @@ class AnalysisProcessor(processor.ProcessorABC):
           selections.add("is_good_lumi",lumi_mask)
 
           # 2lss selection
-          selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-          selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_p"       , (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_m"       , (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_p_hadtop", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & has_hadt_candidate_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_m_hadtop", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & has_hadt_candidate_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
           selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
         
           # 2los selection
@@ -418,16 +420,23 @@ class AnalysisProcessor(processor.ProcessorABC):
           selections.add("2los_CRZ", (events.is2l & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
           # 3l selection
-          selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-          selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-          selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-          selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-          selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
-          selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
+          selections.add("3l_p_offZ_1b"       , (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
+          selections.add("3l_m_offZ_1b"       , (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
+          selections.add("3l_p_offZ_1b_hadtop", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_m_offZ_1b_hadtop", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_p_offZ_2b"       , (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
+          selections.add("3l_m_offZ_2b"       , (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
+          selections.add("3l_p_offZ_2b_hadtop", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_m_offZ_2b_hadtop", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_onZ_1b"       , (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
+          selections.add("3l_onZ_2b"       , (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
+          selections.add("3l_onZ_1b_hadtop", (events.is3l & sfosz_3l_mask & bmask_exactly1med & has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_onZ_2b_hadtop", (events.is3l & sfosz_3l_mask & bmask_atleast2med & has_hadt_candidate_mask & pass_trg))
           selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
 
           # 4l selection
-          selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
+          selections.add("4l",        (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
+          selections.add("4l_hadtop", (events.is4l & bmask_atleast1med_atleast2loose & has_hadt_candidate_mask & pass_trg))
 
           # Lep flavor selection
           selections.add("ee",  events.is_ee)
@@ -509,29 +518,40 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
                 "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 "njets_dict"   : {
-                    "exactly_4j" : ["2lss_p" , "2lss_m"],
-                    "exactly_5j" : ["2lss_p" , "2lss_m"],
-                    "exactly_6j" : ["2lss_p" , "2lss_m"],
-                    "atleast_7j" : ["2lss_p" , "2lss_m"],
+                    "exactly_4j" : ["2lss_p" , "2lss_m", "2lss_p_hadtop" , "2lss_m_hadtop"],
+                    "exactly_5j" : ["2lss_p" , "2lss_m", "2lss_p_hadtop" , "2lss_m_hadtop"],
+                    "exactly_6j" : ["2lss_p" , "2lss_m", "2lss_p_hadtop" , "2lss_m_hadtop"],
+                    "atleast_7j" : ["2lss_p" , "2lss_m", "2lss_p_hadtop" , "2lss_m_hadtop"],
                 },
             },
             "3l" : {
                 "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                 "appl_lst"     : ["isSR_3l", "isAR_3l"],
                 "njets_dict"   : {
-                    "exactly_2j" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
-                    "exactly_3j" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
-                    "exactly_4j" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
-                    "atleast_5j" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                    "exactly_2j" : [
+                        "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                    ],
+                    "exactly_3j" : [
+                        "3l_p_offZ_1b"        , "3l_m_offZ_1b"        , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b"        , "3l_onZ_2b",
+                        "3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" ,                                   "3l_onZ_1b_hadtop" ,
+                    ],
+                    "exactly_4j" : [
+                        "3l_p_offZ_1b"        , "3l_m_offZ_1b"        , "3l_p_offZ_2b"        , "3l_m_offZ_2b"        , "3l_onZ_1b"        , "3l_onZ_2b",
+                        "3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
+                    ],
+                    "atleast_5j" : [
+                        "3l_p_offZ_1b"        , "3l_m_offZ_1b"        , "3l_p_offZ_2b"        , "3l_m_offZ_2b"        , "3l_onZ_1b"        , "3l_onZ_2b",
+                        "3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
+                    ],
                 },
             },
             "4l" : {
                 "lep_flav_lst" : ["llll"], # Not keeping track of these separately
                 "appl_lst"     : ["isSR_4l"],
                 "njets_dict"   : {
-                    "exactly_2j" : ["4l"],
-                    "exactly_3j" : ["4l"],
-                    "atleast_4j" : ["4l"],
+                    "exactly_2j" : ["4l" , "4l_hadtop"],
+                    "exactly_3j" : ["4l" , "4l_hadtop"],
+                    "atleast_4j" : ["4l" , "4l_hadtop"],
                 },
             },
           }
