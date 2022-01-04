@@ -412,8 +412,10 @@ class AnalysisProcessor(processor.ProcessorABC):
           # 2lss selection
           selections.add("2lss_p"       , (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
           selections.add("2lss_m"       , (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-          selections.add("2lss_p_hadtop", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & has_hadt_candidate_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-          selections.add("2lss_m_hadtop", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & has_hadt_candidate_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_p_hadtop",   (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & has_hadt_candidate_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_m_hadtop",   (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & has_hadt_candidate_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_p_nohadtop", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & ~has_hadt_candidate_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_m_nohadtop", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & ~has_hadt_candidate_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
           selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
         
           # 2los selection
@@ -421,23 +423,30 @@ class AnalysisProcessor(processor.ProcessorABC):
           selections.add("2los_CRZ", (events.is2l & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
           # 3l selection
-          selections.add("3l_p_offZ_1b"       , (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-          selections.add("3l_m_offZ_1b"       , (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-          selections.add("3l_p_offZ_1b_hadtop", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & has_hadt_candidate_mask & pass_trg))
-          selections.add("3l_m_offZ_1b_hadtop", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & has_hadt_candidate_mask & pass_trg))
-          selections.add("3l_p_offZ_2b"       , (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-          selections.add("3l_m_offZ_2b"       , (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-          selections.add("3l_p_offZ_2b_hadtop", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & has_hadt_candidate_mask & pass_trg))
-          selections.add("3l_m_offZ_2b_hadtop", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & has_hadt_candidate_mask & pass_trg))
-          selections.add("3l_onZ_1b"       , (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
-          selections.add("3l_onZ_2b"       , (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
-          selections.add("3l_onZ_1b_hadtop", (events.is3l & sfosz_3l_mask & bmask_exactly1med & has_hadt_candidate_mask & pass_trg))
-          selections.add("3l_onZ_2b_hadtop", (events.is3l & sfosz_3l_mask & bmask_atleast2med & has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_p_offZ_1b",          (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
+          selections.add("3l_m_offZ_1b",          (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
+          selections.add("3l_p_offZ_1b_hadtop",   (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_m_offZ_1b_hadtop",   (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_p_offZ_1b_nohadtop", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & ~has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_m_offZ_1b_nohadtop", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & ~has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_p_offZ_2b",          (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
+          selections.add("3l_m_offZ_2b",          (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
+          selections.add("3l_p_offZ_2b_hadtop",   (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_m_offZ_2b_hadtop",   (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_p_offZ_2b_nohadtop", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & ~has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_m_offZ_2b_nohadtop", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & ~has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_onZ_1b",          (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
+          selections.add("3l_onZ_2b",          (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
+          selections.add("3l_onZ_1b_hadtop",   (events.is3l & sfosz_3l_mask & bmask_exactly1med & has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_onZ_2b_hadtop",   (events.is3l & sfosz_3l_mask & bmask_atleast2med & has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_onZ_1b_nohadtop", (events.is3l & sfosz_3l_mask & bmask_exactly1med & ~has_hadt_candidate_mask & pass_trg))
+          selections.add("3l_onZ_2b_nohadtop", (events.is3l & sfosz_3l_mask & bmask_atleast2med & ~has_hadt_candidate_mask & pass_trg))
           selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
 
           # 4l selection
           selections.add("4l",        (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
           selections.add("4l_hadtop", (events.is4l & bmask_atleast1med_atleast2loose & has_hadt_candidate_mask & pass_trg))
+          selections.add("4l_nohadtop", (events.is4l & bmask_atleast1med_atleast2loose & ~has_hadt_candidate_mask & pass_trg))
 
           # Lep flavor selection
           selections.add("ee",  events.is_ee)
@@ -517,70 +526,108 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           ########## Fill the histograms ##########
 
-          channel_blacklist = [
-              ["4l_hadtop",           "exactly_2j"], # Need at least 3j for hadronic top
-              ["3l_p_offZ_1b_hadtop", "exactly_2j"], # Need at least 3j for hadronic top
-              ["3l_m_offZ_1b_hadtop", "exactly_2j"], # Need at least 3j for hadronic top
-              ["3l_p_offZ_2b_hadtop", "exactly_2j"], # Need at least 3j for hadronic top
-              ["3l_m_offZ_2b_hadtop", "exactly_2j"], # Need at least 3j for hadronic top
-              ["3l_onZ_1b_hadtop",    "exactly_2j"], # Need at least 3j for hadronic top
-              ["3l_onZ_2b_hadtop",    "exactly_2j"], # Need at least 3j for hadronic top
-              ["3l_p_offZ_2b_hadtop", "exactly_3j"], # If 3j, two cannot be b for hadronic top
-              ["3l_m_offZ_2b_hadtop", "exactly_3j"], # If 3j, two cannot be b for hadronic top
-              ["3l_onZ_2b_hadtop",    "exactly_3j"], # If 3j, two cannot be b for hadronic top
-          ]
+          channel_blacklist = []
 
           # This dictionary keeps track of which selections go with which SR categories
           sr_cat_dict = {
-              "2l" : {
-                  "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_p_hadtop" , "2lss_m_hadtop"],
-                  "lep_flav_lst" : ["ee" , "em" , "mm"],
-                  "njets_lst"    : ["exactly_4j" , "exactly_5j" , "exactly_6j" , "atleast_7j"],
-                  "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-              },
-              "3l" : {
-                  "lep_chan_lst" : [
-                      "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                      "3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
-                  ],
-                  "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                  "njets_lst"    : ["exactly_2j" , "exactly_3j" , "exactly_4j" , "atleast_5j"],
-                  "appl_lst"     : ["isSR_3l", "isAR_3l"],
-              },
-              "4l" : {
-                  "lep_chan_lst" : ["4l","4l_hadtop"],
-                  "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                  "njets_lst"    : ["exactly_2j" , "exactly_3j" , "atleast_4j"],
-                  "appl_lst"     : ["isSR_4l"],
-              },
+            "2l" : {
+                "exactly_4j" : {
+                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                    "lep_flav_lst" : ["ee" , "em" , "mm"],
+                    "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                },
+                "exactly_5j" : {
+                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                    "lep_flav_lst" : ["ee" , "em" , "mm"],
+                    "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                },
+                "exactly_6j" : {
+                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                    "lep_flav_lst" : ["ee" , "em" , "mm"],
+                    "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                },
+                "atleast_7j" : {
+                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                    "lep_flav_lst" : ["ee" , "em" , "mm"],
+                    "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                },
+            },
+            "3l" : {
+                "exactly_2j" : {
+                    "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                    "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                    "appl_lst"     : ["isSR_3l", "isAR_3l"],
+                },
+                "exactly_3j" : {
+                    "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                    "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                    "appl_lst"     : ["isSR_3l", "isAR_3l"],
+                },
+                "exactly_4j" : {
+                    "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                    "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                    "appl_lst"     : ["isSR_3l", "isAR_3l"],
+                },
+                "atleast_5j" : {
+                    "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                    "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                    "appl_lst"     : ["isSR_3l", "isAR_3l"],
+                },
+            },
+            "4l" : {
+                    "exactly_2j" : {
+                        "lep_chan_lst" : ["4l"],
+                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                        "appl_lst"     : ["isSR_4l"],
+                    },
+                    "exactly_3j" : {
+                        "lep_chan_lst" : ["4l"],
+                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                        "appl_lst"     : ["isSR_4l"],
+                    },
+                    "atleast_4j" : {
+                        "lep_chan_lst" : ["4l"],
+                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                        "appl_lst"     : ["isSR_4l"],
+                    },
+            },
           }
 
           # This dictionary keeps track of which selections go with which CR categories
           cr_cat_dict = {
             "2l_CR" : {
-                "lep_chan_lst" : ["2lss_CR"],
-                "lep_flav_lst" : ["ee" , "em" , "mm"],
-                "njets_lst"    : ["exactly_1j" , "exactly_2j"],
-                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                "exactly_1j" : {
+                    "lep_chan_lst" : ["2lss_CR"],
+                    "lep_flav_lst" : ["ee" , "em" , "mm"],
+                    "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                },
+                "exactly_2j" : {
+                    "lep_chan_lst" : ["2lss_CR"],
+                    "lep_flav_lst" : ["ee" , "em" , "mm"],
+                    "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                },
             },
             "3l_CR" : {
-                "lep_chan_lst" : ["3l_CR"],
-                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                "njets_lst"    : ["atleast_1j"],
-                "appl_lst"     : ["isSR_3l" , "isAR_3l"],
+                "atleast_1j" : {
+                    "lep_chan_lst" : ["3l_CR"],
+                    "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                    "appl_lst"     : ["isSR_3l" , "isAR_3l"],
+                },
             },
             "2los_CRtt" : {
-                "lep_chan_lst" : ["2los_CRtt"],
-                "lep_flav_lst" : ["em"],
-                "njets_lst"    : ["exactly_2j"],
-                "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+                "exactly_2j"   : {
+                    "lep_chan_lst" : ["2los_CRtt"],
+                    "lep_flav_lst" : ["em"],
+                    "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+                },
             },
             "2los_CRZ" : {
-                "lep_chan_lst" : ["2los_CRZ"],
-                "lep_flav_lst" : ["ee", "mm"],
-                "njets_lst"    : ["atleast_0j"],
-                "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-            }
+                "atleast_0j"   : {
+                    "lep_chan_lst" : ["2los_CRZ"],
+                    "lep_flav_lst" : ["ee", "mm"],
+                    "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+                },
+            }            
           }
 
           # Include SRs and CRs unless we asked to skip them
@@ -625,19 +672,19 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Get a mask for events that pass any of the njet requiremens in this nlep cat
                     # Useful in cases like njets hist where we don't store njets in a sparse axis
-                    njets_any_mask = selections.any(*cat_dict[nlep_cat]["njets_lst"])
+                    njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
 
-                    # Loop over the appropriate AR and SR for this channel
-                    for appl in cat_dict[nlep_cat]["appl_lst"]:
+                    # Loop over the njets list for each channel
+                    for njet_val in cat_dict[nlep_cat].keys():
 
-                        # Loop over the njets list for each channel
-                        for njet_val in cat_dict[nlep_cat]["njets_lst"]:
+                        # Loop over the appropriate AR and SR for this channel
+                        for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
 
                             # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
-                            for lep_chan in cat_dict[nlep_cat]["lep_chan_lst"]:
+                            for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
 
                                 # Loop over the lep flavor list for each channel
-                                for lep_flav in cat_dict[nlep_cat]["lep_flav_lst"]:
+                                for lep_flav in cat_dict[nlep_cat][njet_val]["lep_flav_lst"]:
 
                                     # Skip the blacklisted combinations
                                     this_cat = [appl,njet_val,lep_chan,lep_flav]
@@ -702,8 +749,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                     if not self._split_by_lepton_flavor: break
 
-                            # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
-                            if dense_axis_name == "njets": break
+                        # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
+                        if dense_axis_name == "njets": break
 
         return hout
 
