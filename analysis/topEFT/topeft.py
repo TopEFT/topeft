@@ -532,61 +532,73 @@ class AnalysisProcessor(processor.ProcessorABC):
           sr_cat_dict = {
             "2l" : {
                 "exactly_4j" : {
-                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                    "lep_chan_lst" : ["2lss_p_nohadtop" , "2lss_m_nohadtop", "2lss_p_hadtop" , "2lss_m_hadtop"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
                 "exactly_5j" : {
-                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                    "lep_chan_lst" : ["2lss_p_nohadtop" , "2lss_m_nohadtop", "2lss_p_hadtop" , "2lss_m_hadtop"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
                 "exactly_6j" : {
-                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                    "lep_chan_lst" : ["2lss_p_nohadtop" , "2lss_m_nohadtop", "2lss_p_hadtop" , "2lss_m_hadtop"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
                 "atleast_7j" : {
-                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                    "lep_chan_lst" : ["2lss_p_nohadtop" , "2lss_m_nohadtop", "2lss_p_hadtop" , "2lss_m_hadtop"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
             },
             "3l" : {
                 "exactly_2j" : {
-                    "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                    "lep_chan_lst" : [
+                        "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                    ],
                     "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                     "appl_lst"     : ["isSR_3l", "isAR_3l"],
                 },
                 "exactly_3j" : {
-                    "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                    "lep_chan_lst" : [
+                        "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_2b",
+                        "3l_p_offZ_1b_hadtop"   , "3l_m_offZ_1b_hadtop"   , "3l_onZ_1b_hadtop" ,
+                        "3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_onZ_1b_nohadtop" ,
+                    ],
                     "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                     "appl_lst"     : ["isSR_3l", "isAR_3l"],
                 },
                 "exactly_4j" : {
-                    "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                    "lep_chan_lst" : [
+                        "3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
+                        "3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_p_offZ_2b_nohadtop" , "3l_m_offZ_2b_nohadtop" , "3l_onZ_1b_nohadtop" , "3l_onZ_2b_nohadtop",
+                    ],
                     "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                     "appl_lst"     : ["isSR_3l", "isAR_3l"],
                 },
                 "atleast_5j" : {
-                    "lep_chan_lst" : ["3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b"],
+                    "lep_chan_lst" : [
+                        "3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
+                        "3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_p_offZ_2b_nohadtop" , "3l_m_offZ_2b_nohadtop" , "3l_onZ_1b_nohadtop" , "3l_onZ_2b_nohadtop",
+                    ],
                     "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                     "appl_lst"     : ["isSR_3l", "isAR_3l"],
                 },
             },
             "4l" : {
                     "exactly_2j" : {
-                        "lep_chan_lst" : ["4l"],
+                        "lep_chan_lst" : ["4l" , "4l_hadtop"],
                         "lep_flav_lst" : ["llll"], # Not keeping track of these separately
                         "appl_lst"     : ["isSR_4l"],
                     },
                     "exactly_3j" : {
-                        "lep_chan_lst" : ["4l"],
+                        "lep_chan_lst" : ["4l" , "4l_hadtop"],
                         "lep_flav_lst" : ["llll"], # Not keeping track of these separately
                         "appl_lst"     : ["isSR_4l"],
                     },
                     "atleast_4j" : {
-                        "lep_chan_lst" : ["4l"],
+                        "lep_chan_lst" : ["4l" , "4l_hadtop"],
                         "lep_flav_lst" : ["llll"], # Not keeping track of these separately
                         "appl_lst"     : ["isSR_4l"],
                     },
