@@ -384,7 +384,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           ######### Masks we need for the selection ##########
 
           # Hadronic top (should maybe split this up into multiple functions)
-          has_hadt_candidate_mask,chisq,hadtmass,hadtpt,hadwmass,mjjb,mjj = get_hadt_mass(goodJets,btagwpl)
+          has_hadt_candidate_mask,chisq,hadtmass,hadtpt,hadwmass,mjjb,mjj ,hadt_bjj = get_hadt_mass(goodJets,btagwpl)
 
           # Get mask for events that have two sf os leps close to z peak
           sfosz_3l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
@@ -494,34 +494,33 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           ##############
           # TEST
-          # Gen matching
+
+          # Get the genparticles from the hadronic top
           t_children = gt.get_t_children(genpart)
           t_decay_products = gt.get_t_decay_products(t_children)
           is_had_top_mask = gt.is_had_top(t_decay_products)
           has_matchable_decay_products = gt.get_matchable_mask(t_decay_products)
-          had_tops = ak.flatten(t_decay_products[is_had_top_mask&has_matchable_decay_products][:,:1],axis=2) # Just grab the first hadronic top for now
+          had_tops = ak.flatten(t_decay_products[is_had_top_mask][:,:1],axis=2) # Just grab the first hadronic top for now
+          had_reco_mask = ak.firsts((is_had_top_mask[is_had_top_mask])[:,:1]) # If there's one or more hadtop this is true
+          had_reco_mask = ak.fill_none(had_reco_mask,False) # Make sure the None values are False since we're using this as a mask
           print("t_decay_products",t_decay_products.pdgId)
           print("had_tops",had_tops.pdgId)
-          print(ak.num(t_decay_products.pdgId,axis=0))
-          print(ak.num(had_tops.pdgId,axis=0))
-          #had_reco_mask = ak.firsts((is_had_top_mask&has_matchable_decay_products)[:,:1])
-          had_reco_mask = ak.firsts((is_had_top_mask)[:,:1])
           print("is_had_top_mask",is_had_top_mask)
           print("had_reco_mask",had_reco_mask)
           print("Number of had tops:",ak.count_nonzero(had_reco_mask,axis=-1),"/",ak.num(had_reco_mask,axis=-1))
 
+          # Match jets to the genparticles
           jets_matched_bqq, jets_matched_qq, bqq_drmin, qq_drmin = gt.get_bqq_jets(had_tops,goodJets,btagwpl)
           print("jets_matched_bqq",jets_matched_bqq)
           print("jets_matched_qq",jets_matched_qq)
           print("bqq_drmin",bqq_drmin)
           print("qq_drmin",qq_drmin)
 
+          # Find the mass of the matched jets
           jets_matched_bqq_mass = (jets_matched_bqq.sum()).mass
           jets_matched_qq_mass = (jets_matched_qq.sum()).mass
-
           bqq_maxdr = ak.max(bqq_drmin,axis=-1)
           qq_maxdr = ak.max(qq_drmin,axis=-1)
-
           print("jets_matched_bqq_sum",jets_matched_bqq_mass)
           print("jets_matched_qq_sum",jets_matched_qq_mass)
           print("bqq_maxdr",bqq_maxdr)
@@ -531,11 +530,8 @@ class AnalysisProcessor(processor.ProcessorABC):
           # There are cases where no jets pass the btag wp, so the mass and dr for the event is None
           # Also, note we want this mask to have false values, not None
           #ok_dr_mask = ak.fill_none(((ak.max(bqq_drmin,axis=-1))<10),False)
-          ok_dr_mask = ak.fill_none(((ak.max(bqq_drmin,axis=-1))<0.2),False)
+          ok_dr_mask = ak.fill_none(((ak.max(bqq_drmin,axis=-1))<0.4),False)
           had_reco_mask = (had_reco_mask & ok_dr_mask)
-          print("had_reco_mask",had_reco_mask)
-          print(ak.count_nonzero(had_reco_mask,axis=-1))
-          print(ak.num(had_reco_mask,axis=-1))
 
           t_mass = 171.0
           w_mass = 83.0
@@ -543,7 +539,6 @@ class AnalysisProcessor(processor.ProcessorABC):
           w_width = 11.0
           chisq_threhsold = 10000000000000000000000000000000000000000000.0
           chi_sq_matched = (((jets_matched_bqq_mass-t_mass)*(jets_matched_bqq_mass-t_mass)/((t_width)*(t_width))) + ((jets_matched_qq_mass-w_mass)*(jets_matched_qq_mass-w_mass)/((w_width)*(w_width))))
-          #chi_sq_matched = (((jets_matched_bqq_mass-t_mass)*(jets_matched_bqq_mass-t_mass)/(0.5*(t_width)*(t_width))) + ((jets_matched_qq_mass-w_mass)*(jets_matched_qq_mass-w_mass)/(0.5*(w_width)*(w_width))))
 
           ##############
 
@@ -594,15 +589,48 @@ class AnalysisProcessor(processor.ProcessorABC):
           varnames["chisqmatched"] = chi_sq_matched
 
 
-          '''
+          #'''
           ### TEST ###
           tmp_cut = selections.all("2lss_p","isSR_2lSS")
 
+          goodJets_masked = goodJets[tmp_cut]
+          print("\ngoodJets",goodJets)
+          for i,x in enumerate(goodJets_masked):
+              print("")
+              print("\t",i,x.pt)
+              print("\t",i,x.btagDeepFlavB)
+              print("\t",i,x.btagDeepFlavB>btagwpl)
+
+          hadt_bjj_masked = hadt_bjj[tmp_cut]
+          print("\nhadt_bjj_masked",hadt_bjj_masked)
+          for i,x in enumerate(hadt_bjj_masked):
+              print("\t",i,x.i0.pt,x.i1.pt,x.i2.pt)
+
           chisq_masked = chisq[tmp_cut]
           print("\nchisq_masked",chisq_masked)
-          print(ak.count_nonzero(chisq))
-          print(ak.count_nonzero(chisq_masked))
           for i,x in enumerate(chisq_masked):
+              print("\t",i,x)
+
+          print("\n---\n")
+
+          t_decay_products_masked = t_decay_products[tmp_cut]
+          print("\nt_decay_products",t_decay_products_masked)
+          for i,x in enumerate(t_decay_products_masked):
+              print("\t",i,x.pdgId)
+
+          bqq_drmin_masked = bqq_drmin[tmp_cut]
+          print("\nbqq_drmin_masked",bqq_drmin_masked)
+          for i,x in enumerate(bqq_drmin_masked):
+              print("\t",i,x)
+
+          is_had_top_mask_masked = is_had_top_mask[tmp_cut]
+          print("\nis_had_top_mask",is_had_top_mask_masked)
+          for i,x in enumerate(is_had_top_mask_masked):
+              print("\t",i,x)
+
+          ok_dr_mask_masked = ok_dr_mask[tmp_cut]
+          print("\nok_dr_mask",ok_dr_mask_masked)
+          for i,x in enumerate(ok_dr_mask_masked):
               print("\t",i,x)
 
           had_reco_mask_masked = had_reco_mask[tmp_cut]
@@ -622,13 +650,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           chisqmatched_masked = chi_sq_matched[tmp_cut]
           print("\nchisqmatched_masked",chisqmatched_masked)
-          print(ak.count_nonzero(chi_sq_matched))
-          print(ak.count_nonzero(chisqmatched_masked))
           for i,x in enumerate(chisqmatched_masked):
               print("\t",i,x)
 
-          exit()
-          '''
+          #'''
 
 
           ########## Fill the histograms ##########
@@ -860,6 +885,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     weights_flat = weight[all_cuts_mask]
                                     eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
                                     eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
+
+                                    #if dense_axis_name in ["bqqdrmax","bqdrmax","bqqmatchedmass","qqmatchedmass","chisqmatched"]:
+                                    #    print(dense_axis_name,this_cat)
+                                    #    print(dense_axis_vals)
+                                    #    print(dense_axis_vals[all_cuts_mask])
 
                                     # Fill the histos
                                     axes_fill_info_dict = {
