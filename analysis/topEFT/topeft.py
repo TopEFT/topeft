@@ -19,6 +19,7 @@ from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrec
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
+from topcoffea.modules import gentools as gt
 import topcoffea.modules.eft_helper as efth
 
 
@@ -76,6 +77,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         "hadwmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadwmass", "Mass of had W (GeV)", 20, 0, 200)),
         "hadtpt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadtpt",   "Pt of had t (GeV)", 100, 0, 1000)),
         "chisq"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq",    "Chi sq for had top reco", 100, 0, 50.0)),
+        "bqqdrmax"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bqqdrmax",    "Max dr bqq matched", 100, 0, 1.0)),
+        "bqdrmax"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bqdrmax",    "Max dr qq matched", 100, 0, 1.0)),
+        "bqqmatchedmass"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bqqmatchedmass",    "Mass of matched bqq", 200, 0, 400)),
+        "qqmatchedmass"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("qqmatchedmass",    "Mass of matched qq", 100, 0, 200)),
+        "chisqmatched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisqmatched",    "Chi sq for jets matched to genpart", 100, 0, 50.0)),
         })
 
         # Set the list of hists to fill
@@ -136,6 +142,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu   = events.Muon
         tau  = events.Tau
         jets = events.Jet
+        genpart = events.GenPart
 
         e["idEmu"] = ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
         e["conept"] = coneptElec(e.pt, e.mvaTTH, e.jetRelIso)
@@ -485,6 +492,63 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           ######### Variables for the dense axes of the hists ##########
 
+          ##############
+          # TEST
+          # Gen matching
+          t_children = gt.get_t_children(genpart)
+          t_decay_products = gt.get_t_decay_products(t_children)
+          is_had_top_mask = gt.is_had_top(t_decay_products)
+          has_matchable_decay_products = gt.get_matchable_mask(t_decay_products)
+          had_tops = ak.flatten(t_decay_products[is_had_top_mask&has_matchable_decay_products][:,:1],axis=2) # Just grab the first hadronic top for now
+          print("t_decay_products",t_decay_products.pdgId)
+          print("had_tops",had_tops.pdgId)
+          print(ak.num(t_decay_products.pdgId,axis=0))
+          print(ak.num(had_tops.pdgId,axis=0))
+          #had_reco_mask = ak.firsts((is_had_top_mask&has_matchable_decay_products)[:,:1])
+          had_reco_mask = ak.firsts((is_had_top_mask)[:,:1])
+          print("is_had_top_mask",is_had_top_mask)
+          print("had_reco_mask",had_reco_mask)
+          print("Number of had tops:",ak.count_nonzero(had_reco_mask,axis=-1),"/",ak.num(had_reco_mask,axis=-1))
+
+          jets_matched_bqq, jets_matched_qq, bqq_drmin, qq_drmin = gt.get_bqq_jets(had_tops,goodJets,btagwpl)
+          print("jets_matched_bqq",jets_matched_bqq)
+          print("jets_matched_qq",jets_matched_qq)
+          print("bqq_drmin",bqq_drmin)
+          print("qq_drmin",qq_drmin)
+
+          jets_matched_bqq_mass = (jets_matched_bqq.sum()).mass
+          jets_matched_qq_mass = (jets_matched_qq.sum()).mass
+
+          bqq_maxdr = ak.max(bqq_drmin,axis=-1)
+          qq_maxdr = ak.max(qq_drmin,axis=-1)
+
+          print("jets_matched_bqq_sum",jets_matched_bqq_mass)
+          print("jets_matched_qq_sum",jets_matched_qq_mass)
+          print("bqq_maxdr",bqq_maxdr)
+          print("qq_maxdr",qq_maxdr)
+
+          # Note that we need to apply this mask (it can be with an arbitrarily high threshold) to avoid crashes
+          # There are cases where no jets pass the btag wp, so the mass and dr for the event is None
+          # Also, note we want this mask to have false values, not None
+          #ok_dr_mask = ak.fill_none(((ak.max(bqq_drmin,axis=-1))<10),False)
+          ok_dr_mask = ak.fill_none(((ak.max(bqq_drmin,axis=-1))<0.2),False)
+          had_reco_mask = (had_reco_mask & ok_dr_mask)
+          print("had_reco_mask",had_reco_mask)
+          print(ak.count_nonzero(had_reco_mask,axis=-1))
+          print(ak.num(had_reco_mask,axis=-1))
+
+          t_mass = 171.0
+          w_mass = 83.0
+          t_width = 16.0
+          w_width = 11.0
+          chisq_threhsold = 10000000000000000000000000000000000000000000.0
+          chi_sq_matched = (((jets_matched_bqq_mass-t_mass)*(jets_matched_bqq_mass-t_mass)/((t_width)*(t_width))) + ((jets_matched_qq_mass-w_mass)*(jets_matched_qq_mass-w_mass)/((w_width)*(w_width))))
+          #chi_sq_matched = (((jets_matched_bqq_mass-t_mass)*(jets_matched_bqq_mass-t_mass)/(0.5*(t_width)*(t_width))) + ((jets_matched_qq_mass-w_mass)*(jets_matched_qq_mass-w_mass)/(0.5*(w_width)*(w_width))))
+
+          ##############
+
+
+
           # Calculate ptbl
           ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
           ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt,axis=-1,keepdims=True)] # Only save hardest b-jet
@@ -523,6 +587,49 @@ class AnalysisProcessor(processor.ProcessorABC):
           #varnames["mjjb"] = mjjb
           #varnames["mjj"] = mjj
 
+          varnames["bqqdrmax"] = bqq_maxdr
+          varnames["bqdrmax"] = qq_maxdr
+          varnames["bqqmatchedmass"] = jets_matched_bqq_mass
+          varnames["qqmatchedmass"] = jets_matched_qq_mass
+          varnames["chisqmatched"] = chi_sq_matched
+
+
+          '''
+          ### TEST ###
+          tmp_cut = selections.all("2lss_p","isSR_2lSS")
+
+          chisq_masked = chisq[tmp_cut]
+          print("\nchisq_masked",chisq_masked)
+          print(ak.count_nonzero(chisq))
+          print(ak.count_nonzero(chisq_masked))
+          for i,x in enumerate(chisq_masked):
+              print("\t",i,x)
+
+          had_reco_mask_masked = had_reco_mask[tmp_cut]
+          print("\nhad_reco_mask_masked",had_reco_mask_masked)
+          for i,x in enumerate(had_reco_mask_masked):
+              print("\t",i,x)
+
+          had_tops_masked = had_tops[tmp_cut]
+          print("\nhad_tops_masked",had_tops_masked)
+          for i,x in enumerate(had_tops_masked):
+              print("\t",i,x.pdgId)
+
+          jets_matched_bqq_msked = jets_matched_bqq[tmp_cut]
+          print("\njets_matched_bqq_msked",jets_matched_bqq_msked)
+          for i,x in enumerate(jets_matched_bqq_msked):
+              print("\t",i,x.pt)
+
+          chisqmatched_masked = chi_sq_matched[tmp_cut]
+          print("\nchisqmatched_masked",chisqmatched_masked)
+          print(ak.count_nonzero(chi_sq_matched))
+          print(ak.count_nonzero(chisqmatched_masked))
+          for i,x in enumerate(chisqmatched_masked):
+              print("\t",i,x)
+
+          exit()
+          '''
+
 
           ########## Fill the histograms ##########
 
@@ -532,22 +639,23 @@ class AnalysisProcessor(processor.ProcessorABC):
           sr_cat_dict = {
             "2l" : {
                 "exactly_4j" : {
-                    "lep_chan_lst" : ["2lss_p_nohadtop" , "2lss_m_nohadtop", "2lss_p_hadtop" , "2lss_m_hadtop"],
+                    #"lep_chan_lst" : ["2lss_p_nohadtop" , "2lss_m_nohadtop", "2lss_p_hadtop" , "2lss_m_hadtop"],
+                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
                 "exactly_5j" : {
-                    "lep_chan_lst" : ["2lss_p_nohadtop" , "2lss_m_nohadtop", "2lss_p_hadtop" , "2lss_m_hadtop"],
+                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
                 "exactly_6j" : {
-                    "lep_chan_lst" : ["2lss_p_nohadtop" , "2lss_m_nohadtop", "2lss_p_hadtop" , "2lss_m_hadtop"],
+                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
                 "atleast_7j" : {
-                    "lep_chan_lst" : ["2lss_p_nohadtop" , "2lss_m_nohadtop", "2lss_p_hadtop" , "2lss_m_hadtop"],
+                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
@@ -562,25 +670,28 @@ class AnalysisProcessor(processor.ProcessorABC):
                 },
                 "exactly_3j" : {
                     "lep_chan_lst" : [
-                        "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_2b",
-                        "3l_p_offZ_1b_hadtop"   , "3l_m_offZ_1b_hadtop"   , "3l_onZ_1b_hadtop" ,
-                        "3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_onZ_1b_nohadtop" ,
+                        "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                        #"3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_2b",
+                        #"3l_p_offZ_1b_hadtop"   , "3l_m_offZ_1b_hadtop"   , "3l_onZ_1b_hadtop" ,
+                        #"3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_onZ_1b_nohadtop" ,
                     ],
                     "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                     "appl_lst"     : ["isSR_3l", "isAR_3l"],
                 },
                 "exactly_4j" : {
                     "lep_chan_lst" : [
-                        "3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
-                        "3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_p_offZ_2b_nohadtop" , "3l_m_offZ_2b_nohadtop" , "3l_onZ_1b_nohadtop" , "3l_onZ_2b_nohadtop",
+                        "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                        #"3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
+                        #"3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_p_offZ_2b_nohadtop" , "3l_m_offZ_2b_nohadtop" , "3l_onZ_1b_nohadtop" , "3l_onZ_2b_nohadtop",
                     ],
                     "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                     "appl_lst"     : ["isSR_3l", "isAR_3l"],
                 },
                 "atleast_5j" : {
                     "lep_chan_lst" : [
-                        "3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
-                        "3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_p_offZ_2b_nohadtop" , "3l_m_offZ_2b_nohadtop" , "3l_onZ_1b_nohadtop" , "3l_onZ_2b_nohadtop",
+                        "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                        #"3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
+                        #"3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_p_offZ_2b_nohadtop" , "3l_m_offZ_2b_nohadtop" , "3l_onZ_1b_nohadtop" , "3l_onZ_2b_nohadtop",
                     ],
                     "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                     "appl_lst"     : ["isSR_3l", "isAR_3l"],
@@ -588,17 +699,19 @@ class AnalysisProcessor(processor.ProcessorABC):
             },
             "4l" : {
                     "exactly_2j" : {
-                        "lep_chan_lst" : ["4l" , "4l_hadtop"],
+                        "lep_chan_lst" : ["4l"],
                         "lep_flav_lst" : ["llll"], # Not keeping track of these separately
                         "appl_lst"     : ["isSR_4l"],
                     },
                     "exactly_3j" : {
-                        "lep_chan_lst" : ["4l" , "4l_hadtop"],
+                        "lep_chan_lst" : ["4l"],
+                        #"lep_chan_lst" : ["4l" , "4l_hadtop"],
                         "lep_flav_lst" : ["llll"], # Not keeping track of these separately
                         "appl_lst"     : ["isSR_4l"],
                     },
                     "atleast_4j" : {
-                        "lep_chan_lst" : ["4l" , "4l_hadtop"],
+                        "lep_chan_lst" : ["4l"],
+                        #"lep_chan_lst" : ["4l" , "4l_hadtop"],
                         "lep_flav_lst" : ["llll"], # Not keeping track of these separately
                         "appl_lst"     : ["isSR_4l"],
                     },
@@ -686,16 +799,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                     # Useful in cases like njets hist where we don't store njets in a sparse axis
                     njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
 
-                    # Loop over the njets list for each channel
+                    # Loop over the njets list for each nlep cat
                     for njet_val in cat_dict[nlep_cat].keys():
 
                         # Loop over the appropriate AR and SR for this channel
                         for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
 
-                            # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
+                            # Loop over the channels in each nlep/njet cat (e.g. "3l_m_offZ_1b")
                             for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
 
-                                # Loop over the lep flavor list for each channel
+                                # Loop over the lep flavor list for this channel
                                 for lep_flav in cat_dict[nlep_cat][njet_val]["lep_flav_lst"]:
 
                                     # Skip the blacklisted combinations
@@ -716,6 +829,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     if (("chisq" in dense_axis_name) & ("2j" in njet_val)): continue
                                     if (("mjj" in dense_axis_name) & ("2j" in njet_val)): continue # Also works for mjjb
                                     if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                    if ((dense_axis_name in ["bqqdrmax","bqdrmax","bqqmatchedmass","qqmatchedmass","chisqmatched"]) & ("2j" in njet_val)): continue
+
 
                                     # Construct the hist name
                                     flav_ch = None
@@ -736,6 +851,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
                                     elif dense_axis_name in ["hadtmass","hadwmass","chisq","hadtpt","mjj","mjjb"]:
                                         all_cuts_mask = (selections.all(*cuts_lst) & has_hadt_candidate_mask)
+                                    elif dense_axis_name in ["bqqdrmax","bqdrmax","bqqmatchedmass","qqmatchedmass","chisqmatched"]:
+                                        all_cuts_mask = (selections.all(*cuts_lst) & had_reco_mask)
                                     else:
                                         all_cuts_mask = selections.all(*cuts_lst)
 
