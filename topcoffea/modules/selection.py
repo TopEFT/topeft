@@ -419,15 +419,16 @@ def get_hadt_mass(jet_collection,btagwpl,pt_window=10):
     jj_mass = ak.where( jjb_triplets.i0.btagDeepFlavB>btagwpl,(jjb_triplets.i1+jjb_triplets.i2).mass,( ak.where( jjb_triplets.i1.btagDeepFlavB>btagwpl,(jjb_triplets.i0+jjb_triplets.i2).mass, (jjb_triplets.i0+jjb_triplets.i1).mass)))
 
     # Some placeholders for now
-    t_mass = 165.0
-    w_mass = 70.0
-    t_width = 10.0
-    w_width = 10.0
-    chisq_threhsold = 1000000000.0
+    t_mass = 171.0
+    w_mass = 83.0
+    t_width = 16.0
+    w_width = 11.0
+    chisq_threhsold = 10000000000000000000000000000000000000000000.0
     #chisq_threhsold = 40.0
     #chisq_threhsold = 100.0
 
     chi_sq = (((jjb_mass-t_mass)*(jjb_mass-t_mass)/((t_width)*(t_width))) + ((jj_mass-w_mass)*(jj_mass-w_mass)/((w_width)*(w_width))))
+    #chi_sq = (((jjb_mass-t_mass)*(jjb_mass-t_mass)/(0.5*(t_width)*(t_width))) + ((jj_mass-w_mass)*(jj_mass-w_mass)/(0.5*(w_width)*(w_width))))
     chi_sq_min_idx = ak.argmin(chi_sq,keepdims=True,axis=1)
     jjb_mass_best = jjb_mass[chi_sq_min_idx]
     jjb_pt_best = jjb_pt[chi_sq_min_idx]
@@ -435,4 +436,4 @@ def get_hadt_mass(jet_collection,btagwpl,pt_window=10):
 
     has_hadt_candidate_mask = ak.fill_none(ak.any((chi_sq<chisq_threhsold),axis=1),False)
 
-    return has_hadt_candidate_mask,ak.flatten(chi_sq[chi_sq_min_idx]),ak.flatten(jjb_mass_best),ak.flatten(jjb_pt_best),ak.flatten(jj_mass_best),jjb_mass,jj_mass
+    return has_hadt_candidate_mask,ak.flatten(chi_sq[chi_sq_min_idx]),ak.flatten(jjb_mass_best),ak.flatten(jjb_pt_best),ak.flatten(jj_mass_best),jjb_mass,jj_mass , jjb_triplets[chi_sq_min_idx]
