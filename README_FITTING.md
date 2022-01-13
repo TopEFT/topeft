@@ -65,7 +65,9 @@ Now we can actually run combine to perform the fits.
 - Make sure you have done a `cmsenv` inside of `CMSSW_10_2_13/src/` (wherever you have it installed)
 - Enter `CMSSW_10_2_13/src/EFTFit/Fitter/test`
 - Copy all .txt and .root files created by `python analysis/topEFT/datacard_maker.py` (in the `histos` directory of your toplevel topcoffea directory)
-- Run `combineCards.py ttx_multileptons-*.txt > combinedcard.txt` to merge them all into one txt file. **DO NOT** merge multiple variables!
+- Run `combineCards.py` to merge them all into one txt file. **DO NOT** merge multiple variables!
+  - E.g. `njets` only: `combineCards.py ttx_multileptons-*{b,p,m}.txt > combinedcard.txt`
+  - E.g. `ptbl` for all categories _but_ `3l off-shell Z` (using `HT` instead): `combineCards.py ttx_multileptons-2lss_*ptbl.txt ttx_multileptons-3l_onZ*ptbl.txt ttx_multileptons-3l_*_offZ_*ht.txt ttx_multileptons-4l_*ptbl.txt > combinedcard.txt`
 - NOTE: combine uses a lot of recursive function calls to create the workspace. When running with systematics, this can cause a segmentation fault. You must run `ulimit -s unlimited` once per session to avoid this.
 - Run the following command to generate the workspace file:
     ```
