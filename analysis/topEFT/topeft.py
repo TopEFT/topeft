@@ -76,9 +76,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         "hadtmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadtmass", "Mass of had t (GeV)", 40, 0, 400)),
         "hadwmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadwmass", "Mass of had W (GeV)", 20, 0, 200)),
         "hadtpt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadtpt",   "Pt of had t (GeV)", 100, 0, 1000)),
-        "chisq"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq",    "Chi sq for had top reco", 100, 0, 50.0)),
+        "chisq"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq",    "Best chi sq", 100, 0, 50.0)),
+        "chisq_0matched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_0matched",    "Best chi sq (0 gen match)", 100, 0, 50.0)),
+        "chisq_1matched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_1matched",    "Best chi sq (1 gen match)", 100, 0, 50.0)),
+        "chisq_2matched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_2matched",    "Best chi sq (2 gen match)", 100, 0, 50.0)),
+        "chisq_3matched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_3matched",    "Best chi sq (3 gen match)", 100, 0, 50.0)),
         "bqqdrmax"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bqqdrmax",    "Max dr bqq matched", 100, 0, 1.0)),
-        "bqdrmax"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bqdrmax",    "Max dr qq matched", 100, 0, 1.0)),
+        "qqdrmax"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("qqdrmax",    "Max dr qq matched", 100, 0, 1.0)),
         "bqqmatchedmass"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bqqmatchedmass",    "Mass of matched bqq", 200, 0, 400)),
         "qqmatchedmass"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("qqmatchedmass",    "Mass of matched qq", 100, 0, 200)),
         "chisqmatched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisqmatched",    "Chi sq for jets matched to genpart", 100, 0, 50.0)),
@@ -385,6 +389,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           # Hadronic top (should maybe split this up into multiple functions)
           has_hadt_candidate_mask,chisq,hadtmass,hadtpt,hadwmass,mjjb,mjj ,hadt_bjj = get_hadt_mass(goodJets,btagwpl)
+          # Put the contents of the best chi2 jets into an array
+          hadt_j0 = hadt_bjj.i0
+          hadt_j1 = hadt_bjj.i1
+          hadt_j2 = hadt_bjj.i2
+          hadt_best_chi2_triplet = ak.concatenate([hadt_j0,hadt_j1,hadt_j2],axis=1)
 
           # Get mask for events that have two sf os leps close to z peak
           sfosz_3l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
@@ -533,12 +542,48 @@ class AnalysisProcessor(processor.ProcessorABC):
           ok_dr_mask = ak.fill_none(((ak.max(bqq_drmin,axis=-1))<0.4),False)
           had_reco_mask = (had_reco_mask & ok_dr_mask)
 
-          t_mass = 171.0
+          t_mass = 170.0
           w_mass = 83.0
-          t_width = 16.0
+          t_width = 20.0
           w_width = 11.0
           chisq_threhsold = 10000000000000000000000000000000000000000000.0
           chi_sq_matched = (((jets_matched_bqq_mass-t_mass)*(jets_matched_bqq_mass-t_mass)/((t_width)*(t_width))) + ((jets_matched_qq_mass-w_mass)*(jets_matched_qq_mass-w_mass)/((w_width)*(w_width))))
+
+          ###
+          # Check how many of the jets from the best triplet actually match the jets matched to the genparticles
+          print("\nhadt_best_chi2_triplet",hadt_best_chi2_triplet)
+          for i,x in enumerate(hadt_best_chi2_triplet):
+              if i > 10: break
+              print(i,x.pt)
+          print("\njets_matched_bqq",jets_matched_bqq)
+          for i,x in enumerate(jets_matched_bqq):
+              if i > 10: break
+              print(i,x.pt)
+
+          combos = ak.cartesian({"truth_j":jets_matched_bqq,"matched_j":hadt_best_chi2_triplet},axis=1)
+          #combos = ak.cartesian([jets_matched_bqq,jets_matched_bqq],axis=0)
+          #combos = ak.cartesian([hadt_best_chi2_triplet,jets_matched_bqq],axis=1)
+          print("c")
+          for i,x in enumerate(combos):
+              if i > 10: break
+              print(i,x)
+
+          dr_combos = combos["truth_j"].delta_r(combos["matched_j"])
+          print("\ndr_combos",dr_combos)
+          for i,x in enumerate(dr_combos):
+              if i > 10: break
+              print(i,x)
+
+          matched_and_truth_agree = (dr_combos==0)
+          matched_and_truth_agree = ak.fill_none(matched_and_truth_agree,False)
+          print(matched_and_truth_agree)
+
+          n_match = ak.count_nonzero(matched_and_truth_agree,axis=-1)
+          match_3 = (n_match==3)
+          match_2 = (n_match==2)
+          match_1 = (n_match==1)
+          match_0 = (n_match==0)
+          ###
 
           ##############
 
@@ -579,32 +624,41 @@ class AnalysisProcessor(processor.ProcessorABC):
           varnames["hadwmass"] = hadwmass
           varnames["hadtpt"] = hadtpt
           varnames["chisq"] = chisq
-          #varnames["mjjb"] = mjjb
-          #varnames["mjj"] = mjj
+
+          varnames["chisq_0matched"] = chisq
+          varnames["chisq_1matched"] = chisq
+          varnames["chisq_2matched"] = chisq
+          varnames["chisq_3matched"] = chisq
 
           varnames["bqqdrmax"] = bqq_maxdr
-          varnames["bqdrmax"] = qq_maxdr
+          varnames["qqdrmax"] = qq_maxdr
           varnames["bqqmatchedmass"] = jets_matched_bqq_mass
           varnames["qqmatchedmass"] = jets_matched_qq_mass
           varnames["chisqmatched"] = chi_sq_matched
 
 
-          #'''
+          '''
           ### TEST ###
           tmp_cut = selections.all("2lss_p","isSR_2lSS")
 
           goodJets_masked = goodJets[tmp_cut]
-          print("\ngoodJets",goodJets)
+          print("\ngoodJets",type(goodJets),goodJets)
           for i,x in enumerate(goodJets_masked):
               print("")
+              print("\t",i,type(x))
               print("\t",i,x.pt)
               print("\t",i,x.btagDeepFlavB)
               print("\t",i,x.btagDeepFlavB>btagwpl)
 
           hadt_bjj_masked = hadt_bjj[tmp_cut]
-          print("\nhadt_bjj_masked",hadt_bjj_masked)
+          print("\nhadt_bjj_masked",type(hadt_bjj_masked),hadt_bjj_masked)
           for i,x in enumerate(hadt_bjj_masked):
-              print("\t",i,x.i0.pt,x.i1.pt,x.i2.pt)
+              print("\t",i,type(x),x.i0.pt,x.i1.pt,x.i2.pt)
+
+          hadt_best_chi2_triplet_masked = hadt_best_chi2_triplet[tmp_cut]
+          print("\nt",type(hadt_best_chi2_triplet_masked),hadt_best_chi2_triplet_masked)
+          for i,x in enumerate(hadt_best_chi2_triplet_masked):
+              print("\t",i,x.pt,type(x))
 
           chisq_masked = chisq[tmp_cut]
           print("\nchisq_masked",chisq_masked)
@@ -653,7 +707,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           for i,x in enumerate(chisqmatched_masked):
               print("\t",i,x)
 
-          #'''
+          '''
 
 
           ########## Fill the histograms ##########
@@ -854,7 +908,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     if (("chisq" in dense_axis_name) & ("2j" in njet_val)): continue
                                     if (("mjj" in dense_axis_name) & ("2j" in njet_val)): continue # Also works for mjjb
                                     if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                    if ((dense_axis_name in ["bqqdrmax","bqdrmax","bqqmatchedmass","qqmatchedmass","chisqmatched"]) & ("2j" in njet_val)): continue
+                                    if ((dense_axis_name in ["bqqdrmax","qqdrmax","bqqmatchedmass","qqmatchedmass","chisqmatched"]) & ("2j" in njet_val)): continue
 
 
                                     # Construct the hist name
@@ -874,9 +928,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     # Get the cuts mask for all selections
                                     if dense_axis_name == "njets":
                                         all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
-                                    elif dense_axis_name in ["hadtmass","hadwmass","chisq","hadtpt","mjj","mjjb"]:
+                                    elif dense_axis_name in ["hadtmass","hadwmass","chisq","hadtpt","mjj","mjjb", "chisq_0matched","chisq_1matched","chisq_2matched","chisq_3matched"]:
                                         all_cuts_mask = (selections.all(*cuts_lst) & has_hadt_candidate_mask)
-                                    elif dense_axis_name in ["bqqdrmax","bqdrmax","bqqmatchedmass","qqmatchedmass","chisqmatched"]:
+                                        if dense_axis_name == "chisq_0matched": all_cuts_mask = (all_cuts_mask & match_0)
+                                        if dense_axis_name == "chisq_1matched": all_cuts_mask = (all_cuts_mask & match_1)
+                                        if dense_axis_name == "chisq_2matched": all_cuts_mask = (all_cuts_mask & match_2)
+                                        if dense_axis_name == "chisq_3matched": all_cuts_mask = (all_cuts_mask & match_3)
+                                    elif dense_axis_name in ["bqqdrmax","qqdrmax","bqqmatchedmass","qqmatchedmass","chisqmatched"]:
                                         all_cuts_mask = (selections.all(*cuts_lst) & had_reco_mask)
                                     else:
                                         all_cuts_mask = selections.all(*cuts_lst)
@@ -886,7 +944,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
                                     eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
-                                    #if dense_axis_name in ["bqqdrmax","bqdrmax","bqqmatchedmass","qqmatchedmass","chisqmatched"]:
+                                    #if dense_axis_name in ["bqqdrmax","qqdrmax","bqqmatchedmass","qqmatchedmass","chisqmatched"]:
                                     #    print(dense_axis_name,this_cat)
                                     #    print(dense_axis_vals)
                                     #    print(dense_axis_vals[all_cuts_mask])

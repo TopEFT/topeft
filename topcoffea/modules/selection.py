@@ -419,9 +419,9 @@ def get_hadt_mass(jet_collection,btagwpl,pt_window=10):
     jj_mass = ak.where( jjb_triplets.i0.btagDeepFlavB>btagwpl,(jjb_triplets.i1+jjb_triplets.i2).mass,( ak.where( jjb_triplets.i1.btagDeepFlavB>btagwpl,(jjb_triplets.i0+jjb_triplets.i2).mass, (jjb_triplets.i0+jjb_triplets.i1).mass)))
 
     # Some placeholders for now
-    t_mass = 171.0
+    t_mass = 170.0
     w_mass = 83.0
-    t_width = 16.0
+    t_width = 20.0
     w_width = 11.0
     chisq_threhsold = 10000000000000000000000000000000000000000000.0
     #chisq_threhsold = 40.0
