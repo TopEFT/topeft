@@ -81,11 +81,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         "chisq_1matched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_1matched",    "Best chi sq (1 gen match)", 100, 0, 50.0)),
         "chisq_2matched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_2matched",    "Best chi sq (2 gen match)", 100, 0, 50.0)),
         "chisq_3matched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_3matched",    "Best chi sq (3 gen match)", 100, 0, 50.0)),
+        "chisq_3matchable"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_3matchable",    "Best chi sq (3 matchable)", 100, 0, 50.0)),
+        "chisq_0matched_3matchable"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_0matched_3matchable",    "Best chi sq (0 gen match, 3 matchable)", 100, 0, 50.0)),
+        "chisq_1matched_3matchable"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_1matched_3matchable",    "Best chi sq (1 gen match, 3 matchable)", 100, 0, 50.0)),
+        "chisq_2matched_3matchable"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_2matched_3matchable",    "Best chi sq (2 gen match, 3 matchable)", 100, 0, 50.0)),
+        "chisq_3matched_3matchable"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_3matched_3matchable",    "Best chi sq (3 gen match, 3 matchable)", 100, 0, 50.0)),
         "bqqdrmax"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bqqdrmax",    "Max dr bqq matched", 100, 0, 1.0)),
         "qqdrmax"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("qqdrmax",    "Max dr qq matched", 100, 0, 1.0)),
         "bqqmatchedmass"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bqqmatchedmass",    "Mass of matched bqq", 200, 0, 400)),
         "qqmatchedmass"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("qqmatchedmass",    "Mass of matched qq", 100, 0, 200)),
-        "chisqmatched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisqmatched",    "Chi sq for jets matched to genpart", 100, 0, 50.0)),
+        "chisqgenmatched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisqgenmatched",    "Chi sq for jets matched to genpart", 100, 0, 50.0)),
         })
 
         # Set the list of hists to fill
@@ -538,7 +543,6 @@ class AnalysisProcessor(processor.ProcessorABC):
           # Note that we need to apply this mask (it can be with an arbitrarily high threshold) to avoid crashes
           # There are cases where no jets pass the btag wp, so the mass and dr for the event is None
           # Also, note we want this mask to have false values, not None
-          #ok_dr_mask = ak.fill_none(((ak.max(bqq_drmin,axis=-1))<10),False)
           ok_dr_mask = ak.fill_none(((ak.max(bqq_drmin,axis=-1))<0.4),False)
           had_reco_mask = (had_reco_mask & ok_dr_mask)
 
@@ -560,7 +564,15 @@ class AnalysisProcessor(processor.ProcessorABC):
               if i > 10: break
               print(i,x.pt)
 
-          combos = ak.cartesian({"truth_j":jets_matched_bqq,"matched_j":hadt_best_chi2_triplet},axis=1)
+          jets_matched_bqq_okdr = ak.mask(jets_matched_bqq,ok_dr_mask)
+          print("\njets_matched_bqq_okdr",jets_matched_bqq_okdr)
+          for i,x in enumerate(jets_matched_bqq_okdr):
+              if i > 10: break
+              if x is not None: print(i,x.pt)
+              else: print(i,x)
+
+          combos = ak.cartesian({"truth_j":jets_matched_bqq_okdr,"matched_j":hadt_best_chi2_triplet},axis=1)
+          #combos = ak.cartesian({"truth_j":jets_matched_bqq,"matched_j":hadt_best_chi2_triplet},axis=1)
           #combos = ak.cartesian([jets_matched_bqq,jets_matched_bqq],axis=0)
           #combos = ak.cartesian([hadt_best_chi2_triplet,jets_matched_bqq],axis=1)
           print("c")
@@ -578,11 +590,14 @@ class AnalysisProcessor(processor.ProcessorABC):
           matched_and_truth_agree = ak.fill_none(matched_and_truth_agree,False)
           print(matched_and_truth_agree)
 
-          n_match = ak.count_nonzero(matched_and_truth_agree,axis=-1)
+          n_match = ak.count_nonzero(matched_and_truth_agree,axis=-1) # Count the number of matches
+          n_match = ak.fill_none(n_match,0,axis=-1) # If we can't match (i.e. have None val), call it 0
           match_3 = (n_match==3)
           match_2 = (n_match==2)
           match_1 = (n_match==1)
           match_0 = (n_match==0)
+
+          print("n_match",n_match)
           ###
 
           ##############
@@ -630,11 +645,17 @@ class AnalysisProcessor(processor.ProcessorABC):
           varnames["chisq_2matched"] = chisq
           varnames["chisq_3matched"] = chisq
 
+          varnames["chisq_3matchable"] = chisq
+          varnames["chisq_0matched_3matchable"] = chisq
+          varnames["chisq_1matched_3matchable"] = chisq
+          varnames["chisq_2matched_3matchable"] = chisq
+          varnames["chisq_3matched_3matchable"] = chisq
+
           varnames["bqqdrmax"] = bqq_maxdr
           varnames["qqdrmax"] = qq_maxdr
           varnames["bqqmatchedmass"] = jets_matched_bqq_mass
           varnames["qqmatchedmass"] = jets_matched_qq_mass
-          varnames["chisqmatched"] = chi_sq_matched
+          varnames["chisqgenmatched"] = chi_sq_matched
 
 
           '''
@@ -908,7 +929,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     if (("chisq" in dense_axis_name) & ("2j" in njet_val)): continue
                                     if (("mjj" in dense_axis_name) & ("2j" in njet_val)): continue # Also works for mjjb
                                     if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                    if ((dense_axis_name in ["bqqdrmax","qqdrmax","bqqmatchedmass","qqmatchedmass","chisqmatched"]) & ("2j" in njet_val)): continue
+                                    if ((dense_axis_name in ["bqqdrmax","qqdrmax","bqqmatchedmass","qqmatchedmass","chisqgenmatched"]) & ("2j" in njet_val)): continue
 
 
                                     # Construct the hist name
@@ -928,13 +949,22 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     # Get the cuts mask for all selections
                                     if dense_axis_name == "njets":
                                         all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
-                                    elif dense_axis_name in ["hadtmass","hadwmass","chisq","hadtpt","mjj","mjjb", "chisq_0matched","chisq_1matched","chisq_2matched","chisq_3matched"]:
+                                    elif dense_axis_name in [
+                                            "hadtmass","hadwmass","chisq","hadtpt","mjj","mjjb",
+                                            "chisq_0matched","chisq_1matched","chisq_2matched","chisq_3matched",
+                                            "chisq_0matched_3matchable","chisq_1matched_3matchable","chisq_2matched_3matchable","chisq_3matched_3matchable","chisq_3matchable"
+                                        ]:
                                         all_cuts_mask = (selections.all(*cuts_lst) & has_hadt_candidate_mask)
                                         if dense_axis_name == "chisq_0matched": all_cuts_mask = (all_cuts_mask & match_0)
                                         if dense_axis_name == "chisq_1matched": all_cuts_mask = (all_cuts_mask & match_1)
                                         if dense_axis_name == "chisq_2matched": all_cuts_mask = (all_cuts_mask & match_2)
                                         if dense_axis_name == "chisq_3matched": all_cuts_mask = (all_cuts_mask & match_3)
-                                    elif dense_axis_name in ["bqqdrmax","qqdrmax","bqqmatchedmass","qqmatchedmass","chisqmatched"]:
+                                        if dense_axis_name == "chisq_3matchable": all_cuts_mask = (all_cuts_mask & had_reco_mask)
+                                        if dense_axis_name == "chisq_0matched_3matchable": all_cuts_mask = (all_cuts_mask & match_0 & had_reco_mask)
+                                        if dense_axis_name == "chisq_1matched_3matchable": all_cuts_mask = (all_cuts_mask & match_1 & had_reco_mask)
+                                        if dense_axis_name == "chisq_2matched_3matchable": all_cuts_mask = (all_cuts_mask & match_2 & had_reco_mask)
+                                        if dense_axis_name == "chisq_3matched_3matchable": all_cuts_mask = (all_cuts_mask & match_3 & had_reco_mask)
+                                    elif dense_axis_name in ["bqqdrmax","qqdrmax","bqqmatchedmass","qqmatchedmass","chisqgenmatched"]:
                                         all_cuts_mask = (selections.all(*cuts_lst) & had_reco_mask)
                                     else:
                                         all_cuts_mask = selections.all(*cuts_lst)
@@ -944,7 +974,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
                                     eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
-                                    #if dense_axis_name in ["bqqdrmax","qqdrmax","bqqmatchedmass","qqmatchedmass","chisqmatched"]:
+                                    #if dense_axis_name in ["bqqdrmax","qqdrmax","bqqmatchedmass","qqmatchedmass","chisqgenmatched"]:
                                     #    print(dense_axis_name,this_cat)
                                     #    print(dense_axis_vals)
                                     #    print(dense_axis_vals[all_cuts_mask])
