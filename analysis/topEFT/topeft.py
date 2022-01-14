@@ -525,10 +525,33 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           # Match jets to the genparticles
           jets_matched_bqq, jets_matched_qq, bqq_drmin, qq_drmin = gt.get_bqq_jets(had_tops,goodJets,btagwpl)
-          print("jets_matched_bqq",jets_matched_bqq)
-          print("jets_matched_qq",jets_matched_qq)
-          print("bqq_drmin",bqq_drmin)
-          print("qq_drmin",qq_drmin)
+          print("\njets_matched_bqq",jets_matched_bqq)
+          for i,x in enumerate(jets_matched_bqq):
+            if i > 10: break
+            print(i,x.pt)
+          print("\njets_matched_qq",jets_matched_qq)
+          for i,x in enumerate(jets_matched_qq):
+            if i > 10: break
+            print(i,x.pt)
+          print("\nbqq_drmin",bqq_drmin)
+          for i,x in enumerate(bqq_drmin):
+            if i > 10: break
+            print(i,x)
+          print("\nqq_drmin",qq_drmin)
+          for i,x in enumerate(qq_drmin):
+            if i > 10: break
+            print(i,x)
+
+          jets_matched_bqq = jets_matched_bqq[(bqq_drmin<0.4)] # Throw out matched jets with large dr
+          jets_matched_qq = jets_matched_qq[(qq_drmin<0.4)] # Throw out matched jets with large dr
+          print("\njets_matched_bqq",jets_matched_bqq)
+          for i,x in enumerate(jets_matched_bqq):
+            if i > 10: break
+            print(i,x.pt)
+          print("\njets_matched_qq",jets_matched_qq)
+          for i,x in enumerate(jets_matched_qq):
+            if i > 10: break
+            print(i,x.pt)
 
           # Find the mass of the matched jets
           jets_matched_bqq_mass = (jets_matched_bqq.sum()).mass
@@ -571,8 +594,8 @@ class AnalysisProcessor(processor.ProcessorABC):
               if x is not None: print(i,x.pt)
               else: print(i,x)
 
-          combos = ak.cartesian({"truth_j":jets_matched_bqq_okdr,"matched_j":hadt_best_chi2_triplet},axis=1)
-          #combos = ak.cartesian({"truth_j":jets_matched_bqq,"matched_j":hadt_best_chi2_triplet},axis=1)
+          #combos = ak.cartesian({"truth_j":jets_matched_bqq_okdr,"matched_j":hadt_best_chi2_triplet},axis=1)
+          combos = ak.cartesian({"truth_j":jets_matched_bqq,"matched_j":hadt_best_chi2_triplet},axis=1)
           #combos = ak.cartesian([jets_matched_bqq,jets_matched_bqq],axis=0)
           #combos = ak.cartesian([hadt_best_chi2_triplet,jets_matched_bqq],axis=1)
           print("c")
