@@ -47,8 +47,7 @@ packages_json_template = string.Template('''
         "coffea==$coffea_version",
         "topcoffea"
         ]
-}
-''')
+}''')
 
 packages_json = packages_json_template.substitute(py_version=py_version,coffea_version=coffea_version)
 
@@ -62,6 +61,7 @@ def _create_env(env_name, force=False):
         return env_name
 
     with tempfile.NamedTemporaryFile() as f:
+        logger.info("base env specification:{}".format(packages_json))
         f.write(packages_json.encode())
         f.flush()
         logger.info("Creating environment {}".format(env_name))
