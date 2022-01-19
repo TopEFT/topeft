@@ -56,8 +56,17 @@ split_lep_flavor = args.split_lep_flavor
 skip_sr    = args.skip_sr
 skip_cr    = args.skip_cr
 do_np      = args.do_np
-port       = list(map(int, args.port.split('-')))
 wc_lst = args.wc_list if args.wc_list is not None else []
+
+# construct wq port range
+port = list(map(int, args.port.split('-')))
+if len(port) < 1:
+    raise ValueError("At least one port value should be specified.")
+if len(port) > 2:
+    raise ValueError("More than one port range was specified.")
+if len(port) == 1:
+    # convert single values into a range of one element
+    port.append(port[0])
 
 # Figure out which hists to include
 if args.hist_list == ["ana"]:
