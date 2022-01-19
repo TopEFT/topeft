@@ -1,7 +1,6 @@
 #! /usr/bin/env python
 import json
 import hashlib
-import pathlib
 import shutil
 import subprocess
 import sys
@@ -11,13 +10,14 @@ import logging
 import glob
 import os
 import string
+from pathlib import Path
 
 import coffea
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(message)s')
 
-env_dir_cache = 'envs'
+env_dir_cache = Path.cwd().joinpath(Path('topeft-envs'))
 
 py_version = "{}.{}.{}".format(
         sys.version_info[0], sys.version_info[1], sys.version_info[2]
@@ -55,8 +55,8 @@ packages_json = packages_json_template.substitute(py_version=py_version,coffea_v
 def _create_env(env_name, force=False):
     if force:
         logger.info("Forcing rebuilding of {}".format(env_name))
-        pathlib.Path(env_name).unlink(missing_ok=True)
-    elif pathlib.Path(env_name).exists():
+        Path(env_name).unlink(missing_ok=True)
+    elif Path(env_name).exists():
         logger.info("Found in cache {}".format(env_name))
         return env_name
 
@@ -128,14 +128,14 @@ def _clean_cache(cache_size, *current_files):
 
 def get_environment(force=False, unstaged='rebuild', cache_size=3):
     # ensure cache directory exists
-    pathlib.Path(env_dir_cache).mkdir(parents=True, exist_ok=True)
+    Path(env_dir_cache).mkdir(parents=True, exist_ok=True)
 
     packages_hash = hashlib.sha256(packages_json.encode()).hexdigest()[0:8]
     pip_paths = _find_local_pip()
     pip_commits = _commits_local_pip(pip_paths)
     pip_check = _compute_commit(pip_paths, pip_commits)
 
-    env_name = str(pathlib.Path(env_dir_cache).joinpath("env_spec_{}_edit_{}".format(packages_hash, pip_check)).with_suffix(".tar.gz"))
+    env_name = str(Path(env_dir_cache).joinpath("env_spec_{}_edit_{}".format(packages_hash, pip_check)).with_suffix(".tar.gz"))
     _clean_cache(cache_size, env_name)
 
     if pip_check == 'HEAD':
@@ -144,7 +144,7 @@ def get_environment(force=False, unstaged='rebuild', cache_size=3):
             raise UnstagedChanges(changed)
         if unstaged == 'rebuild':
             force = True
-            logger.warning("Rebuilding environment because unstaged changes in {}".format(', '.join([pathlib.Path(p).name for p in changed])))
+            logger.warning("Rebuilding environment because unstaged changes in {}".format(', '.join([Path(p).name for p in changed])))
 
     return _create_env(env_name, force)
 
