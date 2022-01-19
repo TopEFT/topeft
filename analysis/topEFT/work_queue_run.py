@@ -39,6 +39,7 @@ parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control r
 parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
 parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
 parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
+parser.add_argument('--port', default='9123-9130', help = 'Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.')
 
 args = parser.parse_args()
 jsonFiles  = args.jsonFiles
@@ -55,6 +56,7 @@ split_lep_flavor = args.split_lep_flavor
 skip_sr    = args.skip_sr
 skip_cr    = args.skip_cr
 do_np      = args.do_np
+port       = list(map(int, args.port.split('-')))
 wc_lst = args.wc_list if args.wc_list is not None else []
 
 # Figure out which hists to include
@@ -170,7 +172,7 @@ executor_args = {
     'xrootdtimeout': 180,
 
     # find a port to run work queue in this range:
-    'port': [9123,9130],
+    'port': port,
 
     'debug_log': 'debug.log',
     'transactions_log': 'tr.log',
