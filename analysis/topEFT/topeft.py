@@ -15,7 +15,7 @@ from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachPdfWeights, AttachScaleWeights
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachPdfWeights, AttachScaleWeights, GetTriggerSF
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
@@ -318,6 +318,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
             pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
             pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
+          
+          # Trigger SF
+          GetTriggerSF(events,l0,l1)
 
           # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
           weights_dict = {}
@@ -354,6 +357,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_dict[ch_name].add('renorm', events.nom, events.renormUp, events.renormDown)
                 weights_dict[ch_name].add('fact',   events.nom, events.factUp,   events.factDown)
                 weights_dict[ch_name].add('renorm_fact', events.nom, events.renorm_factUp, events.renorm_factDown)
+                # Trigger SF
+                weights_dict[ch_name].add('triggerSF', events.trigger_sf, events.trigger_sfUp, events.trigger_sfDown)
             if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
@@ -367,7 +372,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           # Systematics
           systList = ["nominal"]
-          if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown"]
+          if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown"]
           elif (self._do_systematics and not isData and syst_var != 'nominal'): systList = [syst_var]
 
           ######### Masks we need for the selection ##########

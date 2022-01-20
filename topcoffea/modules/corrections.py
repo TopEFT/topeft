@@ -354,6 +354,7 @@ def ApplyJetSystematics(cleanedJets,syst_var):
   elif(syst_var == 'JESUp'): return cleanedJets.JES_jes.up
   elif(syst_var == 'JESDown'): return cleanedJets.JES_jes.down
   else: return cleanedJets
+
 ###### Muon Rochester corrections
 ################################################################
 # https://gitlab.cern.ch/akhukhun/roccor
@@ -388,3 +389,87 @@ def ApplyRochesterCorrections(mu, is_data, var='nominal'):
     if var=='nominal': return(mu.pt * corrections) #nominal
     elif var=='up': return(mu.pt * corrections + mu.pt * errors) #up 
     elif var=='down': return(mu.pt * corrections - mu.pt * errors) #down
+
+###### Trigger SFs
+################################################################
+
+#### Functions needed
+StackOverUnderflow = lambda v : [sum(v[0:2])] + v[2:-2] + [sum(v[-2:])]
+
+def GetClopperPearsonInterval(hnum, hden):
+  ''' Compute Clopper-Pearson interval from numerator and denominator histograms '''
+  num = list(hnum.values(overflow='all')[()])#, dtype=int)
+  den = list(hden.values(overflow='all')[()])#, dtype=int)
+  if isinstance(num, list) and isinstance(num[0], np.ndarray):
+    for i in range(len(num)):
+      num[i] = np.array(StackOverUnderflow(list(num[i])), dtype=float)
+      den[i] = np.array(StackOverUnderflow(list(den[i])), dtype=float)
+    den = StackOverUnderflow(den)
+    num = StackOverUnderflow(num)
+  else: 
+    num = np.array(StackOverUnderflow(num), dtype=float); den = np.array(StackOverUnderflow(den), dtype=float)
+  num = np.array(num); den = np.array(den)
+  num[num>den]=den[num>den]
+  down, up = hist.clopper_pearson_interval(num, den)
+  ratio = np.array(num, dtype=float)/den
+  #ratio[np.isnan(ratio)]=1.;#down[np.isnan(down)]=0;up[np.isnan(up)]=0
+  return [ratio, down, up]
+  
+def GetEff(num, den):
+  ''' Compute efficiency values from numerator and denominator histograms '''
+  ratio, down, up =  GetClopperPearsonInterval(num, den)
+  axis = num.axes()[0].name
+  bins = num.axis(axis).edges()
+  x    = num.axis(axis).centers()
+  xlo  = bins[:-1]
+  xhi  = bins[1:]
+  return [[x, xlo-x, xhi-x],[ratio, down-ratio, up-ratio]]
+
+def GetSFfromCountsHisto(hnumMC, hdenMC, hnumData, hdenData):
+  ''' Compute scale factors from efficiency histograms for data and MC '''
+  Xmc, Ymc = GetEff(hnumMC, hdenMC)
+  Xda, Yda = GetEff(hnumData, hdenData)
+  ratio, do, up = GetRatioAssymetricUncertainties(Yda[0], Yda[1], Yda[2], Ymc[0], Ymc[1], Ymc[2])
+  return ratio, do, up
+    
+def GetRatioAssymetricUncertainties(num, numDo, numUp, den, denDo, denUp):
+  ''' Compute efficiencies from numerator and denominator counts histograms and uncertainties '''
+  ratio = num/den
+  uncUp = ratio*np.sqrt(numUp*numUp + denUp*denUp) 
+  uncDo = ratio*np.sqrt(numDo*numDo + denDo*denDo) 
+  return ratio, -uncDo, uncUp
+
+######  Scale Factors
+
+pathToTriggerSF = topcoffea_path('data/triggerSF/triggerSF_%s.pkl.gz'%year)
+with gzip.open(pathToTriggerSF) as fin: hin = pickle.load(fin)
+
+def LoadTriggerSF(ch='2l',flav='emu'):
+  if ch=='2l': axisY='l1pt'
+  else: axisY='l0eta'
+  h = hin[ch][flav]
+  ratio, do, up = GetSFfromCountsHisto(h['hmn'], h['hmd'], h['hdn'], h['hdd'])
+  GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
+  GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
+  GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
+  return [GetTrig, GetTrigDo, GetTrigUp]
+
+def GetTriggerSF(events,lep0, lep1):
+  ls=[]
+  #2l
+  for i in [0,1,2]:
+    #2l
+    SF_ee=np.where(events.is_ee==True,LoadTriggerSF(ch='2l',flav='ee')[0](lep0.pt,lep1.pt),1.0)
+    SF_em=np.where(events.is_em==True, LoadTriggerSF(ch='2l',flav='em')[0](lep0.pt,lep1.pt),1.0)
+    SF_mm=np.where(events.is_mm==True, LoadTriggerSF(ch='2l',flav='mm')[0](lep0.pt,lep1.pt),1.0)
+   #3l
+    SF_eee=np.where(events.is_eee==True,LoadTriggerSF(ch='3l',flav='eee')[0](lep0.pt,lep0.eta),1.0)
+    SF_eem=np.where(events.is_eee==True,LoadTriggerSF(ch='3l',flav='eem')[0](lep0.pt,lep0.eta),1.0)
+    SF_emm=np.where(events.is_eee==True,LoadTriggerSF(ch='3l',flav='emm')[0](lep0.pt,lep0.eta),1.0)
+    SF_mmm=np.where(events.is_eee==True,LoadTriggerSF(ch='3l',flav='mmm')[0](lep0.pt,lep0.eta),1.0)
+    ls.append(SF_ee*SF_em*SF_mm*SF_eee*SF_eem*SF_emm*SF_mmm)
+  ls[1]=np.where(ls[1]==1.0,0.0,ls[1])
+  ls[2]=np.where(ls[2]==1.0,0.0,ls[2])
+  events['trigger_sf']=ls[0]
+  events['trigger_sfDown']=ls[0]+ls[1]
+  events['trigger_sfUp']=ls[0]+ls[2]
