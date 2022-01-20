@@ -18,19 +18,17 @@ jobs:
 
       - name: Install dependencies
         run: |
-          conda env update --file environment.yml --name base
+          conda config --set channel_priority strict
+          conda config --add channels conda-forge
+          conda env create -f environment.yml -n coffea-env
 
       - name: Conda list
         run: |
-          conda list
+          conda list -n coffea-env
 
       - name: Install topcoffea package
         run: |
-          pip install -e .
-
-      - name: Install work queue package
-        run: |
-          conda install -c conda-forge ndcctools
+          conda run -n coffea-env pip install -e .
 
       - name: Download root files
         run: |
@@ -38,20 +36,20 @@ jobs:
 
       - name: Run processors over test files with futures executor
         run: |
-          conda install pytest pytest-cov
-          conda install root_base -c conda-forge
+          conda install -y -n coffea-env -c conda-forge pytest pytest-cov root_base
           mkdir histos
-          pytest --cov=./ --cov-report=xml -rP
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP
 
       - name: Get yields 
         run: |
           cd analysis/topEFT
-          python get_yield_json.py -f histos/output_check_yields.pkl.gz -n output_check_yields
+          conda run -n coffea-env python get_yield_json.py -f histos/output_check_yields.pkl.gz -n output_check_yields
 
       - name: Compare yields
         run: |
           cd analysis/topEFT
-          python comp_yields.py output_check_yields.json test/UL17_private_ttH_for_CI_yields.json -t1 "New yields" -t2 "Ref yields"
+          conda run -n coffea-env python comp_yields.py output_check_yields.json test/UL17_private_ttH_for_CI_yields.json -t1 "New yields" -t2 "Ref yields"
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
         with:
