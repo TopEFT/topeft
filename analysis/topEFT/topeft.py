@@ -66,8 +66,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ",50 , 60, 130)),
         "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
         "nbtagsl" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsl",  "Loose btag multiplicity ", 5, 0, 5)),
-        "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 25, 0, 200)),
-        "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 25, 0, 200)),
+        "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 50, 0, 500)),
+        "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 100, 0, 1000)),
+        "b0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("b0pt",    "Leading b jet  $p_{T}$ (GeV)", 100, 0, 1000)),
+
+        "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading b or l jet $p_{T}$ (GeV)", 200, 0, 2000)),
+        "bl0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",    "Leading (b+l) $p_{T}$ (GeV)", 200, 0, 2000)),
+        "blmassleqt0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("blmassleqt0pt",    "Leading (b+l) with m< t$p_{T}$ (GeV)", 200, 0, 2000)),
+
         "l0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",   "Leading lep $\eta$", 30, -3.0, 3.0)),
         "j0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
         "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 200, 0, 2000)),
@@ -467,6 +473,28 @@ class AnalysisProcessor(processor.ProcessorABC):
           ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
           ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
 
+
+          ### TEST new variables ###
+
+          # Leading object (j or l) pt
+          o0pt = ak.where((j0.pt>l0.pt),j0.pt,l0.pt)
+
+          # Max (b+l).pt
+          bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
+          bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
+          blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
+          bl0pt = blpt[ak.argmax(blpt,axis=-1,keepdims=True)] # Without applying the mask to make sure inv mass not greater than top
+
+          # Mask out the ones that cannot be from the same top
+          blmass  = (bl_pairs["b"] + bl_pairs["l"]).mass
+          blmass_leq_t_mask  = ((bl_pairs["b"] + bl_pairs["l"]).mass <= 173.0)
+          blpt_leq_t_masked = blpt[blmass_leq_t_mask]
+          blmassleqt0pt = blpt_leq_t_masked[ak.argmax(blpt_leq_t_masked,axis=-1,keepdims=True)]
+          has_bl_lept = ak.flatten(ak.fill_none(blmassleqt0pt>-1,False)) # Will need this to mask out events that do not have a bl<m_t
+
+          ##########################
+
+
           # Z pt (pt of the ll pair that form the Z for the onZ categories) 
           ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)     
         
@@ -490,6 +518,15 @@ class AnalysisProcessor(processor.ProcessorABC):
           varnames["ptbl"]    = ak.flatten(ptbl)
           varnames["ptz"]     = ptz
 
+          # TEST new variables
+          varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
+          varnames["bl0pt"]   = bl0pt
+          varnames["blmassleqt0pt"] = blmassleqt0pt
+          varnames["o0pt"]    = o0pt
+
+          #print("ptbl",ptbl)
+          #print("bl0pt",len(bl0pt),bl0pt)
+          #print("o0pt",len(o0pt),o0pt)
 
           ########## Fill the histograms ##########
 
@@ -616,6 +653,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     # Get the cuts mask for all selections
                                     if dense_axis_name == "njets":
                                         all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
+                                    elif dense_axis_name == "blmassleqt0pt":
+                                        all_cuts_mask = (selections.all(*cuts_lst) & has_bl_lept)
                                     else:
                                         all_cuts_mask = selections.all(*cuts_lst)
 
