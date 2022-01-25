@@ -40,6 +40,7 @@ jobs:
           mkdir histos
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP
 
+
       - name: Get yields 
         run: |
           cd analysis/topEFT
