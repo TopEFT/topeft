@@ -51,7 +51,7 @@ hists["met"] =  HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hi
 
 # Fill the EFT histogram
 weight_val = 1.0
-xhists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
+hists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
 hists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='testUp', weight=nevts, eft_coeff=eft_fit_coeffs)
 hists["ptbl"].fill(ptbl=40, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
 hists["ptbl"].fill(ptbl=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='testUp', weight=nevts, eft_coeff=eft_fit_coeffs)
