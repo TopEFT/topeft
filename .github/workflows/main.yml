@@ -44,6 +44,10 @@ jobs:
         run: |
           conda run -n coffea-env pytest tests/test_HistEFT_add.py
 
+      - name: Run workqueue
+        run: |
+          conda run -n coffea-env pytest tests/test_topcoffea.py
+
       - name: Get yields 
         run: |
           cd analysis/topEFT
