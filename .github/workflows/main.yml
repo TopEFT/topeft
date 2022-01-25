@@ -40,6 +40,9 @@ jobs:
           mkdir histos
           conda run -n coffea-env pytest tests/test_datacardmaker.py
 
+      - name: Test histEFT
+        run: |
+          conda run -n coffea-env pytest tests/test_HistEFT_add.py
 
       - name: Get yields 
         run: |
