@@ -1,9 +1,13 @@
 import subprocess
-import filecmp
 import topcoffea.modules.dataDrivenEstimation as dataDrivenEstimation
 from work_queue import Factory
 from os.path import exists
 from os import getcwd
+
+def filecmp(src_fname, dst_fname):
+    a = open(src_fname).read().strip()
+    b = open(dst_fname).read().strip()
+    return a == b
 
 def test_topcoffea():
     args = [
