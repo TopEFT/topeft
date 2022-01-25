@@ -38,7 +38,7 @@ jobs:
         run: |
           conda install -y -n coffea-env -c conda-forge pytest pytest-cov root_base
           mkdir histos
-          conda run -n coffea-env pytest --cov=./test_datacardmaker.py --cov-report=xml -rP
+          conda run -n coffea-env pytest tests/test_datacardmaker.py
 
 
       - name: Get yields 
