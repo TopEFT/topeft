@@ -482,11 +482,6 @@ class AnalysisProcessor(processor.ProcessorABC):
           blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
           bl0pt = ak.flatten(blpt[ak.argmax(blpt,axis=-1,keepdims=True)])
 
-          # Mask out the ones that cannot be from the same top
-          blmass  = (bl_pairs["b"] + bl_pairs["l"]).mass
-          blmass_leq_t_mask  = ((bl_pairs["b"] + bl_pairs["l"]).mass <= 173.0)
-          blpt_leq_t_masked = blpt[blmass_leq_t_mask]
-
           # Collection of all objects (leptons and jets)
           l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
 
@@ -497,15 +492,15 @@ class AnalysisProcessor(processor.ProcessorABC):
           l_j_pairs = ak.combinations(l_j_collection,2,fields=["o0","o1"])
           l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
           l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
-          l_j_pairs_pt_max = ak.flatten(ak.max(l_j_pairs_pt,axis=-1,keepdims=True))
-          l_j_pairs_mass_max = ak.flatten(ak.max(l_j_pairs_mass,axis=-1,keepdims=True))
+          l_j_pairs_pt_max = ak.max(l_j_pairs_pt,axis=-1)
+          l_j_pairs_mass_max = ak.max(l_j_pairs_mass,axis=-1)
 
           # Triplets of l+j
           l_j_triplets = ak.combinations(l_j_collection,3,fields=["o0","o1","o2"])
           l_j_triplets_pt = (l_j_triplets.o0 + l_j_triplets.o1 + l_j_triplets.o2).pt
           l_j_triplets_mass = (l_j_triplets.o0 + l_j_triplets.o1 + l_j_triplets.o2).mass
-          l_j_triplets_pt_max = ak.flatten(ak.max(l_j_triplets_pt,axis=-1,keepdims=True))
-          l_j_triplets_mass_max = ak.flatten(ak.max(l_j_triplets_mass,axis=-1,keepdims=True))
+          l_j_triplets_pt_max = ak.max(l_j_triplets_pt,axis=-1)
+          l_j_triplets_mass_max = ak.max(l_j_triplets_mass,axis=-1)
 
           # Z pt (pt of the ll pair that form the Z for the onZ categories) 
           ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)     
