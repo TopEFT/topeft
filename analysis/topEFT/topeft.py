@@ -476,37 +476,36 @@ class AnalysisProcessor(processor.ProcessorABC):
           ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
           ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
 
-          # Leading object (j or l) pt
-          o0pt = ak.where((j0.pt>l0.pt),j0.pt,l0.pt)
-
           # Leading (b+l) pair pt
           bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
           bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
           blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
-          bl0pt = blpt[ak.argmax(blpt,axis=-1,keepdims=True)] # Without applying the mask to make sure inv mass not greater than top
+          bl0pt = ak.flatten(blpt[ak.argmax(blpt,axis=-1,keepdims=True)])
 
           # Mask out the ones that cannot be from the same top
           blmass  = (bl_pairs["b"] + bl_pairs["l"]).mass
           blmass_leq_t_mask  = ((bl_pairs["b"] + bl_pairs["l"]).mass <= 173.0)
           blpt_leq_t_masked = blpt[blmass_leq_t_mask]
-          blmassleqt0pt = blpt_leq_t_masked[ak.argmax(blpt_leq_t_masked,axis=-1,keepdims=True)]
-          has_bl_lept = ak.flatten(ak.fill_none(blmassleqt0pt>-1,False)) # Will need this to mask out events that do not have a bl<m_t
+
+          # Collection of all objects (leptons and jets)
+          l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
+
+          # Leading object (j or l) pt
+          o0pt = ak.max(l_j_collection.pt,axis=-1)
 
           # Pairs of l+j
-          l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
           l_j_pairs = ak.combinations(l_j_collection,2,fields=["o0","o1"])
           l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
           l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
-          l_j_pairs_pt_max = ak.max(l_j_pairs_pt,axis=-1,keepdims=True)
-          l_j_pairs_mass_max = ak.max(l_j_pairs_mass,axis=-1,keepdims=True)
+          l_j_pairs_pt_max = ak.flatten(ak.max(l_j_pairs_pt,axis=-1,keepdims=True))
+          l_j_pairs_mass_max = ak.flatten(ak.max(l_j_pairs_mass,axis=-1,keepdims=True))
 
           # Triplets of l+j
           l_j_triplets = ak.combinations(l_j_collection,3,fields=["o0","o1","o2"])
           l_j_triplets_pt = (l_j_triplets.o0 + l_j_triplets.o1 + l_j_triplets.o2).pt
           l_j_triplets_mass = (l_j_triplets.o0 + l_j_triplets.o1 + l_j_triplets.o2).mass
-          l_j_triplets_pt_max = ak.max(l_j_triplets_pt,axis=-1,keepdims=True)
-          l_j_triplets_mass_max = ak.max(l_j_triplets_mass,axis=-1,keepdims=True)
-
+          l_j_triplets_pt_max = ak.flatten(ak.max(l_j_triplets_pt,axis=-1,keepdims=True))
+          l_j_triplets_mass_max = ak.flatten(ak.max(l_j_triplets_mass,axis=-1,keepdims=True))
 
           # Z pt (pt of the ll pair that form the Z for the onZ categories) 
           ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)     
@@ -533,7 +532,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           varnames["b0pt"]          = ak.flatten(ptbl_bjet.pt)
           varnames["bl0pt"]         = bl0pt
-          varnames["blmassleqt0pt"] = blmassleqt0pt
           varnames["o0pt"]          = o0pt
           varnames["l_j_pairs_pt_max"]   = l_j_pairs_pt_max
           varnames["l_j_pairs_mass_max"] = l_j_pairs_mass_max
@@ -726,8 +724,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     # Get the cuts mask for all selections
                                     if dense_axis_name == "njets":
                                         all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
-                                    elif dense_axis_name == "blmassleqt0pt":
-                                        all_cuts_mask = (selections.all(*cuts_lst) & has_bl_lept)
                                     else:
                                         all_cuts_mask = selections.all(*cuts_lst)
 
@@ -747,7 +743,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         "eft_coeff"     : eft_coeffs_cut,
                                         "eft_err_coeff" : eft_w2_coeffs_cut,
                                     }
-                                    
+
                                     if (("j0" in dense_axis_name) & ("CRZ" in ch_name)): continue
                                     if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                     if (("triplets" in dense_axis_name) & ("2l" in lep_chan)): continue
