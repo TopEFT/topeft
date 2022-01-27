@@ -59,7 +59,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         self._accumulator = processor.dict_accumulator({
-        "SumOfEFTweights" : HistEFT("SumOfWeights", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("SumOfEFTweights", "sow", 1, 0, 2)),
         "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
         "ptbl"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 200, 0, 2000)),
         "ptz"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptz",      "$p_{T}$ Z (GeV)", 25, 0, 1000)),
@@ -325,8 +324,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             genw = np.ones_like(events["event"])
           else:
             genw = events["genWeight"]
-          if (eft_coeffs is not None):
-            sow = np.ones_like(sow) # Not valid in nanoAOD for EFT samples, MUST use SumOfEFTweights at analysis level
           for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
@@ -616,12 +613,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
 
-          # Fill sum of weights hist
-          normweights = weights_dict["2l"].partial_weight(include=["norm"]) # Here we could have used 2l, 3l, or 4l, as the "norm" weights should be identical for all three
-          if (eft_coeffs is not None): sowweights = np.ones_like(normweights)
-          else: sowweights = normweights
-          if syst_var=='nominal':
-            hout["SumOfEFTweights"].fill(sample=histAxisName, SumOfEFTweights=counts, weight=sowweights, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
           # Loop over the hists we want to fill
           for dense_axis_name, dense_axis_vals in varnames.items():

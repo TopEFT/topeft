@@ -77,7 +77,6 @@ class plotter:
     if prdic != {}: self.SetProcessDic(prdic)
     for k in self.hists.keys(): 
       if len(self.hists[k].identifiers('sample')) == 0: continue
-      if k == 'SumOfEFTweights': continue
       self.hists[k] = self.hists[k].group(hist.Cat(self.sampleLabel, self.sampleLabel), hist.Cat(self.processLabel, self.processLabel), self.prDic)
 
   def SetBkgProcesses(self, bkglist=[]):
@@ -180,7 +179,6 @@ class plotter:
     ''' Returns a histogram with all categories contracted '''
     if categories == None: categories = self.categories
     h = self.hists[hname]
-    sow = self.hists['SumOfEFTweights']
     for cat in categories: 
       h = h.integrate(cat, categories[cat])
     if isinstance(process, str) and ',' in process: process = process.split(',')
@@ -190,13 +188,6 @@ class plotter:
       h = h.group("process", hist.Cat("process", "process"), prdic)
     elif isinstance(process, str): 
       h = h[process].sum("process")
-      sow = sow[process].sum("sample")
-    nwc = sow._nwc
-    if nwc > 0:
-        sow.set_sm()
-        sow = sow.integrate("sample")
-        sow = np.sum(sow.values()[()])
-        h.scale(1. / sow) # Divide EFT samples by sum of weights at SM
     return h
 
   def doData(self, hname):
