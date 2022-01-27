@@ -62,7 +62,7 @@ jobs:
 
       - name: Test utils
         run: |
-          conda run -n coffea-env pytest tests/test_utils.pyv
+          conda run -n coffea-env pytest tests/test_utils.py
 
       - name: Get yields 
         run: |
