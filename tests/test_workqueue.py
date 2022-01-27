@@ -4,6 +4,7 @@ from work_queue import Factory
 from os.path import exists
 from os import getcwd
 
+
 def test_topcoffea_wq():
     port=9123
     factory = Factory("local", manager_host_port="localhost:{}".format(port))
