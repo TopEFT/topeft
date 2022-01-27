@@ -435,7 +435,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
     eft_sow_scale_dict = yt.get_eft_sow_scale_dict(dict_of_hists["SumOfEFTweights"])
 
     # Loop over hists and make plots
-    skip_lst = ["SumOfEFTweights","ptz"] # Skip this hist
+    skip_lst = ["SumOfEFTweights"] # Skip this hist
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
         if (var_name == "njets"):

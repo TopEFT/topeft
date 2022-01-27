@@ -279,11 +279,11 @@ def AttachPSWeights(events):
   events['ISRnom']  = ak.ones_like(events.PSWeight[:,0])
   events['FSRnom']  = ak.ones_like(events.PSWeight[:,0])
   # Add up variation event weights
-  #events['ISRUp']   = events.PSWeight[:, ISRup]
-  #events['FSRUp']   = events.PSWeight[:, FSRup]
+  events['ISRUp']   = events.PSWeight[:, ISRup]
+  events['FSRUp']   = events.PSWeight[:, FSRup]
   # Add down variation event weights
-  #events['ISRDown'] = events.PSWeight[:, ISRdown]
-  #events['FSRDown'] = events.PSWeight[:, FSRdown]
+  events['ISRDown'] = events.PSWeight[:, ISRdown]
+  events['FSRDown'] = events.PSWeight[:, FSRdown]
 
 def AttachScaleWeights(events):
   '''

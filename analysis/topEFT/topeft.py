@@ -348,8 +348,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Prefiring weights only available in nanoAODv9**
                 weights_dict[ch_name].add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
                 # FSR/ISR weights
-                #weights_dict[ch_name].add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
-                #weights_dict[ch_name].add('FSR', events.FSRnom, events.FSRUp, events.FSRDown)
+                weights_dict[ch_name].add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
+                weights_dict[ch_name].add('FSR', events.FSRnom, events.FSRUp, events.FSRDown)
                 # renorm/fact scale
                 weights_dict[ch_name].add('renorm', events.nom, events.renormUp, events.renormDown)
                 weights_dict[ch_name].add('fact',   events.nom, events.factUp,   events.factDown)
