@@ -48,13 +48,13 @@ jobs:
         run: |
           conda run -n coffea-env pytest tests/test_make_1d_quad_plots.py 
 
-      - name: Run topcoffea
+      - name: Run processors over test files with futures executor
         run: |
-          conda run -n coffea-env pytest tests/test_topcoffea.py
+          conda run -n coffea-env pytest tests/test_futures.py
 
-      - name: Run workqueue
+      - name: Run processors over test files with workqueue executor
         run: |
-          conda run -n coffea-env pytest tests/test_wq.py
+          conda run -n coffea-env pytest tests/test_workqueue.py
 
       - name: Test unit
         run: |
