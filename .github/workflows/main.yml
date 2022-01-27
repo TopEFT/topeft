@@ -48,6 +48,10 @@ jobs:
         run: |
           conda run -n coffea-env pytest tests/test_make_1d_quad_plots.py 
 
+      - name: Test futures executor
+        run: |
+          conda run -n coffea-env pytest tests/test_futures.py
+
       - name: Run topcoffea
         run: |
           conda run -n coffea-env pytest tests/test_topcoffea.py
