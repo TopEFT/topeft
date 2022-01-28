@@ -47,6 +47,23 @@ class DatacardMaker():
             self.analysis_bins['ht'] = [0, 100, 200, 300, 400, self.hists['ht'].axis('ht').edges()[-1]]
         if 'ptz' in self.hists:
             self.analysis_bins['ptz'] = [0, 80, 200, 320, 440, self.hists['ptz'].axis('ptz').edges()[-1]]
+        if 'o0pt' in self.hists:
+            self.analysis_bins['o0pt'] = [0, 100, 200, 400, self.hists['o0pt'].axis('o0pt').edges()[-1]]
+        if 'bl0pt' in self.hists:
+            self.analysis_bins['bl0pt'] = [0, 100, 200, 400, self.hists['bl0pt'].axis('bl0pt').edges()[-1]]
+        if 'l0pt' in self.hists:
+            self.analysis_bins['l0pt'] = [0, 50, 100, 200, self.hists['l0pt'].axis('l0pt').edges()[-1]]
+
+        if 'l_j_pairs_pt_max' in self.hists:
+            self.analysis_bins['l_j_pairs_pt_max'] = [0, 150, 250, 500, self.hists['l_j_pairs_pt_max'].axis('l_j_pairs_pt_max').edges()[-1]]
+        if 'l_j_pairs_mass_max' in self.hists:
+            self.analysis_bins['l_j_pairs_mass_max'] = [0, 200, 350, 700, self.hists['l_j_pairs_mass_max'].axis('l_j_pairs_mass_max').edges()[-1]]
+        if 'l_j_triplets_pt_max' in self.hists:
+            self.analysis_bins['l_j_triplets_pt_max'] = [0, 150, 300, 500, self.hists['l_j_triplets_pt_max'].axis('l_j_triplets_pt_max').edges()[-1]]
+        if 'l_j_triplets_mass_max' in self.hists:
+            self.analysis_bins['l_j_triplets_mass_max'] = [0, 350, 550, 850, self.hists['l_j_triplets_mass_max'].axis('l_j_triplets_mass_max').edges()[-1]]
+
+        if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         # Get list of channels
@@ -721,7 +738,11 @@ if __name__ == '__main__':
     card.read()
     card.buildWCString()
     jobs = []
-    for var in ['njets','ht','ptbl']:
+    #for var in ['njets','ht','ptbl']:
+    #for var in ['ptbl','o0pt','bl0pt',"l_j_pairs_pt_max","l_j_pairs_mass_max","l_j_triplets_pt_max","l_j_triplets_mass_max"]:
+    #for var in ['ptbl',"l_j_pairs_pt_max","l_j_pairs_mass_max","l_j_triplets_pt_max","l_j_triplets_mass_max"]:
+    #for var in ['njets','ptbl']:
+    for var in ["njets","ptbl","o0pt","bl0pt","l_j_pairs_pt_max","l0pt"]:
         cards = [{'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
                  {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
                  {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
