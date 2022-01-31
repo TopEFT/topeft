@@ -528,6 +528,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_flav_lst" : ["ee" , "em" , "mm"],
                 "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
             },
+        },
 
         "2l_4t" : {
             "exactly_4j" : {
