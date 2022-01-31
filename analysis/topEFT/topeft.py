@@ -417,222 +417,222 @@ class AnalysisProcessor(processor.ProcessorABC):
                     events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note:
         # The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 		
-          selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-        
-          # 2los selection
-          selections.add("2los_CRtt", (events.is2l & charge2l_0 & bmask_exactly2med & pass_trg))
-          selections.add("2los_CRZ", (events.is2l & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
+        selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
-          # 3l selection
-          selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-          selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-          selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-          selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-          selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
-          selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
-          selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
+        # 2los selection
+        selections.add("2los_CRtt", (events.is2l & charge2l_0 & bmask_exactly2med & pass_trg))
+        selections.add("2los_CRZ", (events.is2l & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
-          # 4l selection
-          selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
+        # 3l selection
+        selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
+        selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
+        selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
 
-          # Lep flavor selection
-          selections.add("ee",  events.is_ee)
-          selections.add("em",  events.is_em)
-          selections.add("mm",  events.is_mm)
-          selections.add("eee", events.is_eee)
-          selections.add("eem", events.is_eem)
-          selections.add("emm", events.is_emm)
-          selections.add("mmm", events.is_mmm)
-          selections.add("llll", (events.is_eeee | events.is_eeem | events.is_eemm | events.is_emmm | events.is_mmmm | events.is_gr4l)) # Not keepting track of these separately
+        # 4l selection
+        selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
 
-          # Njets selection
-          selections.add("exactly_1j", (njets==1))
-          selections.add("exactly_2j", (njets==2))
-          selections.add("exactly_3j", (njets==3))
-          selections.add("exactly_4j", (njets==4))
-          selections.add("exactly_5j", (njets==5))
-          selections.add("exactly_6j", (njets==6))
-          selections.add("atleast_1j", (njets>=1))
-          selections.add("atleast_4j", (njets>=4))
-          selections.add("atleast_5j", (njets>=5))
-          selections.add("atleast_7j", (njets>=7))
-          selections.add("atleast_0j", (njets>=0))
+        # Lep flavor selection
+        selections.add("ee",  events.is_ee)
+        selections.add("em",  events.is_em)
+        selections.add("mm",  events.is_mm)
+        selections.add("eee", events.is_eee)
+        selections.add("eem", events.is_eem)
+        selections.add("emm", events.is_emm)
+        selections.add("mmm", events.is_mmm)
+        selections.add("llll", (events.is_eeee | events.is_eeem | events.is_eemm | events.is_emmm | events.is_mmmm | events.is_gr4l)) # Not keepting track of these separately
 
-          # AR/SR categories
-          selections.add("isSR_2lSS", ( events.is2l_SR) & charge2l_1) 
-          selections.add("isAR_2lSS", (~events.is2l_SR) & charge2l_1) 
-          selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # we need another naming for the sideband for the charge flip
-          selections.add("isSR_2lOS", ( events.is2l_SR) & charge2l_0) 
-          selections.add("isAR_2lOS", (~events.is2l_SR) & charge2l_0) 
+        # Njets selection
+        selections.add("exactly_1j", (njets==1))
+        selections.add("exactly_2j", (njets==2))
+        selections.add("exactly_3j", (njets==3))
+        selections.add("exactly_4j", (njets==4))
+        selections.add("exactly_5j", (njets==5))
+        selections.add("exactly_6j", (njets==6))
+        selections.add("atleast_1j", (njets>=1))
+        selections.add("atleast_4j", (njets>=4))
+        selections.add("atleast_5j", (njets>=5))
+        selections.add("atleast_7j", (njets>=7))
+        selections.add("atleast_0j", (njets>=0))
 
-          selections.add("isSR_3l",  events.is3l_SR)
-          selections.add("isAR_3l", ~events.is3l_SR)
-          selections.add("isSR_4l",  events.is4l_SR)
+        # AR/SR categories
+        selections.add("isSR_2lSS", ( events.is2l_SR) & charge2l_1)
+        selections.add("isAR_2lSS", (~events.is2l_SR) & charge2l_1)
+        selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # we need another naming for the sideband for the charge flip
+        selections.add("isSR_2lOS", ( events.is2l_SR) & charge2l_0)
+        selections.add("isAR_2lOS", (~events.is2l_SR) & charge2l_0)
 
-
-          ######### Variables for the dense axes of the hists ##########
-
-          # Calculate ptbl
-          ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
-          ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt,axis=-1,keepdims=True)] # Only save hardest b-jet
-          ptbl_lep = l_fo_conept_sorted
-          ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
-          ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
-
-          # Z pt (pt of the ll pair that form the Z for the onZ categories) 
-          ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)     
-        
-          # Define invariant mass hists
-          mll_0_1 = (l0+l1).mass # Invmass for leading two leps
-
-          # Counts
-          counts = np.ones_like(events['event'])
-
-          # Variables we will loop over when filling hists
-          varnames = {}
-          varnames["ht"]      = ht
-          varnames["met"]     = met.pt
-          varnames["l0pt"]    = l0.conept
-          varnames["l0eta"]   = l0.eta
-          varnames["j0pt"]    = ak.flatten(j0.pt)
-          varnames["j0eta"]   = ak.flatten(j0.eta)
-          varnames["njets"]   = njets
-          varnames["nbtagsl"] = nbtagsl
-          varnames["invmass"] = mll_0_1
-          varnames["ptbl"]    = ak.flatten(ptbl)
-          varnames["ptz"]     = ptz
+        selections.add("isSR_3l",  events.is3l_SR)
+        selections.add("isAR_3l", ~events.is3l_SR)
+        selections.add("isSR_4l",  events.is4l_SR)
 
 
-          ########## Fill the histograms ##########
+        ######### Variables for the dense axes of the hists ##########
 
-          # This dictionary keeps track of which selections go with which SR categories
-          sr_cat_dict = {
-            "2l" : {
-                "exactly_4j" : {
-                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
-                    "lep_flav_lst" : ["ee" , "em" , "mm"],
-                    "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                },
-                "exactly_5j" : {
-                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
-                    "lep_flav_lst" : ["ee" , "em" , "mm"],
-                    "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                },
-                "exactly_6j" : {
-                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
-                    "lep_flav_lst" : ["ee" , "em" , "mm"],
-                    "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                },
-                "atleast_7j" : {
-                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
-                    "lep_flav_lst" : ["ee" , "em" , "mm"],
-                    "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                },
+        # Calculate ptbl
+        ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
+        ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt,axis=-1,keepdims=True)] # Only save hardest b-jet
+        ptbl_lep = l_fo_conept_sorted
+        ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
+        ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
+
+        # Z pt (pt of the ll pair that form the Z for the onZ categories)
+        ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+
+        # Define invariant mass hists
+        mll_0_1 = (l0+l1).mass # Invmass for leading two leps
+
+        # Counts
+        counts = np.ones_like(events['event'])
+
+        # Variables we will loop over when filling hists
+        varnames = {}
+        varnames["ht"]      = ht
+        varnames["met"]     = met.pt
+        varnames["l0pt"]    = l0.conept
+        varnames["l0eta"]   = l0.eta
+        varnames["j0pt"]    = ak.flatten(j0.pt)
+        varnames["j0eta"]   = ak.flatten(j0.eta)
+        varnames["njets"]   = njets
+        varnames["nbtagsl"] = nbtagsl
+        varnames["invmass"] = mll_0_1
+        varnames["ptbl"]    = ak.flatten(ptbl)
+        varnames["ptz"]     = ptz
+
+
+        ########## Fill the histograms ##########
+
+        # This dictionary keeps track of which selections go with which SR categories
+        sr_cat_dict = {
+        "2l" : {
+            "exactly_4j" : {
+                "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
             },
-			"2l_4t": {
-                "lep_chan_lst": ["2lss_4t_p", "2lss_4t_m"],
-                "lep_flav_lst": ["ee", "em", "mm"],
-                "njets_lst": ["exactly_4j", "exactly_5j", "exactly_6j", "atleast_7j"],
-				  
-								
-														   
-														  
-                "appl_lst": ["isSR_2lSS", "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-				  
+            "exactly_5j" : {
+                "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
             },
-            "3l" : {
+            "exactly_6j" : {
+                "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+            },
+            "atleast_7j" : {
+                "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+            },
+        },
+        "2l_4t": {
+            "lep_chan_lst": ["2lss_4t_p", "2lss_4t_m"],
+            "lep_flav_lst": ["ee", "em", "mm"],
+            "njets_lst": ["exactly_4j", "exactly_5j", "exactly_6j", "atleast_7j"],
+
+
+
+
+            "appl_lst": ["isSR_2lSS", "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+
+        },
+        "3l" : {
+            "exactly_2j" : {
+                "lep_chan_lst" : [
+                    "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                ],
+                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                "appl_lst"     : ["isSR_3l", "isAR_3l"],
+            },
+            "exactly_3j" : {
+                "lep_chan_lst" : [
+                    "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                ],
+                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                "appl_lst"     : ["isSR_3l", "isAR_3l"],
+            },
+            "exactly_4j" : {
+                "lep_chan_lst" : [
+                    "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                ],
+                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                "appl_lst"     : ["isSR_3l", "isAR_3l"],
+            },
+            "atleast_5j" : {
+                "lep_chan_lst" : [
+                    "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                ],
+                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                "appl_lst"     : ["isSR_3l", "isAR_3l"],
+            },
+        },
+        "4l" : {
                 "exactly_2j" : {
-                    "lep_chan_lst" : [
-                        "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                    ],
-                    "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                    "appl_lst"     : ["isSR_3l", "isAR_3l"],
+                    "lep_chan_lst" : ["4l"],
+                    "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                    "appl_lst"     : ["isSR_4l"],
                 },
                 "exactly_3j" : {
-                    "lep_chan_lst" : [
-                        "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                    ],
-                    "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                    "appl_lst"     : ["isSR_3l", "isAR_3l"],
+                    "lep_chan_lst" : ["4l"],
+                    "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                    "appl_lst"     : ["isSR_4l"],
                 },
-                "exactly_4j" : {
-                    "lep_chan_lst" : [
-                        "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                    ],
-                    "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                    "appl_lst"     : ["isSR_3l", "isAR_3l"],
+                "atleast_4j" : {
+                    "lep_chan_lst" : ["4l"],
+                    "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                    "appl_lst"     : ["isSR_4l"],
                 },
-                "atleast_5j" : {
-                    "lep_chan_lst" : [
-                        "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                    ],
-                    "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                    "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                },
-            },
-            "4l" : {
-                    "exactly_2j" : {
-                        "lep_chan_lst" : ["4l"],
-                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                        "appl_lst"     : ["isSR_4l"],
-                    },
-                    "exactly_3j" : {
-                        "lep_chan_lst" : ["4l"],
-                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                        "appl_lst"     : ["isSR_4l"],
-                    },
-                    "atleast_4j" : {
-                        "lep_chan_lst" : ["4l"],
-                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                        "appl_lst"     : ["isSR_4l"],
-                    },
-            },
-          }
+        },
+        }
 
-          # This dictionary keeps track of which selections go with which CR categories
-          cr_cat_dict = {
-            "2l_CR" : {
-                "exactly_1j" : {
-                    "lep_chan_lst" : ["2lss_CR"],
-                    "lep_flav_lst" : ["ee" , "em" , "mm"],
-                    "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                },
-                "exactly_2j" : {
-                    "lep_chan_lst" : ["2lss_CR"],
-                    "lep_flav_lst" : ["ee" , "em" , "mm"],
-                    "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                },
+        # This dictionary keeps track of which selections go with which CR categories
+        cr_cat_dict = {
+        "2l_CR" : {
+            "exactly_1j" : {
+                "lep_chan_lst" : ["2lss_CR"],
+                "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
             },
-            "3l_CR" : {
-                "atleast_1j" : {
-                    "lep_chan_lst" : ["3l_CR"],
-                    "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                    "appl_lst"     : ["isSR_3l" , "isAR_3l"],
-                },
+            "exactly_2j" : {
+                "lep_chan_lst" : ["2lss_CR"],
+                "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
             },
-            "2los_CRtt" : {
-                "exactly_2j"   : {
-                    "lep_chan_lst" : ["2los_CRtt"],
-                    "lep_flav_lst" : ["em"],
-                    "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                },
+        },
+        "3l_CR" : {
+            "atleast_1j" : {
+                "lep_chan_lst" : ["3l_CR"],
+                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                "appl_lst"     : ["isSR_3l" , "isAR_3l"],
             },
-            "2los_CRZ" : {
-                "atleast_0j"   : {
-                    "lep_chan_lst" : ["2los_CRZ"],
-                    "lep_flav_lst" : ["ee", "mm"],
-                    "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                },
-            }            
-          }
+        },
+        "2los_CRtt" : {
+            "exactly_2j"   : {
+                "lep_chan_lst" : ["2los_CRtt"],
+                "lep_flav_lst" : ["em"],
+                "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+            },
+        },
+        "2los_CRZ" : {
+            "atleast_0j"   : {
+                "lep_chan_lst" : ["2los_CRZ"],
+                "lep_flav_lst" : ["ee", "mm"],
+                "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+            },
+        }
+        }
 
-          # Include SRs and CRs unless we asked to skip them
-          cat_dict = {}
-          if not self._skip_signal_regions:
+        # Include SRs and CRs unless we asked to skip them
+        cat_dict = {}
+        if not self._skip_signal_regions:
             cat_dict.update(sr_cat_dict)
-          if not self._skip_control_regions:
+        if not self._skip_control_regions:
             cat_dict.update(cr_cat_dict)
-          if (not self._skip_signal_regions and not self._skip_control_regions):
+        if (not self._skip_signal_regions and not self._skip_control_regions):
             for k in sr_cat_dict:
                 if k in cr_cat_dict:
                     raise Exception(f"The key {k} is in both CR and SR dictionaries.")
@@ -641,7 +641,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
           # Loop over the hists we want to fill
-          for dense_axis_name, dense_axis_vals in varnames.items():
+        for dense_axis_name, dense_axis_vals in varnames.items():
             if dense_axis_name not in self._hist_lst:
                 print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
                 continue
@@ -712,7 +712,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         "eft_coeff"     : eft_coeffs_cut,
                                         "eft_err_coeff" : eft_w2_coeffs_cut,
                                     }
-                                    
+
                                     if (("j0" in dense_axis_name) & ("CRZ" in ch_name)): continue
                                     if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                     hout[dense_axis_name].fill(**axes_fill_info_dict)

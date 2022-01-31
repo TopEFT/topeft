@@ -522,8 +522,8 @@ def main():
     if args.include_timestamp_tag:
         outdir_name = outdir_name + "_" + timestamp_tag
     save_dir_path = os.path.join(save_dir_path,outdir_name)
-	if not os.path.exists:					  
-		os.mkdir(save_dir_path)
+    if not os.path.exists:
+        os.mkdir(save_dir_path)
 
     # Get the histograms
     hin_dict = yt.get_hist_from_pkl(args.pkl_file_path)
