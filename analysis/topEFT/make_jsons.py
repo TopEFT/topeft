@@ -899,7 +899,7 @@ from collections import defaultdict
 ### 2016 ###
 year = 'Run2016'
 naod_version  = "MiniAODv2_NanoAODv9-v1"
-dataset_names = ["DoubleEG","DoubleMuon","SingleElectron","SingleMuon"]
+dataset_names = ["DoubleEG","DoubleMuon","SingleElectron","SingleMuon","MuonEG"]
 dataset_eras = [# See: https://twiki.cern.ch/twiki/bin/view/CMS/PdmVDatasetsUL2016
     'B-ver1_HIPM_UL2016',
     'B-ver2_HIPM_UL2016',
