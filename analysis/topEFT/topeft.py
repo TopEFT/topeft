@@ -324,7 +324,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             genw = np.ones_like(events["event"])
           else:
             genw = events["genWeight"]
-          for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
+          for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
             if not isData:
