@@ -3,7 +3,8 @@ import argparse
 
 from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.utils import regex_match, load_sample_json_file, update_json, get_files
+from topcoffea.modules.utils import regex_match, load_sample_json_file, get_files
+from topcoffea.modules.update_json import update_json
 
 pjoin = os.path.join
 

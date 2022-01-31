@@ -39,6 +39,7 @@ parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control r
 parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
 parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
 parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
+parser.add_argument('--port', default='9123-9130', help = 'Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.')
 
 args = parser.parse_args()
 jsonFiles  = args.jsonFiles
@@ -57,10 +58,20 @@ skip_cr    = args.skip_cr
 do_np      = args.do_np
 wc_lst = args.wc_list if args.wc_list is not None else []
 
+# construct wq port range
+port = list(map(int, args.port.split('-')))
+if len(port) < 1:
+    raise ValueError("At least one port value should be specified.")
+if len(port) > 2:
+    raise ValueError("More than one port range was specified.")
+if len(port) == 1:
+    # convert single values into a range of one element
+    port.append(port[0])
+
 # Figure out which hists to include
 if args.hist_list == ["ana"]:
   # Here we hardcode a list of hists used for the analysis
-  hist_lst = ["njets","ht","ptbl"]
+  hist_lst = ["njets","ht","ptbl","ptz"]
 else:
   # We want to specify a custom list
   # If we don't specify this argument, it will be None, and the processor will fill all hists 
@@ -170,7 +181,7 @@ executor_args = {
     'xrootdtimeout': 180,
 
     # find a port to run work queue in this range:
-    'port': [9123,9130],
+    'port': port,
 
     'debug_log': 'debug.log',
     'transactions_log': 'tr.log',
@@ -208,9 +219,9 @@ executor_args = {
     # mode will use the values specified here, so workers need to be at least
     # this large. If left unspecified, tasks will use whole workers in the
     # exploratory mode.
-    'cores': 1,
-    'disk': 8000,   #MB
-    'memory': 10000, #MB
+    # 'cores': 1,
+    # 'disk': 8000,   #MB
+    # 'memory': 10000, #MB
 
     # control the size of accumulation tasks. Results are
     # accumulated in groups of size chunks_per_accum, keeping at

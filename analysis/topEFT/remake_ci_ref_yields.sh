@@ -3,8 +3,7 @@
 
 # Get the file the CI uses, and move it to the directory the JSON expects
 printf "\nDownloading root file...\n"
-wget http://www.crc.nd.edu/~ywan2/root_files/NAOD-00000_18449.root
-mv NAOD-00000_18449.root ../../NAOD-00000_18449.root
+wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194.root
 
 # Run the processor
 printf "\nRunning the processor...\n"

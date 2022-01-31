@@ -76,6 +76,7 @@ CR_GRP_MAP = {
     "Triboson" : [],
     "Single top" : [],
     "Singleboson" : [],
+    "Conv": [],
     "Nonprompt" : [],
     "Flips" : [],
     "Signal" : [],
@@ -222,14 +223,14 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
 
     # Make the ratio plot
     hist.plotratio(
-        num=h_mc.sum("sample"),
-        denom=h_data.sum("sample"),
-        ax=rax,
-        error_opts=DATA_ERR_OPS,
-        denom_fill_opts={},
-        guide_opts={},
-        unc='num',
-        clear=False,
+        num = h_data.sum("sample"),
+        denom = h_mc.sum("sample"),
+        ax = rax,
+        error_opts = DATA_ERR_OPS,
+        denom_fill_opts = {},
+        guide_opts = {},
+        unc = 'num',
+        clear = False,
     )
 
     # Scale the y axis and labels
@@ -268,7 +269,8 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     if year is None: pass
     elif year == "2017": sig_wl.append("UL17")
     elif year == "2018": sig_wl.append("UL18")
-    else: raise Exception # Not sure what to do about UL16 vs UL16APV yet
+    elif year == "2016": sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
+    else: raise Exception
 
     # Get the list of samples to actually plot
     all_samples = yt.get_cat_lables(dict_of_hists,"sample")
@@ -281,11 +283,9 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     print("\nAll samples:",all_samples)
     print("\nSig samples:",sig_sample_lst)
 
-    # Get the eft sum of weights at SM norm dict
-    eft_sow_scale_dict = yt.get_eft_sow_scale_dict(dict_of_hists["SumOfEFTweights"])
 
     # Loop over hists and make plots
-    skip_lst = ["SumOfEFTweights"] # Skip this hist
+    skip_lst = [] # Skip this hist
     for idx,var_name in enumerate(dict_of_hists.keys()):
         #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if (var_name in skip_lst): continue
@@ -306,12 +306,12 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
         for sample_name in sig_sample_lst:
             sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
         hist_sig.scale(sample_lumi_dict,axis="sample")
-        hist_sig.scale(eft_sow_scale_dict,axis="sample")
 
 
         # Make plots for each SR category
         if split_by_chan:
             for hist_cat in SR_CHAN_DICT.keys(): 
+                if ((var_name == "ptz") and ("3l" not in hist_cat)): continue
 
                 # Make a sub dir for this category
                 save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
@@ -415,7 +415,9 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             CR_GRP_MAP["Single top"].append(proc_name)
         elif "DY" in proc_name:
             CR_GRP_MAP["DY"].append(proc_name)
-        elif "TT" in proc_name:
+        elif "TTG" in proc_name:
+            CR_GRP_MAP["Conv"].append(proc_name)
+        elif "TTJets" in proc_name:
             CR_GRP_MAP["Ttbar"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             CR_GRP_MAP["Triboson"].append(proc_name)
@@ -427,10 +429,9 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
     # Get the eft sum of weights at SM norm dict
-    eft_sow_scale_dict = yt.get_eft_sow_scale_dict(dict_of_hists["SumOfEFTweights"])
 
     # Loop over hists and make plots
-    skip_lst = ["SumOfEFTweights"] # Skip this hist
+    skip_lst = [] # Skip this hist
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
@@ -452,7 +453,6 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         for sample_name in mc_sample_lst:
             sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
         hist_mc.scale(sample_lumi_dict,axis="sample")
-        hist_mc.scale(eft_sow_scale_dict,axis="sample")
 
         # Group the samples by process type
         hist_mc = group_bins(hist_mc,CR_GRP_MAP)
@@ -474,6 +474,15 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
             hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)
             hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)
+
+            # Remove samples that are not relevant for the given category
+            if hist_cat == "cr_2los_tt":
+                hist_mc_integrated = hist_mc_integrated.remove(["Nonprompt"],"sample")
+            if hist_cat == "cr_2lss":
+                hist_mc_integrated = hist_mc_integrated.remove(["Ttbar"],"sample")
+                hist_mc_integrated = hist_mc_integrated.remove(["DY"],"sample")
+            if hist_cat == "cr_3l":
+                hist_mc_integrated = hist_mc_integrated.remove(["DY"],"sample")
 
             # Create and save the figure
             x_range = None

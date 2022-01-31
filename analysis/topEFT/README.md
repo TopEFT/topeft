@@ -56,6 +56,10 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - More cards can be made by adding addtional calls to `analyzeChannel()` (see file for details).
     - (Optional) Specify a subset of WCs using e.g. `--POI cpt,ctp,cptb,cQlMi,cQl3i,ctlTi,ctli,cbW,cpQM,cpQ3,ctei,cQei,ctW,ctlSi,ctZ,ctG`
     - To run over the systematics in a pkl file, use the `--do-nuisance` flag. This will increase the processing time, but shouldn't take more than 10 miutes for all the condor jobs to finish.
+    - Example outputs:
+        - `ttx_multileptons-2lss_p_2b.txt` - datacard for 2lss p 2 b-jet `njets` (stores normaliztion numbers)
+        -  `ttx_multileptons-2lss_p_2b.root` - shape file for 2lss p 2 b-jet `njets` (stores actual TH1F histograms)
+        -  `ttx_multileptons-3l_onZ_1b_4j_ptbl.txt` - datacard for 3l on-shell Z 1 b-jet 4 jet `ptbl`
 
 * `drawSliders.py`:
  

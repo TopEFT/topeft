@@ -6,7 +6,7 @@ def test_make_1d_quad_plots():
         "python",
         "analysis/topEFT/make_1d_quad_plots.py",
         "-i",
-        "NAOD-00000_18449.root",
+        "ttHJet_UL17_R1B14_NAOD-00000_10194.root",
         "-r",
         "./"
     ]

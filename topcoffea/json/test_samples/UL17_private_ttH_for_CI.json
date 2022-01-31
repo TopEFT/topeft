@@ -29,10 +29,10 @@
     "ctG"
   ],
   "files": [
-    "NAOD-00000_18449.root"
+    "ttHJet_UL17_R1B14_NAOD-00000_10194.root"
   ],
   "nEvents": 7993714,
   "nGenEvents": 40553247,
-  "nSumOfWeights": 40553247.0,
+  "nSumOfWeights": 575.37356,
   "isData": false
 }
