@@ -1,10 +1,13 @@
 import subprocess
-import filecmp
 import topcoffea.modules.dataDrivenEstimation as dataDrivenEstimation
 from work_queue import Factory
 from os.path import exists
 from os import getcwd
 
+def filecmp(src_fname, dst_fname):
+    a = open(src_fname).read().strip()
+    b = open(dst_fname).read().strip()
+    return a == b
 
 def test_topcoffea():
     args = [
@@ -70,7 +73,7 @@ def test_datacard_2l():
     # Run datacard maker
     subprocess.run(args)
 
-    assert filecmp.cmp('histos/ttx_multileptons-2lss_p_2b.txt', 'analysis/topEFT/test/ttx_multileptons-2lss_p_2b_ref.txt')
+    assert filecmp('histos/ttx_multileptons-2lss_p_2b.txt', 'analysis/topEFT/test/ttx_multileptons-2lss_p_2b_ref.txt')
 
 def test_datacard_2l_ht():
     args = [
@@ -84,7 +87,7 @@ def test_datacard_2l_ht():
     # Run datacard maker
     subprocess.run(args)
 
-    assert filecmp.cmp('histos/ttx_multileptons-2lss_p_4j_2b_ht.txt', 'analysis/topEFT/test/ttx_multileptons-2lss_p_4j_2b_ht_ref.txt')
+    assert filecmp('histos/ttx_multileptons-2lss_p_4j_2b_ht.txt', 'analysis/topEFT/test/ttx_multileptons-2lss_p_4j_2b_ht_ref.txt')
 
 def test_datacard_3l():
     args = [
@@ -98,7 +101,7 @@ def test_datacard_3l():
     # Run datacard maker
     subprocess.run(args)
 
-    assert filecmp.cmp('histos/ttx_multileptons-3l_sfz_1b.txt', 'analysis/topEFT/test/ttx_multileptons-3l_sfz_1b_ref.txt')
+    assert filecmp('histos/ttx_multileptons-3l_sfz_1b.txt', 'analysis/topEFT/test/ttx_multileptons-3l_sfz_1b_ref.txt')
 
 def test_datacard_3l_ptbl():
     args = [
@@ -112,4 +115,4 @@ def test_datacard_3l_ptbl():
     # Run datacard maker
     subprocess.run(args)
 
-    assert filecmp.cmp('histos/ttx_multileptons-3l_onZ_1b_2j_ptbl.txt', 'analysis/topEFT/test/ttx_multileptons-3l_onZ_1b_2j_ptbl_ref.txt')
+    assert filecmp('histos/ttx_multileptons-3l_onZ_1b_2j_ptbl.txt', 'analysis/topEFT/test/ttx_multileptons-3l_onZ_1b_2j_ptbl_ref.txt')

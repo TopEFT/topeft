@@ -492,12 +492,12 @@ central_UL17_bkg_dict = {
         "xsecName": "ST_top_s-channel",
     },
     "UL17_ST_top_t-channel" : {
-        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer19UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM", 
         "histAxisName": "ST_top_t-channel_centralUL17",
         "xsecName": "ST_top_t-channel",
     },
     "UL17_ST_antitop_t-channel" : {
-        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer19UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM", 
         "histAxisName": "ST_antitop_t-channel_centralUL17",
         "xsecName": "ST_antitop_t-channel",
     },
@@ -562,7 +562,7 @@ central_UL17_bkg_dict = {
         "xsecName": "WZZ",
     },
     "UL17_ZZTo4L" : {
-        "path" : "/ZZTo4L_13TeV_powheg_pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM", # NOTE: PLACEHOLDER till a UL sample is available
+        "path" : "/ZZTo4L_13TeV_powheg_pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM", # NOTE: PLACEHOLDER till a UL sample is available (last checked Jan 17, 2022)
         "histAxisName": "ZZTo4L_centralUL17",
         "xsecName": "ZZTo4L",
     },
@@ -596,12 +596,12 @@ central_UL18_bkg_dict = {
         "xsecName": "ST_top_s-channel",
     },
     "UL18_ST_top_t-channel" : {
-        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer19UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM", 
         "histAxisName": "ST_top_t-channel_centralUL18",
         "xsecName": "ST_top_t-channel",
     },
     "UL18_ST_antitop_t-channel" : {
-        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer19UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM", 
         "histAxisName": "ST_antitop_t-channel_centralUL18",
         "xsecName": "ST_antitop_t-channel",
     },
@@ -621,7 +621,7 @@ central_UL18_bkg_dict = {
         "xsecName": "TTGJets",
     },
     "UL18_TTJets" : {
-        "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available (last checked Jan 17, 2022)
         "histAxisName": "TTJets_centralUL18",
         "xsecName": "TT",
     },
@@ -675,17 +675,17 @@ central_UL18_bkg_dict = {
 
 central_UL16_bkg_dict = {
     "UL16_DY10to50" : {
-        "path" : "/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available (last checked Jan 17, 2022)
         "histAxisName": "DY10to50_centralUL16",
         "xsecName": "DYJetsToLL_M_10to50_MLM",
     },
     "UL16_DY50" : {
-        "path" : "/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv9-Pilot_106X_mcRun2_asymptotic_v17-v1/NANOAODSIM", # NOTE: PLACEHOLDER till a non-pilot sample is available
+        "path" : "/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM", 
         "histAxisName": "DY50_centralUL16",
         "xsecName": "DYJetsToLL_M_50_MLM",
     },
     "UL16_ST_top_s-channel" : {
-        "path" : "/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/ST_s-channel_4f_leptonDecays_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available (last checked Jan 17, 2022)
         "histAxisName": "ST_top_s-channel_centralUL16",
         "xsecName": "ST_top_s-channel",
     },
@@ -715,7 +715,7 @@ central_UL16_bkg_dict = {
         "xsecName": "TTGJets",
     },
     "UL16_TTJets" : {
-        "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv2-106X_mcRun2_asymptotic_v15-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available (last checked Jan 17, 2022)
         "histAxisName": "TTJets_centralUL16",
         "xsecName": "TT",
     },
@@ -765,7 +765,7 @@ central_UL16_bkg_dict = {
         "xsecName": "WZZ",
     },
     "UL16_ZZTo4L" : {
-        "path" : "/ZZTo4L_13TeV_powheg_pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1/NANOAODSIM", # NOTE: PLACEHOLDER till a UL sample is available
+        "path" : "/ZZTo4L_13TeV_powheg_pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1/NANOAODSIM", # NOTE: PLACEHOLDER till a UL sample is available (last checked Jan 17, 2022)
         "histAxisName": "ZZTo4L_centralUL16",
         "xsecName": "ZZTo4L",
     },
@@ -784,7 +784,7 @@ central_UL16_bkg_dict = {
 
 central_UL16APV_bkg_dict = {
     "UL16APV_DY10to50" : {
-        "path" : "/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available (last checked Jan 17, 2022)
         "histAxisName": "DY10to50_centralUL16APV",
         "xsecName": "DYJetsToLL_M_10to50_MLM",
     },
@@ -799,12 +799,12 @@ central_UL16APV_bkg_dict = {
         "xsecName": "ST_top_s-channel",
     },
     "UL16APV_ST_top_t-channel" : {
-        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer19UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM", 
         "histAxisName": "ST_top_t-channel_centralUL16APV",
         "xsecName": "ST_top_t-channel",
     },
     "UL16APV_ST_antitop_t-channel" : {
-        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer19UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM", 
         "histAxisName": "ST_antitop_t-channel_centralUL16APV",
         "xsecName": "ST_antitop_t-channel",
     },
@@ -819,12 +819,12 @@ central_UL16APV_bkg_dict = {
         "xsecName": "ST_tW_top_5f_inclusiveDecays",
     },
     "UL16APV_TTGJets" : {
-        "path" : "/TTGJets_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM", # NOTE: PLACEHOLDER There is not UL16APV sample available yet, so using UL16 as a tmp placeholder till the correct one is available
+        "path" : "/TTGJets_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM", 
         "histAxisName": "TTGJets_centralUL16APV",
         "xsecName": "TTGJets",
     },
     "UL16APV_TTJets" : {
-        "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available (last checked Jan 17, 2022)
         "histAxisName": "TTJets_centralUL16APV",
         "xsecName": "TT",
     },
@@ -834,7 +834,7 @@ central_UL16APV_bkg_dict = {
         "xsecName": "WWTo2L2Nu",
     },
     "UL16APV_WJetsToLNu" : {
-        "path" : "/WJetsToLNu_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer19UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/WJetsToLNu_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer19UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available (last checked Jan 17, 2022)
         "histAxisName": "WJetsToLNu_centralUL16APV",
         "xsecName": "WJetsToLNu",
     },
@@ -859,7 +859,7 @@ central_UL16APV_bkg_dict = {
         "xsecName": "WWZ",
     },
     "UL16APV_WZTo3LNu" : {
-        "path" : "/WZTo3LNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/WZTo3LNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available (last checked Jan 17, 2022)
         "histAxisName": "WZTo3LNu_centralUL16APV",
         "xsecName": "WZTo3LNu",
     },
@@ -874,7 +874,7 @@ central_UL16APV_bkg_dict = {
         "xsecName": "WZZ",
     },
     "UL16APV_ZZTo4L" : {
-        "path" : "/ZZTo4L_13TeV_powheg_pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1/NANOAODSIM", # NOTE: PLACEHOLDER till a UL sample is available
+        "path" : "/ZZTo4L_13TeV_powheg_pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1/NANOAODSIM", # NOTE: PLACEHOLDER till a ULAPV sample is available (last checked Jan 17, 2022)
         "histAxisName": "ZZTo4L_centralUL16APV",
         "xsecName": "ZZTo4L",
     },
@@ -1144,10 +1144,10 @@ def main():
     #make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
 
     # Central background samples
-    #make_jsons_for_dict_of_samples(central_UL17_bkg_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_bkg_UL,on_das=True)
-    #make_jsons_for_dict_of_samples(central_UL18_bkg_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_bkg_UL,on_das=True)
-    #make_jsons_for_dict_of_samples(central_UL16_bkg_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_bkg_UL,on_das=True)
-    #make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_bkg_UL,on_das=True)
+    make_jsons_for_dict_of_samples(central_UL17_bkg_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_bkg_UL,on_das=True)
+    make_jsons_for_dict_of_samples(central_UL18_bkg_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_bkg_UL,on_das=True)
+    make_jsons_for_dict_of_samples(central_UL16_bkg_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_bkg_UL,on_das=True)
+    make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_bkg_UL,on_das=True)
 
     # Data samples
     #make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
