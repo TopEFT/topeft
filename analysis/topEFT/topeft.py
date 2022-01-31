@@ -635,6 +635,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "lep_flav_lst" : ["ee", "mm"],
                 "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
             },
+        },
         }
 
         # Include SRs and CRs unless we asked to skip them
