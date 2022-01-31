@@ -636,7 +636,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
             },
         }
-        }
 
         # Include SRs and CRs unless we asked to skip them
         cat_dict = {}
