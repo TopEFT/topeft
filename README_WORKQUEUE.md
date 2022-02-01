@@ -41,7 +41,7 @@ environment for topcoffea:
 
 ```sh
 # you may choose other python version, e.g. 3.8
-conda create --name topcoffea-env -c conda-forge python=3.9 coffea xrootd ndcctools dill conda conda-pack
+conda create --name topcoffea-env -c conda-forge --strict-channel-priority python=3.9 coffea xrootd ndcctools dill conda conda-pack
 conda activate topcoffea-env
 
 # install topcoffea via pip. We install it in editable mode to ease the test of
