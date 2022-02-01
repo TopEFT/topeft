@@ -50,18 +50,12 @@ class DatacardMaker():
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         # Get list of channels
-        self.ch2lss = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and not '4t' in
-                                                                                                            k[1]})
-        self.ch2lss += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and not '4t' in
-                                                                                                            k[1]})
-        self.ch2lss_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_p' in k[1] and not '4t' in
-                                                                                                            k[1]})
-        self.ch2lss_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_p' in k[1] and not '4t' in
-                                                                                                            k[1]})
-        self.ch2lss_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_m' in k[1] and not '4t' in
-                                                                                                            k[1]})
-        self.ch2lss_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_m' in k[1] and not '4t' in
-                                                                                                            k[1]})
+        self.ch2lss = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and not '4t' in k[1]})
+        self.ch2lss += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and not '4t' in k[1]})
+        self.ch2lss_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_p' in k[1] and not '4t' in k[1]})
+        self.ch2lss_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_p' in k[1] and not '4t' in k[1]})
+        self.ch2lss_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_m' in k[1] and not '4t' in k[1]})
+        self.ch2lss_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_m' in k[1] and not '4t' in k[1]})
         self.ch2lssj  = list(set([j[-2:].replace('j','') for j in self.ch2lss_p if 'j' in j]))
         self.ch2lssj.sort()
 
