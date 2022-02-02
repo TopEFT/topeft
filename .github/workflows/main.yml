@@ -34,11 +34,38 @@ jobs:
         run: |
           wget --no-verbose http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194.root
 
-      - name: Run processors over test files with futures executor
+      - name: Pytest setup
         run: |
           conda install -y -n coffea-env -c conda-forge pytest pytest-cov root_base
           mkdir histos
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP
+
+      - name: Test unit
+        run: |
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_unit.py
+
+      - name: Test histEFT
+        run: |
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_HistEFT_add.py
+
+      - name: Test utils
+        run: |
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_utils.py
+
+      - name: Test update json
+        run: |
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_update_json.py
+
+      - name: Test make 1d quad plots
+        run: |
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_make_1d_quad_plots.py 
+
+      - name: Run processors over test files with futures executor
+        run: |
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_futures.py
+
+      - name: Run processors over test files with workqueue executor
+        run: |
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_workqueue.py
 
       - name: Get yields 
         run: |
@@ -49,6 +76,11 @@ jobs:
         run: |
           cd analysis/topEFT
           conda run -n coffea-env python comp_yields.py output_check_yields.json test/UL17_private_ttH_for_CI_yields.json -t1 "New yields" -t2 "Ref yields"
+
+      - name: Test datacard maker
+        run: |
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_datacardmaker.py
+
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
