@@ -285,7 +285,7 @@ def AttachScaleWeights(events):
   LHE scale variation weights (w_var / w_nominal); [0] is renscfact=0.5d0 facscfact=0.5d0 ; [1] is renscfact=0.5d0 facscfact=1d0 ; [2] is renscfact=0.5d0 facscfact=2d0 ; [3] is renscfact=1d0 facscfact=0.5d0 ; [4] is renscfact=1d0 facscfact=1d0 ; [5] is renscfact=1d0 facscfact=2d0 ; [6] is renscfact=2d0 facscfact=0.5d0 ; [7] is renscfact=2d0 facscfact=1d0 ; [8] is renscfact=2d0 facscfact=2d0
   '''
   renormDown_factDown = 0; renormDown = 1; renormDown_factUp = 2; factDown = 3; nominal = 4; factUp = 5; renormUp_factDown = 6; renormUp = 7; renormUp_factUp = 8;
-  scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
+  scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # Fill with 1, we want to ignore events with bad weights (~2% of all LHE files)
   events['renorm_factDown']    = scale_weights[:,renormDown_factDown]
   events['renormDown']         = scale_weights[:,renormDown]
   events['renormDown_factUp']  = scale_weights[:,renormDown_factUp]
@@ -304,31 +304,71 @@ def AttachPdfWeights(events):
   '''
   if events['LHEPdfWeight'] is None:
       raise Exception(f'LHEPdfWeight not found in {fname}!')
-  events['nPdf'] = len(events['LHEPdfWeight'][0])
-  pdf_weights    = ak.fill_none(ak.pad_none(events['LHEPdfWeight'], len(events['LHEPdfWeight'][0])), 1).to_numpy() - 1 # FIXME this is a bandaid until we understand _why_ some are empty 
-  events['nom']     = ak.ones_like(pdf_weights[:,0])
-  events['PDFUp']   = np.sqrt(np.sum(np.square(pdf_weights - 1), axis=1))
-  events['PDFDown'] = np.sqrt(np.sum(np.square(ak.fill_none(ak.pad_none(events['LHEPdfWeight'], len(events['LHEPdfWeight'][0])), 1).to_numpy() - 1), axis=1))
-  #for ipdf in range(events['nPdf'][0]):
-  #    events['Pdf{}'.format(ipdf)] = pdf_weights[:, ipdf]
+  events['nPdf'] = len(events['LHEPdfWeight'][0]) if len(events['LHEPdfWeight'][0]) < 100 else 100 # Weights past 100 are alpha_s weights
+  pdf_weights    = ak.fill_none(ak.pad_none(events['LHEPdfWeight'], len(events['LHEPdfWeight'][0])), 1) # Fill with 1, we want to ignore events with bad weights (~2% of all LHE files)
+  #events['nom']     = ak.ones_like(pdf_weights[:,0])
+  events['PDFUp']   = pdf_weights
+  #events['PDFUp']   = np.sqrt(np.sum(np.square(pdf_weights - 1), axis=1))
+  events['PDFDown'] = ak.fill_none(ak.pad_none(events['LHEPdfWeight'], len(events['LHEPdfWeight'][0])), 1)
+  #events['PDFDown'] = np.sqrt(np.sum(np.square(ak.fill_none(ak.pad_none(events['LHEPdfWeight'], len(events['LHEPdfWeight'][0])), 1).to_numpy() - 1), axis=1))
+  for ipdf in range(events['nPdf'][0]):
+      events['Pdf{}'.format(ipdf)] = pdf_weights[:, ipdf]
 
 def ApplyPdfWeights(events, hout, all_cuts_mask, axes_fill_info_dict, dense_axis_name):
-    h_nom = hout[dense_axis_name]#.integrate("systematic", "nominal")
-    h_nom.scale(-1) # For subtracting later
-    h_pdfs = [h_nom.copy() for i in range(events["nPdf"][0])] # Need nPdf copies
-    for ipdf,h_pdf in enumerate(h_pdfs):
-        weight = events["Pdf{}".format(ipdf)][all_cuts_mask]
-        axes_fill_info_dict["weight"] = weight
-        h_pdf.fill(**axes_fill_info_dict)
-        h_pdf.add(h_nom)
-        for key,val in h_pdf._sumw.items():
-            h_pdf._sumw[key] = val**2
-    for ipdf,h_pdf in enumerate(1,h_pdfs): # Add all to h_pdf0
-        h_pdfs[0].add(h_pdf)
-    for key,val in h_pdfs[0]._sumw.items():
-        h_pdfs[0]._sumw[key] = val**(0.5)
-    print(h_pdfs.values())
-    return h_pdfs
+    h_syst = hout[dense_axis_name].copy() # Temporary hist
+    h_syst.clear()
+    syst = axes_fill_info_dict["systematic"]
+    sname = axes_fill_info_dict["systematic"]
+    axes_fill_info_dict["systematic"] = "nominal"
+    h_syst.fill(**axes_fill_info_dict) # Fill temp hist with nominal values
+    axes_fill_info_dict["systematic"] = sname
+    # Define category bins
+    sbins = (StringBin(axes_fill_info_dict["sample"]), StringBin(axes_fill_info_dict["channel"]), StringBin(axes_fill_info_dict["systematic"]), StringBin(axes_fill_info_dict["appl"]))
+    bins = (axes_fill_info_dict["sample"], axes_fill_info_dict["channel"], axes_fill_info_dict["systematic"], axes_fill_info_dict["appl"])
+    bins_nom = (StringBin(axes_fill_info_dict["sample"]), StringBin(axes_fill_info_dict["channel"]), StringBin("nominal"), StringBin(axes_fill_info_dict["appl"]))
+    h_syst.set_sm()
+    nom      = h_syst.integrate("sample", axes_fill_info_dict["sample"]).integrate("channel", axes_fill_info_dict["channel"]).integrate("systematic", "nominal").integrate("appl", axes_fill_info_dict["appl"]).values(overflow='all')[()]
+    # Only need to save the nominal, since the PDF variations have identical WC coeffs
+    nom_shape = hout[dense_axis_name].integrate("sample", axes_fill_info_dict["sample"]).integrate("channel", axes_fill_info_dict["channel"]).integrate("systematic", "nominal").integrate("appl", axes_fill_info_dict["appl"])._sumw[()].shape
+    shape = list(nom.shape)
+    shape.insert(0,events['nPdf'][0]) # `nPdf` PDFs
+    shape = tuple(shape)
+    pdfs = np.zeros(shape)
+    shape = list(nom_shape)
+    shape[-1] = shape[-1] - 1 # Shave off one for SM
+    shape = tuple(shape)
+    pad = np.zeros(shape)
+    for ipdf in range(events["nPdf"][0]): # Loop over all PDF sets (currently 100)
+        weight = events["Pdf{}".format(ipdf)][all_cuts_mask] # Load the PDF weights
+        axes_fill_info_dict["weight"] = weight * axes_fill_info_dict["weight"] # PDF event weights * other weights
+        h_pdf = hout[dense_axis_name].copy() # Temporary hists per PDF set
+        h_pdf.clear()
+        h_pdf.fill(**axes_fill_info_dict) # Fill temp hist
+        h_pdf.set_sm()
+        pdf = h_pdf.integrate("sample", axes_fill_info_dict["sample"]).integrate("channel", axes_fill_info_dict["channel"]).integrate("systematic", axes_fill_info_dict["systematic"]).integrate("appl", axes_fill_info_dict["appl"]).values(overflow='all')[()]
+        diff = pdf - nom # Calculate diff of temp and nominal
+        pdfs[ipdf] = diff / nom # TOP-18-012 used (X - nom) / nom in EFTMultilepton/TemplateMakers/test/MakeGoodPlot2/pdf_studies_plots.h
+        del h_pdf
+    curr_syst = hout[dense_axis_name]._sumw[sbins]
+    curr_syst = hout[dense_axis_name].integrate("sample", axes_fill_info_dict["sample"]).integrate("channel", axes_fill_info_dict["channel"]).integrate("systematic", axes_fill_info_dict["systematic"]).integrate("appl", axes_fill_info_dict["appl"]).values(overflow='all')[()]
+    pdf_syst = np.sqrt(np.sum(np.square(pdfs), axis=0))
+    tot_syst = np.vstack((np.append(np.sqrt(np.square(pdf_syst) + np.square(curr_syst)), [0], axis=0),pad.T)).T # Pad back to _nwc dimensions with 0
+    hout[dense_axis_name]._sumw[sbins] = tot_syst
+
+def ComputePdfUncertainty(hout):
+    for h_pdf in hout:
+        for ipdf in range(events["nPdf"][0]):
+            # Define category bins
+            bins_list     = [s for s in list(h_pdf.values().keys()) if any('PDFUp' in str(x) for x in s)]
+            bins_nom_list = [s for s in list(h_pdf.values().keys()) if any('nomianl' in str(x) for x in s)]
+            bins_pdf_list = [s for s in list(h_pdf.values().keys()) if any(f'Pdf{ipdf}' in str(x) for x in s)]
+            for n,bins_pdf in enumerate(bins_list):
+                bins_nom = bins_nom_list[n]
+                bins     = bins_list[n]
+                h_pdf    = hout[dense_axis_name] # temp histogram
+                sdiff    = np.square(h_pdf._sumw[bins_pdf]) - np.square(h_pdf._sumw[bins_nom]) # Calculate diff^2 of temp and nominal
+                unc      = np.sqrt(np.isnan(np.square(h_pdf._sumw[bins_pdf]) + sdiff)) # Add variations in quadrature
+                hout._sumw[bins] = unc # Store variations
 
 ####### JEC 
 ##############################################
