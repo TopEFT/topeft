@@ -34,11 +34,14 @@ jobs:
         run: |
           wget --no-verbose http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194.root
 
-      - name: Test unit
+      - name: Pytest setup
         run: |
           conda install -y -n coffea-env -c conda-forge pytest pytest-cov root_base
           mkdir histos
-          conda run -n coffea-env pytest tests/test_unit.py
+
+      - name: Test unit
+        run: |
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP tests/test_unit.py
 
       - name: Test histEFT
         run: |
