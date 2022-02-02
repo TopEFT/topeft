@@ -79,7 +79,7 @@ jobs:
 
       - name: Test datacard maker
         run: |
-          conda run -n coffea-env pytest tests/test_datacardmaker.py
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_datacardmaker.py
 
 
       - name: Upload coverage to Codecov
