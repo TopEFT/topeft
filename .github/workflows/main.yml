@@ -41,31 +41,31 @@ jobs:
 
       - name: Test unit
         run: |
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP tests/test_unit.py
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_unit.py
 
       - name: Test histEFT
         run: |
-          conda run -n coffea-env pytest tests/test_HistEFT_add.py
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_HistEFT_add.py
 
       - name: Test utils
         run: |
-          conda run -n coffea-env pytest tests/test_utils.py
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_utils.py
 
       - name: Test update json
         run: |
-          conda run -n coffea-env pytest tests/test_update_json.py
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_update_json.py
 
       - name: Test make 1d quad plots
         run: |
-          conda run -n coffea-env pytest tests/test_make_1d_quad_plots.py 
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_make_1d_quad_plots.py 
 
       - name: Run processors over test files with futures executor
         run: |
-          conda run -n coffea-env pytest tests/test_futures.py
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_futures.py
 
       - name: Run processors over test files with workqueue executor
         run: |
-          conda run -n coffea-env pytest tests/test_workqueue.py
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_workqueue.py
 
       - name: Get yields 
         run: |
