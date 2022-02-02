@@ -38,6 +38,12 @@ def main():
             data_2 = f2.read()
         yld_dict_2 = json.loads(data_2)
 
+    # Choose the category list to use
+    # Note, we assume that both yld dictionaries should have the same categories
+    cat_lst = yt.CAT_LST
+    if (args.yields_file_1 == "TOP-19-001") or (args.yields_file_2 == "TOP-19-001"):
+        cat_lst = yt.CAT_LST_TOP19001
+
     # Get the difference between the yields
     pdiff_dict = yt.get_diff_between_nested_dicts(yld_dict_1,yld_dict_2,difftype="percent_diff")
     diff_dict  = yt.get_diff_between_nested_dicts(yld_dict_1,yld_dict_2,difftype="absolute_diff")
@@ -51,10 +57,10 @@ def main():
         yt.print_yld_dicts(diff_dict,f"Diff between {args.tag1} and {args.tag2}")
 
         mlt.print_begin()
-        mlt.print_latex_yield_table(yld_dict_1,key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=args.tag1)
-        mlt.print_latex_yield_table(yld_dict_2,key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=args.tag2)
-        mlt.print_latex_yield_table(pdiff_dict,key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=f"Percent diff between {args.tag1} and {args.tag2}")
-        mlt.print_latex_yield_table(diff_dict, key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=f"Diff between {args.tag1} and {args.tag2}")
+        mlt.print_latex_yield_table(yld_dict_1,key_order=yt.PROC_MAP.keys(),subkey_order=cat_lst,tag=args.tag1)
+        mlt.print_latex_yield_table(yld_dict_2,key_order=yt.PROC_MAP.keys(),subkey_order=cat_lst,tag=args.tag2)
+        mlt.print_latex_yield_table(pdiff_dict,key_order=yt.PROC_MAP.keys(),subkey_order=cat_lst,tag=f"Percent diff between {args.tag1} and {args.tag2}")
+        mlt.print_latex_yield_table(diff_dict, key_order=yt.PROC_MAP.keys(),subkey_order=cat_lst,tag=f"Diff between {args.tag1} and {args.tag2}")
         mlt.print_end()
 
     # Raise errors if yields are too different
