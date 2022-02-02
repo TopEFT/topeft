@@ -403,18 +403,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           # 2lss selection
           # Drained of 4 top
-          selections.add("2lss_p", (
-                    events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-          selections.add("2lss_m", (
-                    events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note:
+          selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note:
           # The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 		
         # Enriched in 4 top
-          selections.add("2lss_4t_p", (
-                    events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point!
+          selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point!
           # We take care of it later with the appl axis
-          selections.add("2lss_4t_m", (
-                  events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note:
+          selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note:
           # The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 		
           selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis

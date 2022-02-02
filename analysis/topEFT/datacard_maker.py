@@ -59,18 +59,12 @@ class DatacardMaker():
         self.ch2lssj  = list(set([j[-2:].replace('j','') for j in self.ch2lss_p if 'j' in j]))
         self.ch2lssj.sort()
 
-        self.ch2lss_4t = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and
-                               ('4t' in k[1] or 'CR' in k[1])})
-        self.ch2lss_4t += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in
-                                                                                                            k[1]})
-        self.ch2lss_4t_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and
-                                 '4t' in k[1] and '_p' in k[1]})
-        self.ch2lss_4t_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and
-                                 '4t' in k[1] and '_p' in k[1]})
-        self.ch2lss_4t_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and
-                                 '4t' in k[1] and '_m' in k[1]})
-        self.ch2lss_4t_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and
-                                 '4t' in k[1] and '_m' in k[1]})
+        self.ch2lss_4t = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and  ('4t' in k[1] or 'CR' in k[1])})
+        self.ch2lss_4t += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in k[1]})
+        self.ch2lss_4t_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_p' in k[1]})
+        self.ch2lss_4t_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_p' in k[1]})
+        self.ch2lss_4t_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_m' in k[1]})
+        self.ch2lss_4t_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_m' in k[1]})
         self.ch2lss_4tj  = list(set([j[-2:].replace('j','') for j in self.ch2lss_4t_p if 'j' in j]))
         self.ch2lss_4tj.sort()
 		
