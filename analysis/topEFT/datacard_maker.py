@@ -31,7 +31,7 @@ class DatacardMaker():
         self.year = single_year
         self.do_sm = do_sm
         # Variables we have defined a binning for
-        self.known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','l_j_pairs_pt_max','l_j_pairs_mass_max','l_j_triplets_pt_max','l_j_triplets_mass_max']
+        self.known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt']
 
     def read(self):
         '''
@@ -60,15 +60,8 @@ class DatacardMaker():
             self.analysis_bins['bl0pt'] = [0, 100, 200, 400, self.hists['bl0pt'].axis('bl0pt').edges()[-1]]
         if 'l0pt' in self.hists:
             self.analysis_bins['l0pt'] = [0, 50, 100, 200, self.hists['l0pt'].axis('l0pt').edges()[-1]]
-
-        if 'l_j_pairs_pt_max' in self.hists:
-            self.analysis_bins['l_j_pairs_pt_max'] = [0, 150, 250, 500, self.hists['l_j_pairs_pt_max'].axis('l_j_pairs_pt_max').edges()[-1]]
-        if 'l_j_pairs_mass_max' in self.hists:
-            self.analysis_bins['l_j_pairs_mass_max'] = [0, 200, 350, 700, self.hists['l_j_pairs_mass_max'].axis('l_j_pairs_mass_max').edges()[-1]]
-        if 'l_j_triplets_pt_max' in self.hists:
-            self.analysis_bins['l_j_triplets_pt_max'] = [0, 150, 300, 500, self.hists['l_j_triplets_pt_max'].axis('l_j_triplets_pt_max').edges()[-1]]
-        if 'l_j_triplets_mass_max' in self.hists:
-            self.analysis_bins['l_j_triplets_mass_max'] = [0, 350, 550, 850, self.hists['l_j_triplets_mass_max'].axis('l_j_triplets_mass_max').edges()[-1]]
+        if 'lj0pt' in self.hists:
+            self.analysis_bins['lj0pt'] = [0, 150, 250, 500, self.hists['lj0pt'].axis('lj0pt').edges()[-1]]
 
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
