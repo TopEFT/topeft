@@ -665,7 +665,7 @@ class DatacardMaker():
                     else: wcpt.append([f'quad_mixed_{wc1}_{wc2}', wl])
         self.wcs     = wcpt
         return wcpt
-    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm):
+    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm, var_lst):
         os.system('mkdir -p %s/condor' % os.getcwd())
         os.system('mkdir -p %s/condor/log' % os.getcwd())
         target = '%s/condor_submit.sh' % os.getcwd()
@@ -677,6 +677,7 @@ class DatacardMaker():
         condorFile.write('job=$2\n')
         condorFile.write('\n')
         args = []
+        args.append('--var-lst ' + ' '.join(var_lst))
         if do_nuisance: args.append('--do-nuisance')
         if len(wcs) > 0: args.append('--POI ' + ','.join(wcs))
         if do_sm: args.append('--do-sm')
@@ -779,7 +780,7 @@ if __name__ == '__main__':
     for j in jobs:
         njobs = njobs + len(j)
     if job == -1:
-        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm)
+        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm, include_var_lst)
     elif job < njobs:
         d = jobs[job//len(jobs[0])][job%len(jobs[0])]
         card.analyzeChannel(**d)
