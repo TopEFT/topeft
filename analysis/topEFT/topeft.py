@@ -361,7 +361,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             if "4l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
 
-
           # Systematics
           systList = ["nominal"]
           if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown"]
@@ -401,18 +400,15 @@ class AnalysisProcessor(processor.ProcessorABC):
           # Lumi mask (for data)
           selections.add("is_good_lumi",lumi_mask)
 
-          # 2lss selection
-          # Drained of 4 top
+          # 2lss selection (drained of 4 top)
           selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-          selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note:
-          # The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+
+          # 2lss selection (enriched in 4 top)
+          selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 		
-        # Enriched in 4 top
-          selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point!
-          # We take care of it later with the appl axis
-          selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note:
-          # The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-		
+          # 2lss selection for CR
           selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
           # 2los selection
@@ -477,8 +473,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
           # Z pt (pt of the ll pair that form the Z for the onZ categories)
           ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
-
-
 
           # Define invariant mass hists
           mll_0_1 = (l0+l1).mass # Invmass for leading two leps
@@ -720,5 +714,4 @@ if __name__ == '__main__':
     outpath= './coffeaFiles/'
     samples     = load(outpath+'samples.coffea')
     topprocessor = AnalysisProcessor(samples)
-
 
