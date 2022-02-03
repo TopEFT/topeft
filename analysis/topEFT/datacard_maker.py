@@ -13,6 +13,7 @@ from copy import deepcopy
 from ROOT import TFile, TH1D, TH2D
 
 class DatacardMaker():
+
     def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False):
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
@@ -29,7 +30,8 @@ class DatacardMaker():
         if len(self.coeffs) > 0: print(f'Using the subset {self.coeffs}')
         self.year = single_year
         self.do_sm = do_sm
-
+        # Variables we have defined a binning for
+        self.known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt']
 
     def read(self):
         '''
@@ -38,6 +40,11 @@ class DatacardMaker():
         print(f'Loading {self.fin}')
         with gzip.open(self.fin) as fin:
             self.hists = pickle.load(fin)
+
+        # Variables present in the pkl file
+        self.all_var_lst = yt.get_hist_list(self.hists)
+
+        # The bins to use in the analysis
         self.analysis_bins = {'njets': {'2l': [4,5,6,7,self.hists['njets'].axis('njets').edges()[-1]], # Last bin in topeft.py is 10, this should grab the overflow
                                         '3l': [2,3,4,5,self.hists['njets'].axis('njets').edges()[-1]],
                                         '4l': [2,3,4,self.hists['njets'].axis('njets').edges()[-1]] }}
@@ -47,6 +54,16 @@ class DatacardMaker():
             self.analysis_bins['ht'] = [0, 100, 200, 300, 400, self.hists['ht'].axis('ht').edges()[-1]]
         if 'ptz' in self.hists:
             self.analysis_bins['ptz'] = [0, 80, 200, 320, 440, self.hists['ptz'].axis('ptz').edges()[-1]]
+        if 'o0pt' in self.hists:
+            self.analysis_bins['o0pt'] = [0, 100, 200, 400, self.hists['o0pt'].axis('o0pt').edges()[-1]]
+        if 'bl0pt' in self.hists:
+            self.analysis_bins['bl0pt'] = [0, 100, 200, 400, self.hists['bl0pt'].axis('bl0pt').edges()[-1]]
+        if 'l0pt' in self.hists:
+            self.analysis_bins['l0pt'] = [0, 50, 100, 200, self.hists['l0pt'].axis('l0pt').edges()[-1]]
+        if 'lj0pt' in self.hists:
+            self.analysis_bins['lj0pt'] = [0, 150, 250, 500, self.hists['lj0pt'].axis('lj0pt').edges()[-1]]
+
+        if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         # Get list of channels
@@ -658,7 +675,7 @@ class DatacardMaker():
                     else: wcpt.append([f'quad_mixed_{wc1}_{wc2}', wl])
         self.wcs     = wcpt
         return wcpt
-    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm):
+    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm, var_lst):
         os.system('mkdir -p %s/condor' % os.getcwd())
         os.system('mkdir -p %s/condor/log' % os.getcwd())
         target = '%s/condor_submit.sh' % os.getcwd()
@@ -670,6 +687,7 @@ class DatacardMaker():
         condorFile.write('job=$2\n')
         condorFile.write('\n')
         args = []
+        args.append('--var-lst ' + ' '.join(var_lst))
         if do_nuisance: args.append('--do-nuisance')
         if len(wcs) > 0: args.append('--POI ' + ','.join(wcs))
         if do_sm: args.append('--do-sm')
@@ -699,7 +717,12 @@ class DatacardMaker():
 
 
 if __name__ == '__main__':
+
     import argparse
+
+    from topcoffea.modules.YieldTools import YieldTools
+    yt = YieldTools()
+
     parser = argparse.ArgumentParser(description='You can select which file to run over')
     parser.add_argument('pklfile'           , nargs='?', default=''           , help = 'Pickle file with histograms')
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
@@ -708,6 +731,8 @@ if __name__ == '__main__':
     parser.add_argument('--job',      '-j', default='-1'       , help = 'Job to run')
     parser.add_argument('--year',     '-y', default=''         , help = 'Run over single year')
     parser.add_argument('--do-sm',          action='store_true', help = 'Run over SM only')
+    parser.add_argument('--var-lst',        default=[], action='extend', nargs='+', help = 'Specify a list of variables to make cards for.')
+
     args = parser.parse_args()
     pklfile  = args.pklfile
     lumiJson = args.lumiJson
@@ -716,17 +741,34 @@ if __name__ == '__main__':
     job = int(args.job)
     year = args.year
     do_sm = args.do_sm
+    var_lst = args.var_lst
     if isinstance(wcs, str): wcs = wcs.split(',')
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
     if do_nuisance: print('Running with nuisance parameters, this will take a bit longer')
     if job > -1: print('Only running one job locally')
     else: print('Submitting all jobs to condor')
+
     card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm)
     card.read()
     card.buildWCString()
     jobs = []
-    for var in ['njets','ht','ptbl']:
+
+    # Get the list of hists to make datacards for
+    # If we don't specify a variable, use all variables in the pkl that we have a binning defined for
+    include_var_lst = []
+    target_var_lst = var_lst
+    if len(var_lst) == 0:
+        target_var_lst = yt.get_hist_list(pklfile)
+    for var_name in target_var_lst:
+        if var_name in card.known_var_lst:
+            include_var_lst.append(var_name)
+    if len(include_var_lst) == 0: raise Exception("No variables specified")
+    print(f"\nMaking cards for: {include_var_lst}\n")
+
+    # Set up cards lst
+    for var in include_var_lst:
+        if var == 'ptz': continue # This var only applies to a subset of the channels
         cards = [{'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
                  {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
                  {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
@@ -739,7 +781,7 @@ if __name__ == '__main__':
                  {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
                  {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
         jobs.append(cards)
-    for var in ['ptz']:
+    if 'ptz' in include_var_lst:
         cards = [
             {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
             {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
@@ -750,7 +792,7 @@ if __name__ == '__main__':
     for j in jobs:
         njobs = njobs + len(j)
     if job == -1:
-        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm)
+        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm, include_var_lst)
     elif job < njobs:
         d = jobs[job//len(jobs[0])][job%len(jobs[0])]
         card.analyzeChannel(**d)
