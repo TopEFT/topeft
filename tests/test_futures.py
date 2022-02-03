@@ -81,7 +81,7 @@ def test_datacard_2l_ht():
         "analysis/topEFT/datacard_maker.py",
         "analysis/topEFT/histos/output_check_yields.pkl.gz",
         "-j",
-        "9"
+        "11"
     ]
 
     # Run datacard maker
@@ -95,7 +95,7 @@ def test_datacard_3l():
         "analysis/topEFT/datacard_maker.py",
         "analysis/topEFT/histos/output_check_yields.pkl.gz",
         "-j",
-        "6"
+        "8"
     ]
 
     # Run datacard maker
@@ -109,7 +109,7 @@ def test_datacard_3l_ptbl():
         "analysis/topEFT/datacard_maker.py",
         "analysis/topEFT/histos/output_check_yields.pkl.gz",
         "-j",
-        "24"
+        "30"
     ]
 
     # Run datacard maker
