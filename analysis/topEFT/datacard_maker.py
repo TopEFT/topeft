@@ -18,7 +18,10 @@ class DatacardMaker():
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.rename = {**self.rename, **{'ttH_centralUL17': 'ttH', 'ttH_centralUL16': 'ttH', 'ttH_centralUL18': 'ttH', 'ttHJetToNonbb_M125_centralUL16': 'ttH', 'ttHJetToNonbb_M125_APV_centralUL16': 'ttH', 'ttW_centralUL17': 'ttW', 'ttZ_centralUL17': 'ttZ', 'tZq_centralUL17': 'tllq', 'ttH_centralUL17': 'ttH', 'ttW_centralUL18': 'ttW', 'ttZ_centralUL18': 'ttZ', 'tZq_centralUL18': 'tllq', 'ttH_centralUL18': 'ttH'}}
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
-        self.syst_special = {'charge_flips': 0.3} # 30% flat uncertainty for charge flips
+        # Special systematics
+        # {'syst', x} will apply 1+x to _all_ categories
+        # {'syst',{'bin1': x},...,{'binN': x}} will apply 1+x to any categories matching bin1 - binN (e.g. 2lss)
+        self.syst_special = {'charge_flips': {'2lss': 0.3}, 'lumi': 0.05} # 30% flat uncertainty for charge flips
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         # Dictionary of njet bins
@@ -345,11 +348,19 @@ class DatacardMaker():
                     else:
                         systMap[syst] = {process: round(h_sys.Integral(), 3)}
             for syst_special,val in self.syst_special.items():
-                if syst_special not in process: continue
-                if syst in systMap:
-                    systMap[syst_special+'_flat_rate'].update({process: 1+val})
+                # Check for special bins
+                if isinstance(val,dict) and not any((b in fout.GetName() for b in val.keys())): continue
+                if isinstance(val,dict):
+                    for b in val:
+                        if b in fout.GetName(): # Might need to improve this: works for '2lss' not sure about '2lss_p'
+                            syst = val[b]
+                            break
+                else: syst = val
+                syst_cat = syst_special+'_flat_rate'
+                if any((syst_cat in s for s in systMap)):# and syst_special in systMap[syst_cat]:
+                    systMap[syst_special+'_flat_rate'].update({process: 1+syst})
                 else:
-                    systMap[syst_special+'_flat_rate'] = {process: 1+val}
+                    systMap[syst_cat] = {process: 1+syst}
                     
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
