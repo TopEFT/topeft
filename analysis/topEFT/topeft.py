@@ -72,14 +72,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         "j0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
         "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 200, 0, 2000)),
         "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
-
-        "o0pt"             : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt", "Leading l or b jet $p_{T}$ (GeV)", 200, 0, 2000)),
-        "bl0pt"            : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt", "Leading (b+l) $p_{T}$ (GeV)", 200, 0, 2000)),
-        "blmassleqt0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("blmassleqt0pt", "Leading (b+l) with m<t $p_{T}$ (GeV)", 200, 0, 2000)),
-        "l_j_pairs_pt_max"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_j_pairs_pt_max",    "Leading pt of pair from l+j collection (GeV)", 200, 0, 2000)),
-        "l_j_pairs_mass_max"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_j_pairs_mass_max",    "Leading mass of pair from l+j collection (GeV)", 200, 0, 2000)),
-        "l_j_triplets_pt_max"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_j_triplets_pt_max",    "Leading pt of triplet from l+j collection (GeV)", 200, 0, 2000)),
-        "l_j_triplets_mass_max" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_j_triplets_mass_max",    "Leading mass of triplet from l+j collection (GeV)", 200, 0, 2000)),
+        "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 200, 0, 2000)),
+        "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 200, 0, 2000)),
+        "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",    "Leading pt of pair from l+j collection (GeV)", 200, 0, 2000)),
         })
 
         # Set the list of hists to fill
@@ -489,15 +484,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           l_j_pairs = ak.combinations(l_j_collection,2,fields=["o0","o1"])
           l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
           l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
-          l_j_pairs_pt_max = ak.max(l_j_pairs_pt,axis=-1)
-          l_j_pairs_mass_max = ak.max(l_j_pairs_mass,axis=-1)
-
-          # Triplets of l+j
-          l_j_triplets = ak.combinations(l_j_collection,3,fields=["o0","o1","o2"])
-          l_j_triplets_pt = (l_j_triplets.o0 + l_j_triplets.o1 + l_j_triplets.o2).pt
-          l_j_triplets_mass = (l_j_triplets.o0 + l_j_triplets.o1 + l_j_triplets.o2).mass
-          l_j_triplets_pt_max = ak.max(l_j_triplets_pt,axis=-1)
-          l_j_triplets_mass_max = ak.max(l_j_triplets_mass,axis=-1)
+          lj0pt = ak.max(l_j_pairs_pt,axis=-1)
 
           # Z pt (pt of the ll pair that form the Z for the onZ categories) 
           ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)     
@@ -521,14 +508,10 @@ class AnalysisProcessor(processor.ProcessorABC):
           varnames["invmass"] = mll_0_1
           varnames["ptbl"]    = ak.flatten(ptbl)
           varnames["ptz"]     = ptz
-
-          varnames["b0pt"]          = ak.flatten(ptbl_bjet.pt)
-          varnames["bl0pt"]         = bl0pt
-          varnames["o0pt"]          = o0pt
-          varnames["l_j_pairs_pt_max"]   = l_j_pairs_pt_max
-          varnames["l_j_pairs_mass_max"] = l_j_pairs_mass_max
-          varnames["l_j_triplets_pt_max"]   = l_j_triplets_pt_max
-          varnames["l_j_triplets_mass_max"] = l_j_triplets_mass_max
+          varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
+          varnames["bl0pt"]   = bl0pt
+          varnames["o0pt"]    = o0pt
+          varnames["lj0pt"]   = lj0pt
 
 
           ########## Fill the histograms ##########
@@ -732,8 +715,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                     if (("j0" in dense_axis_name) & ("CRZ" in ch_name)): continue
                                     if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                    if (("triplets" in dense_axis_name) & ("2l" in lep_chan)): continue
-                                    if ((dense_axis_name in ["o0pt","b0pt","bl0pt","blmassleqt0pt"]) & ("CR" in ch_name)): continue
+                                    if ((dense_axis_name in ["o0pt","b0pt","bl0pt","lj0pt"]) & ("CR" in ch_name)): continue
                                     hout[dense_axis_name].fill(**axes_fill_info_dict)
 
                                     # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
