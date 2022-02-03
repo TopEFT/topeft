@@ -5,12 +5,10 @@ if [[ "$PWD" == *"analysis/topEFT"* ]]; then
     cwd=$PWD
     cd ../../
 fi
-if [[ ! -f "analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz" ]]; then
 echo -e "Running TopCoffea first.\nMake sure you have the nanoAOD test file.\n"
 wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194.root
 python -c 'import tests.test_topcoffea; tests.test_topcoffea.test_topcoffea()'
 python -c 'import tests.test_topcoffea; tests.test_topcoffea.test_nonprompt()'
-fi
 echo -e "Running initial scans\nIgnore any errors.\n"
 mkdir -p histos
 python -c 'import tests.test_topcoffea; tests.test_topcoffea.test_datacard_2l()'
