@@ -1,5 +1,4 @@
 import os
-import filecmp
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.update_json import update_json
@@ -23,7 +22,9 @@ def test_update_json():
     update_json(src_fname,outname=dst_fname,verbose=True)
 
     assert (os.path.exists(dst_fname))
-    assert (filecmp.cmp(src_fname,dst_fname))
+    a = open(src_fname).read().strip()
+    b = open(dst_fname).read().strip()
+    assert (a==b)
 
     updates = {
         "xsec": 909.090,

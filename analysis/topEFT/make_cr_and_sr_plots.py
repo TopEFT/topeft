@@ -283,11 +283,9 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     print("\nAll samples:",all_samples)
     print("\nSig samples:",sig_sample_lst)
 
-    # Get the eft sum of weights at SM norm dict
-    eft_sow_scale_dict = yt.get_eft_sow_scale_dict(dict_of_hists["SumOfEFTweights"])
 
     # Loop over hists and make plots
-    skip_lst = ["SumOfEFTweights"] # Skip this hist
+    skip_lst = [] # Skip this hist
     for idx,var_name in enumerate(dict_of_hists.keys()):
         #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if (var_name in skip_lst): continue
@@ -308,7 +306,6 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
         for sample_name in sig_sample_lst:
             sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
         hist_sig.scale(sample_lumi_dict,axis="sample")
-        hist_sig.scale(eft_sow_scale_dict,axis="sample")
 
 
         # Make plots for each SR category
@@ -432,10 +429,9 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
     # Get the eft sum of weights at SM norm dict
-    eft_sow_scale_dict = yt.get_eft_sow_scale_dict(dict_of_hists["SumOfEFTweights"])
 
     # Loop over hists and make plots
-    skip_lst = ["SumOfEFTweights"] # Skip this hist
+    skip_lst = [] # Skip this hist
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
@@ -457,7 +453,6 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         for sample_name in mc_sample_lst:
             sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
         hist_mc.scale(sample_lumi_dict,axis="sample")
-        hist_mc.scale(eft_sow_scale_dict,axis="sample")
 
         # Group the samples by process type
         hist_mc = group_bins(hist_mc,CR_GRP_MAP)

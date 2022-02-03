@@ -6,10 +6,11 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2016/2021_11_18/v1/SingleElectron_F_HIPM_UL2016/output_1569.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2016/2021_11_18/v1/SingleElectron_F_HIPM_UL2016/output_1633.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2016/2021_11_18/v1/SingleElectron_F_HIPM_UL2016/output_1735.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2016/2021_11_18/v1/SingleElectron_F_HIPM_UL2016/output_1810.root"
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_F_HIPM_UL2016/output_521.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_F_HIPM_UL2016/output_533.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_F_HIPM_UL2016/output_544.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_F_HIPM_UL2016/output_570.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_F_HIPM_UL2016/output_571.root"
   ],
   "nEvents": 61735326,
   "nGenEvents": 61735326,

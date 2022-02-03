@@ -131,9 +131,6 @@ class DatacardMaker():
         self.rename = {**self.rename, **rename}
         self.has_nonprompt = not any(['appl' in str(a) for a in self.hists['njets'].axes()]) # Check for nonprompt samples by looking for 'appl' axis
         self.syst = list({k[2]:0 for k in self.hists['ptbl'].values().keys()})
-        self.hsow = self.hists['SumOfEFTweights']
-        self.hsow.set_sm()
-        self.smsow = {proc: self.hsow.integrate('sample', proc).values()[()][0] for proc in self.samples if any([proc in k[0] for k in self.hsow.values().keys()]) and (len(self.hsow.integrate('sample', proc)._sumw[()].shape)==2)}
         with open(lumiJson) as jf:
             lumi = json.load(jf)
             self.lumi = lumi
@@ -246,8 +243,6 @@ class DatacardMaker():
                 print(f'Issue with {proc}')
                 continue
             years = {year : self.lumi[year] for year in ul}
-            if proc in self.smsow:
-                years = {year : self.lumi[year]/self.smsow[proc] for year in ul}
             h_base.scale(years, axis='year')
             h_base = h_base.integrate('year')
             pname = self.rename[p]+'_' if p in self.rename else p

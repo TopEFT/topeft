@@ -1,0 +1,22 @@
+{
+  "xsec": 1.0,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "dataUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_C_HIPM_UL2016/output_263.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_C_HIPM_UL2016/output_402.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_C_HIPM_UL2016/output_411.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_C_HIPM_UL2016/output_425.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_C_HIPM_UL2016/output_443.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_C_HIPM_UL2016/output_455.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_C_HIPM_UL2016/output_456.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_C_HIPM_UL2016/output_457.root"
+  ],
+  "nEvents": 67441308,
+  "nGenEvents": 67441308,
+  "nSumOfWeights": 67441308.0,
+  "isData": true
+}

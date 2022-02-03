@@ -25,16 +25,8 @@ class DataDrivenProducer:
             self.inhist=self.outHist
 
         self.outHist={}
-        if 'SumOfEFTweights' in self.inhist:
-            self.outHist['SumOfEFTweights']=self.inhist['SumOfEFTweights']
-            SumOfEFTweights=self.inhist['SumOfEFTweights']
-            SumOfEFTweights.set_sm()
-            self.smsow = {proc: SumOfEFTweights.integrate('sample', proc).values()[()][0] for proc in SumOfEFTweights.identifiers('sample') if (len(SumOfEFTweights.integrate('sample', proc)._sumw[()].shape)==2)} # get only samples with EFT stuff
 
         for key,histo in self.inhist.items():
-            if key == 'SumOfEFTweights': 
-                # we have already dealt with the sum of weights
-                continue 
 
             if not len(histo.values()): # histo is empty, so we just integrate over appl and keep an empty histo
                 print(f'[W]: Histogram {key} is empty, returning an empty histo')
@@ -57,8 +49,7 @@ class DataDrivenProducer:
 
                 if self.dataName == sampleName:
                     continue # We do not scale data
-                smweight = self.smsow[sample] if sample in self.smsow else 1 # dont reweight samples not in smsow
-                scale_dict[(sample, )] = 1000.0*get_lumi('20'+year)/smweight
+                scale_dict[(sample, )] = 1000.0*get_lumi('20'+year)
 
             prescale=histo.values().copy()
             histo.scale( scale_dict, axis=('sample',))
@@ -141,8 +132,6 @@ class DataDrivenProducer:
                 scaleDict[sample]=1.0/(1000.0*get_lumi('20'+year))
             newhist.scale( scaleDict, axis='sample')
 
-            # Scale back the EFT samples by sum of weights at SM so they can be used transparently downstream
-            newhist.scale( self.smsow, axis='sample')
 
             self.outHist[key]=newhist
 
