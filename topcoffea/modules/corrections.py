@@ -353,7 +353,9 @@ def ApplyJetSystematics(cleanedJets,syst_var):
   elif(syst_var == 'JERDown'): return cleanedJets.JER.down
   elif(syst_var == 'JESUp'): return cleanedJets.JES_jes.up
   elif(syst_var == 'JESDown'): return cleanedJets.JES_jes.down
-  else: return cleanedJets
+  elif(syst_var == 'nominal'): return cleanedJets
+  elif(syst_var in ['nominal','MuonESUp','MuonESDown']): return cleanedJets
+  else: raise Exception(f"Error: Unknown variation \"{syst_var}\".")
 ###### Muon Rochester corrections
 ################################################################
 # https://gitlab.cern.ch/akhukhun/roccor
