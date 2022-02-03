@@ -65,12 +65,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ",50 , 60, 130)),
         "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
         "nbtagsl" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsl",  "Loose btag multiplicity ", 5, 0, 5)),
-        "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 25, 0, 200)),
-        "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 25, 0, 200)),
+        "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 50, 0, 500)),
+        "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 100, 0, 1000)),
+        "b0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("b0pt",    "Leading b jet  $p_{T}$ (GeV)", 100, 0, 1000)),
         "l0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",   "Leading lep $\eta$", 30, -3.0, 3.0)),
         "j0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
         "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 200, 0, 2000)),
         "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
+        "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 200, 0, 2000)),
+        "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 200, 0, 2000)),
+        "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",    "Leading pt of pair from l+j collection (GeV)", 200, 0, 2000)),
         })
 
         # Set the list of hists to fill
@@ -464,6 +468,24 @@ class AnalysisProcessor(processor.ProcessorABC):
           ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
           ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
 
+          # Leading (b+l) pair pt
+          bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
+          bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
+          blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
+          bl0pt = ak.flatten(blpt[ak.argmax(blpt,axis=-1,keepdims=True)])
+
+          # Collection of all objects (leptons and jets)
+          l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
+
+          # Leading object (j or l) pt
+          o0pt = ak.max(l_j_collection.pt,axis=-1)
+
+          # Pairs of l+j
+          l_j_pairs = ak.combinations(l_j_collection,2,fields=["o0","o1"])
+          l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
+          l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
+          lj0pt = ak.max(l_j_pairs_pt,axis=-1)
+
           # Z pt (pt of the ll pair that form the Z for the onZ categories) 
           ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)     
         
@@ -486,6 +508,10 @@ class AnalysisProcessor(processor.ProcessorABC):
           varnames["invmass"] = mll_0_1
           varnames["ptbl"]    = ak.flatten(ptbl)
           varnames["ptz"]     = ptz
+          varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
+          varnames["bl0pt"]   = bl0pt
+          varnames["o0pt"]    = o0pt
+          varnames["lj0pt"]   = lj0pt
 
 
           ########## Fill the histograms ##########
@@ -686,9 +712,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         "eft_coeff"     : eft_coeffs_cut,
                                         "eft_err_coeff" : eft_w2_coeffs_cut,
                                     }
-                                    
+
                                     if (("j0" in dense_axis_name) & ("CRZ" in ch_name)): continue
                                     if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                    if ((dense_axis_name in ["o0pt","b0pt","bl0pt","lj0pt"]) & ("CR" in ch_name)): continue
                                     hout[dense_axis_name].fill(**axes_fill_info_dict)
 
                                     # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
