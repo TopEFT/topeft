@@ -334,7 +334,17 @@ class DatacardMaker():
             xmin = h.GetXaxis().GetXmin()
             xmax = h.GetXaxis().GetXmax()
             xwidth = h.GetXaxis().GetBinWidth(1)
-            h.GetXaxis().SetRangeUser(xmin, xmax + 1.5*xwidth) #Include overflow bin in ROOT
+
+            # Fold overflow bin in ROOT into last bin (combine does NOT use the overflow bin)
+            last = h.GetBinContent(h.GetNbinsX())                  # Last bin
+            over = h.GetBinContent(h.GetNbinsX()+1)                # Overflow
+            e_last = h.GetBinError(h.GetNbinsX())                  # Last bin error
+            e_over = h.GetBinError(h.GetNbinsX()+1)                # Overflow error
+            h.SetBinContent(h.GetNbinsX(), last+over)              # Add overflow to last bin
+            h.SetBinError(h.GetNbinsX(),(e_last**2+e_over**2)**.5) # Add overflow error in quadrature to last bin
+            h.SetBinContent(h.GetNbinsX()+1, 0.0)                  # Set overflow to 0
+            h.SetBinError(h.GetNbinsX()+1,0.0)                     # Set overflow error to 0
+
             return deepcopy(h) # to protect d_hists from modifications 
 
         def processSyst(process, systMap, d_hists, fout):
