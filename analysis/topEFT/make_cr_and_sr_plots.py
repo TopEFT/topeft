@@ -51,6 +51,10 @@ CR_CHAN_DICT = {
 
 
 SR_CHAN_DICT = {
+    "2lss_4t_SR": [
+        "2lss_4t_p_4j", "2lss_4t_m_5j", "2lss_4t_m_6j", "2lss_4t_m_7j",
+        "2lss_4t_p_4j", "2lss_4t_p_5j", "2lss_4t_p_6j", "2lss_4t_p_7j",
+    ],
     "2lss_SR" : [
         "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
         "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",

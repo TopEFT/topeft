@@ -66,6 +66,10 @@ def test_datacard_2l():
         "python",
         "analysis/topEFT/datacard_maker.py",
         "analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz",
+        "--var-lst",
+        "njets",
+        "ht",
+        "ptbl",
         "-j",
         "0",
     ]
@@ -80,8 +84,12 @@ def test_datacard_2l_ht():
         "python",
         "analysis/topEFT/datacard_maker.py",
         "analysis/topEFT/histos/output_check_yields.pkl.gz",
+        "--var-lst",
+        "njets",
+        "ht",
+        "ptbl",
         "-j",
-        "9"
+        "11"
     ]
 
     # Run datacard maker
@@ -94,8 +102,12 @@ def test_datacard_3l():
         "python",
         "analysis/topEFT/datacard_maker.py",
         "analysis/topEFT/histos/output_check_yields.pkl.gz",
+        "--var-lst",
+        "njets",
+        "ht",
+        "ptbl",
         "-j",
-        "6"
+        "8"
     ]
 
     # Run datacard maker
@@ -108,8 +120,12 @@ def test_datacard_3l_ptbl():
         "python",
         "analysis/topEFT/datacard_maker.py",
         "analysis/topEFT/histos/output_check_yields.pkl.gz",
+        "--var-lst",
+        "njets",
+        "ht",
+        "ptbl",
         "-j",
-        "24"
+        "30"
     ]
 
     # Run datacard maker

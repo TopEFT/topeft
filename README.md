@@ -70,6 +70,45 @@ condor_submit_workers -M ${USER}-workqueue-coffea -t 900 --cores 12 --memory 480
 The workers will terminate themselves after 15 minutes of inactivity.
 
 
+### How to contribute
+
+If you would like to push changes to the TopCoffea repo, please push your new branch using `git push -u origin branch_name` where `origin` is the remote name for our repo, and `branch_name` is the name you would like to use (usually the same name in your local development area, but it doesn't have to be). After that, go the GitHub repo and open a PR. If you are developing on a fork, the CodeCov CI will fail. If possible, try to develope on the main repo instead.
+
+__NOTE:__ If your branch gets out of date as other PRs are merged into the master branch, please run:
+```bash
+git fetch origin
+git merge origin/master
+```
+Depending on the changes, you might need to fix any conflicts, and then push these changes to your PR.
+
+If your branch changes anything related to the yields, please run:
+```bash
+cd analysis/topEFT/
+sh remake_ci_ref_yields.sh
+sh remake_ci_ref_datacard.sh
+```
+The first script remakes the reference `json` file for the yields, and the second remakes the reference `txt` file for the datacar maker. If you are _certian_ these change are correct, commit and push them to the PR.
+
+#### Installing pytest locally
+To install `pytest` for local testing, run:
+```bash
+conda install -c conda-forge pytest pytest-cov
+```
+where `pytest-cov` is only used if you want to locally check the code coverage.
+
+#### Running pytest locally
+
+The `pytest` commands are run automatically in the CI. If you would like to run them locally, you can simply run:
+```bash
+pytest
+```
+from the main topcoffea directory. This will run _all_ the tests, which will take ~20 minutes. To run a subset, use e.g.:
+```bash
+pytest -k test_futures
+```
+where `test_futures` is the file/test you would like to run (check the `tests` directory for all the available tests, or write your own and push it!). If you would also like to see how the coverage changes, you can add `--cov=./ --cov-report=html` to `pytest` commands. This will create an `html` directory that you can then copy to any folder which you have web access to (e.g. `~/www/` on Earth) For a better printout of what passed and failed, add `-rP` to the `pytest` commands.
+
+
 ### Further reading 
 
 * For more details about work queue, please see README_WORKQUEUE.md
