@@ -89,7 +89,7 @@ def test_datacard_2l_ht():
         "ht",
         "ptbl",
         "-j",
-        "9"
+        "11"
     ]
 
     # Run datacard maker
@@ -107,7 +107,7 @@ def test_datacard_3l():
         "ht",
         "ptbl",
         "-j",
-        "6"
+        "8"
     ]
 
     # Run datacard maker
@@ -125,7 +125,7 @@ def test_datacard_3l_ptbl():
         "ht",
         "ptbl",
         "-j",
-        "24"
+        "30"
     ]
 
     # Run datacard maker

@@ -95,7 +95,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
 
         
-
     @property
     def accumulator(self):
         return self._accumulator
@@ -328,7 +327,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             genw = np.ones_like(events["event"])
           else:
             genw = events["genWeight"]
-          for ch_name in ["2l", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
+          for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
             weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
             weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
             if not isData:
@@ -386,6 +385,8 @@ class AnalysisProcessor(processor.ProcessorABC):
           bmask_exactly1med = (nbtagsm==1) # Used for 3l SR and 2lss CR
           bmask_exactly2med = (nbtagsm==2) # Used for CRtt
           bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
+          bmask_atmost3med = (nbtagsm < 3)  # Used to make 2lss mutually exclusive from tttt enriched
+          bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
 
           # Charge masks
           chargel0_p = ak.fill_none(((l0.charge)>0),False)
@@ -403,11 +404,17 @@ class AnalysisProcessor(processor.ProcessorABC):
           # Lumi mask (for data)
           selections.add("is_good_lumi",lumi_mask)
 
-          # 2lss selection
-          selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-          selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          # 2lss selection (drained of 4 top)
+          selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+
+          # 2lss selection (enriched in 4 top)
+          selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+          selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+		
+          # 2lss selection for CR
           selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-        
+
           # 2los selection
           selections.add("2los_CRtt", (events.is2l & charge2l_0 & bmask_exactly2med & pass_trg))
           selections.add("2los_CRZ", (events.is2l & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
@@ -468,6 +475,9 @@ class AnalysisProcessor(processor.ProcessorABC):
           ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
           ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
 
+          # Z pt (pt of the ll pair that form the Z for the onZ categories)
+          ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+
           # Leading (b+l) pair pt
           bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
           bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
@@ -486,9 +496,6 @@ class AnalysisProcessor(processor.ProcessorABC):
           l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
           lj0pt = ak.max(l_j_pairs_pt,axis=-1)
 
-          # Z pt (pt of the ll pair that form the Z for the onZ categories) 
-          ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)     
-        
           # Define invariant mass hists
           mll_0_1 = (l0+l1).mass # Invmass for leading two leps
 
@@ -520,22 +527,22 @@ class AnalysisProcessor(processor.ProcessorABC):
           sr_cat_dict = {
             "2l" : {
                 "exactly_4j" : {
-                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                    "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
                 "exactly_5j" : {
-                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                    "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
                 "exactly_6j" : {
-                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                    "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
                 "atleast_7j" : {
-                    "lep_chan_lst" : ["2lss_p" , "2lss_m"],
+                    "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
@@ -623,7 +630,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     "lep_flav_lst" : ["ee", "mm"],
                     "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
                 },
-            }            
+            },
           }
 
           # Include SRs and CRs unless we asked to skip them
@@ -657,7 +664,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                     weights_object = weights_dict[nlep_cat]
-                    if isData : weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l", "2l_CR"] else [])) # for data, must include the FF. The flip rate we only apply to 2lss regions
+                    if isData : weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t", "2l_CR"] else [])) # for data, must include the FF. The flip rate we only apply to 2lss regions
                     else      : weight = weights_object.weight(weight_fluct) # For MC
 
                     # Get a mask for events that pass any of the njet requiremens in this nlep cat
