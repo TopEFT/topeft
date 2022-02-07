@@ -21,8 +21,8 @@ class DatacardMaker():
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
         # Special systematics
         # {'syst', x} will apply 1+x to _all_ categories
-        # {'syst',{'bin1': x},...,{'binN': x}} will apply 1+x to any categories matching bin1 - binN (e.g. 2lss)
-        self.syst_special = {'charge_flips': {'2lss': 0.3}, 'lumi': 0.05} # 30% flat uncertainty for charge flips
+        # {'syst',{'proc1': x},...,{'procN': x}} will apply 1+x to any categories matching proc1 - procN (e.g. charge_flip_sm)
+        self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.05} # 30% flat uncertainty for charge flips
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         # Dictionary of njet bins
@@ -395,11 +395,11 @@ class DatacardMaker():
             for syst_special,val in self.syst_special.items():
                 # Check for special bins
                 if isinstance(val,dict):
-                    # Check for channel specific systematics (e.g. `2lss`)
-                    if not any((b in channel for b in val.keys())): continue
+                    # Check for process specific systematics (e.g. `charge_flips_sm`)
+                    if not any((b in process for b in val.keys())): continue
                     for b in val:
-                        if b in channel:
-                            # Found the channel we're looking for, no need to keep looping
+                        if b in process:
+                            # Found the process we're looking for, no need to keep looping
                             syst = val[b]
                             break
                 elif isinstance(val,(int,float)):
@@ -407,7 +407,7 @@ class DatacardMaker():
                 else:
                     raise NotImplementedError(f'Invalid value type {syst_special} {val}')
                 syst_cat = syst_special+'_flat_rate'
-                if any((syst_cat in s for s in systMap)):# and syst_special in systMap[syst_cat]:
+                if syst_cat in systMap:
                     systMap[syst_cat].update({process: 1+syst})
                 else:
                     systMap[syst_cat] = {process: 1+syst}
