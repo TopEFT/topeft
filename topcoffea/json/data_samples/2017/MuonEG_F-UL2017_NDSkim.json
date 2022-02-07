@@ -6,11 +6,11 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2017/2021_11_16/v1/MuonEG_F_UL2017/output_1402.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2017/2021_11_16/v1/MuonEG_F_UL2017/output_1531.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2017/2021_11_16/v1/MuonEG_F_UL2017/output_1590.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2017/2021_11_16/v1/MuonEG_F_UL2017/output_1664.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv8_UL2017/2021_11_16/v1/MuonEG_F_UL2017/output_1742.root"
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_F_UL2017/output_1099.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_F_UL2017/output_1122.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_F_UL2017/output_1161.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_F_UL2017/output_1250.root",
+    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_F_UL2017/output_1269.root"
   ],
   "nEvents": 25776363,
   "nGenEvents": 25776363,
