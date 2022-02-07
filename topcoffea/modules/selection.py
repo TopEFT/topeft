@@ -228,9 +228,9 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     events['is2l'] = ak.fill_none(mask,False)
 
     # SFs
-    events['sf_2l'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom
-    events['sf_2l_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi
-    events['sf_2l_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo
+    events['sf_2l'] = padded_FOs[:,0].sf_nom_2l*padded_FOs[:,1].sf_nom_2l
+    events['sf_2l_hi'] = padded_FOs[:,0].sf_hi_2l*padded_FOs[:,1].sf_hi_2l
+    events['sf_2l_lo'] = padded_FOs[:,0].sf_lo_2l*padded_FOs[:,1].sf_lo_2l
 
     # SR:
     events['is2l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
@@ -290,9 +290,9 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     events['is3l'] = ak.fill_none(mask,False)
 
     # SFs
-    events['sf_3l'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom*padded_FOs[:,2].sf_nom
-    events['sf_3l_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi*padded_FOs[:,2].sf_hi
-    events['sf_3l_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo*padded_FOs[:,2].sf_lo
+    events['sf_3l'] = padded_FOs[:,0].sf_nom_3l*padded_FOs[:,1].sf_nom_3l*padded_FOs[:,2].sf_nom_3l
+    events['sf_3l_hi'] = padded_FOs[:,0].sf_hi_3l*padded_FOs[:,1].sf_hi_3l*padded_FOs[:,2].sf_hi_3l
+    events['sf_3l_lo'] = padded_FOs[:,0].sf_lo_3l*padded_FOs[:,1].sf_lo_3l*padded_FOs[:,2].sf_lo_3l
 
     # SR:
     events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
@@ -332,9 +332,9 @@ def add4lMaskAndSFs(events, year, isData):
     events['is4l'] = ak.fill_none(mask,False)
 
     # SFs:
-    events['sf_4l'] = padded_FOs[:,0].sf_nom*padded_FOs[:,1].sf_nom*padded_FOs[:,2].sf_nom*padded_FOs[:,3].sf_nom
-    events['sf_4l_hi'] = padded_FOs[:,0].sf_hi*padded_FOs[:,1].sf_hi*padded_FOs[:,2].sf_hi*padded_FOs[:,3].sf_hi
-    events['sf_4l_lo'] = padded_FOs[:,0].sf_lo*padded_FOs[:,1].sf_lo*padded_FOs[:,2].sf_lo*padded_FOs[:,3].sf_lo
+    events['sf_4l'] = padded_FOs[:,0].sf_nom_3l*padded_FOs[:,1].sf_nom_3l*padded_FOs[:,2].sf_nom_3l*padded_FOs[:,3].sf_nom_3l
+    events['sf_4l_hi'] = padded_FOs[:,0].sf_hi_3l*padded_FOs[:,1].sf_hi_3l*padded_FOs[:,2].sf_hi_3l*padded_FOs[:,3].sf_hi_3l
+    events['sf_4l_lo'] = padded_FOs[:,0].sf_lo_3l*padded_FOs[:,1].sf_lo_3l*padded_FOs[:,2].sf_lo_3l*padded_FOs[:,3].sf_lo_3l
 
     # SR: Don't really need this for 4l, but define it so we can treat 4l category similar to 2lss and 3l
     events['is4l_SR'] = tightleps

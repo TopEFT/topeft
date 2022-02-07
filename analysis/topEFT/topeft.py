@@ -173,13 +173,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Update muon kinematics with Rochester corrections
         mu["pt_raw"]=mu.pt
         met_raw=met
-        if self._do_systematics : syst_var_list = ['ISRUp','ISRDown','FSRUp','FSRDown','renormUp','renormDown','factUp','factDown','renorm_factUp','renorm_factDown','MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']
+        if self._do_systematics : syst_var_list = ['MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']
         else: syst_var_list = ['nominal']
         for syst_var in syst_var_list:
           mu["pt"]=mu.pt_raw
-          if syst_var == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(mu, isData, var='up')
-          elif syst_var == 'MuonESDown': mu["pt"]=ApplyRochesterCorrections(mu, isData, var='down')
-          else: mu["pt"]=ApplyRochesterCorrections(mu, isData, var='nominal')
+          if syst_var == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='up')
+          elif syst_var == 'MuonESDown': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='down')
+          else: mu["pt"]=ApplyRochesterCorrections(year,mu, isData, var='nominal')
           # Muon selection
           mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
           mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
@@ -248,13 +248,14 @@ class AnalysisProcessor(processor.ProcessorABC):
           j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
           
           # Loose DeepJet WP
-          # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
           if year == "2017":
             btagwpl = get_param("btag_wp_loose_UL17")
           elif year == "2018":
             btagwpl = get_param("btag_wp_loose_UL18")
-          elif ((year=="2016") or (year=="2016APV")):
-            btagwpl = get_param("btag_wp_loose_L16")
+          elif year=="2016":
+            btagwpl = get_param("btag_wp_loose_UL16")          
+          elif year=="2016APV":
+            btagwpl = get_param("btag_wp_loose_UL16APV")
           else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
           isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
@@ -262,13 +263,14 @@ class AnalysisProcessor(processor.ProcessorABC):
           nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
           # Medium DeepJet WP
-          # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
           if year == "2017": 
             btagwpm = get_param("btag_wp_medium_UL17")
           elif year == "2018":
             btagwpm = get_param("btag_wp_medium_UL18")
-          elif ((year=="2016") or (year=="2016APV")):
-            btagwpm = get_param("btag_wp_medium_L16")
+          elif year=="2016":
+            btagwpm = get_param("btag_wp_medium_UL16")
+          elif year=="2016APV":
+            btagwpm = get_param("btag_wp_medium_UL16APV")
           else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
           isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
@@ -308,7 +310,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bJetSF   = GetBTagSF(abseta, pt, flav, year)
             bJetSFUp = GetBTagSF(abseta, pt, flav, year, sys='up')
             bJetSFDo = GetBTagSF(abseta, pt, flav, year, sys='down')
-            bJetEff  = GetBtagEff(abseta, pt, flav, year)
+            bJetEff  = GetBtagEff(pt, abseta, flav, year)
             bJetEff_data   = bJetEff*bJetSF
             bJetEff_dataUp = bJetEff*bJetSFUp
             bJetEff_dataDo = bJetEff*bJetSFDo
@@ -320,7 +322,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
           
           # Trigger SF
-          GetTriggerSF(events,l0,l1)
+          GetTriggerSF(year,events,l0,l1)
 
           # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
           weights_dict = {}
@@ -340,7 +342,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Attach PS weights (ISR/FSR)
                 AttachPSWeights(events)
                 # Attach scale weights (renormalization/factorization)
-                AttachScaleWeights(events)
+                AttachScaleWeights(events) 
                 # Attach PDF weights
                 #AttachPdfWeights(events) # FIXME use these!
 
@@ -362,14 +364,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
-                if isData:
-                    weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
             if "3l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_3l, events.fakefactor_3l_up, events.fakefactor_3l_down)
             if "4l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
-
+            if isData and "2l" in ch_name::
+                weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
           # Systematics
           systList = ["nominal"]
           if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown"]
