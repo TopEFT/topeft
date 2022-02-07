@@ -77,7 +77,7 @@ If you would like to push changes to the TopCoffea repo, please push your new br
 __NOTE:__ If your branch gets out of date as other PRs are merged into the master branch, please run:
 ```bash
 git fetch origin
-git merge origin/master
+git pull origin master
 ```
 Depending on the changes, you might need to fix any conflicts, and then push these changes to your PR.
 
