@@ -358,7 +358,7 @@ class DatacardMaker():
             xwidth = h.GetXaxis().GetBinWidth(1)
             return deepcopy(h) # to protect d_hists from modifications 
 
-        def processSyst(process, systMap, d_hists, fout):
+        def processSyst(process, channel, systMap, d_hists, fout):
             for syst in self.syst:
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
                 if any([process+'_'+syst in d for d in d_hists]):
@@ -394,16 +394,21 @@ class DatacardMaker():
                         systMap[syst] = {process: round(h_sys.Integral(), 3)}
             for syst_special,val in self.syst_special.items():
                 # Check for special bins
-                if isinstance(val,dict) and not any((b in fout.GetName() for b in val.keys())): continue
                 if isinstance(val,dict):
+                    # Check for channel specific systematics (e.g. `2lss`)
+                    if not any((b in channel for b in val.keys())): continue
                     for b in val:
-                        if b in fout.GetName(): # Might need to improve this: works for '2lss' not sure about '2lss_p'
+                        if b in channel:
+                            # Found the channel we're looking for, no need to keep looping
                             syst = val[b]
                             break
-                else: syst = val
+                elif isinstance(val,(int,float)):
+                    syst = val
+                else:
+                    raise NotImplementedError(f'Invalid value type {syst_special} {val}')
                 syst_cat = syst_special+'_flat_rate'
                 if any((syst_cat in s for s in systMap)):# and syst_special in systMap[syst_cat]:
-                    systMap[syst_special+'_flat_rate'].update({process: 1+syst})
+                    systMap[syst_cat].update({process: 1+syst})
                 else:
                     systMap[syst_cat] = {process: 1+syst}
                     
@@ -503,7 +508,7 @@ class DatacardMaker():
                         allyields[name] = h_sm.Integral()
                         bkgcount += 1
                         d_bkgs[name] = h_sm
-                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
                 h_sm.SetDirectory(fout)
                 h_sm.SetName(name)
                 h_sm.SetTitle(name)
@@ -570,7 +575,7 @@ class DatacardMaker():
                 if allyields[name] < 0:
                     raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
 
-                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
 
                 # Get the "Q" piece
                 name = '_'.join([pname[:-1],'quad',wc])
@@ -595,7 +600,7 @@ class DatacardMaker():
                 h_quad.Write()
                 if allyields[name] < 0:
                     raise Exception(f"This value {allyields[name]} should not be negative (except potentially due to rounding errors, if the value is tiny), check for bugs upstream.")
-                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
                 
 
                 # Get the "S+Li+Lj+Qi+Qj+2Mij" piece
@@ -623,7 +628,7 @@ class DatacardMaker():
                     allyields[name] = h_mix.Integral()
                     if allyields[name] < 0:
                         raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
-                    if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                    if self.do_nuisance: processSyst(name, channel,  systMap, d_hists, fout)
 
         selectedWCsFile=open(f'histos/selectedWCs-{cat}.txt','w')
         json.dump(selectedWCsForProc, selectedWCsFile)
