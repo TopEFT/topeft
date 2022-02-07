@@ -36,9 +36,7 @@ def comp_datacard(wc1, wc2):
                 print(f'{name} is empty, skipping!')
                 continue
             diff = abs(wc1[name] - wc2[name]) / wc1[name]
-            #if diff > tolerance: print(name,':','[{}, {}] {}% difference!'.format(round(wc1[name],2), round(wc2[name],2), round(diff*100,2)))
-            if diff > tolerance: print(f'{name} : [{wc1[name]}]')
-            #if diff > tolerance: print(f'{name} : [{round(wc1[name],2)}, {wc2[name],2)}] {round(diff*100,2)}\% difference!')
+            if diff > tolerance: print(f'{name} : [{round(wc1[name],2)}, {round(wc2[name],2)} {round(diff*100,2)}% difference!]')
             if diff > tolerance: return False
         elif name in wc1 and name not in wc2:
             pass
@@ -54,9 +52,8 @@ def comp_datacard(wc1, wc2):
                         print(f'{tmp} is empty, skipping!')
                         continue
                     diff = abs(wc1[tmp] - wc2[name]) / wc1[tmp]
-                    #if diff > tolerance: print(tmp,':','[{}, {}] {}% difference!'.format(round(wc1[tmp],2), round(wc2[name],2), round(diff*100,2)))
                     if diff > tolerance: print(f'{tmp} : ')
-                    #if diff > tolerance: print(f'{tmp}:[{round(wc1[tmp],2)}, {wc2[tmp],2)}] {round(diff*100,2)} % difference!')
+                    if diff > tolerance: print(f'{tmp} : [{round(wc1[tmp],2)}, {round(wc2[tmp],2)} {round(diff*100,2)}% difference!]')
                     if diff > tolerance: return False
                     continue
             print('{} is missing from the new list!'.format(name))
