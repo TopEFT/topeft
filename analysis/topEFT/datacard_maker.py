@@ -19,7 +19,10 @@ class DatacardMaker():
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.rename = {**self.rename, **{'ttH_centralUL17': 'ttH', 'ttH_centralUL16': 'ttH', 'ttH_centralUL18': 'ttH', 'ttHJetToNonbb_M125_centralUL16': 'ttH', 'ttHJetToNonbb_M125_APV_centralUL16': 'ttH', 'ttW_centralUL17': 'ttW', 'ttZ_centralUL17': 'ttZ', 'tZq_centralUL17': 'tllq', 'ttH_centralUL17': 'ttH', 'ttW_centralUL18': 'ttW', 'ttZ_centralUL18': 'ttZ', 'tZq_centralUL18': 'tllq', 'ttH_centralUL18': 'ttH'}}
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
-        self.syst_special = {'charge_flips': 0.3} # 30% flat uncertainty for charge flips
+        # Special systematics
+        # {'syst', x} will apply 1+x to _all_ categories
+        # {'syst',{'proc1': x},...,{'procN': x}} will apply 1+x to any categories matching proc1 - procN (e.g. charge_flip_sm)
+        self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.05} # 30% flat uncertainty for charge flips
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         # Dictionary of njet bins
@@ -355,7 +358,7 @@ class DatacardMaker():
             xwidth = h.GetXaxis().GetBinWidth(1)
             return deepcopy(h) # to protect d_hists from modifications 
 
-        def processSyst(process, systMap, d_hists, fout):
+        def processSyst(process, channel, systMap, d_hists, fout):
             for syst in self.syst:
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
                 if any([process+'_'+syst in d for d in d_hists]):
@@ -390,11 +393,24 @@ class DatacardMaker():
                     else:
                         systMap[syst] = {process: round(h_sys.Integral(), 3)}
             for syst_special,val in self.syst_special.items():
-                if syst_special not in process: continue
-                if syst in systMap:
-                    systMap[syst_special+'_flat_rate'].update({process: 1+val})
+                # Check for special bins
+                if isinstance(val,dict):
+                    # Check for process specific systematics (e.g. `charge_flips_sm`)
+                    if not any((b in process for b in val.keys())): continue
+                    for b in val:
+                        if b in process:
+                            # Found the process we're looking for, no need to keep looping
+                            syst = val[b]
+                            break
+                elif isinstance(val,(int,float)):
+                    syst = val
                 else:
-                    systMap[syst_special+'_flat_rate'] = {process: 1+val}
+                    raise NotImplementedError(f'Invalid value type {syst_special} {val}')
+                syst_cat = syst_special+'_flat_rate'
+                if syst_cat in systMap:
+                    systMap[syst_cat].update({process: 1+syst})
+                else:
+                    systMap[syst_cat] = {process: 1+syst}
                     
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
@@ -492,7 +508,7 @@ class DatacardMaker():
                         allyields[name] = h_sm.Integral()
                         bkgcount += 1
                         d_bkgs[name] = h_sm
-                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
                 h_sm.SetDirectory(fout)
                 h_sm.SetName(name)
                 h_sm.SetTitle(name)
@@ -559,7 +575,7 @@ class DatacardMaker():
                 if allyields[name] < 0:
                     raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
 
-                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
 
                 # Get the "Q" piece
                 name = '_'.join([pname[:-1],'quad',wc])
@@ -584,7 +600,7 @@ class DatacardMaker():
                 h_quad.Write()
                 if allyields[name] < 0:
                     raise Exception(f"This value {allyields[name]} should not be negative (except potentially due to rounding errors, if the value is tiny), check for bugs upstream.")
-                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
                 
 
                 # Get the "S+Li+Lj+Qi+Qj+2Mij" piece
@@ -612,7 +628,7 @@ class DatacardMaker():
                     allyields[name] = h_mix.Integral()
                     if allyields[name] < 0:
                         raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
-                    if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                    if self.do_nuisance: processSyst(name, channel,  systMap, d_hists, fout)
 
         selectedWCsFile=open(f'histos/selectedWCs-{cat}.txt','w')
         json.dump(selectedWCsForProc, selectedWCsFile)
