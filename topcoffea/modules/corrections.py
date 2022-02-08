@@ -75,11 +75,10 @@ extLepSF.add_weight_sets(["MuonTightSF_2017_er EGamma_SF2D_error %s"%topcoffea_p
 extLepSF.add_weight_sets(["MuonTightSF_2018_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/muon/egammaEff2018_EGM2D.root')])
 
 # Fake rate 
-# todo: check that these are the same as the "recorrected"
-for year in [2016, 2017, 2018]:
+for year in [2017, 2018]:
   for syst in ['','_up','_down','_be1','_be2','_pt1','_pt2']:
-    extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb_recorrected{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
-    extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva080_el_data_comb_NC_recorrected{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
+    extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}.root')).format(year=year,syst=syst)])
+    extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva090_el_data_comb_NC{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}.root')).format(year=year,syst=syst)])
 
 # Flip rates                                                                                                                                                                                                       
 for year in [2016, 2017, 2018]:

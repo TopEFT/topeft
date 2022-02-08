@@ -41,13 +41,13 @@ def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
     x = np.minimum(np.maximum(0, jetpt - ptmin)/(ptmax-ptmin), 1.0)
     return x*wploose*scale_loose + (1-x)*wpmedium
 
-def coneptElec(pt, mvaTTH, jetRelIso):
+def coneptElec(pt, mvaTTHUL, jetRelIso):
     conePt = (0.90 * pt * (1 + jetRelIso))
-    return ak.where((mvaTTH>get_param("mva_TTH_e_cut")),pt,conePt)
+    return ak.where((mvaTTHUL>get_param("mva_TTH_e_cut")),pt,conePt)
 
-def coneptMuon(pt, mvaTTH, jetRelIso, mediumId):
+def coneptMuon(pt, mvaTTHUL, jetRelIso, mediumId):
     conePt = (0.90 * pt * (1 + jetRelIso))
-    return ak.where(((mvaTTH>get_param("mva_TTH_m_cut"))&(mediumId>0)),pt,conePt)
+    return ak.where(((mvaTTHUL>get_param("mva_TTH_m_cut"))&(mediumId>0)),pt,conePt)
 
 def isPresElec(pt, eta, dxy, dz, miniIso, sip3D, eleId):
     pt_mask    = (pt       > get_param("pres_e_pt_cut"))
@@ -73,7 +73,7 @@ def isLooseElec(miniPFRelIso_all,sip3d,lostHits):
 def isLooseMuon(miniPFRelIso_all,sip3d,looseId):
     return (miniPFRelIso_all<get_param("iso_cut")) & (sip3d<get_param("sip3d_cut")) & (looseId)
 
-def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mvaTTH, jetRelIso, mvaFall17V2noIso_WP80, year):
+def isFOElec(pt, conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mvaTTHUL, jetRelIso, mvaFall17V2noIso_WP90, year):
 
     # Get the btag cut for the year
     if ((year == "2016") or (year == "2016APV")):
@@ -88,11 +88,11 @@ def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mva
     btabReq    = (jetBTagDeepFlav<bTagCut)
     ptReq      = (conept>get_param("fo_pt_cut"))
     qualityReq = (ttH_idEmu_cuts_E3 & convVeto & (lostHits==0))
-    mvaReq     = ((mvaTTH>get_param("mva_TTH_e_cut")) | ((mvaFall17V2noIso_WP80) & (jetRelIso<get_param("fo_e_jetRelIso_cut"))))
+    mvaReq     = ((mvaTTHUL>get_param("mva_TTH_e_cut")) | ((mvaFall17V2noIso_WP90) & (jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year))))
 
     return ptReq & btabReq & qualityReq & mvaReq
 
-def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTH, jetRelIso, year):
+def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTHUL, jetRelIso, year):
 
     # Get the btag cut for the year
     if ((year == "2016") or (year == "2016APV")):
@@ -106,14 +106,14 @@ def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTH, jetRelIso, year):
 
     btagReq = (jetBTagDeepFlav<bTagCut)
     ptReq   = (conept>get_param("fo_pt_cut"))
-    mvaReq  = ((mvaTTH>get_param("mva_TTH_m_cut")) | ((jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (jetRelIso < get_param("fo_m_jetRelIso_cut"))))
+    mvaReq  = ((mvaTTHUL>get_param("mva_TTH_m_cut")) | ((jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (jetRelIso < get_param("fo_m_jetRelIso_cut"))))
     return ptReq & btagReq & mvaReq
 
-def tightSelElec(clean_and_FO_selection_TTH, mvaTTH):
-    return (clean_and_FO_selection_TTH) & (mvaTTH > get_param("mva_TTH_e_cut"))
+def tightSelElec(clean_and_FO_selection_TTH, mvaTTHUL):
+    return (clean_and_FO_selection_TTH) & (mvaTTHUL > get_param("mva_TTH_e_cut"))
 
-def tightSelMuon(clean_and_FO_selection_TTH, mediumId, mvaTTH):
-    return (clean_and_FO_selection_TTH) & (mediumId>0) & (mvaTTH > get_param("mva_TTH_m_cut"))
+def tightSelMuon(clean_and_FO_selection_TTH, mediumId, mvaTTHUL):
+    return (clean_and_FO_selection_TTH) & (mediumId>0) & (mvaTTHUL > get_param("mva_TTH_m_cut"))
 
 def isClean(obj_A, obj_B, drmin=0.4):
     objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)

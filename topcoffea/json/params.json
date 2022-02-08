@@ -10,7 +10,6 @@
 
     "iso_cut" : 0.4,
 
-    "fo_e_jetRelIso_cut" : 0.7,
     "fo_m_jetRelIso_cut" : 0.5,
 
     "jet_id_cut" : 0,
@@ -21,7 +20,7 @@
     "dz_tau_cut" : 0.2,
     "sip3d_cut" : 8,
 
-    "mva_TTH_e_cut" : 0.80,
+    "mva_TTH_e_cut" : 0.90,
     "mva_TTH_m_cut" : 0.85,
 
     "btag_wp_loose_L16"   : 0.0614,
