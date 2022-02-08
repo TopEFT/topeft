@@ -42,5 +42,6 @@
   "nEvents": 60537490.0,
   "nGenEvents": 60537490.0,
   "nSumOfWeights": 60537490.0,
-  "isData": true
+  "isData": true,
+  "path": "/SingleElectron/Run2017B-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }
