@@ -15,7 +15,7 @@ from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachPdfWeights, AttachScaleWeights
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachPdfWeights, AttachScaleWeights, GetTriggerSF
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
@@ -179,9 +179,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         else: syst_var_list = ['nominal']
         for syst_var in syst_var_list:
           mu["pt"]=mu.pt_raw
-          if syst_var == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(mu, isData, var='up')
-          elif syst_var == 'MuonESDown': mu["pt"]=ApplyRochesterCorrections(mu, isData, var='down')
-          else: mu["pt"]=ApplyRochesterCorrections(mu, isData, var='nominal')
+          if syst_var == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='up')
+          elif syst_var == 'MuonESDown': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='down')
+          else: mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='nominal')
           # Muon selection
           mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
           mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
@@ -250,13 +250,14 @@ class AnalysisProcessor(processor.ProcessorABC):
           j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
           
           # Loose DeepJet WP
-          # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
           if year == "2017":
             btagwpl = get_param("btag_wp_loose_UL17")
           elif year == "2018":
             btagwpl = get_param("btag_wp_loose_UL18")
-          elif ((year=="2016") or (year=="2016APV")):
-            btagwpl = get_param("btag_wp_loose_L16")
+          elif year=="2016":
+            btagwpl = get_param("btag_wp_loose_UL16")          
+          elif year=="2016APV":
+            btagwpl = get_param("btag_wp_loose_UL16APV")
           else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
           isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
@@ -264,13 +265,14 @@ class AnalysisProcessor(processor.ProcessorABC):
           nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
           # Medium DeepJet WP
-          # TODO: Update these numbers when UL16 is available, and double check UL17 and UL18 at that time as well
           if year == "2017": 
             btagwpm = get_param("btag_wp_medium_UL17")
           elif year == "2018":
             btagwpm = get_param("btag_wp_medium_UL18")
-          elif ((year=="2016") or (year=="2016APV")):
-            btagwpm = get_param("btag_wp_medium_L16")
+          elif year=="2016":
+            btagwpm = get_param("btag_wp_medium_UL16")
+          elif year=="2016APV":
+            btagwpm = get_param("btag_wp_medium_UL16APV")
           else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
           isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
@@ -310,7 +312,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bJetSF   = GetBTagSF(abseta, pt, flav, year)
             bJetSFUp = GetBTagSF(abseta, pt, flav, year, sys='up')
             bJetSFDo = GetBTagSF(abseta, pt, flav, year, sys='down')
-            bJetEff  = GetBtagEff(abseta, pt, flav, year)
+            bJetEff  = GetBtagEff(pt, abseta, flav, year)
             bJetEff_data   = bJetEff*bJetSF
             bJetEff_dataUp = bJetEff*bJetSFUp
             bJetEff_dataDo = bJetEff*bJetSFDo
@@ -320,6 +322,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
             pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
             pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
+          
+          # Trigger SF
+          GetTriggerSF(year,events,l0,l1)
 
           # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
           weights_dict = {}
@@ -354,20 +359,22 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_dict[ch_name].add('renorm', events.nom, events.renormUp, events.renormDown)
                 weights_dict[ch_name].add('fact',   events.nom, events.factUp,   events.factDown)
                 weights_dict[ch_name].add('renorm_fact', events.nom, events.renorm_factUp, events.renorm_factDown)
+                # Trigger SF
+                weights_dict[ch_name].add('triggerSF', events.trigger_sf, events.trigger_sfUp, events.trigger_sfDown)
             if "2l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
-                if isData:
-                    weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
             if "3l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
                 weights_dict[ch_name].add("FF"   , events.fakefactor_3l, events.fakefactor_3l_up, events.fakefactor_3l_down)
             if "4l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
-
+          if isData and "2l" in ch_name:
+              weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
+              
           # Systematics
           systList = ["nominal"]
-          if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown"]
+          if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown"]
           elif (self._do_systematics and not isData and syst_var != 'nominal'): systList = [syst_var]
 
           ######### Masks we need for the selection ##########
