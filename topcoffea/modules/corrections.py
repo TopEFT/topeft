@@ -17,6 +17,7 @@ from coffea.jetmet_tools import JECStack, CorrectedJetsFactory, CorrectedMETFact
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from topcoffea.modules.GetValuesFromJsons import get_param
 from coffea.lookup_tools import txt_converters, rochester_lookup
+import correctionlib
 
 basepathFromTTH = 'data/fromTTH/'
 
@@ -24,55 +25,59 @@ basepathFromTTH = 'data/fromTTH/'
 ################################################################
 extLepSF = lookup_tools.extractor()
 
-# Electron reco
-extLepSF.add_weight_sets(["ElecRecoSFb20_2016 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/reco/elec/2016/el_scaleFactors_gsf_ptLt20.root')])
-extLepSF.add_weight_sets(["ElecRecoSF_2016 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/reco/elec/2016/el_scaleFactors_gsf_ptGt20.root')])
-extLepSF.add_weight_sets(["ElecRecoSFb20_2017 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/reco/elec/2017/el_scaleFactors_gsf_ptLt20.root')])
-extLepSF.add_weight_sets(["ElecRecoSF_2017 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/reco/elec/2017/el_scaleFactors_gsf_ptGt20.root')])
-extLepSF.add_weight_sets(["ElecRecoSF_2018 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/reco/elec/2018/el_scaleFactors_gsf.root')])
-extLepSF.add_weight_sets(["ElecRecoSFb20_2016_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/reco/elec/2016/el_scaleFactors_gsf_ptLt20.root')])
-extLepSF.add_weight_sets(["ElecRecoSF_2016_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/reco/elec/2016/el_scaleFactors_gsf_ptGt20.root')])
-extLepSF.add_weight_sets(["ElecRecoSFb20_2017_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/reco/elec/2017/el_scaleFactors_gsf_ptLt20.root')])
-extLepSF.add_weight_sets(["ElecRecoSF_2017_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/reco/elec/2017/el_scaleFactors_gsf_ptGt20.root')])
-extLepSF.add_weight_sets(["ElecRecoSF_2018_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/reco/elec/2018/el_scaleFactors_gsf.root')])
-
-# Electron loose
-extLepSF.add_weight_sets(["ElecLooseSF_2016 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/elec/TnP_loose_ele_2016.root')])
-extLepSF.add_weight_sets(["ElecLooseSF_2017 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/elec/TnP_loose_ele_2017.root')])
-extLepSF.add_weight_sets(["ElecLooseSF_2018 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/elec/TnP_loose_ele_2018.root')])
-extLepSF.add_weight_sets(["ElecLoosettHSF_2016 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/elec/TnP_loosettH_ele_2016.root')])
-extLepSF.add_weight_sets(["ElecLoosettHSF_2017 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/elec/TnP_loosettH_ele_2017.root')])
-extLepSF.add_weight_sets(["ElecLoosettHSF_2018 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/elec/TnP_loosettH_ele_2018.root')])
-extLepSF.add_weight_sets(["ElecLooseSF_2016_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/elec/TnP_loose_ele_2016.root')])
-extLepSF.add_weight_sets(["ElecLooseSF_2017_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/elec/TnP_loose_ele_2017.root')])
-extLepSF.add_weight_sets(["ElecLooseSF_2018_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/elec/TnP_loose_ele_2018.root')])
-extLepSF.add_weight_sets(["ElecLoosettHSF_2016_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/elec/TnP_loosettH_ele_2016.root')])
-extLepSF.add_weight_sets(["ElecLoosettHSF_2017_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/elec/TnP_loosettH_ele_2017.root')])
-extLepSF.add_weight_sets(["ElecLoosettHSF_2018_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/elec/TnP_loosettH_ele_2018.root')])
-
-# Electron tight
-extLepSF.add_weight_sets(["ElecTightSF_2016 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/elec/egammaEff2016_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecTightSF_2017 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/elec/egammaEff2017_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecTightSF_2018 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/elec/egammaEff2018_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecTightSF_2016_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/elec/egammaEff2016_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecTightSF_2017_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/elec/egammaEff2017_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecTightSF_2018_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/elec/egammaEff2018_EGM2D.root')])
-
-# Muon loose
-extLepSF.add_weight_sets(["MuonLooseSF_2016 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/muon/TnP_loose_muon_2016.root')])
-extLepSF.add_weight_sets(["MuonLooseSF_2017 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/muon/TnP_loose_muon_2017.root')])
-extLepSF.add_weight_sets(["MuonLooseSF_2018 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/muon/TnP_loose_muon_2018.root')])
-extLepSF.add_weight_sets(["MuonLooseSF_2016_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/muon/TnP_loose_muon_2016.root')])
-extLepSF.add_weight_sets(["MuonLooseSF_2017_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/muon/TnP_loose_muon_2017.root')])
-extLepSF.add_weight_sets(["MuonLooseSF_2018_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/loose/muon/TnP_loose_muon_2018.root')])
-
-# Muon tight
-extLepSF.add_weight_sets(["MuonTightSF_2016 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/muon/egammaEff2016_EGM2D.root')])
-extLepSF.add_weight_sets(["MuonTightSF_2017 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/muon/egammaEff2017_EGM2D.root')])
-extLepSF.add_weight_sets(["MuonTightSF_2018 EGamma_SF2D %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/muon/egammaEff2018_EGM2D.root')])
-extLepSF.add_weight_sets(["MuonTightSF_2016_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/muon/egammaEff2016_EGM2D.root')])
-extLepSF.add_weight_sets(["MuonTightSF_2017_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/muon/egammaEff2017_EGM2D.root')])
-extLepSF.add_weight_sets(["MuonTightSF_2018_er EGamma_SF2D_error %s"%topcoffea_path(basepathFromTTH+'lepSF/tight/muon/egammaEff2018_EGM2D.root')])
+# New UL Lepton SFs
+# Muon: reco
+extLepSF.add_weight_sets(["MuonRecoSF_2018 NUM_TrackerMuons_DEN_genTracks/abseta_pt_value %s"%topcoffea_path('data/leptonSF/muon/Efficiency_muon_generalTracks_Run2018_UL_trackerMuon.json')])
+extLepSF.add_weight_sets(["MuonRecoSF_2018_er NUM_TrackerMuons_DEN_genTracks/abseta_pt_error %s"%topcoffea_path('data/leptonSF/muon/Efficiency_muon_generalTracks_Run2018_UL_trackerMuon.json')])
+extLepSF.add_weight_sets(["MuonRecoSF_2017 NUM_TrackerMuons_DEN_genTracks/abseta_pt_value %s"%topcoffea_path('data/leptonSF/muon/Efficiency_muon_generalTracks_Run2017_UL_trackerMuon.json')])
+extLepSF.add_weight_sets(["MuonRecoSF_2017_er NUM_TrackerMuons_DEN_genTracks/abseta_pt_error %s"%topcoffea_path('data/leptonSF/muon/Efficiency_muon_generalTracks_Run2017_UL_trackerMuon.json')])
+extLepSF.add_weight_sets(["MuonRecoSF_2016 NUM_TrackerMuons_DEN_genTracks/abseta_pt_value %s"%topcoffea_path('data/leptonSF/muon/Efficiency_muon_generalTracks_Run2016postVFP_UL_trackerMuon.json')])
+extLepSF.add_weight_sets(["MuonRecoSF_2016_er NUM_TrackerMuons_DEN_genTracks/abseta_pt_error %s"%topcoffea_path('data/leptonSF/muon/Efficiency_muon_generalTracks_Run2016postVFP_UL_trackerMuon.json')])
+extLepSF.add_weight_sets(["MuonRecoSF_2016APV NUM_TrackerMuons_DEN_genTracks/abseta_pt_value %s"%topcoffea_path('data/leptonSF/muon/Efficiency_muon_generalTracks_Run2016preVFP_UL_trackerMuon.json')])
+extLepSF.add_weight_sets(["MuonRecoSF_2016APV_er NUM_TrackerMuons_DEN_genTracks/abseta_pt_error %s"%topcoffea_path('data/leptonSF/muon/Efficiency_muon_generalTracks_Run2016preVFP_UL_trackerMuon.json')])
+# Muon: loose&tight
+extLepSF.add_weight_sets(["MuonSF_2018 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2018_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonSF_2018_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2018_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonSF_2017_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2017_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonSF_2017 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2017_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonSF_2016_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2016_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonSF_2016 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2016_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonSF_2016APV_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2016APV_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonSF_2016APV EGamma_SF2D %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2016APV_EGM2D.root')])
+# Elec: reco
+extLepSF.add_weight_sets(["ElecRecoSFAb_2018 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2018_ptAbove20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFAb_2018_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2018_ptAbove20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFBe_2018 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2018_ptBelow20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFBe_2018_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2018_ptBelow20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFAb_2017 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2017_ptAbove20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFAb_2017_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2017_ptAbove20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFBe_2017 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2017_ptBelow20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFBe_2017_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2017_ptBelow20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFAb_2016 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_ptAbove20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFAb_2016_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_ptAbove20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFBe_2016 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_ptBelow20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFBe_2016_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_ptBelow20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFAb_2016APV EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_ptAbove20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFAb_2016APV_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_ptAbove20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFBe_2016APV EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_ptBelow20_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecRecoSFBe_2016APV_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_ptBelow20_EGM2D.root')])
+# Elec: loose&tight
+extLepSF.add_weight_sets(["elecNEWmvaSF_2018_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2018_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2018_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2018_3l_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2017_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2017_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2017_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2017_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2017_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2017_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2017_3l_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2017_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2016_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2016_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2016_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2016_3l_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2016APV_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016APV_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2016APV_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016APV_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2016APV_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016APV_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["elecNEWmvaSF_2016APV_3l_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016APV_3l_EGM2D.root')])
 
 # Fake rate 
 for year in [2017, 2018]:
@@ -126,17 +131,18 @@ def AttachMuonSF(muons, year):
   '''
   eta = np.abs(muons.eta)
   pt = muons.pt
-  if year == '2016APV': year = '2016'
   if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
-  loose_sf  = SFevaluator['MuonLooseSF_{year}'.format(year=year)](eta,pt)
-  loose_err = SFevaluator['MuonLooseSF_{year}_er'.format(year=year)](eta,pt)
+  new_sf  = SFevaluator['MuonSF_{year}'.format(year=year)](eta,pt)
+  new_err = SFevaluator['MuonSF_{year}_er'.format(year=year)](eta,pt)
+  reco_sf  = SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt)
+  reco_err = SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt)
 
-  tight_sf  = SFevaluator['MuonTightSF_{year}'.format(year=year)](eta,pt)
-  tight_err = SFevaluator['MuonTightSF_{year}_er'.format(year=year)](eta,pt)
-
-  muons['sf_nom'] = loose_sf * tight_sf
-  muons['sf_hi']  = (loose_sf + loose_err) * (tight_sf + tight_err)
-  muons['sf_lo']  = (loose_sf - loose_err) * (tight_sf - tight_err)
+  muons['sf_nom_2l'] = new_sf*reco_sf
+  muons['sf_hi_2l']  = (new_sf+new_err)*(reco_sf+reco_err)
+  muons['sf_lo_2l']  = (new_sf-new_err)*(reco_sf-reco_err)
+  muons['sf_nom_3l'] = new_sf*reco_sf
+  muons['sf_hi_3l']  = (new_sf+new_err)*(reco_sf+reco_err)
+  muons['sf_lo_3l']  = (new_sf-new_err)*(reco_sf-reco_err)
 
 def AttachElectronSF(electrons, year):
   '''
@@ -144,27 +150,24 @@ def AttachElectronSF(electrons, year):
       Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the electrons array passed to this function. These
       values correspond to the nominal, up, and down electron scalefactor values respectively.
   '''
-  # eta = np.abs(electrons.eta)
   eta = electrons.eta
   pt = electrons.pt
-  if year == '2016APV': year = '2016'
+
   if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
-  # For the ElecRecoSF we dont take the absolute value of eta!
-  reco_sf          = SFevaluator['ElecRecoSF_{year}'.format(year=year)](eta,pt)
-  reco_sf_err      = SFevaluator['ElecRecoSF_{year}_er'.format(year=year)](eta,pt)
+  
+  reco_sf  = np.where(pt<20,SFevaluator['ElecRecoSFBe_{year}'.format(year=year)](eta,pt),SFevaluator['ElecRecoSFAb_{year}'.format(year=year)](eta,pt))
+  reco_err = np.where(pt<20,SFevaluator['ElecRecoSFBe_{year}_er'.format(year=year)](eta,pt),SFevaluator['ElecRecoSFAb_{year}_er'.format(year=year)](eta,pt))
+  new_sf_2l  = SFevaluator['ElecSF_{year}_2lss'.format(year=year)](np.abs(eta),pt)
+  new_err_2l = SFevaluator['ElecSF_{year}_2lss_er'.format(year=year)](np.abs(eta),pt)
+  new_sf_3l  = SFevaluator['ElecSF_{year}_3l'.format(year=year)](np.abs(eta),pt)
+  new_err_3l = SFevaluator['ElecSF_{year}_3l_er'.format(year=year)](np.abs(eta),pt)
 
-  loose_sf         = SFevaluator['ElecLooseSF_{year}'.format(year=year)](np.abs(eta),pt)
-  loose_sf_err     = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](np.abs(eta),pt)
-
-  loose_ttH_sf     = SFevaluator['ElecLoosettHSF_{year}'.format(year=year)](np.abs(eta),pt)
-  loose_ttH_sf_err = SFevaluator['ElecLoosettHSF_{year}_er'.format(year=year)](np.abs(eta),pt)
-
-  tight_sf         = SFevaluator['ElecTightSF_{year}'.format(year=year)](np.abs(eta),pt)
-  tight_sf_err     = SFevaluator['ElecTightSF_{year}_er'.format(year=year)](np.abs(eta),pt)
-
-  electrons['sf_nom'] = reco_sf * loose_sf * loose_ttH_sf * tight_sf
-  electrons['sf_hi']  = (reco_sf + reco_sf_err) * (loose_sf + loose_sf_err) * (loose_ttH_sf + loose_ttH_sf_err) * (tight_sf + tight_sf_err)
-  electrons['sf_lo']  = (reco_sf - reco_sf_err) * (loose_sf - loose_sf_err) * (loose_ttH_sf - loose_ttH_sf_err) * (tight_sf - tight_sf_err)
+  electrons['sf_nom_2l'] = reco_sf*new_sf_2l
+  electrons['sf_hi_2l']  = (reco_sf + reco_err) * (new_sf_2l + new_err_2l)
+  electrons['sf_lo_2l']  = (reco_sf - reco_err) * (new_sf_2l - new_err_2l)
+  electrons['sf_nom_3l'] = reco_sf*new_sf_3l
+  electrons['sf_hi_3l']  = (reco_sf + reco_err) * (new_sf_3l + new_err_3l)
+  electrons['sf_lo_3l']  = (reco_sf - reco_err) * (new_sf_3l - new_err_3l)
 
 
 ###### Btag scale factors
@@ -192,25 +195,17 @@ def GetMCeffFunc(year, WP='medium', flav='b'):
   fun = lambda pt, abseta, flav : getnum(pt,abseta,flav)/getden(pt,abseta,flav)
   return fun
 
-MCeffFunc_2018 = GetMCeffFunc('2018','medium')
-MCeffFunc_2017 = GetMCeffFunc('2017','medium')
-
-def GetBtagEff(eta, pt, flavor, year):
+def GetBtagEff(pt, eta, flavor, year):
   if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
-  if year=='2017': return MCeffFunc_2017(pt, eta, flavor)
-  else         : return MCeffFunc_2018(pt, eta, flavor)
+  return GetMCeffFunc(year,'medium')(pt, eta, flavor)
 
-def GetBTagSF(eta, pt, flavor, year, sys='nominal'):
-  # Efficiencies and SFs for UL only available for 2016APV, 2017 and 2018
-  # light flavor SFs and unc. missed for 2016APV
-  if   (year == '2016' or year == '2016APV'): SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/DeepFlav_2016.csv"),"MEDIUM")#UL/DeepJet_106XUL16SF.csv"),"MEDIUM") 
-  elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL17.csv"),"MEDIUM")
-  elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_UL18.csv"),"MEDIUM")
+def GetBTagSF(eta, pt, flavor, year, sys='central'):
+  if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),"MEDIUM") 
+  elif   year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),"MEDIUM") 
+  elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL17_v3.csv"),"MEDIUM")
+  elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL18_v2.csv"),"MEDIUM")
   else: raise Exception(f"Error: Unknown year \"{year}\".")
-
-  if   sys=='nominal' : SF=SFevaluatorBtag.eval("central",flavor,eta,pt)
-  elif sys=='up' : SF=SFevaluatorBtag.eval("up",flavor,eta,pt)
-  elif sys=='down': SF=SFevaluatorBtag.eval("down",flavor,eta,pt)
+  SF=SFevaluatorBtag.eval(sys,flavor,eta,pt)
   return (SF)
 
 ###### Pileup reweighing
@@ -352,17 +347,21 @@ def ApplyJetSystematics(cleanedJets,syst_var):
   elif(syst_var == 'JERDown'): return cleanedJets.JER.down
   elif(syst_var == 'JESUp'): return cleanedJets.JES_jes.up
   elif(syst_var == 'JESDown'): return cleanedJets.JES_jes.down
-  else: return cleanedJets
+  elif(syst_var == 'nominal'): return cleanedJets
+  elif(syst_var in ['nominal','MuonESUp','MuonESDown']): return cleanedJets
+  else: raise Exception(f"Error: Unknown variation \"{syst_var}\".")
+
 ###### Muon Rochester corrections
 ################################################################
 # https://gitlab.cern.ch/akhukhun/roccor
 # https://github.com/CoffeaTeam/coffea/blob/master/coffea/lookup_tools/rochester_lookup.py
-if year=='2016': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2016aUL.txt"), loaduncs=True)
-elif year=='2016APV': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2016bUL.txt"), loaduncs=True)
-elif year=='2017': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2017UL.txt"), loaduncs=True)
-elif year=='2018': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2018UL.txt"), loaduncs=True)
-rochester = rochester_lookup.rochester_lookup(rochester_data)
-def ApplyRochesterCorrections(mu, is_data, var='nominal'):
+
+def ApplyRochesterCorrections(year, mu, is_data, var='nominal'):
+    if year=='2016': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2016bUL.txt"), loaduncs=True)
+    elif year=='2016APV': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2016aUL.txt"), loaduncs=True)
+    elif year=='2017': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2017UL.txt"), loaduncs=True)
+    elif year=='2018': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2018UL.txt"), loaduncs=True)
+    rochester = rochester_lookup.rochester_lookup(rochester_data)
     if not is_data:
         hasgen = ~np.isnan(ak.fill_none(mu.matched_gen.pt, np.nan))
         mc_rand = np.random.rand(*ak.to_numpy(ak.flatten(mu.pt)).shape)
@@ -387,3 +386,85 @@ def ApplyRochesterCorrections(mu, is_data, var='nominal'):
     if var=='nominal': return(mu.pt * corrections) #nominal
     elif var=='up': return(mu.pt * corrections + mu.pt * errors) #up 
     elif var=='down': return(mu.pt * corrections - mu.pt * errors) #down
+
+###### Trigger SFs
+################################################################
+
+#### Functions needed
+StackOverUnderflow = lambda v : [sum(v[0:2])] + v[2:-2] + [sum(v[-2:])]
+
+def GetClopperPearsonInterval(hnum, hden):
+  ''' Compute Clopper-Pearson interval from numerator and denominator histograms '''
+  num = list(hnum.values(overflow='all')[()])
+  den = list(hden.values(overflow='all')[()])
+  if isinstance(num, list) and isinstance(num[0], np.ndarray):
+    for i in range(len(num)):
+      num[i] = np.array(StackOverUnderflow(list(num[i])), dtype=float)
+      den[i] = np.array(StackOverUnderflow(list(den[i])), dtype=float)
+    den = StackOverUnderflow(den)
+    num = StackOverUnderflow(num)
+  else: 
+    num = np.array(StackOverUnderflow(num), dtype=float); den = np.array(StackOverUnderflow(den), dtype=float)
+  num = np.array(num); den = np.array(den)
+  num[num>den]=den[num>den]
+  down, up = hist.clopper_pearson_interval(num, den)
+  ratio = np.array(num, dtype=float)/den
+  return [ratio, down, up]
+  
+def GetEff(num, den):
+  ''' Compute efficiency values from numerator and denominator histograms '''
+  ratio, down, up =  GetClopperPearsonInterval(num, den)
+  axis = num.axes()[0].name
+  bins = num.axis(axis).edges()
+  x    = num.axis(axis).centers()
+  xlo  = bins[:-1]
+  xhi  = bins[1:]
+  return [[x, xlo-x, xhi-x],[ratio, down-ratio, up-ratio]]
+
+def GetSFfromCountsHisto(hnumMC, hdenMC, hnumData, hdenData):
+  ''' Compute scale factors from efficiency histograms for data and MC '''
+  Xmc, Ymc = GetEff(hnumMC, hdenMC)
+  Xda, Yda = GetEff(hnumData, hdenData)
+  ratio, do, up = GetRatioAssymetricUncertainties(Yda[0], Yda[1], Yda[2], Ymc[0], Ymc[1], Ymc[2])
+  return ratio, do, up
+    
+def GetRatioAssymetricUncertainties(num, numDo, numUp, den, denDo, denUp):
+  ''' Compute efficiencies from numerator and denominator counts histograms and uncertainties '''
+  ratio = num/den
+  uncUp = ratio*np.sqrt(numUp*numUp + denUp*denUp) 
+  uncDo = ratio*np.sqrt(numDo*numDo + denDo*denDo) 
+  return ratio, -uncDo, uncUp
+
+######  Scale Factors
+
+def LoadTriggerSF(year, ch='2l', flav='em'):
+  pathToTriggerSF = topcoffea_path('data/triggerSF/triggerSF_%s.pkl.gz'%year)
+  with gzip.open(pathToTriggerSF) as fin: hin = pickle.load(fin)
+  if ch=='2l': axisY='l1pt'
+  else: axisY='l0eta'
+  h = hin[ch][flav]
+  ratio, do, up = GetSFfromCountsHisto(h['hmn'], h['hmd'], h['hdn'], h['hdd'])
+  ratio[np.isnan(ratio)]=1.0; do[np.isnan(do)]=0.0;up[np.isnan(up)]=0.0
+  GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
+  GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
+  GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
+  return [GetTrig, GetTrigDo, GetTrigUp]
+
+def GetTriggerSF(year, events, lep0, lep1):
+  ls=[]
+  for i in [0,1,2]:
+    #2l
+    SF_ee=np.where(events.is_ee==True,LoadTriggerSF(year,ch='2l',flav='ee')[0](lep0.pt,lep1.pt),1.0)
+    SF_em=np.where(events.is_em==True, LoadTriggerSF(year,ch='2l',flav='em')[0](lep0.pt,lep1.pt),1.0)
+    SF_mm=np.where(events.is_mm==True, LoadTriggerSF(year,ch='2l',flav='mm')[0](lep0.pt,lep1.pt),1.0)
+   #3l
+    SF_eee=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='eee')[0](lep0.pt,lep0.eta),1.0)
+    SF_eem=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='eem')[0](lep0.pt,lep0.eta),1.0)
+    SF_emm=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='emm')[0](lep0.pt,lep0.eta),1.0)
+    SF_mmm=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='mmm')[0](lep0.pt,lep0.eta),1.0)
+    ls.append(SF_ee*SF_em*SF_mm*SF_eee*SF_eem*SF_emm*SF_mmm)
+  ls[1]=np.where(ls[1]==1.0,0.0,ls[1])
+  ls[2]=np.where(ls[2]==1.0,0.0,ls[2])
+  events['trigger_sf']=ls[0]
+  events['trigger_sfDown']=ls[0]+ls[1]
+  events['trigger_sfUp']=ls[0]+ls[2]
