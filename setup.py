@@ -15,9 +15,8 @@ setuptools.setup(
             "data/fromTTH/fliprates/*.root",
             "data/fromTTH/lepSF/*/*/*.root",
             "data/fromTTH/lepSF/*/*/*/*.root",
-            "data/leptonSF/elec/*.root",
-            "data/leptonSF/muon/*.root",
-            "data/leptonSF/muon/*.json",
+            "data/leptonSF/*/*.root",
+            "data/leptonSF/*/*.json",
             "data/triggerSF/*.pkl.gz",
             "data/JEC/*.txt",
             "data/JER/*.txt",
@@ -27,7 +26,6 @@ setuptools.setup(
             "data/pileup/*.root",
             "data/MuonScale/*txt",
             "data/goldenJsons/*.txt",
-            "data/triggerSF/*.pkl.gz"
         ],
     }
 )
