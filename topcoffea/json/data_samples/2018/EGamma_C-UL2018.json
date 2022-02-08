@@ -93,5 +93,6 @@
   "nEvents": 147827904.0,
   "nGenEvents": 147827904.0,
   "nSumOfWeights": 147827904.0,
-  "isData": true
+  "isData": true,
+  "path": "/EGamma/Run2018C-UL2018_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

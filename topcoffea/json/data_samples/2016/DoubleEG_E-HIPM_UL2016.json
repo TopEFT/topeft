@@ -38,5 +38,6 @@
   "nEvents": 49877710.0,
   "nGenEvents": 49877710.0,
   "nSumOfWeights": 49877710.0,
-  "isData": true
+  "isData": true,
+  "path": "/DoubleEG/Run2016E-HIPM_UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }
