@@ -18,7 +18,7 @@ setuptools.setup(
             "data/leptonSF/elec/*.root",
             "data/leptonSF/muon/*.root",
             "data/leptonSF/muon/*.json",
-            "data/triggerSF/*.pkl.gz"
+            "data/triggerSF/*.pkl.gz",
             "data/JEC/*.txt",
             "data/JER/*.txt",
             "data/btagSF/UL/*.pkl.gz",
