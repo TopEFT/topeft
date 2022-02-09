@@ -25,6 +25,7 @@ parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the o
 parser.add_argument('--treename'       , default='Events', help = 'Name of the tree inside the files')
 parser.add_argument('--xrd'            , default='', help = 'The XRootD redirector to use when reading directly from json files')
 parser.add_argument('--wc-list'        , action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
+parser.add_argument('--extra-read'     , default=0, help= 'Number of objects to read extra info about.')
 
 args = parser.parse_args()
 inputFiles = args.inputFiles.replace(' ','').split(',')  # Remove whitespace and split by commas
@@ -36,6 +37,11 @@ treename   = args.treename
 xrd        = args.xrd
 max_files  = args.max_files
 wc_lst     = args.wc_list if args.wc_list is not None else []
+n_extra_read = int(args.extra_read)
+
+# Currently only reading info about e,mu,tau,jets
+if n_extra_read > 4:
+    raise Exception("Reading >4 extra objects is not implemented")
 
 samples_to_process = {}
 for fn in inputFiles:
@@ -84,7 +90,7 @@ if wc_lst:
 else:
     print("No Wilson coefficients specified")
 
-processor_instance = sow_processor.AnalysisProcessor(samples_to_process,wc_lst)
+processor_instance = sow_processor.AnalysisProcessor(samples_to_process,wc_lst,extra_read=n_extra_read)
 
 executor_args = {
     'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),

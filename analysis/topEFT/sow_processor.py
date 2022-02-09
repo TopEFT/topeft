@@ -10,12 +10,13 @@ import topcoffea.modules.eft_helper as efth
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], do_errors=False, dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], do_errors=False, extra_read=0, dtype=np.float32):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
+        self._extra_read = extra_read
 
         # Create the histogram
         self._accumulator = processor.dict_accumulator({
@@ -54,6 +55,42 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isData and eft_coeffs is None:
             # Basically any central MC samples
             wgts = events["genWeight"]
+
+
+        ############ Read extra info ############
+
+        # Read some extra info from events
+        object_lst = []
+        extra_read_print_str = "\n\nReading info about: "
+        if self._extra_read> 0:
+            object_lst.append(events.Electron)
+            extra_read_print_str += "electrons"
+            if self._extra_read> 1:
+                object_lst.append(events.Muon)
+                extra_read_print_str += ", muons"
+                if self._extra_read> 2:
+                    object_lst.append(events.Tau)
+                    extra_read_print_str += ", taus"
+                    if self._extra_read> 3:
+                        object_lst.append(events.Jet)
+                        extra_read_print_str += ", and jets"
+                        if self._extra_read> 4:
+                            raise Exception("Reading >4 extra objects is not implemented")
+
+        # Read some info from each of the extra objects
+        if self._extra_read>0: 
+            extra_read_print_str += "\n"
+            print(extra_read_print_str)
+        for i,obj in enumerate(object_lst):
+            obj_pt     = obj.pt
+            obj_eta    = obj.eta
+            obj_phi    = obj.eta
+            obj_energy = obj.energy
+            obj_x      = obj.x
+            obj_y      = obj.y
+            obj_z      = obj.z
+
+        #########################################
 
         hout = self.accumulator.identity()
         hout["SumOfWeights"].fill(sample=dataset, SumOfWeights=counts, weight=wgts, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
