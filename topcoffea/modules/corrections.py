@@ -17,6 +17,7 @@ from coffea.jetmet_tools import JECStack, CorrectedJetsFactory, CorrectedMETFact
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from topcoffea.modules.GetValuesFromJsons import get_param
 from coffea.lookup_tools import txt_converters, rochester_lookup
+from coffea.hist import StringBin
 
 basepathFromTTH = 'data/fromTTH/'
 
@@ -296,23 +297,33 @@ def AttachScaleWeights(events):
   events['renormUp']           = scale_weights[:,renormUp]
   events['renorm_factUp']      = scale_weights[:,renormUp_factUp]
 
+def get_pdf_type(events):
+    '''
+    Reads PDF type from dictionary made from https://lhapdf.hepforge.org/pdfsets.html
+    '''
+    list_of_files = load_json(jname)
+    pdf_sets = load_json(topcoffea_path('json/pdfsets.json'))
+
+    pdf = events['LHEPdfWeight'].title.split(' ')
+    pdf_id = str(pdf[pdf.index('IDs')+1])
+    pdf_type = pdf_sets[pdf_id]
+    return pdf_type
 
 def AttachPdfWeights(events):
-  '''
-  Return a list of PDF weights
-  Should be 100 weights for NNPDF 3.1
-  '''
-  if events['LHEPdfWeight'] is None:
-      raise Exception(f'LHEPdfWeight not found in {fname}!')
-  events['nPdf'] = len(events['LHEPdfWeight'][0]) if len(events['LHEPdfWeight'][0]) < 100 else 100 # Weights past 100 are alpha_s weights
-  pdf_weights    = ak.fill_none(ak.pad_none(events['LHEPdfWeight'], len(events['LHEPdfWeight'][0])), 1) # Fill with 1, we want to ignore events with bad weights (~2% of all LHE files)
-  #events['nom']     = ak.ones_like(pdf_weights[:,0])
-  events['PDFUp']   = pdf_weights
-  #events['PDFUp']   = np.sqrt(np.sum(np.square(pdf_weights - 1), axis=1))
-  events['PDFDown'] = ak.fill_none(ak.pad_none(events['LHEPdfWeight'], len(events['LHEPdfWeight'][0])), 1)
-  #events['PDFDown'] = np.sqrt(np.sum(np.square(ak.fill_none(ak.pad_none(events['LHEPdfWeight'], len(events['LHEPdfWeight'][0])), 1).to_numpy() - 1), axis=1))
-  for ipdf in range(events['nPdf'][0]):
-      events['Pdf{}'.format(ipdf)] = pdf_weights[:, ipdf]
+    '''
+    Return a list of PDF weights
+    Should be 100 weights for NNPDF 3.1
+    '''
+    if events['LHEPdfWeight'] is None:
+        raise Exception(f'LHEPdfWeight not found in {fname}!')
+    pdf_type = get_pdf_type(events)
+    if 'hessian' not in pdf_type:
+        raise NotImplementedError(f'PDF type {pdf_type} currently not supported!')
+    events['nPdf'] = len(events['LHEPdfWeight'][0]) if len(events['LHEPdfWeight'][0]) < 100 else 100 # Weights past 100 are alpha_s weights
+    pdf_weights    = ak.fill_none(ak.pad_none(events['LHEPdfWeight'], len(events['LHEPdfWeight'][0])), 1) # Fill with 1, we want to ignore events with bad weights (~2% of all LHE files)
+    events['PDFUp']   = pdf_weights
+    for ipdf in range(events['nPdf'][0]):
+        events['Pdf{}'.format(ipdf)] = pdf_weights[:, ipdf]
 
 def ApplyPdfWeights(events, hout, all_cuts_mask, axes_fill_info_dict, dense_axis_name):
     h_syst = hout[dense_axis_name].copy() # Temporary hist
@@ -347,13 +358,19 @@ def ApplyPdfWeights(events, hout, all_cuts_mask, axes_fill_info_dict, dense_axis
         h_pdf.set_sm()
         pdf = h_pdf.integrate("sample", axes_fill_info_dict["sample"]).integrate("channel", axes_fill_info_dict["channel"]).integrate("systematic", axes_fill_info_dict["systematic"]).integrate("appl", axes_fill_info_dict["appl"]).values(overflow='all')[()]
         diff = pdf - nom # Calculate diff of temp and nominal
-        pdfs[ipdf] = diff / nom # TOP-18-012 used (X - nom) / nom in EFTMultilepton/TemplateMakers/test/MakeGoodPlot2/pdf_studies_plots.h
+        pdfs[ipdf] = diff
         del h_pdf
     curr_syst = hout[dense_axis_name]._sumw[sbins]
     curr_syst = hout[dense_axis_name].integrate("sample", axes_fill_info_dict["sample"]).integrate("channel", axes_fill_info_dict["channel"]).integrate("systematic", axes_fill_info_dict["systematic"]).integrate("appl", axes_fill_info_dict["appl"]).values(overflow='all')[()]
-    pdf_syst = np.sqrt(np.sum(np.square(pdfs), axis=0))
-    tot_syst = np.vstack((np.append(np.sqrt(np.square(pdf_syst) + np.square(curr_syst)), [0], axis=0),pad.T)).T # Pad back to _nwc dimensions with 0
-    hout[dense_axis_name]._sumw[sbins] = tot_syst
+    pdf_syst = np.sum(np.square(pdfs), axis=0)
+    tot_syst = np.vstack((np.append(np.square(pdf_syst) + np.square(curr_syst), [0], axis=0),pad.T)).T # Pad back to _nwc dimensions with 0
+    hout[dense_axis_name]._sumw[sbins] = tot_syst # Final output is squared, need to take sqrt AFTER accumulation
+
+def FinalizePdfUnc(hists): # Provide a dictionary of histograms
+    for h in hists.values():
+        bins = (b for b in h._sumw.keys() if 'PDF' in b) # Find all sumw bins with `PDF` in name
+        for b in bins:
+            h._sumw[b] = np.sqrt(h._sumw[b]) # Take square root of entries (added in quadrature)
 
 def ComputePdfUncertainty(hout):
     for h_pdf in hout:
