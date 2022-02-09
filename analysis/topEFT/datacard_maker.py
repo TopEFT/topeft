@@ -67,7 +67,6 @@ class DatacardMaker():
             self.analysis_bins['lj0pt'] = [0, 150, 250, 500, self.hists['lj0pt'].axis('lj0pt').edges()[-1]]
 
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
-        if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         # Get list of channels
         self.ch2lss = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and not '4t' in k[1]})
