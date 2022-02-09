@@ -39,6 +39,7 @@ parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control r
 parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
 parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
 parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
+parser.add_argument('--ecut', default=None  , help = 'Energy cut threshold i.e. throw out events above this (GeV)')
 parser.add_argument('--port', default='9123-9130', help = 'Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.')
 
 args = parser.parse_args()
@@ -57,6 +58,10 @@ skip_sr    = args.skip_sr
 skip_cr    = args.skip_cr
 do_np      = args.do_np
 wc_lst = args.wc_list if args.wc_list is not None else []
+
+# Set the threshold for the ecut (if not applying a cut, should be None)
+ecut_threshold = args.ecut
+if ecut_threshold is not None: ecut_threshold = float(args.ecut)
 
 # construct wq port range
 port = list(map(int, args.port.split('-')))
@@ -173,7 +178,7 @@ if len(wc_lst) > 0:
 else:
  print('No Wilson coefficients specified')
 
-processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
+processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
 
 executor_args = {
     'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
