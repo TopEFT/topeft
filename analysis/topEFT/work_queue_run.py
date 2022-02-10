@@ -19,6 +19,7 @@ import topeft
 from topcoffea.modules import samples
 from topcoffea.modules import fileReader
 from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
+from topcoffea.modules.corrections import FinalizePdfUnc
 import topeftenv
 
 import argparse
@@ -265,6 +266,7 @@ print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,
 nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
 nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
 print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
+output = FinalizePdfUnc(output)
 
 # Save the output
 if not os.path.isdir(outpath): os.system("mkdir -p %s"%outpath)

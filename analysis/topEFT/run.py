@@ -18,6 +18,7 @@ import topeft
 from topcoffea.modules import samples
 from topcoffea.modules import fileReader
 from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
+from topcoffea.modules.corrections import FinalizePdfUnc
 
 if __name__ == '__main__':
 
@@ -186,6 +187,7 @@ if __name__ == '__main__':
   nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
   print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
   print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
+  output = FinalizePdfUnc(output)
  
   # Save the output
   if not os.path.isdir(outpath): os.system("mkdir -p %s"%outpath)
