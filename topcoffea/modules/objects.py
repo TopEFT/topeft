@@ -26,9 +26,12 @@ def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
 def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
 
     # Get the btag wp for the year
-    if ((year == "2016") or (year == "2016APV")):
-        wploose  = get_param("btag_wp_loose_L16")
-        wpmedium = get_param("btag_wp_medium_L16")
+    if (year == "2016"):
+        wploose  = get_param("btag_wp_loose_UL16")
+        wpmedium = get_param("btag_wp_medium_UL16")
+    elif (year == "2016APV"):
+        wploose  = get_param("btag_wp_loose_UL16APV")
+        wpmedium = get_param("btag_wp_medium_UL16APV")
     elif (year == "2017"):
         wploose  = get_param("btag_wp_loose_UL17")
         wpmedium = get_param("btag_wp_medium_UL17")
@@ -76,8 +79,10 @@ def isLooseMuon(miniPFRelIso_all,sip3d,looseId):
 def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mvaTTH, jetRelIso, mvaFall17V2noIso_WP80, year):
 
     # Get the btag cut for the year
-    if ((year == "2016") or (year == "2016APV")):
-        bTagCut = get_param("btag_wp_medium_L16")
+    if (year == "2016"):
+        bTagCut = get_param("btag_wp_medium_UL16")
+    elif (year == "2016APV"):
+        bTagCut = get_param("btag_wp_medium_UL16APV")
     elif (year == "2017"):
         bTagCut = get_param("btag_wp_medium_UL17")
     elif (year == "2018"):
@@ -95,8 +100,10 @@ def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mva
 def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTH, jetRelIso, year):
 
     # Get the btag cut for the year
-    if ((year == "2016") or (year == "2016APV")):
-        bTagCut = get_param("btag_wp_medium_L16")
+    if (year == "2016"):
+        bTagCut = get_param("btag_wp_medium_UL16")
+    elif (year == "2016APV"):
+        bTagCut = get_param("btag_wp_medium_UL16APV")
     elif (year == "2017"):
         bTagCut = get_param("btag_wp_medium_UL17")
     elif (year == "2018"):
