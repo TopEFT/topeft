@@ -79,8 +79,10 @@ def isLooseMuon(miniPFRelIso_all,sip3d,looseId):
 def isFOElec(conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mvaTTH, jetRelIso, mvaFall17V2noIso_WP80, year):
 
     # Get the btag cut for the year
-    if ((year == "2016") or (year == "2016APV")):
+    if (year == "2016"):
         bTagCut = get_param("btag_wp_medium_UL16")
+    elif (year == "2016APV"):
+        bTagCut = get_param("btag_wp_medium_UL16APV")
     elif (year == "2017"):
         bTagCut = get_param("btag_wp_medium_UL17")
     elif (year == "2018"):
