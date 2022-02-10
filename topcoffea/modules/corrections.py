@@ -297,26 +297,13 @@ def AttachScaleWeights(events):
   events['renormUp']           = scale_weights[:,renormUp]
   events['renorm_factUp']      = scale_weights[:,renormUp_factUp]
 
-def get_pdf_type(events):
-    '''
-    Reads PDF type from dictionary made from https://lhapdf.hepforge.org/pdfsets.html
-    '''
-    list_of_files = load_json(jname)
-    pdf_sets = load_json(topcoffea_path('json/pdfsets.json'))
-
-    pdf = events['LHEPdfWeight'].title.split(' ')
-    pdf_id = str(pdf[pdf.index('IDs')+1])
-    pdf_type = pdf_sets[pdf_id]
-    return pdf_type
-
-def AttachPdfWeights(events):
+def AttachPdfWeights(events, pdf_type):
     '''
     Return a list of PDF weights
     Should be 100 weights for NNPDF 3.1
     '''
     if events['LHEPdfWeight'] is None:
         raise Exception(f'LHEPdfWeight not found in {fname}!')
-    pdf_type = get_pdf_type(events)
     if 'hessian' not in pdf_type:
         raise NotImplementedError(f'PDF type {pdf_type} currently not supported!')
     events['nPdf'] = len(events['LHEPdfWeight'][0]) if len(events['LHEPdfWeight'][0]) < 100 else 100 # Weights past 100 are alpha_s weights
@@ -367,25 +354,13 @@ def ApplyPdfWeights(events, hout, all_cuts_mask, axes_fill_info_dict, dense_axis
     hout[dense_axis_name]._sumw[sbins] = tot_syst # Final output is squared, need to take sqrt AFTER accumulation
 
 def FinalizePdfUnc(hists): # Provide a dictionary of histograms
-    for h in hists.values():
-        bins = (b for b in h._sumw.keys() if 'PDF' in b) # Find all sumw bins with `PDF` in name
+    for key in hists:
+        bins = (b for b in hists[key]._sumw.keys() if 'PDFUp' in str(b)) # Find all sumw bins with `PDF` in name
+        sumw = hists[key]._sumw
         for b in bins:
-            h._sumw[b] = np.sqrt(h._sumw[b]) # Take square root of entries (added in quadrature)
-
-def ComputePdfUncertainty(hout):
-    for h_pdf in hout:
-        for ipdf in range(events["nPdf"][0]):
-            # Define category bins
-            bins_list     = [s for s in list(h_pdf.values().keys()) if any('PDFUp' in str(x) for x in s)]
-            bins_nom_list = [s for s in list(h_pdf.values().keys()) if any('nomianl' in str(x) for x in s)]
-            bins_pdf_list = [s for s in list(h_pdf.values().keys()) if any(f'Pdf{ipdf}' in str(x) for x in s)]
-            for n,bins_pdf in enumerate(bins_list):
-                bins_nom = bins_nom_list[n]
-                bins     = bins_list[n]
-                h_pdf    = hout[dense_axis_name] # temp histogram
-                sdiff    = np.square(h_pdf._sumw[bins_pdf]) - np.square(h_pdf._sumw[bins_nom]) # Calculate diff^2 of temp and nominal
-                unc      = np.sqrt(np.isnan(np.square(h_pdf._sumw[bins_pdf]) + sdiff)) # Add variations in quadrature
-                hout._sumw[bins] = unc # Store variations
+            sumw[b] = np.sqrt(sumw[b]) # Take square root of entries (added in quadrature)
+        hists[key]._sumw = sumw
+    return hists
 
 ####### JEC 
 ##############################################
