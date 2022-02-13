@@ -34,7 +34,7 @@ class DatacardMaker():
         self.year = single_year
         self.do_sm = do_sm
         # Variables we have defined a binning for
-        self.known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt']
+        self.known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt','ljptsum']
 
     def read(self):
         '''
@@ -54,7 +54,9 @@ class DatacardMaker():
         if 'ptbl' in self.hists:
             self.analysis_bins['ptbl'] = [0, 100, 200, 400, self.hists['ptbl'].axis('ptbl').edges()[-1]]
         if 'ht' in self.hists:
-            self.analysis_bins['ht'] = [0, 100, 200, 300, 400, self.hists['ht'].axis('ht').edges()[-1]]
+            self.analysis_bins['ht'] = [0, 300, 500, 800, self.hists['ht'].axis('ht').edges()[-1]]
+        if 'ljptsum' in self.hists:
+            self.analysis_bins['ljptsum'] = [0, 400, 600, 1000, self.hists['ljptsum'].axis('ljptsum').edges()[-1]]
         if 'ptz' in self.hists:
             self.analysis_bins['ptz'] = [0, 80, 200, 320, 440, self.hists['ptz'].axis('ptz').edges()[-1]]
         if 'o0pt' in self.hists:
