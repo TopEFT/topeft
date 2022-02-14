@@ -8,6 +8,8 @@ import os
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.samples import loadxsecdic
 from topcoffea.modules.combine_json_ext  import combine_json_ext
+from topcoffea.modules.combine_json_batch  import combine_json_batch
+import re
 
 ########### The XSs from xsec.cfg ###########
 XSECDIC = loadxsecdic("../../topcoffea/cfg/xsec.cfg",True)
@@ -1093,6 +1095,9 @@ def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False
         if '_ext' in out_name:
           combine_json_ext(out_dir+'/'+out_name) # Merge with non-ext version
           os.remove(out_dir+'/'+out_name) # Remove (now) outdated ext version
+        if re.search('_b[2-9]', out_name):
+          combine_json_batch(out_dir+'/'+out_name) # Merge batches
+          os.remove(out_dir+'/'+out_name) # Remove (now) outdated batch version
 
         print("sample name:",sample_name)
         print("\tpath:",path,"\n\thistAxisName:",hist_axis_name,"\n\txsecName",xsec_name,"\n\tout name:",out_name,"\n\tout dir:",out_dir)
