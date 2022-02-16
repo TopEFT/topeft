@@ -3,6 +3,7 @@ import lz4.frame as lz4f
 import cloudpickle
 import json
 import pprint
+import copy
 import coffea
 import numpy as np
 import awkward as ak
@@ -353,28 +354,29 @@ class AnalysisProcessor(processor.ProcessorABC):
                 #AttachPdfWeights(events) # FIXME use these!
 
                 # We only calculate these values if not isData
-                weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC)
-                # Trying to calculate PU SFs for data causes a crash, and we don't apply this for data anyway, so just skip it in the case of data
-                weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 'up'), GetPUSF(events.Pileup.nTrueInt, year, 'down'))
+                weights_dict[ch_name].add("btagSF", pData/pMC, copy.deepcopy(pDataUp/pMC), copy.deepcopy(pDataDo/pMC))
+                weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), copy.deepcopy(GetPUSF(events.Pileup.nTrueInt, year, 'up')), copy.deepcopy(GetPUSF(events.Pileup.nTrueInt, year, 'down')))
                 # Prefiring weights only available in nanoAODv9**
-                weights_dict[ch_name].add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
+                weights_dict[ch_name].add('PreFiring', events.L1PreFiringWeight.Nom,  copy.deepcopy(events.L1PreFiringWeight.Up),  copy.deepcopy(events.L1PreFiringWeight.Dn))
                 # FSR/ISR weights
-                weights_dict[ch_name].add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
-                weights_dict[ch_name].add('FSR', events.FSRnom, events.FSRUp, events.FSRDown)
+                weights_dict[ch_name].add('ISR', events.ISRnom, copy.deepcopy(events.ISRUp), copy.deepcopy(events.ISRDown))
+                weights_dict[ch_name].add('FSR', events.FSRnom, copy.deepcopy(events.FSRUp), copy.deepcopy(events.FSRDown))
                 # renorm/fact scale
-                weights_dict[ch_name].add('renorm', events.nom, events.renormUp, events.renormDown)
-                weights_dict[ch_name].add('fact',   events.nom, events.factUp,   events.factDown)
-                weights_dict[ch_name].add('renorm_fact', events.nom, events.renorm_factUp, events.renorm_factDown)
+                weights_dict[ch_name].add('renorm',      events.nom, copy.deepcopy(events.renormUp),      copy.deepcopy(events.renormDown))
+                weights_dict[ch_name].add('fact',        events.nom, copy.deepcopy(events.factUp),        copy.deepcopy(events.factDown))
+                weights_dict[ch_name].add('renorm_fact', events.nom, copy.deepcopy(events.renorm_factUp), copy.deepcopy(events.renorm_factDown))
                 # Trigger SF
-                weights_dict[ch_name].add('triggerSF', events.trigger_sf, events.trigger_sfUp, events.trigger_sfDown)
+                weights_dict[ch_name].add('triggerSF', events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))
+
             if "2l" in ch_name:
-                weights_dict[ch_name].add("lepSF", events.sf_2l, events.sf_2l_hi, events.sf_2l_lo)
-                weights_dict[ch_name].add("FF"   , events.fakefactor_2l, events.fakefactor_2l_up, events.fakefactor_2l_down )
+                weights_dict[ch_name].add("lepSF", events.sf_2l,         copy.deepcopy(events.sf_2l_hi),         copy.deepcopy(events.sf_2l_lo))
+                weights_dict[ch_name].add("FF"   , events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
             if "3l" in ch_name:
-                weights_dict[ch_name].add("lepSF", events.sf_3l, events.sf_3l_hi, events.sf_3l_lo)
-                weights_dict[ch_name].add("FF"   , events.fakefactor_3l, events.fakefactor_3l_up, events.fakefactor_3l_down)
+                weights_dict[ch_name].add("lepSF", events.sf_3l,         copy.deepcopy(events.sf_3l_hi),         copy.deepcopy(events.sf_3l_lo))
+                weights_dict[ch_name].add("FF"   , events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
             if "4l" in ch_name:
-                weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
+                weights_dict[ch_name].add("lepSF", events.sf_4l, copy.deepcopy(events.sf_4l_hi), copy.deepcopy(events.sf_4l_lo))
+
           if isData and "2l" in ch_name:
               weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
               
