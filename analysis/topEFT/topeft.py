@@ -377,8 +377,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 if "4l" in ch_name:
                     weights_dict[ch_name].add("lepSF", events.sf_4l, copy.deepcopy(events.sf_4l_hi), copy.deepcopy(events.sf_4l_lo))
 
-            if isData and "2l" in ch_name:
-                weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
+                if isData and "2l" in ch_name:
+                    weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
                 
             # Systematics
             systList = ["nominal"]
