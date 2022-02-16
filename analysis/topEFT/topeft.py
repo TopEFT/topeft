@@ -374,8 +374,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_dict[ch_name].add("FF"   , events.fakefactor_3l, events.fakefactor_3l_up, events.fakefactor_3l_down)
             if "4l" in ch_name:
                 weights_dict[ch_name].add("lepSF", events.sf_4l, events.sf_4l_hi, events.sf_4l_lo)
-          if isData and "2l" in ch_name:
-              weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
+            if isData and "2l" in ch_name:
+                weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
               
           # Systematics
           systList = ["nominal"]
