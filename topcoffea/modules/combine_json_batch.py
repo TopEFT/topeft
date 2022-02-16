@@ -13,7 +13,6 @@ def combine_json_batch(batch_name):
     jsonFile = open(batch_name,'r')
     batch = json.load(jsonFile) # Load the JSON information for the batch file
 
-    nom_name = batch_name.replace('_b1','')
     nom_name = re.sub(r'_b\d*', '_b1', batch_name) # '_b[0-9]' to '_b1' in the file name
     try:
         jsonFile = open(nom_name,'r')
