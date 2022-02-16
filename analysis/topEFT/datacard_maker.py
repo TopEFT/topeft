@@ -19,7 +19,10 @@ class DatacardMaker():
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.rename = {**self.rename, **{'ttH_centralUL17': 'ttH', 'ttH_centralUL16': 'ttH', 'ttH_centralUL18': 'ttH', 'ttHJetToNonbb_M125_centralUL16': 'ttH', 'ttHJetToNonbb_M125_APV_centralUL16': 'ttH', 'ttW_centralUL17': 'ttW', 'ttZ_centralUL17': 'ttZ', 'tZq_centralUL17': 'tllq', 'ttH_centralUL17': 'ttH', 'ttW_centralUL18': 'ttW', 'ttZ_centralUL18': 'ttZ', 'tZq_centralUL18': 'tllq', 'ttH_centralUL18': 'ttH'}}
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
-        self.syst_special = {'charge_flips': 0.3} # 30% flat uncertainty for charge flips
+        # Special systematics
+        # {'syst', x} will apply 1+x to _all_ categories
+        # {'syst',{'proc1': x},...,{'procN': x}} will apply 1+x to any categories matching proc1 - procN (e.g. charge_flip_sm)
+        self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.05} # 30% flat uncertainty for charge flips
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         # Dictionary of njet bins
@@ -31,7 +34,7 @@ class DatacardMaker():
         self.year = single_year
         self.do_sm = do_sm
         # Variables we have defined a binning for
-        self.known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt']
+        self.known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt','ljptsum']
 
     def read(self):
         '''
@@ -51,7 +54,9 @@ class DatacardMaker():
         if 'ptbl' in self.hists:
             self.analysis_bins['ptbl'] = [0, 100, 200, 400, self.hists['ptbl'].axis('ptbl').edges()[-1]]
         if 'ht' in self.hists:
-            self.analysis_bins['ht'] = [0, 100, 200, 300, 400, self.hists['ht'].axis('ht').edges()[-1]]
+            self.analysis_bins['ht'] = [0, 300, 500, 800, self.hists['ht'].axis('ht').edges()[-1]]
+        if 'ljptsum' in self.hists:
+            self.analysis_bins['ljptsum'] = [0, 400, 600, 1000, self.hists['ljptsum'].axis('ljptsum').edges()[-1]]
         if 'ptz' in self.hists:
             self.analysis_bins['ptz'] = [0, 80, 200, 320, 440, self.hists['ptz'].axis('ptz').edges()[-1]]
         if 'o0pt' in self.hists:
@@ -63,7 +68,6 @@ class DatacardMaker():
         if 'lj0pt' in self.hists:
             self.analysis_bins['lj0pt'] = [0, 150, 250, 500, self.hists['lj0pt'].axis('lj0pt').edges()[-1]]
 
-        if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         # Get list of channels
@@ -329,15 +333,33 @@ class DatacardMaker():
         ``Q`` is built from the ``WC=0``, ``WC=1``, and ``WC=2`` pieces
         ``S+L_i+L_j+Q_i+Q_j+2 M_IJ`` set ``WC_i=1``, ``WC_j=1`` and the rest to ``0``
         '''
+
+        # Loops through a dict of hists and takes care of the overflow bins
+        # Returns a new hist (should not modify original), with overflow combined with last bin
+        # In principle would probably be better for this function to act on a hist, not a dict of hists
+        def getOverflowMergedHists(in_dict):
+            ret_dict = {}
+            loop_dict = deepcopy(in_dict) # Make sure we do not modify the input dict
+            for loop_name,loop_histo in loop_dict.items():
+                last   = loop_histo.GetBinContent(loop_histo.GetNbinsX())                # Last bin
+                over   = loop_histo.GetBinContent(loop_histo.GetNbinsX()+1)              # Overflow
+                e_last = loop_histo.GetBinError(loop_histo.GetNbinsX())                  # Last bin error
+                e_over = loop_histo.GetBinError(loop_histo.GetNbinsX()+1)                # Overflow error
+                loop_histo.SetBinContent(loop_histo.GetNbinsX(), last+over)              # Add overflow to last bin
+                loop_histo.SetBinContent(loop_histo.GetNbinsX()+1, 0.0)                  # Set overflow to 0
+                loop_histo.SetBinError(loop_histo.GetNbinsX(),(e_last**2+e_over**2)**.5) # Add overflow error in quadrature to last bin
+                loop_histo.SetBinError(loop_histo.GetNbinsX()+1,0.0)                     # Set overflow error to 0
+                ret_dict[loop_name] = loop_histo
+            return ret_dict
+
         def getHist(d_hists,name):
             h = d_hists[name]
             xmin = h.GetXaxis().GetXmin()
             xmax = h.GetXaxis().GetXmax()
             xwidth = h.GetXaxis().GetBinWidth(1)
-            h.GetXaxis().SetRangeUser(xmin, xmax + 1.5*xwidth) #Include overflow bin in ROOT
             return deepcopy(h) # to protect d_hists from modifications 
 
-        def processSyst(process, systMap, d_hists, fout):
+        def processSyst(process, channel, systMap, d_hists, fout):
             for syst in self.syst:
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
                 if any([process+'_'+syst in d for d in d_hists]):
@@ -372,11 +394,24 @@ class DatacardMaker():
                     else:
                         systMap[syst] = {process: round(h_sys.Integral(), 3)}
             for syst_special,val in self.syst_special.items():
-                if syst_special not in process: continue
-                if syst in systMap:
-                    systMap[syst_special+'_flat_rate'].update({process: 1+val})
+                # Check for special bins
+                if isinstance(val,dict):
+                    # Check for process specific systematics (e.g. `charge_flips_sm`)
+                    if not any((b in process for b in val.keys())): continue
+                    for b in val:
+                        if b in process:
+                            # Found the process we're looking for, no need to keep looping
+                            syst = val[b]
+                            break
+                elif isinstance(val,(int,float)):
+                    syst = val
                 else:
-                    systMap[syst_special+'_flat_rate'] = {process: 1+val}
+                    raise NotImplementedError(f'Invalid value type {syst_special} {val}')
+                syst_cat = syst_special+'_flat_rate'
+                if syst_cat in systMap:
+                    systMap[syst_cat].update({process: 1+syst})
+                else:
+                    systMap[syst_cat] = {process: 1+syst}
                     
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
@@ -394,15 +429,20 @@ class DatacardMaker():
                 cat = '_'.join([channel, variable])  
             else:
                 cat = '_'.join([channel, nbjet, variable])
-        #Open temp ROOT file
+
+        # Open temp ROOT file
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fin = TFile(fname)
-        d_hists = {k.GetName(): fin.Get(k.GetName()) for k in fin.GetListOfKeys()}
-        [h.SetDirectory(0) for h in d_hists.values()]
+        d_hists_withoverflow = {k.GetName(): fin.Get(k.GetName()) for k in fin.GetListOfKeys()}
+        [h.SetDirectory(0) for h in d_hists_withoverflow.values()]
         fin.Close()
-        #Delete temp ROOT file
+        # Delete temp ROOT file
         os.system(f'rm {fname}')
-        #Create the ROOT file
+
+        # Fold overflow bin in ROOT into last bin (combine does NOT use the overflow bin)
+        d_hists = getOverflowMergedHists(d_hists_withoverflow)
+
+        # Create the ROOT file
         fname = f'histos/ttx_multileptons-{cat}.root'
         fout = TFile(fname, 'recreate')
         signalcount=0; bkgcount=0; iproc = {}; systMap = {}; allyields = {'data_obs' : 0.}
@@ -469,7 +509,7 @@ class DatacardMaker():
                         allyields[name] = h_sm.Integral()
                         bkgcount += 1
                         d_bkgs[name] = h_sm
-                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
                 h_sm.SetDirectory(fout)
                 h_sm.SetName(name)
                 h_sm.SetTitle(name)
@@ -536,7 +576,7 @@ class DatacardMaker():
                 if allyields[name] < 0:
                     raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
 
-                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
 
                 # Get the "Q" piece
                 name = '_'.join([pname[:-1],'quad',wc])
@@ -561,7 +601,7 @@ class DatacardMaker():
                 h_quad.Write()
                 if allyields[name] < 0:
                     raise Exception(f"This value {allyields[name]} should not be negative (except potentially due to rounding errors, if the value is tiny), check for bugs upstream.")
-                if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
                 
 
                 # Get the "S+Li+Lj+Qi+Qj+2Mij" piece
@@ -589,7 +629,7 @@ class DatacardMaker():
                     allyields[name] = h_mix.Integral()
                     if allyields[name] < 0:
                         raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
-                    if self.do_nuisance: processSyst(name, systMap, d_hists, fout)
+                    if self.do_nuisance: processSyst(name, channel,  systMap, d_hists, fout)
 
         selectedWCsFile=open(f'histos/selectedWCs-{cat}.txt','w')
         json.dump(selectedWCsForProc, selectedWCsFile)
