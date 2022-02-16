@@ -17,7 +17,6 @@ from coffea.jetmet_tools import JECStack, CorrectedJetsFactory, CorrectedMETFact
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from topcoffea.modules.GetValuesFromJsons import get_param
 from coffea.lookup_tools import txt_converters, rochester_lookup
-import correctionlib
 
 basepathFromTTH = 'data/fromTTH/'
 
