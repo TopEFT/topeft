@@ -185,150 +185,150 @@ class AnalysisProcessor(processor.ProcessorABC):
         if self._do_systematics : syst_var_list = ['MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']
         else: syst_var_list = ['nominal']
         for syst_var in syst_var_list:
-          mu["pt"]=mu.pt_raw
-          if syst_var == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='up')
-          elif syst_var == 'MuonESDown': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='down')
-          else: mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='nominal')
-          # Muon selection
-          mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-          mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
-          mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTH, mu.jetRelIso, year)
-          mu["isTightLep"]= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
-          # Build loose collections
-          m_loose = mu[mu.isPres & mu.isLooseM]
-          e_loose = e[e.isPres & e.isLooseE]
-          l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
+            mu["pt"]=mu.pt_raw
+            if syst_var == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='up')
+            elif syst_var == 'MuonESDown': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='down')
+            else: mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='nominal')
+            # Muon selection
+            mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
+            mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
+            mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTH, mu.jetRelIso, year)
+            mu["isTightLep"]= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
+            # Build loose collections
+            m_loose = mu[mu.isPres & mu.isLooseM]
+            e_loose = e[e.isPres & e.isLooseE]
+            l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
 
-          # Compute pair invariant masses, for all flavors all signes
-          llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
-          events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
+            # Compute pair invariant masses, for all flavors all signes
+            llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
+            events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
 
-          # Build FO collection
-          m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
-          e_fo = e[e.isPres & e.isLooseE & e.isFO]
+            # Build FO collection
+            m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
+            e_fo = e[e.isPres & e.isLooseE & e.isFO]
 
-          # Attach the lepton SFs to the electron and muons collections
-          AttachElectronSF(e_fo,year=year)
-          AttachMuonSF(m_fo,year=year)
+            # Attach the lepton SFs to the electron and muons collections
+            AttachElectronSF(e_fo,year=year)
+            AttachMuonSF(m_fo,year=year)
 
-          # Attach per lepton fake rates
-          AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
-          AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
-          m_fo['convVeto'] = ak.ones_like(m_fo.charge); 
-          m_fo['lostHits'] = ak.zeros_like(m_fo.charge); 
-          l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
-          l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
+            # Attach per lepton fake rates
+            AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
+            AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
+            m_fo['convVeto'] = ak.ones_like(m_fo.charge); 
+            m_fo['lostHits'] = ak.zeros_like(m_fo.charge); 
+            l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
+            l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
-          # Tau selection
-          tau["isPres"]  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
-          tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
-          tau["isGood"]  =  tau["isClean"] & tau["isPres"]
-          tau = tau[tau.isGood] # use these to clean jets
-          tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+            # Tau selection
+            tau["isPres"]  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
+            tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
+            tau["isGood"]  =  tau["isClean"] & tau["isPres"]
+            tau = tau[tau.isGood] # use these to clean jets
+            tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
 
-          #################### Jets ####################
+            #################### Jets ####################
 
-          # Jet cleaning, before any jet selection
-          #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
-          vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
-          tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
-          cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
+            # Jet cleaning, before any jet selection
+            #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
+            vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
+            tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
+            cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
-          # Selecting jets and cleaning them
-          jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
+            # Selecting jets and cleaning them
+            jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
-          # Jet energy corrections
-          if not isData:
-            cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
-            cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
-            cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-            cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
-            events_cache = events.caches[0]
-            cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
-            # SYSTEMATICS
-            cleanedJets=ApplyJetSystematics(cleanedJets,syst_var)
-            met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
-          cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
-          goodJets = cleanedJets[cleanedJets.isGood]
+            # Jet energy corrections
+            if not isData:
+                cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
+                cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
+                cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
+                cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
+                events_cache = events.caches[0]
+                cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
+                # SYSTEMATICS
+                cleanedJets=ApplyJetSystematics(cleanedJets,syst_var)
+                met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
+            cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
+            goodJets = cleanedJets[cleanedJets.isGood]
 
-          # Count jets
-          njets = ak.num(goodJets)
-          ht = ak.sum(goodJets.pt,axis=-1)
-          j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
-          
-          # Loose DeepJet WP
-          if year == "2017":
-            btagwpl = get_param("btag_wp_loose_UL17")
-          elif year == "2018":
-            btagwpl = get_param("btag_wp_loose_UL18")
-          elif year=="2016":
-            btagwpl = get_param("btag_wp_loose_UL16")          
-          elif year=="2016APV":
-            btagwpl = get_param("btag_wp_loose_UL16APV")
-          else:
-            raise ValueError(f"Error: Unknown year \"{year}\".")
-          isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
-          isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
-          nbtagsl = ak.num(goodJets[isBtagJetsLoose])
+            # Count jets
+            njets = ak.num(goodJets)
+            ht = ak.sum(goodJets.pt,axis=-1)
+            j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
+            
+            # Loose DeepJet WP
+            if year == "2017":
+                btagwpl = get_param("btag_wp_loose_UL17")
+            elif year == "2018":
+                btagwpl = get_param("btag_wp_loose_UL18")
+            elif year=="2016":
+                btagwpl = get_param("btag_wp_loose_UL16")          
+            elif year=="2016APV":
+                btagwpl = get_param("btag_wp_loose_UL16APV")
+            else:
+                raise ValueError(f"Error: Unknown year \"{year}\".")
+            isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
+            isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
+            nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
-          # Medium DeepJet WP
-          if year == "2017": 
-            btagwpm = get_param("btag_wp_medium_UL17")
-          elif year == "2018":
-            btagwpm = get_param("btag_wp_medium_UL18")
-          elif year=="2016":
-            btagwpm = get_param("btag_wp_medium_UL16")
-          elif year=="2016APV":
-            btagwpm = get_param("btag_wp_medium_UL16APV")
-          else:
-            raise ValueError(f"Error: Unknown year \"{year}\".")
-          isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
-          isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
-          nbtagsm = ak.num(goodJets[isBtagJetsMedium])
+            # Medium DeepJet WP
+            if year == "2017": 
+                btagwpm = get_param("btag_wp_medium_UL17")
+            elif year == "2018":
+                btagwpm = get_param("btag_wp_medium_UL18")
+            elif year=="2016":
+                btagwpm = get_param("btag_wp_medium_UL16")
+            elif year=="2016APV":
+                btagwpm = get_param("btag_wp_medium_UL16APV")
+            else:
+                raise ValueError(f"Error: Unknown year \"{year}\".")
+            isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
+            isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
+            nbtagsm = ak.num(goodJets[isBtagJetsMedium])
 
 
-          #################### Add variables into event object so that they persist ####################
+            #################### Add variables into event object so that they persist ####################
 
-          # Put njets and l_fo_conept_sorted into events
-          events["njets"] = njets
-          events["l_fo_conept_sorted"] = l_fo_conept_sorted
+            # Put njets and l_fo_conept_sorted into events
+            events["njets"] = njets
+            events["l_fo_conept_sorted"] = l_fo_conept_sorted
 
-          # The event selection
-          add2lMaskAndSFs(events, year, isData, sampleType)
-          add3lMaskAndSFs(events, year, isData, sampleType)
-          add4lMaskAndSFs(events, year, isData)
-          addLepCatMasks(events)
+            # The event selection
+            add2lMaskAndSFs(events, year, isData, sampleType)
+            add3lMaskAndSFs(events, year, isData, sampleType)
+            add4lMaskAndSFs(events, year, isData)
+            addLepCatMasks(events)
 
-          # Convenient to have l0, l1, l2 on hand
-          l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
-          l0 = l_fo_conept_sorted_padded[:,0]
-          l1 = l_fo_conept_sorted_padded[:,1]
-          l2 = l_fo_conept_sorted_padded[:,2]
+            # Convenient to have l0, l1, l2 on hand
+            l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
+            l0 = l_fo_conept_sorted_padded[:,0]
+            l1 = l_fo_conept_sorted_padded[:,1]
+            l2 = l_fo_conept_sorted_padded[:,2]
 
-          print("The number of events passing FO 2l, 3l, and 4l selection:", ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
+            print("The number of events passing FO 2l, 3l, and 4l selection:", ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
 
-          ######### SFs, weights, systematics ##########
+            ######### SFs, weights, systematics ##########
 
-          # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
-          btagSF   = np.ones_like(ht)
-          btagSFUp = np.ones_like(ht)
-          btagSFDo = np.ones_like(ht)
-          if not isData:
-            pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
+            # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
+            btagSF   = np.ones_like(ht)
+            btagSFUp = np.ones_like(ht)
+            btagSFDo = np.ones_like(ht)
+            if not isData:
+                pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
 
-            bJetSF   = GetBTagSF(abseta, pt, flav, year)
-            bJetSFUp = GetBTagSF(abseta, pt, flav, year, sys='up')
-            bJetSFDo = GetBTagSF(abseta, pt, flav, year, sys='down')
-            bJetEff  = GetBtagEff(pt, abseta, flav, year)
-            bJetEff_data   = bJetEff*bJetSF
-            bJetEff_dataUp = bJetEff*bJetSFUp
-            bJetEff_dataDo = bJetEff*bJetSFDo
+                bJetSF   = GetBTagSF(abseta, pt, flav, year)
+                bJetSFUp = GetBTagSF(abseta, pt, flav, year, sys='up')
+                bJetSFDo = GetBTagSF(abseta, pt, flav, year, sys='down')
+                bJetEff  = GetBtagEff(pt, abseta, flav, year)
+                bJetEff_data   = bJetEff*bJetSF
+                bJetEff_dataUp = bJetEff*bJetSFUp
+                bJetEff_dataDo = bJetEff*bJetSFDo
 
-            pMC     = ak.prod(bJetEff       [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJetsMedium]), axis=-1)
-            pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
-            pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
-            pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
-            pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
+                pMC     = ak.prod(bJetEff       [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJetsMedium]), axis=-1)
+                pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
+                pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
+                pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
+                pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
           
           # Trigger SF
           GetTriggerSF(year,events,l0,l1)
@@ -336,46 +336,46 @@ class AnalysisProcessor(processor.ProcessorABC):
           # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
           weights_dict = {}
           if (isData or (eft_coeffs is not None)):
-            genw = np.ones_like(events["event"])
+              genw = np.ones_like(events["event"])
           else:
-            genw = events["genWeight"]
+              genw = events["genWeight"]
           for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
-            weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
-            weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
-            if not isData:
+              weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+              weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
+              if not isData:
 
-                ######### Event weights ###########
+                  ######### Event weights ###########
 
-                # Attach PS weights (ISR/FSR)
-                AttachPSWeights(events)
-                # Attach scale weights (renormalization/factorization)
-                AttachScaleWeights(events)
-                # Attach PDF weights
-                #AttachPdfWeights(events) # FIXME use these!
+                  # Attach PS weights (ISR/FSR)
+                  AttachPSWeights(events)
+                  # Attach scale weights (renormalization/factorization)
+                  AttachScaleWeights(events)
+                  # Attach PDF weights
+                  #AttachPdfWeights(events) # FIXME use these!
 
-                # We only calculate these values if not isData
-                weights_dict[ch_name].add("btagSF", pData/pMC, copy.deepcopy(pDataUp/pMC), copy.deepcopy(pDataDo/pMC))
-                weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), copy.deepcopy(GetPUSF(events.Pileup.nTrueInt, year, 'up')), copy.deepcopy(GetPUSF(events.Pileup.nTrueInt, year, 'down')))
-                # Prefiring weights only available in nanoAODv9**
-                weights_dict[ch_name].add('PreFiring', events.L1PreFiringWeight.Nom,  copy.deepcopy(events.L1PreFiringWeight.Up),  copy.deepcopy(events.L1PreFiringWeight.Dn))
-                # FSR/ISR weights
-                weights_dict[ch_name].add('ISR', events.ISRnom, copy.deepcopy(events.ISRUp), copy.deepcopy(events.ISRDown))
-                weights_dict[ch_name].add('FSR', events.FSRnom, copy.deepcopy(events.FSRUp), copy.deepcopy(events.FSRDown))
-                # renorm/fact scale
-                weights_dict[ch_name].add('renorm',      events.nom, copy.deepcopy(events.renormUp),      copy.deepcopy(events.renormDown))
-                weights_dict[ch_name].add('fact',        events.nom, copy.deepcopy(events.factUp),        copy.deepcopy(events.factDown))
-                weights_dict[ch_name].add('renorm_fact', events.nom, copy.deepcopy(events.renorm_factUp), copy.deepcopy(events.renorm_factDown))
-                # Trigger SF
-                weights_dict[ch_name].add('triggerSF', events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))
+                  # We only calculate these values if not isData
+                  weights_dict[ch_name].add("btagSF", pData/pMC, copy.deepcopy(pDataUp/pMC), copy.deepcopy(pDataDo/pMC))
+                  weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), copy.deepcopy(GetPUSF(events.Pileup.nTrueInt, year, 'up')), copy.deepcopy(GetPUSF(events.Pileup.nTrueInt, year, 'down')))
+                  # Prefiring weights only available in nanoAODv9**
+                  weights_dict[ch_name].add('PreFiring', events.L1PreFiringWeight.Nom,  copy.deepcopy(events.L1PreFiringWeight.Up),  copy.deepcopy(events.L1PreFiringWeight.Dn))
+                  # FSR/ISR weights
+                  weights_dict[ch_name].add('ISR', events.ISRnom, copy.deepcopy(events.ISRUp), copy.deepcopy(events.ISRDown))
+                  weights_dict[ch_name].add('FSR', events.FSRnom, copy.deepcopy(events.FSRUp), copy.deepcopy(events.FSRDown))
+                  # renorm/fact scale
+                  weights_dict[ch_name].add('renorm',      events.nom, copy.deepcopy(events.renormUp),      copy.deepcopy(events.renormDown))
+                  weights_dict[ch_name].add('fact',        events.nom, copy.deepcopy(events.factUp),        copy.deepcopy(events.factDown))
+                  weights_dict[ch_name].add('renorm_fact', events.nom, copy.deepcopy(events.renorm_factUp), copy.deepcopy(events.renorm_factDown))
+                  # Trigger SF
+                  weights_dict[ch_name].add('triggerSF', events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))
 
-            if "2l" in ch_name:
-                weights_dict[ch_name].add("lepSF", events.sf_2l,         copy.deepcopy(events.sf_2l_hi),         copy.deepcopy(events.sf_2l_lo))
-                weights_dict[ch_name].add("FF"   , events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
-            if "3l" in ch_name:
-                weights_dict[ch_name].add("lepSF", events.sf_3l,         copy.deepcopy(events.sf_3l_hi),         copy.deepcopy(events.sf_3l_lo))
-                weights_dict[ch_name].add("FF"   , events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
-            if "4l" in ch_name:
-                weights_dict[ch_name].add("lepSF", events.sf_4l, copy.deepcopy(events.sf_4l_hi), copy.deepcopy(events.sf_4l_lo))
+              if "2l" in ch_name:
+                  weights_dict[ch_name].add("lepSF", events.sf_2l,         copy.deepcopy(events.sf_2l_hi),         copy.deepcopy(events.sf_2l_lo))
+                  weights_dict[ch_name].add("FF"   , events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
+              if "3l" in ch_name:
+                  weights_dict[ch_name].add("lepSF", events.sf_3l,         copy.deepcopy(events.sf_3l_hi),         copy.deepcopy(events.sf_3l_lo))
+                  weights_dict[ch_name].add("FF"   , events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
+              if "4l" in ch_name:
+                  weights_dict[ch_name].add("lepSF", events.sf_4l, copy.deepcopy(events.sf_4l_hi), copy.deepcopy(events.sf_4l_lo))
 
           if isData and "2l" in ch_name:
               weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
