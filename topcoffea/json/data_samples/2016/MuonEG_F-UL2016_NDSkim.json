@@ -1,0 +1,16 @@
+{
+  "xsec": 1.0,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "dataUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/MuonEG_F_UL2016/output_654.root"
+  ],
+  "nEvents": 1901339,
+  "nGenEvents": 1901339,
+  "nSumOfWeights": 1901339.0,
+  "isData": true,
+  "path": "/MuonEG/Run2016F-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
+}

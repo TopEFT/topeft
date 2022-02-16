@@ -6,11 +6,12 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_D_UL2017/output_1145.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_D_UL2017/output_1194.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/MuonEG_D_UL2017/output_1562.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/MuonEG_D_UL2017/output_653.root"
   ],
   "nEvents": 9164365,
   "nGenEvents": 9164365,
   "nSumOfWeights": 9164365.0,
-  "isData": true
+  "isData": true,
+  "path": "/MuonEG/Run2017D-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

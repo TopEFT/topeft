@@ -6,18 +6,19 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleMuon/v1/DoubleMuon_F_HIPM_UL2016/output_207.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleMuon/v1/DoubleMuon_F_HIPM_UL2016/output_212.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleMuon/v1/DoubleMuon_F_HIPM_UL2016/output_24.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleMuon/v1/DoubleMuon_F_HIPM_UL2016/output_6.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleMuon/v1/DoubleMuon_F_HIPM_UL2016/output_80.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleMuon/v1/DoubleMuon_F_HIPM_UL2016/output_82.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleMuon/v1/DoubleMuon_F_HIPM_UL2016/output_83.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleMuon/v1/DoubleMuon_F_HIPM_UL2016/output_84.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleMuon/v1/DoubleMuon_F_HIPM_UL2016/output_87.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/DoubleMuon_F_HIPM_UL2016/output_1963.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/DoubleMuon_F_HIPM_UL2016/output_2023.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/DoubleMuon_F_HIPM_UL2016/output_2105.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/DoubleMuon_F_HIPM_UL2016/output_2179.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/DoubleMuon_F_HIPM_UL2016/output_232.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/DoubleMuon_F_HIPM_UL2016/output_2683.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/DoubleMuon_F_HIPM_UL2016/output_3013.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/DoubleMuon_F_HIPM_UL2016/output_3088.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/DoubleMuon_F_HIPM_UL2016/output_761.root"
   ],
   "nEvents": 17900759,
   "nGenEvents": 17900759,
   "nSumOfWeights": 17900759.0,
-  "isData": true
+  "isData": true,
+  "path": "/DoubleMuon/Run2016F-HIPM_UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

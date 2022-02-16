@@ -6,16 +6,18 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_E_HIPM_UL2016/output_519.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_E_HIPM_UL2016/output_520.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_E_HIPM_UL2016/output_526.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_E_HIPM_UL2016/output_532.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_E_HIPM_UL2016/output_543.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_E_HIPM_UL2016/output_555.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_E_HIPM_UL2016/output_567.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_E_HIPM_UL2016/output_1079.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_E_HIPM_UL2016/output_1926.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_E_HIPM_UL2016/output_2584.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_E_HIPM_UL2016/output_2668.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_E_HIPM_UL2016/output_2825.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_E_HIPM_UL2016/output_2932.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_E_HIPM_UL2016/output_3187.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_E_HIPM_UL2016/output_3328.root"
   ],
   "nEvents": 117269446,
   "nGenEvents": 117269446,
   "nSumOfWeights": 117269446.0,
-  "isData": true
+  "isData": true,
+  "path": "/SingleElectron/Run2016E-HIPM_UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

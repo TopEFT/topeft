@@ -6,22 +6,23 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1028.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1029.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1137.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1249.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1329.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1339.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1356.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_187.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_294.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_372.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_631.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_772.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleMuon_D_UL2017/output_868.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1045.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1076.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1280.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1490.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1760.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1849.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_1935.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_533.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_651.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_703.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_788.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_824.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleMuon_D_UL2017/output_970.root"
   ],
   "nEvents": 23075733,
   "nGenEvents": 23075733,
   "nSumOfWeights": 23075733.0,
-  "isData": true
+  "isData": true,
+  "path": "/DoubleMuon/Run2017D-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

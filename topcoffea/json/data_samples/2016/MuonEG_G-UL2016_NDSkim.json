@@ -1,0 +1,20 @@
+{
+  "xsec": 1.0,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "dataUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/MuonEG_G_UL2016/output_1924.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/MuonEG_G_UL2016/output_2444.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/MuonEG_G_UL2016/output_2925.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/MuonEG_G_UL2016/output_3189.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/MuonEG_G_UL2016/output_3307.root"
+  ],
+  "nEvents": 33854612,
+  "nGenEvents": 33854612,
+  "nSumOfWeights": 33854612.0,
+  "isData": true,
+  "path": "/MuonEG/Run2016G-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
+}

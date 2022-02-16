@@ -6,17 +6,18 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_D_HIPM_UL2016/output_542.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_D_HIPM_UL2016/output_551.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_D_HIPM_UL2016/output_554.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_D_HIPM_UL2016/output_558.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_D_HIPM_UL2016/output_562.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_D_HIPM_UL2016/output_568.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_D_HIPM_UL2016/output_573.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_D_HIPM_UL2016/output_574.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_D_HIPM_UL2016/output_1925.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_D_HIPM_UL2016/output_2351.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_D_HIPM_UL2016/output_2499.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_D_HIPM_UL2016/output_2800.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_D_HIPM_UL2016/output_2931.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_D_HIPM_UL2016/output_3206.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_D_HIPM_UL2016/output_769.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleElectron_D_HIPM_UL2016/output_770.root"
   ],
   "nEvents": 148167727,
   "nGenEvents": 148167727,
   "nSumOfWeights": 148167727.0,
-  "isData": true
+  "isData": true,
+  "path": "/SingleElectron/Run2016D-HIPM_UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

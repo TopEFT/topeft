@@ -6,17 +6,18 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_D_UL2017/output_1046.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_D_UL2017/output_1100.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_D_UL2017/output_1139.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_D_UL2017/output_1164.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_D_UL2017/output_1196.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_D_UL2017/output_1210.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_D_UL2017/output_1258.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/SingleElectron_D_UL2017/output_1308.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/SingleElectron_D_UL2017/output_1260.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/SingleElectron_D_UL2017/output_1261.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/SingleElectron_D_UL2017/output_207.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/SingleElectron_D_UL2017/output_234.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/SingleElectron_D_UL2017/output_345.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/SingleElectron_D_UL2017/output_352.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/SingleElectron_D_UL2017/output_373.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/SingleElectron_D_UL2017/output_76.root"
   ],
   "nEvents": 51512837,
   "nGenEvents": 51512837,
   "nSumOfWeights": 51512837.0,
-  "isData": true
+  "isData": true,
+  "path": "/SingleElectron/Run2017D-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

@@ -6,10 +6,11 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1/SingleMuon_F_UL2016/output_409.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/SingleMuon_F_UL2016/output_785.root"
   ],
   "nEvents": 8024195,
   "nGenEvents": 8024195,
   "nSumOfWeights": 8024195.0,
-  "isData": true
+  "isData": true,
+  "path": "/SingleMuon/Run2016F-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

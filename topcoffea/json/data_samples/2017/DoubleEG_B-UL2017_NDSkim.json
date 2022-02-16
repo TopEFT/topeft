@@ -6,17 +6,18 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleEG_B_UL2017/output_1050.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleEG_B_UL2017/output_1105.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleEG_B_UL2017/output_1136.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleEG_B_UL2017/output_1192.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleEG_B_UL2017/output_1227.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleEG_B_UL2017/output_1240.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleEG_B_UL2017/output_1255.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/DoubleEG_B_UL2017/output_1268.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleEG_B_UL2017/output_1053.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleEG_B_UL2017/output_1328.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleEG_B_UL2017/output_1329.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleEG_B_UL2017/output_1739.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleEG_B_UL2017/output_1811.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleEG_B_UL2017/output_233.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleEG_B_UL2017/output_428.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1/DoubleEG_B_UL2017/output_448.root"
   ],
   "nEvents": 58088760,
   "nGenEvents": 58088760,
   "nSumOfWeights": 58088760.0,
-  "isData": true
+  "isData": true,
+  "path": "/DoubleEG/Run2017B-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }
