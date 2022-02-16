@@ -43,9 +43,9 @@ class DataDrivenProducer:
                 sampleName=match.group('sample')
                 year=match.group('year')
                 if not match: 
-                    raise RuntimeError(f"Sample {sample} does not match the naming convention")
-                if year not in ['16','17','18']:
-                    raise RuntimeError(f"Sample {sample} does not match the naming convention")
+                    raise RuntimeError(f"Sample {sample} does not match the naming convention.")
+                if year not in ['16APV','16','17','18']:
+                    raise RuntimeError(f"Sample {sample} does not match the naming convention, year \"{year}\" is unknown.")
 
                 if self.dataName == sampleName:
                     continue # We do not scale data
