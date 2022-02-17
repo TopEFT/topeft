@@ -1,5 +1,6 @@
 import os, sys, argparse, uproot
 import subprocess
+import awkward as ak
 
 def isdigit(a):
   ''' Redefinition of str.isdigit() that takes into account negative numbers '''
@@ -199,13 +200,15 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
     nEvents = 0
     nGenEvents = 0
     nSumOfWeights = 0
+    nLHEPdfSumw = 0
     isData = False
     for f in fname: 
-      iE, iG, iS, isData = GetAllInfoFromFile(f, treeName)
+      iE, iG, iS, iP, isData = GetAllInfoFromFile(f, treeName)
       nEvents += iE
       nGenEvents += iG
       nSumOfWeights += iS
-    return [nEvents, nGenEvents, nSumOfWeights, isData]
+      nLHEPdfSumw += iL
+    return [nEvents, nGenEvents, nSumOfWeights, nLHEPdfSumw, isData]
   elif isinstance(fname, str):
     print('Opening with uproot: ', fname)
     f = uproot.open(fname)
@@ -229,13 +232,15 @@ def GetAllInfoFromFile(fname, treeName = 'Events'):
       r = f['Runs']
       genEventSumw  = 'genEventSumw'  if 'genEventSumw'  in r else 'genEventSumw_'
       genEventCount = 'genEventCount' if 'genEventCount' in r else 'genEventCount_'
+      LHEPdfSumw    = 'LHEPdfSumw'    if 'LHEPdfSumw'    in r else 'LHEPdfSumw_'
       nGenEvents    = sum(r[genEventCount] .array())
       nSumOfWeights = sum(r[genEventSumw].array())
+      nLHEPdfSumw   = sum(ak.prod((r[genEventSumw].array(), r[LHEPdfSumw].array()), axis=0)) # LHEPdfSumw = LHE/gen
     # Method 3: from unskimmed file
     else:
       nGenEvents = nEvents
       nSumOfWeights = sum(t['genWeight']) if not isData else nEvents
-    return [nEvents, nGenEvents, nSumOfWeights, isData]
+    return [nEvents, nGenEvents, nSumOfWeights, nLHEPdfSumw, isData]
   else: print('[ERROR] [GetAllInfoFromFile]: wrong input')
 
 def GetProcessInfo(path, process='', treeName = 'Events'):

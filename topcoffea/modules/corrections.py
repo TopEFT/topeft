@@ -270,6 +270,8 @@ def AttachPSWeights(events):
   ISR = 0; FSR = 1; ISRdown = 0; FSRdown = 1; ISRup = 2; FSRup = 3
   if events.PSWeight is None:
       raise Exception(f'PSWeight not found in {fname}!')
+  if len(events.PSWeight) == 1:
+      raise Exception(f'Only found a single PSWeight per event in {fname}!')
   # Add nominal as 1 just to make things similar
   events['ISRnom']  = ak.ones_like(events.PSWeight[:,0])
   events['FSRnom']  = ak.ones_like(events.PSWeight[:,0])
@@ -310,7 +312,8 @@ def AttachPdfWeights(events, pdf_type):
     pdf_weights    = ak.fill_none(ak.pad_none(events['LHEPdfWeight'], len(events['LHEPdfWeight'][0])), 1) # Fill with 1, we want to ignore events with bad weights (~2% of all LHE files)
     events['PDFUp']   = pdf_weights
     for ipdf in range(events['nPdf'][0]):
-        events['Pdf{}'.format(ipdf)] = pdf_weights[:, ipdf]
+        events['Pdf{}Up'.format(ipdf)] = pdf_weights[:, ipdf]
+        events['Pdf{}Down'.format(ipdf)] = pdf_weights[:, ipdf]
 
 def ApplyPdfWeights(events, hout, all_cuts_mask, axes_fill_info_dict, dense_axis_name):
     h_syst = hout[dense_axis_name].copy() # Temporary hist
@@ -350,6 +353,7 @@ def ApplyPdfWeights(events, hout, all_cuts_mask, axes_fill_info_dict, dense_axis
     curr_syst = hout[dense_axis_name]._sumw[sbins]
     curr_syst = hout[dense_axis_name].integrate("sample", axes_fill_info_dict["sample"]).integrate("channel", axes_fill_info_dict["channel"]).integrate("systematic", axes_fill_info_dict["systematic"]).integrate("appl", axes_fill_info_dict["appl"]).values(overflow='all')[()]
     pdf_syst = np.sum(np.square(pdfs), axis=0)
+    del pdfs
     tot_syst = np.vstack((np.append(np.square(pdf_syst) + np.square(curr_syst), [0], axis=0),pad.T)).T # Pad back to _nwc dimensions with 0
     hout[dense_axis_name]._sumw[sbins] = tot_syst # Final output is squared, need to take sqrt AFTER accumulation
 

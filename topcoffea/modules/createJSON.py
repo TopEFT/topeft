@@ -48,6 +48,7 @@ from topcoffea.modules.fileReader import GetFiles, GetAllInfoFromFile, GetListOf
 from topcoffea.modules.samples import loadxsecdic
 import argparse
 import json
+from topcoffea.modules.get_pdf_type  import get_pdf_type_file
 
 def main():
   parser = argparse.ArgumentParser(description='Create json file with list of samples and metadata')
@@ -141,15 +142,17 @@ def main():
     # For data this this should all be the same
     nEvents,nGenEvents,nSumOfWeights = output,output,output
   else:
-    nEvents, nGenEvents, nSumOfWeights, isData = GetAllInfoFromFile(filesWithPrefix, treeName)
+    nEvents, nGenEvents, nSumOfWeights, nLHEPdfSumw, isData = GetAllInfoFromFile(filesWithPrefix, treeName)
 
   sampdic['WCnames'] = GetListOfWCs(filesWithPrefix[0])
   sampdic['files']         = files
   sampdic['nEvents']       = nEvents
   sampdic['nGenEvents']    = nGenEvents
   sampdic['nSumOfWeights'] = nSumOfWeights
+  sampdic['nLHEPdfSumw']   = nLHEPdfSumw
   sampdic['isData']        = isData
   sampdic['path']          = path
+  sampdic["PDFType"]       = get_pdf_type_file(files[0], prefix)
 
   if outname == '':
     outname = sample

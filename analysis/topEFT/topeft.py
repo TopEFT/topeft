@@ -119,7 +119,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         year         = self._samples[dataset]["year"]
         xsec         = self._samples[dataset]["xsec"]
         sow          = self._samples[dataset]["nSumOfWeights"]
+        #pdfsow       = self._samples[dataset]["nLHEPdfSumw"] # FIXME propogate this
         isData       = self._samples[dataset]["isData"]
+        PDFType      = 'hessian'#self._samples[dataset]["PDFType"]
         datasets     = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0] 
@@ -182,7 +184,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Update muon kinematics with Rochester corrections
         mu["pt_raw"]=mu.pt
         met_raw=met
-        if self._do_systematics : syst_var_list = ['ISRUp','ISRDown','FSRUp','FSRDown','renormUp','renormDown','factUp','factDown','renorm_factUp','renorm_factDown','MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','PDFUp','nominal']
+        if self._do_systematics : syst_var_list = ['nominal']
+        #if self._do_systematics : syst_var_list = ['MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']
         else: syst_var_list = ['nominal']
         for syst_var in syst_var_list:
             mu["pt"]=mu.pt_raw
@@ -351,7 +354,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     # Attach scale weights (renormalization/factorization)
                     AttachScaleWeights(events)
                     # Attach PDF weights
-                    AttachPdfWeights(events) # FIXME use these!
+                    AttachPdfWeights(events, PDFType) # FIXME use these!
 
                     # We only calculate these values if not isData
                     weights_dict[ch_name].add("btagSF", pData/pMC, copy.deepcopy(pDataUp/pMC), copy.deepcopy(pDataDo/pMC))
@@ -365,6 +368,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                     weights_dict[ch_name].add('renorm',      events.nom, copy.deepcopy(events.renormUp),      copy.deepcopy(events.renormDown))
                     weights_dict[ch_name].add('fact',        events.nom, copy.deepcopy(events.factUp),        copy.deepcopy(events.factDown))
                     weights_dict[ch_name].add('renorm_fact', events.nom, copy.deepcopy(events.renorm_factUp), copy.deepcopy(events.renorm_factDown))
+                    for ipdf in range(events['nPdf'][0]):
+                        weights_dict[ch_name].add('Pdf{}'.format(ipdf), events.nom, events['Pdf{}Up'.format(ipdf)], events['Pdf{}Down'.format(ipdf)])
                     # Trigger SF
                     weights_dict[ch_name].add('triggerSF', events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))
 
@@ -382,7 +387,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 
             # Systematics
             systList = ["nominal"]
-            if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown","PDFUp"]
+            if (self._do_systematics and not isData and syst_var == "nominal"):
+                 for ipdf in range(events['nPdf'][0]):
+                     systList = systList + ['Pdf{}Up'.format(ipdf)]
+                     systList = systList + ['Pdf{}Down'.format(ipdf)]
+            #if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown","PDFUp"]
             elif (self._do_systematics and not isData and syst_var != 'nominal'): systList = [syst_var]
 
             ######### Masks we need for the selection ##########

@@ -55,5 +55,6 @@
   "nEvents": 5364352,
   "nGenEvents": 34900017,
   "nSumOfWeights": 6970.95756129166,
-  "isData": false
+  "isData": false,
+  "PDFType": "NNPDF31_nnlo_as_0118_mc_hessian_pdfas"
 }
