@@ -3,6 +3,7 @@ import topcoffea.modules.dataDrivenEstimation as dataDrivenEstimation
 from work_queue import Factory
 from os.path import exists
 from os import getcwd
+from topcoffea.modules.comp_datacard import comp_datacard
 
 def test_topcoffea():
     args = [
@@ -72,13 +73,7 @@ def test_datacard_2l():
     # Run datacard maker
     subprocess.run(args)
 
-    args = [
-        "python",
-        "topcoffea/modules/comp_datacard.py",
-        "histos/ttx_multileptons-2lss_p_2b.txt",
-        "analysis/topEFT/test/ttx_multileptons-2lss_p_2b_ref.txt"
-    ]
-    assert(subprocess.run(args))
+    assert(comp_datacard('histos/ttx_multileptons-2lss_p_2b.txt','analysis/topEFT/test/ttx_multileptons-2lss_p_2b_ref.txt'))
 
 def test_datacard_2l_ht():
     args = [
@@ -96,13 +91,7 @@ def test_datacard_2l_ht():
     # Run datacard maker
     subprocess.run(args)
 
-    args = [
-        "python",
-        "topcoffea/modules/comp_datacard.py",
-        "histos/ttx_multileptons-2lss_p_2b_ht.txt",
-        "analysis/topEFT/test/ttx_multileptons-2lss_p_4j_2b_ht_ref.txt"
-    ]
-    assert(subprocess.run(args))
+    assert(comp_datacard('histos/ttx_multileptons-2lss_p_4j_2b_ht.txt','analysis/topEFT/test/ttx_multileptons-2lss_p_4j_2b_ht_ref.txt'))
 
 def test_datacard_3l():
     args = [
@@ -120,13 +109,7 @@ def test_datacard_3l():
     # Run datacard maker
     subprocess.run(args)
 
-    args = [
-        "python",
-        "topcoffea/modules/comp_datacard.py",
-        "histos/ttx_multileptons-3l_sfz_1b.txt",
-        "analysis/topEFT/test/ttx_multileptons-3l_sfz_1b_ref.txt"
-    ]
-    assert(subprocess.run(args))
+    assert(comp_datacard('histos/ttx_multileptons-3l_sfz_1b.txt','analysis/topEFT/test/ttx_multileptons-3l_sfz_1b_ref.txt'))
 
 def test_datacard_3l_ptbl():
     args = [
@@ -144,10 +127,4 @@ def test_datacard_3l_ptbl():
     # Run datacard maker
     subprocess.run(args)
 
-    args = [
-        "python",
-        "topcoffea/modules/comp_datacard.py",
-        "histos/ttx_multileptons-3l_onZ_1b_2j_ptbl.txt",
-        "analysis/topEFT/test/ttx_multileptons-3l_onZ_1b_2j_ptbl_ref.txt"
-    ]
-    assert(subprocess.run(args))
+    assert(comp_datacard('histos/ttx_multileptons-3l_onZ_1b_2j_ptbl.txt','analysis/topEFT/test/ttx_multileptons-3l_onZ_1b_2j_ptbl_ref.txt'))
