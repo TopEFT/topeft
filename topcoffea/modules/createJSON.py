@@ -149,6 +149,7 @@ def main():
   sampdic['nGenEvents']    = nGenEvents
   sampdic['nSumOfWeights'] = nSumOfWeights
   sampdic['isData']        = isData
+  sampdic['path']          = path
 
   if outname == '':
     outname = sample

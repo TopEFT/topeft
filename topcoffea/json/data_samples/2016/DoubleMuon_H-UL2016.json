@@ -38,5 +38,6 @@
   "nEvents": 48912812.0,
   "nGenEvents": 48912812.0,
   "nSumOfWeights": 48912812.0,
-  "isData": true
+  "isData": true,
+  "path": "/DoubleMuon/Run2016H-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

@@ -109,7 +109,7 @@ def read_cfg_file(fpath,cfg={},max_files=0):
         for l in f:
             l = l.strip().split("#")[0]     # Chop off anything after a comment
             if not len(l): continue         # Ignore fully commented lines
-            if l.startswith("root:"):
+            if l.startswith("root:") or l.startswith("http:") or l.startswith("https:"):
                 # Note: This implicitly assumes that a redirector line will appear before any json
                 #   paths in the cfg file
                 xrd_src = l
