@@ -132,10 +132,10 @@ def AttachMuonSF(muons, year):
   eta = np.abs(muons.eta)
   pt = muons.pt
   if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
+  reco_sf  = np.where(pt<20,SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt),1)
+  reco_err = np.where(pt<20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0)
   new_sf  = SFevaluator['MuonSF_{year}'.format(year=year)](eta,pt)
   new_err = SFevaluator['MuonSF_{year}_er'.format(year=year)](eta,pt)
-  reco_sf  = SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt)
-  reco_err = SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt)
 
   muons['sf_nom_2l'] = new_sf*reco_sf
   muons['sf_hi_2l']  = (new_sf+new_err)*(reco_sf+reco_err)
@@ -143,6 +143,7 @@ def AttachMuonSF(muons, year):
   muons['sf_nom_3l'] = new_sf*reco_sf
   muons['sf_hi_3l']  = (new_sf+new_err)*(reco_sf+reco_err)
   muons['sf_lo_3l']  = (new_sf-new_err)*(reco_sf-reco_err)
+
 
 def AttachElectronSF(electrons, year):
   '''
@@ -454,14 +455,14 @@ def GetTriggerSF(year, events, lep0, lep1):
   ls=[]
   for i in [0,1,2]:
     #2l
-    SF_ee=np.where(events.is_ee==True,LoadTriggerSF(year,ch='2l',flav='ee')[0](lep0.pt,lep1.pt),1.0)
-    SF_em=np.where(events.is_em==True, LoadTriggerSF(year,ch='2l',flav='em')[0](lep0.pt,lep1.pt),1.0)
-    SF_mm=np.where(events.is_mm==True, LoadTriggerSF(year,ch='2l',flav='mm')[0](lep0.pt,lep1.pt),1.0)
+    SF_ee=np.where(events.is_ee==True,LoadTriggerSF(year,ch='2l',flav='ee')[i](lep0.pt,lep1.pt),1.0)
+    SF_em=np.where(events.is_em==True, LoadTriggerSF(year,ch='2l',flav='em')[i](lep0.pt,lep1.pt),1.0)
+    SF_mm=np.where(events.is_mm==True, LoadTriggerSF(year,ch='2l',flav='mm')[i](lep0.pt,lep1.pt),1.0)
    #3l
-    SF_eee=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='eee')[0](lep0.pt,lep0.eta),1.0)
-    SF_eem=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='eem')[0](lep0.pt,lep0.eta),1.0)
-    SF_emm=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='emm')[0](lep0.pt,lep0.eta),1.0)
-    SF_mmm=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='mmm')[0](lep0.pt,lep0.eta),1.0)
+    SF_eee=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='eee')[i](lep0.pt,lep0.eta),1.0)
+    SF_eem=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='eem')[i](lep0.pt,lep0.eta),1.0)
+    SF_emm=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='emm')[i](lep0.pt,lep0.eta),1.0)
+    SF_mmm=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='mmm')[i](lep0.pt,lep0.eta),1.0)
     ls.append(SF_ee*SF_em*SF_mm*SF_eee*SF_eem*SF_emm*SF_mmm)
   ls[1]=np.where(ls[1]==1.0,0.0,ls[1])
   ls[2]=np.where(ls[2]==1.0,0.0,ls[2])
