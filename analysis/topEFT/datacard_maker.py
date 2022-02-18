@@ -22,7 +22,14 @@ class DatacardMaker():
         # Special systematics
         # {'syst', x} will apply 1+x to _all_ categories
         # {'syst',{'proc1': x},...,{'procN': x}} will apply 1+x to any categories matching proc1 - procN (e.g. charge_flip_sm)
-        self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.05} # 30% flat uncertainty for charge flips
+        # PDF/QCD scale uncertainties take from TOP-19-001
+        # Asymmetric errors are provided as k_down / k_up in combine
+                                              # 30% flat uncertainty for charge flips
+        self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.05, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '9.2/5.8', 'tllq': 0.01, 'ttlnu': '12/13', 'ttll': '12/10', 'tHq': '8/6', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
+        # (Un)correlated systematics
+        # {'proc': [[systs], 'name']} will assign all procs a special name for the give systematics
+        # e.g. {'ttH': [['renorm', 'fact'], 'gg']} will add `_gg` to the ttH renorm/fact systemtics
+        self.syst_correlation = {'ttH': [['renorm', 'fact', 'renorm_fact', 'pdf_scale'], 'gg'], 'ttll': [['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale'], 'gg'], 'ttlnu': [['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale'], 'qq'], 'tHq': [['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale'], 'qg'], 'tllq': [['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale'], 'qq'], 'tttt': [['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale'], 'gg']}
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         # Dictionary of njet bins
@@ -153,11 +160,20 @@ class DatacardMaker():
                         return True # Should skip this process for this channel
         return False # Nothing to skip
 
+    def get_correlation_name(self, name, syst):
+        correlation = name.split('_')[0]
+        if correlation in self.syst_correlation and any([s in syst for s in self.syst_correlation[correlation][0]]): # Look for syst process and process process
+            correlation = '_'+self.syst_correlation[correlation][1]
+        else:
+            correlation = ''
+        return correlation
+
     def analyzeChannel(self, channel=[], appl='isSR_2lSS', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
         if variable != 'njets' and isinstance(bins, list) and len(bins)>0:
             for jbin in bins:
                 self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=jbin)
             return
+
         def export1d(h, name, cat, fout):
             if 'data_obs' in name:
                 fout['data_obs'] = hist.export1d(h['nominal'])
@@ -166,7 +182,7 @@ class DatacardMaker():
                     if syst == 'nominal':
                         fout[name+cat] = hist.export1d(histo)
                     elif self.do_nuisance and name not in self.syst_special:
-                        fout[name+cat+'_'+syst] = hist.export1d(histo)
+                        fout[name+cat+'_'+syst+self.get_correlation_name(name, syst)] = hist.export1d(histo)
         def export2d(h):
             return h.to_hist().to_numpy()
         if isinstance(channel, str) and channel not in self.channels:
@@ -361,6 +377,7 @@ class DatacardMaker():
         def processSyst(process, channel, systMap, d_hists, fout):
             for syst in self.syst:
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
+                syst = syst+self.get_correlation_name(process, syst) # Tack on possible correlation name from self.syst_correlation
                 if any([process+'_'+syst in d for d in d_hists]):
                     h_sys = getHist(d_hists, '_'.join([process,syst]))
                     h_sys.SetDirectory(fout)
@@ -400,17 +417,24 @@ class DatacardMaker():
                     for b in val:
                         if b in process:
                             # Found the process we're looking for, no need to keep looping
-                            syst = val[b]
+                            if isinstance(val[b],(int,float)):
+                                syst = 1+val[b]
+                            elif isinstance(val[b],(str)):
+                                syst = val[b]
+                            else:
+                                raise NotImplementedError(f'Insystid systue type {syst_special} {type(val[b])=}')
                             break
                 elif isinstance(val,(int,float)):
+                    syst = 1+val
+                elif isinstance(val,(str)):
                     syst = val
                 else:
-                    raise NotImplementedError(f'Invalid value type {syst_special} {val}')
-                syst_cat = syst_special+'_flat_rate'
+                    raise NotImplementedError(f'Invalid value type {syst_special} {type(val)=}')
+                syst_cat = syst_special+self.get_correlation_name(process, syst_special)+'_flat_rate'
                 if syst_cat in systMap:
-                    systMap[syst_cat].update({process: 1+syst})
+                    systMap[syst_cat].update({process: syst})
                 else:
-                    systMap[syst_cat] = {process: 1+syst}
+                    systMap[syst_cat] = {process: syst}
                     
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
