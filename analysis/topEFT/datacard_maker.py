@@ -163,10 +163,9 @@ class DatacardMaker():
                 fout['data_obs'] = hist.export1d(h['nominal'])
             else:
                 for syst,histo in h.items():
-                    rename = self.rename[name] if name in  self.rename else ''
                     if syst == 'nominal':
                         fout[name+cat] = hist.export1d(histo)
-                    elif rename not in self.syst_special:
+                    elif self.do_nuisance and name not in self.syst_special:
                         fout[name+cat+'_'+syst] = hist.export1d(histo)
         def export2d(h):
             return h.to_hist().to_numpy()
