@@ -27,9 +27,12 @@ class DatacardMaker():
                                               # 30% flat uncertainty for charge flips
         self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.05, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '1.092/1.058', 'tllq': 0.01, 'ttlnu': '1.12/1.13', 'ttll': '1.12/1.10', 'tHq': '1.08/1.06', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
         # (Un)correlated systematics
-        # {'proc': [[systs], 'name']} will assign all procs a special name for the give systematics
-        # e.g. {'ttH': [['renorm', 'fact'], 'gg']} will add `_gg` to the ttH renorm/fact systemtics
-        self.syst_correlation = {'ttH': [['renorm', 'fact', 'renorm_fact', 'pdf_scale'], 'gg'], 'ttll': [['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale'], 'gg'], 'ttlnu': [['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale'], 'qq'], 'tHq': [['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale'], 'qg'], 'tllq': [['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale'], 'qq'], 'tttt': [['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale'], 'gg']}
+        # {'proc': 'type'} will assign all procs a special name for the give systematics
+        # e.g. {'ttH': 'gg'} will add `_gg` to the ttH  found in `self.syst_correlated`
+        self.syst_correlation = {'ttH': 'gg', 'ttll': 'gg', 'tttt': 'gg', 'tHq': 'qg', 'tllq': 'qq', 'ttlnu': 'qq', 'Diboson': 'qq', 'Triboson': 'qq', 'convs': 'gg'}
+        # List of systematics which require specific correlations
+        # Any systematic _not_ found in this list is assumed to be fully correlated across all processes
+        self.syst_correlated  = ['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale']
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         # Dictionary of njet bins
@@ -162,8 +165,9 @@ class DatacardMaker():
 
     def get_correlation_name(self, name, syst):
         correlation = name.split('_')[0]
-        if correlation in self.syst_correlation and any([s in syst for s in self.syst_correlation[correlation][0]]): # Look for syst process and process process
-            correlation = '_'+self.syst_correlation[correlation][1]
+        syst = syst.replace('Up', '').replace('Down', '')
+        if syst in self.syst_correlated and correlation in self.syst_correlation: # Look for correlated systs and process type
+            correlation = '_'+self.syst_correlation[correlation]
         else:
             correlation = ''
         return correlation
