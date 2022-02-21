@@ -132,8 +132,8 @@ def AttachMuonSF(muons, year):
   eta = np.abs(muons.eta)
   pt = muons.pt
   if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
-  reco_sf  = np.where(pt<20,SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt),1)
-  reco_err = np.where(pt<20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0)
+  reco_sf  = np.where(pt<20,SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt),1) #sf=1 when pt>20 becuase there is no reco SF available
+  reco_err = np.where(pt<20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0) #sf error =0 when pt>20 becuase there is no reco SF available
   new_sf  = SFevaluator['MuonSF_{year}'.format(year=year)](eta,pt)
   new_err = SFevaluator['MuonSF_{year}_er'.format(year=year)](eta,pt)
 

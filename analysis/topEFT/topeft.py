@@ -332,7 +332,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           
             # Trigger SF
             GetTriggerSF(year,events,l0,l1)
-            
+
             # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
             weights_dict = {}
             if (isData or (eft_coeffs is not None)):
