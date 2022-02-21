@@ -368,21 +368,23 @@ class AnalysisProcessor(processor.ProcessorABC):
             if (isData or (eft_coeffs is not None)): genw = np.ones_like(events["event"])
             else: genw = events["genWeight"]
             for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
-                weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
-                weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
-                if not isData:
-                    weights_dict[ch_name] = weights_any_lep_cat
-                if "2l" in ch_name:
-                    weights_dict[ch_name].add("lepSF", events.sf_2l,         copy.deepcopy(events.sf_2l_hi),         copy.deepcopy(events.sf_2l_lo))
-                    weights_dict[ch_name].add("FF"   , events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
-                if "3l" in ch_name:
-                    weights_dict[ch_name].add("lepSF", events.sf_3l,         copy.deepcopy(events.sf_3l_hi),         copy.deepcopy(events.sf_3l_lo))
-                    weights_dict[ch_name].add("FF"   , events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
-                if "4l" in ch_name:
-                    weights_dict[ch_name].add("lepSF", events.sf_4l, copy.deepcopy(events.sf_4l_hi), copy.deepcopy(events.sf_4l_lo))
-                if isData and "2l" in ch_name:
-                    weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
-                
+                if isData:
+                    weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+                    weights_dict[ch_name].add("norm",genw)
+                    if "2l" in ch_name:
+                        weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
+                else:
+                    weights_dict[ch_name] = copy.deepcopy(weights_any_lep_cat)
+                    weights_dict[ch_name].add("norm",(xsec/sow)*genw)
+                    if "2l" in ch_name:
+                        weights_dict[ch_name].add("lepSF", events.sf_2l,         copy.deepcopy(events.sf_2l_hi),         copy.deepcopy(events.sf_2l_lo))
+                        weights_dict[ch_name].add("FF"   , events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
+                    if "3l" in ch_name:
+                        weights_dict[ch_name].add("lepSF", events.sf_3l,         copy.deepcopy(events.sf_3l_hi),         copy.deepcopy(events.sf_3l_lo))
+                        weights_dict[ch_name].add("FF"   , events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
+                    if "4l" in ch_name:
+                        weights_dict[ch_name].add("lepSF", events.sf_4l, copy.deepcopy(events.sf_4l_hi), copy.deepcopy(events.sf_4l_lo))
+
             # Set the list of systematics to loop over when we fill hists
             systList = ["nominal"]
             if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown"]
