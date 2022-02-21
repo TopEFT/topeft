@@ -1130,7 +1130,10 @@ def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False
         if '_ext' in out_name:
           combine_json_ext(out_dir+'/'+out_name) # Merge with non-ext version
           os.remove(out_dir+'/'+out_name) # Remove (now) outdated ext version
-        if re.search('_b[2-9]', out_name):
+        # Only run if more than one file exists (differentiates between `*_b2.json` and `*_b2_atPSI.json`
+        r = re.compile(re.sub(r'_b[1-9]', '_b[1-9]', out_name))
+        matches = [b for b in str(subprocess.check_output(["ls",'.'], shell=True)).split('\\n') if bool(r.match(b))]
+        if re.search('_b[2-9]', out_name) and len(matches)>1:
           combine_json_batch(out_dir+'/'+out_name) # Merge batches
           os.remove(out_dir+'/'+out_name) # Remove (now) outdated batch version
 
