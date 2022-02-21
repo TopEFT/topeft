@@ -20,6 +20,7 @@ jobs:
         run: |
           conda config --set channel_priority strict
           conda config --add channels conda-forge
+          cat /etc/fstab
           conda env create -f environment.yml -n coffea-env
 
       - name: Conda list
