@@ -360,7 +360,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # More event weights (btag, trigger SF), these have to go inside of the sys loop since they depend on jets and muons
             GetTriggerSF(year,events,l0,l1)
             if not isData:
-                weights_any_lep_cat.add("btagSF", pData/pMC, copy.deepcopy(pDataUp/pMC), copy.deepcopy(pDataDo/pMC))
+                weights_any_lep_cat.add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC) # Note, should not need to copy here since not modifying pData or pMC
                 weights_any_lep_cat.add('triggerSF', events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))
 
             # Loop over categories and fill the dict
