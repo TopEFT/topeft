@@ -182,6 +182,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######### Event weights ###########
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
+        # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
         weights_any_lep_cat = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         if not isData:
             # These could probably go outside of the sys loop
@@ -192,16 +193,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Attach PDF weights
             #AttachPdfWeights(events) # FIXME use these!
             # FSR/ISR weights
-            weights_any_lep_cat.add('ISR', events.ISRnom, copy.deepcopy(events.ISRUp), copy.deepcopy(events.ISRDown))
-            weights_any_lep_cat.add('FSR', events.FSRnom, copy.deepcopy(events.FSRUp), copy.deepcopy(events.FSRDown))
+            weights_any_lep_cat.add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
+            weights_any_lep_cat.add('FSR', events.FSRnom, events.FSRUp, events.FSRDown)
             # renorm/fact scale
-            weights_any_lep_cat.add('renorm',      events.nom, copy.deepcopy(events.renormUp),      copy.deepcopy(events.renormDown))
-            weights_any_lep_cat.add('fact',        events.nom, copy.deepcopy(events.factUp),        copy.deepcopy(events.factDown))
-            weights_any_lep_cat.add('renorm_fact', events.nom, copy.deepcopy(events.renorm_factUp), copy.deepcopy(events.renorm_factDown))
-            # Prefiring weights only available in nanoAODv9
-            weights_any_lep_cat.add('PreFiring', events.L1PreFiringWeight.Nom,  copy.deepcopy(events.L1PreFiringWeight.Up),  copy.deepcopy(events.L1PreFiringWeight.Dn))
-            # PU
-            weights_any_lep_cat.add('PU', GetPUSF((events.Pileup.nTrueInt), year), copy.deepcopy(GetPUSF(events.Pileup.nTrueInt, year, 'up')), copy.deepcopy(GetPUSF(events.Pileup.nTrueInt, year, 'down')))
+            weights_any_lep_cat.add('renorm',      events.nom, events.renormUp,      events.renormDown)
+            weights_any_lep_cat.add('fact',        events.nom, events.factUp,        events.factDown)
+            weights_any_lep_cat.add('renorm_fact', events.nom, events.renorm_factUp, events.renorm_factDown)
+            # Prefiring and PU (note prefire weights only available in nanoAODv9)
+            weights_any_lep_cat.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
+            weights_any_lep_cat.add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 'up'), GetPUSF(events.Pileup.nTrueInt, year, 'down'))
 
         # Update muon and jet kinematics with Rochester corrections and JER/JES
         mu["pt_raw"]=mu.pt
@@ -372,7 +372,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
                     weights_dict[ch_name].add("norm",genw)
                     if "2l" in ch_name:
-                        weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
+                        weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
                 else:
                     weights_dict[ch_name] = copy.deepcopy(weights_any_lep_cat)
                     weights_dict[ch_name].add("norm",(xsec/sow)*genw)
