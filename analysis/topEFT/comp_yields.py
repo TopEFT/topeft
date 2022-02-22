@@ -64,7 +64,7 @@ def main():
         mlt.print_end()
 
     # Raise errors if yields are too different
-    yields_agree_bool = yt.print_yld_dicts(pdiff_dict,f"Percent diff between {args.tag1} and {args.tag2}",tolerance=1e-5)
+    yields_agree_bool = yt.print_yld_dicts(pdiff_dict,f"Percent diff between {args.tag1} and {args.tag2}",tolerance=1e-2)
     if not yields_agree_bool:
         sys.exit(1)
 
