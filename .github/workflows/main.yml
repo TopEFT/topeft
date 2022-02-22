@@ -63,15 +63,10 @@ jobs:
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_futures.py
 
-      - name: Get yields 
-        run: |
-          cd analysis/topEFT
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append -k test_make_yields_after_processor
-
       - name: Compare yields
         run: |
           cd analysis/topEFT
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append -k test_compare_yields_after_processor
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_yields.py
 
       - name: Test datacard maker
         run: |
