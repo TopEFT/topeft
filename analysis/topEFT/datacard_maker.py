@@ -445,7 +445,7 @@ class DatacardMaker():
         # Create the ROOT file
         fname = f'histos/ttx_multileptons-{cat}.root'
         fout = TFile(fname, 'recreate')
-        signalcount=0; bkgcount=0; iproc = {}; systMap = {}; allyields = {'data_obs' : 0.}
+        signalcount=0; bkgcount=1; iproc = {}; systMap = {}; allyields = {'data_obs' : 0.}
         data_obs = []
         d_sigs = {} # Store signals for summing
         d_bkgs = {} # Store backgrounds for summing
