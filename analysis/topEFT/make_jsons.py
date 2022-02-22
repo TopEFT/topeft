@@ -272,29 +272,30 @@ test_private_UL17_dict = {
         "histAxisName": "ttHJet_privateUL17",
         "xsecName": "ttHnobb",
     },
-
     "UL17_ttlnuJet_b1" : {
         "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v4/nAOD_step_ttlnuJet_all22WCsStartPtCheckdim6TopMay20GST_run0",
         "histAxisName": "ttlnuJet_privateUL17",
         "xsecName": "TTWJetsToLNu",
     },
-
     "UL17_ttllJet_b1"  : {
         "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v4/nAOD_step_ttllNuNuJetNoHiggs_all22WCsStartPtCheckdim6TopMay20GST_run0",
         "histAxisName": "ttllJet_privateUL17",
         "xsecName": "TTZToLLNuNu_M_10",
     },
-
     "UL17_tllq_b1"     : {
         "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v4/nAOD_step_tllq4fNoSchanWNoHiggs0p_all22WCsStartPtCheckV2dim6TopMay20GST_run0",
         "histAxisName" : "tllq_privateUL17",
         "xsecName": "tZq",
     },
-
     "UL17_tHq_b1"      : {
         "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v4/nAOD_step_tHq4f_all22WCsStartPtCheckdim6TopMay20GST_run0",
         "histAxisName": "tHq_privateUL17",
         "xsecName": "tHq",
+    },
+    "UL17_tttt_b4"     : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch4/naodOnly_step/v2/nAOD_step_tttt_FourtopsMay3v1_run0",
+        "histAxisName": "tttt_privateUL17",
+        "xsecName": "tttt",
     },
 }
 
