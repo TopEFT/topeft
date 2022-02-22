@@ -2,7 +2,7 @@ name: coffea-env
 channels:
   - conda-forge
 dependencies:
-  - conda-forge::python
+  - conda-forge::python=3.9
   - coffea
   - ndcctools
   - conda-pack
