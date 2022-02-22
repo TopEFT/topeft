@@ -14,7 +14,7 @@ from ROOT import TFile, TH1D, TH2D
 
 class DatacardMaker():
 
-    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False):
+    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False, build_var='ptbl'):
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.rename = {**self.rename, **{'ttH_centralUL17': 'ttH', 'ttH_centralUL16': 'ttH', 'ttH_centralUL18': 'ttH', 'ttHJetToNonbb_M125_centralUL16': 'ttH', 'ttHJetToNonbb_M125_APV_centralUL16': 'ttH', 'ttW_centralUL17': 'ttW', 'ttZ_centralUL17': 'ttZ', 'tZq_centralUL17': 'tllq', 'ttH_centralUL17': 'ttH', 'ttW_centralUL18': 'ttW', 'ttZ_centralUL18': 'ttZ', 'tZq_centralUL18': 'tllq', 'ttH_centralUL18': 'ttH'}}
@@ -43,8 +43,7 @@ class DatacardMaker():
         if len(self.coeffs) > 0: print(f'Using the subset {self.coeffs}')
         self.year = single_year
         self.do_sm = do_sm
-        # Variables we have defined a binning for
-        self.known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt','ljptsum']
+        self.build_var = build_var
 
     def read(self):
         '''
@@ -81,47 +80,47 @@ class DatacardMaker():
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         # Get list of channels
-        self.ch2lss = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and not '4t' in k[1]})
+        self.ch2lss = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and not '4t' in k[1]})
         self.ch2lss += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and not '4t' in k[1]})
-        self.ch2lss_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_p' in k[1] and not '4t' in k[1]})
+        self.ch2lss_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss_p' in k[1] and not '4t' in k[1]})
         self.ch2lss_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_p' in k[1] and not '4t' in k[1]})
-        self.ch2lss_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_m' in k[1] and not '4t' in k[1]})
+        self.ch2lss_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss_m' in k[1] and not '4t' in k[1]})
         self.ch2lss_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_m' in k[1] and not '4t' in k[1]})
         self.ch2lssj  = list(set([j[-2:].replace('j','') for j in self.ch2lss_p if 'j' in j]))
         self.ch2lssj.sort()
 
-        self.ch2lss_4t = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and  ('4t' in k[1] or 'CR' in k[1])})
+        self.ch2lss_4t = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and  ('4t' in k[1] or 'CR' in k[1])})
         self.ch2lss_4t += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in k[1]})
-        self.ch2lss_4t_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_p' in k[1]})
+        self.ch2lss_4t_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_p' in k[1]})
         self.ch2lss_4t_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_p' in k[1]})
-        self.ch2lss_4t_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_m' in k[1]})
+        self.ch2lss_4t_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_m' in k[1]})
         self.ch2lss_4t_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_m' in k[1]})
         self.ch2lss_4tj  = list(set([j[-2:].replace('j','') for j in self.ch2lss_4t_p if 'j' in j]))
         self.ch2lss_4tj.sort()
 		
-        self.ch3l1b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
+        self.ch3l1b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
         self.ch3l1b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
-        self.ch3l1b_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'p' in k[1] and '1b' in k[1]})
+        self.ch3l1b_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and 'p' in k[1] and '1b' in k[1]})
         self.ch3l1b_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and 'p' in k[1] and '1b' in k[1]})
-        self.ch3l1b_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'm' in k[1]  and '1b' in k[1]})
+        self.ch3l1b_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and 'm' in k[1]  and '1b' in k[1]})
         self.ch3l1b_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and 'm' in k[1]  and '1b' in k[1]})
-        self.ch3l2b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and '2b' in k[1] and 'onZ' not in k[1]})
+        self.ch3l2b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and '2b' in k[1] and 'onZ' not in k[1]})
         self.ch3l2b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and '2b' in k[1] and 'onZ' not in k[1]})
-        self.ch3l2b_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'p' in k[1]  and '2b' in k[1]})
+        self.ch3l2b_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and 'p' in k[1]  and '2b' in k[1]})
         self.ch3l2b_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and 'p' in k[1]  and '2b' in k[1]})
-        self.ch3l2b_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'm' in k[1]  and '2b' in k[1]})
+        self.ch3l2b_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and 'm' in k[1]  and '2b' in k[1]})
         self.ch3l2b_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and 'm' in k[1]  and '2b' in k[1]})
-        self.ch3lsfz = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1]})
+        self.ch3lsfz = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l_onZ' in k[1]})
         self.ch3lsfz += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1]})
-        self.ch3lsfz1b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1] and '1b' in k[1]})
+        self.ch3lsfz1b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l_onZ' in k[1] and '1b' in k[1]})
         self.ch3lsfz1b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '1b' in k[1]})
-        self.ch3lsfz2b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
+        self.ch3lsfz2b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
         self.ch3lsfz2b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
         self.ch3lj  = list(set([j[-2].replace('j','') for j in self.ch3l1b_p if 'j' in j]))
         self.ch3lj.sort()
         self.ch3lsfzj  = list(set([j[-2].replace('j','') for j in self.ch3l1b_p if 'j' in j]))
         self.ch3lsfzj.sort()
-        self.ch4l = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '4l' in k[1]})
+        self.ch4l = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '4l' in k[1]})
         self.ch4l += list({k[1]:0 for k in self.hists['njets'].values().keys() if '4l' in k[1]})
         self.ch4lj = list(set([j[-2:].replace('j','') for j in self.ch4l if 'j' in j]))
         self.ch4lj.sort()
@@ -131,7 +130,7 @@ class DatacardMaker():
 
         # Get list of samples and cut levels from histograms
         self.signal = ['ttH','tllq','ttll','ttlnu','tHq','tttt']
-        self.samples = list({k[0]:0 for k in self.hists['ptbl'].values().keys()})
+        self.samples = list({k[0]:0 for k in self.hists[self.build_var].values().keys()})
         if self.year != '':
             print(f'Only running over {year=}! If this was not intended, please remove the --year (or -y) flag.')
             self.sampels = [k for k in self.samples if self.year[2:] in k]
@@ -147,7 +146,7 @@ class DatacardMaker():
         rename = {k.split('_')[0]: v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
         self.has_nonprompt = not any(['appl' in str(a) for a in self.hists['njets'].axes()]) # Check for nonprompt samples by looking for 'appl' axis
-        self.syst = list({k[2]:0 for k in self.hists['ptbl'].values().keys()})
+        self.syst = list({k[2]:0 for k in self.hists[self.build_var].values().keys()})
         with open(lumiJson) as jf:
             lumi = json.load(jf)
             self.lumi = lumi
@@ -816,21 +815,25 @@ if __name__ == '__main__':
     if job > -1: print('Only running one job locally')
     else: print('Submitting all jobs to condor')
 
-    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm)
-    card.read()
-    card.buildWCString()
-    jobs = []
-
     # Get the list of hists to make datacards for
     # If we don't specify a variable, use all variables in the pkl that we have a binning defined for
     include_var_lst = []
     target_var_lst = var_lst
     if len(var_lst) == 0:
         target_var_lst = yt.get_hist_list(pklfile)
+    # Variables we have defined a binning for
+    known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt','ljptsum']
     for var_name in target_var_lst:
-        if var_name in card.known_var_lst:
+        if var_name in known_var_lst:
             include_var_lst.append(var_name)
     if len(include_var_lst) == 0: raise Exception("No variables specified")
+    differential_lst = [var for var in include_var_lst if var!='njets'] # List of differential variables, will use the first one
+    if len(differential_lst) == 0: raise Exception("No differential variables specified!\nThese are required to build the dictionaries of bins")
+
+    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm, differential_lst[0])
+    card.read()
+    card.buildWCString()
+    jobs = []
     print(f"\nMaking cards for: {include_var_lst}\n")
 
     # Set up cards lst
