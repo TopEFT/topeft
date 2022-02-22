@@ -352,21 +352,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                 pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
                 pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
                 pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
-                pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
+                pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
           
 
             ######### Event weights ###########
-
-            # More event weights (btag, trigger SF), these have to go inside of the sys loop since they depend on jets and muons
-            GetTriggerSF(year,events,l0,l1)
-            if not isData:
-                weights_any_lep_cat.add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC) # Note, should not need to copy here since not modifying pData or pMC
-                weights_any_lep_cat.add('triggerSF', events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))
 
             # Loop over categories and fill the dict
             weights_dict = {}
             if (isData or (eft_coeffs is not None)): genw = np.ones_like(events["event"])
             else: genw = events["genWeight"]
+            GetTriggerSF(year,events,l0,l1)
             for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
                 if isData:
                     weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
@@ -376,6 +371,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 else:
                     weights_dict[ch_name] = copy.deepcopy(weights_any_lep_cat)
                     weights_dict[ch_name].add("norm",(xsec/sow)*genw)
+                    weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC) # Note, should not need to copy here since not modifying pData or pMC # In principle does not have to be in the lep cat loop
+                    weights_dict[ch_name].add('triggerSF', events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
                     if "2l" in ch_name:
                         weights_dict[ch_name].add("lepSF", events.sf_2l,         copy.deepcopy(events.sf_2l_hi),         copy.deepcopy(events.sf_2l_lo))
                         weights_dict[ch_name].add("FF"   , events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
