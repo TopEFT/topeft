@@ -63,23 +63,21 @@ jobs:
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_futures.py
 
-      - name: Run processors over test files with workqueue executor
-        run: |
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_workqueue.py
-
       - name: Get yields 
         run: |
-          cd analysis/topEFT
-          conda run -n coffea-env python get_yield_json.py -f histos/output_check_yields.pkl.gz -n output_check_yields
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append -k test_make_yields_after_processor
 
       - name: Compare yields
         run: |
-          cd analysis/topEFT
-          conda run -n coffea-env python comp_yields.py output_check_yields.json test/UL17_private_ttH_for_CI_yields.json -t1 "New yields" -t2 "Ref yields"
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append -k test_compare_yields_after_processor
 
       - name: Test datacard maker
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_datacardmaker.py
+
+      - name: Run processors over test files with workqueue executor
+        run: |
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_workqueue.py
 
 
       - name: Upload coverage to Codecov
