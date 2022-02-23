@@ -62,6 +62,7 @@
   ],
   "nEvents": 7500000,
   "nGenEvents": 15012000,
-  "nSumOfWeights": 968.1314884591313,
-  "isData": false
+  "nSumOfWeights": 968.1314884591317,
+  "isData": false,
+  "path": "/store/user/kmohrman/FullProduction/FullR2/UL16APV/Round1/Batch1/naodOnly_step/v2/nAOD_step_tllq4fNoSchanWNoHiggs0p_all22WCsStartPtCheckV2dim6TopMay20GST_run0"
 }
