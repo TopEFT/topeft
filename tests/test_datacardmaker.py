@@ -78,7 +78,7 @@ def test_datacard_maker():
         "analysis/topEFT/datacard_maker.py",
         "tests/test_datacard.pkl.gz",
         "--var-lst",
-        "njets", # Only checking an njets card, so don't need to make cards for the other variables
+        "njets", "ptbl", # Only checking an njets card, so don't need to make cards for the other variables
         "-j",
         "0",
         "--do-nuisance"
