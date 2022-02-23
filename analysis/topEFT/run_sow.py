@@ -40,7 +40,7 @@ wc_lst     = args.wc_list if args.wc_list is not None else []
 samples_to_process = {}
 for fn in inputFiles:
     if fn.endswith('.json'):
-        sample = os.path.basename(f).replace('.json','')
+        sample = os.path.basename(fn).replace('.json','')
         jsn = load_sample_json_file(fn)
         samples_to_process = update_cfg(jsn,
             name=sample,
@@ -130,7 +130,7 @@ executor_args = {
     # exploratory mode.
     'cores': 1,
     'disk': 8000,   #MB
-    'memory': 10000, #MB
+    #'memory': 10000, #MB
 
     # control the size of accumulation tasks. Results are
     # accumulated in groups of size chunks_per_accum, keeping at
