@@ -1,5 +1,7 @@
 import json
 import argparse
+ 
+tolerance = 0.5e-5
 
 '''
 Open a datacard txt file and load the contents into a dictionary
@@ -28,7 +30,7 @@ def strip(fname='ttx_multileptons-2lss_p_2b.txt'):
 Look at a pair of datacard contents from strip
 '''
 
-def comp_datacard(wc1, wc2):
+def comp_datacard_dict(wc1, wc2):
     names = list(set([str(w) for w in wc1] + [str(w) for w in wc2]))
     for name in names:
         if name in wc1 and name in wc2:
@@ -60,6 +62,12 @@ def comp_datacard(wc1, wc2):
         else: pass
     return True
 
+def comp_datacard(fin1, fin2):
+    wc1 = strip(fin1)
+    wc2 = strip(fin2)
+    
+    return comp_datacard_dict(wc1,wc2)
+
 if __name__ == '__main__':
  
     parser = argparse.ArgumentParser(description='You can select which file to run over')
@@ -67,10 +75,4 @@ if __name__ == '__main__':
     parser.add_argument('fin2'           , nargs='?', default=''           , help = 'Second input file')
     args = parser.parse_args()
     
-    
-    wc1 = strip(args.fin1)
-    wc2 = strip(args.fin2)
-    
-    tolerance = 0.5e-5
-    
-    comp_datacard(wc1,wc2)
+    comp_datacard(args.fin1, args.fin2)
