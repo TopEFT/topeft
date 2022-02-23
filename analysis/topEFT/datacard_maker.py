@@ -821,14 +821,14 @@ if __name__ == '__main__':
     target_var_lst = var_lst
     if len(var_lst) == 0:
         target_var_lst = yt.get_hist_list(pklfile)
+    differential_lst = [var for var in target_var_lst if var!='njets'] # List of differential variables, will use the first one
+    if len(differential_lst) == 0: raise Exception(f"No differential variables found in {pklfile}!\nAt least one is required to build the dictionaries of bins")
     # Variables we have defined a binning for
     known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt','ljptsum']
     for var_name in target_var_lst:
         if var_name in known_var_lst:
             include_var_lst.append(var_name)
     if len(include_var_lst) == 0: raise Exception("No variables specified")
-    differential_lst = [var for var in include_var_lst if var!='njets'] # List of differential variables, will use the first one
-    if len(differential_lst) == 0: raise Exception("No differential variables specified!\nThese are required to build the dictionaries of bins")
 
     card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm, differential_lst[0])
     card.read()
