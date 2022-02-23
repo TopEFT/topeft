@@ -363,29 +363,36 @@ class AnalysisProcessor(processor.ProcessorABC):
             else: genw = events["genWeight"]
             GetTriggerSF(year,events,l0,l1)
             for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
+
+                # For both data and MC
+                weights_dict[ch_name] = copy.deepcopy(weights_any_lep_cat) # Use the weights_any_lep_cat object from above
+                if "2l" in ch_name:
+                    weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
+                if "3l" in ch_name:
+                    weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
+
+                # For data only
                 if isData:
-                    weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
                     weights_dict[ch_name].add("norm",genw)
                     if "2l" in ch_name:
                         weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
-                else:
-                    weights_dict[ch_name] = copy.deepcopy(weights_any_lep_cat)
+
+                # For MC only
+                if not isData:
                     weights_dict[ch_name].add("norm",(xsec/sow)*genw)
                     weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC) # Note, should not need to copy here since not modifying pData or pMC # In principle does not have to be in the lep cat loop
-                    weights_dict[ch_name].add('triggerSF', events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+                    weights_dict[ch_name].add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
                     if "2l" in ch_name:
-                        weights_dict[ch_name].add("lepSF", events.sf_2l,         copy.deepcopy(events.sf_2l_hi),         copy.deepcopy(events.sf_2l_lo))
-                        weights_dict[ch_name].add("FF"   , events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
+                        weights_dict[ch_name].add("lepSF", events.sf_2l, copy.deepcopy(events.sf_2l_hi), copy.deepcopy(events.sf_2l_lo))
                     if "3l" in ch_name:
-                        weights_dict[ch_name].add("lepSF", events.sf_3l,         copy.deepcopy(events.sf_3l_hi),         copy.deepcopy(events.sf_3l_lo))
-                        weights_dict[ch_name].add("FF"   , events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
+                        weights_dict[ch_name].add("lepSF", events.sf_3l, copy.deepcopy(events.sf_3l_hi), copy.deepcopy(events.sf_3l_lo))
                     if "4l" in ch_name:
                         weights_dict[ch_name].add("lepSF", events.sf_4l, copy.deepcopy(events.sf_4l_hi), copy.deepcopy(events.sf_4l_lo))
 
             # Set the list of systematics to loop over when we fill hists
             systList = ["nominal"]
-            if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown"]
-            elif (self._do_systematics and not isData and syst_var != 'nominal'): systList = [syst_var]
+            if   (self._do_systematics and not isData and (syst_var == "nominal")): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown"]
+            elif (self._do_systematics and not isData and (syst_var != "nominal")): systList = [syst_var]
 
 
             ######### Masks we need for the selection ##########
@@ -403,7 +410,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_exactly1med = (nbtagsm==1) # Used for 3l SR and 2lss CR
             bmask_exactly2med = (nbtagsm==2) # Used for CRtt
             bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
-            bmask_atmost3med = (nbtagsm < 3)  # Used to make 2lss mutually exclusive from tttt enriched
+            bmask_atmost3med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
 
             # Charge masks
