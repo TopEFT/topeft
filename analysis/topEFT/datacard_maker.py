@@ -14,7 +14,7 @@ from ROOT import TFile, TH1D, TH2D
 
 class DatacardMaker():
 
-    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False):
+    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False, build_var='ptbl'):
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.rename = {**self.rename, **{'ttH_centralUL17': 'ttH', 'ttH_centralUL16': 'ttH', 'ttH_centralUL18': 'ttH', 'ttHJetToNonbb_M125_centralUL16': 'ttH', 'ttHJetToNonbb_M125_APV_centralUL16': 'ttH', 'ttW_centralUL17': 'ttW', 'ttZ_centralUL17': 'ttZ', 'tZq_centralUL17': 'tllq', 'ttH_centralUL17': 'ttH', 'ttW_centralUL18': 'ttW', 'ttZ_centralUL18': 'ttZ', 'tZq_centralUL18': 'tllq', 'ttH_centralUL18': 'ttH'}}
@@ -22,7 +22,17 @@ class DatacardMaker():
         # Special systematics
         # {'syst', x} will apply 1+x to _all_ categories
         # {'syst',{'proc1': x},...,{'procN': x}} will apply 1+x to any categories matching proc1 - procN (e.g. charge_flip_sm)
-        self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.05} # 30% flat uncertainty for charge flips
+        # PDF/QCD scale uncertainties take from TOP-19-001
+        # Asymmetric errors are provided as k_down / k_up in combine
+                                              # 30% flat uncertainty for charge flips
+        self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.05, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '1.092/1.058', 'tllq': 0.01, 'ttlnu': '1.12/1.13', 'ttll': '1.12/1.10', 'tHq': '1.08/1.06', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
+        # (Un)correlated systematics
+        # {'proc': 'type'} will assign all procs a special name for the give systematics
+        # e.g. {'ttH': 'gg'} will add `_gg` to the ttH  found in `self.syst_correlated`
+        self.syst_correlation = {'ttH': 'gg', 'ttll': 'gg', 'tttt': 'gg', 'tHq': 'qg', 'tllq': 'qq', 'ttlnu': 'qq', 'Diboson': 'qq', 'Triboson': 'qq', 'convs': 'gg'}
+        # List of systematics which require specific correlations
+        # Any systematic _not_ found in this list is assumed to be fully correlated across all processes
+        self.syst_correlated  = ['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale']
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         # Dictionary of njet bins
@@ -33,8 +43,7 @@ class DatacardMaker():
         if len(self.coeffs) > 0: print(f'Using the subset {self.coeffs}')
         self.year = single_year
         self.do_sm = do_sm
-        # Variables we have defined a binning for
-        self.known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt','ljptsum']
+        self.build_var = build_var
 
     def read(self):
         '''
@@ -71,47 +80,47 @@ class DatacardMaker():
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         # Get list of channels
-        self.ch2lss = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and not '4t' in k[1]})
+        self.ch2lss = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and not '4t' in k[1]})
         self.ch2lss += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and not '4t' in k[1]})
-        self.ch2lss_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_p' in k[1] and not '4t' in k[1]})
+        self.ch2lss_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss_p' in k[1] and not '4t' in k[1]})
         self.ch2lss_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_p' in k[1] and not '4t' in k[1]})
-        self.ch2lss_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss_m' in k[1] and not '4t' in k[1]})
+        self.ch2lss_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss_m' in k[1] and not '4t' in k[1]})
         self.ch2lss_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_m' in k[1] and not '4t' in k[1]})
         self.ch2lssj  = list(set([j[-2:].replace('j','') for j in self.ch2lss_p if 'j' in j]))
         self.ch2lssj.sort()
 
-        self.ch2lss_4t = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and  ('4t' in k[1] or 'CR' in k[1])})
+        self.ch2lss_4t = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and  ('4t' in k[1] or 'CR' in k[1])})
         self.ch2lss_4t += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in k[1]})
-        self.ch2lss_4t_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_p' in k[1]})
+        self.ch2lss_4t_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_p' in k[1]})
         self.ch2lss_4t_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_p' in k[1]})
-        self.ch2lss_4t_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_m' in k[1]})
+        self.ch2lss_4t_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_m' in k[1]})
         self.ch2lss_4t_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_m' in k[1]})
         self.ch2lss_4tj  = list(set([j[-2:].replace('j','') for j in self.ch2lss_4t_p if 'j' in j]))
         self.ch2lss_4tj.sort()
 		
-        self.ch3l1b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
+        self.ch3l1b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
         self.ch3l1b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
-        self.ch3l1b_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'p' in k[1] and '1b' in k[1]})
+        self.ch3l1b_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and 'p' in k[1] and '1b' in k[1]})
         self.ch3l1b_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and 'p' in k[1] and '1b' in k[1]})
-        self.ch3l1b_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'm' in k[1]  and '1b' in k[1]})
+        self.ch3l1b_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and 'm' in k[1]  and '1b' in k[1]})
         self.ch3l1b_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and 'm' in k[1]  and '1b' in k[1]})
-        self.ch3l2b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and '2b' in k[1] and 'onZ' not in k[1]})
+        self.ch3l2b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and '2b' in k[1] and 'onZ' not in k[1]})
         self.ch3l2b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and '2b' in k[1] and 'onZ' not in k[1]})
-        self.ch3l2b_p = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'p' in k[1]  and '2b' in k[1]})
+        self.ch3l2b_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and 'p' in k[1]  and '2b' in k[1]})
         self.ch3l2b_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and 'p' in k[1]  and '2b' in k[1]})
-        self.ch3l2b_m = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l' in k[1] and 'm' in k[1]  and '2b' in k[1]})
+        self.ch3l2b_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and 'm' in k[1]  and '2b' in k[1]})
         self.ch3l2b_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and 'm' in k[1]  and '2b' in k[1]})
-        self.ch3lsfz = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1]})
+        self.ch3lsfz = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l_onZ' in k[1]})
         self.ch3lsfz += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1]})
-        self.ch3lsfz1b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1] and '1b' in k[1]})
+        self.ch3lsfz1b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l_onZ' in k[1] and '1b' in k[1]})
         self.ch3lsfz1b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '1b' in k[1]})
-        self.ch3lsfz2b = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
+        self.ch3lsfz2b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
         self.ch3lsfz2b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l_onZ' in k[1] and '2b' in k[1]})
         self.ch3lj  = list(set([j[-2].replace('j','') for j in self.ch3l1b_p if 'j' in j]))
         self.ch3lj.sort()
         self.ch3lsfzj  = list(set([j[-2].replace('j','') for j in self.ch3l1b_p if 'j' in j]))
         self.ch3lsfzj.sort()
-        self.ch4l = list({k[1]:0 for k in self.hists['ptbl'].values().keys() if '4l' in k[1]})
+        self.ch4l = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '4l' in k[1]})
         self.ch4l += list({k[1]:0 for k in self.hists['njets'].values().keys() if '4l' in k[1]})
         self.ch4lj = list(set([j[-2:].replace('j','') for j in self.ch4l if 'j' in j]))
         self.ch4lj.sort()
@@ -121,7 +130,7 @@ class DatacardMaker():
 
         # Get list of samples and cut levels from histograms
         self.signal = ['ttH','tllq','ttll','ttlnu','tHq','tttt']
-        self.samples = list({k[0]:0 for k in self.hists['ptbl'].values().keys()})
+        self.samples = list({k[0]:0 for k in self.hists[self.build_var].values().keys()})
         if self.year != '':
             print(f'Only running over {year=}! If this was not intended, please remove the --year (or -y) flag.')
             self.sampels = [k for k in self.samples if self.year[2:] in k]
@@ -137,7 +146,7 @@ class DatacardMaker():
         rename = {k.split('_')[0]: v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
         self.has_nonprompt = not any(['appl' in str(a) for a in self.hists['njets'].axes()]) # Check for nonprompt samples by looking for 'appl' axis
-        self.syst = list({k[2]:0 for k in self.hists['ptbl'].values().keys()})
+        self.syst = list({k[2]:0 for k in self.hists[self.build_var].values().keys()})
         with open(lumiJson) as jf:
             lumi = json.load(jf)
             self.lumi = lumi
@@ -153,21 +162,30 @@ class DatacardMaker():
                         return True # Should skip this process for this channel
         return False # Nothing to skip
 
+    def get_correlation_name(self, name, syst):
+        correlation = name.split('_')[0]
+        syst = syst.replace('Up', '').replace('Down', '')
+        if syst in self.syst_correlated and correlation in self.syst_correlation: # Look for correlated systs and process type
+            correlation = '_'+self.syst_correlation[correlation]
+        else:
+            correlation = ''
+        return correlation
+
     def analyzeChannel(self, channel=[], appl='isSR_2lSS', charges=['ch+','ch-'], systematics='nominal', variable='njets', bins=[]):
         if variable != 'njets' and isinstance(bins, list) and len(bins)>0:
             for jbin in bins:
                 self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=jbin)
             return
+
         def export1d(h, name, cat, fout):
             if 'data_obs' in name:
                 fout['data_obs'] = hist.export1d(h['nominal'])
             else:
                 for syst,histo in h.items():
-                    rename = self.rename[name] if name in  self.rename else ''
                     if syst == 'nominal':
                         fout[name+cat] = hist.export1d(histo)
-                    elif rename not in self.syst_special:
-                        fout[name+cat+'_'+syst] = hist.export1d(histo)
+                    elif self.do_nuisance and name not in self.syst_special:
+                        fout[name+cat+'_'+syst+self.get_correlation_name(name, syst)] = hist.export1d(histo)
         def export2d(h):
             return h.to_hist().to_numpy()
         if isinstance(channel, str) and channel not in self.channels:
@@ -362,6 +380,7 @@ class DatacardMaker():
         def processSyst(process, channel, systMap, d_hists, fout):
             for syst in self.syst:
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
+                syst = syst+self.get_correlation_name(process, syst) # Tack on possible correlation name from self.syst_correlation
                 if any([process+'_'+syst in d for d in d_hists]):
                     h_sys = getHist(d_hists, '_'.join([process,syst]))
                     h_sys.SetDirectory(fout)
@@ -401,17 +420,24 @@ class DatacardMaker():
                     for b in val:
                         if b in process:
                             # Found the process we're looking for, no need to keep looping
-                            syst = val[b]
+                            if isinstance(val[b],(int,float)):
+                                syst = 1+val[b]
+                            elif isinstance(val[b],(str)):
+                                syst = val[b]
+                            else:
+                                raise NotImplementedError(f'Insystid systue type {syst_special} {type(val[b])=}')
                             break
                 elif isinstance(val,(int,float)):
+                    syst = 1+val
+                elif isinstance(val,(str)):
                     syst = val
                 else:
-                    raise NotImplementedError(f'Invalid value type {syst_special} {val}')
-                syst_cat = syst_special+'_flat_rate'
+                    raise NotImplementedError(f'Invalid value type {syst_special} {type(val)=}')
+                syst_cat = syst_special+self.get_correlation_name(process, syst_special)+'_flat_rate'
                 if syst_cat in systMap:
-                    systMap[syst_cat].update({process: 1+syst})
+                    systMap[syst_cat].update({process: syst})
                 else:
-                    systMap[syst_cat] = {process: 1+syst}
+                    systMap[syst_cat] = {process: syst}
                     
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
@@ -789,21 +815,25 @@ if __name__ == '__main__':
     if job > -1: print('Only running one job locally')
     else: print('Submitting all jobs to condor')
 
-    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm)
-    card.read()
-    card.buildWCString()
-    jobs = []
-
     # Get the list of hists to make datacards for
     # If we don't specify a variable, use all variables in the pkl that we have a binning defined for
     include_var_lst = []
     target_var_lst = var_lst
     if len(var_lst) == 0:
         target_var_lst = yt.get_hist_list(pklfile)
+    differential_lst = [var for var in yt.get_hist_list(pklfile) if var!='njets'] # List of differential variables, will use the first one
+    if len(differential_lst) == 0: raise Exception(f"No differential variables found in {pklfile}!\nAt least one is required to build the dictionaries of bins")
+    # Variables we have defined a binning for
+    known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt','ljptsum']
     for var_name in target_var_lst:
-        if var_name in card.known_var_lst:
+        if var_name in known_var_lst:
             include_var_lst.append(var_name)
     if len(include_var_lst) == 0: raise Exception("No variables specified")
+
+    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm, differential_lst[0])
+    card.read()
+    card.buildWCString()
+    jobs = []
     print(f"\nMaking cards for: {include_var_lst}\n")
 
     # Set up cards lst

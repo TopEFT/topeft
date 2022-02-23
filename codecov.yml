@@ -1,6 +1,7 @@
 ignore:
   - "topcoffea/modules/createJSON.py"    # Always done by hand
   - "topcoffea/modules/combine_json_ext.py"    # Always done  with `createJSON.py`
+  - "topcoffea/modules/combine_json_batch.py"  # Always done  with `createJSON.py`
   - "topcoffea/modules/DASsearch.py"     # Cannot run DAS client on GitHub
   - "topcoffea/modules/fileReader.py"    # Only used when creating json files
   - "topcoffea/modules/HTMLGenerator.py" # Not currently using HTML generator
