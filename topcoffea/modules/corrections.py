@@ -286,14 +286,25 @@ def AttachScaleWeights(events):
   LHE scale variation weights (w_var / w_nominal); [0] is renscfact=0.5d0 facscfact=0.5d0 ; [1] is renscfact=0.5d0 facscfact=1d0 ; [2] is renscfact=0.5d0 facscfact=2d0 ; [3] is renscfact=1d0 facscfact=0.5d0 ; [4] is renscfact=1d0 facscfact=1d0 ; [5] is renscfact=1d0 facscfact=2d0 ; [6] is renscfact=2d0 facscfact=0.5d0 ; [7] is renscfact=2d0 facscfact=1d0 ; [8] is renscfact=2d0 facscfact=2d0
   '''
   renormDown_factDown = 0; renormDown = 1; renormDown_factUp = 2; factDown = 3; nominal = 4; factUp = 5; renormUp_factDown = 6; renormUp = 7; renormUp_factUp = 8;
+
+  # Get the weights from the event
   scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
+
+  # Check for a case where some but not all of the weights are missing
+  # In this case we're not sure which ones are missing and would otherwise just silently fill the trailing ones with 1
+  # Would need to decide how to handle this, so for now let's just raise an error
+  no_wgts_missing_mask   =  (ak.count_nonzero(events.LHEScaleWeight,axis=-1) == 9)
+  all_wgts_missing_mask  =  (ak.count_nonzero(events.LHEScaleWeight,axis=-1) == 0)
+  some_wgts_missing_mask = ~(no_wgts_missing_mask | all_wgts_missing_mask)
+  some_wgts_missing_bool = ak.any(some_wgts_missing_mask)
+  if some_wgts_missing_bool:
+    raise Exception("ERROR: Some (but not all) LHE weights are missing from an event.")
+
   events['renorm_factDown']    = scale_weights[:,renormDown_factDown]
   events['renormDown']         = scale_weights[:,renormDown]
-  events['renormDown_factUp']  = scale_weights[:,renormDown_factUp]
   events['factDown']           = scale_weights[:,factDown]
-  events['nom']                = ak.ones_like(scale_weights[:,0])
+  events['nom']                = scale_weights[:,nominal]
   events['factUp']             = scale_weights[:,factUp]
-  events['renormUp_factDown']  = scale_weights[:,renormUp_factDown]
   events['renormUp']           = scale_weights[:,renormUp]
   events['renorm_factUp']      = scale_weights[:,renormUp_factUp]
 
