@@ -61,29 +61,28 @@ extLepSF.add_weight_sets(["ElecRecoSFAb_2016APV_er EGamma_SF2D_error %s"%topcoff
 extLepSF.add_weight_sets(["ElecRecoSFBe_2016APV EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_ptBelow20_EGM2D.root')])
 extLepSF.add_weight_sets(["ElecRecoSFBe_2016APV_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_ptBelow20_EGM2D.root')])
 # Elec: loose&tight
-extLepSF.add_weight_sets(["ElecSF_2018_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2018_2lss_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2018_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2018_2lss_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2018_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2018_3l_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2018_3l_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2018_3l_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2017_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2017_2lss_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2017_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2017_2lss_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2017_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2017_3l_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2017_3l_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2017_3l_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2016_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_2lss_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2016_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_2lss_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2016_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_3l_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2016_3l_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_3l_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2016APV_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_2lss_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2016APV_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_2lss_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2016APV_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_3l_EGM2D.root')])
-extLepSF.add_weight_sets(["ElecSF_2016APV_3l_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2018_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2018_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2018_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2018_3l_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2017_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2017_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2017_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2017_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2017_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2017_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2017_3l_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2017_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2016_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2016_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2016_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2016_3l_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2016APV_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016APV_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2016APV_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016APV_2lss_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2016APV_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016APV_3l_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecSF_2016APV_3l_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2016APV_3l_EGM2D.root')])
 
 # Fake rate 
-# todo: check that these are the same as the "recorrected"
-for year in [2016, 2017, 2018]:
+for year in ['2016APV_2016', 2017, 2018]:
   for syst in ['','_up','_down','_be1','_be2','_pt1','_pt2']:
-    extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb_recorrected{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
-    extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva080_el_data_comb_NC_recorrected{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
+    extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}.root')).format(year=year,syst=syst)])
+    extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva090_el_data_comb_NC{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}.root')).format(year=year,syst=syst)])
 
 # Flip rates                                                                                                                                                                                                       
 for year in [2016, 2017, 2018]:
@@ -96,7 +95,7 @@ SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 def AttachPerLeptonFR(leps, flavor, year):
-  if year == '2016APV': year = '2016'
+  if '2016' in year: year = '2016APV_2016'
   for syst in ffSysts:
     fr=SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](leps.conept, np.abs(leps.eta) )
     leps['fakefactor%s'%syst]=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions

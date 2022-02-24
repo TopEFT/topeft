@@ -195,11 +195,12 @@ class YieldTools():
 
         # If no hist specified, just choose the first one
         if h_name is None:
-            all_hists = self.get_hist_list(hin_dict)
-            for h in all_hists:
-                if h != "SumOfEFTweights":
-                    h_name = h
-                    break
+            h_name = "ht" # Guess a hist that we usually have
+            # all_hists = self.get_hist_list(hin_dict)
+            # for h in all_hists:
+            #     if h != "SumOfEFTweights":
+            #         h_name = h
+            #         break
 
             # If we failed to find a hist, raise exception
             if h_name is None:
