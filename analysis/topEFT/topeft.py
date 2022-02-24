@@ -193,8 +193,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Attach PDF weights
             #AttachPdfWeights(events) # FIXME use these!
             # FSR/ISR weights
-            weights_any_lep_cat.add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
-            weights_any_lep_cat.add('FSR', events.FSRnom, events.FSRUp, events.FSRDown)
+            weights_any_lep_cat.add('ISR', events.nom, events.ISRUp, events.ISRDown) # For nom just use nom from LHEScaleWeight since it's just 1
+            weights_any_lep_cat.add('FSR', events.nom, events.FSRUp, events.FSRDown) # For nom just use nom from LHEScaleWeight since it's just 1
             # renorm/fact scale
             weights_any_lep_cat.add('renorm',      events.nom, events.renormUp,      events.renormDown)
             weights_any_lep_cat.add('fact',        events.nom, events.factUp,        events.factDown)

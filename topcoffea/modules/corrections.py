@@ -270,9 +270,6 @@ def AttachPSWeights(events):
   ISR = 0; FSR = 1; ISRdown = 0; FSRdown = 1; ISRup = 2; FSRup = 3
   if events.PSWeight is None:
       raise Exception(f'PSWeight not found in {fname}!')
-  # Add nominal as 1 just to make things similar
-  events['ISRnom']  = ak.ones_like(events.PSWeight[:,0])
-  events['FSRnom']  = ak.ones_like(events.PSWeight[:,0])
   # Add up variation event weights
   events['ISRUp']   = events.PSWeight[:, ISRup]
   events['FSRUp']   = events.PSWeight[:, FSRup]
@@ -289,6 +286,17 @@ def AttachScaleWeights(events):
 
   # Get the weights from the event
   scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
+  events['renorm_factDown']    = scale_weights[:,renormDown_factDown]
+  events['renormDown']         = scale_weights[:,renormDown]
+  events['factDown']           = scale_weights[:,factDown]
+  events['nom']                = scale_weights[:,nominal]
+  events['factUp']             = scale_weights[:,factUp]
+  events['renormUp']           = scale_weights[:,renormUp]
+  events['renorm_factUp']      = scale_weights[:,renormUp_factUp]
+
+  # We expect this to be 1, and use it as the "nominal" for ISR/FSR as well, so want to make sure it is never anything other than 1
+  if ak.any(events['nom'] != 1.0):
+    raise Exception("ERROR: A LHEScaleWeight nominal value is not 1. Is this expected?")
 
   # Check for a case where some but not all of the weights are missing
   # In this case we're not sure which ones are missing and would otherwise just silently fill the trailing ones with 1
@@ -299,14 +307,6 @@ def AttachScaleWeights(events):
   some_wgts_missing_bool = ak.any(some_wgts_missing_mask)
   if some_wgts_missing_bool:
     raise Exception("ERROR: Some (but not all) LHE weights are missing from an event.")
-
-  events['renorm_factDown']    = scale_weights[:,renormDown_factDown]
-  events['renormDown']         = scale_weights[:,renormDown]
-  events['factDown']           = scale_weights[:,factDown]
-  events['nom']                = scale_weights[:,nominal]
-  events['factUp']             = scale_weights[:,factUp]
-  events['renormUp']           = scale_weights[:,renormUp]
-  events['renorm_factUp']      = scale_weights[:,renormUp_factUp]
 
 
 def AttachPdfWeights(events):
