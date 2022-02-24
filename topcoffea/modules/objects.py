@@ -93,7 +93,7 @@ def isFOElec(pt, conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits,
     btabReq    = (jetBTagDeepFlav<bTagCut)
     ptReq      = (conept>get_param("fo_pt_cut"))
     qualityReq = (ttH_idEmu_cuts_E3 & convVeto & (lostHits==0))
-    mvaReq     = ((mvaTTHUL>get_param("mva_TTH_e_cut")) | ((mvaFall17V2noIso_WP90) & (jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year))))
+    mvaReq     = ((mvaTTHUL>get_param("mva_TTH_e_cut")) | ((mvaFall17V2noIso_WP90) & (jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (jetRelIso < get_param("fo_e_jetRelIso_cut"))))
 
     return ptReq & btabReq & qualityReq & mvaReq
 

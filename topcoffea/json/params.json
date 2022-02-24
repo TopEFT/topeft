@@ -11,6 +11,7 @@
     "iso_cut" : 0.4,
 
     "fo_m_jetRelIso_cut" : 0.5,
+    "fo_e_jetRelIso_cut" : 1.0,
 
     "jet_id_cut" : 0,
 
