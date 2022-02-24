@@ -76,6 +76,7 @@
   ],
   "nEvents": 7500000,
   "nGenEvents": 14995500,
-  "nSumOfWeights": 94.36125901896324,
-  "isData": false
+  "nSumOfWeights": 94.36125901896325,
+  "isData": false,
+  "path": "/store/user/kmohrman/FullProduction/FullR2/UL16/Round1/Batch1/naodOnly_step/v2/nAOD_step_tttt_FourtopsMay3v1_run0"
 }

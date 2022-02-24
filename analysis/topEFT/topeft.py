@@ -178,8 +178,32 @@ class AnalysisProcessor(processor.ProcessorABC):
         e["isLooseE"] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
         e["isFO"] = isFOElec(e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
         e["isTightLep"] = tightSelElec(e.isFO, e.mvaTTH)
-        
-        # Update muon kinematics with Rochester corrections
+
+        ######### Event weights ###########
+        # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
+        # We only calculate these values if not isData
+        # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
+        weights_any_lep_cat = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+        if not isData:
+            # These could probably go outside of the sys loop
+            # Attach PS weights (ISR/FSR)
+            AttachPSWeights(events)
+            # Attach scale weights (renormalization/factorization)
+            AttachScaleWeights(events)
+            # Attach PDF weights
+            #AttachPdfWeights(events) # FIXME use these!
+            # FSR/ISR weights
+            weights_any_lep_cat.add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
+            weights_any_lep_cat.add('FSR', events.FSRnom, events.FSRUp, events.FSRDown)
+            # renorm/fact scale
+            weights_any_lep_cat.add('renorm',      events.nom, events.renormUp,      events.renormDown)
+            weights_any_lep_cat.add('fact',        events.nom, events.factUp,        events.factDown)
+            weights_any_lep_cat.add('renorm_fact', events.nom, events.renorm_factUp, events.renorm_factDown)
+            # Prefiring and PU (note prefire weights only available in nanoAODv9)
+            weights_any_lep_cat.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
+            weights_any_lep_cat.add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 'up'), GetPUSF(events.Pileup.nTrueInt, year, 'down'))
+
+        # Update muon and jet kinematics with Rochester corrections and JER/JES
         mu["pt_raw"]=mu.pt
         met_raw=met
         if self._do_systematics : syst_var_list = ['MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']
@@ -328,62 +352,48 @@ class AnalysisProcessor(processor.ProcessorABC):
                 pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
                 pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
                 pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
-                pMC      = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
+                pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
           
-            # Trigger SF
-            GetTriggerSF(year,events,l0,l1)
 
-            # We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
+            ######### Event weights ###########
+
+            # Loop over categories and fill the dict
             weights_dict = {}
-            if (isData or (eft_coeffs is not None)):
-                genw = np.ones_like(events["event"])
-            else:
-                genw = events["genWeight"]
+            if (isData or (eft_coeffs is not None)): genw = np.ones_like(events["event"])
+            else: genw = events["genWeight"]
+            GetTriggerSF(year,events,l0,l1)
             for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
-                weights_dict[ch_name] = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
-                weights_dict[ch_name].add("norm",genw if isData else (xsec/sow)*genw)
-                if not isData:
 
-                    ######### Event weights ###########
-
-                    # Attach PS weights (ISR/FSR)
-                    AttachPSWeights(events)
-                    # Attach scale weights (renormalization/factorization)
-                    AttachScaleWeights(events)
-                    # Attach PDF weights
-                    #AttachPdfWeights(events) # FIXME use these!
-
-                    # We only calculate these values if not isData
-                    weights_dict[ch_name].add("btagSF", pData/pMC, copy.deepcopy(pDataUp/pMC), copy.deepcopy(pDataDo/pMC))
-                    weights_dict[ch_name].add('PU', GetPUSF((events.Pileup.nTrueInt), year), copy.deepcopy(GetPUSF(events.Pileup.nTrueInt, year, 'up')), copy.deepcopy(GetPUSF(events.Pileup.nTrueInt, year, 'down')))
-                    # Prefiring weights only available in nanoAODv9**
-                    weights_dict[ch_name].add('PreFiring', events.L1PreFiringWeight.Nom,  copy.deepcopy(events.L1PreFiringWeight.Up),  copy.deepcopy(events.L1PreFiringWeight.Dn))
-                    # FSR/ISR weights
-                    weights_dict[ch_name].add('ISR', events.ISRnom, copy.deepcopy(events.ISRUp), copy.deepcopy(events.ISRDown))
-                    weights_dict[ch_name].add('FSR', events.FSRnom, copy.deepcopy(events.FSRUp), copy.deepcopy(events.FSRDown))
-                    # renorm/fact scale
-                    weights_dict[ch_name].add('renorm',      events.nom, copy.deepcopy(events.renormUp),      copy.deepcopy(events.renormDown))
-                    weights_dict[ch_name].add('fact',        events.nom, copy.deepcopy(events.factUp),        copy.deepcopy(events.factDown))
-                    weights_dict[ch_name].add('renorm_fact', events.nom, copy.deepcopy(events.renorm_factUp), copy.deepcopy(events.renorm_factDown))
-                    # Trigger SF
-                    weights_dict[ch_name].add('triggerSF', events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))
-
+                # For both data and MC
+                weights_dict[ch_name] = copy.deepcopy(weights_any_lep_cat) # Use the weights_any_lep_cat object from above
                 if "2l" in ch_name:
-                    weights_dict[ch_name].add("lepSF", events.sf_2l,         copy.deepcopy(events.sf_2l_hi),         copy.deepcopy(events.sf_2l_lo))
-                    weights_dict[ch_name].add("FF"   , events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
+                    weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
                 if "3l" in ch_name:
-                    weights_dict[ch_name].add("lepSF", events.sf_3l,         copy.deepcopy(events.sf_3l_hi),         copy.deepcopy(events.sf_3l_lo))
-                    weights_dict[ch_name].add("FF"   , events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
-                if "4l" in ch_name:
-                    weights_dict[ch_name].add("lepSF", events.sf_4l, copy.deepcopy(events.sf_4l_hi), copy.deepcopy(events.sf_4l_lo))
+                    weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
 
-                if isData and "2l" in ch_name:
-                    weights_dict[ch_name].add("fliprate"   , events.flipfactor_2l)
-                
-            # Systematics
+                # For data only
+                if isData:
+                    weights_dict[ch_name].add("norm",genw)
+                    if "2l" in ch_name:
+                        weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
+
+                # For MC only
+                if not isData:
+                    weights_dict[ch_name].add("norm",(xsec/sow)*genw)
+                    weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC) # Note, should not need to copy here since not modifying pData or pMC # In principle does not have to be in the lep cat loop
+                    weights_dict[ch_name].add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+                    if "2l" in ch_name:
+                        weights_dict[ch_name].add("lepSF", events.sf_2l, copy.deepcopy(events.sf_2l_hi), copy.deepcopy(events.sf_2l_lo))
+                    if "3l" in ch_name:
+                        weights_dict[ch_name].add("lepSF", events.sf_3l, copy.deepcopy(events.sf_3l_hi), copy.deepcopy(events.sf_3l_lo))
+                    if "4l" in ch_name:
+                        weights_dict[ch_name].add("lepSF", events.sf_4l, copy.deepcopy(events.sf_4l_hi), copy.deepcopy(events.sf_4l_lo))
+
+            # Set the list of systematics to loop over when we fill hists
             systList = ["nominal"]
-            if (self._do_systematics and not isData and syst_var == "nominal"): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown"]
-            elif (self._do_systematics and not isData and syst_var != 'nominal'): systList = [syst_var]
+            if   (self._do_systematics and not isData and (syst_var == "nominal")): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown"]
+            elif (self._do_systematics and not isData and (syst_var != "nominal")): systList = [syst_var]
+
 
             ######### Masks we need for the selection ##########
 
@@ -400,7 +410,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_exactly1med = (nbtagsm==1) # Used for 3l SR and 2lss CR
             bmask_exactly2med = (nbtagsm==2) # Used for CRtt
             bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
-            bmask_atmost3med = (nbtagsm < 3)  # Used to make 2lss mutually exclusive from tttt enriched
+            bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
 
             # Charge masks
@@ -420,8 +430,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("is_good_lumi",lumi_mask)
 
             # 2lss selection (drained of 4 top)
-            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             # 2lss selection (enriched in 4 top)
             selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis

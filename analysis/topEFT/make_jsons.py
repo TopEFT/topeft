@@ -8,6 +8,8 @@ import os
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.samples import loadxsecdic
 from topcoffea.modules.combine_json_ext  import combine_json_ext
+from topcoffea.modules.combine_json_batch  import combine_json_batch
+import re
 
 ########### The XSs from xsec.cfg ###########
 XSECDIC = loadxsecdic("../../topcoffea/cfg/xsec.cfg",True)
@@ -257,6 +259,42 @@ private_UL16APV_dict = {
     "UL16APV_tttt_b1"     : {
         "path" : "/store/user/kmohrman/FullProduction/FullR2/UL16APV/Round1/Batch1/naodOnly_step/v2/nAOD_step_tttt_FourtopsMay3v1_run0",
         "histAxisName": "tttt_privateUL16APV",
+        "xsecName": "tttt",
+    },
+}
+
+# Testing only a single batch from each
+test_private_UL17_dict = {
+
+
+    "UL17_ttHJet_b1"   : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v4/nAOD_step_ttHJet_all22WCsStartPtCheckdim6TopMay20GST_run0",
+        "histAxisName": "ttHJet_privateUL17",
+        "xsecName": "ttHnobb",
+    },
+    "UL17_ttlnuJet_b1" : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v4/nAOD_step_ttlnuJet_all22WCsStartPtCheckdim6TopMay20GST_run0",
+        "histAxisName": "ttlnuJet_privateUL17",
+        "xsecName": "TTWJetsToLNu",
+    },
+    "UL17_ttllJet_b1"  : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v4/nAOD_step_ttllNuNuJetNoHiggs_all22WCsStartPtCheckdim6TopMay20GST_run0",
+        "histAxisName": "ttllJet_privateUL17",
+        "xsecName": "TTZToLLNuNu_M_10",
+    },
+    "UL17_tllq_b1"     : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v4/nAOD_step_tllq4fNoSchanWNoHiggs0p_all22WCsStartPtCheckV2dim6TopMay20GST_run0",
+        "histAxisName" : "tllq_privateUL17",
+        "xsecName": "tZq",
+    },
+    "UL17_tHq_b1"      : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v4/nAOD_step_tHq4f_all22WCsStartPtCheckdim6TopMay20GST_run0",
+        "histAxisName": "tHq_privateUL17",
+        "xsecName": "tHq",
+    },
+    "UL17_tttt_b4"     : {
+        "path" : "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch4/naodOnly_step/v2/nAOD_step_tttt_FourtopsMay3v1_run0",
+        "histAxisName": "tttt_privateUL17",
         "xsecName": "tttt",
     },
 }
@@ -1093,6 +1131,12 @@ def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False
         if '_ext' in out_name:
           combine_json_ext(out_dir+'/'+out_name) # Merge with non-ext version
           os.remove(out_dir+'/'+out_name) # Remove (now) outdated ext version
+        # Only run if more than one file exists (differentiates between `*_b2.json` and `*_b2_atPSI.json`
+        r = re.compile(re.sub(r'_b[1-9]', '_b[1-9]', out_name))
+        matches = [b for b in str(subprocess.check_output(["ls",'.'], shell=True)).split('\\n') if bool(r.match(b))]
+        if re.search('_b[2-9]', out_name) and len(matches)>1:
+          combine_json_batch(out_dir+'/'+out_name) # Merge batches
+          os.remove(out_dir+'/'+out_name) # Remove (now) outdated batch version
 
         print("sample name:",sample_name)
         print("\tpath:",path,"\n\thistAxisName:",hist_axis_name,"\n\txsecName",xsec_name,"\n\tout name:",out_name,"\n\tout dir:",out_dir)
@@ -1109,7 +1153,8 @@ def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False
 def main():
 
     # Specify some output dirs
-    out_dir_private_UL     = os.path.join(topcoffea_path("json"),"signal_samples/private_UL/")
+    out_dir_test_private_UL     = os.path.join(topcoffea_path("json"),"signal_samples/test_UL/")
+    out_dir_private_UL          = os.path.join(topcoffea_path("json"),"signal_samples/private_UL/")
     out_dir_private_UL_subset_local = os.path.join(topcoffea_path("json"),"signal_samples/subsets_of_private_UL_for_debugging/private_UL17_b1b4_at_NDscratch365/")
     out_dir_private_UL_subset_unl = os.path.join(topcoffea_path("json"),"signal_samples/subsets_of_private_UL_for_debugging/private_UL17_b1b4_at_NDscratch365/")
     out_dir_top19001_local = os.path.join(topcoffea_path("json"),"signal_samples/private_top19001_local")
@@ -1125,6 +1170,7 @@ def main():
     ######### Make/remake JSONs #########
 
     # Private UL samples
+    #make_jsons_for_dict_of_samples(test_private_UL17_dict,"/hadoop","2017",out_dir_test_private_UL)
     #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL18_dict,"/hadoop","2018",out_dir_private_UL)
     #make_jsons_for_dict_of_samples(private_UL16_dict,"/hadoop","2016",out_dir_private_UL)
