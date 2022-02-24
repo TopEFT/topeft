@@ -196,9 +196,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_any_lep_cat.add('ISR', events.nom, events.ISRUp, events.ISRDown) # For nom just use nom from LHEScaleWeight since it's just 1
             weights_any_lep_cat.add('FSR', events.nom, events.FSRUp, events.FSRDown) # For nom just use nom from LHEScaleWeight since it's just 1
             # renorm/fact scale
-            weights_any_lep_cat.add('renorm',      events.nom, events.renormUp,      events.renormDown)
-            weights_any_lep_cat.add('fact',        events.nom, events.factUp,        events.factDown)
-            weights_any_lep_cat.add('renorm_fact', events.nom, events.renorm_factUp, events.renorm_factDown)
+            weights_any_lep_cat.add('renorm',     events.nom, events.renormUp,     events.renormDown)
+            weights_any_lep_cat.add('fact',       events.nom, events.factUp,       events.factDown)
+            weights_any_lep_cat.add('renormfact', events.nom, events.renormfactUp, events.renormfactDown)
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
             weights_any_lep_cat.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
             weights_any_lep_cat.add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 'up'), GetPUSF(events.Pileup.nTrueInt, year, 'down'))
@@ -391,7 +391,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Set the list of systematics to loop over when we fill hists
             systList = ["nominal"]
-            if   (self._do_systematics and not isData and (syst_var == "nominal")): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown"]
+            if   (self._do_systematics and not isData and (syst_var == "nominal")): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown","triggerSFUp","triggerSFDown"]
             elif (self._do_systematics and not isData and (syst_var != "nominal")): systList = [syst_var]
 
 

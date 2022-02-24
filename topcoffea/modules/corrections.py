@@ -286,13 +286,13 @@ def AttachScaleWeights(events):
 
   # Get the weights from the event
   scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
-  events['renorm_factDown']    = scale_weights[:,renormDown_factDown]
-  events['renormDown']         = scale_weights[:,renormDown]
-  events['factDown']           = scale_weights[:,factDown]
-  events['nom']                = scale_weights[:,nominal]
-  events['factUp']             = scale_weights[:,factUp]
-  events['renormUp']           = scale_weights[:,renormUp]
-  events['renorm_factUp']      = scale_weights[:,renormUp_factUp]
+  events['renormfactDown'] = scale_weights[:,renormDown_factDown]
+  events['renormDown']     = scale_weights[:,renormDown]
+  events['factDown']       = scale_weights[:,factDown]
+  events['nom']            = scale_weights[:,nominal]
+  events['factUp']         = scale_weights[:,factUp]
+  events['renormUp']       = scale_weights[:,renormUp]
+  events['renormfactUp']   = scale_weights[:,renormUp_factUp]
 
   # We expect this to be 1, and use it as the "nominal" for ISR/FSR as well, so want to make sure it is never anything other than 1
   if ak.any(events['nom'] != 1.0):
