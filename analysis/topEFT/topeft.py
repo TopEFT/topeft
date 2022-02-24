@@ -410,7 +410,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_exactly1med = (nbtagsm==1) # Used for 3l SR and 2lss CR
             bmask_exactly2med = (nbtagsm==2) # Used for CRtt
             bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
-            bmask_atmost3med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
+            bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
 
             # Charge masks
@@ -430,8 +430,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("is_good_lumi",lumi_mask)
 
             # 2lss selection (drained of 4 top)
-            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             # 2lss selection (enriched in 4 top)
             selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
