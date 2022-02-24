@@ -29,7 +29,15 @@ class DatacardMaker():
         # (Un)correlated systematics
         # {'proc': 'type'} will assign all procs a special name for the give systematics
         # e.g. {'ttH': 'gg'} will add `_gg` to the ttH  found in `self.syst_correlated`
-        self.syst_correlation = {'ttH': 'gg', 'ttll': 'gg', 'tttt': 'gg', 'tHq': 'qg', 'tllq': 'qq', 'ttlnu': 'qq', 'Diboson': 'qq', 'Triboson': 'qq', 'convs': 'gg'}
+        self.syst_correlation = {'ttH':      {'pdf_scale': 'gg', 'qcd_scale': 'ttH' }, 
+                                 'ttll':     {'pdf_scale': 'gg', 'qcd_scale': 'ttV' }, 
+                                 'tttt':     {'pdf_scale': 'gg', 'qcd_scale': 'tttt'},
+                                 'tHq':      {'pdf_scale': 'qg', 'qcd_scale': 'tHq' },
+                                 'ttlnu':    {'pdf_scale': 'qq', 'qcd_scale': 'ttV' },
+                                 'tllq':     {'pdf_scale': 'qq', 'qcd_scale': 'V'   }, 
+                                 'Diboson':  {'pdf_scale': 'qq', 'qcd_scale': 'VV'  },
+                                 'Triboson': {'pdf_scale': 'qq', 'qcd_scale': 'VVV' },
+                                 'convs':    {'pdf_scale': 'gg', 'qcd_scale': 'ttG' }}
         # List of systematics which require specific correlations
         # Any systematic _not_ found in this list is assumed to be fully correlated across all processes
         self.syst_correlated  = ['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale']
@@ -166,7 +174,7 @@ class DatacardMaker():
         correlation = name.split('_')[0]
         syst = syst.replace('Up', '').replace('Down', '')
         if syst in self.syst_correlated and correlation in self.syst_correlation: # Look for correlated systs and process type
-            correlation = '_'+self.syst_correlation[correlation]
+            correlation = '_'+self.syst_correlation[correlation][syst]
         else:
             correlation = ''
         return correlation
