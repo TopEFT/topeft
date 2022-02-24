@@ -30,53 +30,47 @@ pjoin = os.path.join
 
 MAX_PDIFF = 1e-7
 
-# Format is [(hist_name,json_key_name),...]
-WEIGHTS_NAMES_DICT = {
-    'nom' : {
-        'hist_name':    'SumOfWeights',
-        'jsn_key_name': 'nSumOfWeights',
-    },
-    'ISRUp' : {
-        'hist_name':    'SumOfWeights_ISRUp',
-        'jsn_key_name': 'nSumOfWeights_ISRUp',
-    },
-    'ISRDown' : {
-        'hist_name':    'SumOfWeights_ISRDown',
-        'jsn_key_name': 'nSumOfWeights_ISRDown',
-    },
-    'FSRUp' : {
-        'hist_name':    'SumOfWeights_FSRUp',
-        'jsn_key_name': 'nSumOfWeights_FSRUp',
-    },
-    'FSRDown' : {
-        'hist_name':    'SumOfWeights_FSRDown',
-        'jsn_key_name': 'nSumOfWeights_FSRDown',
-    },
-    'renormUp' : {
-        'hist_name':    'SumOfWeights_renormUp',
-        'jsn_key_name': 'nSumOfWeights_renormUp',
-    },
-    'renormDown' : {
-        'hist_name':    'SumOfWeights_renormDown',
-        'jsn_key_name': 'nSumOfWeights_renormDown',
-    },
-    'factUp' : {
-        'hist_name':    'SumOfWeights_factUp',
-        'jsn_key_name': 'nSumOfWeights_factUp',
-    },
-    'factDown' : {
-        'hist_name':    'SumOfWeights_factDown',
-        'jsn_key_name': 'nSumOfWeights_factDown',
-    },
-    'renormfactUp' : {
-        'hist_name':    'SumOfWeights_renormfactUp',
-        'jsn_key_name': 'nSumOfWeights_renormfactUp',
-    },
-    'renormfactDown' : {
-        'hist_name':    'SumOfWeights_renormfactDown',
-        'jsn_key_name': 'nSumOfWeights_renormfactDown',
-    }
-}
+WEIGHTS_NAME_LST = [
+    'nom',
+    'ISRUp',
+    'ISRDown',
+    'FSRUp',
+    'FSRDown',
+    'renormUp',
+    'renormDown',
+    'factUp',
+    'factDown',
+    'renormfactUp',
+    'renormfactDown',
+]
+
+# Construct a dict to hold the hist name and json name, format:
+# d = {
+#   'varUp': {
+#       'hist_name': 'SumOfWeights_varUp',
+#       'jsn_key_name': 'nSumOfWeights_varUp',
+#   }
+# }
+def construct_wgt_name_dict(wgt_name_lst):
+
+    def construct_hist_name(wgt_var_str):
+        if wgt_var_str == 'nom': wgt_var_str = ''
+        else:  wgt_var_str = '_'+wgt_var_str
+        return 'SumOfWeights' + wgt_var_str
+
+    def construct_jsn_key_name(wgt_var_str):
+        if wgt_var_str == 'nom': wgt_var_str = ''
+        else:  wgt_var_str = '_'+wgt_var_str
+        return 'nSumOfWeights' + wgt_var_str
+
+    wgt_name_dict = {}
+    for wgt_name in wgt_name_lst:
+        wgt_name_dict[wgt_name] = {}
+        wgt_name_dict[wgt_name]['hist_name'] = construct_hist_name(wgt_name)
+        wgt_name_dict[wgt_name]['jsn_key_name'] = construct_jsn_key_name(wgt_name)
+
+    return wgt_name_dict
+
 
 def main():
     parser = argparse.ArgumentParser(description='You want options? We got options!')
@@ -111,9 +105,13 @@ def main():
         verbose=True
     )
 
+    # Get dictionary of names
+    wgt_name_dict = construct_wgt_name_dict(WEIGHTS_NAME_LST)
+
+    # Find JSONs and update weights
     for fpath in hist_paths:
         h = tools.get_hist_from_pkl(fpath)
-        h_sow = h[WEIGHTS_NAMES_DICT['nom']['hist_name']]
+        h_sow = h[wgt_name_dict['nom']['hist_name']]
         idents = h_sow.identifiers('sample')
         for sname in idents:
             match = regex_match(json_fpaths,regex_lst=[f"{sname}\\.json$"])
@@ -124,7 +122,10 @@ def main():
                 continue
             match = match[0]
             jsn = load_sample_json_file(match)
-            old = jsn[WEIGHTS_NAMES_DICT['nom']['jsn_key_name']]
+
+            #for wgt_vars in wgt_name_dict.keys():
+
+            old = jsn[wgt_name_dict['nom']['jsn_key_name']]
             yld,err = tools.get_yield(h_sow,sname)
             diff = yld - old
             pdiff = diff / old
@@ -132,7 +133,7 @@ def main():
                 continue
 
             updates = {
-                WEIGHTS_NAMES_DICT['nom']['jsn_key_name']: float(yld)
+                wgt_name_dict['nom']['jsn_key_name']: float(yld)
             }
 
             update_json(match,dry_run=dry_run,verbose=verbose,**updates)
