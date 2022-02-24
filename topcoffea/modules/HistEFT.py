@@ -619,7 +619,7 @@ class HistEFT(coffea.hist.Hist):
     """ Rebin a dense axis """
     old_axis = self.axis(old_axis)
     if isinstance(new_axis, numbers.Integral):
-        new_axis = Bin(old_axis.name, old_axis.label, old_axis.edges()[::new_axis])
+        new_axis = coffea.hist.Bin(old_axis.name, old_axis.label, old_axis.edges()[::new_axis])
     new_dims = [ax if ax != old_axis else new_axis for ax in self._axes]
     out = HistEFT(self._label, self._wcnames, *new_dims, dtype=self._dtype)
     out._wcs = copy.deepcopy(self._wcs)
