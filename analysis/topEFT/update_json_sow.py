@@ -28,9 +28,55 @@ pjoin = os.path.join
 #   same name, but in different sub-directories, then it skips updating that file and instead prints
 #   an error displaying the confounding JSONs.
 
-WEIGHTS_NAME = 'SumOfWeights'
-JSON_KEY_NAME = 'nSumOfWeights'
 MAX_PDIFF = 1e-7
+
+# Format is [(hist_name,json_key_name),...]
+WEIGHTS_NAMES_DICT = {
+    'nom' : {
+        'hist_name':    'SumOfWeights',
+        'jsn_key_name': 'nSumOfWeights',
+    },
+    'ISRUp' : {
+        'hist_name':    'SumOfWeights_ISRUp',
+        'jsn_key_name': 'nSumOfWeights_ISRUp',
+    },
+    'ISRDown' : {
+        'hist_name':    'SumOfWeights_ISRDown',
+        'jsn_key_name': 'nSumOfWeights_ISRDown',
+    },
+    'FSRUp' : {
+        'hist_name':    'SumOfWeights_FSRUp',
+        'jsn_key_name': 'nSumOfWeights_FSRUp',
+    },
+    'FSRDown' : {
+        'hist_name':    'SumOfWeights_FSRDown',
+        'jsn_key_name': 'nSumOfWeights_FSRDown',
+    },
+    'renormUp' : {
+        'hist_name':    'SumOfWeights_renormUp',
+        'jsn_key_name': 'nSumOfWeights_renormUp',
+    },
+    'renormDown' : {
+        'hist_name':    'SumOfWeights_renormDown',
+        'jsn_key_name': 'nSumOfWeights_renormDown',
+    },
+    'factUp' : {
+        'hist_name':    'SumOfWeights_factUp',
+        'jsn_key_name': 'nSumOfWeights_factUp',
+    },
+    'factDown' : {
+        'hist_name':    'SumOfWeights_factDown',
+        'jsn_key_name': 'nSumOfWeights_factDown',
+    },
+    'renormfactUp' : {
+        'hist_name':    'SumOfWeights_renormfactUp',
+        'jsn_key_name': 'nSumOfWeights_renormfactUp',
+    },
+    'renormfactDown' : {
+        'hist_name':    'SumOfWeights_renormfactDown',
+        'jsn_key_name': 'nSumOfWeights_renormfactDown',
+    }
+}
 
 def main():
     parser = argparse.ArgumentParser(description='You want options? We got options!')
@@ -67,7 +113,7 @@ def main():
 
     for fpath in hist_paths:
         h = tools.get_hist_from_pkl(fpath)
-        h_sow = h[WEIGHTS_NAME]
+        h_sow = h[WEIGHTS_NAMES_DICT['nom']['hist_name']]
         idents = h_sow.identifiers('sample')
         for sname in idents:
             match = regex_match(json_fpaths,regex_lst=[f"{sname}\\.json$"])
@@ -78,7 +124,7 @@ def main():
                 continue
             match = match[0]
             jsn = load_sample_json_file(match)
-            old = jsn[JSON_KEY_NAME]
+            old = jsn[WEIGHTS_NAMES_DICT['nom']['jsn_key_name']]
             yld,err = tools.get_yield(h_sow,sname)
             diff = yld - old
             pdiff = diff / old
@@ -86,7 +132,7 @@ def main():
                 continue
 
             updates = {
-                JSON_KEY_NAME: float(yld)
+                WEIGHTS_NAMES_DICT['nom']['jsn_key_name']: float(yld)
             }
 
             update_json(match,dry_run=dry_run,verbose=verbose,**updates)
