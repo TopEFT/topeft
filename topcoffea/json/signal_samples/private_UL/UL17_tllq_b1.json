@@ -96,5 +96,15 @@
   "nGenEvents": 29502500,
   "nSumOfWeights": 1902.2880295962273,
   "isData": false,
-  "path": "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v4/nAOD_step_tllq4fNoSchanWNoHiggs0p_all22WCsStartPtCheckV2dim6TopMay20GST_run0"
+  "path": "/store/user/kmohrman/FullProduction/FullR2/UL17/Round1/Batch1/naodOnly_step/v4/nAOD_step_tllq4fNoSchanWNoHiggs0p_all22WCsStartPtCheckV2dim6TopMay20GST_run0",
+  "nSumOfWeights_ISRUp": 1902.1745497585528,
+  "nSumOfWeights_ISRDown": 1902.0957299499153,
+  "nSumOfWeights_FSRUp": 1902.480456243322,
+  "nSumOfWeights_FSRDown": 1902.6657582754208,
+  "nSumOfWeights_renormUp": 1705.002707536776,
+  "nSumOfWeights_renormDown": 2154.014617774434,
+  "nSumOfWeights_factUp": 1772.3049295587746,
+  "nSumOfWeights_factDown": 2046.2992844474547,
+  "nSumOfWeights_renormfactUp": 1588.280397030305,
+  "nSumOfWeights_renormfactDown": 2316.5324643214894
 }
