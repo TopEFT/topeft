@@ -167,11 +167,10 @@ if __name__ == '__main__':
     print('   - nEvents      : %i'   %samplesdict[sname]['nEvents'])
     print('   - nGenEvents   : %i'   %samplesdict[sname]['nGenEvents'])
     print('   - SumWeights   : %f'   %samplesdict[sname]['nSumOfWeights'])
-    print('   - Prefix       : %s'   %samplesdict[sname]['redirector'])
-    print('   - nFiles       : %i'   %len(samplesdict[sname]['files']))
     for wgt_var in WGT_VAR_LST:
         print(f'   - {wgt_var}: {samplesdict[sname][wgt_var]}')
-
+    print('   - Prefix       : %s'   %samplesdict[sname]['redirector'])
+    print('   - nFiles       : %i'   %len(samplesdict[sname]['files']))
     for fname in samplesdict[sname]['files']: print('     %s'%fname)
 
   if pretend: 
