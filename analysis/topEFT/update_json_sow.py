@@ -55,12 +55,12 @@ def construct_wgt_name_dict(wgt_name_lst):
 
     def construct_hist_name(wgt_var_str):
         if wgt_var_str == 'nom': wgt_var_str = ''
-        else:  wgt_var_str = '_'+wgt_var_str
+        else:  wgt_var_str = '_' + wgt_var_str
         return 'SumOfWeights' + wgt_var_str
 
     def construct_jsn_key_name(wgt_var_str):
         if wgt_var_str == 'nom': wgt_var_str = ''
-        else:  wgt_var_str = '_'+wgt_var_str
+        else:  wgt_var_str = '_' + wgt_var_str
         return 'nSumOfWeights' + wgt_var_str
 
     wgt_name_dict = {}
@@ -111,8 +111,8 @@ def main():
     # Find JSONs and update weights
     for fpath in hist_paths:
         h = tools.get_hist_from_pkl(fpath)
-        h_sow = h[wgt_name_dict['nom']['hist_name']]
-        idents = h_sow.identifiers('sample')
+        h_sow_nom = h[wgt_name_dict['nom']['hist_name']] # Note, just using nom here (so we assume all histos include the same samples)
+        idents = h_sow_nom.identifiers('sample') # This is the list of identifiers for the sample axis
         for sname in idents:
             match = regex_match(json_fpaths,regex_lst=[f"{sname}\\.json$"])
             if len(match) != 1:
@@ -123,20 +123,27 @@ def main():
             match = match[0]
             jsn = load_sample_json_file(match)
 
-            #for wgt_vars in wgt_name_dict.keys():
+            # Loop over each wgt variation and update JSON
+            for wgt_var in wgt_name_dict.keys():
 
-            old = jsn[wgt_name_dict['nom']['jsn_key_name']]
-            yld,err = tools.get_yield(h_sow,sname)
-            diff = yld - old
-            pdiff = diff / old
-            if abs(pdiff) < MAX_PDIFF:
-                continue
+                # Get value from sow hist
+                hist_name = wgt_name_dict[wgt_var]['hist_name']
+                jsn_key_name = wgt_name_dict[wgt_var]['jsn_key_name']
+                new_sow,err = tools.get_yield(h[hist_name],sname)
 
-            updates = {
-                wgt_name_dict['nom']['jsn_key_name']: float(yld)
-            }
+                # If key already in dict, check if new number looks different than old
+                if jsn_key_name in jsn:
+                    old = jsn[jsn_key_name]
+                    diff = new_sow - old
+                    pdiff = diff / old
+                    if abs(pdiff) < MAX_PDIFF:
+                        continue
 
-            update_json(match,dry_run=dry_run,verbose=verbose,**updates)
+                # Update the JSON
+                updates = {
+                    jsn_key_name: float(new_sow)
+                }
+                update_json(match,dry_run=dry_run,verbose=verbose,**updates)
 
 if __name__ == "__main__":
     main()
