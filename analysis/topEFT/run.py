@@ -19,6 +19,19 @@ from topcoffea.modules import samples
 from topcoffea.modules import fileReader
 from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
 
+WGT_VAR_LST = [
+    "nSumOfWeights_ISRUp",
+    "nSumOfWeights_ISRDown",
+    "nSumOfWeights_FSRUp",
+    "nSumOfWeights_FSRDown",
+    "nSumOfWeights_renormUp",
+    "nSumOfWeights_renormDown",
+    "nSumOfWeights_factUp",
+    "nSumOfWeights_factDown",
+    "nSumOfWeights_renormfactUp",
+    "nSumOfWeights_renormfactDown",
+]
+
 if __name__ == '__main__':
 
   import argparse
@@ -136,6 +149,12 @@ if __name__ == '__main__':
     samplesdict[sname]['nEvents'] = int(samplesdict[sname]['nEvents'])
     samplesdict[sname]['nGenEvents'] = int(samplesdict[sname]['nGenEvents'])
     samplesdict[sname]['nSumOfWeights'] = float(samplesdict[sname]['nSumOfWeights'])
+    for wgt_var in WGT_VAR_LST:
+        # Check that MC samples have all needed weight sums
+        if (wgt_var not in samplesdict[sname]) and not samplesdict[sname]["isData"]:
+            raise Exception(f"Missing weight variation \"{wgt_var}\".")
+        else:
+            samplesdict[sname][wgt_var] = float(samplesdict[sname][wgt_var])
 
     # Print file info
     print('>> '+sname)
@@ -150,6 +169,9 @@ if __name__ == '__main__':
     print('   - SumWeights   : %f'   %samplesdict[sname]['nSumOfWeights'])
     print('   - Prefix       : %s'   %samplesdict[sname]['redirector'])
     print('   - nFiles       : %i'   %len(samplesdict[sname]['files']))
+    for wgt_var in WGT_VAR_LST:
+        print(f'   - {wgt_var}: {samplesdict[sname][wgt_var]}')
+
     for fname in samplesdict[sname]['files']: print('     %s'%fname)
 
   if pretend: 
