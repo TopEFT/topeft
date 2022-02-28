@@ -199,8 +199,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             'MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
         ]
         wgt_correction_syst_lst = [
-            "lepSFUp","lepSFDown","btagSFUp","btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown" # Exp systs
-            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",          # Theory systs
+            "lepSFUp","lepSFDown","btagSFUp","btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
+            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
         ]
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
