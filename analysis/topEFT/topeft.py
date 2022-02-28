@@ -116,23 +116,24 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Dataset parameters
         dataset = events.metadata["dataset"]
 
+        isData             = self._samples[dataset]["isData"]
         histAxisName       = self._samples[dataset]["histAxisName"]
         year               = self._samples[dataset]["year"]
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
-        sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"]
-        sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"]
-        sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"]
-        sow_FSRDown        = self._samples[dataset]["nSumOfWeights_FSRDown"]
-        sow_renormUp       = self._samples[dataset]["nSumOfWeights_renormUp"]
-        sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"]
-        sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"]
-        sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"]
-        sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"]
-        sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown"]
+        if not isData:
+            sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"]
+            sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"]
+            sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"]
+            sow_FSRDown        = self._samples[dataset]["nSumOfWeights_FSRDown"]
+            sow_renormUp       = self._samples[dataset]["nSumOfWeights_renormUp"]
+            sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"]
+            sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"]
+            sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"]
+            sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"]
+            sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown"]
 
-        isData       = self._samples[dataset]["isData"]
-        datasets     = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
+        datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0] 
 
