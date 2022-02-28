@@ -149,12 +149,13 @@ if __name__ == '__main__':
     samplesdict[sname]['nEvents'] = int(samplesdict[sname]['nEvents'])
     samplesdict[sname]['nGenEvents'] = int(samplesdict[sname]['nGenEvents'])
     samplesdict[sname]['nSumOfWeights'] = float(samplesdict[sname]['nSumOfWeights'])
-    for wgt_var in WGT_VAR_LST:
-        # Check that MC samples have all needed weight sums
-        if (wgt_var not in samplesdict[sname]) and not samplesdict[sname]["isData"]:
-            raise Exception(f"Missing weight variation \"{wgt_var}\".")
-        else:
-            samplesdict[sname][wgt_var] = float(samplesdict[sname][wgt_var])
+    if not samplesdict[sname]["isData"]:
+      for wgt_var in WGT_VAR_LST:
+          # Check that MC samples have all needed weight sums
+          if (wgt_var not in samplesdict[sname]):
+              raise Exception(f"Missing weight variation \"{wgt_var}\".")
+          else:
+              samplesdict[sname][wgt_var] = float(samplesdict[sname][wgt_var])
 
     # Print file info
     print('>> '+sname)
@@ -167,7 +168,8 @@ if __name__ == '__main__':
     print('   - nEvents      : %i'   %samplesdict[sname]['nEvents'])
     print('   - nGenEvents   : %i'   %samplesdict[sname]['nGenEvents'])
     print('   - SumWeights   : %f'   %samplesdict[sname]['nSumOfWeights'])
-    for wgt_var in WGT_VAR_LST:
+    if not samplesdict[sname]["isData"]:
+      for wgt_var in WGT_VAR_LST:
         print(f'   - {wgt_var}: {samplesdict[sname][wgt_var]}')
     print('   - Prefix       : %s'   %samplesdict[sname]['redirector'])
     print('   - nFiles       : %i'   %len(samplesdict[sname]['files']))
