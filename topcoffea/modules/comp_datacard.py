@@ -24,7 +24,11 @@ def strip(fname='ttx_multileptons-2lss_p_2b.txt'):
             line = line.split()[1:]
             line = [float(l) for l in line]
             rate = line
-    return dict(zip(process, rate))
+        if 'flat' in line:
+            line = line.split()[2:]
+            line = [str(l) for l in line]
+            systs = line
+    return [dict(zip(process, rate)), dict(zip(process, systs))]
 
 '''
 Look at a pair of datacard contents from strip
@@ -63,8 +67,8 @@ def comp_datacard_dict(wc1, wc2):
     return True
 
 def comp_datacard(fin1, fin2):
-    wc1 = strip(fin1)
-    wc2 = strip(fin2)
+    wc1 = strip(fin1[0])
+    wc2 = strip(fin2[0])
     
     return comp_datacard_dict(wc1,wc2)
 
