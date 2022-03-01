@@ -289,7 +289,7 @@ def AttachScaleWeights(events):
   '''
 
   # Determine if we are in case 1 or case 2 by checking if we have 8 or 9 weights
-  len_of_wgts = ak.count_nonzero(events.LHEScaleWeight,axis=-1)
+  len_of_wgts = ak.count(events.LHEScaleWeight,axis=-1)
   all_len_9_or_0_bool = ak.all((len_of_wgts==9) | (len_of_wgts==0))
   all_len_8_or_0_bool = ak.all((len_of_wgts==8) | (len_of_wgts==0))
   if all_len_9_or_0_bool:
@@ -303,7 +303,7 @@ def AttachScaleWeights(events):
       renormUp_factDown   = 6
       renormUp            = 7
       renormUp_factUp     = 8
-  if all_len_8_or_0_bool:
+  elif all_len_8_or_0_bool:
       scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 8), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
       renormDown_factDown = 0
       renormDown          = 1
@@ -313,6 +313,13 @@ def AttachScaleWeights(events):
       renormUp_factDown   = 5
       renormUp            = 6
       renormUp_factUp     = 7
+  else:
+    raise Exception(f"Unknown weight type")
+
+  # Convert to np array (for now), and for any events with weights of 0 plug in 1 for all weights
+  # TODO: Why do soeme events have weight of 0?
+  scale_weights = scale_weights.to_numpy()
+  scale_weights = ak.where(ak.any(scale_weights==0,axis=-1,keepdims=True),ak.ones_like(scale_weights),scale_weights)
 
   # Get the weights from the event
   events['renormfactDown'] = scale_weights[:,renormDown_factDown]
