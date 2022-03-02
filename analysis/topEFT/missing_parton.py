@@ -94,7 +94,6 @@ if __name__ == '__main__':
     fout = uproot.recreate('histos/missing_parton.root')
     for proc in ['tllq']:#, 'tHq']:
         for fname in files:
-            #bins = fin['ttH_sm'].to_numpy()[1]
             total_private, nom_private, err, bins, label = get_hists(fname, 'private_sm', proc)
             total_central, nom_central, _, _, _ = get_hists(fname, 'central_sm', proc)
             hep.style.use("CMS")
