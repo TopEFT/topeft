@@ -27,7 +27,7 @@ def get_hists(fname, path, process):
     total = np.array([v for v in nom.values()]).sum(0)
 
     systs = []
-    err = [np.ones_like(total), np.ones_like(total)]
+    err = [np.zeros_like(total), np.zeros_like(total)]
 
     # Handle shape systematics
     if len(up) > 0:
@@ -41,16 +41,16 @@ def get_hists(fname, path, process):
     flat_systs = ([k,r,v] for c in card[1] for k,r,v in zip(fin.keys(), total, c))
     for proc,rate,val in flat_systs:
         if 'sm' not in proc: continue
-        s = [1,1]
+        s = [0,0]
         if '-' in val: continue
         if '/' in val:
-            s[0] = float(val.split('/')[0])
-            s[1] = float(val.split('/')[1])
+            s[0] = 1. - float(val.split('/')[0])
+            s[1] = 1. - float(val.split('/')[1])
         else:
-            s[0] = 1. + float(val)
-            s[1] = 1. + float(val)
-        err[0] = np.sqrt(np.square(err[0]) + rate*s[0])
-        err[1] = np.sqrt(np.square(err[1]) + rate*s[1])
+            s[0] = 1. - float(val)
+            s[1] = 1. - float(val)
+        err[0] = np.sqrt(np.square(err[0]) + np.square(rate*s[0]))
+        err[1] = np.sqrt(np.square(err[1]) + np.square(rate*s[1]))
   
     bins = fin['ttH_sm'].axis().edges(flow=True)[1:]
     bins[-1] = bins[-2] + 1.
@@ -107,10 +107,13 @@ if __name__ == '__main__':
             parton = np.zeros_like(total_private)
             pos = total_private >= total_central
             neg = total_private < total_central
-            if np.any(pos):
-                parton[pos] = np.max([total_central - np.abs(err_low), np.zeros_like(total_private)], axis=0)[pos]
-            if np.any(neg):
-                parton[neg] = np.max([total_central - np.abs(err_high), np.zeros_like(total_private)], axis=0)[neg]
+            for n in range(len(total_private)):
+                if total_private[n] >= total_central[n]:
+                    if err_low[n]<total_central[n]: parton[n] = 0 # Error larger than central value
+                    else: parton[n] = err_low[n] - total_central[n]
+                else:
+                    if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
+                    else: parton[n] = total_central[n] - err_high[n] 
             fout[fname] = {proc : parton}
             hep.histplot(err_high+parton/2, bins=bins, ax=ax, yerr=parton/2, histtype='errorbar', label="Mis. parton syst.", color='r', capsize=4)
             hep.histplot(err_low-parton/2, bins=bins, ax=ax, yerr=parton/2, histtype='errorbar', color='r', capsize=4)
