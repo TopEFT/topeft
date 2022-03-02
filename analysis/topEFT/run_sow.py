@@ -131,8 +131,8 @@ if executor == "work_queue":
         # mode will use the values specified here, so workers need to be at least
         # this large. If left unspecified, tasks will use whole workers in the
         # exploratory mode.
-        'cores': 1,
-        'disk': 8000,   #MB
+        #'cores': 1,
+        #'disk': 8000,   #MB
         #'memory': 10000, #MB
 
         # control the size of accumulation tasks. Results are
