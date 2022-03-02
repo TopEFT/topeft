@@ -27,9 +27,17 @@ class DatacardMaker():
                                               # 30% flat uncertainty for charge flips
         self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.05, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '1.092/1.058', 'tllq': 0.01, 'ttlnu': '1.12/1.13', 'ttll': '1.12/1.10', 'tHq': '1.08/1.06', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
         # (Un)correlated systematics
-        # {'proc': 'type'} will assign all procs a special name for the give systematics
-        # e.g. {'ttH': 'gg'} will add `_gg` to the ttH  found in `self.syst_correlated`
-        self.syst_correlation = {'ttH': 'gg', 'ttll': 'gg', 'tttt': 'gg', 'tHq': 'qg', 'tllq': 'qq', 'ttlnu': 'qq', 'Diboson': 'qq', 'Triboson': 'qq', 'convs': 'gg'}
+        # {'proc': {'syst': name, 'type': name} will assign all procs a special name for the give systematics
+        # e.g. {'ttH': {'pdf_scale': 'gg', 'qcd_scale': 'ttH'}} will add `_gg` to the ttH for the pdf scale and `_ttH` for the qcd scale (names correspond to `self.syst_correlated`)
+        self.syst_correlation = {'ttH':      {'pdf_scale': 'gg', 'qcd_scale': 'ttH' }, 
+                                 'ttll':     {'pdf_scale': 'gg', 'qcd_scale': 'ttV' }, 
+                                 'tttt':     {'pdf_scale': 'gg', 'qcd_scale': 'tttt'},
+                                 'tHq':      {'pdf_scale': 'qg', 'qcd_scale': 'tHq' },
+                                 'ttlnu':    {'pdf_scale': 'qq', 'qcd_scale': 'ttV' },
+                                 'tllq':     {'pdf_scale': 'qq', 'qcd_scale': 'V'   }, 
+                                 'Diboson':  {'pdf_scale': 'qq', 'qcd_scale': 'VV'  },
+                                 'Triboson': {'pdf_scale': 'qq', 'qcd_scale': 'VVV' },
+                                 'convs':    {'pdf_scale': 'gg', 'qcd_scale': 'ttG' }}
         # List of systematics which require specific correlations
         # Any systematic _not_ found in this list is assumed to be fully correlated across all processes
         self.syst_correlated  = ['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale']
@@ -166,7 +174,7 @@ class DatacardMaker():
         correlation = name.split('_')[0]
         syst = syst.replace('Up', '').replace('Down', '')
         if syst in self.syst_correlated and correlation in self.syst_correlation: # Look for correlated systs and process type
-            correlation = '_'+self.syst_correlation[correlation]
+            correlation = '_'+self.syst_correlation[correlation][syst]
         else:
             correlation = ''
         return correlation
@@ -297,7 +305,7 @@ class DatacardMaker():
                 export1d(h_sm, 'data_obs', 'sm', fout)
 
             isSignal = p in self.signal or self.rename[p] in self.signal
-            if not self.do_sm and isSignal:
+            if not self.do_sm and isSignal and self.wcs is not None:
                 h_lin = h_bases; h_quad = None; h_mix = None
                 for name,wcpt in self.wcs:
                     # Scale plot to the WCPoint
