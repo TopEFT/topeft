@@ -6,6 +6,7 @@ import math
 import uproot3
 import json
 from topcoffea.modules.comp_datacard import strip
+from coffea import hist
 
 files = ['2lss_m_2b',  '2lss_p_2b',  '2lss_4t_m_2b', '2lss_4t_p_2b', '3l1b_m',  '3l1b_p',  '3l2b_m',  '3l2b_p',  '3l_sfz_1b',  '3l_sfz_2b',  '4l_2b']
 
@@ -64,6 +65,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='You can select which file to run over')
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'    , help = 'Lumi json file')
     parser.add_argument('--years',          default=[], action='extend', nargs='+', help = 'Specify a list of years')
+    parser.add_argument('--time', '-t',     action='store_true', help = 'Append time to dir')
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
 
     args = parser.parse_args()
@@ -79,8 +81,14 @@ if __name__ == '__main__':
     # Make a tmp output directory in curren dir a different dir is not specified
     timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
     save_dir_path = args.output_path
-    outdir_name = save_dir_path+"/missing_parton_"+timestamp_tag
-    os.mkdir(outdir_name)
+    outdir_name = save_dir_path+"/missing_parton"
+    if args.time:
+        outdir_name = outdir_name+'_'+timestamp_tag
+    outdir_name += '/'
+    if not os.path.exists(outdir_name):
+        os.mkdir(outdir_name)
+    else:
+        print(f'Overwriting contents in {outdir_name}\nUse the `-t` flag to make unique directories')
     save_dir_path = os.path.join(args.output_path,outdir_name)
 
     fout = uproot.recreate('histos/missing_parton.root')
@@ -107,11 +115,12 @@ if __name__ == '__main__':
             hep.histplot(err_high+parton/2, bins=bins, ax=ax, yerr=parton/2, histtype='errorbar', label="Mis. parton syst.", color='r', capsize=4)
             hep.histplot(err_low-parton/2, bins=bins, ax=ax, yerr=parton/2, histtype='errorbar', color='r', capsize=4)
             plt.fill_between(bins[:-1], err_low-parton, err_high+parton, step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\')
+            np.seterr(invalid='ignore')
             plt.ylim([0, np.max(np.max([total_private,total_private+np.max(err, axis=0)+parton], axis=0))*2])
-            plt.xlabel('$N_{jets}$')
-            plt.ylabel('Predicted yield')
             hep.cms.label(lumi='%0.3g'%sum(lumi.values()))
+            plt.ylabel('Predicted yield')
             ax.legend(loc='upper right', fontsize='xx-small', ncol=2)
+            plt.xlabel('$N_{jets}$')
             plt.show()
             plt.tight_layout()
             plt.savefig(save_dir_path+'/'+fname+'.png')
@@ -119,5 +128,5 @@ if __name__ == '__main__':
 
     # Make an index.html file if saving to web area
     if "www" in save_dir_path:
-        make_html(save_dir_path)
+        make_html(save_dir_path, 400, 300)
     fout.close()
