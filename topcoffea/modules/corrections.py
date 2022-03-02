@@ -316,11 +316,6 @@ def AttachScaleWeights(events):
   else:
     raise Exception(f"Unknown weight type")
 
-  # Convert to np array (for now), and for any events with weights of 0 plug in 1 for all weights
-  # TODO: Why do soeme events have weight of 0?
-  scale_weights = scale_weights.to_numpy()
-  scale_weights = ak.where(ak.any(scale_weights==0,axis=-1,keepdims=True),ak.ones_like(scale_weights),scale_weights)
-
   # Get the weights from the event
   events['renormfactDown'] = scale_weights[:,renormDown_factDown]
   events['renormDown']     = scale_weights[:,renormDown]
