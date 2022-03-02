@@ -70,5 +70,14 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
         * Make a dictionary, where the key is the name of the JSON file you would like to produce, and the value is another dictionary, specifying the path to the sample, the name you would like the sample to have on the `sample` axis of the coffea histogram, and the cross section that the sample should correspond to in the `topcoffea/cfg/xsec.cfg` file. The path to the sample should start with `/store`. The existing dictionaries in the file can be used as examples.
         * In the `main()` function, call `make_jsons_for_dict_of_samples()`, and pass your dictionary, along with a redirector (if you are accessing the sample via xrootd), the year of the sample, and the path to an output directory.
         * After the JSON file is produced, it will be moved to the output directory that you specified.
+    - Make sure to run `run_sow.py` and `update_json_sow.py` to update the sum of weights before committing and pushing any updates to the json files
     - Once you have produced the JSON file, you should consider committing it to the repository (so that other people can easily process the sample as well), along with the updated `make_jsons.py` script (so that if you have to reproduce the JSON in the future, you will not have to redo any work).
     - Example usage: `python make_jsons.py`
+
+* `run_sow.py`:
+    - This script runs over the provided json files and calculates the properer sum of weights
+    - Example usage: `python run_sow.py ../../topcoffea/json/signal_samples/private_UL/UL17_tHq_b1.json --xrd root://deepthought.crc.nd.edu/`
+
+* `update_json_sow.py`:
+    - This script updates the actual json files corresponding to the samples run with `run_sow.py`
+    - Example usage: `python update_json_sow.py histos/sowTopEFT.pkl.gz`
