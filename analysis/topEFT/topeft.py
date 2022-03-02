@@ -77,7 +77,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         "ljptsum" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ljptsum", "S$_{T}$ (GeV)", 80, 0, 2000)),
         "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 40, 0, 1000)),
         "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 40, 0, 1000)),
-        "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 20, 0, 1000)),
+        "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 40, 0, 1000)),
         })
 
         # Set the list of hists to fill
