@@ -443,8 +443,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             # 2los selection
-            selections.add("2los_CRtt", (events.is2l & charge2l_0 & bmask_exactly2med & pass_trg))
-            selections.add("2los_CRZ", (events.is2l & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
+            selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & bmask_exactly2med & pass_trg))
+            selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
             # 3l selection
             selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
