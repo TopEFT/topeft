@@ -30,10 +30,10 @@ class DatacardMaker():
         # {'proc': {'syst': name, 'type': name} will assign all procs a special name for the give systematics
         # e.g. {'ttH': {'pdf_scale': 'gg', 'qcd_scale': 'ttH'}} will add `_gg` to the ttH for the pdf scale and `_ttH` for the qcd scale (names correspond to `self.syst_correlated`)
         self.syst_correlation = {'ttH':      {'pdf_scale': 'gg', 'qcd_scale': 'ttH' }, 
-                                 'ttll':     {'pdf_scale': 'gg', 'qcd_scale': 'ttV' }, 
+                                 'ttll':     {'pdf_scale': 'gg', 'qcd_scale': 'ttll' }, 
                                  'tttt':     {'pdf_scale': 'gg', 'qcd_scale': 'tttt'},
                                  'tHq':      {'pdf_scale': 'qg', 'qcd_scale': 'tHq' },
-                                 'ttlnu':    {'pdf_scale': 'qq', 'qcd_scale': 'ttV' },
+                                 'ttlnu':    {'pdf_scale': 'qq', 'qcd_scale': 'ttlnu' },
                                  'tllq':     {'pdf_scale': 'qq', 'qcd_scale': 'V'   }, 
                                  'Diboson':  {'pdf_scale': 'qq', 'qcd_scale': 'VV'  },
                                  'Triboson': {'pdf_scale': 'qq', 'qcd_scale': 'VVV' },
