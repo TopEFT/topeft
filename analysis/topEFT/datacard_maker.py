@@ -40,6 +40,7 @@ class DatacardMaker():
                                  'convs':    {'pdf_scale': 'gg', 'qcd_scale': 'ttG' }}
         # List of systematics which require specific correlations
         # Any systematic _not_ found in this list is assumed to be fully correlated across all processes
+
         self.syst_correlated  = ['pdf_scale', 'qcd_scale']
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
