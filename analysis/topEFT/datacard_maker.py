@@ -40,7 +40,7 @@ class DatacardMaker():
                                  'convs':    {'pdf_scale': 'gg', 'qcd_scale': 'ttG' }}
         # List of systematics which require specific correlations
         # Any systematic _not_ found in this list is assumed to be fully correlated across all processes
-        self.syst_correlated  = ['renorm', 'fact', 'renormfact', 'pdf_scale', 'qcd_scale']
+        self.syst_correlated  = ['pdf_scale', 'qcd_scale']
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         # Dictionary of njet bins
@@ -175,7 +175,7 @@ class DatacardMaker():
         syst = syst.replace('Up', '').replace('Down', '')
         if syst in self.syst_correlated and correlation in self.syst_correlation: # Look for correlated systs and process type
             if syst not in self.syst_correlation[correlation]:
-                raise NotImplementedError(f'The systematic {syst} was specified ad correlated, but no correlation exists in self.syst_correlation!')
+                raise NotImplementedError(f'The systematic {syst} was specified as correlated, but no correlation exists in self.syst_correlation!')
             correlation = '_'+self.syst_correlation[correlation][syst]
         else:
             correlation = ''
