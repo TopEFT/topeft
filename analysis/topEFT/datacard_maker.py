@@ -831,7 +831,7 @@ if __name__ == '__main__':
     target_var_lst = var_lst
     if len(var_lst) == 0:
         target_var_lst = yt.get_hist_list(pklfile)
-    differential_lst = [var for var in yt.get_hist_list(pklfile) if var!='njets'] # List of differential variables, will use the first one
+    differential_lst = [var for var in yt.get_hist_list(pklfile,allow_empty=False) if var!='njets'] # List of differential variables, will use the first one
     if len(differential_lst) == 0: raise Exception(f"No differential variables found in {pklfile}!\nAt least one is required to build the dictionaries of bins")
     # Variables we have defined a binning for
     known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt','ljptsum']

@@ -167,8 +167,10 @@ class YieldTools():
 
 
     # Get the dictionary of hists from the pkl file (that the processor outputs)
-    def get_hist_from_pkl(self,path_to_pkl):
+    def get_hist_from_pkl(self,path_to_pkl,allow_empty=True):
         h = pickle.load( gzip.open(path_to_pkl) )
+        if not allow_empty:
+            h = {k:v for k,v in h.items() if v.values() != {}}
         return h
 
     # Takes a hist, and retruns a list of the axis names
@@ -180,10 +182,10 @@ class YieldTools():
 
 
     # Find the list of hists in a pkl file
-    def get_hist_list(self,path):
+    def get_hist_list(self,path,allow_empty=True):
 
         # Get the dict
-        if type(path) is str: hin_dict = self.get_hist_from_pkl(path)
+        if type(path) is str: hin_dict = self.get_hist_from_pkl(path,allow_empty)
         else: hin_dict = path
 
         # Get list of keys
