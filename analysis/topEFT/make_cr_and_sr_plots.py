@@ -276,8 +276,8 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     elif year == "2016": sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
     else: raise Exception
 
-    # Get the list of samples to actually plot
-    all_samples = yt.get_cat_lables(dict_of_hists,"sample")
+    # Get the list of samples to actually plot (finding sample list from first hist in the dict)
+    all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name=yt.get_hist_list(dict_of_hists)[0])
     sig_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
     samples_to_rm_from_sig_hist = []
@@ -349,7 +349,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                 hist_sig_grouped = group_bins(hist_sig,sr_cat_dict,"channel",drop_unspecified=True)
 
                 # Make the plots
-                for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,"channel"):
+                for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,axis="channel",h_name=var_name):
 
                     # Integrate
                     hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
@@ -525,7 +525,7 @@ def main():
     os.mkdir(save_dir_path)
 
     # Get the histograms
-    hin_dict = yt.get_hist_from_pkl(args.pkl_file_path)
+    hin_dict = yt.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
 
     # Print info about histos
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
