@@ -261,6 +261,85 @@ def make_single_fig(histo,unit_norm_bool):
     ax.autoscale(axis='y')
     return fig
 
+###################### Wrapper function for example SR plots with systematics ######################
+# Wrapper function to loop over all SR categories and make plots for all variables
+# Right now this function will only plot the signal samples
+# By default, will make plots that show all systematics in the pkl file
+def make_all_sr_sys_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
+
+    # If selecting a year, append that year to the wight list
+    sig_wl = ["private"]
+    if year is None: pass
+    elif year == "2017": sig_wl.append("UL17")
+    elif year == "2018": sig_wl.append("UL18")
+    elif year == "2016": sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
+    else: raise Exception
+
+    # Get the list of samples to actually plot (finding sample list from first hist in the dict)
+    all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name=yt.get_hist_list(dict_of_hists)[0])
+    sig_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
+    if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
+    samples_to_rm_from_sig_hist = []
+    for sample_name in all_samples:
+        if sample_name not in sig_sample_lst:
+            samples_to_rm_from_sig_hist.append(sample_name)
+    print("\nAll samples:",all_samples)
+    print("\nSig samples:",sig_sample_lst)
+
+    # Loop over hists and make plots
+    skip_lst = [] # Skip this hist
+    for idx,var_name in enumerate(dict_of_hists.keys()):
+        #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
+        if (var_name in skip_lst): continue
+        if (var_name == "njets"):
+            # We do not keep track of jets in the sparse axis for the njets hists
+            sr_cat_dict = get_dict_with_stripped_bin_names(SR_CHAN_DICT,"njets")
+        else:
+            sr_cat_dict = SR_CHAN_DICT
+        print("\nVar name:",var_name)
+        print("sr_cat_dict:",sr_cat_dict)
+
+        # Extract the signal hists
+        hist_sig = dict_of_hists[var_name].remove(samples_to_rm_from_sig_hist,"sample")
+
+        # Normalize the hists
+        sample_lumi_dict = {}
+        for sample_name in sig_sample_lst:
+            sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
+        hist_sig.scale(sample_lumi_dict,axis="sample")
+
+        # Make plots for each process
+        for proc_name in sig_sample_lst:
+
+            # Make a sub dir for this category
+            save_dir_path_tmp = os.path.join(save_dir_path,proc_name)
+            if not os.path.exists(save_dir_path_tmp):
+                os.mkdir(save_dir_path_tmp)
+
+            # Group categories
+            hist_sig_grouped = group_bins(hist_sig,sr_cat_dict,"channel",drop_unspecified=True)
+
+            #print(hist_sig_grouped.values())
+            #exit()
+
+            # Make the plots
+            for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,axis="channel",h_name=var_name):
+
+                # Integrate
+                hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
+                hist_sig_grouped_tmp = yt.integrate_out_appl(hist_sig_grouped_tmp,grouped_hist_cat)
+                hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("sample",proc_name)
+                hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("channel",grouped_hist_cat)
+
+                # Make plots
+                fig = make_single_fig(hist_sig_grouped_tmp,unit_norm_bool)
+                title = proc_name+"_"+grouped_hist_cat+"_"+var_name
+                if unit_norm_bool: title = title + "_unitnorm"
+                fig.savefig(os.path.join(save_dir_path_tmp,title))
+
+            # Make an index.html file if saving to web area
+            if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+
 
 ###################### Wrapper function for example SR plots ######################
 # Wrapper function to loop over all SR categories and make plots for all variables
@@ -532,8 +611,9 @@ def main():
     #exit()
 
     # Make the plots
-    make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    #make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    make_all_sr_sys_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
 
 if __name__ == "__main__":
     main()
