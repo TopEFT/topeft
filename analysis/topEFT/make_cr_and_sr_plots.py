@@ -251,7 +251,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
 def make_single_fig(histo,unit_norm_bool):
     #print("\nPlotting values:",histo.values())
-    fig, ax = plt.subplots(1, 1, figsize=(11,7))
+    fig, ax = plt.subplots(1, 1, figsize=(7,7))
     hist.plot1d(
         histo,
         stack=False,
@@ -259,6 +259,50 @@ def make_single_fig(histo,unit_norm_bool):
         clear=False,
     )
     ax.autoscale(axis='y')
+    return fig
+
+# Takes a hist with one sparse axis (axis_name) and one dense axis, overlays everything on the sparse axis
+# Makes a ratio of each cateogory on the sparse axis with respect to ref_cat
+def make_single_fig_with_ratio(histo,axis_name,cat_ref):
+
+    # Create the figure
+    fig, (ax, rax) = plt.subplots(
+        nrows=2,
+        ncols=1,
+        figsize=(7,7),
+        gridspec_kw={"height_ratios": (3, 1)},
+        sharex=True
+    )
+    fig.subplots_adjust(hspace=.07)
+
+    # Make the main plot
+    hist.plot1d(
+        histo,
+        ax=ax,
+        stack=False,
+        clear=False,
+    )
+
+    # Make the ratio plot
+    for cat_name in yt.get_cat_lables(histo,axis_name):
+        #h = histo.copy()
+        hist.plotratio(
+            #num = h.integrate(axis_name,cat_name),
+            #denom = h.integrate(axis_name,cat_ref),
+            num = histo.integrate(axis_name,cat_name),
+            denom = histo.integrate(axis_name,cat_ref),
+            ax = rax,
+            unc = 'num',
+            error_opts= {'linestyle': 'none','marker': '.', 'markersize': 10, 'elinewidth': 0},
+            clear = False,
+        )
+
+    # Style
+    ax.set_xlabel('')
+    rax.axhline(1.0,linestyle="-",color="k",linewidth=1)
+    rax.set_ylabel('Ratio')
+    rax.autoscale(axis='y')
+
     return fig
 
 ###################### Wrapper function for example SR plots with systematics ######################
@@ -332,7 +376,8 @@ def make_all_sr_sys_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("channel",grouped_hist_cat)
 
                 # Make plots
-                fig = make_single_fig(hist_sig_grouped_tmp,unit_norm_bool)
+                #fig = make_single_fig(hist_sig_grouped_tmp,unit_norm_bool)
+                fig = make_single_fig_with_ratio(hist_sig_grouped_tmp,"systematic","nominal")
                 title = proc_name+"_"+grouped_hist_cat+"_"+var_name
                 if unit_norm_bool: title = title + "_unitnorm"
                 fig.savefig(os.path.join(save_dir_path_tmp,title))
