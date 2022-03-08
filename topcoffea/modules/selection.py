@@ -221,7 +221,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
     dilep = (ak.num(FOs)) >= 2
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
-    mask = (filters & cleanup & dilep & pt2515 & exclusive & Zee_veto & eleID1 & eleID2 & muTightCharge)
+    mask = (filters & cleanup & dilep & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
     
     # MC matching requirement (already passed for data)
     if sampleType == 'prompt':
@@ -241,7 +241,10 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     else:
         raise Exception(f"Error: Unknown sampleType {sampleType}.")
 
+    mask_nozeeveto = mask
+    mask = mask & (  Zee_veto )
     events['is2l'] = ak.fill_none(mask,False)
+    events['is2l_nozeeveto'] = ak.fill_none(mask_nozeeveto,False)
 
     # SFs
     events['sf_2l'] = padded_FOs[:,0].sf_nom_2l*padded_FOs[:,1].sf_nom_2l
