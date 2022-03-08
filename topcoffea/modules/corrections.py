@@ -225,7 +225,8 @@ pudirpath = topcoffea_path('data/pileup/')
 
 def GetDataPUname(year, var=0):
   ''' Returns the name of the file to read pu observed distribution '''
-  if year == '2016APV': year = '2016'
+  if year == '2016APV': year = '2016-preVFP'
+  if year == '2016'   : year = "2016-postVFP"
   if   var== 'nominal': ppxsec = get_param("pu_w")
   elif var== 'up': ppxsec = get_param("pu_w_up")
   elif var== 'down': ppxsec = get_param("pu_w_down")
@@ -243,22 +244,24 @@ for year in ['2016', '2016APV', '2017', '2018']:
   PUfunc[year] = {}
   with uproot.open(pudirpath+GetMCPUname(year)) as fMC:
     hMC = fMC['pileup']
-    PUfunc[year]['MC'] = lookup_tools.dense_lookup.dense_lookup(hMC .values(), hMC.axis(0).edges())
+    PUfunc[year]['MC'] = lookup_tools.dense_lookup.dense_lookup(hMC.values() / np.sum( hMC.values()), hMC.axis(0).edges())
   with uproot.open(pudirpath+GetDataPUname(year,  'nominal')) as fData:
     hD   = fData  ['pileup']
-    PUfunc[year]['Data'  ] = lookup_tools.dense_lookup.dense_lookup(hD  .values(), hD.axis(0).edges())
+    PUfunc[year]['Data'  ] = lookup_tools.dense_lookup.dense_lookup(hD.values() / np.sum(hD.values()), hD.axis(0).edges())
   with uproot.open(pudirpath+GetDataPUname(year,  'up')) as fDataUp:
     hDUp = fDataUp['pileup']
-    PUfunc[year]['DataUp'] = lookup_tools.dense_lookup.dense_lookup(hDUp.values(), hD.axis(0).edges())
+    PUfunc[year]['DataUp'] = lookup_tools.dense_lookup.dense_lookup(hDUp.values() / np.sum(hDUp.values()), hD.axis(0).edges())
   with uproot.open(pudirpath+GetDataPUname(year, 'down')) as fDataDo:
     hDDo = fDataDo['pileup']
-    PUfunc[year]['DataDo'] = lookup_tools.dense_lookup.dense_lookup(hDDo.values(), hD.axis(0).edges())
+    PUfunc[year]['DataDo'] = lookup_tools.dense_lookup.dense_lookup(hDDo.values() / np.sum(hDDo.values()), hD.axis(0).edges())
+
 
 def GetPUSF(nTrueInt, year, var='nominal'):
   year = str(year)
   if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
   nMC  =PUfunc[year]['MC'](nTrueInt+1)
   nData=PUfunc[year]['DataUp' if var == 'up' else ('DataDo' if var == 'down' else 'Data')](nTrueInt)
+  print(nMC, nData)
   weights = np.divide(nData,nMC)
   return weights
 
