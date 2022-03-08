@@ -264,7 +264,6 @@ def GetPUSF(nTrueInt, year, var='nominal'):
   if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
   nMC  =PUfunc[year]['MC'](nTrueInt+1)
   nData=PUfunc[year]['DataUp' if var == 'up' else ('DataDo' if var == 'down' else 'Data')](nTrueInt)
-  print(nMC, nData)
   weights = np.divide(nData,nMC)
   return weights
 
