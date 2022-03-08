@@ -29,9 +29,9 @@
     "ctG"
   ],
   "files": [
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16_tHq_b1/output_1270.root",
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16_tHq_b1/output_1337.root",
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16_tHq_b1/output_1345.root"
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16_tHq_b1/output_1095.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16_tHq_b1/output_1296.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16_tHq_b1/output_1347.root"
   ],
   "nEvents": 7500000,
   "nGenEvents": 15018000,

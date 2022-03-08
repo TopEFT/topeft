@@ -29,17 +29,17 @@
     "ctG"
   ],
   "files": [
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1234.root",
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1235.root",
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1283.root",
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1331.root",
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1332.root",
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1336.root",
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1340.root",
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1366.root",
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1367.root",
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1373.root",
-    "/store/user/awightma/skims/mc/new-lepMVA/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1391.root"
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1093.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1184.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1232.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1274.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1328.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1342.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1352.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_1413.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_767.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_959.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/private_UL/FullRun2/v1/UL16APV_ttHJet_b1/output_960.root"
   ],
   "nEvents": 7993714,
   "nGenEvents": 40553247,
