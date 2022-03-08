@@ -27,12 +27,20 @@ class DatacardMaker():
                                               # 30% flat uncertainty for charge flips
         self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.05, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '1.092/1.058', 'tllq': 0.01, 'ttlnu': '1.12/1.13', 'ttll': '1.12/1.10', 'tHq': '1.08/1.06', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
         # (Un)correlated systematics
-        # {'proc': 'type'} will assign all procs a special name for the give systematics
-        # e.g. {'ttH': 'gg'} will add `_gg` to the ttH  found in `self.syst_correlated`
-        self.syst_correlation = {'ttH': 'gg', 'ttll': 'gg', 'tttt': 'gg', 'tHq': 'qg', 'tllq': 'qq', 'ttlnu': 'qq', 'Diboson': 'qq', 'Triboson': 'qq', 'convs': 'gg'}
+        # {'proc': {'syst': name, 'type': name} will assign all procs a special name for the give systematics
+        # e.g. {'ttH': {'pdf_scale': 'gg', 'qcd_scale': 'ttH'}} will add `_gg` to the ttH for the pdf scale and `_ttH` for the qcd scale (names correspond to `self.syst_correlated`)
+        self.syst_correlation = {'ttH':      {'pdf_scale': 'gg', 'qcd_scale': 'ttH' }, 
+                                 'ttll':     {'pdf_scale': 'gg', 'qcd_scale': 'ttll' }, 
+                                 'tttt':     {'pdf_scale': 'gg', 'qcd_scale': 'tttt'},
+                                 'tHq':      {'pdf_scale': 'qg', 'qcd_scale': 'tHq' },
+                                 'ttlnu':    {'pdf_scale': 'qq', 'qcd_scale': 'ttlnu' },
+                                 'tllq':     {'pdf_scale': 'qq', 'qcd_scale': 'V'   }, 
+                                 'Diboson':  {'pdf_scale': 'qq', 'qcd_scale': 'VV'  },
+                                 'Triboson': {'pdf_scale': 'qq', 'qcd_scale': 'VVV' },
+                                 'convs':    {'pdf_scale': 'gg', 'qcd_scale': 'ttG' }}
         # List of systematics which require specific correlations
         # Any systematic _not_ found in this list is assumed to be fully correlated across all processes
-        self.syst_correlated  = ['renorm', 'fact', 'renorm_fact', 'pdf_scale', 'qcd_scale']
+        self.syst_correlated  = ['pdf_scale', 'qcd_scale']
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         # Dictionary of njet bins
@@ -166,7 +174,9 @@ class DatacardMaker():
         correlation = name.split('_')[0]
         syst = syst.replace('Up', '').replace('Down', '')
         if syst in self.syst_correlated and correlation in self.syst_correlation: # Look for correlated systs and process type
-            correlation = '_'+self.syst_correlation[correlation]
+            if syst not in self.syst_correlation[correlation]:
+                raise NotImplementedError(f'The systematic {syst} was specified as correlated, but no correlation exists in self.syst_correlation!')
+            correlation = '_'+self.syst_correlation[correlation][syst]
         else:
             correlation = ''
         return correlation
@@ -821,7 +831,7 @@ if __name__ == '__main__':
     target_var_lst = var_lst
     if len(var_lst) == 0:
         target_var_lst = yt.get_hist_list(pklfile)
-    differential_lst = [var for var in yt.get_hist_list(pklfile) if var!='njets'] # List of differential variables, will use the first one
+    differential_lst = [var for var in yt.get_hist_list(pklfile,allow_empty=False) if var!='njets'] # List of differential variables, will use the first one
     if len(differential_lst) == 0: raise Exception(f"No differential variables found in {pklfile}!\nAt least one is required to build the dictionaries of bins")
     # Variables we have defined a binning for
     known_var_lst = ['njets','ptbl','ht','ptz','o0pt','bl0pt','l0pt','lj0pt','ljptsum']
