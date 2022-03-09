@@ -80,11 +80,27 @@ ARXIV1901_LIMS = {
     "cQt8" : [-12.0,10.0]
 }
 
+FIT_RANGES = {  
+    'ctW':(-4,4),     'ctZ':(-5,5),
+    'cpt':(-40,30),   'ctp':(-35,65),
+    'ctli':(-10,10),  'ctlSi':(-10,10),
+    'cQl3i':(-10,10), 'cptb':(-20,20),
+    'ctG':(-2,2),     'cpQM':(-10,30),
+    'ctlTi':(-2,2),   'ctei':(-10,10),
+    'cQei':(-10,10),  'cQlMi':(-10,10),
+    'cpQ3':(-15,10),  'cbW':(-5,5),
+    'cQq13': (-1,1),  'cQq83': (-2,2),
+    'cQq11': (-2,2),  'ctq1': (-2,2),
+    'cQq81': (-5,5),  'ctq8': (-5,5),
+    'ctt1': (-5,5),   'cQQ1': (-10,10),
+    'cQt8': (-20,20), 'cQt1': (-10,10)
+}
+
 
 ########## Plotting tools ##########
 
-#def make_1d_quad_plot(s0,s1,s2,tag,x_lims=[-10,10],,x_axis_name,y_axis_name):
-def make_1d_quad_plot(quad_params,xaxis_name,yaxis_name,title,xaxis_range=[-10,10],save_dir="."):
+# Make a 1d plot
+def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[-10,10],save_dir="."):
 
     # Get a string of the fit equation
     def get_fit_str(tag,xvar,s0,s1,s2):
@@ -93,17 +109,6 @@ def make_1d_quad_plot(quad_params,xaxis_name,yaxis_name,title,xaxis_range=[-10,1
         s2 = str(round(s2,2))
         rstr = f"{tag}: {s0} + {s1}*{xvar} + {s2}*{xvar}$^2$"
         return rstr
-
-    # Get the quad fit params from the list
-    if len(quad_params) != 3:
-        raise Exception(f"Error: Wrong number of parameters specified for 1d quadratic. Require 3, received {len(quad_params)}.")
-    s0 = quad_params[0] 
-    s1 = quad_params[1]
-    s2 = quad_params[2]
-
-    # Find x and y points
-    x_arr = np.linspace(xaxis_range[0], xaxis_range[1], 1000)
-    y_arr = s0 + s1*x_arr + s2*x_arr*x_arr
 
     # Make the figure
     fig, ax = plt.subplots(nrows=1, ncols=1)
@@ -114,12 +119,35 @@ def make_1d_quad_plot(quad_params,xaxis_name,yaxis_name,title,xaxis_range=[-10,1
     ax.set_ylabel(yaxis_name)
     ax.set_title(title)
 
+    # Loop over all of the fits we want to plot
+    ymax = 0
+    ymin = 99999999
+    for key_name, quad_params in quad_params_dict.items():
+
+        # Get the quad fit params from the list
+        if len(quad_params) != 3:
+            raise Exception(f"Error: Wrong number of parameters specified for 1d quadratic. Require 3, received {len(quad_params)}.")
+        s0 = quad_params[0] 
+        s1 = quad_params[1]
+        s2 = quad_params[2]
+
+        # Find x and y points
+        x_arr = np.linspace(xaxis_range[0], xaxis_range[1], 1000)
+        y_arr = s0 + s1*x_arr + s2*x_arr*x_arr
+
+        # Plot the points
+        if key_name != "none": tag = key_name + " "
+        else: tag = ""
+        ax.plot(x_arr,y_arr,label=get_fit_str(tag+"fit",xaxis_name,s0,s1,s2))
+
+        # Keep track of overall max y
+        ymax = max(ymax,max(y_arr))
+        ymin = min(ymin,min(y_arr))
+
     # Set x and y ranges (just use default for y unless it's really tiny)
-    if (max(y_arr)-min(y_arr))<1e-6: ax.set_ylim([0.0,1.5])
+    if ((ymax-ymin)<1e-6): ax.set_ylim([0.0,1.5])
     ax.set_xlim(xaxis_range)
 
-    # Plot the points
-    ax.plot(x_arr,y_arr,label=get_fit_str("fit",xaxis_name,s0,s1,s2))
     #ax.plot(x_arr,y_arr,label="TEST")
     ax.legend()
 
