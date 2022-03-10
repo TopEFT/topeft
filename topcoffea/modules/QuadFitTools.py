@@ -99,8 +99,16 @@ FIT_RANGES = {
 
 ########## Plotting tools ##########
 
+# Takes two arrays and returnes a shifted differences
+# E.g. for finding up/down fluctuations extrapolated beyond 1 sigma
+def get_shifted_arr(y_arr_1,y_arr_2,x_arr,shift_factor):
+    diff_arr = y_arr_1 - y_arr_2
+    diff_arr = diff_arr*float(shift_factor)
+    shift_arr = y_arr_2 + diff_arr
+    return shift_arr
+
 # Make a 1d plot
-def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[-10,10],save_dir="."):
+def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[-10,10],save_dir=".",shift_var=None):
 
     # Get a string of the fit equation
     def get_fit_str(tag,xvar,s0,s1,s2):
@@ -110,18 +118,17 @@ def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[
         rstr = f"{tag}: {s0} + {s1}*{xvar} + {s2}*{xvar}$^2$"
         return rstr
 
-    # Make the figure
+    # Make the figure, set the plot style
     fig, ax = plt.subplots(nrows=1, ncols=1)
-
-    # Plot style
     ax.grid()
     ax.set_xlabel(WC_NAME_LATEX_MAP.get(xaxis_name,xaxis_name)) # Use the latex version of the wc name if we have it, otherwise just use the string directly
     ax.set_ylabel(yaxis_name)
     ax.set_title(title)
 
-    # Loop over all of the fits we want to plot
+    # Get x and y arr from quad params
     ymax = 0
     ymin = 99999999
+    quad_arr_dict = {}
     for key_name, quad_params in quad_params_dict.items():
 
         # Get the quad fit params from the list
@@ -135,18 +142,48 @@ def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[
         x_arr = np.linspace(xaxis_range[0], xaxis_range[1], 1000)
         y_arr = s0 + s1*x_arr + s2*x_arr*x_arr
 
-        # Plot the points
-        if key_name != "none": tag = key_name + " "
-        else: tag = ""
-        ax.plot(x_arr,y_arr,label=get_fit_str(tag+"fit",xaxis_name,s0,s1,s2))
-
         # Keep track of overall max y
         ymax = max(ymax,max(y_arr))
         ymin = min(ymin,min(y_arr))
 
+        quad_arr_dict[key_name] = [x_arr,y_arr]
+
+    # Get shifted up/down array (if using this to plot nom/up/down)
+    # Note: We can only do this if pass exactly three sets of quad params corresponding to nom, up, down
+    if shift_var != None:
+        if (len(quad_params_dict) !=3) or ("nom" not in quad_params_dict.keys()) or ("up" not in quad_params_dict.keys()) or ("down" not in quad_params_dict.keys()):
+            raise Exception("Cannot plot shifted up/down variations, do not have the right info in quad_params_dict.")
+        up_shift_str = "up"+str(shift_var)
+        do_shift_str = "down"+str(shift_var)
+        quad_arr_dict[up_shift_str] = {}
+        quad_arr_dict[do_shift_str] = {}
+        quad_arr_dict[up_shift_str][0] = quad_arr_dict["nom"][0]
+        quad_arr_dict[do_shift_str][0] = quad_arr_dict["nom"][0]
+        quad_arr_dict[up_shift_str][1] = get_shifted_arr(quad_arr_dict["up"][1],quad_arr_dict["nom"][1],quad_arr_dict["nom"][0],shift_var)
+        quad_arr_dict[do_shift_str][1] = get_shifted_arr(quad_arr_dict["down"][1],quad_arr_dict["nom"][1],quad_arr_dict["nom"][0],shift_var)
+
+    # Loop over arr dict and make plots
+    for key_name, quad_arr in quad_arr_dict.items():
+
+        # Get info needed for the legend
+        if key_name != "none": tag = key_name + " "
+        else: tag = ""
+        if key_name in quad_params_dict.keys():
+            s0 = quad_params_dict[key_name][0] 
+            s1 = quad_params_dict[key_name][1]
+            s2 = quad_params_dict[key_name][2]
+            leg_str = get_fit_str(tag+"fit",xaxis_name,s0,s1,s2)
+        else: leg_str = tag
+
+        # Plot the points
+        x_arr = quad_arr[0]
+        y_arr = quad_arr[1]
+        ax.plot(x_arr,y_arr,label=leg_str)
+
     # Set x and y ranges (just use default for y unless it's really tiny)
     if ((ymax-ymin)<1e-6): ax.set_ylim([0.0,1.5])
     ax.set_xlim(xaxis_range)
+    ax.set_ylim([0,ymax*1.2])
 
     #ax.plot(x_arr,y_arr,label="TEST")
     ax.legend()
