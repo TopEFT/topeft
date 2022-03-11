@@ -115,12 +115,25 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Dataset parameters
         dataset = events.metadata["dataset"]
-        histAxisName = self._samples[dataset]["histAxisName"]
-        year         = self._samples[dataset]["year"]
-        xsec         = self._samples[dataset]["xsec"]
-        sow          = self._samples[dataset]["nSumOfWeights"]
-        isData       = self._samples[dataset]["isData"]
-        datasets     = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
+
+        isData             = self._samples[dataset]["isData"]
+        histAxisName       = self._samples[dataset]["histAxisName"]
+        year               = self._samples[dataset]["year"]
+        xsec               = self._samples[dataset]["xsec"]
+        sow                = self._samples[dataset]["nSumOfWeights"]
+        if not isData:
+            sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"]
+            sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"]
+            sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"]
+            sow_FSRDown        = self._samples[dataset]["nSumOfWeights_FSRDown"]
+            sow_renormUp       = self._samples[dataset]["nSumOfWeights_renormUp"]
+            sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"]
+            sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"]
+            sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"]
+            sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"]
+            sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown"]
+
+        datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0] 
 
@@ -179,34 +192,53 @@ class AnalysisProcessor(processor.ProcessorABC):
         e["isFO"] = isFOElec(e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTH, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
         e["isTightLep"] = tightSelElec(e.isFO, e.mvaTTH)
 
-        ######### Event weights ###########
+
+        ######### Systematics ###########
+
+        # Define the lists of systematics we include
+        obj_correction_syst_lst = [
+            'MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
+        ]
+        wgt_correction_syst_lst = [
+            "lepSFUp","lepSFDown","btagSFUp","btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
+            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
+        ]
+
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
         # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
         weights_any_lep_cat = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         if not isData:
-            # These could probably go outside of the sys loop
-            # Attach PS weights (ISR/FSR)
+
+            # If this is no an eft sample, get the genWeight
+            if eft_coeffs is None: genw = events["genWeight"]
+            else: genw= np.ones_like(events["event"])
+
+            # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
+            # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
+            weights_any_lep_cat.add("norm",(xsec/sow)*genw)
+
+            # Attach PS weights (ISR/FSR) and scale weights (renormalization/factorization) and PDF weights
             AttachPSWeights(events)
-            # Attach scale weights (renormalization/factorization)
             AttachScaleWeights(events)
-            # Attach PDF weights
-            #AttachPdfWeights(events) # FIXME use these!
+            #AttachPdfWeights(events) # TODO
             # FSR/ISR weights
-            weights_any_lep_cat.add('ISR', events.ISRnom, events.ISRUp, events.ISRDown)
-            weights_any_lep_cat.add('FSR', events.FSRnom, events.FSRUp, events.FSRDown)
+            weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
+            weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
             # renorm/fact scale
-            weights_any_lep_cat.add('renorm',      events.nom, events.renormUp,      events.renormDown)
-            weights_any_lep_cat.add('fact',        events.nom, events.factUp,        events.factDown)
-            weights_any_lep_cat.add('renorm_fact', events.nom, events.renorm_factUp, events.renorm_factDown)
+            weights_any_lep_cat.add('renorm',     events.nom, events.renormUp*(sow/sow_renormUp),         events.renormDown*(sow/sow_renormDown))
+            weights_any_lep_cat.add('fact',       events.nom, events.factUp*(sow/sow_factUp),             events.factDown*(sow/sow_factDown))
+            weights_any_lep_cat.add('renormfact', events.nom, events.renormfactUp*(sow/sow_renormfactUp), events.renormfactDown*(sow/sow_renormfactDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
             weights_any_lep_cat.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
             weights_any_lep_cat.add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 'up'), GetPUSF(events.Pileup.nTrueInt, year, 'down'))
 
-        # Update muon and jet kinematics with Rochester corrections and JER/JES
+
+        ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
+
         mu["pt_raw"]=mu.pt
         met_raw=met
-        if self._do_systematics : syst_var_list = ['MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown','nominal']
+        if self._do_systematics : syst_var_list = ["nominal"] + obj_correction_syst_lst
         else: syst_var_list = ['nominal']
         for syst_var in syst_var_list:
             mu["pt"]=mu.pt_raw
@@ -359,8 +391,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over categories and fill the dict
             weights_dict = {}
-            if (isData or (eft_coeffs is not None)): genw = np.ones_like(events["event"])
-            else: genw = events["genWeight"]
             GetTriggerSF(year,events,l0,l1)
             for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
 
@@ -373,13 +403,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For data only
                 if isData:
-                    weights_dict[ch_name].add("norm",genw)
                     if "2l" in ch_name:
                         weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
 
                 # For MC only
                 if not isData:
-                    weights_dict[ch_name].add("norm",(xsec/sow)*genw)
                     weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC) # Note, should not need to copy here since not modifying pData or pMC # In principle does not have to be in the lep cat loop
                     weights_dict[ch_name].add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
                     if "2l" in ch_name:
@@ -389,10 +417,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if "4l" in ch_name:
                         weights_dict[ch_name].add("lepSF", events.sf_4l, copy.deepcopy(events.sf_4l_hi), copy.deepcopy(events.sf_4l_lo))
 
-            # Set the list of systematics to loop over when we fill hists
-            systList = ["nominal"]
-            if   (self._do_systematics and not isData and (syst_var == "nominal")): systList = systList + ["lepSFUp","lepSFDown","btagSFUp", "btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renorm_factUp","renorm_factDown","triggerSFUp","triggerSFDown"]
-            elif (self._do_systematics and not isData and (syst_var != "nominal")): systList = [syst_var]
 
 
             ######### Masks we need for the selection ##########
@@ -441,8 +465,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             # 2los selection
-            selections.add("2los_CRtt", (events.is2l & charge2l_0 & bmask_exactly2med & pass_trg))
-            selections.add("2los_CRZ", (events.is2l & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
+            selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & bmask_exactly2med & pass_trg))
+            selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
             # 3l selection
             selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
@@ -684,19 +708,29 @@ class AnalysisProcessor(processor.ProcessorABC):
                   print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
                   continue
 
+              # Set up the list of syst wgt variations to loop over
+              wgt_var_lst = ["nominal"]
+              if   (self._do_systematics and not isData and (syst_var == "nominal")): wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst
+              elif (self._do_systematics and not isData and (syst_var != "nominal")): wgt_var_lst = [syst_var]
+
               # Loop over the systematics
-              for syst in systList:
-                  # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used (weight_fluct=None)
-                  weight_fluct = syst
-                  if syst in ["nominal","JERUp","JERDown","JESUp","JESDown","MuonESUp","MuonESDown"]: weight_fluct = None # No weight systematic for these variations
+              for wgt_fluct in wgt_var_lst:
 
                   # Loop over nlep categories "2l", "3l", "4l"
                   for nlep_cat in cat_dict.keys():
 
                       # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
+                      # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                       weights_object = weights_dict[nlep_cat]
-                      if isData : weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t", "2l_CR"] else [])) # for data, must include the FF. The flip rate we only apply to 2lss regions
-                      else      : weight = weights_object.weight(weight_fluct) # For MC
+                      if isData:
+                          # for data, must include the FF. The flip rate we only apply to 2lss regions
+                          weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t","2l_CR"] else []))
+                      elif (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
+                          # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
+                          weight = weights_object.weight(None)
+                      else:
+                          # Otherwise get the weight from the Weights object
+                          weight = weights_object.weight(wgt_fluct)
 
                       # Get a mask for events that pass any of the njet requiremens in this nlep cat
                       # Useful in cases like njets hist where we don't store njets in a sparse axis
@@ -749,7 +783,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                           "channel"       : ch_name,
                                           "appl"          : appl,
                                           "sample"        : histAxisName,
-                                          "systematic"    : syst,
+                                          "systematic"    : wgt_fluct,
                                           "weight"        : weights_flat,
                                           "eft_coeff"     : eft_coeffs_cut,
                                           "eft_err_coeff" : eft_w2_coeffs_cut,
