@@ -100,8 +100,8 @@ if __name__ == '__main__':
             fig,ax = plt.subplots(figsize=(8, 6))
             hep.histplot(total_private, bins=bins, stack=False, label='Priavte LO', ax=ax, sort='yield')#, histtype='fill')
             hep.histplot(total_central, bins=bins, stack=False, label='Central NLO', ax=ax, sort='yield')#, histtype='fill')
-            err_low  = np.min([total_private-err[0],total_private-err[1]], axis=0)
-            err_high = np.max([total_private+err[0],total_private+err[1]], axis=0)
+            err_low  = np.min([np.sqrt(np.abs(np.square(total_private)-err[0])),np.sqrt(np.abs(np.square(total_private)-np.square(err[1])))], axis=0)
+            err_high = np.max([np.sqrt(np.square(total_private)+err[0]),np.sqrt(np.square(total_private)+np.square(err[1]))], axis=0)
             plt.fill_between(bins[:-1], err_low, err_high, step='post', facecolor='none', edgecolor='lightgray', label='Other syst.', hatch='///')
             parton = np.zeros_like(total_private)
             pos = total_private >= total_central
@@ -109,14 +109,12 @@ if __name__ == '__main__':
             for n in range(len(total_private)):
                 if total_private[n] >= total_central[n]:
                     if err_low[n]<total_central[n]: parton[n] = 0 # Error larger than central value
-                    else: parton[n] = err_low[n] - total_central[n]
+                    else: parton[n] = np.sqrt(np.abs(np.square(err_low[n]) - np.square(total_central[n])))
                 else:
                     if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
-                    else: parton[n] = total_central[n] - err_high[n] 
+                    else: parton[n] = np.sqrt(np.abs(np.square(total_central[n]) - np.square(err_high[n])))
             fout[fname] = {proc : parton}
-            hep.histplot(err_high+parton/2, bins=bins, ax=ax, yerr=parton/2, histtype='errorbar', label="Mis. parton syst.", color='r', capsize=4)
-            hep.histplot(err_low-parton/2, bins=bins, ax=ax, yerr=parton/2, histtype='errorbar', color='r', capsize=4)
-            plt.fill_between(bins[:-1], err_low-parton, err_high+parton, step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\')
+            plt.fill_between(bins[:-1], np.sqrt(np.abs(np.square(err_low)-np.square(parton))), np.sqrt(np.square(err_high)+np.square(parton)), step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\')
             np.seterr(invalid='ignore')
             plt.ylim([0, np.max(np.max([total_private,total_private+np.max(err, axis=0)+parton], axis=0))*2])
             hep.cms.label(lumi='%0.3g'%sum(lumi.values()))
