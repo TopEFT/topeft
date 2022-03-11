@@ -541,6 +541,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["ljptsum"] = ljptsum
             varnames["l0pt"]    = l0.conept
             varnames["l0eta"]   = l0.eta
+            varnames["l1pt"]    = l1.conept
+            varnames["l1eta"]   = l1.eta
             varnames["j0pt"]    = ak.flatten(j0.pt)
             varnames["j0eta"]   = ak.flatten(j0.eta)
             varnames["njets"]   = njets
