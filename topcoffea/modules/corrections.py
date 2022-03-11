@@ -173,9 +173,8 @@ def AttachElectronSF(electrons, year):
 
 ###### Btag scale factors
 ################################################################
-# Hard-coded to DeepJet algorithm, medium WP
-
-# MC efficiencies
+'''
+# MC efficiencies and WP based corrections
 def GetMCeffFunc(year, WP='medium', flav='b'):
   if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
 
@@ -207,6 +206,25 @@ def GetBTagSF(eta, pt, flavor, year, sys='central'):
   elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL18_v2.csv"),"MEDIUM")
   else: raise Exception(f"Error: Unknown year \"{year}\".")
   SF=SFevaluatorBtag.eval(sys,flavor,eta,pt)
+  print(SF)
+  return (SF)
+'''
+# Shape corrections
+# https://twiki.cern.ch/twiki/bin/view/CMS/BTagShapeCalibration
+def GetBTagSF(jets, weights, mask, year,sys='central'):
+  if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/reshaping_deepJet_106XUL16postVFP_v3.csv"),"RESHAPE","iterativefit,iterativefit,iterativefit")
+  elif   year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/reshaping_deepJet_106XUL16preVFP_v3.csv"),"RESHAPE","iterativefit,iterativefit,iterativefit")
+  elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/reshaping_deepJet_106XUL17_v3.csv"),"RESHAPE","iterativefit,iterativefit,iterativefit")
+  elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/reshaping_deepJet_106XUL18_v2.csv"),"RESHAPE","iterativefit,iterativefit,iterativefit")
+  else: raise Exception(f"Error: Unknown year \"{year}\".")
+  pt=np.where(jets.pt>1000.0,1000.0,jets.pt)
+  jets["btag_wgt"]=SFevaluatorBtag.eval('central',jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True)
+  SF=ak.prod(jets["btag_wgt"], axis=-1)
+  SF=np.where(np.isnan(SF),1.0,SF)
+  sum_before = weights.weight()[mask].sum()
+  sum_after = np.sum(weights.weight()[mask]*SF[mask])
+  print(SF)
+  SF = SF * sum_before / sum_after
   return (SF)
 
 ###### Pileup reweighing
