@@ -87,6 +87,36 @@ CR_GRP_MAP = {
     "Data" : [],
 }
 
+# Best fit point from TOP-19-001 with madup numbers for the 10 new WCs
+WCPT_EXAMPLE = {
+   "ctW": -0.74,
+    "ctZ": -0.86,
+    "ctp": 24.5,
+    "cpQM": -0.27,
+    "ctG": -0.81,
+    "cbW": 3.03,
+    "cpQ3": -1.71,
+    "cptb": 0.13,
+    "cpt": -3.72,
+    "cQl3i": -4.47,
+    "cQlMi": 0.51,
+    "cQei": 0.05,
+    "ctli": 0.33,
+    "ctei": 0.33,
+    "ctlSi": -0.07,
+    "ctlTi": -0.01,
+    "cQq13"  : -0.05,
+    "cQq83"  : -0.15,
+    "cQq11"  : -0.15,
+    "ctq1"   : -0.20,
+    "cQq81"  : -0.50,
+    "ctq8"   : -0.50,
+    "ctt1"   : -0.71,
+    "cQQ1"   : -1.35,
+    "cQt8"   : -2.89,
+    "cQt1"   : -1.24,
+}
+
 
 yt = YieldTools()
 
@@ -285,10 +315,7 @@ def make_single_fig_with_ratio(histo,axis_name,cat_ref):
 
     # Make the ratio plot
     for cat_name in yt.get_cat_lables(histo,axis_name):
-        #h = histo.copy()
         hist.plotratio(
-            #num = h.integrate(axis_name,cat_name),
-            #denom = h.integrate(axis_name,cat_ref),
             num = histo.integrate(axis_name,cat_name),
             denom = histo.integrate(axis_name,cat_ref),
             ax = rax,
@@ -333,7 +360,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
     # Loop over hists and make plots
     skip_lst = [] # Skip this hist
     for idx,var_name in enumerate(dict_of_hists.keys()):
-        #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
+        if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
             # We do not keep track of jets in the sparse axis for the njets hists
@@ -363,9 +390,6 @@ def make_all_sr_sys_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             # Group categories
             hist_sig_grouped = group_bins(hist_sig,sr_cat_dict,"channel",drop_unspecified=True)
 
-            #print(hist_sig_grouped.values())
-            #exit()
-
             # Make the plots
             for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,axis="channel",h_name=var_name):
 
@@ -375,8 +399,10 @@ def make_all_sr_sys_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("sample",proc_name)
                 hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("channel",grouped_hist_cat)
 
+                # Reweight
+                #hist_sig_grouped_tmp.set_wilson_coefficients(**WCPT)
+
                 # Make plots
-                #fig = make_single_fig(hist_sig_grouped_tmp,unit_norm_bool)
                 fig = make_single_fig_with_ratio(hist_sig_grouped_tmp,"systematic","nominal")
                 title = proc_name+"_"+grouped_hist_cat+"_"+var_name
                 if unit_norm_bool: title = title + "_unitnorm"
