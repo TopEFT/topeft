@@ -265,7 +265,7 @@ class YieldTools():
 
     # This should return true if the hist is split by lep flavor, definitely not a bullet proof check..
     def is_split_by_lepflav(self,hin_dict):
-        ch_names_lst = self.get_cat_lables(hin_dict,h_name="ht",axis="channel")
+        ch_names_lst = self.get_cat_lables(hin_dict,axis="channel")
         lep_flav_lst = ["ee","em","mm","eee","eem","emm","mmm"]
         for ch_name in ch_names_lst:
             for lep_flav_name in lep_flav_lst:
