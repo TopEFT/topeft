@@ -332,11 +332,13 @@ def make_single_fig_with_ratio(histo,axis_name,cat_ref):
 
     return fig
 
+
+
 ###################### Wrapper function for example SR plots with systematics ######################
 # Wrapper function to loop over all SR categories and make plots for all variables
 # Right now this function will only plot the signal samples
 # By default, will make plots that show all systematics in the pkl file
-def make_all_sr_sys_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
+def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
 
     # If selecting a year, append that year to the wight list
     sig_wl = ["private"]
@@ -379,6 +381,13 @@ def make_all_sr_sys_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
         hist_sig.scale(sample_lumi_dict,axis="sample")
 
+        # If we only want to look at a subset of the systematics (Probably should be an option? For now, just uncomment if you want to use it)
+        syst_subset_dict = {
+            "nominal":["nominal"],
+            "renormfactUp":["renormfactUp"],"renormfactDown":["renormfactDown"],
+        }
+        #hist_sig  = group_bins(hist_sig,syst_subset_dict,"systematic",drop_unspecified=True)
+
         # Make plots for each process
         for proc_name in sig_sample_lst:
 
@@ -399,17 +408,17 @@ def make_all_sr_sys_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("sample",proc_name)
                 hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("channel",grouped_hist_cat)
 
-                # Reweight
+                # Reweight (Probably should be an option? For now, just uncomment if you want to use it)
                 #hist_sig_grouped_tmp.set_wilson_coefficients(**WCPT)
 
                 # Make plots
                 fig = make_single_fig_with_ratio(hist_sig_grouped_tmp,"systematic","nominal")
                 title = proc_name+"_"+grouped_hist_cat+"_"+var_name
-                if unit_norm_bool: title = title + "_unitnorm"
                 fig.savefig(os.path.join(save_dir_path_tmp,title))
 
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+
 
 
 ###################### Wrapper function for example SR plots ######################
@@ -684,7 +693,7 @@ def main():
     # Make the plots
     #make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
-    make_all_sr_sys_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
 
 if __name__ == "__main__":
     main()
