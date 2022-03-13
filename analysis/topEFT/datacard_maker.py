@@ -720,7 +720,7 @@ class DatacardMaker():
         # Case for a single wc
         elif (isinstance(wc,list) and (len(wc)==1)):
             wc = wc[0] # Grab the str from the list
-            wcpt.append([f'lin_{wc}', {wc: 0.0}])
+            wcpt.append([f'lin_{wc}', {wc: 1.0}])
             wcpt.append([f'quad_{wc}', {wc: 2.0}])
         # Case for 2+ wcs
         elif (isinstance(wc,list) and (len(wc)>1)):
@@ -847,17 +847,19 @@ if __name__ == '__main__':
     # Set up cards lst
     for var in include_var_lst:
         if var == 'ptz': continue # This var only applies to a subset of the channels
-        cards = [{'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
-                 {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
-                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-                 {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
+        cards = [
+            {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+            {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+            {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
+            {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
+            {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+            {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+            {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+            {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+            {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+            {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+            {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}
+        ]
         jobs.append(cards)
     if 'ptz' in include_var_lst:
         cards = [
