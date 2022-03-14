@@ -160,6 +160,7 @@ if __name__ == '__main__':
             plt.tight_layout()
             plt.savefig(f'{outdir_name}/{fname}.png')
             plt.savefig(f'{outdir_name}/{fname}.pdf')
+            plt.close('all')
 
     # Make an index.html file if saving to web area
     if "www" in outdir_name:
