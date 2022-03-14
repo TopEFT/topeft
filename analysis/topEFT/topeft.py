@@ -76,6 +76,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         "hadtmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadtmass", "Mass of had t (GeV)", 40, 0, 400)),
         "hadwmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadwmass", "Mass of had W (GeV)", 20, 0, 200)),
         "hadtpt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadtpt",   "Pt of had t (GeV)", 100, 0, 1000)),
+        "jjb_pt_max_small_chi_sq"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("jjb_pt_max_small_chi_sq",   "Pt of max pt triplet with chi2<threshold (GeV)", 100, 0, 1000)),
         "chisq"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq",    "Best chi sq", 100, 0, 50.0)),
         "chisq_0matched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_0matched",    "Best chi sq (0 gen match)", 100, 0, 50.0)),
         "chisq_1matched"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("chisq_1matched",    "Best chi sq (1 gen match)", 100, 0, 50.0)),
@@ -393,7 +394,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           ######### Masks we need for the selection ##########
 
           # Hadronic top (should maybe split this up into multiple functions)
-          has_hadt_candidate_mask,chisq,hadtmass,hadtpt,hadwmass,mjjb,mjj ,hadt_bjj = get_hadt_mass(goodJets,btagwpl)
+          has_hadt_candidate_mask,chisq,hadtmass,hadtpt,hadwmass,mjjb,mjj ,hadt_bjj , jjb_pt_max_small_chi_sq = get_hadt_mass(goodJets,btagwpl)
           # Put the contents of the best chi2 jets into an array
           hadt_j0 = hadt_bjj.i0
           hadt_j1 = hadt_bjj.i1
@@ -661,6 +662,7 @@ class AnalysisProcessor(processor.ProcessorABC):
           varnames["hadtmass"] = hadtmass
           varnames["hadwmass"] = hadwmass
           varnames["hadtpt"] = hadtpt
+          varnames["jjb_pt_max_small_chi_sq"] = jjb_pt_max_small_chi_sq
           varnames["chisq"] = chisq
 
           varnames["chisq_0matched"] = chisq
@@ -768,16 +770,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
                 "exactly_5j" : {
+                    #"lep_chan_lst" : ["2lss_p_nohadtop" , "2lss_m_nohadtop", "2lss_p_hadtop" , "2lss_m_hadtop"],
                     "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
                 "exactly_6j" : {
+                    #"lep_chan_lst" : ["2lss_p_nohadtop" , "2lss_m_nohadtop", "2lss_p_hadtop" , "2lss_m_hadtop"],
                     "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                 },
                 "atleast_7j" : {
+                    #"lep_chan_lst" : ["2lss_p_nohadtop" , "2lss_m_nohadtop", "2lss_p_hadtop" , "2lss_m_hadtop"],
                     "lep_chan_lst" : ["2lss_p" , "2lss_m"],
                     "lep_flav_lst" : ["ee" , "em" , "mm"],
                     "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
@@ -795,8 +800,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                     "lep_chan_lst" : [
                         "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
                         #"3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_2b",
-                        #"3l_p_offZ_1b_hadtop"   , "3l_m_offZ_1b_hadtop"   , "3l_onZ_1b_hadtop" ,
-                        #"3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_onZ_1b_nohadtop" ,
+                        ##"3l_p_offZ_1b_hadtop"   , "3l_m_offZ_1b_hadtop"   , "3l_onZ_1b_hadtop" ,
+                        ##"3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_onZ_1b_nohadtop" ,
                     ],
                     "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                     "appl_lst"     : ["isSR_3l", "isAR_3l"],
@@ -804,6 +809,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "exactly_4j" : {
                     "lep_chan_lst" : [
                         "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                        #"3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
+                                                                                            #"3l_onZ_1b_nohadtop" , "3l_onZ_2b_nohadtop",
                         #"3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
                         #"3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_p_offZ_2b_nohadtop" , "3l_m_offZ_2b_nohadtop" , "3l_onZ_1b_nohadtop" , "3l_onZ_2b_nohadtop",
                     ],
@@ -813,6 +820,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "atleast_5j" : {
                     "lep_chan_lst" : [
                         "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                        #"3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b_hadtop",
+                                                                                                          #"3l_onZ_2b_nohadtop",
                         #"3l_p_offZ_1b_hadtop" , "3l_m_offZ_1b_hadtop" , "3l_p_offZ_2b_hadtop" , "3l_m_offZ_2b_hadtop" , "3l_onZ_1b_hadtop" , "3l_onZ_2b_hadtop",
                         #"3l_p_offZ_1b_nohadtop" , "3l_m_offZ_1b_nohadtop" , "3l_p_offZ_2b_nohadtop" , "3l_m_offZ_2b_nohadtop" , "3l_onZ_1b_nohadtop" , "3l_onZ_2b_nohadtop",
                     ],
@@ -828,13 +837,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                     },
                     "exactly_3j" : {
                         "lep_chan_lst" : ["4l"],
-                        #"lep_chan_lst" : ["4l" , "4l_hadtop"],
                         "lep_flav_lst" : ["llll"], # Not keeping track of these separately
                         "appl_lst"     : ["isSR_4l"],
                     },
                     "atleast_4j" : {
                         "lep_chan_lst" : ["4l"],
-                        #"lep_chan_lst" : ["4l" , "4l_hadtop"],
                         "lep_flav_lst" : ["llll"], # Not keeping track of these separately
                         "appl_lst"     : ["isSR_4l"],
                     },
@@ -949,6 +956,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     if (("hadtmass" in dense_axis_name) & ("2j" in njet_val)): continue
                                     if (("hadwmass" in dense_axis_name) & ("2j" in njet_val)): continue
                                     if (("hadtpt" in dense_axis_name) & ("2j" in njet_val)): continue
+                                    if (("jjb_pt_max_small_chi_sq" in dense_axis_name) & ("2j" in njet_val)): continue
                                     if (("chisq" in dense_axis_name) & ("2j" in njet_val)): continue
                                     if (("mjj" in dense_axis_name) & ("2j" in njet_val)): continue # Also works for mjjb
                                     if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
@@ -973,7 +981,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     if dense_axis_name == "njets":
                                         all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
                                     elif dense_axis_name in [
-                                            "hadtmass","hadwmass","chisq","hadtpt","mjj","mjjb",
+                                            "hadtmass","hadwmass","chisq","hadtpt","mjj","mjjb","jjb_pt_max_small_chi_sq",
                                             "chisq_0matched","chisq_1matched","chisq_2matched","chisq_3matched",
                                             "chisq_0matched_3matchable","chisq_1matched_3matchable","chisq_2matched_3matchable","chisq_3matched_3matchable","chisq_3matchable"
                                         ]:

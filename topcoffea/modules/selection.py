@@ -423,17 +423,26 @@ def get_hadt_mass(jet_collection,btagwpl,pt_window=10):
     w_mass = 83.0
     t_width = 20.0
     w_width = 11.0
-    chisq_threhsold = 10000000000000000000000000000000000000000000.0
-    #chisq_threhsold = 40.0
+    #chisq_threhsold = 10000000000000000000000000000000000000000000.0
+    #chisq_threhsold = 0.5
+    chisq_threhsold = 3.0
+    #chisq_threhsold = 20.0
     #chisq_threhsold = 100.0
 
     chi_sq = (((jjb_mass-t_mass)*(jjb_mass-t_mass)/((t_width)*(t_width))) + ((jj_mass-w_mass)*(jj_mass-w_mass)/((w_width)*(w_width))))
-    #chi_sq = (((jjb_mass-t_mass)*(jjb_mass-t_mass)/(0.5*(t_width)*(t_width))) + ((jj_mass-w_mass)*(jj_mass-w_mass)/(0.5*(w_width)*(w_width))))
     chi_sq_min_idx = ak.argmin(chi_sq,keepdims=True,axis=1)
     jjb_mass_best = jjb_mass[chi_sq_min_idx]
     jjb_pt_best = jjb_pt[chi_sq_min_idx]
     jj_mass_best = jj_mass[chi_sq_min_idx]
 
+    ### Find the triplet with max pt and chi2<threshold ###
+
+    # get rid of large chi2
+    small_chi_sq_mask = (chi_sq<chisq_threhsold)
+    jjb_pt_small_chi_sq = jjb_pt[small_chi_sq_mask]
+    jjb_pt_max_small_chi_sq = jjb_pt_small_chi_sq[ak.argmax(jjb_pt_small_chi_sq,keepdims=True,axis=1)]
+
     has_hadt_candidate_mask = ak.fill_none(ak.any((chi_sq<chisq_threhsold),axis=1),False)
 
-    return has_hadt_candidate_mask,ak.flatten(chi_sq[chi_sq_min_idx]),ak.flatten(jjb_mass_best),ak.flatten(jjb_pt_best),ak.flatten(jj_mass_best),jjb_mass,jj_mass , jjb_triplets[chi_sq_min_idx]
+    #return has_hadt_candidate_mask,ak.flatten(chi_sq[chi_sq_min_idx]),ak.flatten(jjb_mass_best),ak.flatten(jjb_pt_best),ak.flatten(jj_mass_best),jjb_mass,jj_mass , jjb_triplets[chi_sq_min_idx]
+    return has_hadt_candidate_mask,ak.flatten(chi_sq[chi_sq_min_idx]),ak.flatten(jjb_mass_best),ak.flatten(jjb_pt_best),ak.flatten(jj_mass_best),jjb_mass,jj_mass , jjb_triplets[chi_sq_min_idx] , jjb_pt_max_small_chi_sq
