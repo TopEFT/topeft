@@ -87,7 +87,8 @@ def get_decomp_term_sm(decomp_lst):
 def get_decomp_term_lin(decomp_lst,wc):
     ret = None
     for decomp_term_name in decomp_lst:
-        if ("lin" in decomp_term_name) and (wc in decomp_term_name):
+        substr_lst = decomp_term_name.split("_")
+        if ("lin" in decomp_term_name) and (wc in substr_lst):
             ret = decomp_term_name
     if ret is None: raise Exception("Error, no lin term found")
     else: return ret
@@ -96,7 +97,8 @@ def get_decomp_term_lin(decomp_lst,wc):
 def get_decomp_term_quad(decomp_lst,wc):
     ret = None
     for decomp_term_name in decomp_lst:
-        if ("quad" in decomp_term_name) and ("mix" not in decomp_term_name) and (wc in decomp_term_name):
+        substr_lst = decomp_term_name.split("_")
+        if ("quad" in decomp_term_name) and ("mix" not in decomp_term_name) and (wc in substr_lst):
             ret = decomp_term_name
     if ret is None: raise Exception("Error, no mixed term found")
     else: return ret
@@ -105,7 +107,8 @@ def get_decomp_term_quad(decomp_lst,wc):
 def get_decomp_term_mix(decomp_lst,wc0,wc1):
     ret = None
     for decomp_term_name in decomp_lst:
-        if ("mix" in decomp_term_name) and (wc0 in decomp_term_name) and (wc1 in decomp_term_name):
+        substr_lst = decomp_term_name.split("_")
+        if ("mix" in decomp_term_name) and (wc0 in substr_lst) and (wc1 in substr_lst):
             ret = decomp_term_name
     if ret is None: raise Exception("Error, no mixed term found")
     else: return ret
@@ -148,7 +151,7 @@ def get_param_value(quad_term,decomp_term_name_lst):
         val_quad0 = IN_DICT[get_decomp_term_quad(decomp_term_name_lst,wc0)]
         val_quad1 = IN_DICT[get_decomp_term_quad(decomp_term_name_lst,wc1)]
 
-        val_ret = (val_mix - val_sm - val_lin0 - val_lin1 - val_quad0 - val_quad1)/2.0
+        val_ret = (val_mix - val_sm - (val_lin0 - val_sm - val_quad0) - (val_lin1 - val_sm - val_quad1) - val_quad0 - val_quad1)/2.0
 
     # looking for the L term
     else:
@@ -221,9 +224,9 @@ def quad_wrapper(proc,njets,save_path="quad_fits",shift=None):
         #"cQt1"   : -1.24,
 
     }
-    #wcpt = {"ctZ":-5.0,"cpt":3.0}
+    wcpt = {"ctZ":-5.0,"cpt":3.0}
     #wcpt = {"ctZ":-5.0}
-    wcpt = {"cpt":3.0}
+    #wcpt = {"cpt":3.0}
     print(proc_fit_dict["nom"])
     print(qft.eval_fit(proc_fit_dict["nom"],wcpt))
     exit()
