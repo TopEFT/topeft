@@ -242,7 +242,7 @@ def main():
     #quad_wrapper("ttH",4,"tmp_quad_fits")
 
     # Specify the save dir (would be a lot better to pass this as a command line argument)
-    www_loc = "/afs/crc.nd.edu/user/k/kmohrman/www/EFT/TopCoffea/testing/mar04"
+    www_loc = "path/to/somewhere/in/your/www/area"
     base_dir = os.path.join(www_loc,"ttx_multileptons-2lss_p_2b") # For example
 
     # Run the wrapper for all processes and all jet cateogires and all WCs
