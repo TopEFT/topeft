@@ -4,7 +4,8 @@ import topcoffea.modules.QuadFitTools as qft
 from topcoffea.plotter.make_html import make_html
 
 # Load the in dict
-#import tmp_quad as q
+#import tmp as q
+#IN_DICT = q.p
 #IN_DICT = q.fit_pieces_dict
 #import decomp_fit_terms_test as q
 #IN_DICT = q.decomp_terms_in_dict
@@ -148,7 +149,8 @@ def get_param_value(quad_term,decomp_term_name_lst):
         val_quad0 = IN_DICT[get_decomp_term_quad(decomp_term_name_lst,wc0)]
         val_quad1 = IN_DICT[get_decomp_term_quad(decomp_term_name_lst,wc1)]
 
-        val_ret = (val_mix - val_sm - (val_lin0 - val_sm - val_quad0) - (val_lin1 - val_sm - val_quad1) - val_quad0 - val_quad1)/2.0
+        # Note, don't divide by 2 here (since we don't keep e.g. ctG*ctp and ctp*ctG, the ctG*ctp term needs the factor of 2)
+        val_ret = val_mix - val_sm - (val_lin0 - val_sm - val_quad0) - (val_lin1 - val_sm - val_quad1) - val_quad0 - val_quad1
 
     # looking for the L term
     else:
@@ -220,9 +222,6 @@ def quad_wrapper(proc,njets,save_path="quad_fits"):
         "cQt8"   : -2.89,
         "cQt1"   : -1.24,
     }
-    #wcpt = {"ctZ":-5.0,"cpt":3.0,"cptb":55.5}
-    #wcpt = {"ctZ":-5.0}
-    #wcpt = {"cpt":3.0}
     print(proc_fit_dict["nom"])
     print(qft.eval_fit(proc_fit_dict["nom"],wcpt))
     exit()
