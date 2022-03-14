@@ -87,6 +87,36 @@ CR_GRP_MAP = {
     "Data" : [],
 }
 
+# Best fit point from TOP-19-001 with madup numbers for the 10 new WCs
+WCPT_EXAMPLE = {
+    "ctW": -0.74,
+    "ctZ": -0.86,
+    "ctp": 24.5,
+    "cpQM": -0.27,
+    "ctG": -0.81,
+    "cbW": 3.03,
+    "cpQ3": -1.71,
+    "cptb": 0.13,
+    "cpt": -3.72,
+    "cQl3i": -4.47,
+    "cQlMi": 0.51,
+    "cQei": 0.05,
+    "ctli": 0.33,
+    "ctei": 0.33,
+    "ctlSi": -0.07,
+    "ctlTi": -0.01,
+    "cQq13"  : -0.05,
+    "cQq83"  : -0.15,
+    "cQq11"  : -0.15,
+    "ctq1"   : -0.20,
+    "cQq81"  : -0.50,
+    "ctq8"   : -0.50,
+    "ctt1"   : -0.71,
+    "cQQ1"   : -1.35,
+    "cQt8"   : -2.89,
+    "cQt1"   : -1.24,
+}
+
 
 yt = YieldTools()
 
@@ -251,7 +281,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
 def make_single_fig(histo,unit_norm_bool):
     #print("\nPlotting values:",histo.values())
-    fig, ax = plt.subplots(1, 1, figsize=(11,7))
+    fig, ax = plt.subplots(1, 1, figsize=(7,7))
     hist.plot1d(
         histo,
         stack=False,
@@ -260,6 +290,135 @@ def make_single_fig(histo,unit_norm_bool):
     )
     ax.autoscale(axis='y')
     return fig
+
+# Takes a hist with one sparse axis (axis_name) and one dense axis, overlays everything on the sparse axis
+# Makes a ratio of each cateogory on the sparse axis with respect to ref_cat
+def make_single_fig_with_ratio(histo,axis_name,cat_ref):
+
+    # Create the figure
+    fig, (ax, rax) = plt.subplots(
+        nrows=2,
+        ncols=1,
+        figsize=(7,7),
+        gridspec_kw={"height_ratios": (3, 1)},
+        sharex=True
+    )
+    fig.subplots_adjust(hspace=.07)
+
+    # Make the main plot
+    hist.plot1d(
+        histo,
+        ax=ax,
+        stack=False,
+        clear=False,
+    )
+
+    # Make the ratio plot
+    for cat_name in yt.get_cat_lables(histo,axis_name):
+        hist.plotratio(
+            num = histo.integrate(axis_name,cat_name),
+            denom = histo.integrate(axis_name,cat_ref),
+            ax = rax,
+            unc = 'num',
+            error_opts= {'linestyle': 'none','marker': '.', 'markersize': 10, 'elinewidth': 0},
+            clear = False,
+        )
+
+    # Style
+    ax.set_xlabel('')
+    rax.axhline(1.0,linestyle="-",color="k",linewidth=1)
+    rax.set_ylabel('Ratio')
+    rax.autoscale(axis='y')
+
+    return fig
+
+
+
+###################### Wrapper function for example SR plots with systematics ######################
+# Wrapper function to loop over all SR categories and make plots for all variables
+# Right now this function will only plot the signal samples
+# By default, will make plots that show all systematics in the pkl file
+def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
+
+    # If selecting a year, append that year to the wight list
+    sig_wl = ["private"]
+    if year is None: pass
+    elif year == "2017": sig_wl.append("UL17")
+    elif year == "2018": sig_wl.append("UL18")
+    elif year == "2016": sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
+    else: raise Exception
+
+    # Get the list of samples to actually plot (finding sample list from first hist in the dict)
+    all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name=yt.get_hist_list(dict_of_hists)[0])
+    sig_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
+    if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
+    samples_to_rm_from_sig_hist = []
+    for sample_name in all_samples:
+        if sample_name not in sig_sample_lst:
+            samples_to_rm_from_sig_hist.append(sample_name)
+    print("\nAll samples:",all_samples)
+    print("\nSig samples:",sig_sample_lst)
+
+    # Loop over hists and make plots
+    skip_lst = [] # Skip this hist
+    for idx,var_name in enumerate(dict_of_hists.keys()):
+        if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
+        if (var_name in skip_lst): continue
+        if (var_name == "njets"):
+            # We do not keep track of jets in the sparse axis for the njets hists
+            sr_cat_dict = get_dict_with_stripped_bin_names(SR_CHAN_DICT,"njets")
+        else:
+            sr_cat_dict = SR_CHAN_DICT
+        print("\nVar name:",var_name)
+        print("sr_cat_dict:",sr_cat_dict)
+
+        # Extract the signal hists
+        hist_sig = dict_of_hists[var_name].remove(samples_to_rm_from_sig_hist,"sample")
+
+        # Normalize the hists
+        sample_lumi_dict = {}
+        for sample_name in sig_sample_lst:
+            sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
+        hist_sig.scale(sample_lumi_dict,axis="sample")
+
+        # If we only want to look at a subset of the systematics (Probably should be an option? For now, just uncomment if you want to use it)
+        syst_subset_dict = {
+            "nominal":["nominal"],
+            "renormfactUp":["renormfactUp"],"renormfactDown":["renormfactDown"],
+        }
+        #hist_sig  = group_bins(hist_sig,syst_subset_dict,"systematic",drop_unspecified=True)
+
+        # Make plots for each process
+        for proc_name in sig_sample_lst:
+
+            # Make a sub dir for this category
+            save_dir_path_tmp = os.path.join(save_dir_path,proc_name)
+            if not os.path.exists(save_dir_path_tmp):
+                os.mkdir(save_dir_path_tmp)
+
+            # Group categories
+            hist_sig_grouped = group_bins(hist_sig,sr_cat_dict,"channel",drop_unspecified=True)
+
+            # Make the plots
+            for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,axis="channel",h_name=var_name):
+
+                # Integrate
+                hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
+                hist_sig_grouped_tmp = yt.integrate_out_appl(hist_sig_grouped_tmp,grouped_hist_cat)
+                hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("sample",proc_name)
+                hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("channel",grouped_hist_cat)
+
+                # Reweight (Probably should be an option? For now, just uncomment if you want to use it)
+                #hist_sig_grouped_tmp.set_wilson_coefficients(**WCPT_EXAMPLE)
+
+                # Make plots
+                fig = make_single_fig_with_ratio(hist_sig_grouped_tmp,"systematic","nominal")
+                title = proc_name+"_"+grouped_hist_cat+"_"+var_name
+                fig.savefig(os.path.join(save_dir_path_tmp,title))
+
+            # Make an index.html file if saving to web area
+            if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+
 
 
 ###################### Wrapper function for example SR plots ######################
@@ -276,8 +435,8 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     elif year == "2016": sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
     else: raise Exception
 
-    # Get the list of samples to actually plot
-    all_samples = yt.get_cat_lables(dict_of_hists,"sample")
+    # Get the list of samples to actually plot (finding sample list from first hist in the dict)
+    all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name=yt.get_hist_list(dict_of_hists)[0])
     sig_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
     samples_to_rm_from_sig_hist = []
@@ -349,7 +508,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                 hist_sig_grouped = group_bins(hist_sig,sr_cat_dict,"channel",drop_unspecified=True)
 
                 # Make the plots
-                for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,"channel"):
+                for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,axis="channel",h_name=var_name):
 
                     # Integrate
                     hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
@@ -525,7 +684,7 @@ def main():
     os.mkdir(save_dir_path)
 
     # Get the histograms
-    hin_dict = yt.get_hist_from_pkl(args.pkl_file_path)
+    hin_dict = yt.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
 
     # Print info about histos
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
@@ -534,6 +693,7 @@ def main():
     # Make the plots
     make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
 
 if __name__ == "__main__":
     main()

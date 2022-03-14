@@ -33,7 +33,6 @@ def main():
         save_dir_path = os.path.join(args.output_path,outdir_name)
 
     # Open an example naod file
-    # Maybe should pass this as an argument? Or even pass a cfg file like the run script does
     redirector = args.redirector
     in_file = args.input_path
     in_file = redirector + in_file
@@ -63,7 +62,7 @@ def main():
         fit_coeffs_1d = qft.get_1d_fit(wc_fit_dict,wc_name)
         xaxis_lims = qft.ARXIV1901_LIMS.get(wc_name,qft.TOP19001_LIMS.get(wc_name,[-10,10])) # Use lim from 1901 theory paper if it exists, or TOP-19-001 if it exists, or -10,10 otherwise
         qft.make_1d_quad_plot(
-            fit_coeffs_1d,
+            {wc_name: fit_coeffs_1d},
             wc_name,
             yaxis_str,
             title=wc_name,

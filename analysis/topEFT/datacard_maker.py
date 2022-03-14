@@ -718,27 +718,23 @@ class DatacardMaker():
         if len(wc)==0:
             wcpt = None
         # Case for a single wc
-        elif isinstance(wc, str):
-            wl = {k:0 for k in self.coeffs}
-            wl[wc] = 1.
-            wcpt.append([f'lin_{wc}', wl])
-        elif len(wc)==1:
-            wl = {k:0 for k in self.coeffs}
-            wl[wc] = 1.
-            wcpt.append([f'lin_{wc}', wl])
+        elif (isinstance(wc,list) and (len(wc)==1)):
+            wc = wc[0] # Grab the str from the list
+            wcpt.append([f'lin_{wc}', {wc: 1.0}])
+            wcpt.append([f'quad_{wc}', {wc: 2.0}])
         # Case for 2+ wcs
-        else:
+        elif (isinstance(wc,list) and (len(wc)>1)):
             pairs = [[wc[w1],wc[w2]] for w1 in range(len(wc)) for w2 in range(0, w1+1)]
             wcpt = []
             lin = []
             quad = []
             mixed = []
-            #linear terms
+            # Linear terms
             for n,w in enumerate(wc):
                 wl = {k:0 for k in self.coeffs}
                 wl[w] = 1.
                 wcpt.append([f'lin_{w}', wl])
-            #quadratic terms
+                # Quadratic terms
                 for m,w in enumerate([[w,wc[w2]] for w2 in range(0, n+1)]):
                     wc1 = w[0]
                     wc2 = w[1]
@@ -749,6 +745,8 @@ class DatacardMaker():
                         wl[wc1] = 1.; wl[wc2] = 1.;
                     if(wc1==wc2):  wcpt.append([f'quad_{wc1}', wl])
                     else: wcpt.append([f'quad_mixed_{wc1}_{wc2}', wl])
+        else:
+            raise Exception(f"Error: the WCs \"{wc}\" are specified in an unknown format")
         self.wcs     = wcpt
         return wcpt
     def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm, var_lst):
@@ -849,17 +847,19 @@ if __name__ == '__main__':
     # Set up cards lst
     for var in include_var_lst:
         if var == 'ptz': continue # This var only applies to a subset of the channels
-        cards = [{'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
-                 {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
-                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-                 {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
+        cards = [
+            {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+            {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+            {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
+            {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
+            {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+            {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+            {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+            {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+            {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+            {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+            {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}
+        ]
         jobs.append(cards)
     if 'ptz' in include_var_lst:
         cards = [
