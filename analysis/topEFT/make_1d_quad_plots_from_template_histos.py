@@ -41,9 +41,9 @@ import topcoffea.modules.QuadFitTools as qft
 from topcoffea.plotter.make_html import make_html
 
 # Load the input dict (with all of the values from the template histos)
-import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets.ttx_multileptons_2lss_p_2b_theta01 as template_vals_dict_file
-#IN_DICT = template_vals_dict_file.template_vals_dict
-IN_DICT = template_vals_dict_file.p
+# Note this is a PLACEHOLDER (should be a command line argument?)
+import path_to_your_file.file_name as template_vals_dict_file
+IN_DICT = template_vals_dict_file.template_vals_dict
 
 
 PROC_LST = [ "ttH", "ttlnu", "ttll", "tllq", "tHq", "tttt" ]
@@ -241,7 +241,7 @@ def main():
     #os.mkdir("tmp_quad_fits")
     #quad_wrapper("ttH",4,"tmp_quad_fits")
 
-    # Specify the save dir (would be a lot better to pass this as a command line argument)
+    # Specify the save dir (would be a lot better to pass this as a command line argument), note this is a PLACEHOLDER
     www_loc = "path/to/somewhere/in/your/www/area"
     base_dir = os.path.join(www_loc,"ttx_multileptons-2lss_p_2b") # For example
 
