@@ -12,6 +12,22 @@
 #     - That dictionary that we import is a global variable called IN_DICT in the script
 #     - Note that so far this script assumes the templates are just njets (i.e. none of the naming and conventions etc. are 
 #       currently set up to work with e.g. bins in lj0pt)
+
+# Some notes on the naming conventions for the decomposed and reconstructed quadratic parameterization
+# This is based on Eqn 5 of CMS AN-20-204 ("EFT model for SMP measurements")
+# The terms of the quadratic are: S, L, Q, M, and the decomposed terms in the template dict are defines as follows:
+#     sm       = S
+#     quad_i   = Qi
+#     lin_i    = S + Li + Qi
+#     mixed_ij = S + Li + Lj + Qi + Qj + 2Mij
+# Thus, to reconstruct the quadratic parameterization, we need the following combinations of decomposed terms:
+#     S    = sm
+#     Qi   = quad_i
+#     Li   = lin_i - S - Qi 
+#          = lin_i - sm - quad_i
+#     2Mij = mixed_ij - S - Qi - Qj - Li - Lj
+#          = mixed_ij - sm - quad_i - quad_j - (lin_i - S - Qi) - (lin_j - sm - quad_j)
+
 # To run this script:
 #     - The script is currently very basic and hard coded
 #     - The inputs dictionary is hardcoded, also where to save the output plots is hard coded
@@ -42,7 +58,8 @@ def get_wc_lst_for_proc(proc,all_decomp_terms):
     for decomp_term in all_decomp_terms.keys():
         if proc not in decomp_term: continue
         for wc in WC_LST:
-            if wc in decomp_term:
+            substr_lst = decomp_term.split("_")
+            if wc in substr_lst:
                 if wc not in proc_lst:
                     proc_lst.append(wc)
     return proc_lst
@@ -78,7 +95,9 @@ def get_decomp_term_sm(decomp_lst):
     for decomp_term_name in decomp_lst:
         if "sm" in decomp_term_name:
             ret = decomp_term_name
-    if ret is None: raise Exception("Error, no sm term found")
+    if ret is None:
+        print(f"\nError: Can't find term for wc \"{wc}\" in this list of terms: {decomp_lst}")
+        raise Exception("Error, no sm term found")
     else: return ret
 
 # Get lin term (lin = S + Li + Qi)
@@ -89,7 +108,7 @@ def get_decomp_term_lin(decomp_lst,wc):
         if ("lin" in decomp_term_name) and (wc in substr_lst):
             ret = decomp_term_name
     if ret is None:
-        print(wc,decomp_lst)
+        print(f"\nError: Can't find term for wc \"{wc}\" in this list of terms: {decomp_lst}")
         raise Exception("Error, no lin term found")
     else: return ret
 
@@ -100,7 +119,9 @@ def get_decomp_term_quad(decomp_lst,wc):
         substr_lst = decomp_term_name.split("_")
         if ("quad" in decomp_term_name) and ("mix" not in decomp_term_name) and (wc in substr_lst):
             ret = decomp_term_name
-    if ret is None: raise Exception("Error, no mixed term found")
+    if ret is None:
+        print(f"\nError: Can't find term for wc \"{wc}\" in this list of terms: {decomp_lst}")
+        raise Exception("Error, no mixed term found")
     else: return ret
 
 # Get mix term (mix = S + Li + lj + Qi + Qj + 2Mij)
@@ -110,7 +131,9 @@ def get_decomp_term_mix(decomp_lst,wc0,wc1):
         substr_lst = decomp_term_name.split("_")
         if ("mix" in decomp_term_name) and (wc0 in substr_lst) and (wc1 in substr_lst):
             ret = decomp_term_name
-    if ret is None: raise Exception("Error, no mixed term found")
+    if ret is None:
+        print(f"\nError: Can't find term for wc \"{wc}\" in this list of terms: {decomp_lst}")
+        raise Exception("Error, no mixed term found")
     else: return ret
 
 
