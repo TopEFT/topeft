@@ -7,8 +7,11 @@ import uproot3
 import json
 from topcoffea.modules.comp_datacard import strip
 from coffea import hist
+import re
 
 files = ['2lss_m_2b',  '2lss_p_2b',  '2lss_4t_m_2b', '2lss_4t_p_2b', '3l1b_m',  '3l1b_p',  '3l2b_m',  '3l2b_p',  '3l_sfz_1b',  '3l_sfz_2b',  '4l_2b']
+#files_diff = ['2lss_m_4j_2b', '2lss_m_5j_2b', '2lss_m_6j_2b', '2lss_m_7j_2b', '2lss_p_4j_2b', '2lss_p_5j_2b', '2lss_p_6j_2b', '2lss_p_7j_2b', '3l_m_offZ_1b_2j', '3l_m_offZ_1b_3j', '3l_m_offZ_1b_4j', '3l_m_offZ_1b_5j', '3l_m_offZ_2b_2j', '3l_m_offZ_2b_3j', '3l_m_offZ_2b_4j', '3l_m_offZ_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
+files_diff = ['2lss_4t_m_4j_2b', '2lss_4t_m_5j_2b', '2lss_4t_m_6j_2b', '2lss_4t_m_7j_2b', '2lss_4t_p_4j_2b', '2lss_4t_p_5j_2b', '2lss_4t_p_6j_2b', '2lss_4t_p_7j_2b', '2lss_m_4j_2b', '2lss_m_5j_2b', '2lss_m_6j_2b', '2lss_m_7j_2b', '2lss_p_4j_2b', '2lss_p_5j_2b', '2lss_p_6j_2b', '2lss_p_7j_2b', '3l_m_offZ_1b_2j', '3l_m_offZ_1b_3j', '3l_m_offZ_1b_4j', '3l_m_offZ_1b_5j', '3l_m_offZ_2b_2j', '3l_m_offZ_2b_3j', '3l_m_offZ_2b_4j', '3l_m_offZ_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
 
 def get_hists(fname, path, process):
     fin = uproot.open('histos/'+path+'/ttx_multileptons-'+fname+'.root')
@@ -67,10 +70,14 @@ if __name__ == '__main__':
     parser.add_argument('--years',          default=[], action='extend', nargs='+', help = 'Specify a list of years')
     parser.add_argument('--time', '-t',     action='store_true', help = 'Append time to dir')
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
+    parser.add_argument('--var',            default='njets', help = 'Specify variable to run over')
 
     args = parser.parse_args()
     lumiJson = args.lumiJson
     years    = args.years
+    var      = args.var
+    if var != 'njets':
+        files = files_diff
     if len(years)==0: years = ['2016APV', '2016', '2017', '2018']
     with open(lumiJson) as jf:
         lumi = json.load(jf)
@@ -81,7 +88,7 @@ if __name__ == '__main__':
     # Make a tmp output directory in curren dir a different dir is not specified
     timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
     save_dir_path = args.output_path
-    outdir_name = save_dir_path+"/missing_parton"
+    outdir_name = save_dir_path+"/missing_parton/"+var
     if args.time:
         outdir_name = outdir_name+'_'+timestamp_tag
     outdir_name += '/'
@@ -91,17 +98,23 @@ if __name__ == '__main__':
         print(f'Overwriting contents in {outdir_name}\nUse the `-t` flag to make unique directories')
     save_dir_path = os.path.join(args.output_path,outdir_name)
 
-    fout = uproot.recreate('histos/missing_parton.root')
+    if var == 'njets':
+        fout = uproot.recreate('histos/missing_parton.root')
+    else:
+        fout = uproot.open('histos/missing_parton.root')
     for proc in ['tllq']:#, 'tHq']:
         for fname in files:
+            if var != 'njets': fname += '_' + var
             total_private, nom_private, err, bins, label = get_hists(fname, 'private_sm', proc)
             total_central, nom_central, _, _, _ = get_hists(fname, 'central_sm', proc)
             hep.style.use("CMS")
             fig,ax = plt.subplots(figsize=(8, 6))
             hep.histplot(total_private, bins=bins, stack=False, label='Priavte LO', ax=ax, sort='yield')#, histtype='fill')
             hep.histplot(total_central, bins=bins, stack=False, label='Central NLO', ax=ax, sort='yield')#, histtype='fill')
-            err_low  = np.min([np.sqrt(np.abs(np.square(total_private)-err[0])),np.sqrt(np.abs(np.square(total_private)-np.square(err[1])))], axis=0)
-            err_high = np.max([np.sqrt(np.square(total_private)+err[0]),np.sqrt(np.square(total_private)+np.square(err[1]))], axis=0)
+            # Keep track of negative sign (since abs is requried to in sqrt)
+            sign = [(np.square(total_private)-np.square(err[0])) / np.abs(np.square(total_private)-np.square(err[0])), (np.square(total_private)-np.square(err[1])) / np.abs(np.square(total_private)-np.square(err[1]))]
+            err_low  = np.min([sign[0]*np.sqrt(np.abs(np.square(total_private)-np.square(err[0]))), sign[1]*np.sqrt(np.abs(np.square(total_private)-np.square(err[1])))], axis=0)
+            err_high = np.max([np.sqrt(np.square(total_private)+np.square(err[0])),np.sqrt(np.square(total_private)+np.square(err[1]))], axis=0)
             plt.fill_between(bins[:-1], err_low, err_high, step='post', facecolor='none', edgecolor='lightgray', label='Other syst.', hatch='///')
             parton = np.zeros_like(total_private)
             pos = total_private >= total_central
@@ -113,20 +126,42 @@ if __name__ == '__main__':
                 else:
                     if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
                     else: parton[n] = np.sqrt(np.abs(np.square(total_central[n]) - np.square(err_high[n])))
-            fout[fname] = {proc : parton}
-            plt.fill_between(bins[:-1], np.sqrt(np.abs(np.square(err_low)-np.square(parton))), np.sqrt(np.square(err_high)+np.square(parton)), step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\')
+            if var == 'njets':
+                fout[fname] = {proc : parton}
+            else:
+                if 'j' in fname:
+                    jbin = int(fname.split('j')[0][-1])
+                lep_bin = re.split('_\dj', fname)[0]
+                lep_bin = lep_bin.replace('_offZ', '')
+                if '3l' not in lep_bin: lep_bin += '_2b'
+                elif '3l' in lep_bin and ('m' in lep_bin or 'p' in lep_bin):
+                    lep_bin = lep_bin.split('_')
+                    lep_bin = lep_bin[0]+lep_bin[2]+'_'+lep_bin[1]
+                lep_bin = lep_bin.replace('_onZ', '_sfz')
+                if '2lss' in lep_bin:
+                    offset = -4
+                elif '3l' in lep_bin:
+                    offset = -2
+                else:
+                    offset = 0
+                    jbin = 0
+                parton = np.ones_like(total_private)*fout[lep_bin][proc].array()[offset+jbin]
+            sign = (np.square(err_low) - np.square(parton)) / np.abs(np.square(err_low) - np.square(parton))
+            plt.fill_between(bins[:-1], sign*np.sqrt(np.abs(np.square(err_low)-np.square(parton))), np.sqrt(np.square(err_high)+np.square(parton)), step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\')
             np.seterr(invalid='ignore')
             plt.ylim([0, np.max(np.max([total_private,total_private+np.max(err, axis=0)+parton], axis=0))*2])
             hep.cms.label(lumi='%0.3g'%sum(lumi.values()))
             plt.ylabel('Predicted yield')
             ax.legend(loc='upper right', fontsize='xx-small', ncol=2)
-            plt.xlabel('$N_{jets}$')
+            if var == 'njets':
+                plt.xlabel('$N_{jets}$')
+            plt.xlabel(var)
             plt.show()
             plt.tight_layout()
-            plt.savefig(save_dir_path+'/'+fname+'.png')
-            plt.savefig(save_dir_path+'/'+fname+'.pdf')
+            plt.savefig(f'{outdir_name}/{fname}.png')
+            plt.savefig(f'{outdir_name}/{fname}.pdf')
 
     # Make an index.html file if saving to web area
-    if "www" in save_dir_path:
+    if "www" in outdir_name:
         make_html(save_dir_path, 400, 300)
     fout.close()
