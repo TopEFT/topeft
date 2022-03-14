@@ -482,6 +482,11 @@ central_UL16APV_dict = {
         "histAxisName": "ttHJet_centralUL16APV",
         "xsecName": "ttHnobb",
     },
+    "UL16APV_tZq" : {
+        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIISummer16NanoAODv6-PUMoriond17_Nano25Oct2019_102X_mcRun2_asymptotic_v7-v1/NANOAODSIM",
+        "histAxisName": "tZq_centralUL17",
+        "xsecName": "tZq",
+    },
 }
 
 central_UL17_dict = {
