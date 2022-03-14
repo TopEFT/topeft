@@ -54,7 +54,7 @@ def get_hists(fname, path, process):
         err[0] = np.sqrt(np.square(err[0]) + np.square(rate*s[0]))
         err[1] = np.sqrt(np.square(err[1]) + np.square(rate*s[1]))
   
-    bins = fin['ttH_sm'].axis().edges(flow=True)[1:]
+    bins = fin[process+'_sm'].axis().edges(flow=True)[1:]
     bins[-1] = bins[-2] + 1.
     return total, nom, err, bins, [proc.split('_sm')[0]for proc in fin if 'sm;' in proc]
 
@@ -97,15 +97,19 @@ if __name__ == '__main__':
         print(f'Overwriting contents in {outdir_name}\nUse the `-t` flag to make unique directories')
     save_dir_path = os.path.join(args.output_path,outdir_name)
 
-    if var == 'njets':
-        fout = uproot.recreate('histos/missing_parton.root')
+    fout = 'histos/missing_parton.root'
+    if not os.path.exists(fout):
+        fout = uproot.create(fout)
     else:
-        fout = uproot.open('histos/missing_parton.root')
+        fout = uproot.update(fout)
+
+    rename = {'tllq': 'tZq', 'ttZ': 'ttll', 'ttW': 'ttlnu'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
     for proc in ['tllq']:#, 'tHq']:
         for fname in files:
             if var != 'njets': fname += '_' + var
             total_private, nom_private, err, bins, label = get_hists(fname, 'private_sm', proc)
-            total_central, nom_central, _, _, _ = get_hists(fname, 'central_sm', proc)
+            rproc = rename[proc] if proc in rename else proc
+            total_central, nom_central, _, _, _ = get_hists(fname, 'central_sm', rproc)
             hep.style.use("CMS")
             fig,ax = plt.subplots(figsize=(8, 6))
             hep.histplot(total_private, bins=bins, stack=False, label='Priavte LO', ax=ax, sort='yield')#, histtype='fill')
@@ -125,26 +129,7 @@ if __name__ == '__main__':
                 else:
                     if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
                     else: parton[n] = np.sqrt(np.abs(np.square(total_central[n]) - np.square(err_high[n])))
-            if var == 'njets':
-                fout[fname] = {proc : parton}
-            else:
-                if 'j' in fname:
-                    jbin = int(fname.split('j')[0][-1])
-                lep_bin = re.split('_\dj', fname)[0]
-                lep_bin = lep_bin.replace('_offZ', '')
-                if '3l' not in lep_bin: lep_bin += '_2b'
-                elif '3l' in lep_bin and ('m' in lep_bin or 'p' in lep_bin):
-                    lep_bin = lep_bin.split('_')
-                    lep_bin = lep_bin[0]+lep_bin[2]+'_'+lep_bin[1]
-                lep_bin = lep_bin.replace('_onZ', '_sfz')
-                if '2lss' in lep_bin:
-                    offset = -4
-                elif '3l' in lep_bin:
-                    offset = -2
-                else:
-                    offset = 0
-                    jbin = 0
-                parton = np.ones_like(total_private)*fout[lep_bin][proc].array()[offset+jbin]
+            fout[fname] = {proc : parton}
             sign = (np.square(err_low) - np.square(parton)) / np.abs(np.square(err_low) - np.square(parton))
             plt.fill_between(bins[:-1], sign*np.sqrt(np.abs(np.square(err_low)-np.square(parton))), np.sqrt(np.square(err_high)+np.square(parton)), step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\')
             np.seterr(invalid='ignore')
