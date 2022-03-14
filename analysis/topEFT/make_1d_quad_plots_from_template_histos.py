@@ -1,39 +1,42 @@
+# About this script:
+#     - This script takes as input the information from the template histograms
+#     - The goal is to reconstruct the quadratic parameterizations from the templates
+#     - The script extracts the full 26-dimensional quadratic, but currently just plots the 1d quadratics 
+# About the input to this script:
+#     - The relevant templates are the ones produced by topcoffea's datacard_maker.py, which should be passed 
+#       to EFTFit's look_at_templates.C (which opens the templates, optionally extrapolates the up/down beyond +-1sigma,
+#       and dumps the info into a python dictionary), so it is the output of look_at_templates.C that this script runs on
+#     - It would probably be better for look_at_templates.C to dump the info into e.g. a json, but right now it just prints 
+#       the info to the screen in the form of a python dictionary, so this script assumes that dictionary has been pasted 
+#       into a .py file and we can just directly import the dictionary
+#     - That dictionary that we import is a global variable called IN_DICT in the script
+#     - Note that so far this script assumes the templates are just njets (i.e. none of the naming and conventions etc. are 
+#       currently set up to work with e.g. bins in lj0pt)
+# To run this script:
+#     - The script is currently very basic and hard coded
+#     - The inputs dictionary is hardcoded, also where to save the output plots is hard coded
+#     - So to run it is just: 
+#       python make_1d_quad_plots_from_template_histos.py
+
+
 import numpy as np
 import os
 import topcoffea.modules.QuadFitTools as qft
 from topcoffea.plotter.make_html import make_html
 
-# Load the in dict
-#import tmp as q
-#IN_DICT = q.p
-#IN_DICT = q.fit_pieces_dict
-#import decomp_fit_terms_test as q
-#IN_DICT = q.decomp_terms_in_dict
-
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets_theta22.ttx_multileptons_2lss_4t_m_2b as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets_theta22.ttx_multileptons_2lss_4t_p_2b as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets_theta22.ttx_multileptons_2lss_m_2b as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets_theta22.ttx_multileptons_2lss_p_2b as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets_theta22.ttx_multileptons_3l1b_m as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets_theta22.ttx_multileptons_3l1b_p as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets_theta22.ttx_multileptons_3l2b_m as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets_theta22.ttx_multileptons_3l2b_p as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets_theta22.ttx_multileptons_3l_sfz_1b as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets_theta22.ttx_multileptons_3l_sfz_2b as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets_theta22.ttx_multileptons_4l_2b as q
-#IN_DICT = q.p
-
-import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets.ttx_multileptons_2lss_p_2b_theta01 as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets.ttx_multileptons_2lss_p_2b_theta05 as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets.ttx_multileptons_2lss_p_2b_theta22 as q
-#import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets.ttx_multileptons_2lss_p_2b_theta22_FLIP as q
-IN_DICT = q.p
+# Load the input dict (with all of the values from the template histos)
+import fit_params_mar06_fullR2_sig_njets_lj0pt_withSys_renormfact_njets.ttx_multileptons_2lss_p_2b_theta01 as template_vals_dict_file
+#IN_DICT = template_vals_dict_file.template_vals_dict
+IN_DICT = template_vals_dict_file.p
 
 
 PROC_LST = [ "ttH", "ttlnu", "ttll", "tllq", "tHq", "tttt" ]
 WC_LST = ['ctW','ctZ','ctp','cpQM','ctG','cbW','cpQ3','cptb','cpt','cQl3i','cQlMi','cQei','ctli','ctei','ctlSi','ctlTi', 'cQq13', 'cQq83', 'cQq11', 'ctq1', 'cQq81', 'ctq8', 'ctt1', 'cQQ1', 'cQt8', 'cQt1']
 
-# Get WC lst for each process
+
+######### Functions that get info from the list of template names #########
+
+# Get WC lst for each process (since not all processes will have templates for all WCs since the datacard maker skips the ones that do not contribute)
 def get_wc_lst_for_proc(proc,all_decomp_terms):
     proc_lst = []
     for decomp_term in all_decomp_terms.keys():
@@ -44,10 +47,7 @@ def get_wc_lst_for_proc(proc,all_decomp_terms):
                     proc_lst.append(wc)
     return proc_lst
 
-
-######### Getting names from list of decomposed names #########
-
-# Takes dict dumped by cpp and returns a list of the relevant ones
+# Takes the input dict and returns a list of the relevant terms (given a sys variation and njets value)
 def get_term_lst(in_dict,proc_to_get,var_to_get,njets_to_get):
 
     # Get up/down/nom variation of term
@@ -72,7 +72,7 @@ def get_term_lst(in_dict,proc_to_get,var_to_get,njets_to_get):
 
     return term_lst
 
-# Get term: sm = S
+# Get sm term (sm = S)
 def get_decomp_term_sm(decomp_lst):
     ret = None
     for decomp_term_name in decomp_lst:
@@ -81,17 +81,19 @@ def get_decomp_term_sm(decomp_lst):
     if ret is None: raise Exception("Error, no sm term found")
     else: return ret
 
-# Get term: lin = S + Li + Qi
+# Get lin term (lin = S + Li + Qi)
 def get_decomp_term_lin(decomp_lst,wc):
     ret = None
     for decomp_term_name in decomp_lst:
         substr_lst = decomp_term_name.split("_")
         if ("lin" in decomp_term_name) and (wc in substr_lst):
             ret = decomp_term_name
-    if ret is None: raise Exception("Error, no lin term found")
+    if ret is None:
+        print(wc,decomp_lst)
+        raise Exception("Error, no lin term found")
     else: return ret
 
-# Get term: quad = Qi
+# Get quad term (quad = Qi)
 def get_decomp_term_quad(decomp_lst,wc):
     ret = None
     for decomp_term_name in decomp_lst:
@@ -101,7 +103,7 @@ def get_decomp_term_quad(decomp_lst,wc):
     if ret is None: raise Exception("Error, no mixed term found")
     else: return ret
 
-# Get term: mix = S + Li + lj + Qi + Qj + 2Mij
+# Get mix term (mix = S + Li + lj + Qi + Qj + 2Mij)
 def get_decomp_term_mix(decomp_lst,wc0,wc1):
     ret = None
     for decomp_term_name in decomp_lst:
@@ -112,19 +114,9 @@ def get_decomp_term_mix(decomp_lst,wc0,wc1):
     else: return ret
 
 
-######### Finding fit coeffecients from the decomposed components #########
+######### Functions that find fit coeffecients from the decomposed components #########
 
-# Construct the keys e.g. ctG*ctp for the quad fit for a given set of WCs
-def get_quad_keys(wc_lst):
-    quad_terms_lst = []
-    if "sm" not in wc_lst: wc_lst = ["sm"] + wc_lst
-    for i,wc_row in enumerate(wc_lst):
-        for j,wc_col in enumerate(wc_lst):
-            if j>i: continue
-            quad_terms_lst.append(wc_row+"*"+wc_col)
-    return quad_terms_lst
-
-# Takes e.g. "ctG*ctp" and reconstructs the value from the values in the decomposed dict
+# Takes a quad fit param e.g. "ctG*ctp", finds the relevant terms from input dict, and builds the value from those terms
 def get_param_value(quad_term,decomp_term_name_lst):
 
     wc0 = quad_term.split("*")[0]
@@ -163,8 +155,8 @@ def get_param_value(quad_term,decomp_term_name_lst):
 
     return val_ret
 
-# Find fit param values for terms e.g. ["sm*sm","sm*ctG"...] from the values mapped to the decomposed lst names
-# Really just a wrapper for get_param_value()
+# Find quad param values for a given list of quad terms (e.g. ["sm*sm","sm*ctG"...])
+# Really this is just a wrapper for get_param_value() (here we call that function in a loop over a list of term names)
 def get_fit_param_val_dict(quad_term_name_lst,decomp_terms_lst):
     ret_dict = {}
     for quad_term_name in quad_term_name_lst:
@@ -173,13 +165,13 @@ def get_fit_param_val_dict(quad_term_name_lst,decomp_terms_lst):
     return ret_dict
 
 
-# Main wrapper to read the values and make plots
+# Main wrapper to read the values and make plots (this function should maybe be split up)
 def quad_wrapper(proc,njets,save_path="quad_fits"):
 
     wc_lst_for_proc = get_wc_lst_for_proc(proc,IN_DICT)
 
     # Get the names of the fit params for the given list of WCs
-    quad_terms_lst = get_quad_keys(wc_lst_for_proc)
+    quad_terms_lst = qft.get_quad_keys(wc_lst_for_proc)
 
     # Get an example subset
     decomp_terms_dict = {
@@ -194,37 +186,11 @@ def quad_wrapper(proc,njets,save_path="quad_fits"):
         proc_fit_dict[sys_var] = get_fit_param_val_dict(quad_terms_lst,decomp_terms_lst)
         #proc_fit_dict[sys_var] = qft.scale_to_sm(proc_fit_dict[sys_var]) # If we want to scale to sm
 
-    wcpt = {
-        "ctW": -0.74,
-        "ctZ": -0.86,
-        "ctp": 24.5,
-        "cpQM": -0.27,
-        "ctG": -0.81,
-        "cbW": 3.03,
-        "cpQ3": -1.71,
-        "cptb": 0.13,
-        "cpt": -3.72,
-        "cQl3i": -4.47,
-        "cQlMi": 0.51,
-        "cQei": 0.05,
-        "ctli": 0.33,
-        "ctei": 0.33,
-        "ctlSi": -0.07,
-        "ctlTi": -0.01,
-        "cQq13"  : -0.05,
-        "cQq83"  : -0.15,
-        "cQq11"  : -0.15,
-        "ctq1"   : -0.20,
-        "cQq81"  : -0.50,
-        "ctq8"   : -0.50,
-        "ctt1"   : -0.71,
-        "cQQ1"   : -1.35,
-        "cQt8"   : -2.89,
-        "cQt1"   : -1.24,
-    }
-    print(proc_fit_dict["nom"])
-    print(qft.eval_fit(proc_fit_dict["nom"],wcpt))
-    exit()
+    # For validation, can evaluate the fit at a given point in EFT space
+    #wcpt = { }
+    #print(proc_fit_dict["nom"])
+    #print(qft.eval_fit(proc_fit_dict["nom"],wcpt))
+    #exit()
 
     # Make the plots
     for wc in wc_lst_for_proc:
@@ -248,44 +214,26 @@ def quad_wrapper(proc,njets,save_path="quad_fits"):
 
 def main():
 
+    # Example for a single set of plots
+    #os.mkdir("tmp_quad_fits")
+    #quad_wrapper("ttH",4,"tmp_quad_fits")
+
+    # Specify the save dir (would be a lot better to pass this as a command line argument)
+    www_loc = "/afs/crc.nd.edu/user/k/kmohrman/www/EFT/TopCoffea/testing/mar04"
+    base_dir = os.path.join(www_loc,"ttx_multileptons-2lss_p_2b") # For example
+
     # Run the wrapper for all processes and all jet cateogires and all WCs
-    #www_loc = "/afs/crc.nd.edu/user/k/kmohrman/www/EFT/TopCoffea/fitting/sys_checks/mar03_fullR2-sig_processorMaster-dcmakerBeforeCor_fitting/sys_individual/check_renormfact/mar06_fullR2-sig_njets-lj0pt_withSys-renormfact/njets_template-hisots/test"
-    #base_dir = os.path.join(www_loc,"ttx_multileptons-2lss_p_2b_fits")
-    #base_dir = os.path.join(www_loc,"ttx_multileptons-2lss_p_2b_fits_theta22_test_flip_u_d")
-
-    '''
-    www_loc = "/afs/crc.nd.edu/user/k/kmohrman/www/EFT/TopCoffea/fitting/sys_checks/mar03_fullR2-sig_processorMaster-dcmakerBeforeCor_fitting/sys_individual/check_renormfact/mar06_fullR2-sig_njets-lj0pt_withSys-renormfact/njets_template-hisots/all_cats_theta22"
-    #base_dir = os.path.join(www_loc,"ttx_multileptons-2lss_4t_m_2b")
-    #base_dir = os.path.join(www_loc,"ttx_multileptons-2lss_4t_p_2b")
-    #base_dir = os.path.join(www_loc,"ttx_multileptons-2lss_m_2b")
-    #base_dir = os.path.join(www_loc,"ttx_multileptons-2lss_p_2b")
-    #base_dir = os.path.join(www_loc,"ttx_multileptons-3l1b_m")
-    #base_dir = os.path.join(www_loc,"ttx_multileptons-3l1b_p")
-    #base_dir = os.path.join(www_loc,"ttx_multileptons-3l2b_m")
-    #base_dir = os.path.join(www_loc,"ttx_multileptons-3l2b_p")
-    #base_dir = os.path.join(www_loc,"ttx_multileptons-3l_sfz_1b")
-    #base_dir = os.path.join(www_loc,"ttx_multileptons-3l_sfz_2b")
-    base_dir = os.path.join(www_loc,"ttx_multileptons-4l_2b")
-
-    #os.mkdir(base_dir)
-    save_dir = os.path.join(base_dir) # TMP
-    os.makedirs(save_dir) # TMP
+    os.mkdir(base_dir)
     for proc in PROC_LST:
         print("proc:",proc)
-        ##os.mkdir(os.path.join(base_dir,proc))
-        #for njets in [4,5,6,7]:
-        #for njets in [2,3,4,5]:
-        for njets in [2,3,4]:
+        os.mkdir(os.path.join(base_dir,proc))
+        for njets in [4,5,6,7]: # NOTE This is super hard coded (for jet bins for this category) someday should fix it
             print("njets:",njets)
-            ##save_dir = os.path.join(os.path.join(base_dir,proc),"njets"+str(njets))
-            ##os.mkdir(save_dir)
+            save_dir = os.path.join(os.path.join(base_dir,proc),"njets"+str(njets))
+            os.mkdir(save_dir)
             quad_wrapper(proc,njets,save_dir) # Run the wrapper
             make_html(save_dir)
-    '''
-
-    # Make a single set of plots
-    #os.mkdir("tmp_quad_fits")
-    quad_wrapper("ttH",4,"tmp_quad_fits")
 
 
-main()
+if __name__ == "__main__":
+    main()

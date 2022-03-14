@@ -97,6 +97,19 @@ FIT_RANGES = {
 }
 
 
+########## General tools ##########
+
+# Construct a list of key strings (e.g. "ctG*ctp") for a quad fit dict for a given list of WCs
+def get_quad_keys(wc_lst):
+    quad_terms_lst = []
+    if "sm" not in wc_lst: wc_lst = ["sm"] + wc_lst
+    for i,wc_row in enumerate(wc_lst):
+        for j,wc_col in enumerate(wc_lst):
+            if j>i: continue
+            quad_terms_lst.append(wc_row+"*"+wc_col)
+    return quad_terms_lst
+
+
 ########## Plotting tools ##########
 
 # Takes two arrays and returnes a shifted differences
