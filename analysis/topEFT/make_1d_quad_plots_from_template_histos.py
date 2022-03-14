@@ -26,7 +26,7 @@
 #     Li   = lin_i - S - Qi 
 #          = lin_i - sm - quad_i
 #     2Mij = mixed_ij - S - Qi - Qj - Li - Lj
-#          = mixed_ij - sm - quad_i - quad_j - (lin_i - S - Qi) - (lin_j - sm - quad_j)
+#          = mixed_ij - sm - quad_i - quad_j - (lin_i - sm - Qi) - (lin_j - sm - quad_j)
 
 # To run this script:
 #     - The script is currently very basic and hard coded
@@ -210,7 +210,7 @@ def quad_wrapper(proc,njets,save_path="quad_fits"):
         #proc_fit_dict[sys_var] = qft.scale_to_sm(proc_fit_dict[sys_var]) # If we want to scale to sm
 
     # For validation, can evaluate the fit at a given point in EFT space
-    #wcpt = { }
+    #wcpt = {"cpt":11.1}
     #print(proc_fit_dict["nom"])
     #print(qft.eval_fit(proc_fit_dict["nom"],wcpt))
     #exit()
