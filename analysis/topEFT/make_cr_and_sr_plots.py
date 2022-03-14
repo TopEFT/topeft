@@ -89,7 +89,7 @@ CR_GRP_MAP = {
 
 # Best fit point from TOP-19-001 with madup numbers for the 10 new WCs
 WCPT_EXAMPLE = {
-   "ctW": -0.74,
+    "ctW": -0.74,
     "ctZ": -0.86,
     "ctp": 24.5,
     "cpQM": -0.27,
@@ -409,7 +409,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
                 hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("channel",grouped_hist_cat)
 
                 # Reweight (Probably should be an option? For now, just uncomment if you want to use it)
-                #hist_sig_grouped_tmp.set_wilson_coefficients(**WCPT)
+                #hist_sig_grouped_tmp.set_wilson_coefficients(**WCPT_EXAMPLE)
 
                 # Make plots
                 fig = make_single_fig_with_ratio(hist_sig_grouped_tmp,"systematic","nominal")
@@ -691,9 +691,9 @@ def main():
     #exit()
 
     # Make the plots
-    #make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
-    make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
+    #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
 
 if __name__ == "__main__":
     main()
