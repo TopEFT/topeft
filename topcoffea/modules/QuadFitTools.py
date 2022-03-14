@@ -108,7 +108,7 @@ def get_shifted_arr(y_arr_1,y_arr_2,x_arr,shift_factor):
     return shift_arr
 
 # Make a 1d plot
-def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[-10,10],save_dir=".",shift_var=None):
+def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[-10,10],save_dir="."):
 
     # Get a string of the fit equation
     def get_fit_str(tag,xvar,s0,s1,s2):
@@ -147,20 +147,6 @@ def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[
         ymin = min(ymin,min(y_arr))
 
         quad_arr_dict[key_name] = [x_arr,y_arr]
-
-    # Get shifted up/down array (if using this to plot nom/up/down)
-    # Note: We can only do this if pass exactly three sets of quad params corresponding to nom, up, down
-    if shift_var != None:
-        if (len(quad_params_dict) !=3) or ("nom" not in quad_params_dict.keys()) or ("up" not in quad_params_dict.keys()) or ("down" not in quad_params_dict.keys()):
-            raise Exception("Cannot plot shifted up/down variations, do not have the right info in quad_params_dict.")
-        up_shift_str = "up"+str(shift_var)
-        do_shift_str = "down"+str(shift_var)
-        quad_arr_dict[up_shift_str] = {}
-        quad_arr_dict[do_shift_str] = {}
-        quad_arr_dict[up_shift_str][0] = quad_arr_dict["nom"][0]
-        quad_arr_dict[do_shift_str][0] = quad_arr_dict["nom"][0]
-        quad_arr_dict[up_shift_str][1] = get_shifted_arr(quad_arr_dict["up"][1],quad_arr_dict["nom"][1],quad_arr_dict["nom"][0],shift_var)
-        quad_arr_dict[do_shift_str][1] = get_shifted_arr(quad_arr_dict["down"][1],quad_arr_dict["nom"][1],quad_arr_dict["nom"][0],shift_var)
 
     # Loop over arr dict and make plots
     for key_name, quad_arr in quad_arr_dict.items():
@@ -269,7 +255,7 @@ def eval_fit(fit_dict,wcpt_dict):
             if wc1 == "sm":
                 wc1_val = 1.0
             else:
-                print(f"WARNING: No value specified for WC {wc}. Setting it to 0.")
+                print(f"WARNING: No value specified for WC {wc1}. Setting it to 0.")
                 wc1_val = 0.0
         else:
             wc1_val = wcpt_dict[wc1]
@@ -277,7 +263,7 @@ def eval_fit(fit_dict,wcpt_dict):
             if wc2 == "sm":
                 wc2_val = 1.0
             else:
-                print(f"WARNING: No value specified for WC {wc}. Setting it to 0.")
+                print(f"WARNING: No value specified for WC {wc2}. Setting it to 0.")
                 wc2_val = 0.0
         else:
             wc2_val = wcpt_dict[wc2]

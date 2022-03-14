@@ -30,10 +30,7 @@ IN_DICT = q.p
 
 
 PROC_LST = [ "ttH", "ttlnu", "ttll", "tllq", "tHq", "tttt" ]
-#WC_LST = ['ctW','ctZ','ctp','cpQM','ctG','cbW','cpQ3','cptb','cpt','cQl3i','cQlMi','cQei','ctli','ctei','ctlSi','ctlTi', 'cQq13', 'cQq83', 'cQq11', 'ctq1', 'cQq81', 'ctq8', 'ctt1', 'cQQ1', 'cQt8', 'cQt1']
-#WC_LST = ['ctG','ctq8']
-#WC_LST = ['cpt']
-WC_LST = ['ctZ','cpt']
+WC_LST = ['ctW','ctZ','ctp','cpQM','ctG','cbW','cpQ3','cptb','cpt','cQl3i','cQlMi','cQei','ctli','ctei','ctlSi','ctlTi', 'cQq13', 'cQq83', 'cQq11', 'ctq1', 'cQq81', 'ctq8', 'ctt1', 'cQQ1', 'cQt8', 'cQt1']
 
 # Get WC lst for each process
 def get_wc_lst_for_proc(proc,all_decomp_terms):
@@ -175,7 +172,7 @@ def get_fit_param_val_dict(quad_term_name_lst,decomp_terms_lst):
 
 
 # Main wrapper to read the values and make plots
-def quad_wrapper(proc,njets,save_path="quad_fits",shift=None):
+def quad_wrapper(proc,njets,save_path="quad_fits"):
 
     wc_lst_for_proc = get_wc_lst_for_proc(proc,IN_DICT)
 
@@ -196,35 +193,34 @@ def quad_wrapper(proc,njets,save_path="quad_fits",shift=None):
         #proc_fit_dict[sys_var] = qft.scale_to_sm(proc_fit_dict[sys_var]) # If we want to scale to sm
 
     wcpt = {
-        #"ctW": -0.74,
-        #"ctZ": -0.86,
-        #"ctp": 24.5,
-        #"cpQM": -0.27,
-        #"ctG": -0.81,
-        #"cbW": 3.03,
-        #"cpQ3": -1.71,
-        #"cptb": 0.13,
-        #"cpt": -3.72,
-        #"cQl3i": -4.47,
-        #"cQlMi": 0.51,
-        #"cQei": 0.05,
-        #"ctli": 0.33,
-        #"ctei": 0.33,
-        #"ctlSi": -0.07,
-        #"ctlTi": -0.01,
-        #"cQq13"  : -0.05,
-        #"cQq83"  : -0.15,
-        #"cQq11"  : -0.15,
-        #"ctq1"   : -0.20,
-        #"cQq81"  : -0.50,
-        #"ctq8"   : -0.50,
-        #"ctt1"   : -0.71,
-        #"cQQ1"   : -1.35,
-        #"cQt8"   : -2.89,
-        #"cQt1"   : -1.24,
-
+        "ctW": -0.74,
+        "ctZ": -0.86,
+        "ctp": 24.5,
+        "cpQM": -0.27,
+        "ctG": -0.81,
+        "cbW": 3.03,
+        "cpQ3": -1.71,
+        "cptb": 0.13,
+        "cpt": -3.72,
+        "cQl3i": -4.47,
+        "cQlMi": 0.51,
+        "cQei": 0.05,
+        "ctli": 0.33,
+        "ctei": 0.33,
+        "ctlSi": -0.07,
+        "ctlTi": -0.01,
+        "cQq13"  : -0.05,
+        "cQq83"  : -0.15,
+        "cQq11"  : -0.15,
+        "ctq1"   : -0.20,
+        "cQq81"  : -0.50,
+        "ctq8"   : -0.50,
+        "ctt1"   : -0.71,
+        "cQQ1"   : -1.35,
+        "cQt8"   : -2.89,
+        "cQt1"   : -1.24,
     }
-    wcpt = {"ctZ":-5.0,"cpt":3.0}
+    #wcpt = {"ctZ":-5.0,"cpt":3.0,"cptb":55.5}
     #wcpt = {"ctZ":-5.0}
     #wcpt = {"cpt":3.0}
     print(proc_fit_dict["nom"])
@@ -245,7 +241,6 @@ def quad_wrapper(proc,njets,save_path="quad_fits",shift=None):
             title = plot_name,
             xaxis_range = qft.FIT_RANGES[wc],
             save_dir = save_path,
-            shift_var = shift,
         )
 
 
