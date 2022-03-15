@@ -12,24 +12,27 @@ from coffea.nanoevents import NanoAODSchema
 import topeftenv
 
 import sow_processor
+import flip_processor
 
 from topcoffea.modules.utils import load_sample_json_file, read_cfg_file, update_cfg
 
 parser = argparse.ArgumentParser(description='You can customize your run')
-parser.add_argument('inputFiles'       , nargs='?', default='', help = 'Json or cfg file(s) containing files and metadata')
-parser.add_argument('--executor','-x'  , default='work_queue', help = 'Which executor to use')
-parser.add_argument('--chunksize','-s' , default=100000, type=int, help = 'Number of events per chunk')
-parser.add_argument('--max-files','-N' , default=0, type=int, help = 'If specified, limit the number of root files per sample. Useful for testing')
-parser.add_argument('--nchunks','-c'   , default=0, type=int, help = 'You can choose to run only a number of chunks')
-parser.add_argument('--outname','-o'   , default='sowTopEFT', help = 'Name of the output file with histograms')
-parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the output directory')
-parser.add_argument('--treename'       , default='Events', help = 'Name of the tree inside the files')
-parser.add_argument('--xrd'            , default='', help = 'The XRootD redirector to use when reading directly from json files')
-parser.add_argument('--wc-list'        , action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
+parser.add_argument('inputFiles'            , nargs='?', default='', help = 'Json or cfg file(s) containing files and metadata')
+parser.add_argument('--executor','-x'       , default='work_queue', help = 'Which executor to use')
+parser.add_argument('--processor_name','-r' , default='sow_processor', help = 'Which processor to run')
+parser.add_argument('--chunksize','-s'      , default=100000, type=int, help = 'Number of events per chunk')
+parser.add_argument('--max-files','-N'      , default=0, type=int, help = 'If specified, limit the number of root files per sample. Useful for testing')
+parser.add_argument('--nchunks','-c'        , default=0, type=int, help = 'You can choose to run only a number of chunks')
+parser.add_argument('--outname','-o'        , default='sowTopEFT', help = 'Name of the output file with histograms')
+parser.add_argument('--outpath','-p'        , default='histos', help = 'Name of the output directory')
+parser.add_argument('--treename'            , default='Events', help = 'Name of the tree inside the files')
+parser.add_argument('--xrd'                 , default='', help = 'The XRootD redirector to use when reading directly from json files')
+parser.add_argument('--wc-list'             , action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
 
 args = parser.parse_args()
 inputFiles = args.inputFiles.replace(' ','').split(',')  # Remove whitespace and split by commas
 executor   = args.executor
+processor_name  = args.processor_name
 chunksize  = args.chunksize
 nchunks    = args.nchunks if args.nchunks else None
 outname    = args.outname
@@ -86,7 +89,17 @@ if wc_lst:
 else:
     print("No Wilson coefficients specified")
 
-processor_instance = sow_processor.AnalysisProcessor(samples_to_process,wc_lst)
+# Which processor are we running
+if processor_name == "sow_processor":
+    processor_instance = sow_processor.AnalysisProcessor(samples_to_process,wc_lst)
+    extra_input_files_lst = ["sow_processor.py"]
+elif processor_name == "flip_processor":
+    #if wc_lst != []:
+    #   raise Exception(f"Error: This processor is not set up to handle EFT samples.")
+    processor_instance = flip_processor.AnalysisProcessor(samples_to_process)
+    extra_input_files_lst = ["flip_processor.py"]
+else:
+    raise Exception(f"Error: Unknown processor \"{processor }\".")
 
 if executor == "work_queue":
     executor_args = {
@@ -102,7 +115,7 @@ if executor == "work_queue":
         'stats_log': 'stats.log',
 
         'environment_file': topeftenv.get_environment(),
-        'extra_input_files': ["sow_processor.py"],
+        'extra_input_files': extra_input_files_lst,
 
         'schema': NanoAODSchema,
         'skipbadfiles': False,
