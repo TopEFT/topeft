@@ -202,9 +202,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             'MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
         ]
         wgt_correction_syst_lst = [
-            "lepSFUp","lepSFDown","btagSFUp","btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
-            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
-        ]
+            "lepSFUp","lepSFDown","btag_jesUp","btag_lfUp","btag_hfstats1Up","btag_hfstats2Up","btag_cferr1Up","btag_cferr2Up","btag_hfUp","btag_lfstats1Up","btag_lfstats2Up","btag_jesDown","btag_lfDown","btag_hfstats1Down","btag_hfstats2Down","btag_cferr1Down","btag_cferr2Down","btag_hfDown","btag_lfstats1Down","btag_lfstats2Down","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
+            ]#"FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
+        #]
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
@@ -392,13 +392,25 @@ class AnalysisProcessor(processor.ProcessorABC):
                 pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
             '''
             # Btag shape correction SF following https://twiki.cern.ch/twiki/bin/view/CMS/BTagShapeCalibration
-            if not isData: bJetSF= GetBTagSF(goodJets, weights_any_lep_cat, njets>1,year,'central')          
+            #if not isData: bJetSF= GetBTagSF(goodJets, weights_any_lep_cat, njets>1,year,'central')          
 
             ######### Event weights ###########
 
-            # Loop over categories and fill the dict
+            if not isData:
+              # Trigger SF
+              GetTriggerSF(year,events,l0,l1)
+              weights_any_lep_cat.add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+              
+              # Btag shape correcion SF following https://twiki.cern.ch/twiki/bin/view/CMS/BTagShapeCalibration
+              bJetSF= GetBTagSF(goodJets, weights_any_lep_cat, (njets>=0 ),year,'central')
+              weights_any_lep_cat.add("btagSF", bJetSF)
+              if self._do_systematics and syst_var=='nominal':
+                for b_syst in ["jes","lf","hfstats1","hfstats2","cferr1","cferr2","hf","lfstats1","lfstats2"]:
+                  bj_var = GetBTagSF(goodJets, weights_any_lep_cat, (nbtagsm>=1) ,year,b_syst)
+                  weights_any_lep_cat.add(f"btag_{b_syst}", events.nom, bj_var[0]/bJetSF,bj_var[1]/bJetSF)
+            
             weights_dict = {}
-            GetTriggerSF(year,events,l0,l1)
+            # Loop over categories and fill the dict
             for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
 
                 # For both data and MC
@@ -415,9 +427,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For MC only
                 if not isData:
-                    #weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC) # Note, should not need to copy here since not modifying pData or pMC # In principle does not have to be in the lep cat loop
-                    weights_dict[ch_name].add("btagSF", bJetSF) 
-                    weights_dict[ch_name].add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
                     if "2l" in ch_name:
                         weights_dict[ch_name].add("lepSF", events.sf_2l, copy.deepcopy(events.sf_2l_hi), copy.deepcopy(events.sf_2l_lo))
                     if "3l" in ch_name:
