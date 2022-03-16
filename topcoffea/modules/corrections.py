@@ -186,7 +186,6 @@ def GetBTagSF(jets, year,sys='central'):
   if sys=='central':
     SF=ak.prod(jets["btag_wgt"], axis=-1)
     SF=np.where(np.isnan(SF),1.0,SF)
-    print('sf',SF)
     return (SF)
   else:
     flavors = {
