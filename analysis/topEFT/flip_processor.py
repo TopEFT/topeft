@@ -54,7 +54,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         self._accumulator = processor.dict_accumulator({
-            "invmass" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("category", "category"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
+            "invmass" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("kinematiccat", "kinematiccat"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 100, 50, 150)),
+            "njets"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("kinematiccat", "kinematiccat"), hist.Bin("njets", "njets", 10, 0, 10)),
         })
 
     @property
@@ -194,7 +195,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######### Store boolean masks with PackedSelection ##########
 
         # Get mask for events that have two sf os leps close to z peak
-        sfosz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0)
+        sfosz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="os")
+        sfssz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="ss")
 
         # Pass trigger mask
         pass_trg = trgPassNoOverlap(events,isData,dataset,str(year))
@@ -206,9 +208,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Selections
         selections = PackedSelection(dtype='uint64')
         selections.add("is_good_lumi",lumi_mask)
-        selections.add("os", (charge2l_0))
-        selections.add("ss", (charge2l_1))
-        selections.add("2e", (events.is2l_nozeeveto & events.is2l_SR & events.is_ee &  sfosz_2l_mask & (njets<4) & pass_trg))
+        selections.add("osz", (charge2l_0 & sfosz_2l_mask))
+        selections.add("ssz", (charge2l_1 & sfssz_2l_mask))
+        selections.add("2e", (events.is2l_nozeeveto & events.is2l_SR & events.is_ee & (njets<4) & pass_trg))
 
         # Masks for the pt and eta ranges
         pt0 = l0.pt
@@ -233,13 +235,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("l0_L", in_range_mask(l0.pt,lo_lim=10.0,hi_lim=25.0))
         selections.add("l1_L", in_range_mask(l1.pt,lo_lim=10.0,hi_lim=25.0))
 
+        # Cross check
+        selections.add("l0_inclusive", (in_range_mask(l0.pt,lo_lim=10.0,hi_lim=None) & in_range_mask(abs(l0.eta),lo_lim=None,hi_lim=2.5)))
+        selections.add("l1_inclusive", (in_range_mask(l1.pt,lo_lim=10.0,hi_lim=None) & in_range_mask(abs(l1.eta),lo_lim=None,hi_lim=2.5)))
+
 
         ######### Variables for the dense and sparse axes of the hists ##########
 
-        # Define invariant mass hists
-        mll = (l0+l1).mass # Invmass for leading two leps
+        dense_var_dict = {
+            "invmass" : (l0+l1).mass,
+            "njets"   : njets,
+        }
 
-        cat_dict = {
+        # Cuts for the sparse "category" axis
+        kinematic_cat_dict = {
+
+            "inclusive"  : ["l0_inclusive","l1_inclusive"], # Cross check that we're not missing anything
 
             "EH_EH" : ["l0_E","l0_H","l1_E","l1_H"],
 
@@ -267,7 +278,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             "BM_BL" : ["l0_B","l0_M","l1_B","l1_L"],
             "EL_BL" : ["l0_E","l0_L","l1_B","l1_L"],
             "BL_BL" : ["l0_B","l0_L","l1_B","l1_L"],
-
         }
 
 
@@ -275,28 +285,31 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         hout = self.accumulator.identity()
 
-        # Loop over the lepton channels
-        for chan_name in ["os","ss"]:
+        # Loop over histograms to fill (just invmass, njets for now)
+        for dense_axis_name, dense_axis_vals in dense_var_dict.items():
 
-            # Loop over the kinematic categories
-            for kinematic_cat_name in cat_dict.keys():
+            # Loop over the lepton channels
+            for chan_name in ["osz","ssz"]:
 
-                # Get the cut mask object
-                cuts_lst = ["2e"]
-                cuts_lst.append(chan_name)
-                cuts_lst = cuts_lst + cat_dict[kinematic_cat_name]
-                if isData: cuts_lst.append("is_good_lumi")
-                cuts_mask = selections.all(*cuts_lst)
+                # Loop over the kinematic categories
+                for kinematic_cat_name in kinematic_cat_dict.keys():
 
-                # Fill the histo
-                axes_fill_info_dict = {
-                    "invmass"  : mll[cuts_mask],
-                    "channel"  : chan_name,
-                    "category" : kinematic_cat_name,
-                    "sample"   : histAxisName,
-                }
+                    # Get the cut mask object
+                    cuts_lst = ["2e"]
+                    cuts_lst.append(chan_name)
+                    cuts_lst = cuts_lst + kinematic_cat_dict[kinematic_cat_name]
+                    if isData: cuts_lst.append("is_good_lumi")
+                    cuts_mask = selections.all(*cuts_lst)
 
-                hout["invmass"].fill(**axes_fill_info_dict)
+                    # Fill the histo
+                    axes_fill_info_dict = {
+                        dense_axis_name  : dense_axis_vals[cuts_mask],
+                        "channel"        : chan_name,
+                        "kinematiccat"   : kinematic_cat_name,
+                        "sample"         : histAxisName,
+                    }
+
+                    hout[dense_axis_name].fill(**axes_fill_info_dict)
 
         return hout
 
