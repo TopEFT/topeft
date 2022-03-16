@@ -163,13 +163,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### Weights ###########
 
-        # NOTE Not tested yet and not used yet
         weights_object = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
-        if not isData:
-            genw = events["genWeight"]
-            weights_object.add("norm",(xsec/sow)*genw)
-        else:
-            weights_object.add("norm",np.ones_like(events["event"]))
+        if not isData: weights_object.add("norm",(xsec/sow)*events["genWeight"])
+        else: weights_object.add("norm",np.ones_like(events["event"]))
 
 
         #################### Jets ####################
@@ -212,12 +208,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("ssz", (charge2l_1 & sfssz_2l_mask))
         selections.add("2e", (events.is2l_nozeeveto & events.is2l_SR & events.is_ee & (njets<4) & pass_trg))
 
-        # Masks for the pt and eta ranges
-        pt0 = l0.pt
-        pt1 = l1.pt
-        eta0 = l0.eta
-        eta1 = l1.eta
-
         # Masks for the pt ranges
         # Note that in_range_mask will be inclusive of abs(eta)=2.5
         # We want <2.5 (based on CMS AN-18-098)
@@ -235,7 +225,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("l0_L", in_range_mask(l0.pt,lo_lim=10.0,hi_lim=25.0))
         selections.add("l1_L", in_range_mask(l1.pt,lo_lim=10.0,hi_lim=25.0))
 
-        # Cross check
+        # Inclusive ranges for a cross check
         selections.add("l0_inclusive", (in_range_mask(l0.pt,lo_lim=10.0,hi_lim=None) & in_range_mask(abs(l0.eta),lo_lim=None,hi_lim=2.5)))
         selections.add("l1_inclusive", (in_range_mask(l1.pt,lo_lim=10.0,hi_lim=None) & in_range_mask(abs(l1.eta),lo_lim=None,hi_lim=2.5)))
 
@@ -307,6 +297,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         "channel"        : chan_name,
                         "kinematiccat"   : kinematic_cat_name,
                         "sample"         : histAxisName,
+                        "weight"         : weights_object.weight()[cuts_mask],
                     }
 
                     hout[dense_axis_name].fill(**axes_fill_info_dict)
