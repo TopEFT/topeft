@@ -173,45 +173,9 @@ def AttachElectronSF(electrons, year):
 
 ###### Btag scale factors
 ################################################################
-'''
-# MC efficiencies and WP based corrections
-def GetMCeffFunc(year, WP='medium', flav='b'):
-  if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
-
-  pathToBtagMCeff = topcoffea_path('data/btagSF/UL/btagMCeff_%s.pkl.gz'%year)
-  hists = {}
-  with gzip.open(pathToBtagMCeff) as fin:
-    hin = pickle.load(fin)
-    for k in hin.keys():
-      if k in hists: hists[k]+=hin[k]
-      else:          hists[k]=hin[k]
-  h = hists['jetptetaflav']
-  hnum = h.integrate('WP', WP)
-  hden = h.integrate('WP', 'all')
-  getnum = lookup_tools.dense_lookup.dense_lookup(hnum.values(overflow='over')[()], [hnum.axis('pt').edges(), hnum.axis('abseta').edges(), hnum.axis('flav').edges()])
-  getden = lookup_tools.dense_lookup.dense_lookup(hden.values(overflow='over')[()], [hden.axis('pt').edges(), hnum.axis('abseta').edges(), hden.axis('flav').edges()])
-  values = hnum.values(overflow='over')[()]
-  edges = [hnum.axis('pt').edges(), hnum.axis('abseta').edges(), hnum.axis('flav').edges()]
-  fun = lambda pt, abseta, flav : getnum(pt,abseta,flav)/getden(pt,abseta,flav)
-  return fun
-
-def GetBtagEff(pt, eta, flavor, year):
-  if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
-  return GetMCeffFunc(year,'medium')(pt, eta, flavor)
-
-def GetBTagSF(eta, pt, flavor, year, sys='central'):
-  if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),"MEDIUM") 
-  elif   year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),"MEDIUM") 
-  elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL17_v3.csv"),"MEDIUM")
-  elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL18_v2.csv"),"MEDIUM")
-  else: raise Exception(f"Error: Unknown year \"{year}\".")
-  SF=SFevaluatorBtag.eval(sys,flavor,eta,pt)
-  print(SF)
-  return (SF)
-'''
 # Shape corrections
 # https://twiki.cern.ch/twiki/bin/view/CMS/BTagShapeCalibration
-def GetBTagSF(jets, weights, mask, year,sys='central'):
+def GetBTagSF(jets, year,sys='central'):
   if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/reshaping_deepJet_106XUL16postVFP_v3.csv"),"RESHAPE","iterativefit,iterativefit,iterativefit")
   elif   year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/reshaping_deepJet_106XUL16preVFP_v3.csv"),"RESHAPE","iterativefit,iterativefit,iterativefit")
   elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/reshaping_deepJet_106XUL17_v3.csv"),"RESHAPE","iterativefit,iterativefit,iterativefit")
@@ -222,9 +186,7 @@ def GetBTagSF(jets, weights, mask, year,sys='central'):
   if sys=='central':
     SF=ak.prod(jets["btag_wgt"], axis=-1)
     SF=np.where(np.isnan(SF),1.0,SF)
-    #sum_before = weights.weight()[mask].sum()
-    #sum_after = np.sum(weights.weight()[mask]*SF[mask])
-    SF = SF #* (sum_before / sum_after)
+    print('sf',SF)
     return (SF)
   else:
     flavors = {

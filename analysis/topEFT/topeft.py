@@ -121,7 +121,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         year               = self._samples[dataset]["year"]
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
-        '''
+        
         if not isData:
             sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"]
             sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"]
@@ -133,7 +133,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"]
             sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"]
             sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown"]
-        '''
+        
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
@@ -203,8 +203,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ]
         wgt_correction_syst_lst = [
             "lepSFUp","lepSFDown","btag_jesUp","btag_lfUp","btag_hfstats1Up","btag_hfstats2Up","btag_cferr1Up","btag_cferr2Up","btag_hfUp","btag_lfstats1Up","btag_lfstats2Up","btag_jesDown","btag_lfDown","btag_hfstats1Down","btag_hfstats2Down","btag_cferr1Down","btag_cferr2Down","btag_hfDown","btag_lfstats1Down","btag_lfstats2Down","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
-            ]#"FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
-        #]
+            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
+        ]
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
@@ -225,12 +225,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             AttachScaleWeights(events)
             #AttachPdfWeights(events) # TODO
             # FSR/ISR weights
-            #weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
-            #weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
+            weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
+            weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
             # renorm/fact scale
-            #weights_any_lep_cat.add('renorm',     events.nom, events.renormUp*(sow/sow_renormUp),         events.renormDown*(sow/sow_renormDown))
-            #weights_any_lep_cat.add('fact',       events.nom, events.factUp*(sow/sow_factUp),             events.factDown*(sow/sow_factDown))
-            #weights_any_lep_cat.add('renormfact', events.nom, events.renormfactUp*(sow/sow_renormfactUp), events.renormfactDown*(sow/sow_renormfactDown))
+            weights_any_lep_cat.add('renorm',     events.nom, events.renormUp*(sow/sow_renormUp),         events.renormDown*(sow/sow_renormDown))
+            weights_any_lep_cat.add('fact',       events.nom, events.factUp*(sow/sow_factUp),             events.factDown*(sow/sow_factDown))
+            weights_any_lep_cat.add('renormfact', events.nom, events.renormfactUp*(sow/sow_renormfactUp), events.renormfactDown*(sow/sow_renormfactDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
             weights_any_lep_cat.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
             weights_any_lep_cat.add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 'up'), GetPUSF(events.Pileup.nTrueInt, year, 'down'))
@@ -367,33 +367,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### SFs, weights, systematics ##########
 
-            # Btag WP based SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
-            '''
-            btagSF   = np.ones_like(ht)
-            btagSFUp = np.ones_like(ht)
-            btagSFDo = np.ones_like(ht)
-            if not isData:
-
-                
-                # for Working Point based SFs
-                pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
-                bJetSF   = GetBTagSF(abseta, pt, flav, year)
-                bJetSFUp = GetBTagSF(abseta, pt, flav, year, sys='up')
-                bJetSFDo = GetBTagSF(abseta, pt, flav, year, sys='down')
-                bJetEff  = GetBtagEff(pt, abseta, flav, year)
-                bJetEff_data   = bJetEff*bJetSF
-                bJetEff_dataUp = bJetEff*bJetSFUp
-                bJetEff_dataDo = bJetEff*bJetSFDo
-
-                pMC     = ak.prod(bJetEff       [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJetsMedium]), axis=-1)
-                pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
-                pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
-                pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
-                pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-            '''
-            # Btag shape correction SF following https://twiki.cern.ch/twiki/bin/view/CMS/BTagShapeCalibration
-            #if not isData: bJetSF= GetBTagSF(goodJets, weights_any_lep_cat, njets>1,year,'central')          
-
             ######### Event weights ###########
 
             if not isData:
@@ -402,11 +375,11 @@ class AnalysisProcessor(processor.ProcessorABC):
               weights_any_lep_cat.add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
               
               # Btag shape correcion SF following https://twiki.cern.ch/twiki/bin/view/CMS/BTagShapeCalibration
-              bJetSF= GetBTagSF(goodJets, weights_any_lep_cat, (njets>=0 ),year,'central')
+              bJetSF= GetBTagSF(goodJets, year, 'central')
               weights_any_lep_cat.add("btagSF", bJetSF)
               if self._do_systematics and syst_var=='nominal':
                 for b_syst in ["jes","lf","hfstats1","hfstats2","cferr1","cferr2","hf","lfstats1","lfstats2"]:
-                  bj_var = GetBTagSF(goodJets, weights_any_lep_cat, (nbtagsm>=1) ,year,b_syst)
+                  bj_var = GetBTagSF(goodJets, year, b_syst)
                   weights_any_lep_cat.add(f"btag_{b_syst}", events.nom, bj_var[0]/bJetSF,bj_var[1]/bJetSF)
             
             weights_dict = {}
@@ -476,8 +449,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # 2lss selection (enriched in 4 top)
             selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-		
+            selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axi
+            
             # 2lss selection for CR
             selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
