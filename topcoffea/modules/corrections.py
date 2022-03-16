@@ -182,7 +182,7 @@ def GetBTagSF(jets, year,sys='central'):
   elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/reshaping_deepJet_106XUL18_v2.csv"),"RESHAPE","iterativefit,iterativefit,iterativefit")
   else: raise Exception(f"Error: Unknown year \"{year}\".")
   pt=np.where(jets.pt>1000.0,1000.0,jets.pt)
-  jets["btag_wgt"]=SFevaluatorBtag.eval('central',jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True)
+  jets["btag_wgt"]=SFevaluatorBtag.eval('central',jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB)
   if sys=='central':
     SF=ak.prod(jets["btag_wgt"], axis=-1)
     SF=np.where(np.isnan(SF),1.0,SF)
@@ -200,12 +200,11 @@ def GetBTagSF(jets, year,sys='central'):
 
     jets[f"btag_{sys}_up"] = jets["btag_wgt"]
     jets[f"btag_{sys}_down"] = jets["btag_wgt"]
-    print(sys)
     for f, f_syst in flavors.items():
       if sys in f_syst:
         btag_mask = abs(jets.hadronFlavour) == f
-        jets[f"btag_{sys}_up"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval(f"up_{sys}", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_up"])
-        jets[f"btag_{sys}_down"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval(f"down_{sys}", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_down"])
+        jets[f"btag_{sys}_up"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval(f"up_{sys}", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB),jets[f"btag_{sys}_up"])
+        jets[f"btag_{sys}_down"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval(f"down_{sys}", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB),jets[f"btag_{sys}_down"])
     SF_up=ak.prod(jets[f"btag_{sys}_up"], axis=-1)
     SF_down=ak.prod(jets[f"btag_{sys}_down"], axis=-1)
     return([SF_up,SF_down])

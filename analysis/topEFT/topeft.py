@@ -121,7 +121,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         year               = self._samples[dataset]["year"]
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
-        '''
+        
         if not isData:
             sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"]
             sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"]
@@ -133,7 +133,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"]
             sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"]
             sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown"]
-        '''
+        
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
@@ -203,8 +203,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ]
         wgt_correction_syst_lst = [
             "lepSFUp","lepSFDown","btag_jesUp","btag_lfUp","btag_hfstats1Up","btag_hfstats2Up","btag_cferr1Up","btag_cferr2Up","btag_hfUp","btag_lfstats1Up","btag_lfstats2Up","btag_jesDown","btag_lfDown","btag_hfstats1Down","btag_hfstats2Down","btag_cferr1Down","btag_cferr2Down","btag_hfDown","btag_lfstats1Down","btag_lfstats2Down","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
-            ]#"FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
-        #]
+            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
+        ]
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
@@ -225,12 +225,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             AttachScaleWeights(events)
             #AttachPdfWeights(events) # TODO
             # FSR/ISR weights
-            #weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
-            #weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
+            weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
+            weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
             # renorm/fact scale
-            #weights_any_lep_cat.add('renorm',     events.nom, events.renormUp*(sow/sow_renormUp),         events.renormDown*(sow/sow_renormDown))
-            #weights_any_lep_cat.add('fact',       events.nom, events.factUp*(sow/sow_factUp),             events.factDown*(sow/sow_factDown))
-            #weights_any_lep_cat.add('renormfact', events.nom, events.renormfactUp*(sow/sow_renormfactUp), events.renormfactDown*(sow/sow_renormfactDown))
+            weights_any_lep_cat.add('renorm',     events.nom, events.renormUp*(sow/sow_renormUp),         events.renormDown*(sow/sow_renormDown))
+            weights_any_lep_cat.add('fact',       events.nom, events.factUp*(sow/sow_factUp),             events.factDown*(sow/sow_factDown))
+            weights_any_lep_cat.add('renormfact', events.nom, events.renormfactUp*(sow/sow_renormfactUp), events.renormfactDown*(sow/sow_renormfactDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
             weights_any_lep_cat.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
             weights_any_lep_cat.add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 'up'), GetPUSF(events.Pileup.nTrueInt, year, 'down'))
