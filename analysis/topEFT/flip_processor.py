@@ -184,7 +184,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         #################### Event selection ####################
 
         # The event selection
-        add2lMaskAndSFs(events, year, isData, sampleType)
+        add2lMaskAndSFs(events, year, isData, sampleType, pt0=10.0, pt1=10.0)
         addLepCatMasks(events)
 
 
@@ -240,7 +240,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Cuts for the sparse "category" axis
         kinematic_cat_dict = {
 
-            "inclusive"  : ["l0_inclusive","l1_inclusive"], # Cross check that we're not missing anything
+            #"inclusive"  : ["l0_inclusive","l1_inclusive"], # Cross check that we're not missing anything
 
             "EH_EH" : ["l0_E","l0_H","l1_E","l1_H"],
 
