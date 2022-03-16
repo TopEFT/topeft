@@ -22,6 +22,28 @@ from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
 
+# Check if the values in an array are within a given range
+def in_range_mask(in_var,lo_lim=None,hi_lim=None):
+
+    # Make sure at least one of the cuts is not none
+    if (lo_lim is None) and (hi_lim is None):
+        raise Exception("Error: No cuts specified")
+
+    # Check if the value is greater than the min
+    if lo_lim is not None:
+        above_min = (in_var > lo_lim)
+    else:
+        above_min = (ak.ones_like(in_var)==1)
+
+    # Check if the value is less than or equal to the max
+    if hi_lim is not None:
+        below_max = (in_var <= hi_lim)
+    else:
+        below_max = (ak.ones_like(in_var)==1)
+
+    # Return the mask
+    return ak.fill_none((above_min & below_max),False)
+
 
 class AnalysisProcessor(processor.ProcessorABC):
 
@@ -32,9 +54,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         self._accumulator = processor.dict_accumulator({
-            "invmass" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
+            "invmass" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("category", "category"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 200)),
         })
-
 
     @property
     def accumulator(self):
@@ -49,7 +70,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Dataset parameters
         dataset = events.metadata["dataset"]
-
         isData             = self._samples[dataset]["isData"]
         histAxisName       = self._samples[dataset]["histAxisName"]
         year               = self._samples[dataset]["year"]
@@ -61,6 +81,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             if d in dataset: dataset = dataset.split('_')[0] 
 
         # Set the sampleType (used for MC matching requirement)
+        # Does not really matter for this processor, but still need to pass it to the selection function anyway
         conversionDatasets=[x%y for x in ['TTGJets_centralUL%d'] for y in [16,17,18]]
         nonpromptDatasets =[x%y for x in ['TTJets_centralUL%d','DY50_centralUL%d','DY10to50_centralUL%d','tbarW_centralUL%d','tW_centralUL%d','tbarW_centralUL%d'] for y in [16,17,18]]
         sampleType = 'prompt'
@@ -131,10 +152,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         m_fo['lostHits'] = ak.zeros_like(m_fo.charge); 
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
+        events["l_fo_conept_sorted"] = l_fo_conept_sorted
+
+        # Convenient to have l0, l1, l2 on hand
+        l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
+        l0 = l_fo_conept_sorted_padded[:,0]
+        l1 = l_fo_conept_sorted_padded[:,1]
 
 
         ######### Weights ###########
 
+        # NOTE Not tested yet and not used yet
         weights_object = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         if not isData:
             genw = events["genWeight"]
@@ -154,52 +182,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, "pt"), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
         goodJets = cleanedJets[cleanedJets.isGood]
         njets = ak.num(goodJets)
-        
-        # Loose DeepJet WP
-        if year == "2017":
-            btagwpl = get_param("btag_wp_loose_UL17")
-        elif year == "2018":
-            btagwpl = get_param("btag_wp_loose_UL18")
-        elif year=="2016":
-            btagwpl = get_param("btag_wp_loose_UL16")          
-        elif year=="2016APV":
-            btagwpl = get_param("btag_wp_loose_UL16APV")
-        else:
-            raise ValueError(f"Error: Unknown year \"{year}\".")
-        isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
-        isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
-        nbtagsl = ak.num(goodJets[isBtagJetsLoose])
-
-        # Medium DeepJet WP
-        if year == "2017": 
-            btagwpm = get_param("btag_wp_medium_UL17")
-        elif year == "2018":
-            btagwpm = get_param("btag_wp_medium_UL18")
-        elif year=="2016":
-            btagwpm = get_param("btag_wp_medium_UL16")
-        elif year=="2016APV":
-            btagwpm = get_param("btag_wp_medium_UL16APV")
-        else:
-            raise ValueError(f"Error: Unknown year \"{year}\".")
-        isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
-        isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
-        nbtagsm = ak.num(goodJets[isBtagJetsMedium])
 
 
-        #################### Add variables into event object so that they persist ####################
-
-        # Put njets and l_fo_conept_sorted into events
-        events["njets"] = njets
-        events["l_fo_conept_sorted"] = l_fo_conept_sorted
+        #################### Event selection ####################
 
         # The event selection
         add2lMaskAndSFs(events, year, isData, sampleType)
         addLepCatMasks(events)
-
-        # Convenient to have l0, l1, l2 on hand
-        l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
-        l0 = l_fo_conept_sorted_padded[:,0]
-        l1 = l_fo_conept_sorted_padded[:,1]
 
 
         ######### Store boolean masks with PackedSelection ##########
@@ -221,40 +210,93 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("ss", (charge2l_1))
         selections.add("2e", (events.is2l_nozeeveto & events.is2l_SR & events.is_ee &  sfosz_2l_mask & (njets<4) & pass_trg))
 
+        # Masks for the pt and eta ranges
+        pt0 = l0.pt
+        pt1 = l1.pt
+        eta0 = l0.eta
+        eta1 = l1.eta
 
-        ######### Variables for the dense axes of the hists ##########
+        # Masks for the pt ranges
+        # Note that in_range_mask will be inclusive of abs(eta)=2.5
+        # We want <2.5 (based on CMS AN-18-098)
+        # But this is ok, since objects.py already requires <2.5
+        selections.add("l0_E", in_range_mask(abs(l0.eta),lo_lim=1.479,hi_lim=2.5))
+        selections.add("l1_E", in_range_mask(abs(l1.eta),lo_lim=1.479,hi_lim=2.5))
+        selections.add("l0_B", in_range_mask(abs(l0.eta),lo_lim=None,hi_lim=1.479))
+        selections.add("l1_B", in_range_mask(abs(l1.eta),lo_lim=None,hi_lim=1.479))
+
+        # Masks for the pt ranges
+        selections.add("l0_H", in_range_mask(l0.pt,lo_lim=50.0,hi_lim=None))
+        selections.add("l1_H", in_range_mask(l1.pt,lo_lim=50.0,hi_lim=None))
+        selections.add("l0_M", in_range_mask(l0.pt,lo_lim=25.0,hi_lim=50.0))
+        selections.add("l1_M", in_range_mask(l1.pt,lo_lim=25.0,hi_lim=50.0))
+        selections.add("l0_L", in_range_mask(l0.pt,lo_lim=10.0,hi_lim=25.0))
+        selections.add("l1_L", in_range_mask(l1.pt,lo_lim=10.0,hi_lim=25.0))
+
+
+        ######### Variables for the dense and sparse axes of the hists ##########
 
         # Define invariant mass hists
-        mll_0_1 = (l0+l1).mass # Invmass for leading two leps
+        mll = (l0+l1).mass # Invmass for leading two leps
 
-        # Variables we will loop over when filling hists
-        varnames = {}
-        varnames["invmass"] = mll_0_1
+        cat_dict = {
+
+            "EH_EH" : ["l0_E","l0_H","l1_E","l1_H"],
+
+            "EH_BH" : ["l0_E","l0_H","l1_B","l1_H"],
+            "BH_BH" : ["l0_B","l0_H","l1_B","l1_H"],
+
+            "EH_EM" : ["l0_E","l0_H","l1_E","l1_M"],
+            "BH_EM" : ["l0_B","l0_H","l1_E","l1_M"],
+            "EM_EM" : ["l0_E","l0_M","l1_E","l1_M"],
+
+            "EH_BM" : ["l0_E","l0_H","l1_B","l1_M"],
+            "BH_BM" : ["l0_B","l0_H","l1_B","l1_M"],
+            "EM_BM" : ["l0_E","l0_M","l1_B","l1_M"],
+            "BM_BM" : ["l0_B","l0_M","l1_B","l1_M"],
+
+            "EH_EL" : ["l0_E","l0_H","l1_E","l1_L"],
+            "BH_EL" : ["l0_B","l0_H","l1_E","l1_L"],
+            "EM_EL" : ["l0_E","l0_M","l1_E","l1_L"],
+            "BM_EL" : ["l0_B","l0_M","l1_E","l1_L"],
+            "EL_EL" : ["l0_E","l0_L","l1_E","l1_L"],
+
+            "EH_BL" : ["l0_E","l0_H","l1_B","l1_L"],
+            "BH_BL" : ["l0_B","l0_H","l1_B","l1_L"],
+            "EM_BL" : ["l0_E","l0_M","l1_B","l1_L"],
+            "BM_BL" : ["l0_B","l0_M","l1_B","l1_L"],
+            "EL_BL" : ["l0_E","l0_L","l1_B","l1_L"],
+            "BL_BL" : ["l0_B","l0_L","l1_B","l1_L"],
+
+        }
+
 
         ########## Fill the histograms ##########
 
         hout = self.accumulator.identity()
 
-        # Loop over the hists we want to fill
-        for dense_axis_name, dense_axis_vals in varnames.items():
+        # Loop over the lepton channels
+        for chan_name in ["os","ss"]:
 
-            cuts_lst = ["2e"]
-            for chan_name in ["os","ss"]:
+            # Loop over the kinematic categories
+            for kinematic_cat_name in cat_dict.keys():
 
                 # Get the cut mask object
+                cuts_lst = ["2e"]
                 cuts_lst.append(chan_name)
+                cuts_lst = cuts_lst + cat_dict[kinematic_cat_name]
                 if isData: cuts_lst.append("is_good_lumi")
                 cuts_mask = selections.all(*cuts_lst)
 
-                # Fill the histos
+                # Fill the histo
                 axes_fill_info_dict = {
-                    dense_axis_name : dense_axis_vals[cuts_mask],
-                    "channel"       : chan_name,
-                    "sample"        : histAxisName,
+                    "invmass"  : mll[cuts_mask],
+                    "channel"  : chan_name,
+                    "category" : kinematic_cat_name,
+                    "sample"   : histAxisName,
                 }
 
-                hout[dense_axis_name].fill(**axes_fill_info_dict)
-
+                hout["invmass"].fill(**axes_fill_info_dict)
 
         return hout
 
