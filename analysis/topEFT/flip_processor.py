@@ -184,7 +184,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         #################### Event selection ####################
 
         # The event selection
-        add2lMaskAndSFs(events, year, isData, sampleType, pt0=10.0, pt1=10.0)
+        add2lMaskAndSFs(events, year, isData, sampleType, pt0=15.0, pt1=15.0)
         addLepCatMasks(events)
 
 
@@ -222,12 +222,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("l1_H", in_range_mask(l1.pt,lo_lim=50.0,hi_lim=None))
         selections.add("l0_M", in_range_mask(l0.pt,lo_lim=25.0,hi_lim=50.0))
         selections.add("l1_M", in_range_mask(l1.pt,lo_lim=25.0,hi_lim=50.0))
-        selections.add("l0_L", in_range_mask(l0.pt,lo_lim=10.0,hi_lim=25.0))
-        selections.add("l1_L", in_range_mask(l1.pt,lo_lim=10.0,hi_lim=25.0))
+        selections.add("l0_L", in_range_mask(l0.pt,lo_lim=15.0,hi_lim=25.0))
+        selections.add("l1_L", in_range_mask(l1.pt,lo_lim=15.0,hi_lim=25.0))
 
         # Inclusive ranges for a cross check
-        selections.add("l0_inclusive", (in_range_mask(l0.pt,lo_lim=10.0,hi_lim=None) & in_range_mask(abs(l0.eta),lo_lim=None,hi_lim=2.5)))
-        selections.add("l1_inclusive", (in_range_mask(l1.pt,lo_lim=10.0,hi_lim=None) & in_range_mask(abs(l1.eta),lo_lim=None,hi_lim=2.5)))
+        selections.add("l0_inclusive", (in_range_mask(l0.pt,lo_lim=15.0,hi_lim=None) & in_range_mask(abs(l0.eta),lo_lim=None,hi_lim=2.5)))
+        selections.add("l1_inclusive", (in_range_mask(l1.pt,lo_lim=15.0,hi_lim=None) & in_range_mask(abs(l1.eta),lo_lim=None,hi_lim=2.5)))
 
 
         ######### Variables for the dense and sparse axes of the hists ##########
@@ -240,27 +240,42 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Cuts for the sparse "category" axis
         kinematic_cat_dict = {
 
-            #"inclusive"  : ["l0_inclusive","l1_inclusive"], # Cross check that we're not missing anything
+            "inclusive"  : ["l0_inclusive","l1_inclusive"], # Cross check that we're not missing anything
 
             "EH_EH" : ["l0_E","l0_H","l1_E","l1_H"],
+            "BH_EH" : ["l0_B","l0_H","l1_E","l1_H"],
+            "EM_EH" : ["l0_E","l0_M","l1_E","l1_H"],
+            "BM_EH" : ["l0_B","l0_M","l1_E","l1_H"],
+            "EL_EH" : ["l0_E","l0_L","l1_E","l1_H"],
+            "BL_EH" : ["l0_B","l0_L","l1_E","l1_H"],
 
             "EH_BH" : ["l0_E","l0_H","l1_B","l1_H"],
             "BH_BH" : ["l0_B","l0_H","l1_B","l1_H"],
+            "EM_BH" : ["l0_E","l0_M","l1_B","l1_H"],
+            "BM_BH" : ["l0_B","l0_M","l1_B","l1_H"],
+            "EL_BH" : ["l0_E","l0_L","l1_B","l1_H"],
+            "BL_BH" : ["l0_B","l0_L","l1_B","l1_H"],
 
             "EH_EM" : ["l0_E","l0_H","l1_E","l1_M"],
             "BH_EM" : ["l0_B","l0_H","l1_E","l1_M"],
             "EM_EM" : ["l0_E","l0_M","l1_E","l1_M"],
+            "BM_EM" : ["l0_B","l0_M","l1_E","l1_M"],
+            "EL_EM" : ["l0_E","l0_L","l1_E","l1_M"],
+            "BL_EM" : ["l0_B","l0_L","l1_E","l1_M"],
 
             "EH_BM" : ["l0_E","l0_H","l1_B","l1_M"],
             "BH_BM" : ["l0_B","l0_H","l1_B","l1_M"],
             "EM_BM" : ["l0_E","l0_M","l1_B","l1_M"],
             "BM_BM" : ["l0_B","l0_M","l1_B","l1_M"],
+            "EL_BM" : ["l0_E","l0_L","l1_B","l1_M"],
+            "BL_BM" : ["l0_B","l0_L","l1_B","l1_M"],
 
             "EH_EL" : ["l0_E","l0_H","l1_E","l1_L"],
             "BH_EL" : ["l0_B","l0_H","l1_E","l1_L"],
             "EM_EL" : ["l0_E","l0_M","l1_E","l1_L"],
             "BM_EL" : ["l0_B","l0_M","l1_E","l1_L"],
             "EL_EL" : ["l0_E","l0_L","l1_E","l1_L"],
+            "BL_EL" : ["l0_B","l0_L","l1_E","l1_L"],
 
             "EH_BL" : ["l0_E","l0_H","l1_B","l1_L"],
             "BH_BL" : ["l0_B","l0_H","l1_B","l1_L"],
