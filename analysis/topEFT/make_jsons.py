@@ -566,6 +566,7 @@ central_UL17_bkg_dict = {
     },
     "UL17_WWTo2L2Nu" : {
         "path" : "/WWTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL17NanoAODv9/WWTo2L2Nu_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2/",
         "histAxisName": "WWTo2L2Nu_centralUL17",
         "xsecName": "WWTo2L2Nu",
     },
@@ -600,7 +601,8 @@ central_UL17_bkg_dict = {
         "xsecName": "WZZ",
     },
     "UL17_ZZTo4L" : {
-        "path" : "/store/mc/RunIISummer20UL17NanoAODv9/ZZTo4L_TuneCP5_13TeV_powheg_pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2",
+        "path" : "/ZZTo4L_TuneCP5_13TeV_powheg_pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL17NanoAODv9/ZZTo4L_TuneCP5_13TeV_powheg_pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2",
         "histAxisName": "ZZTo4L_centralUL17",
         "xsecName": "ZZTo4L",
     },
@@ -713,7 +715,8 @@ central_UL18_bkg_dict = {
 
 central_UL16_bkg_dict = {
     "UL16_DY10to50" : {
-        "path" : "/store/mc/RunIISummer20UL16NanoAODv9/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
+        "path" : "/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODv9/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
         "histAxisName": "DY10to50_centralUL16",
         "xsecName": "DYJetsToLL_M_10to50_MLM",
     },
@@ -723,12 +726,14 @@ central_UL16_bkg_dict = {
         "xsecName": "DYJetsToLL_M_50_MLM",
     },
     "UL16_ST_top_s-channel" : {
-        "path" : "/store/mc/RunIISummer20UL16NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5up_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v2",
+        "path" : "/ST_s-channel_4f_leptonDecays_TuneCP5up_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v2/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5up_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v2",
         "histAxisName": "ST_top_s-channel_centralUL16",
         "xsecName": "ST_top_s-channel",
     },
     "UL16_ST_top_t-channel" : {
         "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODv9/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8",
         "histAxisName": "ST_top_t-channel_centralUL16",
         "xsecName": "ST_top_t-channel",
     },
@@ -753,7 +758,8 @@ central_UL16_bkg_dict = {
         "xsecName": "TTGJets",
     },
     "UL16_TTJets" : {
-        "path" : "/store/mc/RunIISummer20UL16NanoAODv9/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
+        "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODv9/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
         "histAxisName": "TTJets_centralUL16",
         "xsecName": "TT",
     },
@@ -803,7 +809,8 @@ central_UL16_bkg_dict = {
         "xsecName": "WZZ",
     },
     "UL16_ZZTo4L" : {
-        "path" : "/store/mc/RunIISummer20UL16NanoAODv9/ZZTo4L_TuneCP5_13TeV_powheg_pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
+        "path" : "/ZZTo4L_TuneCP5_13TeV_powheg_pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODv9/ZZTo4L_TuneCP5_13TeV_powheg_pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
         "histAxisName": "ZZTo4L_centralUL16",
         "xsecName": "ZZTo4L",
     },
@@ -822,7 +829,8 @@ central_UL16_bkg_dict = {
 
 central_UL16APV_bkg_dict = {
     "UL16APV_DY10to50" : {
-        "path" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1", 
+        "path" : "/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1", 
         "histAxisName": "DY10to50_centralUL16APV",
         "xsecName": "DYJetsToLL_M_10to50_MLM",
     },
@@ -862,7 +870,8 @@ central_UL16APV_bkg_dict = {
         "xsecName": "TTGJets",
     },
     "UL16APV_TTJets" : {
-        "path" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1", 
+        "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1", 
         "histAxisName": "TTJets_centralUL16APV",
         "xsecName": "TT",
     },
@@ -872,7 +881,8 @@ central_UL16APV_bkg_dict = {
         "xsecName": "WWTo2L2Nu",
     },
     "UL16APV_WJetsToLNu" : {
-        "path" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2", 
+        "path" : "/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2", 
         "histAxisName": "WJetsToLNu_centralUL16APV",
         "xsecName": "WJetsToLNu",
     },
@@ -897,7 +907,8 @@ central_UL16APV_bkg_dict = {
         "xsecName": "WWZ",
     },
     "UL16APV_WZTo3LNu" : {
-        "path" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/WZTo3LNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1", 
+        "path" : "/WZTo3LNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/WZTo3LNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1", 
         "histAxisName": "WZTo3LNu_centralUL16APV",
         "xsecName": "WZTo3LNu",
     },
@@ -1112,6 +1123,11 @@ def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False
     for sample_name,sample_info in sorted(samples_dict.items()):
         print(f"\n\nMaking JSON for {sample_name}...")
         path = sample_info["path"]
+        if not on_das and "path_local" in sample_info:
+            # The bkg samples are now at ND, but we wanted to leave the dataset names in the dictionaries as well (in case we want to access remotely)
+            # So for these samples we have a "path" (i.e. dataset name to be used when on_das=True), as well as a "local_path" for acessing locally
+            # Note, it would probably make more sense to call "path" something like "path_das" (and "path_local" just "path"), but did not want to change the existing names..
+            path = sample_info["path_local"]
         hist_axis_name = sample_info["histAxisName"]
         xsec_name = sample_info["xsecName"]
         make_json(
