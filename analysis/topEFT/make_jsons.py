@@ -726,7 +726,8 @@ central_UL18_bkg_dict = {
         "xsecName": "WZZ",
     },
     "UL18_ZZTo4L" : {
-        "path" : "/ZZTo4L_TuneCP5_13TeV_powheg_pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available
+        "path" : "/ZZTo4L_TuneCP5_13TeV_powheg_pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/ZZTo4L_TuneCP5_13TeV_powheg_pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/",
         "histAxisName": "ZZTo4L_centralUL18",
         "xsecName": "ZZTo4L",
     },
@@ -1233,6 +1234,9 @@ def main():
     #make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
 
     # Central background samples
+    # Note: Some of the bkg dicts have both a "path" and a "path_local" (these are samples that generated JSONs for after moving the samples to ND),
+    #       while the others only have a "path" (i.e. dataset name), these were the ones we produced JSONs for prior to moving the samples to ND, but
+    #       these should also be located at ND, so if the samples need to be remade, you can add a "local_path" with the path starting with /store
     make_jsons_for_dict_of_samples(central_UL17_bkg_dict,   "/hadoop","2017",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
     make_jsons_for_dict_of_samples(central_UL18_bkg_dict,   "/hadoop","2018",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
     make_jsons_for_dict_of_samples(central_UL16_bkg_dict,   "/hadoop","2016",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
