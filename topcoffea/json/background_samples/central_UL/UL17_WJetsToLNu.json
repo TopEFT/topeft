@@ -91,5 +91,15 @@
   "nEvents": 78307186,
   "nGenEvents": 78307186,
   "nSumOfWeights": 1030816975.03636,
-  "isData": false
+  "isData": false,
+  "nSumOfWeights_ISRUp": 75207107.97668293,
+  "nSumOfWeights_ISRDown": 80783235.40964106,
+  "nSumOfWeights_FSRUp": 78200511.22474623,
+  "nSumOfWeights_FSRDown": 78391408.23002815,
+  "nSumOfWeights_renormUp": 78026186.71606445,
+  "nSumOfWeights_renormDown": 78651728.72155762,
+  "nSumOfWeights_factUp": 86433396.14904785,
+  "nSumOfWeights_factDown": 69324067.92020544,
+  "nSumOfWeights_renormfactUp": 86147861.32299805,
+  "nSumOfWeights_renormfactDown": 69659987.87183508
 }
