@@ -13,6 +13,7 @@ def strip(fname='ttx_multileptons-2lss_p_2b.txt'):
     fin = f.readlines()
     process = []
     rate = []
+    systs = []
     for line in fin:
         if 'process' in line:
             # Skip process number lines
@@ -24,7 +25,11 @@ def strip(fname='ttx_multileptons-2lss_p_2b.txt'):
             line = line.split()[1:]
             line = [float(l) for l in line]
             rate = line
-    return dict(zip(process, rate))
+        if 'flat' in line:
+            line = line.split()[2:]
+            line = [str(l) for l in line]
+            systs.append(line)
+    return [dict(zip(process, rate)), systs]
 
 '''
 Look at a pair of datacard contents from strip
@@ -63,8 +68,8 @@ def comp_datacard_dict(wc1, wc2):
     return True
 
 def comp_datacard(fin1, fin2):
-    wc1 = strip(fin1)
-    wc2 = strip(fin2)
+    wc1,_ = strip(fin1)
+    wc2,_ = strip(fin2)
     
     return comp_datacard_dict(wc1,wc2)
 

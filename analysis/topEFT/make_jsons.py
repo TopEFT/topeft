@@ -454,6 +454,26 @@ central_UL16_dict = {
         "histAxisName": "ttHJet_centralUL16",
         "xsecName": "ttHnobb",
     },
+    "UL16_TTWJetsToLNu" : {
+        "path" : "/TTWJetsToLNu_TuneCP5_PSweights_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1/NANOAODSIM",
+        "histAxisName": "ttW_centralUL16",
+        "xsecName": "TTWJetsToLNu",
+    },
+    "UL16_TTZToLLNuNu_M_10" : {
+        "path" : "/TTZToLLNuNu_M-10_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1/NANOAODSIM",
+        "histAxisName": "ttZ_centralUL16",
+        "xsecName": "TTZToLLNuNu_M_10",
+    },
+    "UL16_tZq" : {
+        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1/NANOAODSIM",
+        "histAxisName": "tZq_centralUL17",
+        "xsecName": "tZq",
+    },
+    "UL16_tttt" : {
+        "path" : "/TTTT_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v2/NANOAODSIM",
+        "histAxisName": "tttt_centralUL16",
+        "xsecName": "tttt",
+    },
 }
 
 central_UL16APV_dict = {
@@ -461,6 +481,11 @@ central_UL16APV_dict = {
         "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIISummer20UL16NanoAODAPVv2-106X_mcRun2_asymptotic_preVFP_v9-v1/NANOAODSIM",
         "histAxisName": "ttHJet_centralUL16APV",
         "xsecName": "ttHnobb",
+    },
+    "UL16APV_tZq" : {
+        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIISummer16NanoAODv6-PUMoriond17_Nano25Oct2019_102X_mcRun2_asymptotic_v7-v1/NANOAODSIM",
+        "histAxisName": "tZq_centralUL17",
+        "xsecName": "tZq",
     },
 }
 
