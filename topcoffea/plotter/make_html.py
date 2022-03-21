@@ -61,7 +61,7 @@ def getImages(tar_dir,file_type='png'):
     return fnames
 
 # Creates an index.html file at the specified location for displaying .png files in a web-browser
-def make_html(tar_dir):
+def make_html(tar_dir, width=355, height=355):
     home_dir = os.getcwd()
     if not os.path.exists(tar_dir):
         print(f"Target directory does not exists: {tar_dir}")
@@ -92,7 +92,10 @@ def make_html(tar_dir):
         div_tag   = DivisionTag(); my_html.addBodyTag(div_tag)
         image_tag = ImgTag()
         text_div  = DivisionTag()
+        if os.path.exists(fname.replace('png','pdf')):
+            fname = fname.replace('png','pdf')
         link_tag  = HyperLinkTag(link_location="./%s" % (fname),link_name='')
+        fname = fname.replace('pdf','png')
 
         # This ensures the pretty_print setting gets inherited properly
         div_tag.addTag(link_tag); div_tag.addTag(text_div)
@@ -100,11 +103,11 @@ def make_html(tar_dir):
 
 
         #image_tag.addAttributes(width=355,height=229,border=0,src="./%s" % (fname))
-        image_tag.addAttributes(width=355,height=355,border=0,src="./%s" % (fname))
+        image_tag.addAttributes(width=width,height=height,border=0,src="./%s" % (fname))
 
         link_tag.addAttributes(target='_blank')
         
-        text_div.addAttributes(style='width:355px',id='imgName')
+        text_div.addAttributes(style=f'width:{width}px',id='imgName')
         text_div.setContent(image_name)
 
         #div_tag.addAttribute('class','image')

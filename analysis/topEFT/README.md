@@ -81,3 +81,8 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 * `update_json_sow.py`:
     - This script updates the actual json files corresponding to the samples run with `run_sow.py`
     - Example usage: `python update_json_sow.py histos/sowTopEFT.pkl.gz`
+
+* `missing_parton.py`:
+    - This script compares two sets of datacards (central NLO and private LO) and computes the necessary uncertainty to bring them into agreement (after account for all included systematics).
+    - Datacards should be copied to `histos/central_sm` and `histos/private_sm` respectively.
+    - Example usage: `python analysis/topEFT/missing_parton.py --output-path ~/www/coffea/master/1D/ --years 2017`
