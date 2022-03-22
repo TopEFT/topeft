@@ -161,13 +161,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         l1 = l_fo_conept_sorted_padded[:,1]
 
 
-        ######### Weights ###########
-
-        weights_object = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
-        if not isData: weights_object.add("norm",(xsec/sow)*events["genWeight"])
-        else: weights_object.add("norm",np.ones_like(events["event"]))
-
-
         #################### Jets ####################
 
         # Jet cleaning, before any jet selection
@@ -186,6 +179,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         # The event selection
         add2lMaskAndSFs(events, year, isData, sampleType)
         addLepCatMasks(events)
+
+
+        ######### Weights ###########
+
+        weights_object = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+        if not isData: weights_object.add("norm",(xsec/sow)*events["genWeight"])
+        else: weights_object.add("norm",np.ones_like(events["event"]))
+
+        # Apply the flip rate to OS as a cross check
+        weights_object.add("fliprate", events.flipfactor_2l)
 
 
         ######### Store boolean masks with PackedSelection ##########
@@ -229,6 +232,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("l0_inclusive", (in_range_mask(l0.pt,lo_lim=15.0,hi_lim=None) & in_range_mask(abs(l0.eta),lo_lim=None,hi_lim=2.5)))
         selections.add("l1_inclusive", (in_range_mask(l1.pt,lo_lim=15.0,hi_lim=None) & in_range_mask(abs(l1.eta),lo_lim=None,hi_lim=2.5)))
 
+        #print("pt:",l0.pt)
+        #print("eta:",l0.eta)
+        #for i,x in enumerate(l0):
+        #    print("\n",i)
+        #    if x is not None: print(x.fliprate,x.pdgId)
+        #    #if x is not None: print(1+x)
+        #exit()
 
         ######### Variables for the dense and sparse axes of the hists ##########
 
