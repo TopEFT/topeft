@@ -101,7 +101,7 @@ def AttachPerLeptonFR(leps, flavor, year):
     fr=SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](leps.conept, np.abs(leps.eta) )
     leps['fakefactor%s'%syst]=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
   if flavor=="Elec":
-    leps['fliprate']=SFevaluator["EleFlip_%s"%year]( np.maximum(25.,leps.pt), np.abs(leps.eta))
+    leps['fliprate']=SFevaluator["EleFlip_%s"%year]( np.maximum(11.0,leps.pt), np.abs(leps.eta))
   else:
     leps['fliprate']=np.zeros_like(leps.pt)
 
