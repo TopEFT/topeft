@@ -198,7 +198,7 @@ def trgPassNoOverlap(events,is_data,dataset,year):
 
 
 # 2l selection (we do not make the ss requirement here)
-def add2lMaskAndSFs(events, year, isData, sampleType, pt0=25.0, pt1=15.0):
+def add2lMaskAndSFs(events, year, isData, sampleType):
 
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
@@ -220,7 +220,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType, pt0=25.0, pt1=15.0):
     # 2l requirements:
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
     dilep = (ak.num(FOs)) >= 2
-    pt2515 = (ak.any(FOs[:,0:1].conept > pt0, axis=1) & ak.any(FOs[:,1:2].conept > pt1, axis=1))
+    pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
     mask = (filters & cleanup & dilep & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
     
     # MC matching requirement (already passed for data)

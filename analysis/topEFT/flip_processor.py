@@ -184,7 +184,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         #################### Event selection ####################
 
         # The event selection
-        add2lMaskAndSFs(events, year, isData, sampleType, pt0=15.0, pt1=15.0)
+        add2lMaskAndSFs(events, year, isData, sampleType)
         addLepCatMasks(events)
 
 
