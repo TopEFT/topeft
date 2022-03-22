@@ -684,7 +684,7 @@ class DatacardMaker():
         datacard.write('observation %%.%df\n' % 3 % allyields['data_obs'])
         #datacard.write('observation %%.%df\n' % np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])) % allyields['data_obs'])
         datacard.write('##----------------------------------\n')
-        klen = max([7, len(cat)]+[len(p[0]) for p in iproc.keys()])
+        klen = max([7, len(cat)]+[len(p) for p in iproc.keys()])
         kpatt = " %%%ds "  % klen
         fpatt = " %%%d.%df " % (klen,np.abs(3))
         #fpatt = " %%%d.%df " % (klen,np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])))#3)
