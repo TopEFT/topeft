@@ -58,5 +58,15 @@
   "nGenEvents": 15000000,
   "nSumOfWeights": 94.40149244006012,
   "isData": false,
-  "path": "/store/user/kmohrman/FullProduction/FullR2/UL16APV/Round1/Batch1/naodOnly_step/v2/nAOD_step_tttt_FourtopsMay3v1_run0"
+  "path": "/store/user/kmohrman/FullProduction/FullR2/UL16APV/Round1/Batch1/naodOnly_step/v2/nAOD_step_tttt_FourtopsMay3v1_run0",
+  "nSumOfWeights_ISRUp": 94.39558463936109,
+  "nSumOfWeights_ISRDown": 94.40429651396407,
+  "nSumOfWeights_FSRUp": 94.60513379371767,
+  "nSumOfWeights_FSRDown": 94.3322387921118,
+  "nSumOfWeights_renormUp": 68.55497440512647,
+  "nSumOfWeights_renormDown": 134.48827259603422,
+  "nSumOfWeights_factUp": 81.82566606200842,
+  "nSumOfWeights_factDown": 110.30210561606927,
+  "nSumOfWeights_renormfactUp": 59.43166404700732,
+  "nSumOfWeights_renormfactDown": 157.1669224692717
 }
