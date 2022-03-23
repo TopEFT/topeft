@@ -16,8 +16,8 @@ class DatacardMaker():
 
     def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False, build_var='ptbl'):
         self.hists = {}
-        self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
-        self.rename = {**self.rename, **{'ttH_centralUL17': 'ttH', 'ttH_centralUL16': 'ttH', 'ttH_centralUL18': 'ttH', 'ttHJetToNonbb_M125_centralUL16': 'ttH', 'ttHJetToNonbb_M125_APV_centralUL16': 'ttH', 'ttW_centralUL17': 'ttW', 'ttZ_centralUL17': 'ttZ', 'tZq_centralUL17': 'tllq', 'ttH_centralUL17': 'ttH', 'ttW_centralUL18': 'ttW', 'ttZ_centralUL18': 'ttZ', 'tZq_centralUL18': 'tllq', 'ttH_centralUL18': 'ttH'}}
+        self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll', 'ttW': 'ttlnu'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
+        self.rename = {**self.rename, **{'ttH_centralUL17': 'ttH', 'ttH_centralUL16': 'ttH', 'ttH_centralUL18': 'ttH', 'ttHJetToNonbb_M125_centralUL16': 'ttH', 'ttHJetToNonbb_M125_APV_centralUL16': 'ttH', 'ttW_centralUL17': 'ttlnu', 'ttZ_centralUL17': 'ttll', 'tZq_centralUL17': 'tllq', 'ttH_centralUL17': 'ttH', 'ttW_centralUL18': 'ttlnu', 'ttZ_centralUL18': 'ttll', 'tZq_centralUL18': 'tllq', 'ttH_centralUL18': 'ttH'}}
         self.syst_terms =['LF', 'JES', 'MURMUF', 'CERR1', 'MUR', 'CERR2', 'PSISR', 'HFSTATS1', 'Q2RF', 'FR_FF', 'HFSTATS2', 'LFSTATS1', 'TRG', 'LFSTATS2', 'MUF', 'PDF', 'HF', 'PU', 'LEPID']
         # Special systematics
         # {'syst', x} will apply 1+x to _all_ categories
@@ -151,7 +151,7 @@ class DatacardMaker():
         rename = {k: 'fakes' if bool(re.search('nonprompt', v)) else v for k,v in rename.items()}
         rename = {k: 'charge_flips' if bool(re.search('flips', v)) else v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
-        rename = {k.split('_')[0]: v for k,v in rename.items()}
+        rename = {k.split('_')[0]: v for k,v in self.rename.items()}
         self.rename = {**self.rename, **rename}
         self.has_nonprompt = not any(['appl' in str(a) for a in self.hists['njets'].axes()]) # Check for nonprompt samples by looking for 'appl' axis
         self.syst = list({k[2]:0 for k in self.hists[self.build_var].values().keys()})
@@ -307,7 +307,7 @@ class DatacardMaker():
                 export1d(h_sm, 'data_obs', 'sm', fout)
 
             isSignal = p in self.signal or self.rename[p] in self.signal
-            if not self.do_sm and isSignal:
+            if not self.do_sm and isSignal and self.wcs is not None:
                 h_lin = h_bases; h_quad = None; h_mix = None
                 for name,wcpt in self.wcs:
                     # Scale plot to the WCPoint
@@ -684,7 +684,7 @@ class DatacardMaker():
         datacard.write('observation %%.%df\n' % 3 % allyields['data_obs'])
         #datacard.write('observation %%.%df\n' % np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])) % allyields['data_obs'])
         datacard.write('##----------------------------------\n')
-        klen = max([7, len(cat)]+[len(p[0]) for p in iproc.keys()])
+        klen = max([7, len(cat)]+[len(p) for p in iproc.keys()])
         kpatt = " %%%ds "  % klen
         fpatt = " %%%d.%df " % (klen,np.abs(3))
         #fpatt = " %%%d.%df " % (klen,np.abs(int(np.format_float_scientific(self.tolerance).split('e')[1])))#3)
@@ -718,27 +718,23 @@ class DatacardMaker():
         if len(wc)==0:
             wcpt = None
         # Case for a single wc
-        elif isinstance(wc, str):
-            wl = {k:0 for k in self.coeffs}
-            wl[wc] = 1.
-            wcpt.append([f'lin_{wc}', wl])
-        elif len(wc)==1:
-            wl = {k:0 for k in self.coeffs}
-            wl[wc] = 1.
-            wcpt.append([f'lin_{wc}', wl])
+        elif (isinstance(wc,list) and (len(wc)==1)):
+            wc = wc[0] # Grab the str from the list
+            wcpt.append([f'lin_{wc}', {wc: 1.0}])
+            wcpt.append([f'quad_{wc}', {wc: 2.0}])
         # Case for 2+ wcs
-        else:
+        elif (isinstance(wc,list) and (len(wc)>1)):
             pairs = [[wc[w1],wc[w2]] for w1 in range(len(wc)) for w2 in range(0, w1+1)]
             wcpt = []
             lin = []
             quad = []
             mixed = []
-            #linear terms
+            # Linear terms
             for n,w in enumerate(wc):
                 wl = {k:0 for k in self.coeffs}
                 wl[w] = 1.
                 wcpt.append([f'lin_{w}', wl])
-            #quadratic terms
+                # Quadratic terms
                 for m,w in enumerate([[w,wc[w2]] for w2 in range(0, n+1)]):
                     wc1 = w[0]
                     wc2 = w[1]
@@ -749,6 +745,8 @@ class DatacardMaker():
                         wl[wc1] = 1.; wl[wc2] = 1.;
                     if(wc1==wc2):  wcpt.append([f'quad_{wc1}', wl])
                     else: wcpt.append([f'quad_mixed_{wc1}_{wc2}', wl])
+        else:
+            raise Exception(f"Error: the WCs \"{wc}\" are specified in an unknown format")
         self.wcs     = wcpt
         return wcpt
     def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm, var_lst):
@@ -849,17 +847,19 @@ if __name__ == '__main__':
     # Set up cards lst
     for var in include_var_lst:
         if var == 'ptz': continue # This var only applies to a subset of the channels
-        cards = [{'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                 {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
-                 {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
-                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                 {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-                 {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}]
+        cards = [
+            {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+            {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+            {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
+            {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
+            {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+            {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+            {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+            {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+            {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+            {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
+            {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}
+        ]
         jobs.append(cards)
     if 'ptz' in include_var_lst:
         cards = [

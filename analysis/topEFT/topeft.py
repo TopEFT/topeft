@@ -203,7 +203,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ]
         wgt_correction_syst_lst = [
             "lepSFUp","lepSFDown","btag_jesUp","btag_lfUp","btag_hfstats1Up","btag_hfstats2Up","btag_cferr1Up","btag_cferr2Up","btag_hfUp","btag_lfstats1Up","btag_lfstats2Up","btag_jesDown","btag_lfDown","btag_hfstats1Down","btag_hfstats2Down","btag_cferr1Down","btag_cferr2Down","btag_hfDown","btag_lfstats1Down","btag_lfstats2Down","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
-            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
+            "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets

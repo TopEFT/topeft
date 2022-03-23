@@ -5,7 +5,7 @@ import numpy as np
 import copy
 import coffea
 from coffea import hist
-#from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.GetValuesFromJsons import get_lumi
 
@@ -195,23 +195,26 @@ class YieldTools():
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
 
-        # If no hist specified, just choose the first one
-        if h_name is None:
-            all_hists = self.get_hist_list(hin_dict)
-            for h in all_hists:
-                if h != "SumOfEFTweights":
-                    h_name = h
-                    break
+        # If the hin is not a histo, then get one of the histos from inside of it
+        if not isinstance(hin_dict,HistEFT):
 
-            # If we failed to find a hist, raise exception
+            # If no hist specified, just choose the first one
             if h_name is None:
-                raise Exception("There are no hists in this hist dict")
+                all_hists = self.get_hist_list(hin_dict)
+                for h in all_hists:
+                    if h != "SumOfEFTweights":
+                        h_name = h
+                        break
 
-        # Chek if what we have is the output of the processsor, if so, get a specific hist from it
-        if isinstance(hin_dict,coffea.processor.accumulator.dict_accumulator):
-            hin_dict = hin_dict[h_name]
-        elif isinstance(hin_dict,dict):
-            hin_dict = hin_dict[h_name]
+                # If we failed to find a hist, raise exception
+                if h_name is None:
+                    raise Exception("There are no hists in this hist dict")
+
+            # Chek if what we have is the output of the processsor, if so, get a specific hist from it
+            if isinstance(hin_dict,coffea.processor.accumulator.dict_accumulator):
+                hin_dict = hin_dict[h_name]
+            elif isinstance(hin_dict,dict):
+                hin_dict = hin_dict[h_name]
 
         # Note: Use h.identifiers('axis') here, not axis.identifiers() (since according to Nick Smith "the axis may hold identifiers longer than the hist that uses it (hists can share axes)", but h.identifiers('axis') will get the ones actually contained in the histogram)
         cats_lst = []
@@ -262,7 +265,7 @@ class YieldTools():
 
     # This should return true if the hist is split by lep flavor, definitely not a bullet proof check..
     def is_split_by_lepflav(self,hin_dict):
-        ch_names_lst = self.get_cat_lables(hin_dict,h_name="ht",axis="channel")
+        ch_names_lst = self.get_cat_lables(hin_dict,axis="channel")
         lep_flav_lst = ["ee","em","mm","eee","eem","emm","mmm"]
         for ch_name in ch_names_lst:
             for lep_flav_name in lep_flav_lst:
