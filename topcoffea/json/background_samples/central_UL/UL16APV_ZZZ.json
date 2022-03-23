@@ -33,5 +33,14 @@
   "nSumOfWeights": 79507.9063035,
   "isData": false,
   "path": "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
-  "pdfType": "NNPDF31_nnlo_as_0118_mc_hessian_pdfas"
+  "nSumOfWeights_ISRUp": 79500.49940698405,
+  "nSumOfWeights_ISRDown": 79507.49507388336,
+  "nSumOfWeights_FSRUp": 79498.77888302947,
+  "nSumOfWeights_FSRDown": 79507.35976333887,
+  "nSumOfWeights_renormUp": 77982.26526348156,
+  "nSumOfWeights_renormDown": 81334.42065978106,
+  "nSumOfWeights_factUp": 79384.42989916052,
+  "nSumOfWeights_factDown": 79832.03393855935,
+  "nSumOfWeights_renormfactUp": 77830.3586277354,
+  "nSumOfWeights_renormfactDown": 81670.52598867065
 }
