@@ -104,6 +104,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu["conept"] = coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
         e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+
+        if not isData:
+            e["gen_pdgId"] = e.matched_gen.pdgId
+            mu["gen_pdgId"] = mu.matched_gen.pdgId
         
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
@@ -204,12 +208,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
         charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
 
+        # MC truth for flips
+        flip_l0 = (l0.gen_pdgId == -l0.pdgId)
+        flip_l1 = (l1.gen_pdgId == -l1.pdgId)
+        truth_flip_mask = ((flip_l0 | flip_l1) & ~(flip_l0 & flip_l1)) # One or the other flips, but not both
+
         # Selections
         selections = PackedSelection(dtype='uint64')
         selections.add("is_good_lumi",lumi_mask)
         selections.add("osz", (charge2l_0 & sfosz_2l_mask))
         selections.add("ssz", (charge2l_1 & sfssz_2l_mask))
         selections.add("2e", (events.is2l_nozeeveto & events.is2l_SR & events.is_ee & (njets<4) & pass_trg))
+        if not isData:
+            selections.add("sszTruthFlip", (charge2l_1 & sfssz_2l_mask & truth_flip_mask))
 
         # Masks for the pt ranges
         # Note that in_range_mask will be inclusive of abs(eta)=2.5
@@ -232,13 +243,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("l0_inclusive", (in_range_mask(l0.pt,lo_lim=15.0,hi_lim=None) & in_range_mask(abs(l0.eta),lo_lim=None,hi_lim=2.5)))
         selections.add("l1_inclusive", (in_range_mask(l1.pt,lo_lim=15.0,hi_lim=None) & in_range_mask(abs(l1.eta),lo_lim=None,hi_lim=2.5)))
 
-        #print("pt:",l0.pt)
-        #print("eta:",l0.eta)
-        #for i,x in enumerate(l0):
-        #    print("\n",i)
-        #    if x is not None: print(x.fliprate,x.pdgId)
-        #    #if x is not None: print(1+x)
-        #exit()
 
         ######### Variables for the dense and sparse axes of the hists ##########
 
@@ -300,11 +304,15 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         hout = self.accumulator.identity()
 
+        # Set the list of channels to loop over
+        chan_lst = ["osz","ssz"]
+        if not isData: chan_lst.append("sszTruthFlip")
+
         # Loop over histograms to fill (just invmass, njets for now)
         for dense_axis_name, dense_axis_vals in dense_var_dict.items():
 
             # Loop over the lepton channels
-            for chan_name in ["osz","ssz"]:
+            for chan_name in chan_lst:
 
                 # Loop over the kinematic categories
                 for kinematic_cat_name in kinematic_cat_dict.keys():
