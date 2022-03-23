@@ -108,6 +108,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isData:
             e["gen_pdgId"] = e.matched_gen.pdgId
             mu["gen_pdgId"] = mu.matched_gen.pdgId
+            e["gen_parent_pdgId"] = e.matched_gen.distinctParent.pdgId
+            mu["gen_parent_pdgId"] = mu.matched_gen.distinctParent.pdgId
+            e["gen_gparent_pdgId"] = e.matched_gen.distinctParent.distinctParent.pdgId
+            mu["gen_gparent_pdgId"] = mu.matched_gen.distinctParent.distinctParent.pdgId
         
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
@@ -211,7 +215,25 @@ class AnalysisProcessor(processor.ProcessorABC):
         # MC truth for flips
         flip_l0 = (l0.gen_pdgId == -l0.pdgId)
         flip_l1 = (l1.gen_pdgId == -l1.pdgId)
-        truth_flip_mask = ((flip_l0 | flip_l1) & ~(flip_l0 & flip_l1)) # One or the other flips, but not both
+        from_g_l0 = (abs(l0.gen_parent_pdgId) == 22)
+        from_g_l1 = (abs(l1.gen_parent_pdgId) == 22)
+        from_z_l0 = (abs(l0.gen_parent_pdgId) == 23)
+        from_z_l1 = (abs(l1.gen_parent_pdgId) == 23)
+        from_h_l0 = (abs(l0.gen_parent_pdgId) == 25)
+        from_h_l1 = (abs(l1.gen_parent_pdgId) == 25)
+        from_tau_l0 = ((abs(l0.gen_parent_pdgId) == 15) & ((abs(l0.gen_gparent_pdgId) == 22) | (abs(l0.gen_gparent_pdgId) == 23) | (abs(l0.gen_gparent_pdgId) == 25)))
+        from_tau_l1 = ((abs(l1.gen_parent_pdgId) == 15) & ((abs(l0.gen_gparent_pdgId) == 22) | (abs(l0.gen_gparent_pdgId) == 23) | (abs(l0.gen_gparent_pdgId) == 25)))
+        isprompt_2l = ((from_z_l0 & from_z_l1) | (from_g_l0 & from_g_l1) | (from_h_l0 & from_h_l1) | (from_tau_l0 & from_tau_l1))
+        truth_flip_mask = (isprompt_2l & (flip_l0 | flip_l1) & ~(flip_l0 & flip_l1)) # One or the other flips, but not both
+
+        # Print info about MC truth
+        #print("isprompt_2l",isprompt_2l)
+        #print("truth_flip_mask",truth_flip_mask)
+        #for i,x in enumerate(truth_flip_mask):
+        #    if x is not None:
+        #        print("\n",i,x,l0[i].pdgId,l1[i].pdgId,l0[i].gen_pdgId,l1[i].gen_pdgId,l0[i].gen_parent_pdgId,l1[i].gen_parent_pdgId,l0[i].gen_gparent_pdgId,l1[i].gen_gparent_pdgId)
+        #        print("from_z_l0, from_z_l1, from_g_l0, from_g_l1, from_tau_l0, from_tau_l1, isprompt_2l",from_z_l0[i], from_z_l1[i], from_g_l0[i], from_g_l1[i], from_tau_l0[i], from_tau_l1[i], isprompt_2l[i])
+        #        print("truth_flip_mask",truth_flip_mask[i])
 
         # Selections
         selections = PackedSelection(dtype='uint64')
