@@ -991,7 +991,7 @@ version_overwrite = {
     'DoubleEG': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=DoubleEG%2FRun2016
         'B-ver1_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
         'B-ver2_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v3',
-        'C-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v3',
+        'C-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
         'D-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
         'E-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
         'F-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
