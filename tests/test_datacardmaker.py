@@ -7,7 +7,6 @@ import os
 import gzip
 import subprocess
 import json
-from topcoffea.modules.comp_datacard import comp_datacard 
 
 # Let's generate some fake data to use for testing
 nevts = 1

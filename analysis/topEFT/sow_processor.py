@@ -85,18 +85,18 @@ class AnalysisProcessor(processor.ProcessorABC):
         hout["SumOfWeights"].fill(sample=dataset, SumOfWeights=counts, weight=wgts, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
         # Fill ISR/FSR histos
-        hout["SumOfWeights_ISRUp"].fill(sample=dataset,   SumOfWeights=counts, weight=events.ISRUp,   eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_ISRDown"].fill(sample=dataset, SumOfWeights=counts, weight=events.ISRDown, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_FSRUp"].fill(sample=dataset,   SumOfWeights=counts, weight=events.FSRUp,   eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_FSRDown"].fill(sample=dataset, SumOfWeights=counts, weight=events.FSRDown, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights_ISRUp"].fill(sample=dataset,   SumOfWeights=counts, weight=wgts*events.ISRUp,   eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights_ISRDown"].fill(sample=dataset, SumOfWeights=counts, weight=wgts*events.ISRDown, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights_FSRUp"].fill(sample=dataset,   SumOfWeights=counts, weight=wgts*events.FSRUp,   eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights_FSRDown"].fill(sample=dataset, SumOfWeights=counts, weight=wgts*events.FSRDown, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
         # Fill renorm/fact histos
-        hout["SumOfWeights_renormUp"].fill(sample=dataset,       SumOfWeights=counts, weight=events.renormUp,       eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_renormDown"].fill(sample=dataset,     SumOfWeights=counts, weight=events.renormDown,     eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_factUp"].fill(sample=dataset,         SumOfWeights=counts, weight=events.factUp,         eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_factDown"].fill(sample=dataset,       SumOfWeights=counts, weight=events.factDown,       eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_renormfactUp"].fill(sample=dataset,   SumOfWeights=counts, weight=events.renormfactUp,   eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_renormfactDown"].fill(sample=dataset, SumOfWeights=counts, weight=events.renormfactDown, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights_renormUp"].fill(sample=dataset,       SumOfWeights=counts, weight=wgts*events.renormUp,       eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights_renormDown"].fill(sample=dataset,     SumOfWeights=counts, weight=wgts*events.renormDown,     eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights_factUp"].fill(sample=dataset,         SumOfWeights=counts, weight=wgts*events.factUp,         eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights_factDown"].fill(sample=dataset,       SumOfWeights=counts, weight=wgts*events.factDown,       eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights_renormfactUp"].fill(sample=dataset,   SumOfWeights=counts, weight=wgts*events.renormfactUp,   eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights_renormfactDown"].fill(sample=dataset, SumOfWeights=counts, weight=wgts*events.renormfactDown, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
         return hout
 
