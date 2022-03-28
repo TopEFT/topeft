@@ -1,0 +1,26 @@
+{
+  "xsec": 3.68,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "ST_top_s-channel_centralUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16_ST_top_s_channel/output_1944.root"
+  ],
+  "nEvents": 2599000,
+  "nGenEvents": 2599000,
+  "nSumOfWeights": 9229726.931358002,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL16NanoAODv9/ST_s-channel_4f_leptonDecays_TuneCP5up_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v2",
+  "nSumOfWeights_ISRUp": 9230796.199910257,
+  "nSumOfWeights_ISRDown": 9228370.583686162,
+  "nSumOfWeights_FSRUp": 9243231.819175363,
+  "nSumOfWeights_FSRDown": 9225665.776983976,
+  "nSumOfWeights_renormUp": 4511468.479676006,
+  "nSumOfWeights_renormDown": 4741701.254706745,
+  "nSumOfWeights_factUp": 4667306.164659918,
+  "nSumOfWeights_factDown": 4551127.677123281,
+  "nSumOfWeights_renormfactUp": 4567993.027569221,
+  "nSumOfWeights_renormfactDown": 4684745.3083886495
+}
