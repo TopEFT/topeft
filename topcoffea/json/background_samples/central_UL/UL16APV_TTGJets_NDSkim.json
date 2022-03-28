@@ -1,0 +1,25 @@
+{
+  "xsec": 3.697,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "TTGJets_centralUL16APV",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16APV_TTGJets/output_2431.root"
+  ],
+  "nEvents": 1511805,
+  "nGenEvents": 1511805,
+  "nSumOfWeights": 9472781.3904,
+  "isData": false,
+  "nSumOfWeights_ISRUp": 9267309.0303618,
+  "nSumOfWeights_ISRDown": 9643312.308250599,
+  "nSumOfWeights_FSRUp": 9472642.522189781,
+  "nSumOfWeights_FSRDown": 9474851.320811808,
+  "nSumOfWeights_renormUp": 8544365.011553768,
+  "nSumOfWeights_renormDown": 10129566.236778438,
+  "nSumOfWeights_factUp": 9345601.559740363,
+  "nSumOfWeights_factDown": 9636067.547406308,
+  "nSumOfWeights_renormfactUp": 8327449.191460289,
+  "nSumOfWeights_renormfactDown": 10066014.514502535
+}
