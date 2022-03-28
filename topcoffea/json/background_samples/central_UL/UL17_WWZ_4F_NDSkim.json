@@ -1,0 +1,25 @@
+{
+  "xsec": 0.1651,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "WWZ_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_WWZ_4F/output_1434.root"
+  ],
+  "nEvents": 178000,
+  "nGenEvents": 178000,
+  "nSumOfWeights": 30386.291709359997,
+  "isData": false,
+  "nSumOfWeights_ISRUp": 30382.93903383555,
+  "nSumOfWeights_ISRDown": 30386.748128346866,
+  "nSumOfWeights_FSRUp": 30323.55243015173,
+  "nSumOfWeights_FSRDown": 30417.42048225645,
+  "nSumOfWeights_renormUp": 29354.317680080538,
+  "nSumOfWeights_renormDown": 31630.748928149937,
+  "nSumOfWeights_factUp": 29925.949822715786,
+  "nSumOfWeights_factDown": 30942.4061507497,
+  "nSumOfWeights_renormfactUp": 28913.44254372264,
+  "nSumOfWeights_renormfactDown": 32225.087586898127
+}

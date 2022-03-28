@@ -1,0 +1,26 @@
+{
+  "xsec": 80.95,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "ST_antitop_t-channel_centralUL16APV",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16APV_ST_antitop_t_channel/output_2458.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16APV_ST_antitop_t_channel/output_3573.root"
+  ],
+  "nEvents": 31024000,
+  "nGenEvents": 31024000,
+  "nSumOfWeights": 1983864521.596481,
+  "isData": false,
+  "nSumOfWeights_ISRUp": 1983913842.8167925,
+  "nSumOfWeights_ISRDown": 1983821004.77805,
+  "nSumOfWeights_FSRUp": 1983692777.003479,
+  "nSumOfWeights_FSRDown": 1983970387.6523468,
+  "nSumOfWeights_renormUp": 1872966081.156285,
+  "nSumOfWeights_renormDown": 2088200973.2852716,
+  "nSumOfWeights_factUp": 1991070705.6984458,
+  "nSumOfWeights_factDown": 1987666349.0263133,
+  "nSumOfWeights_renormfactUp": 1872181762.0944927,
+  "nSumOfWeights_renormfactDown": 2087757039.6350336
+}
