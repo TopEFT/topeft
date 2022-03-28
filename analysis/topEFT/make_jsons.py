@@ -989,13 +989,46 @@ dataset_eras = [# See: https://twiki.cern.ch/twiki/bin/view/CMS/PdmVDatasetsUL20
 
 version_overwrite = {
     'DoubleEG': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=DoubleEG%2FRun2016
-        'B-ver2_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'B-ver1_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'B-ver2_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v3',
+        'C-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'D-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'E-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'F-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
     },
     'DoubleMuon': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=DoubleMuon%2FRun2016
+        'B-ver1_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'B-ver2_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'C-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'D-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'E-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'F-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
         'G-UL2016': 'MiniAODv2_NanoAODv9-v2',
     },
-    'SingleElectron': {},
-    'SingleMuon': {},
+    'MuonEG': {
+        'B-ver1_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'B-ver2_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'C-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'D-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'E-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'F-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+    },
+    'SingleElectron': {
+        'B-ver1_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'B-ver2_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'C-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'D-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'E-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'F-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+    },
+    'SingleMuon': {
+        'B-ver1_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'B-ver2_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'C-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'D-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'E-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+        'F-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
+    },
 }
 
 data_2016_dict = defaultdict(lambda: {'path': '','histAxisName': 'dataUL16', 'xsecName': 'data'})
@@ -1022,11 +1055,11 @@ dataset_eras = [# Note: Eras G and H correspond to 5 TeV and lowPU, so ignore th
 ]
 
 version_overwrite = {
-    "SingleMuon": {},
-    "SingleElectron": {},
-    "DoubleMuon": {},
     "DoubleEG": {},
+    "DoubleMuon": {},
     "MuonEG": {},
+    "SingleElectron": {},
+    "SingleMuon": {},
 }
 
 data_2017_dict = defaultdict(lambda: {'path': '','histAxisName': 'dataUL17', 'xsecName': 'data'})
