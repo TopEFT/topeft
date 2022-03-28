@@ -6,13 +6,11 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/data/Run2016B/MuonEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/70000/E745E600-11E5-BE42-8FEC-9AA8CEC0FB87.root",
-    "/store/data/Run2016B/MuonEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/70000/1C7CA4BF-5A71-E24A-87DC-683BB97DC4D6.root",
-    "/store/data/Run2016B/MuonEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/280000/E58129E5-C7EB-744D-9EF8-65D3DCA7A92D.root"
+    "/store/data/Run2016B/MuonEG/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/40000/35F15B35-E216-124E-AF91-281004953E9E.root"
   ],
   "nEvents": 225271.0,
   "nGenEvents": 225271.0,
   "nSumOfWeights": 225271.0,
   "isData": true,
-  "path": "/MuonEG/Run2016B-ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
+  "path": "/MuonEG/Run2016B-ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD"
 }

@@ -143,7 +143,11 @@ def main():
   else:
     nEvents, nGenEvents, nSumOfWeights, isData = GetAllInfoFromFile(filesWithPrefix, treeName)
 
-  sampdic['WCnames'] = GetListOfWCs(filesWithPrefix[0])
+  # Any samples coming from DAS won't have EFT weights/WCs, saves having to actually access remote files
+  if isDAS:
+    sampdic['WCnames'] = []
+  else:
+    sampdic['WCnames'] = GetListOfWCs(filesWithPrefix[0])
   sampdic['files']         = files
   sampdic['nEvents']       = nEvents
   sampdic['nGenEvents']    = nGenEvents

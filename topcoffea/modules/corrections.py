@@ -275,9 +275,6 @@ def AttachPSWeights(events):
   ISR = 0; FSR = 1; ISRdown = 0; FSRdown = 1; ISRup = 2; FSRup = 3
   if events.PSWeight is None:
       raise Exception(f'PSWeight not found in {fname}!')
-  # Add nominal as 1 just to make things similar
-  events['ISRnom']  = ak.ones_like(events.PSWeight[:,0])
-  events['FSRnom']  = ak.ones_like(events.PSWeight[:,0])
   # Add up variation event weights
   events['ISRUp']   = events.PSWeight[:, ISRup]
   events['FSRUp']   = events.PSWeight[:, FSRup]
@@ -288,19 +285,57 @@ def AttachPSWeights(events):
 def AttachScaleWeights(events):
   '''
   Return a list of scale weights
+
+  Case 1:
   LHE scale variation weights (w_var / w_nominal); [0] is renscfact=0.5d0 facscfact=0.5d0 ; [1] is renscfact=0.5d0 facscfact=1d0 ; [2] is renscfact=0.5d0 facscfact=2d0 ; [3] is renscfact=1d0 facscfact=0.5d0 ; [4] is renscfact=1d0 facscfact=1d0 ; [5] is renscfact=1d0 facscfact=2d0 ; [6] is renscfact=2d0 facscfact=0.5d0 ; [7] is renscfact=2d0 facscfact=1d0 ; [8] is renscfact=2d0 facscfact=2d0
+
+  Case 2:
+  [0] is MUF="0.5" MUR="0.5"; [1] is MUF="1.0" MUR="0.5"; [2] is MUF="2.0" MUR="0.5"; [3] is MUF="0.5" MUR="1.0"; [4] is MUF="2.0" MUR="1.0"; [5] is MUF="0.5" MUR="2.0"; [6] is MUF="1.0" MUR="2.0"; [7] is MUF="2.0" MUR="2.0"
   '''
-  renormDown_factDown = 0; renormDown = 1; renormDown_factUp = 2; factDown = 3; nominal = 4; factUp = 5; renormUp_factDown = 6; renormUp = 7; renormUp_factUp = 8;
-  scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
-  events['renorm_factDown']    = scale_weights[:,renormDown_factDown]
-  events['renormDown']         = scale_weights[:,renormDown]
-  events['renormDown_factUp']  = scale_weights[:,renormDown_factUp]
-  events['factDown']           = scale_weights[:,factDown]
-  events['nom']                = ak.ones_like(scale_weights[:,0])
-  events['factUp']             = scale_weights[:,factUp]
-  events['renormUp_factDown']  = scale_weights[:,renormUp_factDown]
-  events['renormUp']           = scale_weights[:,renormUp]
-  events['renorm_factUp']      = scale_weights[:,renormUp_factUp]
+
+  # Determine if we are in case 1 or case 2 by checking if we have 8 or 9 weights
+  len_of_wgts = ak.count(events.LHEScaleWeight,axis=-1)
+  all_len_9_or_0_bool = ak.all((len_of_wgts==9) | (len_of_wgts==0))
+  all_len_8_or_0_bool = ak.all((len_of_wgts==8) | (len_of_wgts==0))
+  if all_len_9_or_0_bool:
+      scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
+      renormDown_factDown = 0
+      renormDown          = 1
+      renormDown_factUp   = 2
+      factDown            = 3
+      nominal             = 4
+      factUp              = 5
+      renormUp_factDown   = 6
+      renormUp            = 7
+      renormUp_factUp     = 8
+  elif all_len_8_or_0_bool:
+      scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 8), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
+      renormDown_factDown = 0
+      renormDown          = 1
+      renormDown_factUp   = 2
+      factDown            = 3
+      factUp              = 4
+      renormUp_factDown   = 5
+      renormUp            = 6
+      renormUp_factUp     = 7
+  else:
+    raise Exception(f"Unknown weight type")
+
+  # Get the weights from the event
+  events['renormfactDown'] = scale_weights[:,renormDown_factDown]
+  events['renormDown']     = scale_weights[:,renormDown]
+  events['factDown']       = scale_weights[:,factDown]
+  events['nom']            = ak.ones_like(scale_weights[:,0]) # Nominal not always included in scale_weights
+  events['factUp']         = scale_weights[:,factUp]
+  events['renormUp']       = scale_weights[:,renormUp]
+  events['renormfactUp']   = scale_weights[:,renormUp_factUp]
+
+  # We expect this to be 1, and use it as the "nominal" for ISR/FSR as well, so want to make sure it is never anything other than 1
+  # We had been using the nominal from scale_weights, so we were checking to make sure it was just 1 (as we expected it to be)
+  # But it seems nominal is not always included, so now we're creating our own array defined to be 1
+  # But might as well leave the check in, just in case something weird goes wrong...
+  if ak.any(events['nom'] != 1.0):
+    raise Exception("ERROR: A LHEScaleWeight nominal value is not 1. Is this expected?")
 
 
 def AttachPdfWeights(events):
@@ -463,7 +498,7 @@ def GetTriggerSF(year, events, lep0, lep1):
     SF_ee=np.where(events.is_ee==True,LoadTriggerSF(year,ch='2l',flav='ee')[syst](lep0.pt,lep1.pt),1.0)
     SF_em=np.where(events.is_em==True, LoadTriggerSF(year,ch='2l',flav='em')[syst](lep0.pt,lep1.pt),1.0)
     SF_mm=np.where(events.is_mm==True, LoadTriggerSF(year,ch='2l',flav='mm')[syst](lep0.pt,lep1.pt),1.0)
-   #3l
+    #3l
     SF_eee=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='eee')[syst](lep0.pt,lep0.eta),1.0)
     SF_eem=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='eem')[syst](lep0.pt,lep0.eta),1.0)
     SF_emm=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='emm')[syst](lep0.pt,lep0.eta),1.0)

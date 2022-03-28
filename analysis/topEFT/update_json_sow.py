@@ -28,9 +28,49 @@ pjoin = os.path.join
 #   same name, but in different sub-directories, then it skips updating that file and instead prints
 #   an error displaying the confounding JSONs.
 
-WEIGHTS_NAME = 'SumOfWeights'
-JSON_KEY_NAME = 'nSumOfWeights'
 MAX_PDIFF = 1e-7
+
+WEIGHTS_NAME_LST = [
+    'nom',
+    'ISRUp',
+    'ISRDown',
+    'FSRUp',
+    'FSRDown',
+    'renormUp',
+    'renormDown',
+    'factUp',
+    'factDown',
+    'renormfactUp',
+    'renormfactDown',
+]
+
+# Construct a dict to hold the hist name and json name, format:
+# d = {
+#   'varUp': {
+#       'hist_name': 'SumOfWeights_varUp',
+#       'jsn_key_name': 'nSumOfWeights_varUp',
+#   }
+# }
+def construct_wgt_name_dict(wgt_name_lst):
+
+    def construct_hist_name(wgt_var_str):
+        if wgt_var_str == 'nom': wgt_var_str = ''
+        else:  wgt_var_str = '_' + wgt_var_str
+        return 'SumOfWeights' + wgt_var_str
+
+    def construct_jsn_key_name(wgt_var_str):
+        if wgt_var_str == 'nom': wgt_var_str = ''
+        else:  wgt_var_str = '_' + wgt_var_str
+        return 'nSumOfWeights' + wgt_var_str
+
+    wgt_name_dict = {}
+    for wgt_name in wgt_name_lst:
+        wgt_name_dict[wgt_name] = {}
+        wgt_name_dict[wgt_name]['hist_name'] = construct_hist_name(wgt_name)
+        wgt_name_dict[wgt_name]['jsn_key_name'] = construct_jsn_key_name(wgt_name)
+
+    return wgt_name_dict
+
 
 def main():
     parser = argparse.ArgumentParser(description='You want options? We got options!')
@@ -65,10 +105,14 @@ def main():
         verbose=True
     )
 
+    # Get dictionary of names
+    wgt_name_dict = construct_wgt_name_dict(WEIGHTS_NAME_LST)
+
+    # Find JSONs and update weights
     for fpath in hist_paths:
         h = tools.get_hist_from_pkl(fpath)
-        h_sow = h[WEIGHTS_NAME]
-        idents = h_sow.identifiers('sample')
+        h_sow_nom = h[wgt_name_dict['nom']['hist_name']] # Note, just using nom here (so we assume all histos include the same samples)
+        idents = h_sow_nom.identifiers('sample') # This is the list of identifiers for the sample axis
         for sname in idents:
             match = regex_match(json_fpaths,regex_lst=[f"{sname}\\.json$"])
             if len(match) != 1:
@@ -78,18 +122,28 @@ def main():
                 continue
             match = match[0]
             jsn = load_sample_json_file(match)
-            old = jsn[JSON_KEY_NAME]
-            yld,err = tools.get_yield(h_sow,sname)
-            diff = yld - old
-            pdiff = diff / old
-            if abs(pdiff) < MAX_PDIFF:
-                continue
 
-            updates = {
-                JSON_KEY_NAME: float(yld)
-            }
+            # Loop over each wgt variation and update JSON
+            for wgt_var in wgt_name_dict.keys():
 
-            update_json(match,dry_run=dry_run,verbose=verbose,**updates)
+                # Get value from sow hist
+                hist_name = wgt_name_dict[wgt_var]['hist_name']
+                jsn_key_name = wgt_name_dict[wgt_var]['jsn_key_name']
+                new_sow,err = tools.get_yield(h[hist_name],sname)
+
+                # If key already in dict, check if new number looks different than old
+                if jsn_key_name in jsn:
+                    old = jsn[jsn_key_name]
+                    diff = new_sow - old
+                    pdiff = diff / old
+                    if abs(pdiff) < MAX_PDIFF:
+                        continue
+
+                # Update the JSON
+                updates = {
+                    jsn_key_name: float(new_sow)
+                }
+                update_json(match,dry_run=dry_run,verbose=verbose,**updates)
 
 if __name__ == "__main__":
     main()

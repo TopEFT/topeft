@@ -5,7 +5,7 @@ import numpy as np
 import copy
 import coffea
 from coffea import hist
-#from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.GetValuesFromJsons import get_lumi
 
@@ -167,8 +167,10 @@ class YieldTools():
 
 
     # Get the dictionary of hists from the pkl file (that the processor outputs)
-    def get_hist_from_pkl(self,path_to_pkl):
+    def get_hist_from_pkl(self,path_to_pkl,allow_empty=True):
         h = pickle.load( gzip.open(path_to_pkl) )
+        if not allow_empty:
+            h = {k:v for k,v in h.items() if v.values() != {}}
         return h
 
     # Takes a hist, and retruns a list of the axis names
@@ -180,10 +182,10 @@ class YieldTools():
 
 
     # Find the list of hists in a pkl file
-    def get_hist_list(self,path):
+    def get_hist_list(self,path,allow_empty=True):
 
         # Get the dict
-        if type(path) is str: hin_dict = self.get_hist_from_pkl(path)
+        if type(path) is str: hin_dict = self.get_hist_from_pkl(path,allow_empty)
         else: hin_dict = path
 
         # Get list of keys
@@ -193,24 +195,26 @@ class YieldTools():
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
     def get_cat_lables(self,hin_dict,axis,h_name=None):
 
-        # If no hist specified, just choose the first one
-        if h_name is None:
-            h_name = "ht" # Guess a hist that we usually have
-            # all_hists = self.get_hist_list(hin_dict)
-            # for h in all_hists:
-            #     if h != "SumOfEFTweights":
-            #         h_name = h
-            #         break
+        # If the hin is not a histo, then get one of the histos from inside of it
+        if not isinstance(hin_dict,HistEFT):
 
-            # If we failed to find a hist, raise exception
+            # If no hist specified, just choose the first one
             if h_name is None:
-                raise Exception("There are no hists in this hist dict")
+                all_hists = self.get_hist_list(hin_dict)
+                for h in all_hists:
+                    if h != "SumOfEFTweights":
+                        h_name = h
+                        break
 
-        # Chek if what we have is the output of the processsor, if so, get a specific hist from it
-        if isinstance(hin_dict,coffea.processor.accumulator.dict_accumulator):
-            hin_dict = hin_dict[h_name]
-        elif isinstance(hin_dict,dict):
-            hin_dict = hin_dict[h_name]
+                # If we failed to find a hist, raise exception
+                if h_name is None:
+                    raise Exception("There are no hists in this hist dict")
+
+            # Chek if what we have is the output of the processsor, if so, get a specific hist from it
+            if isinstance(hin_dict,coffea.processor.accumulator.dict_accumulator):
+                hin_dict = hin_dict[h_name]
+            elif isinstance(hin_dict,dict):
+                hin_dict = hin_dict[h_name]
 
         # Note: Use h.identifiers('axis') here, not axis.identifiers() (since according to Nick Smith "the axis may hold identifiers longer than the hist that uses it (hists can share axes)", but h.identifiers('axis') will get the ones actually contained in the histogram)
         cats_lst = []
@@ -261,7 +265,7 @@ class YieldTools():
 
     # This should return true if the hist is split by lep flavor, definitely not a bullet proof check..
     def is_split_by_lepflav(self,hin_dict):
-        ch_names_lst = self.get_cat_lables(hin_dict,h_name="ht",axis="channel")
+        ch_names_lst = self.get_cat_lables(hin_dict,axis="channel")
         lep_flav_lst = ["ee","em","mm","eee","eem","emm","mmm"]
         for ch_name in ch_names_lst:
             for lep_flav_name in lep_flav_lst:

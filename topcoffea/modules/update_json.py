@@ -27,10 +27,12 @@ def update_json(fname,dry_run=False,outname=None,verbose=False,**kwargs):
         print(f"Updating {t}")
     for k,new in kwargs.items():
         if not k in jsn:
-            raise KeyError(f"Unknown json key specified: {k}")
-        old = jsn[k]
-        if not isinstance(old,type(new)):
-            raise TypeError(f"New should at least be a base class of old: {type(old)} vs {type(new)}")
+            print(f"Note key \"{k}\" is a new key for the json")
+            old = None
+        else:
+            old = jsn[k]
+            if not isinstance(old,type(new)):
+                raise TypeError(f"New should at least be a base class of old: {type(old)} vs {type(new)}")
         if verbose:
             if isinstance(old,list):
                 s = f"\tOld {k}: [\n"

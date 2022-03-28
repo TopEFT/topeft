@@ -80,11 +80,48 @@ ARXIV1901_LIMS = {
     "cQt8" : [-12.0,10.0]
 }
 
+FIT_RANGES = {  
+    'ctW':(-4,4),     'ctZ':(-5,5),
+    'cpt':(-40,30),   'ctp':(-35,65),
+    'ctli':(-10,10),  'ctlSi':(-10,10),
+    'cQl3i':(-10,10), 'cptb':(-20,20),
+    'ctG':(-2,2),     'cpQM':(-10,30),
+    'ctlTi':(-2,2),   'ctei':(-10,10),
+    'cQei':(-10,10),  'cQlMi':(-10,10),
+    'cpQ3':(-15,10),  'cbW':(-5,5),
+    'cQq13': (-1,1),  'cQq83': (-2,2),
+    'cQq11': (-2,2),  'ctq1': (-2,2),
+    'cQq81': (-5,5),  'ctq8': (-5,5),
+    'ctt1': (-5,5),   'cQQ1': (-10,10),
+    'cQt8': (-20,20), 'cQt1': (-10,10)
+}
+
+
+########## General tools ##########
+
+# Construct a list of key strings (e.g. "ctG*ctp") for a quad fit dict for a given list of WCs
+def get_quad_keys(wc_lst):
+    quad_terms_lst = []
+    if "sm" not in wc_lst: wc_lst = ["sm"] + wc_lst
+    for i,wc_row in enumerate(wc_lst):
+        for j,wc_col in enumerate(wc_lst):
+            if j>i: continue
+            quad_terms_lst.append(wc_row+"*"+wc_col)
+    return quad_terms_lst
+
 
 ########## Plotting tools ##########
 
-#def make_1d_quad_plot(s0,s1,s2,tag,x_lims=[-10,10],,x_axis_name,y_axis_name):
-def make_1d_quad_plot(quad_params,xaxis_name,yaxis_name,title,xaxis_range=[-10,10],save_dir="."):
+# Takes two arrays and returnes a shifted differences
+# E.g. for finding up/down fluctuations extrapolated beyond 1 sigma
+def get_shifted_arr(y_arr_1,y_arr_2,x_arr,shift_factor):
+    diff_arr = y_arr_1 - y_arr_2
+    diff_arr = diff_arr*float(shift_factor)
+    shift_arr = y_arr_2 + diff_arr
+    return shift_arr
+
+# Make a 1d plot
+def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[-10,10],save_dir="."):
 
     # Get a string of the fit equation
     def get_fit_str(tag,xvar,s0,s1,s2):
@@ -94,32 +131,59 @@ def make_1d_quad_plot(quad_params,xaxis_name,yaxis_name,title,xaxis_range=[-10,1
         rstr = f"{tag}: {s0} + {s1}*{xvar} + {s2}*{xvar}$^2$"
         return rstr
 
-    # Get the quad fit params from the list
-    if len(quad_params) != 3:
-        raise Exception(f"Error: Wrong number of parameters specified for 1d quadratic. Require 3, received {len(quad_params)}.")
-    s0 = quad_params[0] 
-    s1 = quad_params[1]
-    s2 = quad_params[2]
-
-    # Find x and y points
-    x_arr = np.linspace(xaxis_range[0], xaxis_range[1], 1000)
-    y_arr = s0 + s1*x_arr + s2*x_arr*x_arr
-
-    # Make the figure
+    # Make the figure, set the plot style
     fig, ax = plt.subplots(nrows=1, ncols=1)
-
-    # Plot style
     ax.grid()
     ax.set_xlabel(WC_NAME_LATEX_MAP.get(xaxis_name,xaxis_name)) # Use the latex version of the wc name if we have it, otherwise just use the string directly
     ax.set_ylabel(yaxis_name)
     ax.set_title(title)
 
-    # Set x and y ranges (just use default for y unless it's really tiny)
-    if (max(y_arr)-min(y_arr))<1e-6: ax.set_ylim([0.0,1.5])
-    ax.set_xlim(xaxis_range)
+    # Get x and y arr from quad params
+    ymax = 0
+    ymin = 99999999
+    quad_arr_dict = {}
+    for key_name, quad_params in quad_params_dict.items():
 
-    # Plot the points
-    ax.plot(x_arr,y_arr,label=get_fit_str("fit",xaxis_name,s0,s1,s2))
+        # Get the quad fit params from the list
+        if len(quad_params) != 3:
+            raise Exception(f"Error: Wrong number of parameters specified for 1d quadratic. Require 3, received {len(quad_params)}.")
+        s0 = quad_params[0] 
+        s1 = quad_params[1]
+        s2 = quad_params[2]
+
+        # Find x and y points
+        x_arr = np.linspace(xaxis_range[0], xaxis_range[1], 1000)
+        y_arr = s0 + s1*x_arr + s2*x_arr*x_arr
+
+        # Keep track of overall max y
+        ymax = max(ymax,max(y_arr))
+        ymin = min(ymin,min(y_arr))
+
+        quad_arr_dict[key_name] = [x_arr,y_arr]
+
+    # Loop over arr dict and make plots
+    for key_name, quad_arr in quad_arr_dict.items():
+
+        # Get info needed for the legend
+        if key_name != "none": tag = key_name + " "
+        else: tag = ""
+        if key_name in quad_params_dict.keys():
+            s0 = quad_params_dict[key_name][0] 
+            s1 = quad_params_dict[key_name][1]
+            s2 = quad_params_dict[key_name][2]
+            leg_str = get_fit_str(tag+"fit",xaxis_name,s0,s1,s2)
+        else: leg_str = tag
+
+        # Plot the points
+        x_arr = quad_arr[0]
+        y_arr = quad_arr[1]
+        ax.plot(x_arr,y_arr,label=leg_str)
+
+    # Set x and y ranges (just use default for y unless it's really tiny)
+    if ((ymax-ymin)<1e-6): ax.set_ylim([0.0,1.5])
+    ax.set_xlim(xaxis_range)
+    ax.set_ylim([0,ymax*1.2])
+
     #ax.plot(x_arr,y_arr,label="TEST")
     ax.legend()
 
@@ -204,7 +268,7 @@ def eval_fit(fit_dict,wcpt_dict):
             if wc1 == "sm":
                 wc1_val = 1.0
             else:
-                print(f"WARNING: No value specified for WC {wc}. Setting it to 0.")
+                print(f"WARNING: No value specified for WC {wc1}. Setting it to 0.")
                 wc1_val = 0.0
         else:
             wc1_val = wcpt_dict[wc1]
@@ -212,7 +276,7 @@ def eval_fit(fit_dict,wcpt_dict):
             if wc2 == "sm":
                 wc2_val = 1.0
             else:
-                print(f"WARNING: No value specified for WC {wc}. Setting it to 0.")
+                print(f"WARNING: No value specified for WC {wc2}. Setting it to 0.")
                 wc2_val = 0.0
         else:
             wc2_val = wcpt_dict[wc2]
