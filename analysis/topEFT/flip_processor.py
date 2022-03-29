@@ -196,7 +196,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         else: weights_object.add("norm",np.ones_like(events["event"]))
 
         # Apply the flip rate to OS as a cross check
-        weights_object.add("fliprate", events.flipfactor_2l)
+        #weights_object.add("fliprate", events.flipfactor_2l)
 
 
         ######### Store boolean masks with PackedSelection ##########
@@ -226,6 +226,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         isprompt_2l = ((from_z_l0 & from_z_l1) | (from_g_l0 & from_g_l1) | (from_h_l0 & from_h_l1) | (from_tau_l0 & from_tau_l1))
         truth_flip_mask = (isprompt_2l & (flip_l0 | flip_l1) & ~(flip_l0 & flip_l1)) # One or the other flips, but not both
 
+        isprompt_2l_method2 = ( ((l0.genPartFlav==1) | (l0.genPartFlav == 15)) & ((l1.genPartFlav==1) | (l1.genPartFlav == 15)) )
+        truth_flip_mask_method2 = (isprompt_2l_method2 & (flip_l0 | flip_l1) & ~(flip_l0 & flip_l1)) # One or the other flips, but not both
+
         # Print info about MC truth
         #print("isprompt_2l",isprompt_2l)
         #print("truth_flip_mask",truth_flip_mask)
@@ -238,11 +241,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Selections
         selections = PackedSelection(dtype='uint64')
         selections.add("is_good_lumi",lumi_mask)
+        selections.add("os",  (charge2l_0))
+        selections.add("ss",  (charge2l_1))
         selections.add("osz", (charge2l_0 & sfosz_2l_mask))
         selections.add("ssz", (charge2l_1 & sfssz_2l_mask))
         selections.add("2e", (events.is2l_nozeeveto & events.is2l_SR & events.is_ee & (njets<4) & pass_trg))
         if not isData:
-            selections.add("sszTruthFlip", (charge2l_1 & sfssz_2l_mask & truth_flip_mask))
+            selections.add("sszTruthFlip",  (charge2l_1 & sfssz_2l_mask & truth_flip_mask))
+            selections.add("sszTruthFlip2", (charge2l_1 & sfssz_2l_mask & truth_flip_mask_method2))
+            selections.add("ssTruthFlip2",  (charge2l_1 & truth_flip_mask_method2))
 
         # Masks for the pt ranges
         # Note that in_range_mask will be inclusive of abs(eta)=2.5
@@ -270,13 +277,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         dense_var_dict = {
             "invmass" : (l0+l1).mass,
-            "njets"   : njets,
+            #"njets"   : njets,
         }
 
         # Cuts for the sparse "category" axis
         kinematic_cat_dict = {
 
-            "inclusive"  : ["l0_inclusive","l1_inclusive"], # Cross check that we're not missing anything
+            #"inclusive"  : ["l0_inclusive","l1_inclusive"], # Cross check that we're not missing anything
 
             "EH_EH" : ["l0_E","l0_H","l1_E","l1_H"],
             "BH_EH" : ["l0_B","l0_H","l1_E","l1_H"],
@@ -329,6 +336,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Set the list of channels to loop over
         chan_lst = ["osz","ssz"]
         if not isData: chan_lst.append("sszTruthFlip")
+        if not isData: chan_lst.append("sszTruthFlip2")
+
+        #chan_lst = ["os","ss","ssTruthFlip2"]
 
         # Loop over histograms to fill (just invmass, njets for now)
         for dense_axis_name, dense_axis_vals in dense_var_dict.items():
