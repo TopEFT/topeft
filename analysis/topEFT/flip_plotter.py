@@ -28,7 +28,7 @@ args = parser.parse_args()
 
 ###
 
-hin_dict_mc = yt.get_hist_from_pkl("histos/mar16_UL17UL18-dy_allKinCats.pkl.gz")
+#hin_dict_mc = yt.get_hist_from_pkl("histos/mar16_UL17UL18-dy_allKinCats.pkl.gz")
 #hin_dict = yt.get_hist_from_pkl("histos/mar16_UL17UL18-data_allKinCats.pkl.gz")
 
 #hin_dict = yt.get_hist_from_pkl("histos/test_l1PtHi35.pkl.gz")
@@ -57,7 +57,11 @@ hin_dict_mc = yt.get_hist_from_pkl("histos/mar16_UL17UL18-dy_allKinCats.pkl.gz")
 
 # Mar 24
 #hin_dict = yt.get_hist_from_pkl("histos/mar23_UL17DY_checkWithFlipWeightsMar23Fit13Cats_withSSZTruthFlipPromptChannel.pkl.gz")
-hin_dict = yt.get_hist_from_pkl("histos/mar24_UL17allBkgMC.pkl.gz")
+#hin_dict = yt.get_hist_from_pkl("histos/mar24_UL17allBkgMC.pkl.gz")
+
+# Week of Mar 28
+#hin_dict = yt.get_hist_from_pkl("histos/mar28_UL17ttjets_channels-os-ss-ssTruth.pkl.gz")
+hin_dict = yt.get_hist_from_pkl("histos/mar29_UL17DY_withSSZTruthMethod2FlipPromptChannel.pkl.gz")
 
 
 
@@ -118,6 +122,15 @@ def get_mc_name(data_name):
         return "DY50_centralUL18"
     else: raise Exception
 
+# Print summed values from a histo
+def print_summed_hist_vals(in_hist):
+    val_dict = {}
+    for k,v in in_hist.values().items():
+        val_dict[k[0]] = sum(v)
+    for k,v in val_dict.items():
+        print(f"\t{k}: {v}")
+    print("\tFlip rate:", val_dict["sszTruthFlip"]/(val_dict["osz"] + val_dict["ssz"]))
+
 
 # Main wrapper function
 def make_plot():
@@ -162,17 +175,19 @@ def make_plot():
                 #fig = mp.make_single_fig(histo)
                 #fig.savefig(os.path.join(outpath,savename))
 
-                '''
+                #'''
                 # Print summed info
                 histo_tmp = copy.deepcopy(histo_orig)
-                histo_tmp = histo_tmp.sum("kinematiccat")
+                #for k,v in histo_tmp.values().items(): print("k:",k)
+                #histo_tmp = histo_tmp.sum("kinematiccat")
+                histo_tmp = histo_tmp.integrate("kinematiccat","inclusive")
                 histo_tmp = histo_tmp.rebin("invmass",10)
-                histo_tmp.scale(mp.get_lumi_for_sample(sample_name))
+                histo_tmp.scale(mp.get_lumi_for_sample(sample_name)) # Only if MC
                 for k,v in histo_tmp.values().items(): print("\n",k,v,"\n",sum(v),"\n")
-                exit()
-                '''
+                #'''
 
                 # Loop over the kinematic categories
+                print("\nLooping over kinematic categories:\n")
                 for cat_name in cat_names_lst:
 
                     if "incl" in cat_name: continue # TMP
@@ -181,7 +196,7 @@ def make_plot():
                     if "UL17" not in sample_name: continue # TMP
                     #if lep_chan_name != "ssz": continue # TMP
                     #if lep_chan_name != "sszTruthFlip": continue # TMP
-                    if lep_chan_name == "sszTruthFlip": continue # TMP
+                    #if lep_chan_name == "sszTruthFlip": continue # TMP
 
                     # Copy and rebin
                     histo = copy.deepcopy(histo_orig)
@@ -193,8 +208,10 @@ def make_plot():
                     #histo = histo.integrate("channel",lep_chan_name)
                     #histo = histo.integrate("kinematiccat",cat_name)
                     histo = histo.integrate("kinematiccat",integrate_map[cat_name])
-                    #print("\nSample, channel, cat:",sample_name,lep_chan_name,cat_name)
-                    #print(histo.values())
+                    histo.scale(mp.get_lumi_for_sample(sample_name)) # For MC
+                    print("\nSample, channel, cat:",sample_name,lep_chan_name,cat_name)
+                    print_summed_hist_vals(histo)
+                    continue
 
                     '''
                     # MC
@@ -218,12 +235,12 @@ def make_plot():
 
                     savename = "_".join([sample_name,lep_chan_name,histo_name,cat_name])
 
+                    if lep_chan_name == "sszTruthFlip": continue # TMP
                     # Make plot
                     if make_plots:
                         #fig = mp.make_single_fig(histo[cat_name])
                         #fig = mp.make_single_fig(histo[lep_chan_name])
 
-                        histo.scale(mp.get_lumi_for_sample(sample_name))
                         #fig = mp.make_single_fig(histo[lep_chan_name],histo[lep_chan_name.replace("ssz","osz")])
                         #fig = mp.make_single_fig(histo[lep_chan_name],histo[lep_chan_name.replace("sszTruthFlip","osz")],histo[lep_chan_name.replace("sszTruthFlip","ssz")])
 
