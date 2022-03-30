@@ -1,0 +1,26 @@
+{
+  "xsec": 3.68,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "ST_top_s-channel_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_ST_top_s_channel/output_2275.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_ST_top_s_channel/output_2689.root"
+  ],
+  "nEvents": 13620000,
+  "nGenEvents": 13620000,
+  "nSumOfWeights": 48361411.36105139,
+  "isData": false,
+  "nSumOfWeights_ISRUp": 48360065.53088643,
+  "nSumOfWeights_ISRDown": 48360582.435911834,
+  "nSumOfWeights_FSRUp": 48360449.55328904,
+  "nSumOfWeights_FSRDown": 48366556.07787202,
+  "nSumOfWeights_renormUp": 23639136.01182262,
+  "nSumOfWeights_renormDown": 24845066.78665819,
+  "nSumOfWeights_factUp": 24456385.894307073,
+  "nSumOfWeights_factDown": 23845477.987222653,
+  "nSumOfWeights_renormfactUp": 23936118.620412026,
+  "nSumOfWeights_renormfactDown": 24545218.584349126
+}
