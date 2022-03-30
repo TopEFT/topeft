@@ -121,6 +121,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         year               = self._samples[dataset]["year"]
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
+        '''
         if not isData:
             sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"]
             sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"]
@@ -132,6 +133,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"]
             sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"]
             sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown"]
+        '''
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
@@ -201,9 +203,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         ]
         wgt_correction_syst_lst = [
             "lepSFUp","lepSFDown","btagSFUp","btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
-            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
-        ]
-
+            ]#"FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
+        #]
+        '''
+        wgt_correction_syst_lst = [
+            "lepSFUp","lepSFDown","btag_jesUp","btag_lfUp","btag_hfstats1Up","btag_hfstats2Up","btag_cferr1Up","btag_cferr2Up","btag_hfUp","btag_lfstats1Up","btag_lfstats2Up","btag_jesDown","btag_lfDown","btag_hfstats1Down","btag_hfstats2Down","btag_cferr1Down","btag_cferr2Down","btag_hfDown","btag_lfstats1Down","btag_lfstats2Down","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
+            ]#"FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
+        #]
+        '''
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
         # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
@@ -223,12 +230,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             AttachScaleWeights(events)
             #AttachPdfWeights(events) # TODO
             # FSR/ISR weights
-            weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
-            weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
+            #weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
+            #weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
             # renorm/fact scale
-            weights_any_lep_cat.add('renorm',     events.nom, events.renormUp*(sow/sow_renormUp),         events.renormDown*(sow/sow_renormDown))
-            weights_any_lep_cat.add('fact',       events.nom, events.factUp*(sow/sow_factUp),             events.factDown*(sow/sow_factDown))
-            weights_any_lep_cat.add('renormfact', events.nom, events.renormfactUp*(sow/sow_renormfactUp), events.renormfactDown*(sow/sow_renormfactDown))
+            #weights_any_lep_cat.add('renorm',     events.nom, events.renormUp*(sow/sow_renormUp),         events.renormDown*(sow/sow_renormDown))
+            #weights_any_lep_cat.add('fact',       events.nom, events.factUp*(sow/sow_factUp),             events.factDown*(sow/sow_factDown))
+            #weights_any_lep_cat.add('renormfact', events.nom, events.renormfactUp*(sow/sow_renormfactUp), events.renormfactDown*(sow/sow_renormfactDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
             weights_any_lep_cat.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
             weights_any_lep_cat.add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 'up'), GetPUSF(events.Pileup.nTrueInt, year, 'down'))
@@ -364,31 +371,44 @@ class AnalysisProcessor(processor.ProcessorABC):
             print("The number of events passing FO 2l, 3l, and 4l selection:", ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
 
             ######### SFs, weights, systematics ##########
-
+            
             # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
             btagSF   = np.ones_like(ht)
             btagSFUp = np.ones_like(ht)
             btagSFDo = np.ones_like(ht)
             if not isData:
                 pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
+                isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
 
-                bJetSF   = GetBTagSF(abseta, pt, flav, year)
-                bJetSFUp = GetBTagSF(abseta, pt, flav, year, sys='up')
-                bJetSFDo = GetBTagSF(abseta, pt, flav, year, sys='down')
-                bJetEff  = GetBtagEff(pt, abseta, flav, year)
-                bJetEff_data   = bJetEff*bJetSF
-                bJetEff_dataUp = bJetEff*bJetSFUp
-                bJetEff_dataDo = bJetEff*bJetSFDo
+                bJetSF   = [GetBTagSF(abseta, pt, flav, year, 'LOOSE'),GetBTagSF(abseta, pt, flav, year, 'MEDIUM')]
+                bJetSFUp = [GetBTagSF(abseta, pt, flav, year, 'LOOSE', sys='up'),GetBTagSF(abseta, pt, flav, year, 'MEDIUM', sys='up')]
+                bJetSFDo = [GetBTagSF(abseta, pt, flav, year, 'LOOSE', sys='down'),GetBTagSF(abseta, pt, flav, year, 'MEDIUM', sys='down')]
+                bJetEff  = [GetBtagEff(pt, abseta, flav, year, 'loose'),GetBtagEff(pt, abseta, flav, year, 'medium')]
+                bJetEff_data   = [bJetEff[0]*bJetSF[0],bJetEff[1]*bJetSF[1]]
+                bJetEff_dataUp = [bJetEff[0]*bJetSFUp[0],bJetEff[1]*bJetSFUp[1]]
+                bJetEff_dataDo = [bJetEff[0]*bJetSFDo[0],bJetEff[1]*bJetSFDo[1]]
 
-                pMC     = ak.prod(bJetEff       [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJetsMedium]), axis=-1)
-                pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
-                pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
-                pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
+                pMC     = ak.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
+                pData   = ak.prod(bJetEff_data[1]  [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_data[0]  [isBtagJetsLooseNotMedium] - bJetEff_data[1]  [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_data[0]  [isNotBtagJetsLoose]), axis=-1)
+                pDataUp = ak.prod(bJetEff_dataUp[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataUp[0][isBtagJetsLooseNotMedium] - bJetEff_dataUp[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataUp[0][isNotBtagJetsLoose]), axis=-1)
+                pDataDo = ak.prod(bJetEff_dataDo[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataDo[0][isBtagJetsLooseNotMedium] - bJetEff_dataDo[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataDo[0][isNotBtagJetsLoose]), axis=-1)           
                 pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-          
+            print('btag',pData/pMC)
+            print('btag Up',pDataUp/pMC)
+            print('btag Do',pDataDo/pMC)
+
+            #bJetSF= GetBTagSF(goodJets, year, 'central')
+
 
             ######### Event weights ###########
-
+            '''
+            if not isData:
+               weights_any_lep_cat.add("btagSF", bJetSF) # Note, should not need to copy here since not modifying pData or pMC # In principle does not have to be in the lep cat loop
+               if self._do_systematics and syst_var=='nominal':
+                  for b_syst in ["jes","lf","hfstats1","hfstats2","cferr1","cferr2","hf","lfstats1","lfstats2"]:
+                    bj_var = GetBTagSF(goodJets, year, b_syst)
+                    weights_any_lep_cat.add(f"btag_{b_syst}", events.nom, bj_var[0]/bJetSF,bj_var[1]/bJetSF)
+            '''
             # Loop over categories and fill the dict
             weights_dict = {}
             GetTriggerSF(year,events,l0,l1)
@@ -407,8 +427,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                         weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
 
                 # For MC only
+
+                    
                 if not isData:
-                    weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC) # Note, should not need to copy here since not modifying pData or pMC # In principle does not have to be in the lep cat loop
+                    weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC)
                     weights_dict[ch_name].add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
                     if "2l" in ch_name:
                         weights_dict[ch_name].add("lepSF", events.sf_2l, copy.deepcopy(events.sf_2l_hi), copy.deepcopy(events.sf_2l_lo))
