@@ -182,8 +182,7 @@ processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_t
 
 executor_args = {
     'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
-    'filepath':'/tmp',
-    'xrootdtimeout': 300,
+    'xrootdtimeout': 180,
 
     # find a port to run work queue in this range:
     'port': port,
@@ -198,7 +197,7 @@ executor_args = {
     'schema': NanoAODSchema,
     'skipbadfiles': False,
 
-    'retries': 10,
+    'retries': 5,
 
     # use mid-range compression for chunks results. 9 is the default for work
     # queue in coffea. Valid values are 0 (minimum compression, less memory
