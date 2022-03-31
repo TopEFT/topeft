@@ -61,7 +61,8 @@ args = parser.parse_args()
 
 # Week of Mar 28
 #hin_dict = yt.get_hist_from_pkl("histos/mar28_UL17ttjets_channels-os-ss-ssTruth.pkl.gz")
-hin_dict = yt.get_hist_from_pkl("histos/mar29_UL17DY_withSSZTruthMethod2FlipPromptChannel.pkl.gz")
+#hin_dict = yt.get_hist_from_pkl("histos/mar29_UL17DY_withSSZTruthMethod2FlipPromptChannel.pkl.gz")
+hin_dict = yt.get_hist_from_pkl("histos/mar29_UL17DYttJets_withSSOSTruth.pkl.gz")
 
 
 
@@ -123,13 +124,17 @@ def get_mc_name(data_name):
     else: raise Exception
 
 # Print summed values from a histo
-def print_summed_hist_vals(in_hist):
+def print_summed_hist_vals(in_hist,ret="ssz",quiet=False):
     val_dict = {}
     for k,v in in_hist.values().items():
         val_dict[k[0]] = sum(v)
     for k,v in val_dict.items():
-        print(f"\t{k}: {v}")
-    print("\tFlip rate:", val_dict["sszTruthFlip"]/(val_dict["osz"] + val_dict["ssz"]))
+        if not quiet: print(f"\t{k}: {v}")
+    fliprate = val_dict["sszTruthFlip"]/(val_dict["sszTruthFlip"] + val_dict["oszTruthNoFlip"])
+    #print("\tFlip rate:", val_dict["sszTruthFlip"]/(val_dict["osz"] + val_dict["ssz"]))
+    #print("\tFlip rate:", val_dict["ssTruthFlip2"]/(val_dict["os"] + val_dict["ss"]))
+    if not quiet: print("\tFlip rate:", fliprate)
+    return val_dict[ret]
 
 
 # Main wrapper function
@@ -140,6 +145,8 @@ def make_plot():
     save_root = False
     #save_root = True
 
+    out_dict_ss = {}
+    out_dict_os = {}
     if save_root: fout = uproot3.create('flip_hists.root')
 
     sample_names_lst = yt.get_cat_lables(hin_dict,"sample")
@@ -157,6 +164,10 @@ def make_plot():
 
         # Loop over samples
         for sample_name in sample_names_lst:
+            print("sample_name",sample_name)
+            if "DY" not in sample_name:
+                print("skipping",sample_name)
+                continue
 
             # Loop over lepton channels (i.e. ssz and osz)
             for lep_chan_name in chan_names_lst:
@@ -175,7 +186,7 @@ def make_plot():
                 #fig = mp.make_single_fig(histo)
                 #fig.savefig(os.path.join(outpath,savename))
 
-                #'''
+                '''
                 # Print summed info
                 histo_tmp = copy.deepcopy(histo_orig)
                 #for k,v in histo_tmp.values().items(): print("k:",k)
@@ -184,13 +195,15 @@ def make_plot():
                 histo_tmp = histo_tmp.rebin("invmass",10)
                 histo_tmp.scale(mp.get_lumi_for_sample(sample_name)) # Only if MC
                 for k,v in histo_tmp.values().items(): print("\n",k,v,"\n",sum(v),"\n")
-                #'''
+                #continue
+                '''
 
                 # Loop over the kinematic categories
-                print("\nLooping over kinematic categories:\n")
+                print(f"\nLooping over kinematic categories for {lep_chan_name}:\n")
                 for cat_name in cat_names_lst:
 
                     if "incl" in cat_name: continue # TMP
+                    #if "os" in lep_chan_name: continue # TMP
                     if integrate_map[cat_name] is None: continue
                     #if "UL17" not in sample_name and "UL18" not in sample_name: continue # TMP
                     if "UL17" not in sample_name: continue # TMP
@@ -201,7 +214,9 @@ def make_plot():
                     # Copy and rebin
                     histo = copy.deepcopy(histo_orig)
                     #if lep_chan_name == "ssz" and histo_name == "invmass": histo = histo.rebin("invmass",10)
-                    histo = histo.rebin("invmass",10)
+                    #if "ssz" in lep_chan_name and histo_name == "invmass": histo = histo.rebin("invmass",10)
+                    if "ss" in lep_chan_name and histo_name == "invmass": histo = histo.rebin("invmass",10)
+                    #histo = histo.rebin("invmass",10)
 
                     # Integrate
                     histo = histo.integrate("sample",sample_name)
@@ -210,8 +225,8 @@ def make_plot():
                     histo = histo.integrate("kinematiccat",integrate_map[cat_name])
                     histo.scale(mp.get_lumi_for_sample(sample_name)) # For MC
                     print("\nSample, channel, cat:",sample_name,lep_chan_name,cat_name)
-                    print_summed_hist_vals(histo)
-                    continue
+                    ssz_truth = print_summed_hist_vals(histo,"ssz")
+                    osz_truth = print_summed_hist_vals(histo,"osz",quiet=True)
 
                     '''
                     # MC
@@ -234,8 +249,12 @@ def make_plot():
 
 
                     savename = "_".join([sample_name,lep_chan_name,histo_name,cat_name])
+                    out_dict_ss[savename] = {"nsig": ssz_truth}
+                    out_dict_os[savename] = {"nsig": osz_truth}
 
                     if lep_chan_name == "sszTruthFlip": continue # TMP
+                    if lep_chan_name == "sszTruthFlip2": continue # TMP
+                    if "Truth" in lep_chan_name: continue
                     # Make plot
                     if make_plots:
                         #fig = mp.make_single_fig(histo[cat_name])
@@ -244,20 +263,35 @@ def make_plot():
                         #fig = mp.make_single_fig(histo[lep_chan_name],histo[lep_chan_name.replace("ssz","osz")])
                         #fig = mp.make_single_fig(histo[lep_chan_name],histo[lep_chan_name.replace("sszTruthFlip","osz")],histo[lep_chan_name.replace("sszTruthFlip","ssz")])
 
-                        if "osz" in lep_chan_name:
-                            histo.integrate(lep_chan_name)
-                            fig = mp.make_single_fig(histo)
-                            #fig = mp.make_single_fig(histo[lep_chan_name])
-                        elif "ssz" in lep_chan_name:
-                            fig = mp.make_single_fig(histo[lep_chan_name],histo[lep_chan_name.replace("ssz","sszTruthFlip")])
+                        fig = None
+                        if "DY" in sample_name:
+                            if "osz" in lep_chan_name:
+                                #histo.integrate("channel",lep_chan_name)
+                                #fig = mp.make_single_fig(histo)
+                                #fig = mp.make_single_fig(histo[lep_chan_name])
+                                fig = mp.make_single_fig(histo[lep_chan_name],histo[lep_chan_name.replace("osz","oszTruthNoFlip")])
+                            elif "ssz" in lep_chan_name:
+                                #fig = mp.make_single_fig(histo[lep_chan_name],histo2=histo[lep_chan_name.replace("ssz","sszTruthFlip")],histo3=histo[lep_chan_name.replace("ssz","sszTruthFlip2")])
+                                fig = mp.make_single_fig(histo[lep_chan_name],histo[lep_chan_name.replace("ssz","sszTruthFlip")])
+                                #fig = mp.make_single_fig(histo[lep_chan_name],histo[lep_chan_name.replace("ss","ssTruthFlip2")])
+                        elif "TT" in sample_name:
+                            if lep_chan_name == "os":
+                                fig = mp.make_single_fig(histo[lep_chan_name],histo[lep_chan_name.replace("os","osTruthNoFlip")])
+                            elif lep_chan_name == "ss":
+                                fig = mp.make_single_fig(histo[lep_chan_name],histo[lep_chan_name.replace("ss","ssTruthFlip")])
 
                         #fig = mp.make_single_fig(histo[cat_name],histo_mc[cat_name])
                         #fig = mp.make_single_fig(histo[lep_chan_name],histo_mc[lep_chan_name])
-                        fig.savefig(os.path.join(outpath,savename))
+                        if fig is not None: fig.savefig(os.path.join(outpath,savename))
 
                     # Save output to root file
                     #if save_root: fout[savename] = hist.export1d(histo.integrate("kinematiccat",cat_name))
                     if save_root: fout[savename] = hist.export1d(histo.integrate("channel",lep_chan_name))
+
+                print("\nout_dict_ss:",out_dict_ss)
+                print("\nout_dict_os:",out_dict_os)
+                exit() # To only loop over one lepcat
+
 
     if save_root: fout.close()
 
