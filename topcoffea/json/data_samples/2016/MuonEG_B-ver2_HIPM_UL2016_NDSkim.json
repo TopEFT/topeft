@@ -6,10 +6,10 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/MuonEG_B_ver2_HIPM_UL2016/output_1118.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/MuonEG_B_ver2_HIPM_UL2016/output_2463.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/MuonEG_B_ver2_HIPM_UL2016/output_762.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3/MuonEG_B_ver2_HIPM_UL2016/output_763.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_B_ver2_HIPM_UL2016/output_2436.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_B_ver2_HIPM_UL2016/output_4167.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_B_ver2_HIPM_UL2016/output_4595.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_B_ver2_HIPM_UL2016/output_4685.root"
   ],
   "nEvents": 32727796,
   "nGenEvents": 32727796,

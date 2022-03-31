@@ -1,3 +1,1 @@
-/hadoop/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2016/Full/v3
-/hadoop/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2017/Full/v1
-/hadoop/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v1
+/hadoop/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3
