@@ -173,7 +173,7 @@ def AttachElectronSF(electrons, year):
 
 ###### Btag scale factors
 ################################################################
-# Hard-coded to DeepJet algorithm, loose abd medium WPs
+# Hard-coded to DeepJet algorithm, loose and medium WPs
 
 # MC efficiencies
 def GetMCeffFunc(year, wp='medium', flav='b'):

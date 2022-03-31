@@ -121,7 +121,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         year               = self._samples[dataset]["year"]
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
-        '''
+        
         if not isData:
             sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"]
             sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"]
@@ -133,7 +133,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"]
             sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"]
             sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown"]
-        '''
+        
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
