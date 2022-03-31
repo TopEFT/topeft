@@ -212,31 +212,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
         charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
 
+        # Flavor mask
+        sameflav_mask = (abs(l0.pdgId) == abs(l1.pdgId))
+
         # MC truth for flips
         flip_l0 = (l0.gen_pdgId == -l0.pdgId)
         flip_l1 = (l1.gen_pdgId == -l1.pdgId)
-        from_g_l0 = (abs(l0.gen_parent_pdgId) == 22)
-        from_g_l1 = (abs(l1.gen_parent_pdgId) == 22)
-        from_z_l0 = (abs(l0.gen_parent_pdgId) == 23)
-        from_z_l1 = (abs(l1.gen_parent_pdgId) == 23)
-        from_h_l0 = (abs(l0.gen_parent_pdgId) == 25)
-        from_h_l1 = (abs(l1.gen_parent_pdgId) == 25)
-        from_tau_l0 = ((abs(l0.gen_parent_pdgId) == 15) & ((abs(l0.gen_gparent_pdgId) == 22) | (abs(l0.gen_gparent_pdgId) == 23) | (abs(l0.gen_gparent_pdgId) == 25)))
-        from_tau_l1 = ((abs(l1.gen_parent_pdgId) == 15) & ((abs(l0.gen_gparent_pdgId) == 22) | (abs(l0.gen_gparent_pdgId) == 23) | (abs(l0.gen_gparent_pdgId) == 25)))
-        isprompt_2l = ((from_z_l0 & from_z_l1) | (from_g_l0 & from_g_l1) | (from_h_l0 & from_h_l1) | (from_tau_l0 & from_tau_l1))
-        truth_flip_mask = (isprompt_2l & (flip_l0 | flip_l1) & ~(flip_l0 & flip_l1)) # One or the other flips, but not both
-
-        isprompt_2l_method2 = ( ((l0.genPartFlav==1) | (l0.genPartFlav == 15)) & ((l1.genPartFlav==1) | (l1.genPartFlav == 15)) )
-        truth_flip_mask_method2 = (isprompt_2l_method2 & (flip_l0 | flip_l1) & ~(flip_l0 & flip_l1)) # One or the other flips, but not both
-
-        # Print info about MC truth
-        #print("isprompt_2l",isprompt_2l)
-        #print("truth_flip_mask",truth_flip_mask)
-        #for i,x in enumerate(truth_flip_mask):
-        #    if x is not None:
-        #        print("\n",i,x,l0[i].pdgId,l1[i].pdgId,l0[i].gen_pdgId,l1[i].gen_pdgId,l0[i].gen_parent_pdgId,l1[i].gen_parent_pdgId,l0[i].gen_gparent_pdgId,l1[i].gen_gparent_pdgId)
-        #        print("from_z_l0, from_z_l1, from_g_l0, from_g_l1, from_tau_l0, from_tau_l1, isprompt_2l",from_z_l0[i], from_z_l1[i], from_g_l0[i], from_g_l1[i], from_tau_l0[i], from_tau_l1[i], isprompt_2l[i])
-        #        print("truth_flip_mask",truth_flip_mask[i])
+        noflip_l0 = (l0.gen_pdgId == l0.pdgId)
+        noflip_l1 = (l1.gen_pdgId == l1.pdgId)
+        isprompt_2l = ( ((l0.genPartFlav==1) | (l0.genPartFlav == 15)) & ((l1.genPartFlav==1) | (l1.genPartFlav == 15)) )
+        truth_flip_mask   = (isprompt_2l & (flip_l0 | flip_l1) & ~(flip_l0 & flip_l1)) # One or the other flips, but not both
+        truth_noflip_mask = (isprompt_2l & noflip_l0 & noflip_l1) # Neither flips
 
         # Selections
         selections = PackedSelection(dtype='uint64')
@@ -247,9 +233,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("ssz", (charge2l_1 & sfssz_2l_mask))
         selections.add("2e", (events.is2l_nozeeveto & events.is2l_SR & events.is_ee & (njets<4) & pass_trg))
         if not isData:
-            selections.add("sszTruthFlip",  (charge2l_1 & sfssz_2l_mask & truth_flip_mask))
-            selections.add("sszTruthFlip2", (charge2l_1 & sfssz_2l_mask & truth_flip_mask_method2))
-            selections.add("ssTruthFlip2",  (charge2l_1 & truth_flip_mask_method2))
+            selections.add("sszTruthFlip",   (charge2l_1 & sfssz_2l_mask & truth_flip_mask))
+            selections.add("oszTruthNoFlip", (charge2l_0 & sfosz_2l_mask & truth_noflip_mask))
+            selections.add("ssTruthFlip",    (charge2l_1 & truth_flip_mask))
+            selections.add("osTruthNoFlip",  (charge2l_0 & truth_noflip_mask))
 
         # Masks for the pt ranges
         # Note that in_range_mask will be inclusive of abs(eta)=2.5
@@ -334,11 +321,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         hout = self.accumulator.identity()
 
         # Set the list of channels to loop over
-        chan_lst = ["osz","ssz"]
-        if not isData: chan_lst.append("sszTruthFlip")
-        if not isData: chan_lst.append("sszTruthFlip2")
-
-        #chan_lst = ["os","ss","ssTruthFlip2"]
+        #chan_lst = ["osz","ssz"]
+        #if not isData: chan_lst.append("sszTruthFlip")
+        #if not isData: chan_lst.append("sszTruthFlip2")
+        chan_lst = ["ss","os","ssz","osz","ssTruthFlip","osTruthNoFlip","sszTruthFlip","oszTruthNoFlip"]
 
         # Loop over histograms to fill (just invmass, njets for now)
         for dense_axis_name, dense_axis_vals in dense_var_dict.items():
