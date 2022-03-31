@@ -31,19 +31,25 @@ Top quark analyses using the Coffea framework
 
 - `setup.py`: File for installing the `topcoffea` package
 
+### Clone the repository
+First, clone the repository:
+```
+git clone https://github.com/TopEFT/topcoffea.git
+```
+
 ### Set up the environment 
-First, download and install conda:
+Download and install conda:
 ```
 curl https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > conda-install.sh
 bash conda-install.sh
 ```
-Next, run `unset PYTHONPATH` to avoid conflicts. Then run the following commands to set up the conda environment:    
+Next, run `unset PYTHONPATH` to avoid conflicts. Then run the following commands to set up the conda environment (note that `environment.yml` is a file that is a part of the `topcoffea` repository, so you should `cd` into `topcoffea` before running the command):
 ```
 conda env create -f environment.yml
 conda activate coffea-env
 ```
 
-### How to start
+### Install the topcoffea package and run an example job
 - This directory is set up to be installed as a python package. To install, activate your conda environment, then run this command from the top level `topcoffea` directory:
 ```
 pip install -e .
