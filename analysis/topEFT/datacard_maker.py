@@ -194,7 +194,7 @@ class DatacardMaker():
                 for syst,histo in h.items():
                     if syst == 'nominal':
                         fout[name+cat] = hist.export1d(histo)
-                    elif self.do_nuisance and name not in self.syst_special:
+                    elif self.do_nuisance and name not in self.syst_special and 'flips' not in name:
                         fout[name+cat+'_'+syst+self.get_correlation_name(name, syst)] = hist.export1d(histo)
         def export2d(h):
             return h.to_hist().to_numpy()
