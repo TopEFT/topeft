@@ -121,6 +121,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         year               = self._samples[dataset]["year"]
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
+        
         if not isData:
             sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"]
             sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"]
@@ -132,6 +133,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"]
             sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"]
             sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown"]
+        
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
@@ -200,7 +202,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             'MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
         ]
         wgt_correction_syst_lst = [
-            "lepSFUp","lepSFDown","btagSFUp","btagSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
+            "lepSFUp","lepSFDown","btagSFbc_uncorrUp","btagSFbc_uncorrDown","btagSFbc_corrUp","btagSFbc_corrDown","btagSFlight_uncorrUp","btagSFlight_uncorrDown","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
 
@@ -226,8 +228,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
             weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
             # renorm/fact scale
-            weights_any_lep_cat.add('renorm',     events.nom, events.renormUp*(sow/sow_renormUp),         events.renormDown*(sow/sow_renormDown))
-            weights_any_lep_cat.add('fact',       events.nom, events.factUp*(sow/sow_factUp),             events.factDown*(sow/sow_factDown))
             weights_any_lep_cat.add('renormfact', events.nom, events.renormfactUp*(sow/sow_renormfactUp), events.renormfactDown*(sow/sow_renormfactDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
             weights_any_lep_cat.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
@@ -364,34 +364,37 @@ class AnalysisProcessor(processor.ProcessorABC):
             print("The number of events passing FO 2l, 3l, and 4l selection:", ak.num(events[events.is2l],axis=0),ak.num(events[events.is3l],axis=0),ak.num(events[events.is4l],axis=0))
 
             ######### SFs, weights, systematics ##########
-
-            # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
-            btagSF   = np.ones_like(ht)
-            btagSFUp = np.ones_like(ht)
-            btagSFDo = np.ones_like(ht)
+            
             if not isData:
-                pt = goodJets.pt; abseta = np.abs(goodJets.eta); flav = goodJets.hadronFlavour
-
-                bJetSF   = GetBTagSF(abseta, pt, flav, year)
-                bJetSFUp = GetBTagSF(abseta, pt, flav, year, sys='up')
-                bJetSFDo = GetBTagSF(abseta, pt, flav, year, sys='down')
-                bJetEff  = GetBtagEff(pt, abseta, flav, year)
-                bJetEff_data   = bJetEff*bJetSF
-                bJetEff_dataUp = bJetEff*bJetSFUp
-                bJetEff_dataDo = bJetEff*bJetSFDo
-
-                pMC     = ak.prod(bJetEff       [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff       [isNotBtagJetsMedium]), axis=-1)
-                pData   = ak.prod(bJetEff_data  [isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_data  [isNotBtagJetsMedium]), axis=-1)
-                pDataUp = ak.prod(bJetEff_dataUp[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataUp[isNotBtagJetsMedium]), axis=-1)
-                pDataDo = ak.prod(bJetEff_dataDo[isBtagJetsMedium], axis=-1) * ak.prod((1-bJetEff_dataDo[isNotBtagJetsMedium]), axis=-1)           
+                # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods    
+                isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
+                bJetSF   = [GetBTagSF(goodJets, year, 'LOOSE'),GetBTagSF(goodJets, year, 'MEDIUM')]
+                bJetEff  = [GetBtagEff(goodJets, year, 'loose'),GetBtagEff(goodJets, year, 'medium')]
+                bJetEff_data   = [bJetEff[0]*bJetSF[0],bJetEff[1]*bJetSF[1]]
+                pMC     = ak.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
                 pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-          
+                pData   = ak.prod(bJetEff_data[1]  [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_data[0]  [isBtagJetsLooseNotMedium] - bJetEff_data[1]  [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_data[0]  [isNotBtagJetsLoose]), axis=-1)
+                weights_any_lep_cat.add("btagSF", pData/pMC)
+                
+                if self._do_systematics and syst_var=='nominal':
+                    for b_syst in ["bc_corr","light_corr","bc_uncorr","light_uncorr"]:
+                        bJetSFUp = [GetBTagSF(goodJets, year, 'LOOSE', sys=b_syst)[0],GetBTagSF(goodJets, year, 'MEDIUM', sys=b_syst)[0]]
+                        bJetSFDo = [GetBTagSF(goodJets, year, 'LOOSE', sys=b_syst)[1],GetBTagSF(goodJets, year, 'MEDIUM', sys=b_syst)[1]]
+                        bJetEff_dataUp = [bJetEff[0]*bJetSFUp[0],bJetEff[1]*bJetSFUp[1]]
+                        bJetEff_dataDo = [bJetEff[0]*bJetSFDo[0],bJetEff[1]*bJetSFDo[1]]
+                        pDataUp = ak.prod(bJetEff_dataUp[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataUp[0][isBtagJetsLooseNotMedium] - bJetEff_dataUp[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataUp[0][isNotBtagJetsLoose]), axis=-1)
+                        pDataDo = ak.prod(bJetEff_dataDo[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataDo[0][isBtagJetsLooseNotMedium] - bJetEff_dataDo[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataDo[0][isNotBtagJetsLoose]), axis=-1)           
+                        weights_any_lep_cat.add(f"btagSF{b_syst}", events.nom, (pDataUp/pMC)/(pData/pMC),(pDataDo/pMC)/(pData/pMC))
+                
+                # Trigger SFs 
+                GetTriggerSF(year,events,l0,l1)                
+                weights_any_lep_cat.add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+
 
             ######### Event weights ###########
 
             # Loop over categories and fill the dict
             weights_dict = {}
-            GetTriggerSF(year,events,l0,l1)
             for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
 
                 # For both data and MC
@@ -407,9 +410,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                         weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
 
                 # For MC only
+
                 if not isData:
-                    weights_dict[ch_name].add("btagSF", pData/pMC, pDataUp/pMC, pDataDo/pMC) # Note, should not need to copy here since not modifying pData or pMC # In principle does not have to be in the lep cat loop
-                    weights_dict[ch_name].add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
                     if "2l" in ch_name:
                         weights_dict[ch_name].add("lepSF", events.sf_2l, copy.deepcopy(events.sf_2l_hi), copy.deepcopy(events.sf_2l_lo))
                     if "3l" in ch_name:

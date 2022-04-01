@@ -173,10 +173,10 @@ def AttachElectronSF(electrons, year):
 
 ###### Btag scale factors
 ################################################################
-# Hard-coded to DeepJet algorithm, medium WP
+# Hard-coded to DeepJet algorithm, loose and medium WPs
 
 # MC efficiencies
-def GetMCeffFunc(year, WP='medium', flav='b'):
+def GetMCeffFunc(year, wp='medium', flav='b'):
   if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
 
   pathToBtagMCeff = topcoffea_path('data/btagSF/UL/btagMCeff_%s.pkl.gz'%year)
@@ -187,7 +187,7 @@ def GetMCeffFunc(year, WP='medium', flav='b'):
       if k in hists: hists[k]+=hin[k]
       else:          hists[k]=hin[k]
   h = hists['jetptetaflav']
-  hnum = h.integrate('WP', WP)
+  hnum = h.integrate('WP', wp)
   hden = h.integrate('WP', 'all')
   getnum = lookup_tools.dense_lookup.dense_lookup(hnum.values(overflow='over')[()], [hnum.axis('pt').edges(), hnum.axis('abseta').edges(), hnum.axis('flav').edges()])
   getden = lookup_tools.dense_lookup.dense_lookup(hden.values(overflow='over')[()], [hden.axis('pt').edges(), hnum.axis('abseta').edges(), hden.axis('flav').edges()])
@@ -196,18 +196,40 @@ def GetMCeffFunc(year, WP='medium', flav='b'):
   fun = lambda pt, abseta, flav : getnum(pt,abseta,flav)/getden(pt,abseta,flav)
   return fun
 
-def GetBtagEff(pt, eta, flavor, year):
+def GetBtagEff(jets, year, wp='medium'):
   if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
-  return GetMCeffFunc(year,'medium')(pt, eta, flavor)
+  return GetMCeffFunc(year,wp)(jets.pt, np.abs(jets.eta), jets.hadronFlavour)
 
-def GetBTagSF(eta, pt, flavor, year, sys='central'):
-  if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),"MEDIUM") 
-  elif   year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),"MEDIUM") 
-  elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL17_v3.csv"),"MEDIUM")
-  elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL18_v2.csv"),"MEDIUM")
+def GetBTagSF(jets, year, wp='MEDIUM', sys='central'):
+  if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),wp) 
+  elif   year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp) 
+  elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL17_v3.csv"),wp)
+  elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL18_v2.csv"),wp)
   else: raise Exception(f"Error: Unknown year \"{year}\".")
-  SF=SFevaluatorBtag.eval(sys,flavor,eta,pt)
-  return (SF)
+  pt = jets.pt; abseta = np.abs(jets.eta); flavor = jets.hadronFlavour
+  SF=SFevaluatorBtag.eval('central',jets.hadronFlavour,np.abs(jets.eta),jets.pt)
+  if sys=='central':    
+    return (SF)
+  else:
+    flavors = {
+        0: ["light_corr", "light_uncorr"],
+        4: ["bc_corr","bc_uncorr"],
+        5: ["bc_corr","bc_uncorr"]
+    }
+    
+    jets[f"btag_{sys}_up"] = SF
+    jets[f"btag_{sys}_down"] = SF
+    for f, f_syst in flavors.items():
+      if sys in f_syst:
+        if 'uncorr' in sys:   
+          jets[f"btag_{sys}_up"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("up_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_up"])
+          jets[f"btag_{sys}_down"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("down_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_down"])
+        else:
+          jets[f"btag_{sys}_up"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("up_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_up"])
+          jets[f"btag_{sys}_down"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("down_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_down"])
+
+    return([jets[f"btag_{sys}_up"],jets[f"btag_{sys}_down"]])
+ 
 
 ###### Pileup reweighing
 ##############################################
