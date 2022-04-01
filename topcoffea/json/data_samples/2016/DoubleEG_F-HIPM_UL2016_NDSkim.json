@@ -6,13 +6,14 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleEG/v1/DoubleEG_F_HIPM_UL2016/output_356.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleEG/v1/DoubleEG_F_HIPM_UL2016/output_362.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleEG/v1/DoubleEG_F_HIPM_UL2016/output_363.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleEG/v1/DoubleEG_F_HIPM_UL2016/output_393.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_F_HIPM_UL2016/output_3884.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_F_HIPM_UL2016/output_4498.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_F_HIPM_UL2016/output_4769.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_F_HIPM_UL2016/output_4857.root"
   ],
   "nEvents": 30216940,
   "nGenEvents": 30216940,
   "nSumOfWeights": 30216940.0,
-  "isData": true
+  "isData": true,
+  "path": "/DoubleEG/Run2016F-HIPM_UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

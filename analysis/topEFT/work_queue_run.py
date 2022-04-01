@@ -207,7 +207,6 @@ processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_t
 
 executor_args = {
     'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
-
     'xrootdtimeout': 180,
 
     # find a port to run work queue in this range:
