@@ -847,25 +847,40 @@ if __name__ == '__main__':
     # Set up cards lst
     for var in include_var_lst:
         if var == 'ptz': continue # This var only applies to a subset of the channels
-        cards = [
-            {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-            {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-            {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
-            {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
-            {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-            {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-            {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-            {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-            {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-            {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-            {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}
-        ]
+        cards = []
+        for b in card.ch2lssj:
+            cards += [
+            {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':b},
+            {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':b},
+            ]
+        for b in card.ch2lss_4tj:
+            cards += [
+            {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': b},
+            {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': b},
+            ]
+        for b in card.ch3lj:
+            cards += [
+            {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':b},
+            {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':b},
+            {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':b},
+            {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':b},
+            ]
+        for b in card.ch3lsfzj:
+            cards += [
+            {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':b},
+            {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':b},
+            ]
+        for b in card.ch4lj:
+            cards += [
+            {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':b}
+            ]
         jobs.append(cards)
     if 'ptz' in include_var_lst:
-        cards = [
-            {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-            {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
-        ]
+        for b in card.ch3lsfzj:
+            cards += [
+            {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':b},
+            {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':b},
+            ]
         jobs.append(cards)
 
     njobs = 0
