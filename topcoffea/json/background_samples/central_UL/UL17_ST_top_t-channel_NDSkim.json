@@ -1,0 +1,30 @@
+{
+  "xsec": 136.02,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "ST_top_t-channel_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_ST_top_t_channel/output_1762.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_ST_top_t_channel/output_2067.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_ST_top_t_channel/output_2468.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_ST_top_t_channel/output_3195.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_ST_top_t_channel/output_3586.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_ST_top_t_channel/output_3752.root"
+  ],
+  "nEvents": 129903000,
+  "nGenEvents": 129903000,
+  "nSumOfWeights": 13808000809.115992,
+  "isData": false,
+  "nSumOfWeights_ISRUp": 13807869648.950796,
+  "nSumOfWeights_ISRDown": 13808053070.08717,
+  "nSumOfWeights_FSRUp": 13808277506.613104,
+  "nSumOfWeights_FSRDown": 13807997398.846924,
+  "nSumOfWeights_renormUp": 13071258800.000172,
+  "nSumOfWeights_renormDown": 14472493753.37147,
+  "nSumOfWeights_factUp": 13861191297.506117,
+  "nSumOfWeights_factDown": 13838542760.46905,
+  "nSumOfWeights_renormfactUp": 13071691953.12863,
+  "nSumOfWeights_renormfactDown": 14482586651.926083
+}

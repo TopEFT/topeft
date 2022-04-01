@@ -6,10 +6,11 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_F_UL2016/output_572.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_F_UL2016/output_1557.root"
   ],
   "nEvents": 8858206,
   "nGenEvents": 8858206,
   "nSumOfWeights": 8858206.0,
-  "isData": true
+  "isData": true,
+  "path": "/SingleElectron/Run2016F-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

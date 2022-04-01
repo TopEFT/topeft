@@ -6,10 +6,11 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleEG/v1/DoubleEG_B_ver1_HIPM_UL2016/output_351.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_B_ver1_HIPM_UL2016/output_1639.root"
   ],
   "nEvents": 5686987,
   "nGenEvents": 5686987,
   "nSumOfWeights": 5686987.0,
-  "isData": true
+  "isData": true,
+  "path": "/DoubleEG/Run2016B-ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

@@ -6,14 +6,15 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_C_HIPM_UL2016/output_514.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_C_HIPM_UL2016/output_518.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_C_HIPM_UL2016/output_525.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_C_HIPM_UL2016/output_541.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1/SingleElectron_C_HIPM_UL2016/output_569.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_C_HIPM_UL2016/output_1725.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_C_HIPM_UL2016/output_2181.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_C_HIPM_UL2016/output_2708.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_C_HIPM_UL2016/output_3016.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_C_HIPM_UL2016/output_3562.root"
   ],
   "nEvents": 97259854,
   "nGenEvents": 97259854,
   "nSumOfWeights": 97259854.0,
-  "isData": true
+  "isData": true,
+  "path": "/SingleElectron/Run2016C-HIPM_UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }

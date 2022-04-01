@@ -6,13 +6,14 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_C_UL2017/output_1098.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_C_UL2017/output_1173.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_C_UL2017/output_1256.root",
-    "/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1/MuonEG_C_UL2017/output_1257.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_C_UL2017/output_1401.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_C_UL2017/output_1723.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_C_UL2017/output_2484.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_C_UL2017/output_2831.root"
   ],
   "nEvents": 15595214,
   "nGenEvents": 15595214,
   "nSumOfWeights": 15595214.0,
-  "isData": true
+  "isData": true,
+  "path": "/MuonEG/Run2017C-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD"
 }
