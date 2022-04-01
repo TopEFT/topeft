@@ -203,7 +203,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ]
         wgt_correction_syst_lst = [
             "lepSFUp","lepSFDown","btagSFbc_uncorrUp","btagSFbc_uncorrDown","btagSFbc_corrUp","btagSFbc_corrDown","btagSFlight_uncorrUp","btagSFlight_uncorrDown","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
-            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown","renormfactUp","renormfactDown",           # Theory systs
+            "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
@@ -228,8 +228,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
             weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
             # renorm/fact scale
-            weights_any_lep_cat.add('renorm',     events.nom, events.renormUp*(sow/sow_renormUp),         events.renormDown*(sow/sow_renormDown))
-            weights_any_lep_cat.add('fact',       events.nom, events.factUp*(sow/sow_factUp),             events.factDown*(sow/sow_factDown))
             weights_any_lep_cat.add('renormfact', events.nom, events.renormfactUp*(sow/sow_renormfactUp), events.renormfactDown*(sow/sow_renormfactDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
             weights_any_lep_cat.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
