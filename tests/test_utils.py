@@ -64,9 +64,13 @@ def test_get_files():
         verbose=True
     )
 
-    assert (len(file_list) == 2)
+    assert (len(file_list) == 4)
     assert (pjoin(path,"lumi.json") not in file_list)
     assert (pjoin(path,"params.json") not in file_list)
+    assert (pjoin(path,"sync_samples/ttHJetToNonbb_sync.json") in file_list)
+    assert (pjoin(path,"test_samples/UL17_private_ttH_for_CI.json") in file_list)
+    assert (pjoin(path,"test_samples/UL17_private_ttH_hadoop_for_CI.json") in file_list)
+    assert (pjoin(path,"test_samples/UL17_private_ttH_hadoop_for_CI_NDSkim.json") in file_list)
 
     # Recurse through the entire json directory ignoring all json files. Should only match the
     #   "README.md" file
