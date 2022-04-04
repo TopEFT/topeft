@@ -1,6 +1,1 @@
-/hadoop/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleEG/v1
-/hadoop/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/DoubleMuon/v1
-/hadoop/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleElectron/v1
-/hadoop/store/user/awightma/skims/data/NanoAOD_ULv9/UL2016/SingleMuon/v1
-/hadoop/store/user/awightma/skims/data/NanoAOD_ULv9/UL2017/Full/v1
-/hadoop/store/user/awightma/skims/data/NanoAOD_ULv9/UL2018/Full/v1
+/hadoop/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3
