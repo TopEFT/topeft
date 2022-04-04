@@ -19,7 +19,7 @@ Unit tests for HistEFT (ported from the C++/ROOT version of TH1ET)
 ### `tests/test_make_1d_quad_plots.py`
 Test the quadratic fit plotting script
 ### `tests/test_topcoffea.py`
-`test_topcoffea()` runs topcoffea over `ttHJet_UL17_R1B14_NAOD-00000_10194.root` (run `wget http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194.root` to download this file.)
+`test_topcoffea()` runs topcoffea over `ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root` (run `wget http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194.root` to download this file.)
 `test_nonprompt()` runs the output from `test_topcoffea()` through `topcoffea/modules/dataDrivenEstimation.py`
 `test_make_yields()` runs the output from `test_topcoffea()` through `analysis/topEFT/get_yield_json.py` to produce the json file for comparison
 `test_compare_yields()`  runs the output from `test_make_yields()` through `analysis/topEFT/comp_yields.py` to check the output yields match the reference file

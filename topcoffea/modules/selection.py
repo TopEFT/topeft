@@ -227,7 +227,9 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     if sampleType == 'prompt':
         lep1_match=((padded_FOs[:,0].genPartFlav==1) | (padded_FOs[:,0].genPartFlav == 15))    
         lep2_match=((padded_FOs[:,1].genPartFlav==1) | (padded_FOs[:,1].genPartFlav == 15))
-        mask = mask & lep1_match & lep2_match
+        lep1_charge=((padded_FOs[:,0].gen_pdgId*padded_FOs[:,0].pdgId) > 0)
+        lep2_charge=((padded_FOs[:,1].gen_pdgId*padded_FOs[:,1].pdgId) > 0)
+        mask = mask & lep1_match & lep2_match & lep1_charge & lep2_charge
     elif sampleType =='conversions':
         lep1_match=(padded_FOs[:,0].genPartFlav==22)
         lep2_match=(padded_FOs[:,1].genPartFlav==22)
