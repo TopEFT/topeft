@@ -790,9 +790,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                       eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
                                       eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
-                                      # if ch_name == "3l_mmm_CR_0j" and dense_axis_name == 'invmass' and appl == "isSR_3l":
-                                      #     for evt,lumi,run,w in zip( events.event[all_cuts_mask], events.run[all_cuts_mask], events.luminosityBlock[all_cuts_mask], weight[all_cuts_mask]):
-                                      #         print(evt,lumi,run,w)
 
                                       # Fill the histos
                                       axes_fill_info_dict = {
@@ -828,4 +825,3 @@ if __name__ == '__main__':
     outpath= './coffeaFiles/'
     samples     = load(outpath+'samples.coffea')
     topprocessor = AnalysisProcessor(samples)
-
