@@ -44,11 +44,13 @@ def test_get_files():
         verbose=True
     )
 
-    assert (len(file_list) == 4)
+    assert (len(file_list) == 6)
     assert (pjoin(path,"lumi.json") in file_list)
     assert (pjoin(path,"params.json") in file_list)
     assert (pjoin(path,"sync_samples/ttHJetToNonbb_sync.json") in file_list)
     assert (pjoin(path,"test_samples/UL17_private_ttH_for_CI.json") in file_list)
+    assert (pjoin(path,"test_samples/UL17_private_ttH_hadoop_for_CI.json") in file_list)
+    assert (pjoin(path,"test_samples/UL17_private_ttH_hadoop_for_CI_NDSkim.json") in file_list)
 
     # Check if the 'ignore_files' option is working as intended
     path = topcoffea_path("json")
