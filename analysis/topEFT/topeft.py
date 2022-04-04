@@ -825,4 +825,3 @@ if __name__ == '__main__':
     outpath= './coffeaFiles/'
     samples     = load(outpath+'samples.coffea')
     topprocessor = AnalysisProcessor(samples)
-
