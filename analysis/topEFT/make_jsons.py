@@ -686,7 +686,8 @@ central_UL18_bkg_dict = {
         "xsecName": "TTGJets",
     },
     "UL18_TTJets" : {
-        "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM", # NOTE: PLACEHOLDER till v9 is available (last checked Jan 17, 2022)
+        "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1",
         "histAxisName": "TTJets_centralUL18",
         "xsecName": "TT",
     },
@@ -949,7 +950,8 @@ central_UL16APV_bkg_dict = {
         "xsecName": "WZZ",
     },
     "UL16APV_ZZTo4L" : {
-        "path" : "/ZZTo4L_13TeV_powheg_pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1/NANOAODSIM", # NOTE: PLACEHOLDER till a ULAPV sample is available (last checked Jan 17, 2022)
+        "path" : "/ZZTo4L_TuneCP5_13TeV_powheg_pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/ZZTo4L_TuneCP5_13TeV_powheg_pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1",
         "histAxisName": "ZZTo4L_centralUL16APV",
         "xsecName": "ZZTo4L",
     },
