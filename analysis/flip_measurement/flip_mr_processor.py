@@ -62,6 +62,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         e_tight = e[e.isPres & e.isLooseE & e.isFO & e.isTightLep]
 
+        # Apply tight charge requirement (this happens in the event selection, so we want to apply it here to be consistent)
+        e_tight = e_tight[e_tight.tightCharge>=2]
 
         ######### Store boolean masks ##########
 
