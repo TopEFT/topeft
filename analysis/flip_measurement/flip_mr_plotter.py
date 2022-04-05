@@ -2,6 +2,9 @@ import os
 import copy
 import json
 import matplotlib.pyplot as plt
+import cloudpickle
+import gzip
+
 import uproot3
 from coffea import hist
 
@@ -23,9 +26,6 @@ hin_dict = yt.get_hist_from_pkl("histos/apr04_UL17-dy-dy1050-ttbar_test01.pkl.gz
 PT_BINS = [0,20,30,40,50,60,70,100,200]
 ETA_BINS = [0,0.5,1.0,1.5,2.0,2.5]
 
-
-def build_out_dict(histo2d):
-    out_dict = {}
 
 # Given an array of values and a pt and eta bin list, make a histo
 def make_ratio_hist(ratio_arr,pt_bin_lst,eta_bin_lst):
@@ -70,20 +70,17 @@ def make_plot(in_hist):
     hist_ratio = make_ratio_hist(ratio_sumw_arr,PT_BINS,ETA_BINS)
 
     # Print info
-    print("\nflip:",flip_sumw_arr)
-    print("\nnoflip:",noflip_sumw_arr)
+    #print("\nflip:",flip_sumw_arr)
+    #print("\nnoflip:",noflip_sumw_arr)
 
     # Save figs
     make_2d_fig(hist_flip,"pt","truth_flip")
     make_2d_fig(hist_noflip,"pt","truth_noflip")
     make_2d_fig(hist_ratio,"pt","truth_ratio","Flip ratio = flip/(flip+noflip)")
 
-    #return h.to_hist().to_numpy()
-    #print("---")
-    #print(hist_ratio.values())
-    #x = hist_ratio.to_hist().to_numpy()
-    #x = hist_ratio.to_hist()
-    #print("x",x)
+    # Save output histo
+    #with gzip.open("test_ratio.pkl.gz", "wb") as fout:
+        #cloudpickle.dump(hist_ratio, fout)
 
 
 # Main function
@@ -101,4 +98,5 @@ def main():
     make_plot(histo_pteta)
 
 
-main()
+if __name__ == "__main__":
+    main()
