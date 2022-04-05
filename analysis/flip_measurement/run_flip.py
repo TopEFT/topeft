@@ -8,7 +8,7 @@ import argparse
 import numpy as np
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
-import topcoffea.modules.topeftenv as topeftenv
+import topcoffea.modules.remote_environment as remote_environment
 
 import flip_mr_processor
 import flip_ar_processor
@@ -95,8 +95,8 @@ if executor == "work_queue":
         'transactions_log': 'tr.log',
         'stats_log': 'stats.log',
 
-        'environment_file': topeftenv.get_environment(),
-        #'environment_file': topeftenv.get_environment(unstaged='ignore'),
+        'environment_file': remote_environment.get_environment(),
+        #'environment_file': remote_environment.get_environment(unstaged='ignore'),
         'extra_input_files': extra_input_files_lst,
 
         'schema': NanoAODSchema,
