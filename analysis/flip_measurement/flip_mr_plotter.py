@@ -12,19 +12,18 @@ from topcoffea.modules.YieldTools import YieldTools
 
 yt = YieldTools()
 
-
 #import argparse
 #parser = argparse.ArgumentParser()
 #parser.add_argument("filepath",default='histos/flipTopEFT.pkl.gz', help = 'path of file with histograms')
 #args = parser.parse_args()
 
 #hin_dict = yt.get_hist_from_pkl("histos/apr01_UL17DY_2d_00_mvaTTHUL.pkl.gz")
-hin_dict = yt.get_hist_from_pkl("histos/apr04_UL17-dy-dy1050-ttbar_test01.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr04_fullR2-dy-dy1050-ttbar_test01.pkl.gz")
+#hin_dict = yt.get_hist_from_pkl("histos/apr04_UL17-dy-dy1050-ttbar_test01.pkl.gz")
+hin_dict = yt.get_hist_from_pkl("histos/apr05_UL17-dy-dy1050-ttbar_withTightChReq_test01.pkl.gz")
 
 
 PT_BINS = [0,20,30,40,50,60,70,100,200]
-ETA_BINS = [0,0.5,1.0,1.5,2.0,2.5]
+ABSETA_BINS = [0,0.5,1.0,1.5,2.0,2.5]
 
 
 # Given an array of values and a pt and eta bin list, make a histo
@@ -48,15 +47,16 @@ def make_2d_fig(histo,xaxis_var,save_name,title=None):
 
 
 # Main wrapper function
-def make_plot(in_hist):
+def get_flip_histos(in_hist):
 
     # Integrate sample axis
+    # NOTE Later we might want to look at each year seperately
     #in_hist = in_hist.integrate("sample","DYJetsToLL_centralUL17")
     #in_hist = in_hist.integrate("sample","TTJets_centralUL17")
     in_hist = in_hist.sum("sample")
 
     # Rebin the histo
-    in_hist = in_hist.rebin("eta", 2)
+    in_hist = in_hist.rebin("abseta", hist.Bin("abseta","abseta",ABSETA_BINS))
     in_hist = in_hist.rebin("pt", hist.Bin("pt","pt",PT_BINS))
 
     # Grab the histo of flipped e and histo of not flipped e
@@ -67,20 +67,14 @@ def make_plot(in_hist):
     flip_sumw_arr = hist_flip._sumw[()]
     noflip_sumw_arr = hist_noflip._sumw[()]
     ratio_sumw_arr = flip_sumw_arr/(flip_sumw_arr+noflip_sumw_arr)
-    hist_ratio = make_ratio_hist(ratio_sumw_arr,PT_BINS,ETA_BINS)
+    hist_ratio = make_ratio_hist(ratio_sumw_arr,PT_BINS,ABSETA_BINS)
 
     # Print info
     #print("\nflip:",flip_sumw_arr)
     #print("\nnoflip:",noflip_sumw_arr)
+    #print("\nflipratio:",ratio_sumw_arr)
 
-    # Save figs
-    make_2d_fig(hist_flip,"pt","truth_flip")
-    make_2d_fig(hist_noflip,"pt","truth_noflip")
-    make_2d_fig(hist_ratio,"pt","truth_ratio","Flip ratio = flip/(flip+noflip)")
-
-    # Save output histo
-    #with gzip.open("test_ratio.pkl.gz", "wb") as fout:
-        #cloudpickle.dump(hist_ratio, fout)
+    return [hist_flip,hist_noflip,hist_ratio]
 
 
 # Main function
@@ -92,10 +86,18 @@ def main():
     print("Samples:",sample_names_lst)
     print("Flipstatus:",flip_names_lst)
 
-    # Get the hito from the input dict
-    histo_pteta = hin_dict["pteta"]
+    # Get the histos from the input dict
+    histo_ptabseta = hin_dict["ptabseta"]
+    hist_flip, hist_noflip, hist_ratio = get_flip_histos(histo_ptabseta)
 
-    make_plot(histo_pteta)
+    # Save figs
+    make_2d_fig(hist_flip,"pt","truth_flip")
+    make_2d_fig(hist_noflip,"pt","truth_noflip")
+    make_2d_fig(hist_ratio,"pt","truth_ratio","Flip ratio = flip/(flip+noflip)")
+
+    # Save output histo
+    with gzip.open("flip_probs.pkl.gz", "wb") as fout:
+        cloudpickle.dump(hist_ratio, fout)
 
 
 if __name__ == "__main__":
