@@ -19,7 +19,7 @@ import topeft
 from topcoffea.modules import samples
 from topcoffea.modules import fileReader
 from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
-import topeftenv
+import topcoffea.modules.topeftenv
 
 WGT_VAR_LST = [
     "nSumOfWeights_ISRUp",
