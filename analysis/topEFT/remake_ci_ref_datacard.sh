@@ -8,7 +8,7 @@ fi
 echo -e "Cleaning up the histos directory"
 rm histos/ttx_multileptons-*.{txt,root}
 echo -e "Running TopCoffea first.\nMake sure you have the nanoAOD test file.\n"
-wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194.root
+wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root
 python -c 'import tests.test_futures; tests.test_futures.test_topcoffea()'
 python -c 'import tests.test_futures; tests.test_futures.test_nonprompt()'
 echo -e "Running initial scans\nIgnore any errors.\n"
