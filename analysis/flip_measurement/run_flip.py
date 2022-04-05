@@ -8,9 +8,10 @@ import argparse
 import numpy as np
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
-import topcoffea.modules.topeftenv
+import topcoffea.modules.topeftenv as topeftenv
 
 import flip_mr_processor
+import flip_ar_processor
 
 from topcoffea.modules.utils import load_sample_json_file, read_cfg_file, update_cfg
 
@@ -75,6 +76,9 @@ for sample_name,jsn in samples_to_process.items():
 if processor_name == "flip_mr_processor":
     processor_instance = flip_mr_processor.AnalysisProcessor(samples_to_process)
     extra_input_files_lst = ["flip_mr_processor.py"]
+elif processor_name == "flip_ar_processor":
+    processor_instance = flip_ar_processor.AnalysisProcessor(samples_to_process)
+    extra_input_files_lst = ["flip_ar_processor.py"]
 else:
     raise Exception(f"Error: Unknown processor \"{processor_name}\".")
 
