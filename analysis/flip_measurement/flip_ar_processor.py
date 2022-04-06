@@ -55,11 +55,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Create the histograms
         self._accumulator = processor.dict_accumulator({
             "invmass" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 100, 50, 150)),
-            "njets"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("njets", "njets", 10, 0, 10)),
-            "l0pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l0pt", "l0pt", 10, 0, 200)),
-            "l0eta"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l0eta", "l0eta", 10, -2.5, 2.5)),
-            "l1pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l1pt", "l1pt", 10, 0, 200)),
-            "l1eta"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l1eta", "l1eta", 10, -2.5, 2.5)),
+            "njets"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("njets", "njets", 8, 0, 8)),
+            "l0pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l0pt", "l0pt", 20, 0, 200)),
+            "l0eta"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l0eta", "l0eta", 20, -2.5, 2.5)),
+            "l1pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l1pt", "l1pt", 20, 0, 200)),
+            "l1eta"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l1eta", "l1eta", 20, -2.5, 2.5)),
         })
 
     @property
@@ -134,7 +134,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Electron selection
         e["isPres"] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
         e["isLooseE"] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
-        e["isFO"] = isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
+        e["isFO"] = isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
         e["isTightLep"] = tightSelElec(e.isFO, e.mvaTTHUL)
         # Muon selection
         mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)

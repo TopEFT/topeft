@@ -57,7 +57,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         e["isPres"]     = obj.isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
         e["isLooseE"]   = obj.isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
-        e["isFO"]       = obj.isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP80, year)
+        e["isFO"]       = obj.isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
         e["isTightLep"] = obj.tightSelElec(e.isFO, e.mvaTTHUL)
 
         e_tight = e[e.isPres & e.isLooseE & e.isFO & e.isTightLep]
