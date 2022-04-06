@@ -203,7 +203,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             'MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
         ]
         wgt_correction_syst_lst = [
-            "lepSFUp","lepSFDown","btagSFbc_uncorrUp","btagSFbc_uncorrDown","btagSFbc_corrUp","btagSFbc_corrDown","btagSFlight_uncorrUp","btagSFlight_uncorrDown","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
+            f"btagSFbc_{year}Up",f"btagSFbc_{year}Down",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown","btagSFlight_corrUp","btagSFlight_corrDown",
+            "lepSFUp","lepSFDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
 
@@ -377,7 +378,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_any_lep_cat.add("btagSF", pData/pMC)
                 
                 if self._do_systematics and syst_var=='nominal':
-                    for b_syst in ["bc_corr","light_corr","bc_uncorr","light_uncorr"]:
+                    for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
                         bJetSFUp = [GetBTagSF(goodJets, year, 'LOOSE', sys=b_syst)[0],GetBTagSF(goodJets, year, 'MEDIUM', sys=b_syst)[0]]
                         bJetSFDo = [GetBTagSF(goodJets, year, 'LOOSE', sys=b_syst)[1],GetBTagSF(goodJets, year, 'MEDIUM', sys=b_syst)[1]]
                         bJetEff_dataUp = [bJetEff[0]*bJetSFUp[0],bJetEff[1]*bJetSFUp[1]]
