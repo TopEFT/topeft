@@ -84,9 +84,9 @@ else:
 
 if executor == "work_queue":
     executor_args = {
-        'master_name': '{}-workqueue-coffea2'.format(os.environ['USER']),
+        'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
 
-        'xrootdtimeout': 900,
+        'xrootdtimeout': 180,
 
         # find a port to run work queue in this range:
         'port': [9123,9130],
