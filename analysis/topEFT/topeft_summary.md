@@ -42,7 +42,14 @@ This document summarizes `topeft.py`, focusing on parts where we access info fro
     * [L395-418](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L395-L418): More systematics and scale factors: Access 19 columns (all of these we put into `events` ourselves)
     * [L429](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L429): Construct masks for the trigger selection: Accesses 2 columns (`events.HLT` and (unnecessarily) `events.MET.pt`)
     * [L451-515](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L451-L515): Using all of the information calculated above, construct the masks we will use for the final selection for each category: Access 20 columns from `events` (all of which are columns we have added ourselves)
+      * Note: This is the part of the code can in principle change frequently (essentially whenever we decide to change the categories we include in the analysis, the masks we construct here are likely to change)  
+    * [L518-576](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L518-L576): Calculate the variables we are interested in (i.e. get the variables that will constitute the dense axes of our histograms)
+      * Note: This part of the code can change very frequently
+    * [L579-689](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L579-L689): Construct the event selection categories
+      * This is the part of the code where we map out which masks go with which categories
+      * Note: This part of the code can change frequently
     * [L705-801](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L705-L801): Finally we loop through categories, apply masks, fill histograms
+
 
 ### Summary of the sizes of the external files
 The external files are located in `topcoffea/data`, and the total of all external files is O(10M).
@@ -58,3 +65,7 @@ The external files are located in `topcoffea/data`, and the total of all externa
 26K	scaleFactors # Not used?
 18K	triggerSF
 ```
+
+### Summary of the frequency with which the code changes
+
+During development (i.e. while writing the processor) the entire processor can be subject to fairly frequent changes. However, in principle, once the object selection, event selection, and corrections are all put into place, the processor should remain fairly stable up to ~L451. On L451 onward, we define the categories and variables we are interested in studying, and this part of the code may continue to change frequently as we pursue new ideas for the analysis.
