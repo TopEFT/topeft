@@ -13,14 +13,14 @@ This document summarizes `topeft.py`, focusing on parts where we access info fro
     * From the `events` object, we access 10 columns (events, genWeight, nominal/up/down weights for "L1PreFiringWeight" and "Pileup", also "LHEScaleWeight" and "PSWeight")
     * This step also puts 9 new columns into the events object
     * Then access 5 of these new columns
-    * Not this uses external root files (~160K)
+    * Not this uses external root files from `data/pileup` (~160K)
 * [L243-802](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L243-L802): The rest of the processor is inside of a for loop over some systematics (so everything after this is repeated multiple times when running with systematics):
     * [L245-247](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L245-L247): Apply muon pt corrections
       * Note this uses an external txt files (~8M)
     * [L249-252](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L249-L252): Muon object selection 
     * [L260](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L260): Put in 1 column into `events` for an invariant mass cut we use later on
     * [L266-272](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L266-L272): Calculate lepton scale factors and fake rates (does not use `events`)
-      * Note this accesses values from external root and json files (~400K)
+      * Note this accesses values from external root and json files (~700K)
     * [L275-276](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L275-L276): Build collection of leptons we care about ("fakable leptons") from selected e and mu objects
     * [L278-283](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L278-L283): Tau selection (though we do not actually use taus)
     * [L287-343](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L287-L343): Jet selection: Access 2 columns from `events` (`events.caches[0]`, `events.fixedGridRhoFastjetAll`)
@@ -40,15 +40,14 @@ This document summarizes `topeft.py`, focusing on parts where we access info fro
 ### Summary of the sizes of the external files
 The external files are located in `topcoffea/data`, and the total of all external files is O(10M).
 ```
-(topcoffea-env1) [kmohrman@earth: data]$ du -sh *
 1.2M	btagSF
-479K	fromTTH
+430K	fromTTH
 47K	goldenJsons
 570K	JEC
 115K	JER
-376K	leptonSF
+278K	leptonSF
 8.3M	MuonScale
 160K	pileup
-26K	scaleFactors
+26K	scaleFactors # Not used?
 18K	triggerSF
 ```
