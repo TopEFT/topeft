@@ -973,7 +973,7 @@ from collections import defaultdict
 # For more info on the datasets and eras for each year
 # See: https://twiki.cern.ch/twiki/bin/viewauth/CMS/PdmVRun2LegacyAnalysis
 
-### 2016 ###
+### 2016APV ###
 year = 'Run2016'
 naod_version  = "MiniAODv2_NanoAODv9-v1"
 dataset_names = ["DoubleEG","DoubleMuon","SingleElectron","SingleMuon","MuonEG"]
@@ -984,9 +984,6 @@ dataset_eras = [# See: https://twiki.cern.ch/twiki/bin/view/CMS/PdmVDatasetsUL20
     'D-HIPM_UL2016',
     'E-HIPM_UL2016',
     'F-HIPM_UL2016',
-    'F-UL2016',
-    'G-UL2016',
-    'H-UL2016',
 ]
 
 version_overwrite = {
@@ -1005,7 +1002,6 @@ version_overwrite = {
         'D-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
         'E-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
         'F-HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
-        'G-UL2016': 'MiniAODv2_NanoAODv9-v2',
     },
     'MuonEG': {
         'B-ver1_HIPM_UL2016': 'MiniAODv2_NanoAODv9-v2',
@@ -1033,6 +1029,34 @@ version_overwrite = {
     },
 }
 
+data_2016APV_dict = defaultdict(lambda: {'path': '','histAxisName': 'dataUL16APV', 'xsecName': 'data'})
+for era in dataset_eras:
+    for ds_name in dataset_names:
+        key_name = "{name}_{era}".format(name=ds_name,era=era)
+        version = naod_version
+        if ds_name in version_overwrite:
+            if era in version_overwrite[ds_name]:
+                version = version_overwrite[ds_name][era]
+        ds_path = "/{ds}/{year}{era}_{ver}/NANOAOD".format(year=year,ds=ds_name,era=era,ver=version)
+        data_2016APV_dict[key_name]['path'] = ds_path
+
+
+### 2016 ###
+year = 'Run2016'
+naod_version  = "MiniAODv2_NanoAODv9-v1"
+dataset_names = ["DoubleEG","DoubleMuon","SingleElectron","SingleMuon","MuonEG"]
+dataset_eras = [# See: https://twiki.cern.ch/twiki/bin/view/CMS/PdmVDatasetsUL2016
+    'F-UL2016',
+    'G-UL2016',
+    'H-UL2016',
+]
+
+version_overwrite = {
+    'DoubleMuon': {# See: https://pdmv-pages.web.cern.ch/rereco_ul/?input_dataset=DoubleMuon%2FRun2016
+        'G-UL2016': 'MiniAODv2_NanoAODv9-v2',
+    },
+}
+
 data_2016_dict = defaultdict(lambda: {'path': '','histAxisName': 'dataUL16', 'xsecName': 'data'})
 for era in dataset_eras:
     for ds_name in dataset_names:
@@ -1043,6 +1067,7 @@ for era in dataset_eras:
                 version = version_overwrite[ds_name][era]
         ds_path = "/{ds}/{year}{era}_{ver}/NANOAOD".format(year=year,ds=ds_name,era=era,ver=version)
         data_2016_dict[key_name]['path'] = ds_path
+
 
 ### 2017 ###
 year = 'Run2017'
@@ -1278,9 +1303,10 @@ def main():
     make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"/hadoop","2016APV",out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
 
     # Data samples
-    # make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
-    # make_jsons_for_dict_of_samples(data_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_data_2017,on_das=True)
-    # make_jsons_for_dict_of_samples(data_2018_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_data_2018,on_das=True)
+    #make_jsons_for_dict_of_samples(data_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_data_2016,on_das=True)
+    #make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
+    #make_jsons_for_dict_of_samples(data_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_data_2017,on_das=True)
+    #make_jsons_for_dict_of_samples(data_2018_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_data_2018,on_das=True)
 
     # Testing finding list of files with xrdfs ls
     #make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
