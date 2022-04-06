@@ -1,6 +1,6 @@
 ## Summary of topeft processor
 
-This document summarizes `topeft.py`, focusing on parts where we access info from the `events` object, or put new info into `events`, or access additional external files (e.g. txt, csv, root)
+This document summarizes `topeft.py`, focusing on parts where we access info from the `events` object, or <span style="color:green">put</span> new info into `events`, or access additional external files (e.g. txt, csv, root)
 
 * [L117](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L117): Get dataset name from `events`, accesses 1 column from `events.metadata`
 * [L151-156](https://github.com/TopEFT/topcoffea/blob/3ba04eb74314f3a5ad10e2727522a386ebec3bca/analysis/topEFT/topeft.py#L151-L156): Get the physics objects we care about from the `events` object, accesses 5 columns (E.g.: `mu = events.Muon`, note that the rest of the code mainly uses these copies (Question: Are they actually copies?), e.g. from here forward we use `mu`, not `events.Muon`)
