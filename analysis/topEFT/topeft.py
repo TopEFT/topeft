@@ -121,8 +121,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         year               = self._samples[dataset]["year"]
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
-        
-        if not isData:
+
+        # Turn systematics off if this is a data sample, otherwise get up down weights from input dict
+        if isData:
+            self._do_systematics = False
+        else:
             sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"]
             sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"]
             sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"]
@@ -725,8 +728,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
               # Set up the list of syst wgt variations to loop over
               wgt_var_lst = ["nominal"]
-              if   (self._do_systematics and not isData and (syst_var == "nominal")): wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst
-              elif (self._do_systematics and not isData and (syst_var != "nominal")): wgt_var_lst = [syst_var]
+              if   (self._do_systematics and (syst_var == "nominal")): wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst
+              elif (self._do_systematics and (syst_var != "nominal")): wgt_var_lst = [syst_var]
 
               # Loop over the systematics
               for wgt_fluct in wgt_var_lst:
