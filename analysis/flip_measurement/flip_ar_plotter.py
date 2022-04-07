@@ -18,7 +18,13 @@ args = parser.parse_args()
 
 #hin_dict = yt.get_hist_from_pkl("/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/check_PRs/sergio_lepmva/topcoffea/analysis/topEFT/histos/mar31_UL17DY_withSSOSTruth_minPtl15_mvaTTHUL.pkl.gz")
 #hin_dict = yt.get_hist_from_pkl("histos/apr05_xcheck_00.pkl.gz")
-hin_dict = yt.get_hist_from_pkl("histos/apr05_xcheck_ttHProbs_00.pkl.gz")
+#hin_dict = yt.get_hist_from_pkl("histos/apr05_xcheck_ttHProbs_00.pkl.gz")
+#hin_dict = yt.get_hist_from_pkl("histos/apr05_ar_UL17-dy-dy1050-ttbar_withTightChReq_test02.pkl.gz")
+#hin_dict = yt.get_hist_from_pkl("histos/apr05_ar_ttHProbs_test02.pkl.gz")
+#hin_dict = yt.get_hist_from_pkl("histos/apr05_ar_ttHProbs_test03.pkl.gz")
+#hin_dict = yt.get_hist_from_pkl("histos/apr05_ar_UL17-dy-dy1050-ttbar_withTightChReq_test03.pkl.gz")
+#hin_dict = yt.get_hist_from_pkl("histos/apr06_ar_UL16UL17UL18_apr06BinningAN19127_00.pkl.gz")
+hin_dict = yt.get_hist_from_pkl("histos/apr06_ar_FullR2_apr06BinningAN19127_00.pkl.gz")
 
 
 outpath = args.outpath
@@ -68,12 +74,18 @@ def make_plot():
 
             # Copy (and rebin the ss)
             histo = copy.deepcopy(histo_orig)
-            if histo_name == "invmass": histo = histo.rebin("invmass",10)
+            #if histo_name == "invmass": histo = histo.rebin("invmass",10)
+            #if histo_name == "invmass": histo = histo.rebin("invmass",5)
+            if histo_name == "invmass": histo = histo.rebin("invmass",2)
 
             # Integrate and make plot (overlay the categories)
             savename = "_".join([sample_name,histo_name])
             histo = histo.integrate("sample",sample_name)
-            fig = mp.make_single_fig(histo["ssz"],histo["osz"])
+            h_up = copy.deepcopy(histo)
+            h_do = copy.deepcopy(histo)
+            h_up.scale(1.3)
+            h_do.scale(0.7)
+            fig = mp.make_single_fig(histo["ssz"],histo2=histo["osz"],hup=h_up["osz"],hdo=h_do["osz"])
             fig.savefig(os.path.join(outpath,savename))
 
 
