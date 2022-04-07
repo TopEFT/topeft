@@ -21,8 +21,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "Counts",
                 hist.Cat("sample", "sample"),
                 hist.Cat("flipstatus", "flipstatus"), 
-                hist.Bin("pt", "pt", 20, 0, 200),
-                hist.Bin("abseta", "abseta", 5, 0, 2.5),
+                hist.Bin("pt", "pt", [0, 30.0, 45.0, 60.0, 100.0, 200.0]),
+                hist.Bin("abseta", "abseta", [0, 0.4, 0.8, 1.1, 1.4, 1.6, 1.9, 2.2, 2.5]),
             ),
         })
 
