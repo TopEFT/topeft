@@ -408,6 +408,8 @@ def get_Z_peak_mask(lep_collection,pt_window,flavor="os"):
         sf_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
     elif flavor == "ss":
         sf_mask = (ll_pairs.l0.pdgId == ll_pairs.l1.pdgId)
+    elif flavor == "as": # Same flav any sign
+        sf_mask = ((ll_pairs.l0.pdgId == ll_pairs.l1.pdgId) | (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId))
     else:
         raise Exception(f"Error: flavor requirement \"{flavor}\" is unknown.")
     sfosz_mask = ak.flatten(ak.any((zpeak_mask & sf_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
