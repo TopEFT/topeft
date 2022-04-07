@@ -398,7 +398,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over categories and fill the dict
             weights_dict = {}
-            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
+            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ"]:
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_any_lep_cat) # Use the weights_any_lep_cat object from above
@@ -467,7 +467,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 		
             # 2lss selection for CR
-            selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_CRflip", (events.is2l & (chargel0_p | chargel0_m) & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             # 2los selection
             selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & bmask_exactly2med & pass_trg))
@@ -508,13 +509,14 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("atleast_5j", (njets>=5))
             selections.add("atleast_7j", (njets>=7))
             selections.add("atleast_0j", (njets>=0))
+            selections.add("atmost_3j" , (njets<=3))
 
             # AR/SR categories
-            selections.add("isSR_2lSS", ( events.is2l_SR) & charge2l_1) 
-            selections.add("isAR_2lSS", (~events.is2l_SR) & charge2l_1) 
-            selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # we need another naming for the sideband for the charge flip
-            selections.add("isSR_2lOS", ( events.is2l_SR) & charge2l_0) 
-            selections.add("isAR_2lOS", (~events.is2l_SR) & charge2l_0) 
+            selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1) 
+            selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1) 
+            selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
+            selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0) 
+            selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0) 
 
             selections.add("isSR_3l",  events.is3l_SR)
             selections.add("isAR_3l", ~events.is3l_SR)
@@ -661,6 +663,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # This dictionary keeps track of which selections go with which CR categories
             cr_cat_dict = {
+              "2l_CRflip" : {
+                  "atmost_3j" : {
+                      "lep_chan_lst" : ["2lss_CRflip"],
+                      "lep_flav_lst" : ["ee"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+              },
               "2l_CR" : {
                   "exactly_1j" : {
                       "lep_chan_lst" : ["2lss_CR"],
@@ -742,7 +751,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                       weights_object = weights_dict[nlep_cat]
                       if isData:
                           # for data, must include the FF. The flip rate we only apply to 2lss regions
-                          weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t","2l_CR"] else []))
+                          weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t","2l_CR","2l_CRflip"] else []))
                       elif (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                           # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
                           weight = weights_object.weight(None)
