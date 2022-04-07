@@ -81,17 +81,20 @@ def main():
         verbose = verbose
     )
     missing_templates = []
-    hadoop_dataset_dirs = []
+    hadoop_dataset_dirs = {}
     for src_dir in src_dirs:
         for d in os.listdir(src_dir):
             dir_fpath = pjoin(src_dir,d)
             if not os.path.isdir(dir_fpath): continue
-            hadoop_dataset_dirs.append(dir_fpath)
+            if d in hadoop_dataset_dirs:
+                old = hadoop_dataset_dirs[d]
+                print(f"Replacing: {old} -> {dir_fpath}")
+            hadoop_dataset_dirs[d] = dir_fpath
     print("Skim directories:")
     for hdir in hadoop_dataset_dirs:
         print(f"\t{hdir}")
     print("Attempting to find matching json templates...")
-    for hdir in hadoop_dataset_dirs:
+    for _,hdir in hadoop_dataset_dirs.items():
         dataset = os.path.split(hdir)[1]
         matched_json_fp = find_json_match(hdir,template_json_fpaths)
         print(f"\tMatch: {matched_json_fp}")
@@ -127,4 +130,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
