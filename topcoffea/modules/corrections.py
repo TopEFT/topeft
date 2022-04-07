@@ -95,16 +95,44 @@ SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 def AttachPerLeptonFR(leps, flavor, year):
-  if '2016' in year: 
+
+
+  # Get flip lookup obj
+  #with gzip.open(topcoffea_path(basepathFromTTH+"fliprates/UL17_test_flipratios.pkl.gz")) as fin:
+    #flip_hist = pickle.load(fin)
+    #flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
+
+  # Get the flip histos
+  if year == "2016APV":
+    with gzip.open(topcoffea_path(basepathFromTTH+"fliprates/flip_probs_apr06BinningAN19127_UL16APV.pkl.gz")) as fin:
+      flip_hist = pickle.load(fin)
+      flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
+  elif year == "2016":
+    with gzip.open(topcoffea_path(basepathFromTTH+"fliprates/flip_probs_apr06BinningAN19127_UL16.pkl.gz")) as fin:
+      flip_hist = pickle.load(fin)
+      flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
+  elif year == "2017":
+    with gzip.open(topcoffea_path(basepathFromTTH+"fliprates/flip_probs_apr06BinningAN19127_UL17.pkl.gz")) as fin:
+      flip_hist = pickle.load(fin)
+      flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
+  elif year == "2018":
+    with gzip.open(topcoffea_path(basepathFromTTH+"fliprates/flip_probs_apr06BinningAN19127_UL18.pkl.gz")) as fin:
+      flip_hist = pickle.load(fin)
+      flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
+  else: raise Exception(f"Not a known year {year}")
+
+  if '2016' in year:
     year = '2016APV_2016'
     flipyear='2016'
   else:
     flipyear=year
+
   for syst in ffSysts:
     fr=SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](leps.conept, np.abs(leps.eta) )
     leps['fakefactor%s'%syst]=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
   if flavor=="Elec":
-    leps['fliprate']=SFevaluator["EleFlip_%s"%flipyear]( np.maximum(25.,leps.pt), np.abs(leps.eta))
+    #leps['fliprate']=SFevaluator["EleFlip_%s"%flipyear]( np.maximum(11.,leps.pt), np.abs(leps.eta))
+    leps['fliprate'] = flip_lookup(leps.pt,abs(leps.eta))
   else:
     leps['fliprate']=np.zeros_like(leps.pt)
 
@@ -115,6 +143,9 @@ def fakeRateWeight2l(events, lep1, lep2):
     fakefactor_2l =  fakefactor_2l*(lep1.isTightLep + (~lep1.isTightLep)*getattr(lep1,'fakefactor%s'%syst))
     fakefactor_2l =  fakefactor_2l*(lep2.isTightLep + (~lep2.isTightLep)*getattr(lep2,'fakefactor%s'%syst))
     events['fakefactor_2l%s'%syst]=fakefactor_2l
+  # Calculation of flip factor: flip_factor_2l = 1*(isSS) + (fliprate1 + fliprate2)*(isOS):
+  #     - For SS events = 1
+  #     - For OS events = (fliprate1 + fliprate2)
   events['flipfactor_2l']=1*((lep1.charge+lep2.charge)!=0) + (((lep1.fliprate+lep2.fliprate))*((lep1.charge+lep2.charge)==0)) # only apply fliprate for OS events. to handle the OS control regions later :) #  + 
 
 def fakeRateWeight3l(events, lep1, lep2, lep3):
