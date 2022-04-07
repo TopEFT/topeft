@@ -13,6 +13,7 @@ setuptools.setup(
             "data/scaleFactors/*.root",
             "data/fromTTH/fakerate/*.root",
             "data/fromTTH/fliprates/*.root",
+            "data/fromTTH/fliprates/*.pkl.gz",
             "data/fromTTH/lepSF/*/*/*.root",
             "data/fromTTH/lepSF/*/*/*/*.root",
             "data/leptonSF/*/*.root",
