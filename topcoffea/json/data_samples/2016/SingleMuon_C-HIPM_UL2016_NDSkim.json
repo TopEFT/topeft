@@ -1,22 +1,22 @@
 {
   "xsec": 1.0,
-  "year": "2016",
+  "year": "2016APV",
   "treeName": "Events",
-  "histAxisName": "dataUL16",
+  "histAxisName": "dataUL16APV",
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleMuon_C_HIPM_UL2016/output_1189.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleMuon_C_HIPM_UL2016/output_1678.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleMuon_C_HIPM_UL2016/output_1968.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleMuon_C_HIPM_UL2016/output_2141.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleMuon_C_HIPM_UL2016/output_2585.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleMuon_C_HIPM_UL2016/output_2923.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleMuon_C_HIPM_UL2016/output_3392.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_C_HIPM_UL2016/output_699.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_C_HIPM_UL2016/output_700.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_C_HIPM_UL2016/output_710.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_C_HIPM_UL2016/output_721.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_C_HIPM_UL2016/output_729.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_C_HIPM_UL2016/output_747.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_C_HIPM_UL2016/output_788.root"
   ],
   "nEvents": 67441308,
   "nGenEvents": 67441308,
   "nSumOfWeights": 67441308.0,
   "isData": true,
-  "path": "/SingleMuon/Run2016C-HIPM_UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
+  "path": "/SingleMuon/Run2016C-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD"
 }

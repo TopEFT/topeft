@@ -1,22 +1,22 @@
 {
   "xsec": 1.0,
-  "year": "2016",
+  "year": "2016APV",
   "treeName": "Events",
-  "histAxisName": "dataUL16",
+  "histAxisName": "dataUL16APV",
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_E_HIPM_UL2016/output_3763.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_E_HIPM_UL2016/output_4114.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_E_HIPM_UL2016/output_4399.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_E_HIPM_UL2016/output_4635.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_E_HIPM_UL2016/output_4799.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_E_HIPM_UL2016/output_4833.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_E_HIPM_UL2016/output_4834.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleEG_E_HIPM_UL2016/output_679.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleEG_E_HIPM_UL2016/output_680.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleEG_E_HIPM_UL2016/output_704.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleEG_E_HIPM_UL2016/output_713.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleEG_E_HIPM_UL2016/output_714.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleEG_E_HIPM_UL2016/output_757.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleEG_E_HIPM_UL2016/output_758.root"
   ],
   "nEvents": 49877710,
   "nGenEvents": 49877710,
   "nSumOfWeights": 49877710.0,
   "isData": true,
-  "path": "/DoubleEG/Run2016E-HIPM_UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
+  "path": "/DoubleEG/Run2016E-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD"
 }
