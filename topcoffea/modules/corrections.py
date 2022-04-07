@@ -34,7 +34,20 @@ extLepSF.add_weight_sets(["MuonRecoSF_2016 NUM_TrackerMuons_DEN_genTracks/abseta
 extLepSF.add_weight_sets(["MuonRecoSF_2016_er NUM_TrackerMuons_DEN_genTracks/abseta_pt_error %s"%topcoffea_path('data/leptonSF/muon/Efficiency_muon_generalTracks_Run2016postVFP_UL_trackerMuon.json')])
 extLepSF.add_weight_sets(["MuonRecoSF_2016APV NUM_TrackerMuons_DEN_genTracks/abseta_pt_value %s"%topcoffea_path('data/leptonSF/muon/Efficiency_muon_generalTracks_Run2016preVFP_UL_trackerMuon.json')])
 extLepSF.add_weight_sets(["MuonRecoSF_2016APV_er NUM_TrackerMuons_DEN_genTracks/abseta_pt_error %s"%topcoffea_path('data/leptonSF/muon/Efficiency_muon_generalTracks_Run2016preVFP_UL_trackerMuon.json')])
-# Muon: loose&tight
+# Muon: loose POG
+extLepSF.add_weight_sets(["MuonLooseSF_2018 NUM_LooseID_DEN_TrackerMuons/abseta_pt_value %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2018_UL_ID.json')])
+extLepSF.add_weight_sets(["MuonLooseSF_2018_stat NUM_LooseID_DEN_TrackerMuons/abseta_pt_stat %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2018_UL_ID.json')])
+extLepSF.add_weight_sets(["MuonLooseSF_2018_syst NUM_LooseID_DEN_TrackerMuons/abseta_pt_syst %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2018_UL_ID.json')])
+extLepSF.add_weight_sets(["MuonLooseSF_2017 NUM_LooseID_DEN_TrackerMuons/abseta_pt_value %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2017_UL_ID.json')])
+extLepSF.add_weight_sets(["MuonLooseSF_2017_stat NUM_LooseID_DEN_TrackerMuons/abseta_pt_stat %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2017_UL_ID.json')])
+extLepSF.add_weight_sets(["MuonLooseSF_2017_syst NUM_LooseID_DEN_TrackerMuons/abseta_pt_syst %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2017_UL_ID.json')])
+extLepSF.add_weight_sets(["MuonLooseSF_2016 NUM_LooseID_DEN_TrackerMuons/abseta_pt_value %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2016_UL_ID.json')])
+extLepSF.add_weight_sets(["MuonLooseSF_2016_stat NUM_LooseID_DEN_TrackerMuons/abseta_pt_stat %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2016_UL_ID.json')])
+extLepSF.add_weight_sets(["MuonLooseSF_2016_syst NUM_LooseID_DEN_TrackerMuons/abseta_pt_syst %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2016_UL_ID.json')])
+extLepSF.add_weight_sets(["MuonLooseSF_2016APV NUM_LooseID_DEN_TrackerMuons/abseta_pt_value %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2016_UL_HIPM_ID.json')])
+extLepSF.add_weight_sets(["MuonLooseSF_2016APV_stat NUM_LooseID_DEN_TrackerMuons/abseta_pt_stat %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2016_UL_HIPM_ID.json')])
+extLepSF.add_weight_sets(["MuonLooseSF_2016APV_syst NUM_LooseID_DEN_TrackerMuons/abseta_pt_syst %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2016_UL_HIPM_ID.json')])
+# Muon: looseMVA&tight (Barbara)
 extLepSF.add_weight_sets(["MuonSF_2018 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2018_EGM2D.root')])
 extLepSF.add_weight_sets(["MuonSF_2018_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2018_EGM2D.root')])
 extLepSF.add_weight_sets(["MuonSF_2017_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2017_EGM2D.root')])
@@ -60,7 +73,16 @@ extLepSF.add_weight_sets(["ElecRecoSFAb_2016APV EGamma_SF2D %s"%topcoffea_path('
 extLepSF.add_weight_sets(["ElecRecoSFAb_2016APV_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_ptAbove20_EGM2D.root')])
 extLepSF.add_weight_sets(["ElecRecoSFBe_2016APV EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_ptBelow20_EGM2D.root')])
 extLepSF.add_weight_sets(["ElecRecoSFBe_2016APV_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_ptBelow20_EGM2D.root')])
-# Elec: loose&tight
+# Elec: loose (Barbara)
+extLepSF.add_weight_sets(["ElecLooseSF_2018 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2018_recoToloose_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecLooseSF_2018_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2018_recoToloose_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecLooseSF_2017_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2017_recoToloose_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecLooseSF_2017 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2017_recoToloose_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecLooseSF_2016_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_recoToloose_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecLooseSF_2016 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_recoToloose_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecLooseSF_2016APV_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_recoToloose_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecLooseSF_2016APV EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_recoToloose_EGM2D.root')])
+# Elec: looseMVA&tight (Barbara)
 extLepSF.add_weight_sets(["ElecSF_2018_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_2lss_EGM2D.root')])
 extLepSF.add_weight_sets(["ElecSF_2018_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_2lss_EGM2D.root')])
 extLepSF.add_weight_sets(["ElecSF_2018_3l EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_3l_EGM2D.root')])
@@ -137,15 +159,23 @@ def AttachMuonSF(muons, year):
   if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
   reco_sf  = np.where(pt<20,SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt),1) #sf=1 when pt>20 becuase there is no reco SF available
   reco_err = np.where(pt<20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0) #sf error =0 when pt>20 becuase there is no reco SF available
+  loose_sf  = SFevaluator['MuonLooseSF_{year}'.format(year=year)](eta,pt)
+  loose_err = np.sqrt(SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt)*SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt)+SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt)*SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt))
   new_sf  = SFevaluator['MuonSF_{year}'.format(year=year)](eta,pt)
   new_err = SFevaluator['MuonSF_{year}_er'.format(year=year)](eta,pt)
 
-  muons['sf_nom_2l'] = new_sf*reco_sf
-  muons['sf_hi_2l']  = (new_sf+new_err)*(reco_sf+reco_err)
-  muons['sf_lo_2l']  = (new_sf-new_err)*(reco_sf-reco_err)
-  muons['sf_nom_3l'] = new_sf*reco_sf
-  muons['sf_hi_3l']  = (new_sf+new_err)*(reco_sf+reco_err)
-  muons['sf_lo_3l']  = (new_sf-new_err)*(reco_sf-reco_err)
+  muons['sf_nom_2l_muon'] = new_sf * reco_sf * loose_sf
+  muons['sf_hi_2l_muon']  = (new_sf + new_err) * (reco_sf + reco_err) * (loose_sf + loose_err)
+  muons['sf_lo_2l_muon']  = (new_sf - new_err) * (reco_sf - reco_err) * (loose_sf - loose_err)
+  muons['sf_nom_3l_muon'] = new_sf * reco_sf * loose_sf
+  muons['sf_hi_3l_muon']  = (new_sf + new_err) * (reco_sf + reco_err) * (loose_sf + loose_err)
+  muons['sf_lo_3l_muon']  = (new_sf - new_err) * (reco_sf - reco_err) * (loose_sf - loose_err)
+  muons['sf_nom_2l_elec'] = ak.ones_like(new_sf)
+  muons['sf_hi_2l_elec']  = ak.ones_like(new_sf)
+  muons['sf_lo_2l_elec']  = ak.ones_like(new_sf)
+  muons['sf_nom_3l_elec'] = ak.ones_like(new_sf)
+  muons['sf_hi_3l_elec']  = ak.ones_like(new_sf)
+  muons['sf_lo_3l_elec']  = ak.ones_like(new_sf)
 
 
 def AttachElectronSF(electrons, year):
@@ -165,13 +195,21 @@ def AttachElectronSF(electrons, year):
   new_err_2l = SFevaluator['ElecSF_{year}_2lss_er'.format(year=year)](np.abs(eta),pt)
   new_sf_3l  = SFevaluator['ElecSF_{year}_3l'.format(year=year)](np.abs(eta),pt)
   new_err_3l = SFevaluator['ElecSF_{year}_3l_er'.format(year=year)](np.abs(eta),pt)
+  loose_sf  = SFevaluator['ElecLooseSF_{year}'.format(year=year)](np.abs(eta),pt)
+  loose_err = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](np.abs(eta),pt)
 
-  electrons['sf_nom_2l'] = reco_sf*new_sf_2l
-  electrons['sf_hi_2l']  = (reco_sf + reco_err) * (new_sf_2l + new_err_2l)
-  electrons['sf_lo_2l']  = (reco_sf - reco_err) * (new_sf_2l - new_err_2l)
-  electrons['sf_nom_3l'] = reco_sf*new_sf_3l
-  electrons['sf_hi_3l']  = (reco_sf + reco_err) * (new_sf_3l + new_err_3l)
-  electrons['sf_lo_3l']  = (reco_sf - reco_err) * (new_sf_3l - new_err_3l)
+  electrons['sf_nom_2l_elec'] = reco_sf * new_sf_2l * loose_sf
+  electrons['sf_hi_2l_elec']  = (reco_sf + reco_err) * (new_sf_2l + new_err_2l) * (loose_sf + loose_err)
+  electrons['sf_lo_2l_elec']  = (reco_sf - reco_err) * (new_sf_2l - new_err_2l) * (loose_sf - loose_err)
+  electrons['sf_nom_3l_elec'] = reco_sf * new_sf_3l * loose_sf
+  electrons['sf_hi_3l_elec']  = (reco_sf + reco_err) * (new_sf_3l + new_err_3l) * (loose_sf + loose_err)
+  electrons['sf_lo_3l_elec']  = (reco_sf - reco_err) * (new_sf_3l - new_err_3l) * (loose_sf - loose_err)
+  electrons['sf_nom_2l_muon'] = ak.ones_like(reco_sf)
+  electrons['sf_hi_2l_muon']  = ak.ones_like(reco_sf)
+  electrons['sf_lo_2l_muon']  = ak.ones_like(reco_sf)
+  electrons['sf_nom_3l_muon'] = ak.ones_like(reco_sf)
+  electrons['sf_hi_3l_muon']  = ak.ones_like(reco_sf)
+  electrons['sf_lo_3l_muon']  = ak.ones_like(reco_sf)
 
 
 ###### Btag scale factors
