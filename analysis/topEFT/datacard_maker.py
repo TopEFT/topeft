@@ -861,7 +861,7 @@ if __name__ == '__main__':
                 {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}
             ]
-            jobs.append(cards)
+            jobs += cards
         else:
             if var == 'ptz': continue # This var only applies to a subset of the channels
             for b in card.ch2lssj:
@@ -890,14 +890,14 @@ if __name__ == '__main__':
                 cards += [
                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':b}
                 ]
-            jobs.append(cards)
+            jobs += cards
     if 'ptz' in include_var_lst:
         for b in card.ch3lsfzj:
             cards += [
             {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':b},
             {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':b},
             ]
-        jobs.append(cards)
+        jobs += cards
 
     njobs = 0
     for j in jobs:
@@ -905,7 +905,7 @@ if __name__ == '__main__':
     if job == -1:
         card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm, include_var_lst)
     elif job < njobs:
-        d = jobs[job//len(jobs[0])][job%len(jobs[0])]
+        d = jobs[job]
         card.analyzeChannel(**d)
     else:
         raise Exception(f'Job number {job} outside of range {njobs}!')
