@@ -40,7 +40,9 @@ CR_CHAN_DICT = {
         "2lss_em_CR_2j",
         "2lss_mm_CR_2j",
     ],
-
+    "cr_2lss_flip" : [
+        "2lss_ee_CRflip_3j",
+    ],
     "cr_3l" : [
         "3l_eee_CR_1j",
         "3l_eem_CR_1j",
@@ -208,7 +210,7 @@ def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
 def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
 
     #colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
-    colors = ["tab:blue","brown","tab:orange",'tan',"tab:purple","tab:pink","tab:cyan","tab:green","tab:red"]
+    colors = ["tab:blue","tab:orange","brown",'tab:cyan',"tab:purple","tab:pink","tan","tab:green","tab:red"]
 
     # Create the figure
     fig, (ax, rax) = plt.subplots(
@@ -624,6 +626,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
             if (hist_cat == "cr_2los_Z" and "j0" in var_name): continue # The 2los Z category does not require jets
+            if (hist_cat == "cr_2lss_flip" and "j0" in var_name): continue # The flip category does not require jets
             print("\n\tCategory:",hist_cat)
 
             # Make a sub dir for this category
