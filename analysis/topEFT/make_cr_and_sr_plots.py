@@ -547,8 +547,13 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         mc_wl.append("UL18")
         data_wl.append("UL18")
     elif year == "2016":
-        mc_wl.append("UL16")   # Includes UL16 and UL16APV
-        data_wl.append("UL16") # Includes UL16 and UL16APV
+        mc_wl.append("UL16")
+        mc_bl.append("UL16APV")
+        data_wl.append("UL16")
+        data_bl.append("UL16APV")
+    elif year == "2016APV":
+        mc_wl.append("UL16APV")
+        data_wl.append("UL16APV")
     else: raise Exception(f"Error: Unknown year \"{year}\".")
 
     # Get the list of samples we want to plot
