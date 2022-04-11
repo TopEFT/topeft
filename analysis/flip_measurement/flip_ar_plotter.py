@@ -1,41 +1,61 @@
+# Notes on this script: 
+#   - This script runs on the output of flip_ar_processor.py 
+#   - It opens the pkl file and plots the SS data and the prediction
+#   - The prediction was calculated in the processor by applying flip probabilities to the OS data
+
 import os
 import copy
-import topcoffea.modules.GetValuesFromJsons as getVal
+import matplotlib.pyplot as plt
 import uproot3
 from coffea import hist
 
 from topcoffea.modules.YieldTools import YieldTools
-import make_cr_and_sr_plots as mp
-
-
 yt = YieldTools()
 
 import argparse
 parser = argparse.ArgumentParser(description='You can customize your run')
-#parser.add_argument("filepath"          , default='histos/plotsTopEFT.pkl.gz', help = 'path of file with histograms')
+parser.add_argument("filepath",default='histos/flipTopEFT.pkl.gz', help = 'path of file with histograms')
 parser.add_argument("--outpath" ,'-o'   , default='.', help = 'Path to the output directory')
 args = parser.parse_args()
-
-#hin_dict = yt.get_hist_from_pkl("/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/check_PRs/sergio_lepmva/topcoffea/analysis/topEFT/histos/mar31_UL17DY_withSSOSTruth_minPtl15_mvaTTHUL.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr05_xcheck_00.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr05_xcheck_ttHProbs_00.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr05_ar_UL17-dy-dy1050-ttbar_withTightChReq_test02.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr05_ar_ttHProbs_test02.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr05_ar_ttHProbs_test03.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr05_ar_UL17-dy-dy1050-ttbar_withTightChReq_test03.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr06_ar_UL16UL17UL18_apr06BinningAN19127_00.pkl.gz")
-hin_dict = yt.get_hist_from_pkl("histos/apr06_ar_FullR2_apr06BinningAN19127_00.pkl.gz")
-
-
 outpath = args.outpath
 
-# Get a MC name that corresponds to whatever data we're looking at
-def get_mc_name(data_name):
-    if "UL17" in data_name:
-        return "DYJetsToLL_centralUL17"
-    elif "UL18" in data_name:
-        return "DY50_centralUL18"
-    else: raise Exception
+# Plots one or two histos (optionally along with an "up" and "down" variation) and returns the fig
+def make_fig(histo1,histo2=None,hup=None,hdo=None):
+    #print("\nPlotting values:",histo1.values())
+    #print("\nPlotting values:",histo2.values())
+    fig, ax = plt.subplots(1, 1, figsize=(7,7))
+
+    # Plot the "up" and "down" histos
+    if hup is not None and hdo is not None:
+        hist.plot1d(
+            hup,
+            stack=False,
+            line_opts={'color': 'lightgrey'},
+            clear=False,
+        )
+        hist.plot1d(
+            hdo,
+            stack=False,
+            line_opts={'color': 'lightgrey'},
+            clear=False,
+        )
+
+    # Plot the main histos
+    hist.plot1d(
+        histo1,
+        stack=False,
+        clear=False,
+    )
+    if histo2 is not None:
+        hist.plot1d(
+            histo2,
+            stack=False,
+            clear=False,
+        )
+
+    ax.autoscale(axis='y')
+    return fig
+
 
 # Print summed values from a histo
 def print_summed_hist_vals(in_hist,ret="ssz",quiet=False):
@@ -54,11 +74,7 @@ def print_summed_hist_vals(in_hist,ret="ssz",quiet=False):
 # Main wrapper function
 def make_plot():
 
-    make_plots = True
-
-    out_dict_ss = {}
-    out_dict_os = {}
-
+    hin_dict = yt.get_hist_from_pkl(args.filepath)
     sample_names_lst = yt.get_cat_lables(hin_dict,"sample")
     chan_names_lst = yt.get_cat_lables(hin_dict,"channel")
 
@@ -74,8 +90,6 @@ def make_plot():
 
             # Copy (and rebin the ss)
             histo = copy.deepcopy(histo_orig)
-            #if histo_name == "invmass": histo = histo.rebin("invmass",10)
-            #if histo_name == "invmass": histo = histo.rebin("invmass",5)
             if histo_name == "invmass": histo = histo.rebin("invmass",2)
 
             # Integrate and make plot (overlay the categories)
@@ -85,7 +99,7 @@ def make_plot():
             h_do = copy.deepcopy(histo)
             h_up.scale(1.3)
             h_do.scale(0.7)
-            fig = mp.make_single_fig(histo["ssz"],histo2=histo["osz"],hup=h_up["osz"],hdo=h_do["osz"])
+            fig = make_fig(histo["ssz"],histo2=histo["osz"],hup=h_up["osz"],hdo=h_do["osz"])
             fig.savefig(os.path.join(outpath,savename))
 
 
