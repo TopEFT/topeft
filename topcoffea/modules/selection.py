@@ -408,13 +408,20 @@ def addLepCatMasks(events):
     events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
 
 
-# Returns a mask for events with a same flavor opposite sign pair close to the Z
+# Returns a mask for events with a same flavor opposite (same) sign pair close to the Z
 # Mask will be True if any combination of 2 leptons from within the given collection satisfies the requirement
-def get_Z_peak_mask(lep_collection,pt_window):
+def get_Z_peak_mask(lep_collection,pt_window,flavor="os"):
     ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
     zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<pt_window)
-    sfos_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
-    sfosz_mask = ak.flatten(ak.any((zpeak_mask & sfos_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
+    if flavor == "os":
+        sf_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
+    elif flavor == "ss":
+        sf_mask = (ll_pairs.l0.pdgId == ll_pairs.l1.pdgId)
+    elif flavor == "as": # Same flav any sign
+        sf_mask = ((ll_pairs.l0.pdgId == ll_pairs.l1.pdgId) | (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId))
+    else:
+        raise Exception(f"Error: flavor requirement \"{flavor}\" is unknown.")
+    sfosz_mask = ak.flatten(ak.any((zpeak_mask & sf_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
     return sfosz_mask
 
 # Returns the pt of the l+l that form the Z peak

@@ -19,7 +19,7 @@ import topeft
 from topcoffea.modules import samples
 from topcoffea.modules import fileReader
 from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
-import topeftenv
+import topcoffea.modules.remote_environment as remote_environment
 
 WGT_VAR_LST = [
     "nSumOfWeights_ISRUp",
@@ -216,7 +216,7 @@ executor_args = {
     'transactions_log': 'tr.log',
     'stats_log': 'stats.log',
 
-    'environment_file': topeftenv.get_environment(),
+    'environment_file': remote_environment.get_environment(),
     'extra_input_files': ["topeft.py"],
 
     'schema': NanoAODSchema,
