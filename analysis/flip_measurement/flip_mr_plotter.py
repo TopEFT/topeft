@@ -1,38 +1,38 @@
+# Notes on this script:
+#   - This script runs on the output of flip_mr_processor.py
+#   - It opens the pkl file, extracts the flip and no flip histos, calculates the flip prob, and saves that to a histo (also saves the 2d hists to png for reference)
+#   - The output histo is then placed in topcoffea/data so that corrections.py can read in the values using dense lookup 
+
 import os
 import copy
 import json
 import matplotlib.pyplot as plt
 import cloudpickle
 import gzip
-
 import uproot3
 from coffea import hist
 
 from topcoffea.modules.YieldTools import YieldTools
-
-import make_cr_and_sr_plots as mp
-
 yt = YieldTools()
 
-#import argparse
-#parser = argparse.ArgumentParser()
-#parser.add_argument("filepath",default='histos/flipTopEFT.pkl.gz', help = 'path of file with histograms')
-#args = parser.parse_args()
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("filepath",default='histos/flipMR_TopEFT.pkl.gz', help = 'path of file with histograms')
+args = parser.parse_args()
 
-#hin_dict = yt.get_hist_from_pkl("histos/apr01_UL17DY_2d_00_mvaTTHUL.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr04_UL17-dy-dy1050-ttbar_test01.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr05_UL17-dy-dy1050-ttbar_withTightChReq_test01.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr05_UL17-dy-dy1050-ttbar_withTightChReq_test03.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr06_UL16-UL17-dy-dy1050-ttbar-UL18-dy-dy1050_test01.pkl.gz")
-#hin_dict = yt.get_hist_from_pkl("histos/apr06_UL16-UL17-dy-dy1050-ttbar-UL18-dy-dy1050_anbinning_test02.pkl.gz")
-hin_dict = yt.get_hist_from_pkl("histos/apr06_FullR2-dy-dy1050-ttbar_test00.pkl.gz")
+hin_dict = yt.get_hist_from_pkl(args.filepath)
 
-
-#PT_BINS = [0,20,30,40,50,60,70,100,200]
-#ABSETA_BINS = [0,0.5,1.0,1.5,2.0,2.5]
+# This binning should match what is defined in the flip measurement processor
 PT_BINS = [0, 30.0, 45.0, 60.0, 100.0, 200.0]
 ABSETA_BINS = [0, 0.4, 0.8, 1.1, 1.4, 1.6, 1.9, 2.2, 2.5]
 
+# These scale factors are determined by comparing prediction to data in the the flip CR
+SCALE_DICT = {
+    "UL16APV" : 0.82,
+    "UL16" : 0.84,
+    "UL17" : 1.19,
+    "UL18" : 1.13,
+}
 
 # Given an array of values and a pt and eta bin list, make a histo
 def make_ratio_hist(ratio_arr,pt_bin_lst,eta_bin_lst):
@@ -43,7 +43,6 @@ def make_ratio_hist(ratio_arr,pt_bin_lst,eta_bin_lst):
     )
     hist_ratio._sumw = {(): ratio_arr}
     return hist_ratio
-
 
 # Plot and save a png for a given 2d histo
 def make_2d_fig(histo,xaxis_var,save_name,title=None):
@@ -99,7 +98,7 @@ def main():
         # Integrate just the samples for the given year
         blacklist = []
         if year != "UL16APV": blacklist = "APV"
-        samples_to_include = mp.filter_lst_of_strs(sample_names_lst,substr_whitelist=year,substr_blacklist=blacklist)
+        samples_to_include = yt.filter_lst_of_strs(sample_names_lst,substr_whitelist=year,substr_blacklist=blacklist)
         print(f"For year {year}, including samples: {samples_to_include}")
         histo_ptabseta_year = copy.deepcopy(histo_ptabseta)
         histo_ptabseta_year = histo_ptabseta_year.integrate("sample",samples_to_include)
@@ -112,8 +111,12 @@ def main():
         make_2d_fig(hist_noflip,"pt",year+"_truth_noflip")
         make_2d_fig(hist_ratio,"pt",year+"_truth_ratio","Flip ratio = flip/(flip+noflip)")
 
+        # Scale ratio histo and save a fig for that one too
+        hist_ratio.scale(SCALE_DICT[year])
+        make_2d_fig(hist_ratio,"pt",year+"_truth_ratio_scaled","Flip ratio = flip/(flip+noflip)")
+
         # Save output histo
-        save_pkl_str = "flip_probs_apr06BinningAN19127_" + year + ".pkl.gz"
+        save_pkl_str = "flip_probs_topcoffea_" + year + ".pkl.gz"
         with gzip.open(save_pkl_str, "wb") as fout:
             cloudpickle.dump(hist_ratio, fout)
 
