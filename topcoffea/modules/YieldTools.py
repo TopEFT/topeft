@@ -161,6 +161,34 @@ class YieldTools():
         return [common_lst,unique_1_lst,unique_2_lst]
 
 
+    # Get a subset of the elements from a list of strings given a whitelist and/or blacklist of substrings
+    def filter_lst_of_strs(self,in_lst,substr_whitelist=[],substr_blacklist=[]):
+
+        # Check all elements are strings
+        if not (all(isinstance(x,str) for x in in_lst) and all(isinstance(x,str) for x in substr_whitelist) and all(isinstance(x,str) for x in substr_blacklist)):
+            raise Exception("Error: This function only filters lists of strings, one of the elements in one of the input lists is not a str.")
+        for elem in substr_whitelist:
+            if elem in substr_blacklist:
+                raise Exception(f"Error: Cannot whitelist and blacklist the same element (\"{elem}\").")
+
+        # Append to the return list
+        out_lst = []
+        for element in in_lst:
+            blacklisted = False
+            whitelisted = True
+            for substr in substr_blacklist:
+                if substr in element:
+                    # If any of the substrings are in the element, blacklist it
+                    blacklisted = True
+            for substr in substr_whitelist:
+                if substr not in element:
+                    # If any of the substrings are NOT in the element, do not whitelist it
+                    whitelisted = False
+            if whitelisted and not blacklisted:
+                out_lst.append(element)
+
+        return out_lst
+
     # Get the per lepton e/m factor from e.g. eee and mmm yields
     def get_em_factor(self,e_val,m_val,nlep):
         return (e_val/m_val)**(1.0/nlep)

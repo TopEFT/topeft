@@ -1,3 +1,4 @@
+import numpy as np
 import os
 import copy
 import datetime
@@ -139,34 +140,6 @@ def get_dict_with_stripped_bin_names(in_chan_dict,type_of_info_to_strip):
             if bin_name_no_njet not in out_chan_dict[cat]:
                 out_chan_dict[cat].append(bin_name_no_njet)
     return(out_chan_dict)
-
-# Get a subset of the elements from a list of strings given a whitelist and/or blacklist of substrings
-def filter_lst_of_strs(in_lst,substr_whitelist=[],substr_blacklist=[]):
-
-    # Check all elements are strings
-    if not (all(isinstance(x,str) for x in in_lst) and all(isinstance(x,str) for x in substr_whitelist) and all(isinstance(x,str) for x in substr_blacklist)):
-        raise Exception("Error: This function only filters lists of strings, one of the elements in one of the input lists is not a str.")
-    for elem in substr_whitelist:
-        if elem in substr_blacklist:
-            raise Exception(f"Error: Cannot whitelist and blacklist the same element (\"{elem}\").")
-
-    # Append to the return list
-    out_lst = []
-    for element in in_lst:
-        blacklisted = False
-        whitelisted = True
-        for substr in substr_blacklist:
-            if substr in element:
-                # If any of the substrings are in the element, blacklist it
-                blacklisted = True
-        for substr in substr_whitelist:
-            if substr not in element:
-                # If any of the substrings are NOT in the element, do not whitelist it
-                whitelisted = False
-        if whitelisted and not blacklisted:
-            out_lst.append(element)
-
-    return out_lst
 
 
 # Figures out which year a sample is from, retruns the lumi for that year
@@ -352,7 +325,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
 
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
     all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name=yt.get_hist_list(dict_of_hists)[0])
-    sig_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
+    sig_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
     samples_to_rm_from_sig_hist = []
     for sample_name in all_samples:
@@ -439,7 +412,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
     all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name=yt.get_hist_list(dict_of_hists)[0])
-    sig_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
+    sig_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
     samples_to_rm_from_sig_hist = []
     for sample_name in all_samples:
@@ -560,8 +533,8 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists,"sample")
-    mc_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+    mc_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
+    data_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
     for sample_name in all_samples:
         if sample_name not in mc_sample_lst:
             samples_to_rm_from_mc_hist.append(sample_name)
@@ -601,9 +574,11 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
     # Get the eft sum of weights at SM norm dict
 
     # Loop over hists and make plots
-    skip_lst = [] # Skip this hist
+    skip_lst = [] # Skip these hists
+    #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
+        #if (var_name not in skip_wlst): continue
         if (var_name == "njets"):
             # We do not keep track of jets in the sparse axis for the njets hists
             cr_cat_dict = get_dict_with_stripped_bin_names(CR_CHAN_DICT,"njets")
@@ -654,6 +629,15 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 hist_mc_integrated = hist_mc_integrated.remove(["DY"],"sample")
             if hist_cat == "cr_3l":
                 hist_mc_integrated = hist_mc_integrated.remove(["DY"],"sample")
+
+            # Print out total MC and data and the sf between them
+            # For extracting the factors we apply to the flip contribution
+            #tot_mc = sum(sum(hist_mc_integrated.values().values()))
+            #tot_data = sum(sum(hist_data_integrated.values().values()))
+            #sf = tot_data/tot_mc
+            #print(f"\nSF: data/mc = {tot_data}/{tot_mc} = {sf}")
+            #hist_mc_integrated.scale(sf)
+            #exit()
 
             # Create and save the figure
             x_range = None
