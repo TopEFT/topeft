@@ -28,10 +28,10 @@ ABSETA_BINS = [0, 0.4, 0.8, 1.1, 1.4, 1.6, 1.9, 2.2, 2.5]
 
 # These scale factors are determined by comparing prediction to data in the the flip CR
 SCALE_DICT = {
-    "UL16APV" : 0.82,
-    "UL16" : 0.84,
-    "UL17" : 1.19,
-    "UL18" : 1.13,
+    "UL16APV" : 0.81,
+    "UL16" : 0.83,
+    "UL17" : 1.24,
+    "UL18" : 1.16,
 }
 
 # Given an array of values and a pt and eta bin list, make a histo
