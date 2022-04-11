@@ -134,8 +134,8 @@ def main():
 
   # When getting data from DAS, we don't need to query every single file to get the number of events
   if isDAS and isData and nFiles is None:
-    dataset_part = "{name} | sum(file.nevents)".format(name=path)
-    output = RunDasGoClientCommand(dataset=dataset_part,mode='file,')
+    dataset_part = "{name} | grep dataset.nevents".format(name=path)
+    output = RunDasGoClientCommand(dataset=dataset_part,mode='')
     output = float(output.split(':')[-1].strip())
 
     # For data this this should all be the same
