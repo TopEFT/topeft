@@ -96,7 +96,6 @@ if executor == "work_queue":
         'stats_log': 'stats.log',
 
         'environment_file': remote_environment.get_environment(),
-        #'environment_file': remote_environment.get_environment(unstaged='ignore'),
         'extra_input_files': extra_input_files_lst,
 
         'schema': NanoAODSchema,
@@ -155,8 +154,6 @@ if executor == "work_queue":
         # off print_stdout for all tasks.
         'verbose': True,
         'print_stdout': False,
-
-        "filepath": "/tmp",
     }
 
 # Run the processor and get the output
