@@ -632,12 +632,14 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
             # Print out total MC and data and the sf between them
             # For extracting the factors we apply to the flip contribution
+            #if hist_cat != "cr_2lss_flip": continue
             #tot_data = sum(sum(hist_data_integrated.values().values()))
             #tot_mc   = sum(sum(hist_mc_integrated.values().values()))
             #flips    = sum(sum(hist_mc_integrated["Flips"].values().values()))
             #tot_mc_but_flips = tot_mc - flips
             #sf = (tot_data - tot_mc_but_flips)/flips
-            #print(f"\nSF: data/mc = {tot_data}/{tot_mc} = {sf}")
+            #print(f"\nComp: data/pred = {tot_data}/{tot_mc} = {tot_data/tot_mc}")
+            #print(f"Flip sf needed = (data - (pred - flips))/flips = {sf}")
             #exit()
 
             # Create and save the figure
