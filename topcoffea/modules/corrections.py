@@ -84,10 +84,6 @@ for year in ['2016APV_2016', 2017, 2018]:
     extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}.root')).format(year=year,syst=syst)])
     extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva090_el_data_comb_NC{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}.root')).format(year=year,syst=syst)])
 
-# Flip rates                                                                                                                                                                                                       
-for year in [2016, 2017, 2018]:
-  extLepSF.add_weight_sets([("EleFlip_{year} chargeMisId %s"%topcoffea_path(basepathFromTTH+'fliprates/ElectronChargeMisIdRates_era{year}_2020Feb13.root')).format(year=year,syst=syst)])
-
 
 extLepSF.finalize()
 SFevaluator = extLepSF.make_evaluator()
@@ -96,42 +92,25 @@ SFevaluator = extLepSF.make_evaluator()
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 def AttachPerLeptonFR(leps, flavor, year):
 
+  # Get the flip rates lookup object
+  if year == "2016APV": flip_year_name = "UL16APV"
+  elif year == "2016": flip_year_name = "UL16"
+  elif year == "2017": flip_year_name = "UL17"
+  elif year == "2018": flip_year_name = "UL18"
+  else: raise Exception(f"Not a known year: {year}")
+  with gzip.open(topcoffea_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
+    flip_hist = pickle.load(fin)
+    flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
 
-  # Get flip lookup obj
-  #with gzip.open(topcoffea_path(basepathFromTTH+"fliprates/UL17_test_flipratios.pkl.gz")) as fin:
-    #flip_hist = pickle.load(fin)
-    #flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
-
-  # Get the flip histos
-  if year == "2016APV":
-    with gzip.open(topcoffea_path(basepathFromTTH+"fliprates/flip_probs_apr06BinningAN19127_UL16APV.pkl.gz")) as fin:
-      flip_hist = pickle.load(fin)
-      flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
-  elif year == "2016":
-    with gzip.open(topcoffea_path(basepathFromTTH+"fliprates/flip_probs_apr06BinningAN19127_UL16.pkl.gz")) as fin:
-      flip_hist = pickle.load(fin)
-      flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
-  elif year == "2017":
-    with gzip.open(topcoffea_path(basepathFromTTH+"fliprates/flip_probs_apr06BinningAN19127_UL17.pkl.gz")) as fin:
-      flip_hist = pickle.load(fin)
-      flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
-  elif year == "2018":
-    with gzip.open(topcoffea_path(basepathFromTTH+"fliprates/flip_probs_apr06BinningAN19127_UL18.pkl.gz")) as fin:
-      flip_hist = pickle.load(fin)
-      flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
-  else: raise Exception(f"Not a known year {year}")
-
+  # For FR filepath naming conventions
   if '2016' in year:
     year = '2016APV_2016'
-    flipyear='2016'
-  else:
-    flipyear=year
 
+  # Add the flip/fake info into the leps opject
   for syst in ffSysts:
     fr=SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](leps.conept, np.abs(leps.eta) )
     leps['fakefactor%s'%syst]=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
   if flavor=="Elec":
-    #leps['fliprate']=SFevaluator["EleFlip_%s"%flipyear]( np.maximum(11.,leps.pt), np.abs(leps.eta))
     leps['fliprate'] = flip_lookup(leps.pt,abs(leps.eta))
   else:
     leps['fliprate']=np.zeros_like(leps.pt)
