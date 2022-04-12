@@ -9,7 +9,7 @@ import argparse
 import numpy as np
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
-import topeftenv
+import topcoffea.modules.remote_environment as remote_environment
 
 import sow_processor
 
@@ -101,7 +101,7 @@ if executor == "work_queue":
         'transactions_log': 'tr.log',
         'stats_log': 'stats.log',
 
-        'environment_file': topeftenv.get_environment(),
+        'environment_file': remote_environment.get_environment(),
         'extra_input_files': ["sow_processor.py"],
 
         'schema': NanoAODSchema,

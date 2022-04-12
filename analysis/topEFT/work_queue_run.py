@@ -19,7 +19,7 @@ import topeft
 from topcoffea.modules import samples
 from topcoffea.modules import fileReader
 from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
-import topeftenv
+import topcoffea.modules.remote_environment as remote_environment
 
 WGT_VAR_LST = [
     "nSumOfWeights_ISRUp",
@@ -45,7 +45,7 @@ parser.add_argument('--outname','-o'   , default='plotsTopEFT', help = 'Name of 
 parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the output directory')
 parser.add_argument('--treename'       , default='Events', help = 'Name of the tree inside the files')
 parser.add_argument('--do-errors'      , action='store_true', help = 'Save the w**2 coefficients')
-parser.add_argument('--do-systs', action='store_true', help = 'Run over systematic samples (takes longer)')
+parser.add_argument('--do-systs', action='store_true', help = 'Compute systematic variations (for any MC samples)')
 parser.add_argument('--split-lep-flavor', action='store_true', help = 'Split up categories by lepton flavor')
 parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
 parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
@@ -216,7 +216,7 @@ executor_args = {
     'transactions_log': 'tr.log',
     'stats_log': 'stats.log',
 
-    'environment_file': topeftenv.get_environment(),
+    'environment_file': remote_environment.get_environment(),
     'extra_input_files': ["topeft.py"],
 
     'schema': NanoAODSchema,

@@ -1,27 +1,27 @@
 {
   "xsec": 1.0,
-  "year": "2016",
+  "year": "2016APV",
   "treeName": "Events",
-  "histAxisName": "dataUL16",
+  "histAxisName": "dataUL16APV",
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_B_ver2_HIPM_UL2016/output_1675.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_B_ver2_HIPM_UL2016/output_2323.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_B_ver2_HIPM_UL2016/output_3015.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_B_ver2_HIPM_UL2016/output_3438.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_B_ver2_HIPM_UL2016/output_3843.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_B_ver2_HIPM_UL2016/output_4168.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_B_ver2_HIPM_UL2016/output_4300.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_B_ver2_HIPM_UL2016/output_4548.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_B_ver2_HIPM_UL2016/output_4795.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_B_ver2_HIPM_UL2016/output_4827.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_B_ver2_HIPM_UL2016/output_4890.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/SingleElectron_B_ver2_HIPM_UL2016/output_4926.root"
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleElectron_B_ver2_HIPM_UL2016/output_203.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleElectron_B_ver2_HIPM_UL2016/output_318.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleElectron_B_ver2_HIPM_UL2016/output_321.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleElectron_B_ver2_HIPM_UL2016/output_324.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleElectron_B_ver2_HIPM_UL2016/output_325.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleElectron_B_ver2_HIPM_UL2016/output_329.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleElectron_B_ver2_HIPM_UL2016/output_330.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleElectron_B_ver2_HIPM_UL2016/output_331.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleElectron_B_ver2_HIPM_UL2016/output_336.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleElectron_B_ver2_HIPM_UL2016/output_341.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleElectron_B_ver2_HIPM_UL2016/output_343.root",
+    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleElectron_B_ver2_HIPM_UL2016/output_347.root"
   ],
   "nEvents": 246440440,
   "nGenEvents": 246440440,
   "nSumOfWeights": 246440440.0,
   "isData": true,
-  "path": "/SingleElectron/Run2016B-ver2_HIPM_UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
+  "path": "/SingleElectron/Run2016B-ver2_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD"
 }

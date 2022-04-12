@@ -6,9 +6,9 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16APV_WWTo2L2Nu/output_2066.root",
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16APV_WWTo2L2Nu/output_2459.root",
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16APV_WWTo2L2Nu/output_742.root"
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_WWTo2L2Nu/output_201.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_WWTo2L2Nu/output_540.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_WWTo2L2Nu/output_569.root"
   ],
   "nEvents": 3018000,
   "nGenEvents": 3018000,
