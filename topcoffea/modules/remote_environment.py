@@ -49,6 +49,8 @@ packages_json_template = string.Template('''
         ]
 }''')
 
+pip_local_to_ignore = { "topcoffea": ["analysis"] }
+
 packages_json = packages_json_template.substitute(py_version=py_version,coffea_version=coffea_version)
 
 
@@ -90,8 +92,12 @@ def _commits_local_pip(paths):
     commits = {}
     for (pkg, path) in paths.items():
         try:
+            to_ignore = []
+            if pip_local_to_ignore.get(pkg, None):
+                to_ignore = [":(exclude,top){}".format(d) for d in pip_local_to_ignore[pkg]]
+
             commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=path).decode().rstrip()
-            changed = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=path).decode().rstrip()
+            changed = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no', '.'] + to_ignore, cwd=path).decode().rstrip()
             if changed:
                 logger.warning("Found unstaged changes in '{}'".format(path))
                 commits[pkg] = 'HEAD'
