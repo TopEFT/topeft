@@ -126,16 +126,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         if isData:
             self._do_systematics = False
         else:
-            sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"]
-            sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"]
-            sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"]
-            sow_FSRDown        = self._samples[dataset]["nSumOfWeights_FSRDown"]
-            sow_renormUp       = self._samples[dataset]["nSumOfWeights_renormUp"]
-            sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"]
-            sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"]
-            sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"]
-            sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"]
-            sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown"]
+            sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"          ]if "nSumOfWeights_ISRUp"          in self._samples[dataset] else -1
+            sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"        ]if "nSumOfWeights_ISRDown"        in self._samples[dataset] else -1
+            sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"          ]if "nSumOfWeights_FSRUp"          in self._samples[dataset] else -1
+            sow_FSRDown        = self._samples[dataset]["nSumOfWeights_FSRDown"        ]if "nSumOfWeights_FSRDown"        in self._samples[dataset] else -1
+            sow_renormUp       = self._samples[dataset]["nSumOfWeights_renormUp"       ]if "nSumOfWeights_renormUp"       in self._samples[dataset] else -1
+            sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"     ]if "nSumOfWeights_renormDown"     in self._samples[dataset] else -1
+            sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"         ]if "nSumOfWeights_factUp"         in self._samples[dataset] else -1
+            sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"       ]if "nSumOfWeights_factDown"       in self._samples[dataset] else -1
+            sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"   ]if "nSumOfWeights_renormfactUp"   in self._samples[dataset] else -1
+            sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown" ]if "nSumOfWeights_renormfactDown" in self._samples[dataset] else -1
         
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
