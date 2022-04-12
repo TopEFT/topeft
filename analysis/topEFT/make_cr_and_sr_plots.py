@@ -1,3 +1,4 @@
+import numpy as np
 import os
 import copy
 import datetime
@@ -40,7 +41,9 @@ CR_CHAN_DICT = {
         "2lss_em_CR_2j",
         "2lss_mm_CR_2j",
     ],
-
+    "cr_2lss_flip" : [
+        "2lss_ee_CRflip_3j",
+    ],
     "cr_3l" : [
         "3l_eee_CR_1j",
         "3l_eem_CR_1j",
@@ -138,34 +141,6 @@ def get_dict_with_stripped_bin_names(in_chan_dict,type_of_info_to_strip):
                 out_chan_dict[cat].append(bin_name_no_njet)
     return(out_chan_dict)
 
-# Get a subset of the elements from a list of strings given a whitelist and/or blacklist of substrings
-def filter_lst_of_strs(in_lst,substr_whitelist=[],substr_blacklist=[]):
-
-    # Check all elements are strings
-    if not (all(isinstance(x,str) for x in in_lst) and all(isinstance(x,str) for x in substr_whitelist) and all(isinstance(x,str) for x in substr_blacklist)):
-        raise Exception("Error: This function only filters lists of strings, one of the elements in one of the input lists is not a str.")
-    for elem in substr_whitelist:
-        if elem in substr_blacklist:
-            raise Exception(f"Error: Cannot whitelist and blacklist the same element (\"{elem}\").")
-
-    # Append to the return list
-    out_lst = []
-    for element in in_lst:
-        blacklisted = False
-        whitelisted = True
-        for substr in substr_blacklist:
-            if substr in element:
-                # If any of the substrings are in the element, blacklist it
-                blacklisted = True
-        for substr in substr_whitelist:
-            if substr not in element:
-                # If any of the substrings are NOT in the element, do not whitelist it
-                whitelisted = False
-        if whitelisted and not blacklisted:
-            out_lst.append(element)
-
-    return out_lst
-
 
 # Figures out which year a sample is from, retruns the lumi for that year
 def get_lumi_for_sample(sample_name):
@@ -208,7 +183,7 @@ def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
 def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
 
     #colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
-    colors = ["tab:blue","brown","tab:orange",'tan',"tab:purple","tab:pink","tab:cyan","tab:green","tab:red"]
+    colors = ["tab:blue","tab:orange","brown",'tab:cyan',"tab:purple","tab:pink","tan","tab:green","tab:red"]
 
     # Create the figure
     fig, (ax, rax) = plt.subplots(
@@ -350,7 +325,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
 
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
     all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name=yt.get_hist_list(dict_of_hists)[0])
-    sig_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
+    sig_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
     samples_to_rm_from_sig_hist = []
     for sample_name in all_samples:
@@ -437,7 +412,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
     all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name=yt.get_hist_list(dict_of_hists)[0])
-    sig_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
+    sig_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
     samples_to_rm_from_sig_hist = []
     for sample_name in all_samples:
@@ -545,16 +520,21 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         mc_wl.append("UL18")
         data_wl.append("UL18")
     elif year == "2016":
-        mc_wl.append("UL16")   # Includes UL16 and UL16APV
-        data_wl.append("UL16") # Includes UL16 and UL16APV
+        mc_wl.append("UL16")
+        mc_bl.append("UL16APV")
+        data_wl.append("UL16")
+        data_bl.append("UL16APV")
+    elif year == "2016APV":
+        mc_wl.append("UL16APV")
+        data_wl.append("UL16APV")
     else: raise Exception(f"Error: Unknown year \"{year}\".")
 
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists,"sample")
-    mc_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+    mc_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
+    data_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
     for sample_name in all_samples:
         if sample_name not in mc_sample_lst:
             samples_to_rm_from_mc_hist.append(sample_name)
@@ -594,9 +574,11 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
     # Get the eft sum of weights at SM norm dict
 
     # Loop over hists and make plots
-    skip_lst = [] # Skip this hist
+    skip_lst = [] # Skip these hists
+    #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
+        #if (var_name not in skip_wlst): continue
         if (var_name == "njets"):
             # We do not keep track of jets in the sparse axis for the njets hists
             cr_cat_dict = get_dict_with_stripped_bin_names(CR_CHAN_DICT,"njets")
@@ -624,6 +606,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
             if (hist_cat == "cr_2los_Z" and "j0" in var_name): continue # The 2los Z category does not require jets
+            if (hist_cat == "cr_2lss_flip" and "j0" in var_name): continue # The flip category does not require jets
             print("\n\tCategory:",hist_cat)
 
             # Make a sub dir for this category
@@ -646,6 +629,18 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 hist_mc_integrated = hist_mc_integrated.remove(["DY"],"sample")
             if hist_cat == "cr_3l":
                 hist_mc_integrated = hist_mc_integrated.remove(["DY"],"sample")
+
+            # Print out total MC and data and the sf between them
+            # For extracting the factors we apply to the flip contribution
+            #if hist_cat != "cr_2lss_flip": continue
+            #tot_data = sum(sum(hist_data_integrated.values().values()))
+            #tot_mc   = sum(sum(hist_mc_integrated.values().values()))
+            #flips    = sum(sum(hist_mc_integrated["Flips"].values().values()))
+            #tot_mc_but_flips = tot_mc - flips
+            #sf = (tot_data - tot_mc_but_flips)/flips
+            #print(f"\nComp: data/pred = {tot_data}/{tot_mc} = {tot_data/tot_mc}")
+            #print(f"Flip sf needed = (data - (pred - flips))/flips = {sf}")
+            #exit()
 
             # Create and save the figure
             x_range = None

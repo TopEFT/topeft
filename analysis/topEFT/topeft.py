@@ -137,13 +137,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"   ]if "nSumOfWeights_renormfactUp"   in self._samples[dataset] else -1
             sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown" ]if "nSumOfWeights_renormfactDown" in self._samples[dataset] else -1
         
+        
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
-            if d in dataset: dataset = dataset.split('_')[0] 
+            if d in dataset: dataset = dataset.split('_')[0]
 
         # Set the sampleType (used for MC matching requirement)
-        
         conversionDatasets=[x%y for x in ['UL%s_TTGJets'] for y in '16APV,16,17,18'.split(",")]
         sampleType = 'prompt'
         if isData:
@@ -206,7 +206,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             'MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
         ]
         wgt_correction_syst_lst = [
-            "lepSFUp","lepSFDown","btagSFbc_uncorrUp","btagSFbc_uncorrDown","btagSFbc_corrUp","btagSFbc_corrDown","btagSFlight_uncorrUp","btagSFlight_uncorrDown","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
+            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown","btagSFbc_uncorrUp","btagSFbc_uncorrDown","btagSFbc_corrUp","btagSFbc_corrDown","btagSFlight_uncorrUp","btagSFlight_uncorrDown","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
 
@@ -398,7 +398,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over categories and fill the dict
             weights_dict = {}
-            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]:
+            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ"]:
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_any_lep_cat) # Use the weights_any_lep_cat object from above
@@ -416,12 +416,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 if not isData:
                     if "2l" in ch_name:
-                        weights_dict[ch_name].add("lepSF", events.sf_2l, copy.deepcopy(events.sf_2l_hi), copy.deepcopy(events.sf_2l_lo))
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
                     if "3l" in ch_name:
-                        weights_dict[ch_name].add("lepSF", events.sf_3l, copy.deepcopy(events.sf_3l_hi), copy.deepcopy(events.sf_3l_lo))
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
                     if "4l" in ch_name:
-                        weights_dict[ch_name].add("lepSF", events.sf_4l, copy.deepcopy(events.sf_4l_hi), copy.deepcopy(events.sf_4l_lo))
-
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
 
 
             ######### Masks we need for the selection ##########
@@ -429,6 +431,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Get mask for events that have two sf os leps close to z peak
             sfosz_3l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
             sfosz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
+            sfasz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
 
             # Pass trigger mask
             pass_trg = trgPassNoOverlap(events,isData,dataset,str(year))
@@ -467,7 +470,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 		
             # 2lss selection for CR
-            selections.add("2lss_CR", (events.is2l & (chargel0_p| chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_CRflip", (events.is2l_nozeeveto & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             # 2los selection
             selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & bmask_exactly2med & pass_trg))
@@ -508,13 +512,14 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("atleast_5j", (njets>=5))
             selections.add("atleast_7j", (njets>=7))
             selections.add("atleast_0j", (njets>=0))
+            selections.add("atmost_3j" , (njets<=3))
 
             # AR/SR categories
-            selections.add("isSR_2lSS", ( events.is2l_SR) & charge2l_1) 
-            selections.add("isAR_2lSS", (~events.is2l_SR) & charge2l_1) 
-            selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # we need another naming for the sideband for the charge flip
-            selections.add("isSR_2lOS", ( events.is2l_SR) & charge2l_0) 
-            selections.add("isAR_2lOS", (~events.is2l_SR) & charge2l_0) 
+            selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1) 
+            selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1) 
+            selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
+            selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0) 
+            selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0) 
 
             selections.add("isSR_3l",  events.is3l_SR)
             selections.add("isAR_3l", ~events.is3l_SR)
@@ -661,6 +666,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # This dictionary keeps track of which selections go with which CR categories
             cr_cat_dict = {
+              "2l_CRflip" : {
+                  "atmost_3j" : {
+                      "lep_chan_lst" : ["2lss_CRflip"],
+                      "lep_flav_lst" : ["ee"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+              },
               "2l_CR" : {
                   "exactly_1j" : {
                       "lep_chan_lst" : ["2lss_CR"],
@@ -742,7 +754,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                       weights_object = weights_dict[nlep_cat]
                       if isData:
                           # for data, must include the FF. The flip rate we only apply to 2lss regions
-                          weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t","2l_CR"] else []))
+                          weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t","2l_CR","2l_CRflip"] else []))
                       elif (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                           # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
                           weight = weights_object.weight(None)
@@ -808,7 +820,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                           "eft_err_coeff" : eft_w2_coeffs_cut,
                                       }
 
-                                      if (("j0" in dense_axis_name) & ("CRZ" in ch_name)): continue
+                                      if (("j0" in dense_axis_name) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
                                       if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                       if (("j0" in dense_axis_name) & ("0j" in ch_name)): continue
                                       if ((dense_axis_name in ["o0pt","b0pt","bl0pt","lj0pt"]) & ("CR" in ch_name)): continue

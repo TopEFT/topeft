@@ -249,9 +249,12 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     events['is2l_nozeeveto'] = ak.fill_none(mask_nozeeveto,False)
 
     # SFs
-    events['sf_2l'] = padded_FOs[:,0].sf_nom_2l*padded_FOs[:,1].sf_nom_2l
-    events['sf_2l_hi'] = padded_FOs[:,0].sf_hi_2l*padded_FOs[:,1].sf_hi_2l
-    events['sf_2l_lo'] = padded_FOs[:,0].sf_lo_2l*padded_FOs[:,1].sf_lo_2l
+    events['sf_2l_muon'] = padded_FOs[:,0].sf_nom_2l_muon*padded_FOs[:,1].sf_nom_2l_muon
+    events['sf_2l_elec'] = padded_FOs[:,0].sf_nom_2l_elec*padded_FOs[:,1].sf_nom_2l_elec
+    events['sf_2l_hi_muon'] = padded_FOs[:,0].sf_hi_2l_muon*padded_FOs[:,1].sf_hi_2l_muon
+    events['sf_2l_hi_elec'] = padded_FOs[:,0].sf_hi_2l_elec*padded_FOs[:,1].sf_hi_2l_elec
+    events['sf_2l_lo_muon'] = padded_FOs[:,0].sf_lo_2l_muon*padded_FOs[:,1].sf_lo_2l_muon
+    events['sf_2l_lo_elec'] = padded_FOs[:,0].sf_lo_2l_elec*padded_FOs[:,1].sf_lo_2l_elec
 
     # SR:
     events['is2l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
@@ -311,9 +314,12 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     events['is3l'] = ak.fill_none(mask,False)
 
     # SFs
-    events['sf_3l'] = padded_FOs[:,0].sf_nom_3l*padded_FOs[:,1].sf_nom_3l*padded_FOs[:,2].sf_nom_3l
-    events['sf_3l_hi'] = padded_FOs[:,0].sf_hi_3l*padded_FOs[:,1].sf_hi_3l*padded_FOs[:,2].sf_hi_3l
-    events['sf_3l_lo'] = padded_FOs[:,0].sf_lo_3l*padded_FOs[:,1].sf_lo_3l*padded_FOs[:,2].sf_lo_3l
+    events['sf_3l_muon'] = padded_FOs[:,0].sf_nom_3l_muon*padded_FOs[:,1].sf_nom_3l_muon*padded_FOs[:,2].sf_nom_3l_muon
+    events['sf_3l_elec'] = padded_FOs[:,0].sf_nom_3l_elec*padded_FOs[:,1].sf_nom_3l_elec*padded_FOs[:,2].sf_nom_3l_elec
+    events['sf_3l_hi_muon'] = padded_FOs[:,0].sf_hi_3l_muon*padded_FOs[:,1].sf_hi_3l_muon*padded_FOs[:,2].sf_hi_3l_muon
+    events['sf_3l_hi_elec'] = padded_FOs[:,0].sf_hi_3l_elec*padded_FOs[:,1].sf_hi_3l_elec*padded_FOs[:,2].sf_hi_3l_elec
+    events['sf_3l_lo_muon'] = padded_FOs[:,0].sf_lo_3l_muon*padded_FOs[:,1].sf_lo_3l_muon*padded_FOs[:,2].sf_lo_3l_muon
+    events['sf_3l_lo_elec'] = padded_FOs[:,0].sf_lo_3l_elec*padded_FOs[:,1].sf_lo_3l_elec*padded_FOs[:,2].sf_lo_3l_elec
 
     # SR:
     events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
@@ -353,9 +359,12 @@ def add4lMaskAndSFs(events, year, isData):
     events['is4l'] = ak.fill_none(mask,False)
 
     # SFs:
-    events['sf_4l'] = padded_FOs[:,0].sf_nom_3l*padded_FOs[:,1].sf_nom_3l*padded_FOs[:,2].sf_nom_3l*padded_FOs[:,3].sf_nom_3l
-    events['sf_4l_hi'] = padded_FOs[:,0].sf_hi_3l*padded_FOs[:,1].sf_hi_3l*padded_FOs[:,2].sf_hi_3l*padded_FOs[:,3].sf_hi_3l
-    events['sf_4l_lo'] = padded_FOs[:,0].sf_lo_3l*padded_FOs[:,1].sf_lo_3l*padded_FOs[:,2].sf_lo_3l*padded_FOs[:,3].sf_lo_3l
+    events['sf_4l_muon'] = padded_FOs[:,0].sf_nom_3l_muon*padded_FOs[:,1].sf_nom_3l_muon*padded_FOs[:,2].sf_nom_3l_muon*padded_FOs[:,3].sf_nom_3l_muon
+    events['sf_4l_elec'] = padded_FOs[:,0].sf_nom_3l_elec*padded_FOs[:,1].sf_nom_3l_elec*padded_FOs[:,2].sf_nom_3l_elec*padded_FOs[:,3].sf_nom_3l_elec
+    events['sf_4l_hi_muon'] = padded_FOs[:,0].sf_hi_3l_muon*padded_FOs[:,1].sf_hi_3l_muon*padded_FOs[:,2].sf_hi_3l_muon*padded_FOs[:,3].sf_hi_3l_muon
+    events['sf_4l_hi_elec'] = padded_FOs[:,0].sf_hi_3l_elec*padded_FOs[:,1].sf_hi_3l_elec*padded_FOs[:,2].sf_hi_3l_elec*padded_FOs[:,3].sf_hi_3l_elec
+    events['sf_4l_lo_muon'] = padded_FOs[:,0].sf_lo_3l_muon*padded_FOs[:,1].sf_lo_3l_muon*padded_FOs[:,2].sf_lo_3l_muon*padded_FOs[:,3].sf_lo_3l_muon
+    events['sf_4l_lo_elec'] = padded_FOs[:,0].sf_lo_3l_elec*padded_FOs[:,1].sf_lo_3l_elec*padded_FOs[:,2].sf_lo_3l_elec*padded_FOs[:,3].sf_lo_3l_elec
 
     # SR: Don't really need this for 4l, but define it so we can treat 4l category similar to 2lss and 3l
     events['is4l_SR'] = tightleps
@@ -399,13 +408,20 @@ def addLepCatMasks(events):
     events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
 
 
-# Returns a mask for events with a same flavor opposite sign pair close to the Z
+# Returns a mask for events with a same flavor opposite (same) sign pair close to the Z
 # Mask will be True if any combination of 2 leptons from within the given collection satisfies the requirement
-def get_Z_peak_mask(lep_collection,pt_window):
+def get_Z_peak_mask(lep_collection,pt_window,flavor="os"):
     ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
     zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<pt_window)
-    sfos_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
-    sfosz_mask = ak.flatten(ak.any((zpeak_mask & sfos_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
+    if flavor == "os":
+        sf_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
+    elif flavor == "ss":
+        sf_mask = (ll_pairs.l0.pdgId == ll_pairs.l1.pdgId)
+    elif flavor == "as": # Same flav any sign
+        sf_mask = ((ll_pairs.l0.pdgId == ll_pairs.l1.pdgId) | (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId))
+    else:
+        raise Exception(f"Error: flavor requirement \"{flavor}\" is unknown.")
+    sfosz_mask = ak.flatten(ak.any((zpeak_mask & sf_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
     return sfosz_mask
 
 # Returns the pt of the l+l that form the Z peak
