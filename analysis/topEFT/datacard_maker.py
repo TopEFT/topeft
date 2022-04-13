@@ -905,9 +905,7 @@ if __name__ == '__main__':
             ]
         jobs += cards
 
-    njobs = 0
-    for j in jobs:
-        njobs = njobs + len(j)
+    njobs = len(jobs)
     if job == -1:
         card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm, include_var_lst)
     elif job < njobs:
