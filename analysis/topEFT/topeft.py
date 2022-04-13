@@ -377,7 +377,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 pMC     = ak.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
                 pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
                 pData   = ak.prod(bJetEff_data[1]  [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_data[0]  [isBtagJetsLooseNotMedium] - bJetEff_data[1]  [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_data[0]  [isNotBtagJetsLoose]), axis=-1)
-                weights_any_lep_cat.add("btagSF", pData/pMC)
                 
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr","bc_uncorr","light_uncorr"]:
