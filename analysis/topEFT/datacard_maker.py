@@ -196,9 +196,9 @@ class DatacardMaker():
                         fout[name+cat] = hist.export1d(histo)
                     elif self.do_nuisance and name not in self.syst_special and 'flips' not in name:
                         # Special cass for systematics NOT correlated by year
-                        if bool(re.search('20\d\d', syst)):
+                        if bool(re.search('UL\d\d', name)):
                             # Find systematic year
-                            year = re.findall("20\d\d", syst)[0]
+                            year = re.findall("UL\d\d", name)[0][-2:]
                             # Only processes if syst year matches sample year (e.g. `btagSFbc_2017Up` and `nonpromptUL17`
                             if year not in re.split("20\d\d", syst)[0]: continue
                         fout[name+cat+'_'+syst+self.get_correlation_name(name, syst)] = hist.export1d(histo)
