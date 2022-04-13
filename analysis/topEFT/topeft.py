@@ -415,6 +415,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # For MC only
 
                 if not isData:
+                    weights_dict[ch_name].add("btagSF", pData/pMC)
                     if "2l" in ch_name:
                         weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
