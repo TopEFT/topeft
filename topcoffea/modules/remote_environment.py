@@ -11,6 +11,7 @@ import glob
 import os
 import string
 from pathlib import Path
+from setuptools import version
 
 import coffea
 
@@ -49,8 +50,18 @@ packages_json_template = string.Template('''
         ]
 }''')
 
+pip_local_to_ignore = { "topcoffea": ["analysis"] }
+
 packages_json = packages_json_template.substitute(py_version=py_version,coffea_version=coffea_version)
 
+def _check_git_min_version(min_version):
+    try:
+        output = subprocess.check_output(['git', 'version']).decode()
+        version_str = output.split(" ")[-1]
+        return version.pkg_resources.parse_version(min_version) <= version.pkg_resources.parse_version(version_str)
+    except FileNotFoundError:
+        raise FileNotFoundError("Could not find the git executable in PATH")
+    return output
 
 def _create_env(env_name, force=False):
     if force:
@@ -90,8 +101,17 @@ def _commits_local_pip(paths):
     commits = {}
     for (pkg, path) in paths.items():
         try:
+            to_ignore = []
+            paths = pip_local_to_ignore.get(pkg, None)
+            if paths:
+                # exclude magic word added to git in version 1.9.5
+                if _check_git_min_version("1.9.5"):
+                    to_ignore = [":(exclude,top){}".format(d) for d in paths]
+                else:
+                    logger.warning("git version is older than 1.9.5, ignoring paths to exclude when checking for changes: {}".format(",".join(paths)))
+
             commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=path).decode().rstrip()
-            changed = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=path).decode().rstrip()
+            changed = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no', '.'] + to_ignore, cwd=path).decode().rstrip()
             if changed:
                 logger.warning("Found unstaged changes in '{}'".format(path))
                 commits[pkg] = 'HEAD'
