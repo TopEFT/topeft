@@ -109,7 +109,15 @@ class DataDrivenProducer:
                         
                         # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
                         hPromptSub=hAR.group('sample', hist.Cat('sample','sample'), newNameDictNoData )
-                        
+
+                        # remove the up/down variations (if any) from the prompt subtraction histo
+                        syst_var_idet_rm_lst = []
+                        syst_var_idet_lst = hPromptSub.identifiers("systematic")
+                        for syst_var_idet in syst_var_idet_lst:
+                            if syst_var_idet.name != "nominal":
+                                syst_var_idet_rm_lst.append(syst_var_idet)
+                        hPromptSub = hPromptSub.remove(syst_var_idet_rm_lst,"systematic")
+
                         # now we actually make the subtraction
                         hPromptSub.scale(-1)
                         hFakes=hFakes+hPromptSub
