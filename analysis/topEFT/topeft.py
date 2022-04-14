@@ -122,10 +122,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
 
-        # Turn systematics off if this is a data sample, otherwise get up down weights from input dict
-        if isData:
-            self._do_systematics = False
-        else:
+        # Get up down weights from input dict
+        if not isData:
             sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"]
             sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"]
             sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"]
@@ -244,10 +242,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
 
+        # If we're doing systematics and this isn't data, we will loop over the obj_correction_syst_lst list
+        if self._do_systematics and not isData: syst_var_list = ["nominal"] + obj_correction_syst_lst
+        # Otherwise loop juse once, for nominal
+        else: syst_var_list = ['nominal']
+
+        # Loop over the list of systematic variations we've constructed
         mu["pt_raw"]=mu.pt
         met_raw=met
-        if self._do_systematics : syst_var_list = ["nominal"] + obj_correction_syst_lst
-        else: syst_var_list = ['nominal']
         for syst_var in syst_var_list:
             mu["pt"]=mu.pt_raw
             if syst_var == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='up')
@@ -748,8 +750,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
               # Set up the list of syst wgt variations to loop over
               wgt_var_lst = ["nominal"]
-              if   (self._do_systematics and (syst_var == "nominal")): wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst
-              elif (self._do_systematics and (syst_var != "nominal")): wgt_var_lst = [syst_var]
+              if not isData:
+                  if   (self._do_systematics and (syst_var == "nominal")): wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst
+                  elif (self._do_systematics and (syst_var != "nominal")): wgt_var_lst = [syst_var]
 
               # Loop over the systematics
               for wgt_fluct in wgt_var_lst:
