@@ -395,7 +395,6 @@ def AttachScaleWeights(events):
   events['renormfactDown'] = scale_weights[:,renormDown_factDown]
   events['renormDown']     = scale_weights[:,renormDown]
   events['factDown']       = scale_weights[:,factDown]
-  events['nom']            = ak.ones_like(scale_weights[:,0]) # Nominal not always included in scale_weights
   events['factUp']         = scale_weights[:,factUp]
   events['renormUp']       = scale_weights[:,renormUp]
   events['renormfactUp']   = scale_weights[:,renormUp_factUp]

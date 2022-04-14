@@ -158,6 +158,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau  = events.Tau
         jets = events.Jet
 
+        # An array of lenght events that is just 1 for each event
+        # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
+        events.nom = ak.ones_like(events.MET.pt)
+
         e["idEmu"] = ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
         e["conept"] = coneptElec(e.pt, e.mvaTTHUL, e.jetRelIso)
         mu["conept"] = coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
@@ -229,8 +233,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             AttachScaleWeights(events)
             #AttachPdfWeights(events) # TODO
             # FSR/ISR weights
-            weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
-            weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
+            weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown))
+            weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown))
             # renorm/fact scale
             weights_any_lep_cat.add('renormfact', events.nom, events.renormfactUp*(sow/sow_renormfactUp), events.renormfactDown*(sow/sow_renormfactDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
@@ -406,24 +410,28 @@ class AnalysisProcessor(processor.ProcessorABC):
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
                 if "3l" in ch_name:
                     weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
+                else:
+                    weights_dict[ch_name].add("FF", events.nom)
 
                 # For data only
                 if isData:
-                    if "2l" in ch_name:
+                    if ch_name in ["2l","2l_4t","2l_CR","2l_CRflip"]:
                         weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
+                    else:
+                        weights_dict[ch_name].add("fliprate", events.nom)
 
                 # For MC only
-
                 if not isData:
                     if "2l" in ch_name:
                         weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
-                    if "3l" in ch_name:
+                    elif "3l" in ch_name:
                         weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
-                    if "4l" in ch_name:
+                    elif "4l" in ch_name:
                         weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
+                    raise Exception(f"Unknown channel name: {ch_name}")
 
 
             ######### Masks we need for the selection ##########
@@ -749,18 +757,25 @@ class AnalysisProcessor(processor.ProcessorABC):
                   # Loop over nlep categories "2l", "3l", "4l"
                   for nlep_cat in cat_dict.keys():
 
+                      ##print("\n",wgt_fluct,nlep_cat) # TMP
+                      ##if nlep_cat != "2los_CRZ": continue # TMP
+
                       # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                       # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                       weights_object = weights_dict[nlep_cat]
                       if isData:
                           # for data, must include the FF. The flip rate we only apply to 2lss regions
-                          weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t","2l_CR","2l_CRflip"] else []))
+                          #weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t","2l_CR","2l_CRflip"] else []))
+                          weight = weights_object.partial_weight(include=["fliprate"])
                       elif (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                           # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
                           weight = weights_object.weight(None)
                       else:
                           # Otherwise get the weight from the Weights object
                           weight = weights_object.weight(wgt_fluct)
+
+                      #for i,x in enumerate(weight): # TMP
+                        #print(i,x) # TMP
 
                       # Get a mask for events that pass any of the njet requiremens in this nlep cat
                       # Useful in cases like njets hist where we don't store njets in a sparse axis
