@@ -8,3 +8,4 @@ dependencies:
   - conda-pack
   - dill
   - xrootd
+  - git
