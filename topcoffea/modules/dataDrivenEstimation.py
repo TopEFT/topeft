@@ -79,6 +79,14 @@ class DataDrivenProducer:
                             if self.dataName==sampleName:
                                 newNameDictData[nonPromptName].append(sample.name)
                         hFlips=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
+
+                        # remove any up/down FF variations from the flip histo since we don't use that info
+                        syst_var_idet_rm_lst = []
+                        syst_var_idet_lst = hFlips.identifiers("systematic")
+                        for syst_var_idet in syst_var_idet_lst:
+                            if (syst_var_idet.name != "nominal"):
+                                syst_var_idet_rm_lst.append(syst_var_idet)
+                        hFlips = hFlips.remove(syst_var_idet_rm_lst,"systematic")
                         
                         # now adding them to the list of processes: 
                         if newhist==None:
