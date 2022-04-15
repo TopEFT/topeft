@@ -773,12 +773,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                   # Loop over nlep categories "2l", "3l", "4l"
                   for nlep_cat in cat_dict.keys():
 
-                      ##print("\n",wgt_fluct,nlep_cat) # TMP
-                      ##if nlep_cat != "2los_CRZ": continue # TMP
-
                       # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                       # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                       weights_object = weights_dict[nlep_cat]
+                      # First make sure to guard against any unintentional variations being applied to data
+                      if self._do_systematics and isData:
+                          if weights_object.variations != set(data_syst_lst): raise Exception("Error: Unexpected wgt variations for data")
+                      # Next get the weight from the object
                       if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                           # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
                           weight = weights_object.weight(None)
@@ -789,9 +790,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                           else:
                               # Note in this case there is no up/down fluct for this cateogry, so we don't want to fill a hist for it
                               continue
-
-                      #for i,x in enumerate(weight): # TMP
-                        #print(i,x) # TMP
 
                       # Get a mask for events that pass any of the njet requiremens in this nlep cat
                       # Useful in cases like njets hist where we don't store njets in a sparse axis
