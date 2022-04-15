@@ -399,13 +399,6 @@ def AttachScaleWeights(events):
   events['renormUp']       = scale_weights[:,renormUp]
   events['renormfactUp']   = scale_weights[:,renormUp_factUp]
 
-  # We expect this to be 1, and use it as the "nominal" for ISR/FSR as well, so want to make sure it is never anything other than 1
-  # We had been using the nominal from scale_weights, so we were checking to make sure it was just 1 (as we expected it to be)
-  # But it seems nominal is not always included, so now we're creating our own array defined to be 1
-  # But might as well leave the check in, just in case something weird goes wrong...
-  if ak.any(events['nom'] != 1.0):
-    raise Exception("ERROR: A LHEScaleWeight nominal value is not 1. Is this expected?")
-
 
 def AttachPdfWeights(events):
   '''
