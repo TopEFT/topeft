@@ -806,6 +806,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                           # Loop over the appropriate AR and SR for this channel
                           for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
 
+                              # We don't want or need to fill SR histos with the FF variations
+                              if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
+
                               # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
                               for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
 
