@@ -211,6 +211,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown","btagSFbc_uncorrUp","btagSFbc_uncorrDown","btagSFbc_corrUp","btagSFbc_corrDown","btagSFlight_uncorrUp","btagSFlight_uncorrDown","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
+        data_syst_lst = [
+            "FFUp","FFDown"
+        ]
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
@@ -408,9 +411,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_any_lep_cat) # Use the weights_any_lep_cat object from above
-                if "2l" in ch_name:
+                if ch_name.startswith("2l"):
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
-                elif "3l" in ch_name:
+                elif ch_name.startswith("3l"):
                     weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
                 else:
                     weights_dict[ch_name].add("FF", events.nom)
@@ -749,12 +752,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                   print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
                   continue
 
-              # Set up the list of syst wgt variations to loop over
+              # Set up the list of syst fluctuations to loop over
               wgt_var_lst = ["nominal"]
-              if not isData:
-                  if   (self._do_systematics and (syst_var == "nominal")): wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst
-                  elif (self._do_systematics and (syst_var != "nominal")): wgt_var_lst = [syst_var]
-              #else:
+              if self._do_systematics:
+                  if not isData:
+                      if (syst_var != "nominal"):
+                          # In this case, we are dealing with systs that change the kinematics of the objs (e.g. JES), so don't apply weight up/down
+                          wgt_var_lst = [syst_var]
+                      else:
+                          # Otherwise we want to loop over the up/down weight variations
+                          wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst
+                  else:
+                      # This is data, so we want to loop over nominal and also the FF up/down
+                      wgt_var_lst = wgt_var_lst + data_syst_lst
 
               # Loop over the systematics
               for wgt_fluct in wgt_var_lst:
@@ -768,17 +778,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                       # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                       # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                       weights_object = weights_dict[nlep_cat]
-                      if isData:
-                          # for data, must include the FF. The flip rate we only apply to 2lss regions
-                          weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t","2l_CR","2l_CRflip"] else []))
-                          weight = weights_object.partial_weight(include=["fliprate"])
-                          #weight = weights_object.weight(FFUp)
-                      elif (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
+                      if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                           # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
                           weight = weights_object.weight(None)
                       else:
                           # Otherwise get the weight from the Weights object
-                          weight = weights_object.weight(wgt_fluct)
+                          if wgt_fluct in weights_object.variations:
+                              weight = weights_object.weight(wgt_fluct)
+                          else:
+                              # Note in this case there is no up/down fluct for this cateogry, so we don't want to fill a hist for it
+                              continue
 
                       #for i,x in enumerate(weight): # TMP
                         #print(i,x) # TMP
