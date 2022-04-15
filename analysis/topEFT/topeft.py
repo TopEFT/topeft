@@ -410,7 +410,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_dict[ch_name] = copy.deepcopy(weights_any_lep_cat) # Use the weights_any_lep_cat object from above
                 if "2l" in ch_name:
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
-                if "3l" in ch_name:
+                elif "3l" in ch_name:
                     weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
                 else:
                     weights_dict[ch_name].add("FF", events.nom)
@@ -424,16 +424,17 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For MC only
                 if not isData:
-                    if "2l" in ch_name:
+                    if ch_name.startswith("2l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
-                    elif "3l" in ch_name:
+                    elif ch_name.startswith("3l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
-                    elif "4l" in ch_name:
+                    elif ch_name.startswith("4l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
-                    raise Exception(f"Unknown channel name: {ch_name}")
+                    else:
+                        raise Exception(f"Unknown channel name: {ch_name}")
 
 
             ######### Masks we need for the selection ##########
@@ -753,6 +754,7 @@ class AnalysisProcessor(processor.ProcessorABC):
               if not isData:
                   if   (self._do_systematics and (syst_var == "nominal")): wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst
                   elif (self._do_systematics and (syst_var != "nominal")): wgt_var_lst = [syst_var]
+              #else:
 
               # Loop over the systematics
               for wgt_fluct in wgt_var_lst:
@@ -768,8 +770,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                       weights_object = weights_dict[nlep_cat]
                       if isData:
                           # for data, must include the FF. The flip rate we only apply to 2lss regions
-                          #weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t","2l_CR","2l_CRflip"] else []))
+                          weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t","2l_CR","2l_CRflip"] else []))
                           weight = weights_object.partial_weight(include=["fliprate"])
+                          #weight = weights_object.weight(FFUp)
                       elif (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                           # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
                           weight = weights_object.weight(None)
