@@ -111,10 +111,11 @@ class DataDrivenProducer:
                         hPromptSub=hAR.group('sample', hist.Cat('sample','sample'), newNameDictNoData )
 
                         # remove the up/down variations (if any) from the prompt subtraction histo
+                        # but keep FFUp and FFDown, as these are the nonprompt up and down variations 
                         syst_var_idet_rm_lst = []
                         syst_var_idet_lst = hPromptSub.identifiers("systematic")
                         for syst_var_idet in syst_var_idet_lst:
-                            if syst_var_idet.name != "nominal":
+                            if (syst_var_idet.name != "nominal") and (not syst_var_idet.name.startswith("FF")):
                                 syst_var_idet_rm_lst.append(syst_var_idet)
                         hPromptSub = hPromptSub.remove(syst_var_idet_rm_lst,"systematic")
 
