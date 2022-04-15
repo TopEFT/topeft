@@ -752,18 +752,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                   print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
                   continue
 
-              # Set up the list of syst fluctuations to loop over
+              # Set up the list of syst wgt variations to loop over
               wgt_var_lst = ["nominal"]
               if self._do_systematics:
                   if not isData:
                       if (syst_var != "nominal"):
-                          # In this case, we are dealing with systs that change the kinematics of the objs (e.g. JES), so don't apply weight up/down
+                          # In this case, we are dealing with systs that change the kinematics of the objs (e.g. JES)
+                          # So we don't want to loop over up/down weight variations here
                           wgt_var_lst = [syst_var]
                       else:
                           # Otherwise we want to loop over the up/down weight variations
-                          wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst
+                          wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst + data_syst_lst
                   else:
-                      # This is data, so we want to loop over nominal and also the FF up/down
+                      # This is data, so we want to loop over just up/down variations relevant for data (i.e. FF up and down)
                       wgt_var_lst = wgt_var_lst + data_syst_lst
 
               # Loop over the systematics
