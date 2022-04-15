@@ -136,9 +136,18 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"       ]
             sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"   ]
             sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown" ]
-        
-        
-
+        else: 
+            sow_ISRUp          = -1
+            sow_ISRDown        = -1
+            sow_FSRUp          = -1
+            sow_FSRDown        = -1
+            sow_renormUp       = -1
+            sow_renormDown     = -1
+            sow_factUp         = -1
+            sow_factDown       = -1        
+            sow_renormfactUp   = -1
+            sow_renormfactDown = -1
+            
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0]
