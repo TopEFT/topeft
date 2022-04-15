@@ -212,7 +212,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
         data_syst_lst = [
-            "FFUp","FFDown"
+            "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown"
         ]
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
@@ -413,17 +413,17 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_dict[ch_name] = copy.deepcopy(weights_any_lep_cat) # Use the weights_any_lep_cat object from above
                 if ch_name.startswith("2l"):
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
+                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
+                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
                 elif ch_name.startswith("3l"):
                     weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
-                else:
-                    weights_dict[ch_name].add("FF", events.nom)
+                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
+                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
 
                 # For data only
                 if isData:
                     if ch_name in ["2l","2l_4t","2l_CR","2l_CRflip"]:
                         weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
-                    else:
-                        weights_dict[ch_name].add("fliprate", events.nom)
 
                 # For MC only
                 if not isData:
@@ -776,10 +776,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                       # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                       # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                       weights_object = weights_dict[nlep_cat]
-                      # First make sure to guard against any unintentional variations being applied to data
-                      if self._do_systematics and isData:
-                          if weights_object.variations != set(data_syst_lst): raise Exception("Error: Unexpected wgt variations for data")
-                      # Next get the weight from the object
                       if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                           # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
                           weight = weights_object.weight(None)
@@ -790,6 +786,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                           else:
                               # Note in this case there is no up/down fluct for this cateogry, so we don't want to fill a hist for it
                               continue
+
+                      # This is a check ot make sure we guard against any unintentional variations being applied to data
+                      if self._do_systematics and isData:
+                          # Should not have any up/down variations for data in 4l (since we don't estimate the fake rate there)
+                          if nlep_cat == "4l":
+                              if weights_object.variations != set([]): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{[]}\" but have \"{weights_object.variations}\".")
+                          # In all other cases, the up/down variations should correspond to only the ones in the data list
+                          else:
+                              if weights_object.variations != set(data_syst_lst): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst)}\" but have \"{weights_object.variations}\".")
 
                       # Get a mask for events that pass any of the njet requiremens in this nlep cat
                       # Useful in cases like njets hist where we don't store njets in a sparse axis
