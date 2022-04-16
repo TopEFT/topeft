@@ -122,10 +122,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
 
-        # Turn systematics off if this is a data sample, otherwise get up down weights from input dict
-        if isData:
-            self._do_systematics = False
-        if self._do_systematics:
+        # Get up down weights from input dict
+        if (self._do_systematics and not isData):
             sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"          ]
             sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"        ]
             sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"          ]
@@ -166,6 +164,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu   = events.Muon
         tau  = events.Tau
         jets = events.Jet
+
+        # An array of lenght events that is just 1 for each event
+        # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
+        events.nom = ak.ones_like(events.MET.pt)
 
         e["idEmu"] = ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
         e["conept"] = coneptElec(e.pt, e.mvaTTHUL, e.jetRelIso)
@@ -218,6 +220,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
+        data_syst_lst = [
+            "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown"
+        ]
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
@@ -238,8 +243,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             AttachScaleWeights(events)
             #AttachPdfWeights(events) # TODO
             # FSR/ISR weights
-            weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
-            weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown)) # For nom just use nom from LHEScaleWeight since it's just 1
+            weights_any_lep_cat.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown))
+            weights_any_lep_cat.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown))
             # renorm/fact scale
             weights_any_lep_cat.add('renormfact', events.nom, events.renormfactUp*(sow/sow_renormfactUp), events.renormfactDown*(sow/sow_renormfactDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
@@ -249,10 +254,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
 
+        # If we're doing systematics and this isn't data, we will loop over the obj_correction_syst_lst list
+        if self._do_systematics and not isData: syst_var_list = ["nominal"] + obj_correction_syst_lst
+        # Otherwise loop juse once, for nominal
+        else: syst_var_list = ['nominal']
+
+        # Loop over the list of systematic variations we've constructed
         mu["pt_raw"]=mu.pt
         met_raw=met
-        if self._do_systematics : syst_var_list = ["nominal"] + obj_correction_syst_lst
-        else: syst_var_list = ['nominal']
         for syst_var in syst_var_list:
             mu["pt"]=mu.pt_raw
             if syst_var == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='up')
@@ -411,28 +420,33 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_any_lep_cat) # Use the weights_any_lep_cat object from above
-                if "2l" in ch_name:
+                if ch_name.startswith("2l"):
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
-                if "3l" in ch_name:
+                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
+                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
+                elif ch_name.startswith("3l"):
                     weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
+                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
+                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
 
                 # For data only
                 if isData:
-                    if "2l" in ch_name:
+                    if ch_name in ["2l","2l_4t","2l_CR","2l_CRflip"]:
                         weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
 
                 # For MC only
-
                 if not isData:
-                    if "2l" in ch_name:
+                    if ch_name.startswith("2l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
-                    if "3l" in ch_name:
+                    elif ch_name.startswith("3l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
-                    if "4l" in ch_name:
+                    elif ch_name.startswith("4l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
+                    else:
+                        raise Exception(f"Unknown channel name: {ch_name}")
 
 
             ######### Masks we need for the selection ##########
@@ -749,8 +763,18 @@ class AnalysisProcessor(processor.ProcessorABC):
 
               # Set up the list of syst wgt variations to loop over
               wgt_var_lst = ["nominal"]
-              if   (self._do_systematics and (syst_var == "nominal")): wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst
-              elif (self._do_systematics and (syst_var != "nominal")): wgt_var_lst = [syst_var]
+              if self._do_systematics:
+                  if not isData:
+                      if (syst_var != "nominal"):
+                          # In this case, we are dealing with systs that change the kinematics of the objs (e.g. JES)
+                          # So we don't want to loop over up/down weight variations here
+                          wgt_var_lst = [syst_var]
+                      else:
+                          # Otherwise we want to loop over the up/down weight variations
+                          wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst + data_syst_lst
+                  else:
+                      # This is data, so we want to loop over just up/down variations relevant for data (i.e. FF up and down)
+                      wgt_var_lst = wgt_var_lst + data_syst_lst
 
               # Loop over the systematics
               for wgt_fluct in wgt_var_lst:
@@ -761,15 +785,25 @@ class AnalysisProcessor(processor.ProcessorABC):
                       # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                       # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                       weights_object = weights_dict[nlep_cat]
-                      if isData:
-                          # for data, must include the FF. The flip rate we only apply to 2lss regions
-                          weight = weights_object.partial_weight(include=["FF"] + (["fliprate"] if nlep_cat in ["2l","2l_4t","2l_CR","2l_CRflip"] else []))
-                      elif (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
+                      if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                           # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
                           weight = weights_object.weight(None)
                       else:
                           # Otherwise get the weight from the Weights object
-                          weight = weights_object.weight(wgt_fluct)
+                          if wgt_fluct in weights_object.variations:
+                              weight = weights_object.weight(wgt_fluct)
+                          else:
+                              # Note in this case there is no up/down fluct for this cateogry, so we don't want to fill a hist for it
+                              continue
+
+                      # This is a check ot make sure we guard against any unintentional variations being applied to data
+                      if self._do_systematics and isData:
+                          # Should not have any up/down variations for data in 4l (since we don't estimate the fake rate there)
+                          if nlep_cat == "4l":
+                              if weights_object.variations != set([]): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{[]}\" but have \"{weights_object.variations}\".")
+                          # In all other cases, the up/down variations should correspond to only the ones in the data list
+                          else:
+                              if weights_object.variations != set(data_syst_lst): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst)}\" but have \"{weights_object.variations}\".")
 
                       # Get a mask for events that pass any of the njet requiremens in this nlep cat
                       # Useful in cases like njets hist where we don't store njets in a sparse axis
@@ -780,6 +814,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                           # Loop over the appropriate AR and SR for this channel
                           for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
+
+                              # We don't want or need to fill SR histos with the FF variations
+                              if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
 
                               # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
                               for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
