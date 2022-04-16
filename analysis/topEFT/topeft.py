@@ -123,20 +123,29 @@ class AnalysisProcessor(processor.ProcessorABC):
         sow                = self._samples[dataset]["nSumOfWeights"]
 
         # Get up down weights from input dict
-        if not isData:
-            sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"]
-            sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"]
-            sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"]
-            sow_FSRDown        = self._samples[dataset]["nSumOfWeights_FSRDown"]
-            sow_renormUp       = self._samples[dataset]["nSumOfWeights_renormUp"]
-            sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"]
-            sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"]
-            sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"]
-            sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"]
-            sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown"]
-        
-        
-
+        if (self._do_systematics and not isData):
+            sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"          ]
+            sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"        ]
+            sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"          ]
+            sow_FSRDown        = self._samples[dataset]["nSumOfWeights_FSRDown"        ]
+            sow_renormUp       = self._samples[dataset]["nSumOfWeights_renormUp"       ]
+            sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"     ]
+            sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"         ]
+            sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"       ]
+            sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"   ]
+            sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown" ]
+        else: 
+            sow_ISRUp          = -1
+            sow_ISRDown        = -1
+            sow_FSRUp          = -1
+            sow_FSRDown        = -1
+            sow_renormUp       = -1
+            sow_renormDown     = -1
+            sow_factUp         = -1
+            sow_factDown       = -1        
+            sow_renormfactUp   = -1
+            sow_renormfactDown = -1
+            
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0]
@@ -208,7 +217,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             'MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
         ]
         wgt_correction_syst_lst = [
-            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown","btagSFbc_uncorrUp","btagSFbc_uncorrDown","btagSFbc_corrUp","btagSFbc_corrDown","btagSFlight_uncorrUp","btagSFlight_uncorrDown","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
+            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
         data_syst_lst = [
@@ -389,7 +398,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_any_lep_cat.add("btagSF", pData/pMC)
                 
                 if self._do_systematics and syst_var=='nominal':
-                    for b_syst in ["bc_corr","light_corr","bc_uncorr","light_uncorr"]:
+                    for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
                         bJetSFUp = [GetBTagSF(goodJets, year, 'LOOSE', sys=b_syst)[0],GetBTagSF(goodJets, year, 'MEDIUM', sys=b_syst)[0]]
                         bJetSFDo = [GetBTagSF(goodJets, year, 'LOOSE', sys=b_syst)[1],GetBTagSF(goodJets, year, 'MEDIUM', sys=b_syst)[1]]
                         bJetEff_dataUp = [bJetEff[0]*bJetSFUp[0],bJetEff[1]*bJetSFUp[1]]

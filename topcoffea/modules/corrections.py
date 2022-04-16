@@ -103,8 +103,8 @@ extLepSF.add_weight_sets(["ElecSF_2016APV_3l_er EGamma_SF2D_error %s"%topcoffea_
 # Fake rate 
 for year in ['2016APV_2016', 2017, 2018]:
   for syst in ['','_up','_down','_be1','_be2','_pt1','_pt2']:
-    extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}.root')).format(year=year,syst=syst)])
-    extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva090_el_data_comb_NC{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}.root')).format(year=year,syst=syst)])
+    extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb_recorrected{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
+    extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva090_el_data_comb_NC_recorrected{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
 
 
 extLepSF.finalize()
@@ -253,7 +253,7 @@ def GetBtagEff(jets, year, wp='medium'):
 
 def GetBTagSF(jets, year, wp='MEDIUM', sys='central'):
   if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),wp) 
-  elif   year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp) 
+  elif year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp) 
   elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL17_v3.csv"),wp)
   elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL18_v2.csv"),wp)
   else: raise Exception(f"Error: Unknown year \"{year}\".")
@@ -263,16 +263,16 @@ def GetBTagSF(jets, year, wp='MEDIUM', sys='central'):
     return (SF)
   else:
     flavors = {
-        0: ["light_corr", "light_uncorr"],
-        4: ["bc_corr","bc_uncorr"],
-        5: ["bc_corr","bc_uncorr"]
+        0: ["light_corr", f"light_{year}"],
+        4: ["bc_corr",f"bc_{year}"],
+        5: ["bc_corr",f"bc_{year}"]
     }
     
     jets[f"btag_{sys}_up"] = SF
     jets[f"btag_{sys}_down"] = SF
     for f, f_syst in flavors.items():
       if sys in f_syst:
-        if 'uncorr' in sys:   
+        if f"{year}" in sys:   
           jets[f"btag_{sys}_up"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("up_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_up"])
           jets[f"btag_{sys}_down"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("down_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_down"])
         else:
