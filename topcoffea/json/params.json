@@ -52,6 +52,13 @@
         "tttt_private"
     ],
 
+    "chargeflip_sf_dict" : {
+        "UL16APV" : 0.79,
+        "UL16"    : 0.81,
+        "UL17"    : 1.22,
+        "UL18"    : 1.12
+    },
+
     "pu_w" : 69200,
     "pu_w_up" : 72400,
     "pu_w_down" : 66000

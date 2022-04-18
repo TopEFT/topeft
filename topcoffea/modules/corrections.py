@@ -124,6 +124,9 @@ def AttachPerLeptonFR(leps, flavor, year):
     flip_hist = pickle.load(fin)
     flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
 
+  # Get the fliprate scaling factor for the given year
+  chargeflip_sf = get_param("chargeflip_sf_dict")[flip_year_name]
+
   # For FR filepath naming conventions
   if '2016' in year:
     year = '2016APV_2016'
@@ -133,9 +136,9 @@ def AttachPerLeptonFR(leps, flavor, year):
     fr=SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](leps.conept, np.abs(leps.eta) )
     leps['fakefactor%s'%syst]=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
   if flavor=="Elec":
-    leps['fliprate'] = flip_lookup(leps.pt,abs(leps.eta))
+    leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
   else:
-    leps['fliprate']=np.zeros_like(leps.pt)
+    leps['fliprate'] = np.zeros_like(leps.pt)
 
 
 def fakeRateWeight2l(events, lep1, lep2):
