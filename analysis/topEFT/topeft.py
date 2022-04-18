@@ -395,7 +395,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 pMC     = ak.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
                 pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
                 pData   = ak.prod(bJetEff_data[1]  [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_data[0]  [isBtagJetsLooseNotMedium] - bJetEff_data[1]  [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_data[0]  [isNotBtagJetsLoose]), axis=-1)
-                weights_any_lep_cat.add("btagSF", pData/pMC)
                 
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
@@ -409,8 +408,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 
                 # Trigger SFs 
                 GetTriggerSF(year,events,l0,l1)                
-                weights_any_lep_cat.add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
-
 
             ######### Event weights ###########
 
@@ -436,6 +433,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For MC only
                 if not isData:
+                    weights_dict[ch_name].add("btagSF", pData/pMC)
+                    weights_dict[ch_name].add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
                     if ch_name.startswith("2l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
