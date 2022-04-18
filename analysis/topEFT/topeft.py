@@ -60,24 +60,24 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         self._accumulator = processor.dict_accumulator({
-        "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 1000)),
-        "ptbl"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 40, 0, 1000)),
-        "ptz"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptz",     "$p_{T}$ Z (GeV)", 40, 0, 1000)),
-        "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
-        "nbtagsl" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsl", "Loose btag multiplicity ", 5, 0, 5)),
-        "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 10, 0, 100)),
-        "l1pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l1pt",    "Subleading lep $p_{T}$ (GeV)", 10, 0, 100)),
-        "l1eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l1eta",   "Subleading $\eta$", 20, -2.5, 2.5)),
-        "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 100, 0, 1000)),
-        "b0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("b0pt",    "Leading b jet  $p_{T}$ (GeV)", 100, 0, 1000)),
-        "l0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",   "Leading lep $\eta$", 20, -2.5, 2.5)),
-        "j0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
-        "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 80, 0, 2000)),
-        "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
-        "ljptsum" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ljptsum", "S$_{T}$ (GeV)", 80, 0, 2000)),
-        "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 40, 0, 1000)),
-        "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 40, 0, 1000)),
-        "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 40, 0, 1000)),
+            "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 1000)),
+            "ptbl"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 40, 0, 1000)),
+            "ptz"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptz",     "$p_{T}$ Z (GeV)", 40, 0, 1000)),
+            "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
+            "nbtagsl" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsl", "Loose btag multiplicity ", 5, 0, 5)),
+            "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 10, 0, 100)),
+            "l1pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l1pt",    "Subleading lep $p_{T}$ (GeV)", 10, 0, 100)),
+            "l1eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l1eta",   "Subleading $\eta$", 20, -2.5, 2.5)),
+            "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 100, 0, 1000)),
+            "b0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("b0pt",    "Leading b jet  $p_{T}$ (GeV)", 100, 0, 1000)),
+            "l0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",   "Leading lep $\eta$", 20, -2.5, 2.5)),
+            "j0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
+            "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 80, 0, 2000)),
+            "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 40, 0, 400)),
+            "ljptsum" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ljptsum", "S$_{T}$ (GeV)", 80, 0, 2000)),
+            "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 40, 0, 1000)),
+            "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 40, 0, 1000)),
+            "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 40, 0, 1000)),
         })
 
         # Set the list of hists to fill
@@ -101,7 +101,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
 
-        
+
     @property
     def accumulator(self):
         return self._accumulator
@@ -145,7 +145,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_factDown       = -1        
             sow_renormfactUp   = -1
             sow_renormfactDown = -1
-            
+
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0]
@@ -177,7 +177,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isData:
             e["gen_pdgId"] = ak.fill_none(e.matched_gen.pdgId, 0)
             mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
-        
+
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
             golden_json_path = topcoffea_path("data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
@@ -195,15 +195,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
         eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
         if eft_coeffs is not None:
-          # Check to see if the ordering of WCs for this sample matches what want
-          if self._samples[dataset]["WCnames"] != self._wc_names_lst:
-              eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
+            # Check to see if the ordering of WCs for this sample matches what want
+            if self._samples[dataset]["WCnames"] != self._wc_names_lst:
+                eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
         # Initialize the out object
         hout = self.accumulator.identity()
-        
-        ################### Object selection ####################
-        # Electron selection
+
+        ################### Electron selection ####################
+
         e["isPres"] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
         e["isLooseE"] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
         e["isFO"] = isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
@@ -345,7 +345,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             njets = ak.num(goodJets)
             ht = ak.sum(goodJets.pt,axis=-1)
             j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
-            
+
             # Loose DeepJet WP
             if year == "2017":
                 btagwpl = get_param("btag_wp_loose_UL17")
@@ -395,9 +395,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             l1 = l_fo_conept_sorted_padded[:,1]
             l2 = l_fo_conept_sorted_padded[:,2]
 
-            
+
             ######### Event weights that do not depend on the lep cat ##########
-            
+
             if not isData:
 
                 # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods    
@@ -409,7 +409,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
                 pData   = ak.prod(bJetEff_data[1]  [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_data[0]  [isBtagJetsLooseNotMedium] - bJetEff_data[1]  [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_data[0]  [isNotBtagJetsLoose]), axis=-1)
                 weights_obj_base_for_kinematic_syst.add("btagSF", pData/pMC)
-                
+
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
                         bJetSFUp = [GetBTagSF(goodJets, year, 'LOOSE', sys=b_syst)[0],GetBTagSF(goodJets, year, 'MEDIUM', sys=b_syst)[0]]
@@ -419,7 +419,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         pDataUp = ak.prod(bJetEff_dataUp[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataUp[0][isBtagJetsLooseNotMedium] - bJetEff_dataUp[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataUp[0][isNotBtagJetsLoose]), axis=-1)
                         pDataDo = ak.prod(bJetEff_dataDo[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataDo[0][isBtagJetsLooseNotMedium] - bJetEff_dataDo[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataDo[0][isNotBtagJetsLoose]), axis=-1)           
                         weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, (pDataUp/pMC)/(pData/pMC),(pDataDo/pMC)/(pData/pMC))
-                
+
                 # Trigger SFs 
                 GetTriggerSF(year,events,l0,l1)                
                 weights_obj_base_for_kinematic_syst.add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
@@ -770,126 +770,126 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over the hists we want to fill
             for dense_axis_name, dense_axis_vals in varnames.items():
-              if dense_axis_name not in self._hist_lst:
-                  print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
-                  continue
+                if dense_axis_name not in self._hist_lst:
+                    print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
+                    continue
 
-              # Set up the list of syst wgt variations to loop over
-              wgt_var_lst = ["nominal"]
-              if self._do_systematics:
-                  if not isData:
-                      if (syst_var != "nominal"):
-                          # In this case, we are dealing with systs that change the kinematics of the objs (e.g. JES)
-                          # So we don't want to loop over up/down weight variations here
-                          wgt_var_lst = [syst_var]
-                      else:
-                          # Otherwise we want to loop over the up/down weight variations
-                          wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst + data_syst_lst
-                  else:
-                      # This is data, so we want to loop over just up/down variations relevant for data (i.e. FF up and down)
-                      wgt_var_lst = wgt_var_lst + data_syst_lst
+                # Set up the list of syst wgt variations to loop over
+                wgt_var_lst = ["nominal"]
+                if self._do_systematics:
+                    if not isData:
+                        if (syst_var != "nominal"):
+                            # In this case, we are dealing with systs that change the kinematics of the objs (e.g. JES)
+                            # So we don't want to loop over up/down weight variations here
+                            wgt_var_lst = [syst_var]
+                        else:
+                            # Otherwise we want to loop over the up/down weight variations
+                            wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst + data_syst_lst
+                    else:
+                        # This is data, so we want to loop over just up/down variations relevant for data (i.e. FF up and down)
+                        wgt_var_lst = wgt_var_lst + data_syst_lst
 
-              # Loop over the systematics
-              for wgt_fluct in wgt_var_lst:
+                # Loop over the systematics
+                for wgt_fluct in wgt_var_lst:
 
-                  # Loop over nlep categories "2l", "3l", "4l"
-                  for nlep_cat in cat_dict.keys():
+                    # Loop over nlep categories "2l", "3l", "4l"
+                    for nlep_cat in cat_dict.keys():
 
-                      # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
-                      # Need to do this inside of nlep cat loop since some wgts depend on lep cat
-                      weights_object = weights_dict[nlep_cat]
-                      if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
-                          # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
-                          weight = weights_object.weight(None)
-                      else:
-                          # Otherwise get the weight from the Weights object
-                          if wgt_fluct in weights_object.variations:
-                              weight = weights_object.weight(wgt_fluct)
-                          else:
-                              # Note in this case there is no up/down fluct for this cateogry, so we don't want to fill a hist for it
-                              continue
+                        # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
+                        # Need to do this inside of nlep cat loop since some wgts depend on lep cat
+                        weights_object = weights_dict[nlep_cat]
+                        if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
+                            # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
+                            weight = weights_object.weight(None)
+                        else:
+                            # Otherwise get the weight from the Weights object
+                            if wgt_fluct in weights_object.variations:
+                                weight = weights_object.weight(wgt_fluct)
+                            else:
+                                # Note in this case there is no up/down fluct for this cateogry, so we don't want to fill a hist for it
+                                continue
 
-                      # This is a check ot make sure we guard against any unintentional variations being applied to data
-                      if self._do_systematics and isData:
-                          # Should not have any up/down variations for data in 4l (since we don't estimate the fake rate there)
-                          if nlep_cat == "4l":
-                              if weights_object.variations != set([]): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{[]}\" but have \"{weights_object.variations}\".")
-                          # In all other cases, the up/down variations should correspond to only the ones in the data list
-                          else:
-                              if weights_object.variations != set(data_syst_lst): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst)}\" but have \"{weights_object.variations}\".")
+                        # This is a check ot make sure we guard against any unintentional variations being applied to data
+                        if self._do_systematics and isData:
+                            # Should not have any up/down variations for data in 4l (since we don't estimate the fake rate there)
+                            if nlep_cat == "4l":
+                                if weights_object.variations != set([]): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{[]}\" but have \"{weights_object.variations}\".")
+                            # In all other cases, the up/down variations should correspond to only the ones in the data list
+                            else:
+                                if weights_object.variations != set(data_syst_lst): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst)}\" but have \"{weights_object.variations}\".")
 
-                      # Get a mask for events that pass any of the njet requiremens in this nlep cat
-                      # Useful in cases like njets hist where we don't store njets in a sparse axis
-                      njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
+                        # Get a mask for events that pass any of the njet requiremens in this nlep cat
+                        # Useful in cases like njets hist where we don't store njets in a sparse axis
+                        njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
 
-                      # Loop over the njets list for each channel
-                      for njet_val in cat_dict[nlep_cat].keys():
+                        # Loop over the njets list for each channel
+                        for njet_val in cat_dict[nlep_cat].keys():
 
-                          # Loop over the appropriate AR and SR for this channel
-                          for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
+                            # Loop over the appropriate AR and SR for this channel
+                            for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
 
-                              # We don't want or need to fill SR histos with the FF variations
-                              if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
+                                # We don't want or need to fill SR histos with the FF variations
+                                if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
 
-                              # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
-                              for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
+                                # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
+                                for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
 
-                                  # Loop over the lep flavor list for each channel
-                                  for lep_flav in cat_dict[nlep_cat][njet_val]["lep_flav_lst"]:
+                                    # Loop over the lep flavor list for each channel
+                                    for lep_flav in cat_dict[nlep_cat][njet_val]["lep_flav_lst"]:
 
-                                      # Construct the hist name
-                                      flav_ch = None
-                                      njet_ch = None
-                                      cuts_lst = [appl,lep_chan]
-                                      if isData:
-                                          cuts_lst.append("is_good_lumi")
-                                      if self._split_by_lepton_flavor:
-                                          flav_ch = lep_flav
-                                          cuts_lst.append(lep_flav)
-                                      if dense_axis_name != "njets":
-                                          njet_ch = njet_val
-                                          cuts_lst.append(njet_val)
-                                      ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
+                                        # Construct the hist name
+                                        flav_ch = None
+                                        njet_ch = None
+                                        cuts_lst = [appl,lep_chan]
+                                        if isData:
+                                            cuts_lst.append("is_good_lumi")
+                                        if self._split_by_lepton_flavor:
+                                            flav_ch = lep_flav
+                                            cuts_lst.append(lep_flav)
+                                        if dense_axis_name != "njets":
+                                            njet_ch = njet_val
+                                            cuts_lst.append(njet_val)
+                                        ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
 
-                                      # Get the cuts mask for all selections
-                                      if dense_axis_name == "njets":
-                                          all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
-                                      else:
-                                          all_cuts_mask = selections.all(*cuts_lst)
+                                        # Get the cuts mask for all selections
+                                        if dense_axis_name == "njets":
+                                            all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
+                                        else:
+                                            all_cuts_mask = selections.all(*cuts_lst)
 
-                                      # Apply the optional cut on energy of the event
-                                      if self._ecut_threshold is not None:
-                                          all_cuts_mask = (all_cuts_mask & ecut_mask)
+                                        # Apply the optional cut on energy of the event
+                                        if self._ecut_threshold is not None:
+                                            all_cuts_mask = (all_cuts_mask & ecut_mask)
 
-                                      # Weights and eft coeffs
-                                      weights_flat = weight[all_cuts_mask]
-                                      eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
-                                      eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
+                                        # Weights and eft coeffs
+                                        weights_flat = weight[all_cuts_mask]
+                                        eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
+                                        eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
 
-                                      # Fill the histos
-                                      axes_fill_info_dict = {
-                                          dense_axis_name : dense_axis_vals[all_cuts_mask],
-                                          "channel"       : ch_name,
-                                          "appl"          : appl,
-                                          "sample"        : histAxisName,
-                                          "systematic"    : wgt_fluct,
-                                          "weight"        : weights_flat,
-                                          "eft_coeff"     : eft_coeffs_cut,
-                                          "eft_err_coeff" : eft_w2_coeffs_cut,
-                                      }
+                                        # Fill the histos
+                                        axes_fill_info_dict = {
+                                            dense_axis_name : dense_axis_vals[all_cuts_mask],
+                                            "channel"       : ch_name,
+                                            "appl"          : appl,
+                                            "sample"        : histAxisName,
+                                            "systematic"    : wgt_fluct,
+                                            "weight"        : weights_flat,
+                                            "eft_coeff"     : eft_coeffs_cut,
+                                            "eft_err_coeff" : eft_w2_coeffs_cut,
+                                        }
 
-                                      if (("j0" in dense_axis_name) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
-                                      if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                      if (("j0" in dense_axis_name) & ("0j" in ch_name)): continue
-                                      if ((dense_axis_name in ["o0pt","b0pt","bl0pt","lj0pt"]) & ("CR" in ch_name)): continue
-                                      hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                        if (("j0" in dense_axis_name) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
+                                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                        if (("j0" in dense_axis_name) & ("0j" in ch_name)): continue
+                                        if ((dense_axis_name in ["o0pt","b0pt","bl0pt","lj0pt"]) & ("CR" in ch_name)): continue
+                                        hout[dense_axis_name].fill(**axes_fill_info_dict)
 
-                                      # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
-                                      if not self._split_by_lepton_flavor: break
+                                        # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
+                                        if not self._split_by_lepton_flavor: break
 
-                          # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
-                          if dense_axis_name == "njets": break
+                            # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
+                            if dense_axis_name == "njets": break
 
         return hout
 
