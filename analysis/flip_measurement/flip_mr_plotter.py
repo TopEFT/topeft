@@ -27,11 +27,12 @@ PT_BINS = [0, 30.0, 45.0, 60.0, 100.0, 200.0]
 ABSETA_BINS = [0, 0.4, 0.8, 1.1, 1.4, 1.6, 1.9, 2.2, 2.5]
 
 # These scale factors are determined by comparing prediction to data in the the flip CR
+# Though now we apply this in corrections.py, so don't scale here
 SCALE_DICT = {
-    "UL16APV" : 0.81,
-    "UL16" : 0.83,
-    "UL17" : 1.24,
-    "UL18" : 1.16,
+    "UL16APV" : 1.0,
+    "UL16"    : 1.0,
+    "UL17"    : 1.0,
+    "UL18"    : 1.0,
 }
 
 # Given an array of values and a pt and eta bin list, make a histo

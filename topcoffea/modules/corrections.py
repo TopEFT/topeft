@@ -103,8 +103,8 @@ extLepSF.add_weight_sets(["ElecSF_2016APV_3l_er EGamma_SF2D_error %s"%topcoffea_
 # Fake rate 
 for year in ['2016APV_2016', 2017, 2018]:
   for syst in ['','_up','_down','_be1','_be2','_pt1','_pt2']:
-    extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}.root')).format(year=year,syst=syst)])
-    extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva090_el_data_comb_NC{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}.root')).format(year=year,syst=syst)])
+    extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb_recorrected{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
+    extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva090_el_data_comb_NC_recorrected{syst} %s"%topcoffea_path(basepathFromTTH+'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
 
 
 extLepSF.finalize()
@@ -124,6 +124,9 @@ def AttachPerLeptonFR(leps, flavor, year):
     flip_hist = pickle.load(fin)
     flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
 
+  # Get the fliprate scaling factor for the given year
+  chargeflip_sf = get_param("chargeflip_sf_dict")[flip_year_name]
+
   # For FR filepath naming conventions
   if '2016' in year:
     year = '2016APV_2016'
@@ -133,9 +136,9 @@ def AttachPerLeptonFR(leps, flavor, year):
     fr=SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](leps.conept, np.abs(leps.eta) )
     leps['fakefactor%s'%syst]=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
   if flavor=="Elec":
-    leps['fliprate'] = flip_lookup(leps.pt,abs(leps.eta))
+    leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
   else:
-    leps['fliprate']=np.zeros_like(leps.pt)
+    leps['fliprate'] = np.zeros_like(leps.pt)
 
 
 def fakeRateWeight2l(events, lep1, lep2):
@@ -253,7 +256,7 @@ def GetBtagEff(jets, year, wp='medium'):
 
 def GetBTagSF(jets, year, wp='MEDIUM', sys='central'):
   if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),wp) 
-  elif   year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp) 
+  elif year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp) 
   elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL17_v3.csv"),wp)
   elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL18_v2.csv"),wp)
   else: raise Exception(f"Error: Unknown year \"{year}\".")
@@ -263,16 +266,16 @@ def GetBTagSF(jets, year, wp='MEDIUM', sys='central'):
     return (SF)
   else:
     flavors = {
-        0: ["light_corr", "light_uncorr"],
-        4: ["bc_corr","bc_uncorr"],
-        5: ["bc_corr","bc_uncorr"]
+        0: ["light_corr", f"light_{year}"],
+        4: ["bc_corr",f"bc_{year}"],
+        5: ["bc_corr",f"bc_{year}"]
     }
     
     jets[f"btag_{sys}_up"] = SF
     jets[f"btag_{sys}_down"] = SF
     for f, f_syst in flavors.items():
       if sys in f_syst:
-        if 'uncorr' in sys:   
+        if f"{year}" in sys:   
           jets[f"btag_{sys}_up"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("up_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_up"])
           jets[f"btag_{sys}_down"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("down_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_down"])
         else:
@@ -395,17 +398,9 @@ def AttachScaleWeights(events):
   events['renormfactDown'] = scale_weights[:,renormDown_factDown]
   events['renormDown']     = scale_weights[:,renormDown]
   events['factDown']       = scale_weights[:,factDown]
-  events['nom']            = ak.ones_like(scale_weights[:,0]) # Nominal not always included in scale_weights
   events['factUp']         = scale_weights[:,factUp]
   events['renormUp']       = scale_weights[:,renormUp]
   events['renormfactUp']   = scale_weights[:,renormUp_factUp]
-
-  # We expect this to be 1, and use it as the "nominal" for ISR/FSR as well, so want to make sure it is never anything other than 1
-  # We had been using the nominal from scale_weights, so we were checking to make sure it was just 1 (as we expected it to be)
-  # But it seems nominal is not always included, so now we're creating our own array defined to be 1
-  # But might as well leave the check in, just in case something weird goes wrong...
-  if ak.any(events['nom'] != 1.0):
-    raise Exception("ERROR: A LHEScaleWeight nominal value is not 1. Is this expected?")
 
 
 def AttachPdfWeights(events):
