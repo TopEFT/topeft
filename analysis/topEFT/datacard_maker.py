@@ -194,7 +194,9 @@ class DatacardMaker():
                 for syst,histo in h.items():
                     if syst == 'nominal':
                         fout[name+cat] = hist.export1d(histo)
-                    elif self.do_nuisance and name not in self.syst_special and 'flips' not in name:
+                    elif self.do_nuisance and name not in self.syst_special:
+                        if 'fakes' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
+                        if 'fakes' not in name and 'FF' in syst: continue # Don't processes fake factor systs for others
                         # Special cass for systematics NOT correlated by year
                         if bool(re.search('UL\d\d', name)) and bool(re.search('20\d\d', syst)):
                             # Find systematic year
@@ -306,7 +308,7 @@ class DatacardMaker():
             if len(h_base.axes())>1:
                 fout[pname+'sm'] = export2d(h_bases)
             else:
-                if any([sig in p for sig in self.signal]):
+                if any([sig in p for sig in self.signal]) or 'fakes' in pname:
                     export1d(h_sm, pname, 'sm', fout) # Special case for SM b/c background names overlap (p not pname)
                 else:
                     export1d(h_sm, p, '_sm', fout) # Special case for SM b/c background names overlap (p not pname)
@@ -510,12 +512,12 @@ class DatacardMaker():
             These lines are for testing only, and create Asimov data based on all processes provided
             '''
             if isinstance(data_obs, list):
-                if any([sig in proc for sig in self.signal]):
+                if any([sig in proc for sig in self.signal]) or 'fakes' in p:
                     data_obs = getHist(d_hists,p+'_sm').Clone('data_obs')
                 else:
                     data_obs = getHist(d_hists,proc+'_sm').Clone('data_obs') # Special case for SM b/c background names overlap
             else:
-                if any([sig in proc for sig in self.signal]):
+                if any([sig in proc for sig in self.signal]) or 'fakes' in p:
                     data_obs.Add(getHist(d_hists,p+'_sm').Clone('data_obs'))
                 else:
                     data_obs.Add(getHist(d_hists,proc+'_sm').Clone('data_obs')) # Special case for SM b/c background names overlap
@@ -528,7 +530,7 @@ class DatacardMaker():
             if name not in d_hists and proc+'_sm' not in d_hists:
                 print(f'{name} not found in {channel}!')
                 continue
-            if any([sig in proc for sig in self.signal]):
+            if any([sig in proc for sig in self.signal]) or 'fakes' in pname:
                 h_sm = getHist(d_hists, name)
             else:
                 h_sm = getHist(d_hists, proc+'_sm') # Special case for SM b/c background names overlap
