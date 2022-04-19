@@ -47,6 +47,15 @@ extLepSF.add_weight_sets(["MuonLooseSF_2016_syst NUM_LooseID_DEN_TrackerMuons/ab
 extLepSF.add_weight_sets(["MuonLooseSF_2016APV NUM_LooseID_DEN_TrackerMuons/abseta_pt_value %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2016_UL_HIPM_ID.json')])
 extLepSF.add_weight_sets(["MuonLooseSF_2016APV_stat NUM_LooseID_DEN_TrackerMuons/abseta_pt_stat %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2016_UL_HIPM_ID.json')])
 extLepSF.add_weight_sets(["MuonLooseSF_2016APV_syst NUM_LooseID_DEN_TrackerMuons/abseta_pt_syst %s"%topcoffea_path('data/leptonSF/muon/Efficiencies_muon_generalTracks_Z_Run2016_UL_HIPM_ID.json')])
+# Muon: ISO + IP (Barbara)
+extLepSF.add_weight_sets(["MuonIsoSF_2018 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2018_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonIsoSF_2018_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2018_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonIsoSF_2017_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2017_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonIsoSF_2017 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2017_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonIsoSF_2016_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2016_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonIsoSF_2016 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2016_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonIsoSF_2016APV_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2016APV_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["MuonIsoSF_2016APV EGamma_SF2D %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2016APV_iso_EGM2D.root')])
 # Muon: looseMVA&tight (Barbara)
 extLepSF.add_weight_sets(["MuonSF_2018 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2018_EGM2D.root')])
 extLepSF.add_weight_sets(["MuonSF_2018_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/muon/egammaEffi2018_EGM2D.root')])
@@ -82,6 +91,15 @@ extLepSF.add_weight_sets(["ElecLooseSF_2016_er EGamma_SF2D_error %s"%topcoffea_p
 extLepSF.add_weight_sets(["ElecLooseSF_2016 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_recoToloose_EGM2D.root')])
 extLepSF.add_weight_sets(["ElecLooseSF_2016APV_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_recoToloose_EGM2D.root')])
 extLepSF.add_weight_sets(["ElecLooseSF_2016APV EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_recoToloose_EGM2D.root')])
+# Elec: ISO + IP (Barbara)
+extLepSF.add_weight_sets(["ElecIsoSF_2018 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2018_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecIsoSF_2018_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2018_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecIsoSF_2017_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2017_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecIsoSF_2017 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2017_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecIsoSF_2016_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecIsoSF_2016 EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecIsoSF_2016APV_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_iso_EGM2D.root')])
+extLepSF.add_weight_sets(["ElecIsoSF_2016APV EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_iso_EGM2D.root')])
 # Elec: looseMVA&tight (Barbara)
 extLepSF.add_weight_sets(["ElecSF_2018_2lss EGamma_SF2D %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_2lss_EGM2D.root')])
 extLepSF.add_weight_sets(["ElecSF_2018_2lss_er EGamma_SF2D_error %s"%topcoffea_path('data/leptonSF/elecNEWmva/egammaEffi2018_2lss_EGM2D.root')])
@@ -174,15 +192,17 @@ def AttachMuonSF(muons, year):
   reco_err = np.where(pt<20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0) #sf error =0 when pt>20 becuase there is no reco SF available
   loose_sf  = SFevaluator['MuonLooseSF_{year}'.format(year=year)](eta,pt)
   loose_err = np.sqrt(SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt)*SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt)+SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt)*SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt))
+  iso_sf  = SFevaluator['MuonIsoSF_{year}'.format(year=year)](eta,pt)
+  iso_err = SFevaluator['MuonIsoSF_{year}_er'.format(year=year)](eta,pt)
   new_sf  = SFevaluator['MuonSF_{year}'.format(year=year)](eta,pt)
   new_err = SFevaluator['MuonSF_{year}_er'.format(year=year)](eta,pt)
 
-  muons['sf_nom_2l_muon'] = new_sf * reco_sf * loose_sf
-  muons['sf_hi_2l_muon']  = (new_sf + new_err) * (reco_sf + reco_err) * (loose_sf + loose_err)
-  muons['sf_lo_2l_muon']  = (new_sf - new_err) * (reco_sf - reco_err) * (loose_sf - loose_err)
+  muons['sf_nom_2l_muon'] = new_sf * reco_sf * loose_sf * iso_sf
+  muons['sf_hi_2l_muon']  = (new_sf + new_err) * (reco_sf + reco_err) * (loose_sf + loose_err) * (iso_sf + iso_err)
+  muons['sf_lo_2l_muon']  = (new_sf - new_err) * (reco_sf - reco_err) * (loose_sf - loose_err) * (iso_sf - iso_err)
   muons['sf_nom_3l_muon'] = new_sf * reco_sf * loose_sf
-  muons['sf_hi_3l_muon']  = (new_sf + new_err) * (reco_sf + reco_err) * (loose_sf + loose_err)
-  muons['sf_lo_3l_muon']  = (new_sf - new_err) * (reco_sf - reco_err) * (loose_sf - loose_err)
+  muons['sf_hi_3l_muon']  = (new_sf + new_err) * (reco_sf + reco_err) * (loose_sf + loose_err) * (iso_sf + iso_err)
+  muons['sf_lo_3l_muon']  = (new_sf - new_err) * (reco_sf - reco_err) * (loose_sf - loose_err) * (iso_sf - iso_err)
   muons['sf_nom_2l_elec'] = ak.ones_like(new_sf)
   muons['sf_hi_2l_elec']  = ak.ones_like(new_sf)
   muons['sf_lo_2l_elec']  = ak.ones_like(new_sf)
@@ -210,13 +230,15 @@ def AttachElectronSF(electrons, year):
   new_err_3l = SFevaluator['ElecSF_{year}_3l_er'.format(year=year)](np.abs(eta),pt)
   loose_sf  = SFevaluator['ElecLooseSF_{year}'.format(year=year)](np.abs(eta),pt)
   loose_err = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](np.abs(eta),pt)
+  iso_sf  = SFevaluator['ElecIsoSF_{year}'.format(year=year)](np.abs(eta),pt)
+  iso_err = SFevaluator['ElecIsoSF_{year}_er'.format(year=year)](np.abs(eta),pt)
 
-  electrons['sf_nom_2l_elec'] = reco_sf * new_sf_2l * loose_sf
-  electrons['sf_hi_2l_elec']  = (reco_sf + reco_err) * (new_sf_2l + new_err_2l) * (loose_sf + loose_err)
-  electrons['sf_lo_2l_elec']  = (reco_sf - reco_err) * (new_sf_2l - new_err_2l) * (loose_sf - loose_err)
+  electrons['sf_nom_2l_elec'] = reco_sf * new_sf_2l * loose_sf * iso_sf
+  electrons['sf_hi_2l_elec']  = (reco_sf + reco_err) * (new_sf_2l + new_err_2l) * (loose_sf + loose_err) * (iso_sf + iso_err)
+  electrons['sf_lo_2l_elec']  = (reco_sf - reco_err) * (new_sf_2l - new_err_2l) * (loose_sf - loose_err) * (iso_sf - iso_err)
   electrons['sf_nom_3l_elec'] = reco_sf * new_sf_3l * loose_sf
-  electrons['sf_hi_3l_elec']  = (reco_sf + reco_err) * (new_sf_3l + new_err_3l) * (loose_sf + loose_err)
-  electrons['sf_lo_3l_elec']  = (reco_sf - reco_err) * (new_sf_3l - new_err_3l) * (loose_sf - loose_err)
+  electrons['sf_hi_3l_elec']  = (reco_sf + reco_err) * (new_sf_3l + new_err_3l) * (loose_sf + loose_err) * (iso_sf + iso_err)
+  electrons['sf_lo_3l_elec']  = (reco_sf - reco_err) * (new_sf_3l - new_err_3l) * (loose_sf - loose_err) * (iso_sf - iso_err)
   electrons['sf_nom_2l_muon'] = ak.ones_like(reco_sf)
   electrons['sf_hi_2l_muon']  = ak.ones_like(reco_sf)
   electrons['sf_lo_2l_muon']  = ak.ones_like(reco_sf)
@@ -569,8 +591,8 @@ def GetTriggerSF(year, events, lep0, lep1):
     SF_emm=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='emm')[syst](lep0.pt,lep0.eta),1.0)
     SF_mmm=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='mmm')[syst](lep0.pt,lep0.eta),1.0)
     ls.append(SF_ee*SF_em*SF_mm*SF_eee*SF_eem*SF_emm*SF_mmm)
-  ls[1]=np.where(ls[1]==1.0,0.0,ls[1]) # syst down
-  ls[2]=np.where(ls[2]==1.0,0.0,ls[2]) # syst up
+  ls[1]=np.where(ls[1]==1.0,0.0,ls[1]) # stat unc. down
+  ls[2]=np.where(ls[2]==1.0,0.0,ls[2]) # stat unc. up
   events['trigger_sf']=ls[0] #nominal
-  events['trigger_sfDown']=ls[0]+ls[1]
-  events['trigger_sfUp']=ls[0]+ls[2]
+  events['trigger_sfDown']=ls[0]-np.sqrt(ls[1]*ls[1]+0.02*0.02) # place holder: 2% systematic unc.
+  events['trigger_sfUp']=ls[0]+-np.sqrt(ls[2]*ls[2]+0.02*0.02) # place holder: 2% systematic unc.
