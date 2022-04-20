@@ -595,4 +595,4 @@ def GetTriggerSF(year, events, lep0, lep1):
   ls[2]=np.where(ls[2]==1.0,0.0,ls[2]) # stat unc. up
   events['trigger_sf']=ls[0] #nominal
   events['trigger_sfDown']=ls[0]-np.sqrt(ls[1]*ls[1]+0.02*0.02) # place holder: 2% systematic unc.
-  events['trigger_sfUp']=ls[0]+-np.sqrt(ls[2]*ls[2]+0.02*0.02) # place holder: 2% systematic unc.
+  events['trigger_sfUp']=ls[0]+np.sqrt(ls[2]*ls[2]+0.02*0.02) # place holder: 2% systematic unc.
