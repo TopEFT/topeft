@@ -148,7 +148,6 @@ class DatacardMaker():
         rename = {k: 'Triboson' if bool(re.search('[WZ]{3}', v)) else v for k,v in rename.items()}
         rename = {k: 'Diboson' if bool(re.search('[WZ]{2}', v)) else v for k,v in rename.items()}
         rename = {k: 'convs' if bool(re.search('TTG', v)) else v for k,v in rename.items()}
-        #rename = {k: 'fakes' if bool(re.search('nonprompt', v)) else v for k,v in rename.items()}
         rename = {k: 'charge_flips' if bool(re.search('flips', v)) else v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
         rename = {k.split('_')[0]: v for k,v in self.rename.items()}
@@ -405,7 +404,6 @@ class DatacardMaker():
                 syst = syst+self.get_correlation_name(process, syst) # Tack on possible correlation name from self.syst_correlation
                 if any([process+'_'+syst in d for d in d_hists]):
                     h_sys = getHist(d_hists, '_'.join([process,syst]))
-                    #if 'nonprompt' in process: process = process.replace('nonprompt', 'fakes')
                     h_sys.SetDirectory(fout)
 
                     # Need to handle quad term to get "Q"
@@ -565,30 +563,6 @@ class DatacardMaker():
                 return signalcount, bkgcount
             if True or h_sm.Integral() > self.tolerance or p not in self.signal:
                 signalcount, bkgcount = addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout)
-                '''
-                if p in self.signal:
-                    if name in iproc:
-                        allyields[name] += h_sm.Integral()
-                        d_sigs[name].Add(h_sm)
-                        fout.Delete(name+';1')
-                        h_sm = d_sigs[name]
-                    else:
-                        signalcount -= 1
-                        iproc[name] = signalcount
-                        allyields[name] = h_sm.Integral()
-                        d_sigs[name] = h_sm
-                else:
-                    if name in iproc:
-                        allyields[name] += h_sm.Integral()
-                        d_bkgs[name].Add(h_sm)
-                        fout.Delete(name+';1')
-                        h_sm = d_bkgs[name]
-                    else:
-                        iproc[name] = bkgcount
-                        allyields[name] = h_sm.Integral()
-                        bkgcount += 1
-                        d_bkgs[name] = h_sm
-                '''
                 if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
                 h_sm.SetDirectory(fout)
                 h_sm.SetName(name)
