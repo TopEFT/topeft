@@ -403,11 +403,8 @@ class DatacardMaker():
             for syst in self.syst:
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
                 syst = syst+self.get_correlation_name(process, syst) # Tack on possible correlation name from self.syst_correlation
-                print('_'.join([process,syst]))
-                print(d_hists.keys())
                 if any([process+'_'+syst in d for d in d_hists]):
                     h_sys = getHist(d_hists, '_'.join([process,syst]))
-                    print(process,syst)
                     #if 'nonprompt' in process: process = process.replace('nonprompt', 'fakes')
                     h_sys.SetDirectory(fout)
 
@@ -460,11 +457,12 @@ class DatacardMaker():
                     syst = val
                 else:
                     raise NotImplementedError(f'Invalid value type {syst_special} {type(val)=}')
-                syst_cat = syst_special+self.get_correlation_name(process, syst_special)+'_flat_rate'
+                proc = process if 'nonprompt' not in process else 'fakes_sm'
+                syst_cat = syst_special+self.get_correlation_name(proc, syst_special)+'_flat_rate'
                 if syst_cat in systMap:
-                    systMap[syst_cat].update({process: syst})
+                    systMap[syst_cat].update({proc: syst})
                 else:
-                    systMap[syst_cat] = {process: syst}
+                    systMap[syst_cat] = {proc: syst}
                     
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
@@ -566,9 +564,7 @@ class DatacardMaker():
                         d_bkgs[name] = h_sm
                 return signalcount, bkgcount
             if True or h_sm.Integral() > self.tolerance or p not in self.signal:
-                print(name)
                 signalcount, bkgcount = addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout)
-                print(name)
                 '''
                 if p in self.signal:
                     if name in iproc:
@@ -593,9 +589,7 @@ class DatacardMaker():
                         bkgcount += 1
                         d_bkgs[name] = h_sm
                 '''
-                print(name)
                 if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
-                print(name)
                 h_sm.SetDirectory(fout)
                 h_sm.SetName(name)
                 h_sm.SetTitle(name)
