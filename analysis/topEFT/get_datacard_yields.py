@@ -1,5 +1,8 @@
 import os
 import copy
+import datetime
+import argparse
+import json
 
 import topcoffea.modules.MakeLatexTable as mlt
 
@@ -12,15 +15,15 @@ PROC_ORDER = [
      "charge_flips_sm",
      "fakes_sm",
      "convs_sm",
-     "bkg_sum",
+     "Sum_bkg",
      "ttlnu_sm",
      "ttll_sm",
      "ttH_sm",
      "tllq_sm",
      "tHq_sm",
      "tttt_sm",
-     "sig_sum",
-     "exp_sum",
+     "Sum_sig",
+     "Sum_expected",
 ]
 CAT_ORDER = [
     "2lss_4t_m_2b",
@@ -83,7 +86,7 @@ def get_cat_name_from_dc_name(dc_name):
     ret_str = ret_str.replace(".txt","")
     return ret_str
 
-# Get process rates from the contents of a datacard
+# Get the process' rates from the contents of a datacard
 def get_rates(dc_lines_lst):
 
     # Get the rate and processes from the datacard
@@ -111,7 +114,6 @@ def get_rates(dc_lines_lst):
     for i in range(n_cats):
         rate_dict[proc_lst[i]] = float(rate_lst[i])
 
-    #printd(rate_dict)
     return(rate_dict)
 
 
@@ -123,7 +125,9 @@ def get_just_sm(rate_dict):
         sm_dict[proc_name] = rate
     return sm_dict
 
-# For a given category, sum
+
+# Find sums for e.g. all bkg and all signal
+# Retrun a new dict with these extra terms included
 def add_proc_sums(rates_dict):
 
     ret_dict = copy.deepcopy(rates_dict)
@@ -148,15 +152,14 @@ def add_proc_sums(rates_dict):
     bkg_sum = sum_rates(rates_dict,BKG_PROC_LST)
     sig_sum = sum_rates(rates_dict,SIG_PROC_LST)
     exp_sum = sum_rates(rates_dict,BKG_PROC_LST+SIG_PROC_LST)
-    ret_dict["bkg_sum"] = bkg_sum
-    ret_dict["sig_sum"] = sig_sum
-    ret_dict["exp_sum"] = exp_sum
+    ret_dict["Sum_bkg"] = bkg_sum
+    ret_dict["Sum_sig"] = sig_sum
+    ret_dict["Sum_expected"] = exp_sum
 
     # Make sure all bkg procs are listed for every category (if they are not relevant, just list 0 yield)
     ret_dict = include_skipped_procs_as_zero(ret_dict,BKG_PROC_LST)
 
     return ret_dict
-
 
 
 ########################################
@@ -172,33 +175,46 @@ def get_sm_rates(dc_fullpath):
     return rate_dict_sm_with_sums
     
 
+
+########################################
 # Main function
+########################################
+
 def main():
 
-    dc_dir_base = "/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/check_PRs/master_for_benchmarking/topcoffea/datacards/apr18_checks/apr18_fullR2-data-bkg-sig_njets-lj0pt_onBranchWeightsUpdates_np/njets_withSys/"
+    timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
+
+    # Set up the command line parser
+    parser = argparse.ArgumentParser()
+    parser.add_argument("datacards_dir_path", help = "The path to the directory where the datacards live")
+    parser.add_argument("-n", "--json-name", default="dc_yields", help = "Name of the json file to save")
+    args = parser.parse_args()
 
     # Get the list of files in the dc dir
-    dc_files_all = os.listdir(dc_dir_base)
+    dc_files_all = os.listdir(args.datacards_dir_path)
     dc_files = get_dc_file_names(dc_files_all)
 
     # Get rate dicts and cat names
     all_rates_dict = {}
     for dc_fname in dc_files:
-        rate_dict_sm = get_sm_rates(os.path.join(dc_dir_base,dc_fname))
+        rate_dict_sm = get_sm_rates(os.path.join(args.datacards_dir_path,dc_fname))
         cat_name = get_cat_name_from_dc_name(dc_fname)
         print(cat_name)
         printd(rate_dict_sm)
         all_rates_dict[cat_name] = rate_dict_sm
 
-    # Get a dict that will work for the latex table (i.e. need None for errs)
-    all_rates_dict_none_errs = append_none_errs(all_rates_dict)
-    #print(all_rates_dict)
-    #print(all_rates_dict_none_errs)
-
     # Dump to the screen text for a latex table
+    all_rates_dict_none_errs = append_none_errs(all_rates_dict) # Get a dict that will work for the latex table (i.e. need None for errs)
     mlt.print_latex_yield_table(all_rates_dict_none_errs,tag="SM yields",key_order=CAT_ORDER,subkey_order=PROC_ORDER,print_begin_info=True,print_end_info=True,column_variable="keys")
 
+    # Save yields to a json
+    out_json_name = args.json_name
+    if args.json_name == parser.get_default("json_name"):
+        out_json_name = out_json_name + "_" + timestamp_tag
+    with open(out_json_name+".json", "w") as out_file:
+        json.dump(all_rates_dict, out_file, indent=4)
+    print(f"Saved json file: {out_json_name}.json\n")
 
 
-main()
-
+if __name__ == "__main__":
+    main()
