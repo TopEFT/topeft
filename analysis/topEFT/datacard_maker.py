@@ -148,7 +148,7 @@ class DatacardMaker():
         rename = {k: 'Triboson' if bool(re.search('[WZ]{3}', v)) else v for k,v in rename.items()}
         rename = {k: 'Diboson' if bool(re.search('[WZ]{2}', v)) else v for k,v in rename.items()}
         rename = {k: 'convs' if bool(re.search('TTG', v)) else v for k,v in rename.items()}
-        rename = {k: 'fakes' if bool(re.search('nonprompt', v)) else v for k,v in rename.items()}
+        #rename = {k: 'fakes' if bool(re.search('nonprompt', v)) else v for k,v in rename.items()}
         rename = {k: 'charge_flips' if bool(re.search('flips', v)) else v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
         rename = {k.split('_')[0]: v for k,v in self.rename.items()}
@@ -195,8 +195,8 @@ class DatacardMaker():
                     if syst == 'nominal':
                         fout[name+cat] = hist.export1d(histo)
                     elif self.do_nuisance and name not in self.syst_special:
-                        if 'fakes' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
-                        if 'fakes' not in name and 'FF' in syst: continue # Don't processes fake factor systs for others
+                        if 'nonprompt' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
+                        if 'nonprompt' not in name and 'FF' in syst: continue # Don't processes fake factor systs for others
                         # Special cass for systematics NOT correlated by year
                         if bool(re.search('UL\d\d', name)) and bool(re.search('20\d\d', syst)):
                             # Find systematic year
@@ -308,7 +308,7 @@ class DatacardMaker():
             if len(h_base.axes())>1:
                 fout[pname+'sm'] = export2d(h_bases)
             else:
-                if any([sig in p for sig in self.signal]) or 'fakes' in pname:
+                if any([sig in p for sig in self.signal]):
                     export1d(h_sm, pname, 'sm', fout) # Special case for SM b/c background names overlap (p not pname)
                 else:
                     export1d(h_sm, p, '_sm', fout) # Special case for SM b/c background names overlap (p not pname)
@@ -403,8 +403,12 @@ class DatacardMaker():
             for syst in self.syst:
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
                 syst = syst+self.get_correlation_name(process, syst) # Tack on possible correlation name from self.syst_correlation
+                print('_'.join([process,syst]))
+                print(d_hists.keys())
                 if any([process+'_'+syst in d for d in d_hists]):
                     h_sys = getHist(d_hists, '_'.join([process,syst]))
+                    print(process,syst)
+                    #if 'nonprompt' in process: process = process.replace('nonprompt', 'fakes')
                     h_sys.SetDirectory(fout)
 
                     # Need to handle quad term to get "Q"
@@ -430,10 +434,11 @@ class DatacardMaker():
 
                     if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
                     syst = syst.replace('Up', '') # Remove 'Up' to get just the systematic name
+                    proc = process if 'nonprompt' not in process else 'fakes_sm'
                     if syst in systMap:
-                        systMap[syst].update({process: round(h_sys.Integral(), 3)})
+                        systMap[syst].update({proc: round(h_sys.Integral(), 3)})
                     else:
-                        systMap[syst] = {process: round(h_sys.Integral(), 3)}
+                        systMap[syst] = {proc: round(h_sys.Integral(), 3)}
             for syst_special,val in self.syst_special.items():
                 # Check for special bins
                 if isinstance(val,dict):
@@ -512,12 +517,12 @@ class DatacardMaker():
             These lines are for testing only, and create Asimov data based on all processes provided
             '''
             if isinstance(data_obs, list):
-                if any([sig in proc for sig in self.signal]) or 'fakes' in p:
+                if any([sig in proc for sig in self.signal]):
                     data_obs = getHist(d_hists,p+'_sm').Clone('data_obs')
                 else:
                     data_obs = getHist(d_hists,proc+'_sm').Clone('data_obs') # Special case for SM b/c background names overlap
             else:
-                if any([sig in proc for sig in self.signal]) or 'fakes' in p:
+                if any([sig in proc for sig in self.signal]):
                     data_obs.Add(getHist(d_hists,p+'_sm').Clone('data_obs'))
                 else:
                     data_obs.Add(getHist(d_hists,proc+'_sm').Clone('data_obs')) # Special case for SM b/c background names overlap
@@ -530,11 +535,13 @@ class DatacardMaker():
             if name not in d_hists and proc+'_sm' not in d_hists:
                 print(f'{name} not found in {channel}!')
                 continue
-            if any([sig in proc for sig in self.signal]) or 'fakes' in pname:
+            if any([sig in proc for sig in self.signal]):
                 h_sm = getHist(d_hists, name)
             else:
                 h_sm = getHist(d_hists, proc+'_sm') # Special case for SM b/c background names overlap
-            if True or h_sm.Integral() > self.tolerance or p not in self.signal:
+            #if 'nonprompt' in name: name = 'fakes_sm'
+            def addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout):
+                if 'nonprompt' in name: name = 'fakes_sm'
                 if p in self.signal:
                     if name in iproc:
                         allyields[name] += h_sm.Integral()
@@ -557,7 +564,38 @@ class DatacardMaker():
                         allyields[name] = h_sm.Integral()
                         bkgcount += 1
                         d_bkgs[name] = h_sm
+                return signalcount, bkgcount
+            if True or h_sm.Integral() > self.tolerance or p not in self.signal:
+                print(name)
+                signalcount, bkgcount = addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout)
+                print(name)
+                '''
+                if p in self.signal:
+                    if name in iproc:
+                        allyields[name] += h_sm.Integral()
+                        d_sigs[name].Add(h_sm)
+                        fout.Delete(name+';1')
+                        h_sm = d_sigs[name]
+                    else:
+                        signalcount -= 1
+                        iproc[name] = signalcount
+                        allyields[name] = h_sm.Integral()
+                        d_sigs[name] = h_sm
+                else:
+                    if name in iproc:
+                        allyields[name] += h_sm.Integral()
+                        d_bkgs[name].Add(h_sm)
+                        fout.Delete(name+';1')
+                        h_sm = d_bkgs[name]
+                    else:
+                        iproc[name] = bkgcount
+                        allyields[name] = h_sm.Integral()
+                        bkgcount += 1
+                        d_bkgs[name] = h_sm
+                '''
+                print(name)
                 if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
+                print(name)
                 h_sm.SetDirectory(fout)
                 h_sm.SetName(name)
                 h_sm.SetTitle(name)
