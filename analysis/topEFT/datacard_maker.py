@@ -298,7 +298,8 @@ class DatacardMaker():
                         kyear = re.findall("\d\d(?:APV)?", str(key[0]))[0]
                         nom = nom + h._sumw[key] * self.lumi['20'+kyear]/self.lumi['20'+pyear]
                     if mkey is None: continue
-                    h._sumw[mkey] = h._sumw[mkey] + deepcopy(nom)
+                    if nom.shape != h._sumw[mkey].shape: continue
+                    h._sumw[mkey] = h._sumw[mkey] + nom
         # Scale each plot to the SM
         processed = []
         for proc in self.samples:
