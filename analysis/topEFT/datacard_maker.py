@@ -274,7 +274,7 @@ class DatacardMaker():
                 cat = '_'.join([channel, maxb, variable])
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fout = uproot3.recreate(fname)
-        def fix_uncorrelated_systs(h):
+        def fix_uncorrelated_systs(h, proc):
             '''
             This function folds the nominal values for all other years into a specific year
             E.g., `ttH_sm_btagSFbc_2017Down` should be
@@ -284,33 +284,54 @@ class DatacardMaker():
                    +ttH_sm_btagSFbc_2018nominal`
             '''
             systs = (str(s) for s in h.axis('systematic').identifiers() if '20' in str(s))
+            year = re.findall("UL\d\d(?:APV)?", proc)[0][2:]
             for syst in systs:
-                print(syst)
-                year = re.findall("20\d\d(?:APV)?", syst)[0][2:]
+                print(year, re.findall("20\d\d(?:APV)?", syst)[0][2:])
+                if year != re.findall("20\d\d(?:APV)?", syst)[0][2:]: continue
                 nom = np.zeros_like(list(h._sumw.values())[0])
                 mkey = None
+                print('looking for NOT', year, 'to correct', proc, syst)
                 for key in h._sumw:
-                    if syst in str(key[1]): mkey = key
-                    if year in str(key[0]): continue # Ignore process with same year as systematic
+                    if proc in str(key[0]) and syst in str(key[1]): mkey = key
+                    if proc.split('UL')[0] not in str(key[0]): continue
+                    if proc == str(key[0]) or 'nominal' not in str(key[1]): continue
+                    print('\t correcting with', str(key[0]), str(key[1]))
+                    kyear = re.findall("\d\d(?:APV)?", str(key[0]))[0]
+                    nom = nom + h._sumw[key] * self.lumi['20'+kyear]/self.lumi['20'+year]
+                '''
+                nom = np.zeros_like(list(h._sumw.values())[0])
+                mkey = None
+                print('looking for NOT', year, 'to correct', syst)
+                for key in h._sumw:
+                    if proc not in str(key[0]): continue
+                    syear = re.findall("20\d\d(?:APV)?", syst)[0][2:]
+                    if year == syear and syst in str(key[1]):
+                        print('\t','found mkey', str(key[0]), str(key[1]))
+                        mkey = key
+                    if syear in str(key[0]) and 'nominal' in str(key[1]): # Get the nominal value for each other year
+                        print('\t','nominal is', str(key[0]), str(key[1]), h._sumw[key].sum(), '->', h._sumw[key].sum() * self.lumi['20'+year])
+                    if year == syear: continue # Ignore process with same year as systematic
+                    print(year, 'is NOT', syear)
                     if 'nominal' in str(key[1]): # Get the nominal value for each other year
-                        print(str(key[0]), str(key[1]), h._sumw[key].sum())
+                        print('\t','will correct with', str(key[0]), str(key[1]))
                         kyear = re.findall("\d\d(?:APV)?", str(key[0]))[0]
-                        print(kyear)
-                        print(year, self.lumi['20'+kyear]/self.lumi['20'+year])
                         nom = nom + h._sumw[key] * self.lumi['20'+kyear]/self.lumi['20'+year]
-                print(syst)
+                '''
+                if mkey is None: continue
+                if h.integrate('sample', proc).integrate('systematic', syst) != {}:
+                    print('uncorrected', proc, h.integrate('sample', proc).integrate('systematic', syst).values()[()].sum(), h.integrate('sample', proc).integrate('systematic', syst).values()[()].sum() * self.lumi['20'+year])
                 print(str(mkey[0]), str(mkey[1]), h._sumw[mkey].sum())
-                print(h._sumw[mkey].sum())
                 print('adding', nom.sum())
                 h._sumw[mkey] += nom
-                print(h._sumw[mkey].sum())
-        fix_uncorrelated_systs(h)
+                if h.integrate('sample', proc).integrate('systematic', syst) != {}:
+                    print('corrected', proc, h.integrate('sample', proc).integrate('systematic', syst).values()[()].sum(), h.integrate('sample', proc).integrate('systematic', syst).values()[()].sum() * self.lumi['20'+year])
         # Scale each plot to the SM
         processed = []
         for proc in self.samples:
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
             if self.should_skip_process(proc, channel): continue
             simplified = proc.split('_central')[0].split('_private')[0].replace('_4F','').replace('_ext','')
+            fix_uncorrelated_systs(h, proc) # Before processed to handle all years
             if simplified in processed: continue # Only one process name per 3 years
             processed.append(simplified)
             p = proc.split('_')[0]
