@@ -221,7 +221,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
         data_syst_lst = [
-            "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown"
+            "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown","FFcloseElUp","FFcloseElDown","FFcloseMuUp","FFcloseMuDown"
         ]
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
