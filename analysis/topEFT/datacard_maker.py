@@ -287,17 +287,21 @@ class DatacardMaker():
             for syst in systs:
                 print(syst)
                 year = re.findall("20\d\d(?:APV)?", syst)[0][2:]
-                print(year)
                 nom = np.zeros_like(list(h._sumw.values())[0])
                 mkey = None
                 for key in h._sumw:
                     if syst in str(key[1]): mkey = key
                     if year in str(key[0]): continue # Ignore process with same year as systematic
                     if 'nominal' in str(key[1]): # Get the nominal value for each other year
-                        print(key, h._sumw[key].sum())
-                        nom = nom + h._sumw[key]
+                        print(str(key[0]), str(key[1]), h._sumw[key].sum())
+                        kyear = re.findall("\d\d(?:APV)?", str(key[0]))[0]
+                        print(kyear)
+                        print(year, self.lumi['20'+kyear]/self.lumi['20'+year])
+                        nom = nom + h._sumw[key] * self.lumi['20'+kyear]/self.lumi['20'+year]
                 print(syst)
+                print(str(mkey[0]), str(mkey[1]), h._sumw[mkey].sum())
                 print(h._sumw[mkey].sum())
+                print('adding', nom.sum())
                 h._sumw[mkey] += nom
                 print(h._sumw[mkey].sum())
         fix_uncorrelated_systs(h)
