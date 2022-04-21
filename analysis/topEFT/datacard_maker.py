@@ -547,7 +547,6 @@ class DatacardMaker():
             else:
                 h_sm = getHist(d_hists, proc+'_sm') # Special case for SM b/c background names overlap
             def addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout):
-                if 'nonprompt' in name: name = 'fakes_sm'
                 if p in self.signal:
                     if name in iproc:
                         allyields[name] += h_sm.Integral()
@@ -570,9 +569,9 @@ class DatacardMaker():
                         allyields[name] = h_sm.Integral()
                         bkgcount += 1
                         d_bkgs[name] = h_sm
-                return signalcount, bkgcount
+                return signalcount, bkgcount, h_sm
             if True or h_sm.Integral() > self.tolerance or p not in self.signal:
-                signalcount, bkgcount = addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout)
+                signalcount, bkgcount, h_sm = addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout)
                 if self.do_nuisance:
                     if any([sig in proc for sig in self.signal]):
                        processSyst(name, channel, systMap, d_hists, fout)
