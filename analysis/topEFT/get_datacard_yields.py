@@ -73,17 +73,17 @@ def append_none_errs(in_dict):
 ########################################
 
 # From a list of filenames, get the list that looks like the text datacards
-def get_dc_file_names(flst):
+def get_dc_file_names(flst,ext=".txt"):
     dclst = []
     for fname in flst:
-        if fname.startswith("ttx") and fname.endswith(".txt"):
+        if fname.startswith("ttx") and fname.endswith(ext):
             dclst.append(fname)
     return(dclst)
 
 # Take the name of a datacard and extract the process name
-def get_cat_name_from_dc_name(dc_name):
+def get_cat_name_from_dc_name(dc_name,ext=".txt"):
     ret_str = dc_name.replace("ttx_multileptons-","")
-    ret_str = ret_str.replace(".txt","")
+    ret_str = ret_str.replace(ext,"")
     return ret_str
 
 # Get the process' rates from the contents of a datacard

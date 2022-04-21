@@ -5,9 +5,11 @@
 #   - The script then grabs all of the nom, up, and down histos from the templates, and plots them and saves to png
 
 import os
+import argparse
 import ROOT
 
 from topcoffea.plotter.make_html import make_html
+import get_datacard_yields as dy # Note the functions we're using from this script should probably go in topocffea/modules
 
 
 # Get the list of histo names from a root file
@@ -51,8 +53,7 @@ def get_dict_of_nom_up_do_names(in_root_file):
             if hname_up != hname: raise Exception(f"Something went wrong in the name construction, expected {hname}, but built {hname_up}")
 
             # Add these variations to the out dictionary
-            #if syst_name in syst_name_dict: raise Exception(f"Error, {syst_name} is included twice")
-            if syst_name in syst_name_dict: print(f"Warning: {syst_name} is included twice")
+            if hname_key in syst_name_dict: raise Exception(f"Error, {hname_key} is included twice")
             syst_name_dict[hname_key] = {}
             syst_name_dict[hname_key]["nom"] = hname_nom
             syst_name_dict[hname_key]["up"] = hname_up
@@ -83,34 +84,54 @@ def draw_nom_up_do_overlay(h_n,h_u,h_d,save_path):
     h_u.GetYaxis().SetRangeUser(0.0,1.3*max_y)
 
     # Save
+    print("Saviang",save_path)
     canvas.Print(save_path)
 
 
 # Main function
 def main():
 
-    ROOT.gROOT.SetBatch()
+    # Set up the command line parser
+    parser = argparse.ArgumentParser()
+    parser.add_argument("datacards_dir_path", help = "The path to the directory where the datacards templates live")
+    parser.add_argument("-o", "--out-path", default=".", help = "Out file location")
+    args = parser.parse_args()
 
-    #f = "/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/check_PRs/master_for_benchmarking/topcoffea/datacards/apr18_checks/apr18_fullR2-data-bkg-sig_njets-lj0pt_onBranchWeightsUpdates_np/njets_withSys/ttx_multileptons-2lss_m_2b.root"
-    f = "/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/check_PRs/master_for_benchmarking/topcoffea/datacards/apr20_fullR2-data-bkg-sig_njets-lj0pt_np/njets_withSys/ttx_multileptons-2lss_m_2b.root"
-    in_file  = ROOT.TFile.Open(f,"READ")
+    out_basepath = args.out_path
 
-    out_basepath = "/afs/crc.nd.edu/user/k/kmohrman/coffea_dir/check_PRs/kmohrman_dc_yields_table/topcoffea/analysis/topEFT/test_apr21"
+    # Get the list of template root files in the dc dir
+    files_all = os.listdir(args.datacards_dir_path)
+    template_files = dy.get_dc_file_names(files_all,ext=".root")
 
-    # Get the dictionary of the variations
-    syst_name_dict = get_dict_of_nom_up_do_names(in_file)
+    # Loop over templates
+    for template_name in template_files:
 
-    # Make plot for each variation
-    for proc_syst_var_name in syst_name_dict.keys():
-        save_fpath = os.path.join(out_basepath,proc_syst_var_name+".png")
-        draw_nom_up_do_overlay(
-            h_n = in_file.Get(syst_name_dict[proc_syst_var_name]["nom"]),
-            h_u = in_file.Get(syst_name_dict[proc_syst_var_name]["up"]),
-            h_d = in_file.Get(syst_name_dict[proc_syst_var_name]["do"]),
-            save_path = save_fpath,
-        )
+        # Get roto file and cat name
+        template_path_full = os.path.join(args.datacards_dir_path,template_name)
+        in_file  = ROOT.TFile.Open(template_path_full,"READ")
+        cat_name = dy.get_cat_name_from_dc_name(template_name,".root")
+        print("Cat name:",cat_name)
 
-    make_html(out_basepath)
+        # Get the dictionary of the variations
+        syst_name_dict = get_dict_of_nom_up_do_names(in_file)
+
+        # Make an output subdir for this category
+        out_basepath_forthiscat = os.path.join(out_basepath,cat_name)
+        os.mkdir(out_basepath_forthiscat)
+
+        # Make plot for each variation
+        ROOT.gROOT.SetBatch()
+        for proc_syst_var_name in syst_name_dict.keys():
+            print("proc_syst_var_name",proc_syst_var_name)
+            save_fpath = os.path.join(out_basepath_forthiscat,proc_syst_var_name+".png")
+            draw_nom_up_do_overlay(
+                h_n = in_file.Get(syst_name_dict[proc_syst_var_name]["nom"]),
+                h_u = in_file.Get(syst_name_dict[proc_syst_var_name]["up"]),
+                h_d = in_file.Get(syst_name_dict[proc_syst_var_name]["do"]),
+                save_path = save_fpath,
+            )
+
+        make_html(out_basepath_forthiscat)
 
 
 if __name__ == "__main__":
