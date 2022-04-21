@@ -274,6 +274,33 @@ class DatacardMaker():
                 cat = '_'.join([channel, maxb, variable])
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
         fout = uproot3.recreate(fname)
+        def fix_uncorrelated_systs(h):
+            '''
+            This function folds the nominal values for all other years into a specific year
+            E.g., `ttH_sm_btagSFbc_2017Down` should be
+                  `ttH_sm_btagSFbc_2016nominal
+                   +ttH_sm_btagSFbc_2016APVnominal
+                   +ttH_sm_btagSFbc_2017Down
+                   +ttH_sm_btagSFbc_2018nominal`
+            '''
+            systs = (str(s) for s in h.axis('systematic').identifiers() if '20' in str(s))
+            for syst in systs:
+                print(syst)
+                year = re.findall("20\d\d(?:APV)?", syst)[0][2:]
+                print(year)
+                nom = np.zeros_like(list(h._sumw.values())[0])
+                mkey = None
+                for key in h._sumw:
+                    if syst in str(key[1]): mkey = key
+                    if year in str(key[0]): continue # Ignore process with same year as systematic
+                    if 'nominal' in str(key[1]): # Get the nominal value for each other year
+                        print(key, h._sumw[key].sum())
+                        nom = nom + h._sumw[key]
+                print(syst)
+                print(h._sumw[mkey].sum())
+                h._sumw[mkey] += nom
+                print(h._sumw[mkey].sum())
+        fix_uncorrelated_systs(h)
         # Scale each plot to the SM
         processed = []
         for proc in self.samples:
