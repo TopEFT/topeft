@@ -149,10 +149,28 @@ def AttachPerLeptonFR(leps, flavor, year):
   if '2016' in year:
     year = '2016APV_2016'
 
+    
+
   # Add the flip/fake info into the leps opject
   for syst in ffSysts:
     fr=SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](leps.conept, np.abs(leps.eta) )
     leps['fakefactor%s'%syst]=ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
+
+  if year == '2016APV_2016':
+    leps['fakefactor_elclosurefactor']=(np.abs(leps.pdgId)==11)*( (np.abs(leps.eta) > 1.5)*0.5 + (np.abs(leps.eta) < 1.5)*0.1) + 1.0
+    leps['fakefactor_muclosurefactor']=(np.abs(leps.pdgId)==13)*0.05 + 1.0
+  if year == '2017':
+    leps['fakefactor_elclosurefactor']=(np.abs(leps.pdgId)==11)*0.2 + 1.0
+    leps['fakefactor_muclosurefactor']=(np.abs(leps.pdgId)==13)*0.2 + 1.0
+  if year == '2018':
+    leps['fakefactor_elclosurefactor']=(np.abs(leps.pdgId)==11)*( (np.abs(leps.eta) > 1.5)*0.5 + (np.abs(leps.eta) < 1.5)*0.1) + 1.0
+    leps['fakefactor_muclosurefactor']=(np.abs(leps.pdgId)==13)*0.05 + 1.0
+    
+  for flav in ['el','mu']:
+    leps['fakefactor_%sclosuredown'%flav]=leps['fakefactor']/leps['fakefactor_%sclosurefactor'%flav] 
+    leps['fakefactor_%sclosureup'%flav]=leps['fakefactor']*leps['fakefactor_%sclosurefactor'%flav] 
+
+
   if flavor=="Elec":
     leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
   else:
@@ -160,7 +178,7 @@ def AttachPerLeptonFR(leps, flavor, year):
 
 
 def fakeRateWeight2l(events, lep1, lep2):
-  for syst in ffSysts:
+  for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown']:
     fakefactor_2l =  (~lep1.isTightLep | ~lep2.isTightLep)*(-1) + (1)*(lep1.isTightLep & lep2.isTightLep) # if all are tight the FF is 1 because events are in the SR 
     fakefactor_2l =  fakefactor_2l*(lep1.isTightLep + (~lep1.isTightLep)*getattr(lep1,'fakefactor%s'%syst))
     fakefactor_2l =  fakefactor_2l*(lep2.isTightLep + (~lep2.isTightLep)*getattr(lep2,'fakefactor%s'%syst))
@@ -171,7 +189,7 @@ def fakeRateWeight2l(events, lep1, lep2):
   events['flipfactor_2l']=1*((lep1.charge+lep2.charge)!=0) + (((lep1.fliprate+lep2.fliprate))*((lep1.charge+lep2.charge)==0)) # only apply fliprate for OS events. to handle the OS control regions later :) #  + 
 
 def fakeRateWeight3l(events, lep1, lep2, lep3):
-  for syst in ffSysts:
+  for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown'] :
     fakefactor_3l = (~lep1.isTightLep | ~lep2.isTightLep | ~lep3.isTightLep)*(-1) + (1)*(lep1.isTightLep & lep2.isTightLep & lep3.isTightLep) # if all are tight the FF is 1 because events are in the SR  and we dont want to weight them
     fakefactor_3l = fakefactor_3l*(lep1.isTightLep + (~lep1.isTightLep)*getattr(lep1,'fakefactor%s'%syst))
     fakefactor_3l = fakefactor_3l*(lep2.isTightLep + (~lep2.isTightLep)*getattr(lep2,'fakefactor%s'%syst))
