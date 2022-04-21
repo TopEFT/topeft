@@ -797,7 +797,7 @@ class DatacardMaker():
         condorFile.write('error                 = condor/log/$(ClusterID)_$(ProcId).err\n')
         condorFile.write('log                   = condor/log/$(ClusterID).log\n')
         condorFile.write('Rank                  = Memory >= 64\n')
-        condorFile.write('Request_Memory        = 3 Gb\n')
+        condorFile.write('Request_Memory        = 4 Gb\n')
         condorFile.write('+JobFlavour           = "workday"\n')
         condorFile.write('getenv                = True\n')
         condorFile.write('Should_Transfer_Files = NO\n')
