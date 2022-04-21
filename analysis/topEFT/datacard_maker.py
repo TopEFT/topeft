@@ -10,7 +10,7 @@ import re
 import json
 from copy import deepcopy 
 
-from ROOT import TFile, TH1D, TH2D
+from ROOT import TFile, TH1D, TH2D,nullptr
 
 class DatacardMaker():
 
@@ -148,6 +148,7 @@ class DatacardMaker():
         rename = {k: 'Triboson' if bool(re.search('[WZ]{3}', v)) else v for k,v in rename.items()}
         rename = {k: 'Diboson' if bool(re.search('[WZ]{2}', v)) else v for k,v in rename.items()}
         rename = {k: 'convs' if bool(re.search('TTG', v)) else v for k,v in rename.items()}
+        rename = {k: 'fakes' if bool(re.search('nonprompt', v)) else v for k,v in rename.items()}
         rename = {k: 'charge_flips' if bool(re.search('flips', v)) else v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
         rename = {k.split('_')[0]: v for k,v in self.rename.items()}
@@ -216,7 +217,7 @@ class DatacardMaker():
            print([[ch, ch in self.channels.keys()] for ch in channel])
            raise Exception(f'At least one channel in {channels} is not found in self.channels!')
         if self.has_nonprompt:
-            h = self.hists[variable] # 'appl' axis is removed in nonprmopt samples, everything is 'isSR'
+            h = self.hists[variable] # 'appl' axis is removed in nonprompt samples, everything is 'isSR'
         else:
             h = self.hists[variable].integrate('appl', appl)
         if isinstance(charges, str):
@@ -425,16 +426,26 @@ class DatacardMaker():
                         h_sys.Scale(0.5)
 
                     # Write output
+                    proc = process.split('_')
+                    if proc[0] in self.rename: proc[0] = self.rename[proc[0]]
+                    proc = '_'.join(proc) + '_' + syst
+                    if any((proc in l.GetName() for l in fout.GetListOfKeys())): # Look for Up/Down (only replacing Down because of the continue a few lines down
+                        h_sys.Add(fout.Get(proc+';1'))
+                        fout.Delete(proc+';1')
+                    h_sys.SetName(proc)
+                    h_sys.SetTitle(proc)
                     h_sys.Write()
 
                     if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
                     syst = syst.replace('Up', '') # Remove 'Up' to get just the systematic name
-                    proc = process if 'nonprompt' not in process else 'fakes_sm'
                     if syst in systMap:
                         systMap[syst].update({proc: round(h_sys.Integral(), 3)})
                     else:
                         systMap[syst] = {proc: round(h_sys.Integral(), 3)}
             for syst_special,val in self.syst_special.items():
+                process = process.split('_')
+                if process[0] in self.rename: process[0] = self.rename[process[0]]
+                process = '_'.join(process)
                 # Check for special bins
                 if isinstance(val,dict):
                     # Check for process specific systematics (e.g. `charge_flips_sm`)
@@ -455,7 +466,7 @@ class DatacardMaker():
                     syst = val
                 else:
                     raise NotImplementedError(f'Invalid value type {syst_special} {type(val)=}')
-                proc = process if 'nonprompt' not in process else 'fakes_sm'
+                proc = process
                 syst_cat = syst_special+self.get_correlation_name(proc, syst_special)+'_flat_rate'
                 if syst_cat in systMap:
                     systMap[syst_cat].update({proc: syst})
@@ -562,8 +573,15 @@ class DatacardMaker():
                 return signalcount, bkgcount
             if True or h_sm.Integral() > self.tolerance or p not in self.signal:
                 signalcount, bkgcount = addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout)
-                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
+                if self.do_nuisance:
+                    if any([sig in proc for sig in self.signal]):
+                       processSyst(name, channel, systMap, d_hists, fout)
+                    else:
+                       processSyst(proc+'_sm', channel, systMap, d_hists, fout)
                 h_sm.SetDirectory(fout)
+                name = name.split('_')
+                if name[0] in self.rename: name[0] = self.rename[name[0]]
+                name = '_'.join(name)
                 h_sm.SetName(name)
                 h_sm.SetTitle(name)
                 h_sm.Write()
@@ -715,8 +733,8 @@ class DatacardMaker():
         datacard.write('##----------------------------------\n')
         if self.do_nuisance:
             for syst in nuisances:
-                systEff = dict((p,"1" if p in systMap[syst] else "-") for p in procs if 'rate' not in syst)
-                systEffRate = dict((p,systMap[syst][p] if p in systMap[syst] else "-") for p in procs if 'rate' in syst)
+                systEff = dict((p,"1" if any(p in m for m in systMap[syst]) else "-") for p in procs if 'rate' not in syst)
+                systEffRate = dict((p,systMap[syst][p] if any(p in m for m in systMap[syst]) else "-") for p in procs if 'rate' in syst)
                 if 'rate' in syst:
                     datacard.write(('%s %5s' % (npatt % syst.replace('_rate',''),'lnN')) + " ".join([kpatt % systEffRate[p]  for p in procs if p in systEffRate]) +"\n")
                 else:
