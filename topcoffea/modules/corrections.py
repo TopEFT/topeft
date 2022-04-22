@@ -513,25 +513,19 @@ def ApplyRochesterCorrections(year, mu, is_data, var='nominal'):
         mc_rand = np.random.rand(*ak.to_numpy(ak.flatten(mu.pt)).shape)
         mc_rand = ak.unflatten(mc_rand, ak.num(mu.pt, axis=1))
         corrections = np.array(ak.flatten(ak.ones_like(mu.pt)))
-        errors = np.array(ak.flatten(ak.ones_like(mu.pt)))
         
         mc_kspread = rochester.kSpreadMC(mu.charge[hasgen],mu.pt[hasgen],mu.eta[hasgen],mu.phi[hasgen],mu.matched_gen.pt[hasgen])
         mc_ksmear = rochester.kSmearMC(mu.charge[~hasgen],mu.pt[~hasgen],mu.eta[~hasgen],mu.phi[~hasgen],mu.nTrackerLayers[~hasgen],mc_rand[~hasgen])
-        errspread = rochester.kSpreadMCerror(mu.charge[hasgen],mu.pt[hasgen],mu.eta[hasgen],mu.phi[hasgen],mu.matched_gen.pt[hasgen])
-        errsmear = rochester.kSmearMCerror(mu.charge[~hasgen],mu.pt[~hasgen],mu.eta[~hasgen],mu.phi[~hasgen],mu.nTrackerLayers[~hasgen],mc_rand[~hasgen])
         hasgen_flat = np.array(ak.flatten(hasgen))
         corrections[hasgen_flat] = np.array(ak.flatten(mc_kspread))
         corrections[~hasgen_flat] = np.array(ak.flatten(mc_ksmear))
-        errors[hasgen_flat] = np.array(ak.flatten(errspread))
-        errors[~hasgen_flat] = np.array(ak.flatten(errsmear))
         corrections = ak.unflatten(corrections, ak.num(mu.pt, axis=1))
-        errors = ak.unflatten(errors, ak.num(mu.pt, axis=1))
     else:
         corrections = rochester.kScaleDT(mu.charge, mu.pt, mu.eta, mu.phi)
-        errors = rochester.kScaleDTerror(mu.charge, mu.pt, mu.eta, mu.phi)
-    if var=='nominal': return(mu.pt * corrections) #nominal
-    elif var=='up': return(mu.pt * corrections + mu.pt * errors) #up 
-    elif var=='down': return(mu.pt * corrections - mu.pt * errors) #down
+    if var == 'nominal': 
+        return(mu.pt * corrections) #nominal
+    else:
+        raise RuntimeError("Up/Down fluctuations removed for Rochester corrections!")
 
 ###### Trigger SFs
 ################################################################
