@@ -211,9 +211,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Muon selection ####################
 
-        # Rochester corrections
-        mu["pt"] = ApplyRochesterCorrections(year, mu, isData, var='nominal')
-
+        mu["pt"] = ApplyRochesterCorrections(year, mu, isData, var='nominal') # Need to apply corrections before doing muon selection
         mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
         mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
@@ -224,6 +222,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         m_loose = mu[mu.isPres & mu.isLooseM]
         e_loose = e[e.isPres & e.isLooseE]
         l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
+
+        ################### Tau selection ####################
+
+        tau["isPres"]  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
+        tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
+        tau["isGood"]  =  tau["isClean"] & tau["isPres"]
+        tau = tau[tau.isGood] # use these to clean jets
+        tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
 
         # Compute pair invariant masses, for all flavors all signes
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
@@ -244,14 +250,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         m_fo['lostHits'] = ak.zeros_like(m_fo.charge); 
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
-
-        ################### Tau selection ####################
-
-        tau["isPres"]  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
-        tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
-        tau["isGood"]  =  tau["isClean"] & tau["isPres"]
-        tau = tau[tau.isGood] # use these to clean jets
-        tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
 
         ######### Systematics ###########
 
