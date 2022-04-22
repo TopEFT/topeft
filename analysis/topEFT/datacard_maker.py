@@ -289,16 +289,16 @@ class DatacardMaker():
                 yproc = re.sub("UL\d\d(?:APV)?", "UL"+pyear, proc)
                 for syst in systs:
                     if pyear != re.findall("20\d\d(?:APV)?", syst)[0][2:]: continue
-                    nom = np.zeros_like(list(h._sumw.values())[0])
-                    mkey = None
+                    mkey = [key for key in h._sumw if yproc in str(key[0]) and syst in str(key[1])]
+                    if len(mkey) == 0: continue # Skip things like `nonprompt`
+                    mkey = mkey[0]
+                    nom = np.zeros_like(h._sumw[mkey])
                     for key in h._sumw:
-                        if yproc in str(key[0]) and syst in str(key[1]): mkey = key
                         if yproc.split('UL')[0] not in str(key[0]): continue
                         if yproc == str(key[0]) or 'nominal' not in str(key[1]): continue
                         kyear = re.findall("\d\d(?:APV)?", str(key[0]))[0]
                         nom = nom + h._sumw[key] * self.lumi['20'+kyear]/self.lumi['20'+pyear]
                     if mkey is None: continue
-                    if nom.shape != h._sumw[mkey].shape: continue
                     h._sumw[mkey] = h._sumw[mkey] + nom
         # Scale each plot to the SM
         processed = []
