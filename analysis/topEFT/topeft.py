@@ -214,7 +214,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Define the lists of systematics we include
         obj_correction_syst_lst = [
-            'MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
+            'JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
         ]
         wgt_correction_syst_lst = [
             "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
@@ -273,9 +273,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
 
             # Rochester corrections
-            if syst_var == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='up')
-            elif syst_var == 'MuonESDown': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='down')
-            else: mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='nominal')
+            mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='nominal')
 
             # Muon selection
             mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
