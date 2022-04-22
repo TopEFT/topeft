@@ -209,6 +209,49 @@ class AnalysisProcessor(processor.ProcessorABC):
         e["isFO"] = isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
         e["isTightLep"] = tightSelElec(e.isFO, e.mvaTTHUL)      
 
+        ################### Muon selection ####################
+
+        # Rochester corrections
+        mu["pt"] = ApplyRochesterCorrections(year, mu, isData, var='nominal')
+
+        mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
+        mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
+        mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
+        mu["isTightLep"]= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
+
+        ################### Loose selection ####################
+
+        m_loose = mu[mu.isPres & mu.isLooseM]
+        e_loose = e[e.isPres & e.isLooseE]
+        l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
+
+        # Compute pair invariant masses, for all flavors all signes
+        llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
+        events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
+
+        # Build FO collection
+        m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
+        e_fo = e[e.isPres & e.isLooseE & e.isFO]
+
+        # Attach the lepton SFs to the electron and muons collections
+        AttachElectronSF(e_fo,year=year)
+        AttachMuonSF(m_fo,year=year)
+
+        # Attach per lepton fake rates
+        AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
+        AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
+        m_fo['convVeto'] = ak.ones_like(m_fo.charge); 
+        m_fo['lostHits'] = ak.zeros_like(m_fo.charge); 
+        l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
+        l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
+
+        ################### Tau selection ####################
+
+        tau["isPres"]  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
+        tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
+        tau["isGood"]  =  tau["isClean"] & tau["isPres"]
+        tau = tau[tau.isGood] # use these to clean jets
+        tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
 
         ######### Systematics ###########
 
@@ -261,58 +304,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         else: syst_var_list = ['nominal']
 
         # Loop over the list of systematic variations we've constructed
-        mu["pt_raw"]=mu.pt
         met_raw=met
         for syst_var in syst_var_list:
-
-            # Reset the mu pt
-            mu["pt"]=mu.pt_raw
-
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
             weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
-
-            # Rochester corrections
-            mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='nominal')
-
-            # Muon selection
-            mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-            mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
-            mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
-            mu["isTightLep"]= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
-
-            # Build loose collections
-            m_loose = mu[mu.isPres & mu.isLooseM]
-            e_loose = e[e.isPres & e.isLooseE]
-            l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
-
-            # Compute pair invariant masses, for all flavors all signes
-            llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
-            events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
-
-            # Build FO collection
-            m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
-            e_fo = e[e.isPres & e.isLooseE & e.isFO]
-
-            # Attach the lepton SFs to the electron and muons collections
-            AttachElectronSF(e_fo,year=year)
-            AttachMuonSF(m_fo,year=year)
-
-            # Attach per lepton fake rates
-            AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
-            AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
-            m_fo['convVeto'] = ak.ones_like(m_fo.charge); 
-            m_fo['lostHits'] = ak.zeros_like(m_fo.charge); 
-            l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
-            l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
-
-            # Tau selection
-            tau["isPres"]  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
-            tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
-            tau["isGood"]  =  tau["isClean"] & tau["isPres"]
-            tau = tau[tau.isGood] # use these to clean jets
-            tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
-
 
             #################### Jets ####################
 
