@@ -502,7 +502,7 @@ def ApplyJetSystematics(cleanedJets,syst_var):
 # https://gitlab.cern.ch/akhukhun/roccor
 # https://github.com/CoffeaTeam/coffea/blob/master/coffea/lookup_tools/rochester_lookup.py
 
-def ApplyRochesterCorrections(year, mu, is_data, var='nominal'):
+def ApplyRochesterCorrections(year, mu, is_data):
     if year=='2016': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2016bUL.txt"), loaduncs=True)
     elif year=='2016APV': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2016aUL.txt"), loaduncs=True)
     elif year=='2017': rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2017UL.txt"), loaduncs=True)
@@ -522,10 +522,8 @@ def ApplyRochesterCorrections(year, mu, is_data, var='nominal'):
         corrections = ak.unflatten(corrections, ak.num(mu.pt, axis=1))
     else:
         corrections = rochester.kScaleDT(mu.charge, mu.pt, mu.eta, mu.phi)
-    if var == 'nominal': 
-        return(mu.pt * corrections) #nominal
-    else:
-        raise RuntimeError("Up/Down fluctuations removed for Rochester corrections!")
+
+    return (mu.pt * corrections)
 
 ###### Trigger SFs
 ################################################################
