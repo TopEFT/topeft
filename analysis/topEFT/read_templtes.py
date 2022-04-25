@@ -88,6 +88,7 @@ def draw_nom_up_do_overlay(h_n,h_u,h_d,save_path):
     canvas.Print(save_path)
 
 
+
 # Main function
 def main():
 
@@ -103,10 +104,20 @@ def main():
     files_all = os.listdir(args.datacards_dir_path)
     template_files = dy.get_dc_file_names(files_all,ext=".root")
 
+    # Get list of all histos for a given category, just for ref
+    print_all_templates = False
+    if print_all_templates:
+        example_cat = "ttx_multileptons-2lss_p_2b.root"
+        all_histos = get_histo_names(ROOT.TFile.Open(os.path.join(args.datacards_dir_path,example_cat),"READ"),only_sm=True)
+        print(f"Printing all histos for cat {example_cat}:")
+        for name in all_histos: print(name)
+        print(f"({len(all_histos)} total)")
+        exit()
+
     # Loop over templates
     for template_name in template_files:
 
-        # Get roto file and cat name
+        # Get root file and cat name
         template_path_full = os.path.join(args.datacards_dir_path,template_name)
         in_file  = ROOT.TFile.Open(template_path_full,"READ")
         cat_name = dy.get_cat_name_from_dc_name(template_name,".root")
