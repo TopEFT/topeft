@@ -283,7 +283,6 @@ class DatacardMaker():
                    +ttH_sm_btagSFbc_2017Down
                    +ttH_sm_btagSFbc_2018nominal`
             '''
-            print(years)
             for year in years:
                 systs = (str(s) for s in h.axis('systematic').identifiers() if '20' in str(s))
                 pyear = year[2:]
@@ -291,19 +290,14 @@ class DatacardMaker():
                 mkey = [k for k in h._sumw if proc == str(k[0]) and 'nominal' in str(k[1])]
                 #if len(mkey) == 0: continue
                 mkey = mkey[0]
-                print(str(mkey[0]))
-                print(proc, 'nom', h._sumw[mkey].sum() * self.lumi['20'+pyear])
                 for syst in systs:
                     if pyear != re.findall("20\d\d(?:APV)?", syst)[0][2:]: continue
                     nom = np.zeros_like(h._sumw[mkey])
-                    #nom = np.zeros_like(list(h._sumw.values())[0])
-                    print('looking for', str(proc), str(syst))
                     for key in h._sumw:
                         if yproc.split('UL')[0] not in str(key[0]): continue
                         if yproc == str(key[0]) or 'nominal' not in str(key[1]): continue
                         if 'nominal' in str(mkey[1]) and 'nominal' in str(key[1]): continue
                         kyear = re.findall("\d\d(?:APV)?", str(key[0]))[0]
-                        print('\tfound', str(key[0]), str(key[1]), kyear, pyear, self.lumi['20'+kyear]/self.lumi['20'+pyear])
                         nom = nom + h._sumw[key] * self.lumi['20'+kyear]/self.lumi['20'+pyear]
                     if mkey is None: continue
                     if nom.shape != h._sumw[mkey].shape: continue
@@ -313,11 +307,8 @@ class DatacardMaker():
         for proc in self.samples:
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
             if self.should_skip_process(proc, channel): continue
-            simplified = proc.split('_central')[0].split('_private')[0].replace('_4F','').replace('_ext','')
-            #simplified = proc.split('_central')[0].split('_private')[0].split('UL')[0].replace('_4F','').replace('_ext','')
-            print(simplified, processed)
+            simplified = proc.split('_central')[0].split('_private')[0].split('UL')[0].replace('_4F','').replace('_ext','')
             if simplified in processed: continue # Only one process name per 3 years
-            #if any(s == simplified for s in processed): continue # Only one process name per 3 years
             processed.append(simplified)
             p = proc.split('_')[0]#.split('UL')[0]
             pname = self.rename[p] if p in self.rename else p
@@ -325,20 +316,24 @@ class DatacardMaker():
             #ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k}
             ul = {'20'+k.split('UL')[1]:k for k in self.samples if pname in self.rename.get(k, k)}
             pname = self.rename[p]+'_' if p in self.rename else p
-            print(pname)
+            p = proc.split('UL')[0]
             #ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k}
             #ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','').split('UL')[0] in k}
             #ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k and proc.split('UL')[1] == k.split('UL')[1]}
             years = {year : self.lumi[year] for year in ul}
             print(ul, years)
+            print('raw', h.values())
             if self.do_nuisance: fix_uncorrelated_systs(h, proc, years) # Before processed to handle all years
             # Integrate out processes
             h_base = h.group('sample', hist.Cat('year', 'year'), ul)
+            print('years', h_base.values())
             if h_base.values() == {}:
                 print(f'Issue with {proc}')
                 continue
             h_base.scale(years, axis='year')
+            print('scale', h_base.values())
             h_base = h_base.integrate('year')
+            print('integrated', h_base.values())
             if isinstance(self.analysis_bins[variable],dict):
                 lep_bin = channel.split('_')[0].split('l')[0] + 'l'
                 h_base = h_base.rebin(variable, hist.Bin(variable,  h.axis(variable).label, self.analysis_bins[variable][lep_bin]))
@@ -347,9 +342,11 @@ class DatacardMaker():
             # Save the SM plot
             h_bases = {syst: h_base.integrate('systematic', syst) for syst in self.syst}
             h_base = h_base.integrate('systematic', 'nominal')
+            print(pname, h_base.values()[()].sum())
             h_sm = h_bases
             for hists in h_sm.values():
                 hists.set_sm()
+            print('Writing', pname+'_sm', 'from', proc, p)
             if len(h_base.axes())>1:
                 fout[pname+'sm'] = export2d(h_bases)
             else:
@@ -563,12 +560,11 @@ class DatacardMaker():
         processed = []
         for proc in samples:
             simplified = proc.split('_central')[0].split('_private')[0].split('UL')[0].replace('_4F','').replace('_ext','')
-            #if simplified in processed: continue # Only one process name per 3 years
+            if simplified in processed: continue # Only one process name per 3 years
             processed.append(simplified)
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
             if self.should_skip_process(proc, channel): continue
             p = self.rename[proc] if proc in self.rename else proc
-            print(proc, p, self.rename)
             name = 'data_obs'
             if name not in d_hists:
                 print(f'{name} not found in {channel}!')
@@ -592,6 +588,8 @@ class DatacardMaker():
             data_obs.Write()
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             name = pname + 'sm'
+            print(name, proc, proc.split('UL')[0])
+            print(f"{proc.split('UL')[0] not in d_hists=}")
             if name not in d_hists and proc+'_sm' not in d_hists and proc.split('UL')[0]+'_sm' not in d_hists:
                 print(f'{name} not found in {channel}!')
                 continue
@@ -599,6 +597,7 @@ class DatacardMaker():
                 h_sm = getHist(d_hists, name)
             else:
                 h_sm = getHist(d_hists, proc+'_sm') # Special case for SM b/c background names overlap
+            print(name, h_sm.Integral())
             def addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout):
                 if p in self.signal:
                     if name in iproc:
