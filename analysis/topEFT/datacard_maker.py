@@ -151,6 +151,8 @@ class DatacardMaker():
         rename = {k: 'fakes' if bool(re.search('nonprompt', v)) else v for k,v in rename.items()}
         rename = {k: 'charge_flips' if bool(re.search('flips', v)) else v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
+        rename = {l.split('UL')[0]: re.split('(Jet)?_[a-zA-Z]*UL', l)[0] for l in self.samples}
+        self.rename = {**self.rename, **rename}
         rename = {k.split('_')[0].split('UL')[0]: v for k,v in self.rename.items()}
         self.rename = {**self.rename, **rename}
         self.has_nonprompt = not any(['appl' in str(a) for a in self.hists['njets'].axes()]) # Check for nonprompt samples by looking for 'appl' axis
@@ -309,13 +311,9 @@ class DatacardMaker():
             p = proc.split('_')[0]#.split('UL')[0]
             pname = self.rename[p] if p in self.rename else p
             pname.replace('_4F','').replace('_ext','')
-            #ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k}
             ul = {'20'+k.split('UL')[1]:k for k in self.samples if pname in self.rename.get(k, k)}
             pname = self.rename[p]+'_' if p in self.rename else p
             p = proc.split('UL')[0]
-            #ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k}
-            #ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','').split('UL')[0] in k}
-            #ul = {'20'+k.split('UL')[1]:k for k in self.samples if p.replace('_4F','').replace('_ext','') in k and proc.split('UL')[1] == k.split('UL')[1]}
             years = {year : self.lumi[year] for year in ul}
             if self.do_nuisance: fix_uncorrelated_systs(h, proc, years) # Before processed to handle all years
             # Integrate out processes
@@ -548,7 +546,7 @@ class DatacardMaker():
         processed = []
         for proc in samples:
             simplified = proc.split('_central')[0].split('_private')[0].split('UL')[0].replace('_4F','').replace('_ext','')
-            if simplified in processed: continue # Only one process name per 3 years
+            #if simplified in processed: continue # Only one process name per 3 years
             processed.append(simplified)
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
             if self.should_skip_process(proc, channel): continue
