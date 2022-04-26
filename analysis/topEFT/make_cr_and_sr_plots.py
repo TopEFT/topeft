@@ -45,6 +45,10 @@ CR_CHAN_DICT = {
         "2lss_ee_CRflip_3j",
     ],
     "cr_3l" : [
+        "3l_eee_CR_0j",
+        "3l_eem_CR_0j",
+        "3l_emm_CR_0j",
+        "3l_mmm_CR_0j",
         "3l_eee_CR_1j",
         "3l_eem_CR_1j",
         "3l_emm_CR_1j",
@@ -251,8 +255,8 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_arr_p=None,err_arr
     # Plot the syst "error bars"
     dense_axes = h_mc.dense_axes()
     bin_centers_arr = h_mc.axis(dense_axes[0]).centers()
-    ax.scatter(bin_centers_arr,err_arr_p,marker="_",color="b",s=50,edgecolors='none',zorder=20)
-    ax.scatter(bin_centers_arr,err_arr_m,marker="_",color="r",s=50,edgecolors='none',zorder=20)
+    ax.scatter(bin_centers_arr,err_arr_p,marker="_",color="k",s=80,edgecolors='none',zorder=20)
+    ax.scatter(bin_centers_arr,err_arr_m,marker="_",color="k",s=80,edgecolors='none',zorder=20)
 
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
@@ -650,47 +654,42 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
             ### TESTING example of getting syst errors ###
 
-            #if "3l" not in hist_cat: continue
-            all_var_dict = {}
-            for k,v in hist_mc_integrated.values().items():
-                all_var_dict[k] = v
-
-            # Get list of systematics
+            # Get the list of systematic base names (i.e. without the up and down tags)
+            # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
             syst_var_lst = []
-            for k in all_var_dict.keys():
-                syst_name = k[1]
-                if syst_name.endswith("Up"):
-                    syst_name_base = syst_name.replace("Up","")
+            all_syst_var_lst = yt.get_cat_lables(hist_mc_integrated,"systematic")
+            for syst_var_name in all_syst_var_lst:
+                if syst_var_name.endswith("Up"):
+                    syst_name_base = syst_var_name.replace("Up","")
                     if syst_name_base not in syst_var_lst:
                         syst_var_lst.append(syst_name_base)
 
+            # Sum each systematic's contribtuions for all samples together (e.g. the ISR for all samples is summed linearly)
             syst_sum_dict = {}
             nom_arr = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
             p_arr_rel_lst = []
             m_arr_rel_lst = []
             for syst_name in syst_var_lst:
-                print("\n",syst_name)
-
-                relevant_samples_lst = yt.get_cat_lables(hist_mc_integrated.integrate("systematic",syst_name+"Up"), "sample")
-                n_arr     = hist_mc_integrated.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()]
-                u_arr_sum = hist_mc_integrated.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Up").values()[()]
-                d_arr_sum = hist_mc_integrated.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Down").values()[()]
+                relevant_samples_lst = yt.get_cat_lables(hist_mc_integrated.integrate("systematic",syst_name+"Up"), "sample") # The samples relevant to this syst
+                n_arr     = hist_mc_integrated.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()]        # Sum of all samples for nominal variation
+                u_arr_sum = hist_mc_integrated.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Up").values()[()]   # Sum of all samples for up variation
+                d_arr_sum = hist_mc_integrated.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Down").values()[()] # Sum of all samples for down variation
                 u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
                 d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
                 p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
                 m_arr_rel = np.where(u_arr_rel<0,u_arr_rel,d_arr_rel) # Just the ones that decrease the yield
-                p_arr_rel_sqr = p_arr_rel*p_arr_rel # Square each element
-                m_arr_rel_sqr = m_arr_rel*m_arr_rel # Square each element
-                p_arr_rel_lst.append(p_arr_rel_sqr)
-                m_arr_rel_lst.append(m_arr_rel_sqr)
+                p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
+                m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
 
-            p_err = np.sqrt(sum(p_arr_rel_lst))
-            m_err = np.sqrt(sum(m_arr_rel_lst))
-            print("\np",p_err)
-            print("m",m_err)
-            nom_arr_sum = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
+            # Add all of the systematic contribtuions in quadrature
+            p_err_arr = np.sqrt(sum(p_arr_rel_lst))
+            m_err_arr = np.sqrt(sum(m_arr_rel_lst))
+            nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
+            print("\nNom",nom_arr_all)
+            print("p",p_err_arr)
+            print("m",m_err_arr)
 
-            #axes_to_integrate_dict["systematic"] = "nominal"
+            # Get rid of the systematic axis (don't need it for plotting)
             hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
             hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
             ### TESTING END ###
@@ -699,7 +698,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             x_range = None
             if var_name == "ht": x_range = (0,250)
             #fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range)
-            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range, err_arr_p=nom_arr_sum+p_err, err_arr_m=nom_arr_sum-m_err)
+            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range, err_arr_p=nom_arr_all+p_err_arr, err_arr_m=nom_arr_all-m_err_arr)
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
