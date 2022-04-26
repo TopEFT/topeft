@@ -609,6 +609,12 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
         hist_mc.scale(sample_lumi_dict,axis="sample")
 
+        # TMP!!! Scale WZ by k factor
+        hist_mc.scale({"WZTo3LNu_centralUL16APV":1.19},axis="sample")
+        hist_mc.scale({"WZTo3LNu_centralUL16":1.19},axis="sample")
+        hist_mc.scale({"WZTo3LNu_centralUL17":1.19},axis="sample")
+        hist_mc.scale({"WZTo3LNu_centralUL18":1.19},axis="sample")
+
         # Group the samples by process type
         hist_mc = group_bins(hist_mc,CR_GRP_MAP)
         hist_data = group_bins(hist_data,CR_GRP_MAP)
@@ -685,13 +691,11 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             p_err_arr = np.sqrt(sum(p_arr_rel_lst))
             m_err_arr = np.sqrt(sum(m_arr_rel_lst))
             nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
-            print("\nNom",nom_arr_all)
-            print("p",p_err_arr)
-            print("m",m_err_arr)
 
             # Get rid of the systematic axis (don't need it for plotting)
             hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
             hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
+
             ### TESTING END ###
 
             # Create and save the figure
