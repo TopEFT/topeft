@@ -199,8 +199,8 @@ class DatacardMaker():
                     if syst == 'nominal':
                         fout[name+cat] = hist.export1d(histo)
                     elif self.do_nuisance and name not in self.syst_special:
-                        if 'nonprompt' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
-                        if 'nonprompt' not in name and 'FF' in syst: continue # Don't processes fake factor systs for others
+                        if 'fakes' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
+                        if 'fakes' not in name and 'FF' in syst: continue # Don't processes fake factor systs for others
                         # Special cass for systematics NOT correlated by year
                         if bool(re.search('UL\d\d', name)) and bool(re.search('20\d\d', syst)):
                             # Find systematic year
@@ -310,12 +310,12 @@ class DatacardMaker():
             simplified = proc.split('_central')[0].split('_private')[0].split('UL')[0].replace('_4F','').replace('_ext','')
             if simplified in processed: continue # Only one process name per 3 years
             processed.append(simplified)
-            p = proc.split('_')[0]#.split('UL')[0]
+            p = proc.split('_')[0]
             pname = self.rename[p] if p in self.rename else p
             pname.replace('_4F','').replace('_ext','')
             ul = {'20'+k.split('UL')[1]:k for k in self.samples if pname in self.rename.get(k, k)}
             pname = self.rename[p]+'_' if p in self.rename else p
-            p = proc.split('UL')[0]
+            p = proc.split('_')[0].split('UL')[0]
             years = {year : self.lumi[year] for year in ul}
             if self.do_nuisance: fix_uncorrelated_systs(h, proc, years) # Before processed to handle all years
             # Integrate out processes
