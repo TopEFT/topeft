@@ -212,13 +212,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### Systematics ###########
 
-        # Systematic names with unique years in them indicate that the systematics are uncorrelated across those years
-        # Note that for fake closure, 2016 and 2016APV are correleated with each other (while 2017 and 2018 are uncorrelated)
-        #   - We want the naming of the systematics to reflect this
-        #   - So for 2017 and 2018 just directly include the year string, but for 2016 and 2016APV use the string 2016APV2016
-        if ((year == "2016") or (year == "2016APV")): yearff = "2016APV2016"
-        else: yearff = year
-
         # Define the lists of systematics we include
         obj_correction_syst_lst = [
             'MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
@@ -228,7 +221,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
         data_syst_lst = [
-            "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{yearff}Up",f"FFcloseEl_{yearff}Down",f"FFcloseMu_{yearff}Up",f"FFcloseMu_{yearff}Down"
+            "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
         ]
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
@@ -444,14 +437,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
                     weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
                     weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
-                    weights_dict[ch_name].add(f"FFcloseEl_{yearff}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
-                    weights_dict[ch_name].add(f"FFcloseMu_{yearff}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
+                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
+                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
                 elif ch_name.startswith("3l"):
                     weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
                     weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
                     weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
-                    weights_dict[ch_name].add(f"FFcloseEl_{yearff}", events.nom, copy.deepcopy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
-                    weights_dict[ch_name].add(f"FFcloseMu_{yearff}", events.nom, copy.deepcopy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
+                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
+                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
 
                 # For data only
                 if isData:
