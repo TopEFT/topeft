@@ -209,12 +209,53 @@ class AnalysisProcessor(processor.ProcessorABC):
         e["isFO"] = isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
         e["isTightLep"] = tightSelElec(e.isFO, e.mvaTTHUL)      
 
+        ################### Muon selection ####################
+
+        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
+        mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
+        mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
+        mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
+        mu["isTightLep"]= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
+
+        ################### Loose selection ####################
+
+        m_loose = mu[mu.isPres & mu.isLooseM]
+        e_loose = e[e.isPres & e.isLooseE]
+        l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
+
+        ################### Tau selection ####################
+
+        tau["isPres"]  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
+        tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
+        tau["isGood"]  =  tau["isClean"] & tau["isPres"]
+        tau = tau[tau.isGood] # use these to clean jets
+        tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+
+        # Compute pair invariant masses, for all flavors all signes
+        llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
+        events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
+
+        # Build FO collection
+        m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
+        e_fo = e[e.isPres & e.isLooseE & e.isFO]
+
+        # Attach the lepton SFs to the electron and muons collections
+        AttachElectronSF(e_fo,year=year)
+        AttachMuonSF(m_fo,year=year)
+
+        # Attach per lepton fake rates
+        AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
+        AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
+        m_fo['convVeto'] = ak.ones_like(m_fo.charge); 
+        m_fo['lostHits'] = ak.zeros_like(m_fo.charge); 
+        l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
+        l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
         ######### Systematics ###########
 
         # Define the lists of systematics we include
         obj_correction_syst_lst = [
-            'MuonESUp','MuonESDown','JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
+            'JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
         ]
         wgt_correction_syst_lst = [
             "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
@@ -261,60 +302,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         else: syst_var_list = ['nominal']
 
         # Loop over the list of systematic variations we've constructed
-        mu["pt_raw"]=mu.pt
         met_raw=met
         for syst_var in syst_var_list:
-
-            # Reset the mu pt
-            mu["pt"]=mu.pt_raw
-
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
             weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
-
-            # Rochester corrections
-            if syst_var == 'MuonESUp': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='up')
-            elif syst_var == 'MuonESDown': mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='down')
-            else: mu["pt"]=ApplyRochesterCorrections(year, mu, isData, var='nominal')
-
-            # Muon selection
-            mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-            mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
-            mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
-            mu["isTightLep"]= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
-
-            # Build loose collections
-            m_loose = mu[mu.isPres & mu.isLooseM]
-            e_loose = e[e.isPres & e.isLooseE]
-            l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
-
-            # Compute pair invariant masses, for all flavors all signes
-            llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
-            events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
-
-            # Build FO collection
-            m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
-            e_fo = e[e.isPres & e.isLooseE & e.isFO]
-
-            # Attach the lepton SFs to the electron and muons collections
-            AttachElectronSF(e_fo,year=year)
-            AttachMuonSF(m_fo,year=year)
-
-            # Attach per lepton fake rates
-            AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
-            AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
-            m_fo['convVeto'] = ak.ones_like(m_fo.charge); 
-            m_fo['lostHits'] = ak.zeros_like(m_fo.charge); 
-            l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
-            l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
-
-            # Tau selection
-            tau["isPres"]  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
-            tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
-            tau["isGood"]  =  tau["isClean"] & tau["isPres"]
-            tau = tau[tau.isGood] # use these to clean jets
-            tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
-
 
             #################### Jets ####################
 
@@ -511,10 +503,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 		
             # 2lss selection for CR
             selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_CRflip", (events.is2l_nozeeveto & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
 
             # 2los selection
-            selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & bmask_exactly2med & pass_trg))
+            selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
             selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
             # 3l selection

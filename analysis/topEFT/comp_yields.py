@@ -21,6 +21,7 @@ def main():
     parser.add_argument("-t1", "--tag1", default="Yields 1", help = "A string to describe the first set of yields")
     parser.add_argument("-t2", "--tag2", default="Yields 2", help = "A string to describe the second set of yields")
     parser.add_argument("-q" , "--quiet", action='store_true', help = "Do not print out info about sample")
+    parser.add_argument("--tolerance", type=float, default=1e-5, help = "Maximum absolute difference allowed between the sets of yields")
     args = parser.parse_args()
 
     # Load the jsons
@@ -64,7 +65,7 @@ def main():
         mlt.print_end()
 
     # Raise errors if yields are too different
-    yields_agree_bool = yt.print_yld_dicts(pdiff_dict,f"Percent diff between {args.tag1} and {args.tag2}",tolerance=1e-5)
+    yields_agree_bool = yt.print_yld_dicts(pdiff_dict,f"Percent diff between {args.tag1} and {args.tag2}",tolerance=args.tolerance)
     if not yields_agree_bool:
         sys.exit(1)
 
