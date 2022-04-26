@@ -151,9 +151,11 @@ class DatacardMaker():
         rename = {k: 'fakes' if bool(re.search('nonprompt', v)) else v for k,v in rename.items()}
         rename = {k: 'charge_flips' if bool(re.search('flips', v)) else v for k,v in rename.items()}
         self.rename = {**self.rename, **rename}
-        rename = {l.split('UL')[0]: re.split('(Jet)?_[a-zA-Z]*UL', l)[0] for l in self.samples}
+        rename = {re.split('(Jet)?_[a-zA-Z]*UL', k)[0]: v for k,v in self.rename.items()}
         self.rename = {**self.rename, **rename}
         rename = {k.split('_')[0].split('UL')[0]: v for k,v in self.rename.items()}
+        self.rename = {**self.rename, **rename}
+        rename = {l.split('UL')[0]: re.split('(Jet)_[a-zA-Z]*UL', l)[0] for l in self.samples if 'central' in l or 'private' in l}
         self.rename = {**self.rename, **rename}
         self.has_nonprompt = not any(['appl' in str(a) for a in self.hists['njets'].axes()]) # Check for nonprompt samples by looking for 'appl' axis
         self.syst = list({k[2]:0 for k in self.hists[self.build_var].values().keys()})
@@ -289,15 +291,15 @@ class DatacardMaker():
                 systs = (str(s) for s in h.axis('systematic').identifiers() if '20' in str(s))
                 pyear = year[2:]
                 yproc = re.sub("UL\d\d(?:APV)?", "UL"+pyear, proc)
-                mkey = [k for k in h._sumw if proc == str(k[0]) and 'nominal' in str(k[1])]
-                mkey = mkey[0]
                 for syst in systs:
                     if pyear != re.findall("20\d\d(?:APV)?", syst)[0][2:]: continue
+                    mkey = [k for k in h._sumw if yproc == str(k[0]) and syst in str(k[1])]
+                    if len(mkey) == 0: continue
+                    mkey = mkey[0]
                     nom = np.zeros_like(h._sumw[mkey])
                     for key in h._sumw:
                         if yproc.split('UL')[0] not in str(key[0]): continue
                         if yproc == str(key[0]) or 'nominal' not in str(key[1]): continue
-                        if 'nominal' in str(mkey[1]) and 'nominal' in str(key[1]): continue
                         kyear = re.findall("\d\d(?:APV)?", str(key[0]))[0]
                         h._sumw[mkey] += h._sumw[key] * self.lumi['20'+kyear]/self.lumi['20'+pyear]
         # Scale each plot to the SM
@@ -546,7 +548,7 @@ class DatacardMaker():
         processed = []
         for proc in samples:
             simplified = proc.split('_central')[0].split('_private')[0].split('UL')[0].replace('_4F','').replace('_ext','')
-            #if simplified in processed: continue # Only one process name per 3 years
+            if simplified in processed: continue # Only one process name per 3 years
             processed.append(simplified)
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
             if self.should_skip_process(proc, channel): continue
