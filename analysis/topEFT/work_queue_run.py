@@ -207,7 +207,6 @@ processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_t
 
 executor_args = {
     'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
-    'xrootdtimeout': 180,
 
     # find a port to run work queue in this range:
     'port': port,
@@ -218,9 +217,6 @@ executor_args = {
 
     'environment_file': remote_environment.get_environment(),
     'extra_input_files': ["topeft.py"],
-
-    'schema': NanoAODSchema,
-    'skipbadfiles': False,
 
     'retries': 5,
 
@@ -281,7 +277,11 @@ executor_args = {
 
 # Run the processor and get the output
 tstart = time.time()
-output = processor.run_uproot_job(flist, treename=treename, processor_instance=processor_instance, executor=processor.work_queue_executor, executor_args=executor_args, chunksize=chunksize, maxchunks=nchunks)
+
+executor = processor.WorkQueueExecutor(**executor_args)
+runner = processor.Runner(executor, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=180)
+output = runner(flist, treename, processor_instance)
+
 dt = time.time() - tstart
 
 print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
