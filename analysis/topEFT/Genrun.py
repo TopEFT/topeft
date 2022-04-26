@@ -76,9 +76,12 @@ if __name__ == '__main__':
 
   processor_instance = Gentopeft.AnalysisProcessor(samplesdict,wc_lst,do_errors)
 
+  exec_instance = processor.IterativeExecutor(workers=nworkers, pre_workers=1)
+  runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
+
   # Run the processor and get the output
   tstart = time.time()
-  output = processor.run_uproot_job(flist, treename=treename, processor_instance=processor_instance, executor=processor.iterative_executor, executor_args={"schema": NanoAODSchema,'workers': nworkers, 'pre_workers': 1}, chunksize=chunksize, maxchunks=nchunks)
+  output = runner(flist, treename, processor_instance)
   dt = time.time() - tstart
 
   nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
