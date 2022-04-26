@@ -199,19 +199,22 @@ if __name__ == '__main__':
     print('Wilson Coefficients: {}.'.format(wc_print))
   else:
     print('No Wilson coefficients specified')
- 
+
   processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
+
+  exec_instance = processor.FuturesExecutor(workers=nworkers)
+  runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
 
   # Run the processor and get the output
   tstart = time.time()
-  output = processor.run_uproot_job(flist, treename=treename, processor_instance=processor_instance, executor=processor.futures_executor, executor_args={"schema": NanoAODSchema,'workers': nworkers}, chunksize=chunksize, maxchunks=nchunks)
+  output = runner(flist, treename, processor_instance)
   dt = time.time() - tstart
 
   nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
   nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
   print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
   print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
- 
+
   # Save the output
   if not os.path.isdir(outpath): os.system("mkdir -p %s"%outpath)
   out_pkl_file = os.path.join(outpath,outname+".pkl.gz")
