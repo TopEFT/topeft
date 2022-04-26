@@ -649,100 +649,45 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             #exit()
 
             ### TESTING example of getting syst errors ###
-            # Print triple nested dict
-            def printd3(in_dict):
-                for syst_name in in_dict.keys():
-                    print("\n",syst_name)
-                    for sample_name in in_dict[syst_name].keys():
-                        print("\t",sample_name)
-                        for var in in_dict[syst_name][sample_name].keys():
-                            print("\t\t",var,in_dict[syst_name][sample_name][var])
 
-            #if "tt" not in hist_cat: continue
             #if "3l" not in hist_cat: continue
             all_var_dict = {}
             for k,v in hist_mc_integrated.values().items():
                 all_var_dict[k] = v
-            #print(all_var_dict)
 
-            # Look at the output up/down vars, put in better format
-            var_dict = {}
-            for k,arr in all_var_dict.items():
-                sample_name = k[0]
+            # Get list of systematics
+            syst_var_lst = []
+            for k in all_var_dict.keys():
                 syst_name = k[1]
-                # Get the syst subkey
-                # Once we have one of the names (up or down) can get all the rest of the info, so skip unless up
                 if syst_name.endswith("Up"):
                     syst_name_base = syst_name.replace("Up","")
-                    if syst_name_base not in var_dict:
-                        var_dict[syst_name_base] = {}
-                    if sample_name not in var_dict[syst_name_base]:
-                        var_dict[syst_name_base][sample_name] = {}
-                        var_dict[syst_name_base][sample_name]["n"] = all_var_dict[(sample_name,"nominal")]
-                        var_dict[syst_name_base][sample_name]["u"] = all_var_dict[(sample_name,syst_name_base+"Up")]
-                        var_dict[syst_name_base][sample_name]["d"] = all_var_dict[(sample_name,syst_name_base+"Down")]
+                    if syst_name_base not in syst_var_lst:
+                        syst_var_lst.append(syst_name_base)
 
+            syst_sum_dict = {}
+            nom_arr = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
+            p_arr_rel_lst = []
+            m_arr_rel_lst = []
+            for syst_name in syst_var_lst:
+                print("\n",syst_name)
 
-            # Get rel err dict
-            rel_err_dict = {}
-            for syst_name in var_dict.keys():
-                rel_err_dict[syst_name] = {}
-                rel_err_dict[syst_name]["total"] = {}
-                rel_err_dict[syst_name]["total_rel"] = {}
-                all_n = []
-                all_u = []
-                all_d = []
-                for sample_name in var_dict[syst_name].keys():
-                    rel_err_dict[syst_name][sample_name] = {}
-                    n_val = var_dict[syst_name][sample_name]["n"]
-                    u_val = var_dict[syst_name][sample_name]["u"]
-                    d_val = var_dict[syst_name][sample_name]["d"]
-                    rel_err_dict[syst_name][sample_name]["u"] = u_val - n_val
-                    rel_err_dict[syst_name][sample_name]["d"] = d_val - n_val
-                    rel_err_dict[syst_name][sample_name]["n"] = n_val
+                relevant_samples_lst = yt.get_cat_lables(hist_mc_integrated.integrate("systematic",syst_name+"Up"), "sample")
+                n_arr     = hist_mc_integrated.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()]
+                u_arr_sum = hist_mc_integrated.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Up").values()[()]
+                d_arr_sum = hist_mc_integrated.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Down").values()[()]
+                u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
+                d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
+                p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
+                m_arr_rel = np.where(u_arr_rel<0,u_arr_rel,d_arr_rel) # Just the ones that decrease the yield
+                p_arr_rel_sqr = p_arr_rel*p_arr_rel # Square each element
+                m_arr_rel_sqr = m_arr_rel*m_arr_rel # Square each element
+                p_arr_rel_lst.append(p_arr_rel_sqr)
+                m_arr_rel_lst.append(m_arr_rel_sqr)
 
-                    all_n.append(rel_err_dict[syst_name][sample_name]["n"])
-                    all_u.append(rel_err_dict[syst_name][sample_name]["u"])
-                    all_d.append(rel_err_dict[syst_name][sample_name]["d"])
-
-                rel_err_dict[syst_name]["total"]["n"] = sum(all_n)
-                rel_err_dict[syst_name]["total"]["u"] = sum(all_u)
-                rel_err_dict[syst_name]["total"]["d"] = sum(all_d)
-
-            #printd3(var_dict)
-            #printd3(rel_err_dict)
-
-            # Add all of the systs together
-            err_bar_dict = {}
-            all_p_arr_lst = []
-            all_m_arr_lst = []
-            for syst_name in rel_err_dict.keys():
-                err_bar_dict[syst_name] = {}
-                n_arr = rel_err_dict[syst_name]["total"]["n"]
-                u_arr = rel_err_dict[syst_name]["total"]["u"]
-                d_arr = rel_err_dict[syst_name]["total"]["d"]
-
-                p_arr = np.where(u_arr>0,u_arr,d_arr)
-                m_arr = np.where(u_arr<0,u_arr,d_arr)
-
-                #all_p_arr_lst.append(p_arr)
-                #all_m_arr_lst.append(m_arr)
-                all_p_arr_lst.append(p_arr*p_arr)
-                all_m_arr_lst.append(m_arr*m_arr)
-
-                #print("\n",syst_name)
-                #print("n",n_arr)
-                #print("u",u_arr)
-                #print("d",d_arr)
-                #print("p",p_arr)
-                #print("m",m_arr)
-
-            all_p_arr_sum = np.sqrt(sum(all_p_arr_lst))
-            all_m_arr_sum = np.sqrt(sum(all_m_arr_lst))
-            #print("p",all_p_arr_lst)
-            #print("m",all_m_arr_lst)
-            print("p",all_p_arr_sum)
-            print("m",all_m_arr_sum)
+            p_err = np.sqrt(sum(p_arr_rel_lst))
+            m_err = np.sqrt(sum(m_arr_rel_lst))
+            print("\np",p_err)
+            print("m",m_err)
             nom_arr_sum = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
 
             #axes_to_integrate_dict["systematic"] = "nominal"
@@ -754,7 +699,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             x_range = None
             if var_name == "ht": x_range = (0,250)
             #fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range)
-            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range, err_arr_p=nom_arr_sum+all_p_arr_sum, err_arr_m=nom_arr_sum-all_m_arr_sum)
+            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range, err_arr_p=nom_arr_sum+p_err, err_arr_m=nom_arr_sum-m_err)
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
