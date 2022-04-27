@@ -3,7 +3,7 @@ import gzip
 from coffea import hist
 import topcoffea.modules.HistEFT
 from topcoffea.modules.WCPoint import WCPoint
-import uproot3
+import uproot
 import numpy as np
 import os
 import re
@@ -192,26 +192,28 @@ class DatacardMaker():
             return
 
         def export1d(h, name, cat, fout):
+            ulyear = re.compile('UL\d\d')
+            fullyear = re.compile('20\d\d')
             if 'data_obs' in name:
-                fout['data_obs'] = hist.export1d(h['nominal'])
+                fout['data_obs'] = h['nominal'].to_hist()
             else:
                 for syst,histo in h.items():
                     if syst == 'nominal':
-                        fout[name+cat] = hist.export1d(histo)
+                        fout[name+cat] = histo.to_hist()
                     elif self.do_nuisance and name not in self.syst_special:
                         if 'nonprompt' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
                         if 'nonprompt' not in name and 'FF' in syst: continue # Don't processes fake factor systs for others
                         # Special cass for systematics NOT correlated by year
-                        if bool(re.search('UL\d\d', name)) and bool(re.search('20\d\d', syst)):
+                        if ulyear.search(name) and fullyear.search(syst):
                             # Find systematic year
-                            syear = re.findall("20\d\d(?:APV)?", syst)[0][2:]
-                            nyear = re.findall("UL\d\d(?:APV)?", name)[0][2:]
+                            syear = fullyear.findall(syst)[0][2:]
+                            nyear = ulyear.findall(syst)[0][2:]
                             # Only processes if syst year matches sample year (e.g. `btagSFbc_2017Up` and `nonpromptUL17`
                             if syear != nyear: continue
                         if histo.values() == {}:
                             print(f'Warning: bin {name}{cat}_{syst}{self.get_correlation_name(name, syst)} do not exist. Could just be a missing sample!')
                             continue
-                        fout[name+cat+'_'+syst+self.get_correlation_name(name, syst)] = hist.export1d(histo)
+                        fout[name+cat+'_'+syst+self.get_correlation_name(name, syst)] = histo.to_hist()
         def export2d(h):
             return h.to_hist().to_numpy()
         if isinstance(channel, str) and channel not in self.channels:
@@ -277,7 +279,7 @@ class DatacardMaker():
             else:
                 cat = '_'.join([channel, maxb, variable])
         fname = f'histos/tmp_ttx_multileptons-{cat}.root'
-        fout = uproot3.recreate(fname)
+        fout = uproot.recreate(fname)
         def fix_uncorrelated_systs(h, proc, years):
             '''
             This function folds the nominal values for all other years into a specific year
