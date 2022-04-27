@@ -199,8 +199,8 @@ class DatacardMaker():
                     if syst == 'nominal':
                         fout[name+cat] = hist.export1d(histo)
                     elif self.do_nuisance and name not in self.syst_special:
-                        if 'fakes' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
-                        if 'fakes' not in name and 'FF' in syst: continue # Don't processes fake factor systs for others
+                        if 'nonprompt' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
+                        if 'nonprompt' not in name and 'FF' in syst: continue # Don't processes fake factor systs for others
                         # Special cass for systematics NOT correlated by year
                         if bool(re.search('UL\d\d', name)) and bool(re.search('20\d\d', syst)):
                             # Find systematic year
