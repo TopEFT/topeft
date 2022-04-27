@@ -202,6 +202,7 @@ class DatacardMaker():
                         fout[name+cat] = histo.to_hist()
                     elif self.do_nuisance and name not in self.syst_special:
                         if 'nonprompt' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
+                        if 'fakes' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
                         if 'nonprompt' not in name and 'FF' in syst: continue # Don't processes fake factor systs for others
                         # Special cass for systematics NOT correlated by year
                         if ulyear.search(name) and fullyear.search(syst):
