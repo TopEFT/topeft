@@ -313,7 +313,7 @@ class DatacardMaker():
             p = proc.split('_')[0]
             pname = self.rename[p] if p in self.rename else p
             pname.replace('_4F','').replace('_ext','')
-            ul = {'20'+k.split('UL')[1]:k for k in self.samples if pname in self.rename.get(k, k)}
+            ul = {'20'+k.split('UL')[1]:k for k in self.samples if pname in self.rename.get(k, k) and p.split('UL')[0] in k}
             pname = self.rename[p]+'_' if p in self.rename else p
             p = proc.split('_')[0].split('UL')[0]
             years = {year : self.lumi[year] for year in ul}
