@@ -10,7 +10,8 @@ from coffea import hist
 from topcoffea.modules.HistEFT import HistEFT
 
 from topcoffea.modules.YieldTools import YieldTools
-from topcoffea.modules.GetValuesFromJsons import get_lumi
+#from topcoffea.modules.GetValuesFromJsons import get_lumi
+import topcoffea.modules.GetValuesFromJsons as getj
 from topcoffea.plotter.make_html import make_html
 
 # This script takes an input pkl file that should have both data and background MC included.
@@ -149,14 +150,14 @@ def get_dict_with_stripped_bin_names(in_chan_dict,type_of_info_to_strip):
 # Figures out which year a sample is from, retruns the lumi for that year
 def get_lumi_for_sample(sample_name):
     if "UL17" in sample_name:
-        lumi = 1000.0*get_lumi("2017")
+        lumi = 1000.0*getj.get_lumi("2017")
     elif "UL18" in sample_name:
-        lumi = 1000.0*get_lumi("2018")
+        lumi = 1000.0*getj.get_lumi("2018")
     elif "UL16APV" in sample_name:
-        lumi = 1000.0*get_lumi("2016APV")
+        lumi = 1000.0*getj.get_lumi("2016APV")
     elif "UL16" in sample_name:
         # Should not be here unless "UL16APV" not in sample_name
-        lumi = 1000.0*get_lumi("2016")
+        lumi = 1000.0*getj.get_lumi("2016")
     else:
         raise Exception(f"Error: Unknown year \"{year}\".")
     return lumi
@@ -181,6 +182,45 @@ def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
     new_histo = histo.group(old_ax,new_ax,bin_map)
 
     return new_histo
+
+# This function gets all of the the rate systematics from the json file
+# Returns a dictionary with all of the uncertainties
+# If the sample does not have an uncertainty in the json, an uncertainty of 0 is returned for that category
+def get_rate_systs(sample_name):
+
+    # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
+    scale_name_for_json = None
+    if sample_name in CR_GRP_MAP["Conv"]:
+        scale_name_for_json = "convs"
+    elif sample_name in CR_GRP_MAP["Diboson"]:
+        scale_name_for_json = "Diboson"
+    elif sample_name in CR_GRP_MAP["Triboson"]:
+        scale_name_for_json = "Triboson"
+    elif sample_name in CR_GRP_MAP["Signal"]:
+        for proc_str in ["ttH","tllq","ttlnu","ttll","tHq"]:
+            if proc_str in sample_name:
+                # This should only match once, but maybe we should put a check to enforce this
+                scale_name_for_json = proc_str
+
+    # Get the lumi uncty for this sample (same for all samles)
+    lumi_uncty = getj.get_syst("lumi")
+
+    # Get the flip uncty from the json (if there is not an uncertainty for this sample, return 0)
+    if sample_name in CR_GRP_MAP["Flips"]:
+        flip_uncty = getj.get_syst("charge_flips","charge_flips_sm")
+    else:
+        flip_uncty = [0,0]
+
+    # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 0)
+    if scale_name_for_json is not None:
+        pdf_uncty = getj.get_syst("pdf_scale",scale_name_for_json)
+        qcd_uncty = getj.get_syst("qcd_scale",scale_name_for_json)
+    else:
+        pdf_uncty = [0,0]
+        qcd_uncty = [0,0]
+
+    out_dict = {"pdf":pdf_uncty, "qcd":qcd_uncty, "lumi":lumi_uncty, "flip":flip_uncty}
+    return out_dict
 
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
@@ -644,10 +684,14 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             hist_mc_integrated = hist_mc_integrated.remove(samples_to_rm,"sample")
 
             ##########################
-            # Calculate the rate systs
-            #sample_lst = yt.get_cat_lables(hist_mc_integrated,"sample")
-            #print("sample_lst!",sample_lst)
-            #exit()
+            # Calculate the rate systs TEST
+
+            sample_lst = yt.get_cat_lables(hist_mc_integrated,"sample")
+            print("sample_lst!",sample_lst)
+            for sample_name in sample_lst:
+                x = get_rate_systs(sample_name)
+                print("sample_name",sample_name,x)
+            exit()
             ##########################
 
             # Group the samples by process type
