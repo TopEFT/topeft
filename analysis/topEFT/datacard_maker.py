@@ -475,8 +475,8 @@ class DatacardMaker():
                     h_sys.SetTitle(proc)
                     if h_sys.Integral() < 0:
                         print('Warning: {proc} normalization is {h_sys.Integral()}!')
-                    else:
-                        h_sys.Write()
+                        h_sys.Scale(0)
+                    h_sys.Write()
 
                     if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
                     syst = syst.replace('Up', '') # Remove 'Up' to get just the systematic name
