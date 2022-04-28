@@ -1,0 +1,26 @@
+{
+    "lumi": 0.016,
+    "charge_flips": {
+        "charge_flips_sm": 0.3
+    },
+    "pdf_scale" : {
+        "ttH": 0.036,
+        "tllq": 0.04,
+        "ttlnu": 0.02,
+        "ttll": 0.03,
+        "tHq": 0.037,
+        "Diboson": 0.02,
+        "Triboson": 0.042,
+        "convs": 0.05
+    },
+    "qcd_scale" : {
+        "ttH": "1.092/1.058",
+        "tllq": 0.01,
+        "ttlnu": "1.12/1.13",
+        "ttll": "1.12/1.10",
+        "tHq": "1.08/1.06",
+        "Diboson": 0.02,
+        "Triboson": 0.026,
+        "convs": 0.10
+    }
+}
