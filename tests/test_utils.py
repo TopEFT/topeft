@@ -15,9 +15,10 @@ def test_get_files():
         verbose=True
     )
 
-    assert (len(file_list) == 3)
+    assert (len(file_list) == 4)
     assert (pjoin(path,"lumi.json") in file_list)
     assert (pjoin(path,"params.json") in file_list)
+    assert (pjoin(path,"rate_systs.json") in file_list)
     assert (pjoin(path,"README.md") in file_list)
 
     # Check to see if regex matching for file names is working
