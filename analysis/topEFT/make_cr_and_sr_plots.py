@@ -615,10 +615,6 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         hist_mc.scale({"WZTo3LNu_centralUL17":1.19},axis="sample")
         hist_mc.scale({"WZTo3LNu_centralUL18":1.19},axis="sample")
 
-        # Group the samples by process type
-        hist_mc = group_bins(hist_mc,CR_GRP_MAP)
-        hist_data = group_bins(hist_data,CR_GRP_MAP)
-
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
             if (hist_cat == "cr_2los_Z" and "j0" in var_name): continue # The 2los Z category does not require jets
@@ -636,6 +632,10 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
             hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)
             hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)
+
+            # Group the samples by process type
+            hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
+            hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
 
             # Remove samples that are not relevant for the given category
             if hist_cat == "cr_2los_tt":
@@ -695,6 +695,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             # Get rid of the systematic axis (don't need it for plotting)
             hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
             hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
+
 
             ### TESTING END ###
 
