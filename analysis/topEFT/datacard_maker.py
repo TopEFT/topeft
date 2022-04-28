@@ -60,6 +60,9 @@ class DatacardMaker():
         print(f'Loading {self.fin}')
         with gzip.open(self.fin) as fin:
             self.hists = pickle.load(fin)
+        for h in self.hists:
+            tri = {str(s).replace('_4F', ''):str(s) for s in self.hists[h].axis('sample').identifiers()}
+            self.hists[h] = self.hists[h].group('sample', hist.Cat('sample', 'sample'), tri) # Remove `4F` from triboson samples
 
         # Variables present in the pkl file
         self.all_var_lst = yt.get_hist_list(self.hists)
