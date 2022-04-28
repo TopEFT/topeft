@@ -465,11 +465,11 @@ def ApplyJetCorrections(year, corr_type):
   elif year=='2018': jec_tag='18_V5'; jer_tag='Summer19UL18_JRV2'
   else: raise Exception(f"Error: Unknown year \"{year}\".")
   extJEC = lookup_tools.extractor()
-  extJEC.add_weight_sets(["* * "+topcoffea_path('data/JER/%s_MC_SF_AK4PFchs.jersf.txt'%jer_tag),"* * "+topcoffea_path('data/JER/%s_MC_PtResolution_AK4PFchs.jr.txt'%jer_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L1FastJet_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L2Relative_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_Uncertainty_AK4PFchs.junc.txt'%jec_tag)])
-  jec_names = ["%s_MC_SF_AK4PFchs"%jer_tag,"%s_MC_PtResolution_AK4PFchs"%jer_tag,"Summer19UL%s_MC_L1FastJet_AK4PFchs"%jec_tag,"Summer19UL%s_MC_L2Relative_AK4PFchs"%jec_tag,"Summer19UL%s_MC_Uncertainty_AK4PFchs"%jec_tag]
+  extJEC.add_weight_sets(["* * "+topcoffea_path('data/JER/%s_MC_SF_AK4PFchs.jersf.txt'%jer_tag),"* * "+topcoffea_path('data/JER/%s_MC_PtResolution_AK4PFchs.jr.txt'%jer_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L1FastJet_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L2Relative_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/RegroupedV2_Summer19UL%s_MC_UncertaintySources_AK4PFchs.junc.txt'%jec_tag)])
+  jec_names = ["%s_MC_SF_AK4PFchs"%jer_tag,"%s_MC_PtResolution_AK4PFchs"%jer_tag,"Summer19UL%s_MC_L1FastJet_AK4PFchs"%jec_tag,"Summer19UL%s_MC_L2Relative_AK4PFchs"%jec_tag,"RegroupedV2_Summer19UL%s_MC_UncertaintySources_AK4PFchs"%jec_tag]
   extJEC.finalize()
   JECevaluator = extJEC.make_evaluator()
-  jec_inputs = {name: JECevaluator[name] for name in jec_names}
+  jec_inputs = {name: JECevaluator[name] for name in JECevaluator.keys()}
   jec_stack = JECStack(jec_inputs)
   name_map = jec_stack.blank_name_map
   name_map['JetPt'] = 'pt'
@@ -489,12 +489,9 @@ def ApplyJetCorrections(year, corr_type):
   return CorrectedJetsFactory(name_map, jec_stack)
 
 def ApplyJetSystematics(cleanedJets,syst_var):
-  if(syst_var == 'JERUp'): return cleanedJets.JER.up
-  elif(syst_var == 'JERDown'): return cleanedJets.JER.down
-  elif(syst_var == 'JESUp'): return cleanedJets.JES_jes.up
-  elif(syst_var == 'JESDown'): return cleanedJets.JES_jes.down
-  elif(syst_var == 'nominal'): return cleanedJets
-  elif(syst_var in ['nominal','MuonESUp','MuonESDown']): return cleanedJets
+  if(syst_var in ['nominal','MuonESUp','MuonESDown']): return cleanedJets
+  if 'Up' in syst_var:    return cleanedJets[syst_var[:-2]].up
+  elif 'Down' in syst_var:  return cleanedJets[syst_var[:-4]].down
   else: raise Exception(f"Error: Unknown variation \"{syst_var}\".")
 
 ###### Muon Rochester corrections

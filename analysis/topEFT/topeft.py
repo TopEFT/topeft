@@ -255,10 +255,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Define the lists of systematics we include
         obj_correction_syst_lst = [
-            'JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
+            'JERUp','JERDown',#'JESUp','JESDown' # Systs that affect the kinematics of objects
+            'JES_FlavorQCDUp', 'JES_RelativeBalUp', 'JES_HFUp', 'JES_BBEC1Up', 'JES_EC2Up', 'JES_AbsoluteUp', f'JES_BBEC1_{year}Up', f'JES_EC2_{year}Up', f'JES_Absolute_{year}Up', f'JES_HF_{year}Up', f'JES_RelativeSample_{year}Up','JES_FlavorQCDDown', 'JES_RelativeBalDown', 'JES_HFDown', 'JES_BBEC1Down', 'JES_EC2Down', 'JES_AbsoluteDown', f'JES_BBEC1_{year}Down', f'JES_EC2_{year}Down', f'JES_Absolute_{year}Down', f'JES_HF_{year}Down', f'JES_RelativeSample_{year}Down'             
         ]
         wgt_correction_syst_lst = [
-            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
+            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
         data_syst_lst = [
@@ -414,7 +415,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # Trigger SFs 
                 GetTriggerSF(year,events,l0,l1)                
-                weights_obj_base_for_kinematic_syst.add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+                weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
 
 
             ######### Event weights that do depend on the lep cat ###########
