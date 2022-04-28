@@ -1,26 +1,26 @@
 {
-    "lumi": 0.016,
+    "lumi": 1.016,
     "charge_flips": {
-        "charge_flips_sm": 0.3
+        "charge_flips_sm": 1.3
     },
     "pdf_scale" : {
-        "ttH": 0.036,
-        "tllq": 0.04,
-        "ttlnu": 0.02,
-        "ttll": 0.03,
-        "tHq": 0.037,
-        "Diboson": 0.02,
-        "Triboson": 0.042,
-        "convs": 0.05
+        "ttH": 1.036,
+        "tllq": 1.04,
+        "ttlnu": 1.02,
+        "ttll": 1.03,
+        "tHq": 1.037,
+        "Diboson": 1.02,
+        "Triboson": 1.042,
+        "convs": 1.05
     },
     "qcd_scale" : {
-        "ttH": "1.092/1.058",
-        "tllq": 0.01,
-        "ttlnu": "1.12/1.13",
-        "ttll": "1.12/1.10",
-        "tHq": "1.08/1.06",
-        "Diboson": 0.02,
-        "Triboson": 0.026,
-        "convs": 0.10
+        "ttH": "0.908/1.058",
+        "tllq": 1.01,
+        "ttlnu": "0.88/1.13",
+        "ttll": "0.88/1.10",
+        "tHq": "0.92/1.06",
+        "Diboson": 1.02,
+        "Triboson": 1.026,
+        "convs": 1.10
     }
 }

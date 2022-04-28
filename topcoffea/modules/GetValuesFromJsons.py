@@ -18,8 +18,8 @@ def get_param(param_name):
     return param_val
 
 # Get the systematic value from the rate_systs json
-#   - If literal is True, return the literal string, e.g. "1.12/1.13"
-#   - If literal is False, return a pair of floats [1.12,1.13] for up and down
+#   - If literal is True, return the literal string, e.g. "0.88/1.13"
+#   - If literal is False, return a pair of floats e.g. [0.88,1.13] for down and up
 def get_syst(syst_name,proc_name=None,literal=False):
     syst_json = topcoffea_path("json/rate_systs.json")
     with open(syst_json) as f_systs:
@@ -44,7 +44,7 @@ def get_syst(syst_name,proc_name=None,literal=False):
         if len(ret_obj_str_split) == 2:
             ret_obj_pair = [float(ret_obj_str_split[0]),float(ret_obj_str_split[1])]
         elif len(ret_obj_str_split) == 1:
-            ret_obj_pair = [float(ret_obj_str_split[0]),float(ret_obj_str_split[0])]
+            ret_obj_pair = [1.0/float(ret_obj_str_split[0]),float(ret_obj_str_split[0])]
         else:
             raise Exception(f"Error: Syst string \"{ret_obj_str}\" is of an unknown format.")
 
