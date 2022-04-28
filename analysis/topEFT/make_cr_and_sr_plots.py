@@ -633,18 +633,26 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)
             hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)
 
+            # Remove samples that are not relevant for the given category
+            samples_to_rm = []
+            if hist_cat == "cr_2los_tt":
+                samples_to_rm = CR_GRP_MAP["Nonprompt"]
+            if hist_cat == "cr_2lss":
+                samples_to_rm = CR_GRP_MAP["Ttbar"] + CR_GRP_MAP["DY"]
+            if hist_cat == "cr_3l":
+                samples_to_rm = CR_GRP_MAP["DY"]
+            hist_mc_integrated = hist_mc_integrated.remove(samples_to_rm,"sample")
+
+            ##########################
+            # Calculate the rate systs
+            #sample_lst = yt.get_cat_lables(hist_mc_integrated,"sample")
+            #print("sample_lst!",sample_lst)
+            #exit()
+            ##########################
+
             # Group the samples by process type
             hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
             hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
-
-            # Remove samples that are not relevant for the given category
-            if hist_cat == "cr_2los_tt":
-                hist_mc_integrated = hist_mc_integrated.remove(["Nonprompt"],"sample")
-            if hist_cat == "cr_2lss":
-                hist_mc_integrated = hist_mc_integrated.remove(["Ttbar"],"sample")
-                hist_mc_integrated = hist_mc_integrated.remove(["DY"],"sample")
-            if hist_cat == "cr_3l":
-                hist_mc_integrated = hist_mc_integrated.remove(["DY"],"sample")
 
             # Print out total MC and data and the sf between them
             # For extracting the factors we apply to the flip contribution
