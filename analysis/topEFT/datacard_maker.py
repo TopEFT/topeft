@@ -473,9 +473,6 @@ class DatacardMaker():
                         fout.Delete(proc+';1')
                     h_sys.SetName(proc)
                     h_sys.SetTitle(proc)
-                    if h_sys.Integral() < 0:
-                        print('Warning: {proc} normalization is {h_sys.Integral()}!')
-                        h_sys.Scale(0)
                     h_sys.Write()
 
                     if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
