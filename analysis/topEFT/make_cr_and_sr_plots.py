@@ -186,17 +186,17 @@ def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
 # This function gets all of the the rate systematics from the json file
 # Returns a dictionary with all of the uncertainties
 # If the sample does not have an uncertainty in the json, an uncertainty of 0 is returned for that category
-def get_rate_systs(sample_name):
+def get_rate_systs(sample_name,sample_group_map):
 
     # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
     scale_name_for_json = None
-    if sample_name in CR_GRP_MAP["Conv"]:
+    if sample_name in sample_group_map["Conv"]:
         scale_name_for_json = "convs"
-    elif sample_name in CR_GRP_MAP["Diboson"]:
+    elif sample_name in sample_group_map["Diboson"]:
         scale_name_for_json = "Diboson"
-    elif sample_name in CR_GRP_MAP["Triboson"]:
+    elif sample_name in sample_group_map["Triboson"]:
         scale_name_for_json = "Triboson"
-    elif sample_name in CR_GRP_MAP["Signal"]:
+    elif sample_name in sample_group_map["Signal"]:
         for proc_str in ["ttH","tllq","ttlnu","ttll","tHq"]:
             if proc_str in sample_name:
                 # This should only match once, but maybe we should put a check to enforce this
@@ -206,7 +206,7 @@ def get_rate_systs(sample_name):
     lumi_uncty = getj.get_syst("lumi")
 
     # Get the flip uncty from the json (if there is not an uncertainty for this sample, return 0)
-    if sample_name in CR_GRP_MAP["Flips"]:
+    if sample_name in sample_group_map["Flips"]:
         flip_uncty = getj.get_syst("charge_flips","charge_flips_sm")
     else:
         flip_uncty = [0,0]
@@ -219,7 +219,7 @@ def get_rate_systs(sample_name):
         pdf_uncty = [0,0]
         qcd_uncty = [0,0]
 
-    out_dict = {"pdf":pdf_uncty, "qcd":qcd_uncty, "lumi":lumi_uncty, "flip":flip_uncty}
+    out_dict = {"pdf_scale":pdf_uncty, "qcd_scale":qcd_uncty, "lumi":lumi_uncty, "charge_flips":flip_uncty}
     return out_dict
 
 
@@ -688,9 +688,32 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
             sample_lst = yt.get_cat_lables(hist_mc_integrated,"sample")
             print("sample_lst!",sample_lst)
-            for sample_name in sample_lst:
-                x = get_rate_systs(sample_name)
-                print("sample_name",sample_name,x)
+
+            rate_syst_arr_dict = {}
+            for rate_sys_type in getj.get_syst_lst():
+                rate_syst_arr_dict[rate_sys_type] = {}
+
+                for sample_name in sample_lst:
+                    rate_syst_arr_dict[rate_sys_type][sample_name] = {}
+
+                    rate_syst_dict = get_rate_systs(sample_name,CR_GRP_MAP)
+                    print("rate_syst_dict",rate_syst_dict)
+                    nom_arr = hist_mc_integrated.integrate("sample",sample_name).integrate("systematic","nominal").values()[()]
+                    p_arr = nom_arr*(rate_syst_dict[rate_sys_type][1]) - nom_arr # Abs difference between positive fluctuation and nominal
+                    m_arr = nom_arr - nom_arr*(rate_syst_dict[rate_sys_type][0]) # Abs difference between positive fluctuation and nominal
+
+                    print("\n\n",sample_name)
+                    print(rate_syst_dict)
+                    print(nom_arr,sum(nom_arr))
+                    print("\t",rate_sys_type)
+                    print("\td",sum(p_arr))
+                    print("\tu",sum(m_arr))
+
+                    rate_syst_arr_dict[rate_sys_type][sample_name]["p"] = p_arr
+                    rate_syst_arr_dict[rate_sys_type][sample_name]["m"] = m_arr
+
+
+            print(rate_syst_arr_dict)
             exit()
             ##########################
 

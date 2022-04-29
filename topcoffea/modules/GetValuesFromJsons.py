@@ -52,3 +52,11 @@ def get_syst(syst_name,proc_name=None,literal=False):
             return ret_obj_str
         else:
             return ret_obj_pair
+
+# Just jet the list of rate syst keys included in the rate rate syst json
+def get_syst_lst():
+    syst_json = topcoffea_path("json/rate_systs.json")
+    with open(syst_json) as f_systs:
+        rate_systs_dict = json.load(f_systs)
+        rate_syst_lst = list(rate_systs_dict.keys())
+        return rate_syst_lst
