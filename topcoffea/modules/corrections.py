@@ -488,9 +488,9 @@ def ApplyJetCorrections(year, corr_type):
   if corr_type=='met': return CorrectedMETFactory(name_map)
   return CorrectedJetsFactory(name_map, jec_stack)
 
-def ApplyJetSystematics(cleanedJets,syst_var):
-  if(syst_var == 'JERUp'): return cleanedJets.JER.up
-  elif(syst_var == 'JERDown'): return cleanedJets.JER.down
+def ApplyJetSystematics(year,cleanedJets,syst_var):
+  if(syst_var == f'JER_{year}Up'): return cleanedJets.JER.up
+  elif(syst_var == f'JER_{year}Down'): return cleanedJets.JER.down
   elif(syst_var == 'JESUp'): return cleanedJets.JES_jes.up
   elif(syst_var == 'JESDown'): return cleanedJets.JES_jes.down
   elif(syst_var == 'nominal'): return cleanedJets

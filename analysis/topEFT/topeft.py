@@ -255,10 +255,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Define the lists of systematics we include
         obj_correction_syst_lst = [
-            'JERUp','JERDown','JESUp','JESDown' # Systs that affect the kinematics of objects
+            f'JER_{year}Up',f'JER_{year}Down','JESUp','JESDown' # Systs that affect the kinematics of objects
         ]
         wgt_correction_syst_lst = [
-            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown","triggerSFUp","triggerSFDown", # Exp systs
+            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", # Theory systs (do not include "renormUp","renormDown","factUp","factDown" for now since not using envelope)
         ]
         data_syst_lst = [
@@ -328,7 +328,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 events_cache = events.caches[0]
                 cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
                 # SYSTEMATICS
-                cleanedJets=ApplyJetSystematics(cleanedJets,syst_var)
+                cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
                 met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
             cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
             goodJets = cleanedJets[cleanedJets.isGood]
@@ -414,7 +414,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # Trigger SFs 
                 GetTriggerSF(year,events,l0,l1)                
-                weights_obj_base_for_kinematic_syst.add("triggerSF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+                weights_obj_base_for_kinematic_syst.add(f"trigger_{year}SF", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
 
 
             ######### Event weights that do depend on the lep cat ###########
