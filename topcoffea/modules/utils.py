@@ -113,7 +113,7 @@ def read_cfg_file(fpath,cfg={},max_files=0):
                 # Note: This implicitly assumes that a redirector line will appear before any json
                 #   paths in the cfg file
                 xrd_src = l
-            if l.startswith("file://"):
+            elif l.startswith("file://"):
                 xrd_src = l.replace("file://","")
             else:
                 sample = os.path.basename(l)
