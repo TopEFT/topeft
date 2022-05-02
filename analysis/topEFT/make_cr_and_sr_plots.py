@@ -714,25 +714,22 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             # Calculate the rate systs TEST
 
             sample_lst = yt.get_cat_lables(hist_mc_integrated,"sample")
-            print("sample_lst!",sample_lst)
-
             rate_syst_arr_dict = {}
             for rate_sys_type in getj.get_syst_lst():
                 rate_syst_arr_dict[rate_sys_type] = {}
 
                 for sample_name in sample_lst:
-                    #rate_syst_arr_dict[rate_sys_type][sample_name] = {"p":{},"m":{}}
 
                     rate_syst_dict = get_rate_systs(sample_name,CR_GRP_MAP)
                     nom_arr = hist_mc_integrated.integrate("sample",sample_name).integrate("systematic","nominal").values()[()]
-                    p_arr = nom_arr - nom_arr*(rate_syst_dict[rate_sys_type][1]) # Difference between positive fluctuation and nominal
-                    m_arr = nom_arr - nom_arr*(rate_syst_dict[rate_sys_type][0]) # Difference between positive fluctuation and nominal
+                    p_arr = nom_arr*(rate_syst_dict[rate_sys_type][1]) - nom_arr  # Difference between positive fluctuation and nominal
+                    m_arr = nom_arr*(rate_syst_dict[rate_sys_type][0]) - nom_arr  # Difference between positive fluctuation and nominal
 
                     print("\n",rate_sys_type)
                     print("\t",sample_name)
                     print("\tn",sum(nom_arr))
-                    print("\td",sum(p_arr))
-                    print("\tu",sum(m_arr))
+                    print("\tp",sum(p_arr))
+                    print("\tm",sum(m_arr))
 
                     # Put the info into the correlation dict
                     correlation_tag = get_correlation_tag(rate_sys_type,sample_name,CR_GRP_MAP)
@@ -741,8 +738,6 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                     print("\ttag:",correlation_tag,out_key_name)
                     if out_key_name not in rate_syst_arr_dict[rate_sys_type]:
                         rate_syst_arr_dict[rate_sys_type][out_key_name] = {"p":[],"m":[]}
-                    #rate_syst_arr_dict[rate_sys_type][out_key_name]["p"].append(sum(p_arr))
-                    #rate_syst_arr_dict[rate_sys_type][out_key_name]["m"].append(sum(m_arr))
                     rate_syst_arr_dict[rate_sys_type][out_key_name]["p"].append(p_arr)
                     rate_syst_arr_dict[rate_sys_type][out_key_name]["m"].append(m_arr)
 
