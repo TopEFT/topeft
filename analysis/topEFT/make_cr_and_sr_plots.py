@@ -128,6 +128,9 @@ WCPT_EXAMPLE = {
 
 yt = YieldTools()
 
+
+######### Utility functions #########
+
 # Takes a dictionary where the keys are catetory names and keys are lists of bin names in the category, and a string indicating what type of info (njets, or lepflav) to remove
 # Returns a dictionary of the same structure, except with njet or lepflav info stripped off of the bin names
 # E.g. if a value was ["cat_a_1j","cat_b_1j","cat_b_2j"] and we passed "njets", we should return ["cat_a","cat_b"]
@@ -183,12 +186,12 @@ def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
 
     return new_histo
 
-# This function gets all of the the rate systematics from the json file
-# Returns a dictionary with all of the uncertainties
-# If the sample does not have an uncertainty in the json, an uncertainty of 0 is returned for that category
-def get_rate_systs(sample_name,sample_group_map):
 
-    # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
+######### Functions for getting info from the systematics json #########
+
+# Match a given sample name to whatever it is called in the json
+# Will return None if a match is not found
+def get_scale_name(sample_name,sample_group_map):
     scale_name_for_json = None
     if sample_name in sample_group_map["Conv"]:
         scale_name_for_json = "convs"
@@ -201,6 +204,28 @@ def get_rate_systs(sample_name,sample_group_map):
             if proc_str in sample_name:
                 # This should only match once, but maybe we should put a check to enforce this
                 scale_name_for_json = proc_str
+    return scale_name_for_json
+
+# This function gets the tag that indicates how a particualr systematic is correlated
+#   - For pdf_scale this corresponds to the initial state (e.g. gg)
+#   - For qcd_scale this corresponds to the process type (e.g. VV)
+# For any systemaitc or process that is not included in the correlations json we return None
+def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
+    proc_name_in_json = get_scale_name(proc_name,sample_group_map)
+    corr_tag = None
+    # Right now we only have two types of uncorrelated rate systematics
+    if uncertainty_name in ["qcd_scale","pdf_scale"]:
+        if proc_name_in_json is not None:
+            corr_tag = getj.get_correlation_tag(uncertainty_name,proc_name_in_json)
+    return corr_tag
+
+# This function gets all of the the rate systematics from the json file
+# Returns a dictionary with all of the uncertainties
+# If the sample does not have an uncertainty in the json, an uncertainty of 0 is returned for that category
+def get_rate_systs(sample_name,sample_group_map):
+
+    # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
+    scale_name_for_json = get_scale_name(sample_name,sample_group_map)
 
     # Get the lumi uncty for this sample (same for all samles)
     lumi_uncty = getj.get_syst("lumi")
@@ -222,6 +247,8 @@ def get_rate_systs(sample_name,sample_group_map):
     out_dict = {"pdf_scale":pdf_uncty, "qcd_scale":qcd_uncty, "lumi":lumi_uncty, "charge_flips":flip_uncty}
     return out_dict
 
+
+######### Plotting functions #########
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
 def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_arr_p=None,err_arr_m=None):
@@ -694,7 +721,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 rate_syst_arr_dict[rate_sys_type] = {}
 
                 for sample_name in sample_lst:
-                    rate_syst_arr_dict[rate_sys_type][sample_name] = {}
+                    #rate_syst_arr_dict[rate_sys_type][sample_name] = {"p":{},"m":{}}
 
                     rate_syst_dict = get_rate_systs(sample_name,CR_GRP_MAP)
                     nom_arr = hist_mc_integrated.integrate("sample",sample_name).integrate("systematic","nominal").values()[()]
@@ -707,12 +734,24 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                     print("\td",sum(p_arr))
                     print("\tu",sum(m_arr))
 
-                    rate_syst_arr_dict[rate_sys_type][sample_name]["p"] = p_arr
-                    rate_syst_arr_dict[rate_sys_type][sample_name]["m"] = m_arr
+                    # Put the info into the correlation dict
+                    correlation_tag = get_correlation_tag(rate_sys_type,sample_name,CR_GRP_MAP)
+                    out_key_name = rate_sys_type
+                    if correlation_tag is not None: out_key_name += "_"+correlation_tag
+                    print("\ttag:",correlation_tag,out_key_name)
+                    if out_key_name not in rate_syst_arr_dict[rate_sys_type]:
+                        rate_syst_arr_dict[rate_sys_type][out_key_name] = {"p":[],"m":[]}
+                    #rate_syst_arr_dict[rate_sys_type][out_key_name]["p"].append(sum(p_arr))
+                    #rate_syst_arr_dict[rate_sys_type][out_key_name]["m"].append(sum(m_arr))
+                    rate_syst_arr_dict[rate_sys_type][out_key_name]["p"].append(p_arr)
+                    rate_syst_arr_dict[rate_sys_type][out_key_name]["m"].append(m_arr)
 
-
-            #print(rate_syst_arr_dict)
-            exit()
+            d = rate_syst_arr_dict
+            for k in d.keys():
+                print("\n",k)
+                for sk in d[k].keys():
+                    print("\t",sk,d[k][sk])
+            #exit()
             ##########################
 
             # Group the samples by process type
