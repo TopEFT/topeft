@@ -914,6 +914,8 @@ if __name__ == '__main__':
             include_var_lst.append(var_name)
     if len(include_var_lst) == 0: raise Exception("No variables specified")
 
+    # Check for `ptz` + any others (`ptz` is special and only fills the 3l on-shell Z categroy)
+    if 'ptz' in differential_lst and len(differential_lst)>1: differential_lst.remove('ptz')
     build_var = differential_lst[0] if len(differential_lst)>0 else 'njets'
     card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm, build_var)
     card.read()
