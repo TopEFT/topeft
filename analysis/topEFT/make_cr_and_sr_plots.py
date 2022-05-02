@@ -205,19 +205,19 @@ def get_rate_systs(sample_name,sample_group_map):
     # Get the lumi uncty for this sample (same for all samles)
     lumi_uncty = getj.get_syst("lumi")
 
-    # Get the flip uncty from the json (if there is not an uncertainty for this sample, return 0)
+    # Get the flip uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if sample_name in sample_group_map["Flips"]:
         flip_uncty = getj.get_syst("charge_flips","charge_flips_sm")
     else:
-        flip_uncty = [0,0]
+        flip_uncty = [1.0,1,0]
 
-    # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 0)
+    # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if scale_name_for_json is not None:
         pdf_uncty = getj.get_syst("pdf_scale",scale_name_for_json)
         qcd_uncty = getj.get_syst("qcd_scale",scale_name_for_json)
     else:
-        pdf_uncty = [0,0]
-        qcd_uncty = [0,0]
+        pdf_uncty = [1.0,1,0]
+        qcd_uncty = [1.0,1,0]
 
     out_dict = {"pdf_scale":pdf_uncty, "qcd_scale":qcd_uncty, "lumi":lumi_uncty, "charge_flips":flip_uncty}
     return out_dict
@@ -697,15 +697,13 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                     rate_syst_arr_dict[rate_sys_type][sample_name] = {}
 
                     rate_syst_dict = get_rate_systs(sample_name,CR_GRP_MAP)
-                    print("rate_syst_dict",rate_syst_dict)
                     nom_arr = hist_mc_integrated.integrate("sample",sample_name).integrate("systematic","nominal").values()[()]
-                    p_arr = nom_arr*(rate_syst_dict[rate_sys_type][1]) - nom_arr # Abs difference between positive fluctuation and nominal
-                    m_arr = nom_arr - nom_arr*(rate_syst_dict[rate_sys_type][0]) # Abs difference between positive fluctuation and nominal
+                    p_arr = nom_arr - nom_arr*(rate_syst_dict[rate_sys_type][1]) # Difference between positive fluctuation and nominal
+                    m_arr = nom_arr - nom_arr*(rate_syst_dict[rate_sys_type][0]) # Difference between positive fluctuation and nominal
 
-                    print("\n\n",sample_name)
-                    print(rate_syst_dict)
-                    print(nom_arr,sum(nom_arr))
-                    print("\t",rate_sys_type)
+                    print("\n",rate_sys_type)
+                    print("\t",sample_name)
+                    print("\tn",sum(nom_arr))
                     print("\td",sum(p_arr))
                     print("\tu",sum(m_arr))
 
@@ -713,7 +711,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                     rate_syst_arr_dict[rate_sys_type][sample_name]["m"] = m_arr
 
 
-            print(rate_syst_arr_dict)
+            #print(rate_syst_arr_dict)
             exit()
             ##########################
 
