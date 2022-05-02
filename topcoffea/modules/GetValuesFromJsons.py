@@ -9,6 +9,7 @@ def get_lumi(year):
        lumi = lumi[year]
     return lumi
 
+
 # Retrun the param value from params.json for a given param name
 def get_param(param_name):
     param_json = topcoffea_path("json/params.json")
@@ -17,13 +18,14 @@ def get_param(param_name):
        param_val = params[param_name]
     return param_val
 
+
 # Get the systematic value from the rate_systs json
 #   - If literal is True, return the literal string, e.g. "0.88/1.13"
 #   - If literal is False, return a pair of floats e.g. [0.88,1.13] for down and up
 def get_syst(syst_name,proc_name=None,literal=False):
     syst_json = topcoffea_path("json/rate_systs.json")
     with open(syst_json) as f_systs:
-        rate_systs_dict = json.load(f_systs)
+        rate_systs_dict = json.load(f_systs)["rate_uncertainties"]
 
         # Try to get the param from the dict
         if syst_name in rate_systs_dict.keys():
@@ -53,10 +55,23 @@ def get_syst(syst_name,proc_name=None,literal=False):
         else:
             return ret_obj_pair
 
+
 # Just jet the list of rate syst keys included in the rate rate syst json
 def get_syst_lst():
     syst_json = topcoffea_path("json/rate_systs.json")
     with open(syst_json) as f_systs:
-        rate_systs_dict = json.load(f_systs)
+        rate_systs_dict = json.load(f_systs)["rate_uncertainties"]
         rate_syst_lst = list(rate_systs_dict.keys())
         return rate_syst_lst
+
+
+# Get the correlation group a process belongs to for a given systematic type (pdf or qcd)
+def get_correlation_tag(syst_type,proc_name):
+    syst_json = topcoffea_path("json/rate_systs.json")
+    with open(syst_json) as f_systs:
+        corr_dict = json.load(f_systs)["correlations"]
+        if proc_name in corr_dict.keys():
+            if syst_type in corr_dict[proc_name].keys():
+                return corr_dict[proc_name][syst_type]
+            else: raise Exception(f"Error: Unknown syst type \"{syst_type}\", known systematics with correlations are: {list(corr_dict[proc_name].keys())}")
+        else: raise Exception(f"Error: Unknown proc name \"{proc_name}\", known processes are: {list(corr_dict.keys())}")
