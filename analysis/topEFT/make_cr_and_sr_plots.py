@@ -725,17 +725,10 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                     p_arr = nom_arr*(rate_syst_dict[rate_sys_type][1]) - nom_arr  # Difference between positive fluctuation and nominal
                     m_arr = nom_arr*(rate_syst_dict[rate_sys_type][0]) - nom_arr  # Difference between positive fluctuation and nominal
 
-                    print("\n",rate_sys_type)
-                    print("\t",sample_name)
-                    print("\tn",sum(nom_arr))
-                    print("\tp",sum(p_arr))
-                    print("\tm",sum(m_arr))
-
                     # Put the info into the correlation dict
                     correlation_tag = get_correlation_tag(rate_sys_type,sample_name,CR_GRP_MAP)
                     out_key_name = rate_sys_type
                     if correlation_tag is not None: out_key_name += "_"+correlation_tag
-                    print("\ttag:",correlation_tag,out_key_name)
                     if out_key_name not in rate_syst_arr_dict[rate_sys_type]:
                         rate_syst_arr_dict[rate_sys_type][out_key_name] = {"p":[],"m":[]}
                     rate_syst_arr_dict[rate_sys_type][out_key_name]["p"].append(p_arr)
@@ -748,27 +741,11 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 for correlated_syst_group in rate_syst_arr_dict[syst_name]:
                     sum_p_arrs = sum(rate_syst_arr_dict[syst_name][correlated_syst_group]["p"])
                     sum_m_arrs = sum(rate_syst_arr_dict[syst_name][correlated_syst_group]["m"])
-                    print("sum_p_arrs",syst_name,correlated_syst_group,sum_p_arrs)
-                    print("sum_m_arrs",syst_name,correlated_syst_group,sum_m_arrs)
                     all_rates_p_sumw2_lst.append(sum_p_arrs*sum_p_arrs)
                     all_rates_m_sumw2_lst.append(sum_m_arrs*sum_m_arrs)
-                    print("\t",all_rates_p_sumw2_lst)
-                    print("\t",all_rates_m_sumw2_lst)
             all_rates_p_sumw2 = sum(all_rates_p_sumw2_lst)
             all_rates_m_sumw2 = sum(all_rates_m_sumw2_lst)
 
-            d = rate_syst_arr_dict
-            for k in d.keys():
-                print("\n",k)
-                for sk in d[k].keys():
-                    print("\n\t",sk,"p",sum(d[k][sk]["p"]))
-                    print("\n\t",sk,"m",sum(d[k][sk]["m"]))
-                    #print("\t",sk,sum(d[k][sk]))
-                    #print("\t",sk)
-
-
-            print("p:",all_rates_p_sumw2)
-            print("m:",all_rates_m_sumw2)
             ##########################
 
             # Group the samples by process type
@@ -817,11 +794,12 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
 
             # Add all of the systematic contribtuions in quadrature
-            #p_err_arr = np.sqrt(sum(p_arr_rel_lst))
-            #m_err_arr = np.sqrt(sum(m_arr_rel_lst))
             p_err_arr = np.sqrt(sum(p_arr_rel_lst) + all_rates_p_sumw2)
             m_err_arr = np.sqrt(sum(m_arr_rel_lst) + all_rates_p_sumw2)
             nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
+            print("\nall_rates_p_sumw2",all_rates_p_sumw2)
+            print("\nall_rates_m_sumw2",all_rates_m_sumw2)
+            print("\nnom",nom_arr_all)
 
             # Get rid of the systematic axis (don't need it for plotting)
             hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
