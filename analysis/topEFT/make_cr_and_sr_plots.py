@@ -710,8 +710,8 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 samples_to_rm = CR_GRP_MAP["DY"]
             hist_mc_integrated = hist_mc_integrated.remove(samples_to_rm,"sample")
 
-            ##########################
-            # Calculate the rate systs TEST
+            #########################
+            ### Rate syst errors ###
 
             sample_lst = yt.get_cat_lables(hist_mc_integrated,"sample")
             rate_syst_arr_dict = {}
@@ -746,25 +746,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             all_rates_p_sumw2 = sum(all_rates_p_sumw2_lst)
             all_rates_m_sumw2 = sum(all_rates_m_sumw2_lst)
 
-            ##########################
-
-            # Group the samples by process type
-            hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
-            hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
-
-            # Print out total MC and data and the sf between them
-            # For extracting the factors we apply to the flip contribution
-            #if hist_cat != "cr_2lss_flip": continue
-            #tot_data = sum(sum(hist_data_integrated.values().values()))
-            #tot_mc   = sum(sum(hist_mc_integrated.values().values()))
-            #flips    = sum(sum(hist_mc_integrated["Flips"].values().values()))
-            #tot_mc_but_flips = tot_mc - flips
-            #sf = (tot_data - tot_mc_but_flips)/flips
-            #print(f"\nComp: data/pred = {tot_data}/{tot_mc} = {tot_data/tot_mc}")
-            #print(f"Flip sf needed = (data - (pred - flips))/flips = {sf}")
-            #exit()
-
-            ### TESTING example of getting syst errors ###
+            ### Shape syst errors ###
 
             # Get the list of systematic base names (i.e. without the up and down tags)
             # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
@@ -800,13 +782,28 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             print("\nall_rates_p_sumw2",all_rates_p_sumw2)
             print("\nall_rates_m_sumw2",all_rates_m_sumw2)
             print("\nnom",nom_arr_all)
+            #########################
+
+
+            # Group the samples by process type
+            hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
+            hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
 
             # Get rid of the systematic axis (don't need it for plotting)
             hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
             hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
 
-
-            ### TESTING END ###
+            # Print out total MC and data and the sf between them
+            # For extracting the factors we apply to the flip contribution
+            #if hist_cat != "cr_2lss_flip": continue
+            #tot_data = sum(sum(hist_data_integrated.values().values()))
+            #tot_mc   = sum(sum(hist_mc_integrated.values().values()))
+            #flips    = sum(sum(hist_mc_integrated["Flips"].values().values()))
+            #tot_mc_but_flips = tot_mc - flips
+            #sf = (tot_data - tot_mc_but_flips)/flips
+            #print(f"\nComp: data/pred = {tot_data}/{tot_mc} = {tot_data/tot_mc}")
+            #print(f"Flip sf needed = (data - (pred - flips))/flips = {sf}")
+            #exit()
 
             # Create and save the figure
             x_range = None
