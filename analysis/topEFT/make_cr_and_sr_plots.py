@@ -248,6 +248,43 @@ def get_rate_systs(sample_name,sample_group_map):
     return out_dict
 
 
+# Wrapper for getting plus and minus rate arrs
+def get_rate_syst_arrs(base_histo,proc_group_map):
+
+    # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
+    rate_syst_arr_dict = {}
+    for rate_sys_type in getj.get_syst_lst():
+        rate_syst_arr_dict[rate_sys_type] = {}
+        for sample_name in yt.get_cat_lables(base_histo,"sample"):
+
+            # Build the plus and minus arrays from the rate uncertainty number and the nominal arr
+            rate_syst_dict = get_rate_systs(sample_name,proc_group_map)
+            thissample_nom_arr = base_histo.integrate("sample",sample_name).integrate("systematic","nominal").values()[()]
+            p_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][1]) - thissample_nom_arr # Difference between positive fluctuation and nominal
+            m_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][0]) - thissample_nom_arr # Difference between positive fluctuation and nominal
+
+            # Put the arrays into the correlation dict (organizing correlated ones together)
+            correlation_tag = get_correlation_tag(rate_sys_type,sample_name,proc_group_map)
+            out_key_name = rate_sys_type
+            if correlation_tag is not None: out_key_name += "_"+correlation_tag
+            if out_key_name not in rate_syst_arr_dict[rate_sys_type]:
+                rate_syst_arr_dict[rate_sys_type][out_key_name] = {"p":[],"m":[]}
+            rate_syst_arr_dict[rate_sys_type][out_key_name]["p"].append(p_arr)
+            rate_syst_arr_dict[rate_sys_type][out_key_name]["m"].append(m_arr)
+
+    # Now sum the linearly correlated ones and then square everything
+    all_rates_p_sumw2_lst = []
+    all_rates_m_sumw2_lst = []
+    for syst_name in rate_syst_arr_dict.keys():
+        for correlated_syst_group in rate_syst_arr_dict[syst_name]:
+            sum_p_arrs = sum(rate_syst_arr_dict[syst_name][correlated_syst_group]["p"])
+            sum_m_arrs = sum(rate_syst_arr_dict[syst_name][correlated_syst_group]["m"])
+            all_rates_p_sumw2_lst.append(sum_p_arrs*sum_p_arrs)
+            all_rates_m_sumw2_lst.append(sum_m_arrs*sum_m_arrs)
+
+    return [sum(all_rates_m_sumw2_lst),sum(all_rates_p_sumw2_lst)]
+
+
 ######### Plotting functions #########
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
@@ -714,37 +751,8 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
             ### Rate syst errors ###
 
-            # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
-            rate_syst_arr_dict = {}
-            for rate_sys_type in getj.get_syst_lst():
-                rate_syst_arr_dict[rate_sys_type] = {}
-                for sample_name in yt.get_cat_lables(hist_mc_integrated,"sample"):
-
-                    # Build the plus and minus arrays from the rate uncertainty number and the nominal arr
-                    rate_syst_dict = get_rate_systs(sample_name,CR_GRP_MAP)
-                    thissample_nom_arr = hist_mc_integrated.integrate("sample",sample_name).integrate("systematic","nominal").values()[()]
-                    p_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][1]) - thissample_nom_arr # Difference between positive fluctuation and nominal
-                    m_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][0]) - thissample_nom_arr # Difference between positive fluctuation and nominal
-
-                    # Put the arrays into the correlation dict (organizing correlated ones together)
-                    correlation_tag = get_correlation_tag(rate_sys_type,sample_name,CR_GRP_MAP)
-                    out_key_name = rate_sys_type
-                    if correlation_tag is not None: out_key_name += "_"+correlation_tag
-                    if out_key_name not in rate_syst_arr_dict[rate_sys_type]:
-                        rate_syst_arr_dict[rate_sys_type][out_key_name] = {"p":[],"m":[]}
-                    rate_syst_arr_dict[rate_sys_type][out_key_name]["p"].append(p_arr)
-                    rate_syst_arr_dict[rate_sys_type][out_key_name]["m"].append(m_arr)
-
-            # Now sum the linearly correlated ones and then square everything
-            all_rates_p_sumw2_lst = []
-            all_rates_m_sumw2_lst = []
-            for syst_name in rate_syst_arr_dict.keys():
-                for correlated_syst_group in rate_syst_arr_dict[syst_name]:
-                    sum_p_arrs = sum(rate_syst_arr_dict[syst_name][correlated_syst_group]["p"])
-                    sum_m_arrs = sum(rate_syst_arr_dict[syst_name][correlated_syst_group]["m"])
-                    all_rates_p_sumw2_lst.append(sum_p_arrs*sum_p_arrs)
-                    all_rates_m_sumw2_lst.append(sum_m_arrs*sum_m_arrs)
-
+            # Get plus and minus rate arrs
+            rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
 
             ### Shape syst errors ###
 
@@ -775,10 +783,10 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
             # Add all of the systematic contribtuions in quadrature
             nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
-            p_err_arr = nom_arr_all + np.sqrt(sum(p_arr_rel_lst) + sum(all_rates_p_sumw2_lst))
-            m_err_arr = nom_arr_all - np.sqrt(sum(m_arr_rel_lst) + sum(all_rates_m_sumw2_lst))
-            print("\nall_rates_p_sumw2", sum(all_rates_p_sumw2_lst))
-            print("\nall_rates_m_sumw2", sum(all_rates_m_sumw2_lst))
+            p_err_arr = nom_arr_all + np.sqrt(sum(p_arr_rel_lst) + rate_systs_summed_arr_p)
+            m_err_arr = nom_arr_all - np.sqrt(sum(m_arr_rel_lst) + rate_systs_summed_arr_m)
+            print("\nall_rates_p_sumw2", rate_systs_summed_arr_p)
+            print("\nall_rates_m_sumw2", rate_systs_summed_arr_m)
             print("\nnom",nom_arr_all)
 
             #########################
