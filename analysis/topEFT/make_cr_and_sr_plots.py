@@ -711,21 +711,22 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             hist_mc_integrated = hist_mc_integrated.remove(samples_to_rm,"sample")
 
             #########################
+
             ### Rate syst errors ###
 
-            sample_lst = yt.get_cat_lables(hist_mc_integrated,"sample")
+            # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
             rate_syst_arr_dict = {}
             for rate_sys_type in getj.get_syst_lst():
                 rate_syst_arr_dict[rate_sys_type] = {}
+                for sample_name in yt.get_cat_lables(hist_mc_integrated,"sample"):
 
-                for sample_name in sample_lst:
-
+                    # Build the plus and minus arrays from the rate uncertainty number and the nominal arr
                     rate_syst_dict = get_rate_systs(sample_name,CR_GRP_MAP)
-                    nom_arr = hist_mc_integrated.integrate("sample",sample_name).integrate("systematic","nominal").values()[()]
-                    p_arr = nom_arr*(rate_syst_dict[rate_sys_type][1]) - nom_arr  # Difference between positive fluctuation and nominal
-                    m_arr = nom_arr*(rate_syst_dict[rate_sys_type][0]) - nom_arr  # Difference between positive fluctuation and nominal
+                    thissample_nom_arr = hist_mc_integrated.integrate("sample",sample_name).integrate("systematic","nominal").values()[()]
+                    p_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][1]) - thissample_nom_arr # Difference between positive fluctuation and nominal
+                    m_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][0]) - thissample_nom_arr # Difference between positive fluctuation and nominal
 
-                    # Put the info into the correlation dict
+                    # Put the arrays into the correlation dict (organizing correlated ones together)
                     correlation_tag = get_correlation_tag(rate_sys_type,sample_name,CR_GRP_MAP)
                     out_key_name = rate_sys_type
                     if correlation_tag is not None: out_key_name += "_"+correlation_tag
@@ -734,7 +735,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                     rate_syst_arr_dict[rate_sys_type][out_key_name]["p"].append(p_arr)
                     rate_syst_arr_dict[rate_sys_type][out_key_name]["m"].append(m_arr)
 
-            # Linearly sum the correlated ones
+            # Now sum the linearly correlated ones and then square everything
             all_rates_p_sumw2_lst = []
             all_rates_m_sumw2_lst = []
             for syst_name in rate_syst_arr_dict.keys():
@@ -743,8 +744,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                     sum_m_arrs = sum(rate_syst_arr_dict[syst_name][correlated_syst_group]["m"])
                     all_rates_p_sumw2_lst.append(sum_p_arrs*sum_p_arrs)
                     all_rates_m_sumw2_lst.append(sum_m_arrs*sum_m_arrs)
-            all_rates_p_sumw2 = sum(all_rates_p_sumw2_lst)
-            all_rates_m_sumw2 = sum(all_rates_m_sumw2_lst)
+
 
             ### Shape syst errors ###
 
@@ -759,8 +759,6 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                         syst_var_lst.append(syst_name_base)
 
             # Sum each systematic's contribtuions for all samples together (e.g. the ISR for all samples is summed linearly)
-            syst_sum_dict = {}
-            nom_arr = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
             p_arr_rel_lst = []
             m_arr_rel_lst = []
             for syst_name in syst_var_lst:
@@ -776,12 +774,13 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
                 m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
 
             # Add all of the systematic contribtuions in quadrature
-            p_err_arr = np.sqrt(sum(p_arr_rel_lst) + all_rates_p_sumw2)
-            m_err_arr = np.sqrt(sum(m_arr_rel_lst) + all_rates_p_sumw2)
             nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
-            print("\nall_rates_p_sumw2",all_rates_p_sumw2)
-            print("\nall_rates_m_sumw2",all_rates_m_sumw2)
+            p_err_arr = nom_arr_all + np.sqrt(sum(p_arr_rel_lst) + sum(all_rates_p_sumw2_lst))
+            m_err_arr = nom_arr_all - np.sqrt(sum(m_arr_rel_lst) + sum(all_rates_m_sumw2_lst))
+            print("\nall_rates_p_sumw2", sum(all_rates_p_sumw2_lst))
+            print("\nall_rates_m_sumw2", sum(all_rates_m_sumw2_lst))
             print("\nnom",nom_arr_all)
+
             #########################
 
 
@@ -809,7 +808,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             x_range = None
             if var_name == "ht": x_range = (0,250)
             #fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range)
-            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range, err_arr_p=nom_arr_all+p_err_arr, err_arr_m=nom_arr_all-m_err_arr)
+            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range, err_arr_p=p_err_arr, err_arr_m=m_err_arr)
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
