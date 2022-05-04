@@ -1,5 +1,5 @@
 {
-  "xsec": 131.3,
+  "xsec": 55.78,
   "year": "2016APV",
   "treeName": "Events",
   "histAxisName": "ZGToLLG_centralUL16APV",
@@ -36,5 +36,15 @@
   "nGenEvents": 23275543,
   "nSumOfWeights": 2291513672.0671,
   "isData": false,
-  "path": "/store/mc/RunIISummer20UL16NanoAODAPVv9/ZGToLLG_01J_5f_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM"
+  "path": "/store/mc/RunIISummer20UL16NanoAODAPVv9/ZGToLLG_01J_5f_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM",
+  "nSumOfWeights_ISRUp": 2281854554.5530667,
+  "nSumOfWeights_ISRDown": 2298954611.9071198,
+  "nSumOfWeights_FSRUp": 2291394357.123748,
+  "nSumOfWeights_FSRDown": 2291778111.20959,
+  "nSumOfWeights_renormUp": 2234777163.5550637,
+  "nSumOfWeights_renormDown": 2358600872.8435636,
+  "nSumOfWeights_factUp": 2346495808.2580857,
+  "nSumOfWeights_factDown": 2204972281.119026,
+  "nSumOfWeights_renormfactUp": 2304484311.047275,
+  "nSumOfWeights_renormfactDown": 2290909705.015569
 }
