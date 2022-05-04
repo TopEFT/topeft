@@ -356,11 +356,10 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_arr_p=None,err_arr
     rax.set_ylabel('Ratio')
     rax.set_ylim(0.5,1.5)
 
-    # Plot the syst "error bars"
+    # Plot the syst error band
     dense_axes = h_mc.dense_axes()
-    bin_centers_arr = h_mc.axis(dense_axes[0]).centers()
-    ax.scatter(bin_centers_arr,err_arr_p,marker="_",color="k",s=80,edgecolors='none',zorder=20)
-    ax.scatter(bin_centers_arr,err_arr_m,marker="_",color="k",s=80,edgecolors='none',zorder=20)
+    bin_edges_arr = h_mc.axis(dense_axes[0]).edges()[:-1]
+    ax.fill_between(bin_edges_arr,err_arr_m,err_arr_p, step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
 
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
