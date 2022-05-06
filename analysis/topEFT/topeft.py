@@ -722,12 +722,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                   },
               },
               "3l_CR" : {
-                  "atleast_1j" : {
+                  "exactly_0j" : {
                       "lep_chan_lst" : ["3l_CR"],
                       "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                       "appl_lst"     : ["isSR_3l" , "isAR_3l"],
                   },
-                  "atleast_0j" : {
+                  "atleast_1j" : {
                       "lep_chan_lst" : ["3l_CR"],
                       "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                       "appl_lst"     : ["isSR_3l" , "isAR_3l"],
