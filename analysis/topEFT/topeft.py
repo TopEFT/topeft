@@ -476,7 +476,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
             bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
-            bmask_exactly3_exactly3loose = ((nbtagsm==3)&(nbtagsl>=3)) # Used for tttt enriched
+            bmask_exactly3med_exactly3loose = ((nbtagsm==3)&(nbtagsl==3)) # Used for tttt enriched
             bmask_atleast3med_atleast4loose = ((nbtagsm>=3)&(nbtagsl>=4)) # Used for tttt enriched
 
             # Charge masks
@@ -500,8 +500,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2lss_m_2b", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             # 2lss selection (enriched in 4 top)
-            selections.add("2lss_p_3b", (events.is2l & chargel0_p & bmask_exactly3_exactly3loose & pass_trg))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_m_3b", (events.is2l & chargel0_m & bmask_exactly3_exactly3loose & pass_trg))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_p_3b", (events.is2l & chargel0_p & bmask_exactly3med_exactly3loose & pass_trg))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_m_3b", (events.is2l & chargel0_m & bmask_exactly3med_exactly3loose & pass_trg))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             selections.add("2lss_p_4b", (events.is2l & chargel0_p & bmask_atleast3med_atleast4loose & pass_trg))
             selections.add("2lss_m_4b", (events.is2l & chargel0_m & bmask_atleast3med_atleast4loose & pass_trg))
