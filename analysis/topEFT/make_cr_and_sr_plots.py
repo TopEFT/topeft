@@ -54,13 +54,25 @@ CR_CHAN_DICT = {
 
 
 SR_CHAN_DICT = {
-    "2lss_4t_SR": [
-        "2lss_4t_p_4j", "2lss_4t_m_5j", "2lss_4t_m_6j", "2lss_4t_m_7j",
-        "2lss_4t_p_4j", "2lss_4t_p_5j", "2lss_4t_p_6j", "2lss_4t_p_7j",
+    "2lss_2b_SR" : [
+        "2lss_m_2b_4j", "2lss_m_2b_5j", "2lss_m_2b_6j", "2lss_m_2b_7j",
+        "2lss_p_2b_4j", "2lss_p_2b_5j", "2lss_p_2b_6j", "2lss_p_2b_7j",
     ],
-    "2lss_SR" : [
-        "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
-        "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
+    "2lss_3b_SR": [
+        "2lss_p_3b_4j", "2lss_m_3b_5j", "2lss_m_3b_6j", "2lss_m_3b_7j",
+        "2lss_p_3b_4j", "2lss_p_3b_5j", "2lss_p_3b_6j", "2lss_p_3b_7j",
+    ],
+    "2lss_4b_SR": [
+        "2lss_p_4b_4j", "2lss_m_4b_5j", "2lss_m_4b_6j", "2lss_m_4b_7j",
+        "2lss_p_4b_4j", "2lss_p_4b_5j", "2lss_p_4b_6j", "2lss_p_4b_7j",
+    ],
+    "2lss_SR": [
+        "2lss_m_2b_4j", "2lss_m_2b_5j", "2lss_m_2b_6j", "2lss_m_2b_7j",
+        "2lss_p_2b_4j", "2lss_p_2b_5j", "2lss_p_2b_6j", "2lss_p_2b_7j",
+        "2lss_m_3b_4j", "2lss_m_3b_5j", "2lss_m_3b_6j", "2lss_m_3b_7j",
+        "2lss_p_3b_4j", "2lss_p_3b_5j", "2lss_p_3b_6j", "2lss_p_3b_7j",
+        "2lss_m_4b_4j", "2lss_m_4b_5j", "2lss_m_4b_6j", "2lss_m_4b_7j",
+        "2lss_p_4b_4j", "2lss_p_4b_5j", "2lss_p_4b_6j", "2lss_p_4b_7j",
     ],
     "3l_SR" : [
         "3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_m_offZ_1b_5j",
@@ -686,8 +698,8 @@ def main():
     #exit()
 
     # Make the plots
-    make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
-    #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    # make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
 
 if __name__ == "__main__":

@@ -91,23 +91,29 @@ class DatacardMaker():
         if len(self.coeffs)==0: self.coeffs = self.hists['njets']._wcnames
 
         # Get list of channels
-        self.ch2lss = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and not '4t' in k[1]})
-        self.ch2lss += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and not '4t' in k[1]})
-        self.ch2lss_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss_p' in k[1] and not '4t' in k[1]})
-        self.ch2lss_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_p' in k[1] and not '4t' in k[1]})
-        self.ch2lss_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss_m' in k[1] and not '4t' in k[1]})
-        self.ch2lss_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_m' in k[1] and not '4t' in k[1]})
-        self.ch2lssj  = list(set([j[-2:].replace('j','') for j in self.ch2lss_p if 'j' in j]))
-        self.ch2lssj.sort()
+        self.ch2lss2b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '2b' in k[1]})
+        self.ch2lss2b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '2b' in k[1]})
+        self.ch2lss2b_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss_p' in k[1] and '2b' in k[1]})
+        self.ch2lss2b_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_p' in k[1] and '2b' in k[1]})
+        self.ch2lss2b_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss_m' in k[1] and '2b' in k[1]})
+        self.ch2lss2b_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_m' in k[1] and '2b' in k[1]})
 
-        self.ch2lss_4t = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and  ('4t' in k[1] or 'CR' in k[1])})
-        self.ch2lss_4t += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in k[1]})
-        self.ch2lss_4t_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_p' in k[1]})
-        self.ch2lss_4t_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_p' in k[1]})
-        self.ch2lss_4t_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_m' in k[1]})
-        self.ch2lss_4t_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4t' in k[1] and '_m' in k[1]})
-        self.ch2lss_4tj  = list(set([j[-2:].replace('j','') for j in self.ch2lss_4t_p if 'j' in j]))
-        self.ch2lss_4tj.sort()
+        self.ch2lss3b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '3b' in k[1]})
+        self.ch2lss3b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '3b' in k[1]})
+        self.ch2lss3b_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '_p' in k[1] and '3b' in k[1]})
+        self.ch2lss3b_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '_p' in k[1] and '3b' in k[1]})
+        self.ch2lss3b_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '_m' in k[1] and '3b' in k[1]})
+        self.ch2lss3b_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '_m' in k[1] and '3b' in k[1]})
+
+        self.ch2lss4b = list({k[1]: 0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '4b' in k[1]})
+        self.ch2lss4b += list({k[1]: 0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '4b' in k[1]})
+        self.ch2lss4b_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '_p' in k[1] and '4b' in k[1]})
+        self.ch2lss4b_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '_p' in k[1] and '4b' in k[1]})
+        self.ch2lss4b_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '_m' in k[1] and '4b' in k[1]})
+        self.ch2lss4b_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '_m' in k[1] and '4b' in k[1]})
+        
+        self.ch2lssj  = list(set([j[-2:].replace('j','') for j in self.ch2lss2b_p if 'j' in j]))
+        self.ch2lssj.sort()
 		
         self.ch3l1b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
         self.ch3l1b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '3l' in k[1] and '1b' in k[1] and 'onZ' not in k[1]})
@@ -135,7 +141,7 @@ class DatacardMaker():
         self.ch4l += list({k[1]:0 for k in self.hists['njets'].values().keys() if '4l' in k[1]})
         self.ch4lj = list(set([j[-2:].replace('j','') for j in self.ch4l if 'j' in j]))
         self.ch4lj.sort()
-        self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '2lss_4t': self.ch2lss_4t, '2lss_4t_p': self.ch2lss_4t_p, '2lss_4t_m': self.ch2lss_4t_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l_p_offZ_1b': self.ch3l1b_p, '3l_m_offZ_1b': self.ch3l1b_m, '3l_p_offZ_2b': self.ch3l2b_p, '3l_m_offZ_2b': self.ch3l2b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '3l_onZ_1b': self.ch3lsfz1b, '3l_onZ_2b': self.ch3lsfz2b, '4l': self.ch4l}
+        self.channels = {'2lss2b': self.ch2lss2b, '2lss2b_p': self.ch2lss2b_p, '2lss2b_m': self.ch2lss2b_m,'2lss3b': self.ch2lss3b, '2lss3b_p': self.ch2lss3b_p, '2lss3b_m': self.ch2lss3b_m,'2lss4b': self.ch2lss4b, '2lss4b_p': self.ch2lss4b_p, '2lss4b_m': self.ch2lss4b_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l_p_offZ_1b': self.ch3l1b_p, '3l_m_offZ_1b': self.ch3l1b_m, '3l_p_offZ_2b': self.ch3l2b_p, '3l_m_offZ_2b': self.ch3l2b_m, '3l2b': self.ch3l2b, '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '3l_onZ_1b': self.ch3lsfz1b, '3l_onZ_2b': self.ch3lsfz2b, '4l': self.ch4l}
         self.skip_process_channels = {**self.skip_process_channels, **{'data': [k for k in self.channels]}} # Skip all data!
         self.skip_process_channels = {**self.skip_process_channels, **{'flips': [k for k in self.channels if '2l' not in k]}} # Charge flips only in 2lss channels
 
@@ -221,6 +227,7 @@ class DatacardMaker():
         def export2d(h):
             return h.to_hist().to_numpy()
         if isinstance(channel, str) and channel not in self.channels:
+           print(channel)
            raise Exception(f'{channel} not found in self.channels!')
         if isinstance(channel, list) and not all(ch in self.channels for ch in self.channels.keys()):
            print(self.channels.keys())
@@ -635,7 +642,8 @@ class DatacardMaker():
 
             for n,wc in enumerate(self.coeffs):
                 if self.do_sm: break
-                
+                if wc == "ctlTi" and proc == "tttt": continue
+
                 # Check if linear terms are non null
                 name = '_'.join([pname[:-1],'lin',wc])
                 tmp = getHist(d_hists, name); tmp.Add(h_sm,-1)
@@ -926,10 +934,12 @@ if __name__ == '__main__':
         cards = []
         if var == 'njets':
             cards += [
-                {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
-                {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
-                {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lss_4tj},
+                {'channel':'2lss2b', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                {'channel':'2lss2b', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch2lssj},
+                {'channel': '2lss3b', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lssj},
+                {'channel': '2lss3b', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lssj},
+                {'channel': '2lss4b', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lssj},
+                {'channel': '2lss4b', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lssj},
                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
                 {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
                 {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
@@ -943,13 +953,12 @@ if __name__ == '__main__':
             if var == 'ptz': continue # This var only applies to a subset of the channels
             for b in card.ch2lssj:
                 cards += [
-                {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':b},
-                {'channel':'2lss', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':b},
-                ]
-            for b in card.ch2lss_4tj:
-                cards += [
-                {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': b},
-                {'channel': '2lss_4t', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': b},
+                {'channel':'2lss2b', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':b},
+                {'channel':'2lss2b', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':b},
+                {'channel':'2lss3b', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':b},
+                {'channel':'2lss3b', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':b},
+                {'channel':'2lss4b', 'appl':'isSR_2lSS', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':b},
+                {'channel':'2lss4b', 'appl':'isSR_2lSS', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':b},
                 ]
             for b in card.ch3lj:
                 cards += [

@@ -476,6 +476,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
             bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
+            bmask_exactly3_exactly3loose = ((nbtagsm==3)&(nbtagsl>=3)) # Used for tttt enriched
+            bmask_atleast3med_atleast4loose = ((nbtagsm>=3)&(nbtagsl>=4)) # Used for tttt enriched
 
             # Charge masks
             chargel0_p = ak.fill_none(((l0.charge)>0),False)
@@ -494,13 +496,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("is_good_lumi",lumi_mask)
 
             # 2lss selection (drained of 4 top)
-            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_p_2b", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_m_2b", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             # 2lss selection (enriched in 4 top)
-            selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-		
+            selections.add("2lss_p_3b", (events.is2l & chargel0_p & bmask_exactly3_exactly3loose & pass_trg))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_m_3b", (events.is2l & chargel0_m & bmask_exactly3_exactly3loose & pass_trg))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+
+            selections.add("2lss_p_4b", (events.is2l & chargel0_p & bmask_atleast3med_atleast4loose & pass_trg))
+            selections.add("2lss_m_4b", (events.is2l & chargel0_m & bmask_atleast3med_atleast4loose & pass_trg))
+
             # 2lss selection for CR
             selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
@@ -627,22 +632,22 @@ class AnalysisProcessor(processor.ProcessorABC):
             sr_cat_dict = {
               "2l" : {
                   "exactly_4j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                      "lep_chan_lst" : ["2lss_p_2b" , "2lss_m_2b", "2lss_p_3b", "2lss_m_3b", "2lss_p_4b", "2lss_m_4b"],
                       "lep_flav_lst" : ["ee" , "em" , "mm"],
                       "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                   },
                   "exactly_5j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                      "lep_chan_lst" : ["2lss_p_2b" , "2lss_m_2b", "2lss_p_3b", "2lss_m_3b", "2lss_p_4b", "2lss_m_4b"],
                       "lep_flav_lst" : ["ee" , "em" , "mm"],
                       "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                   },
                   "exactly_6j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                      "lep_chan_lst" : ["2lss_p_2b" , "2lss_m_2b", "2lss_p_3b", "2lss_m_3b", "2lss_p_4b", "2lss_m_4b"],
                       "lep_flav_lst" : ["ee" , "em" , "mm"],
                       "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                   },
                   "atleast_7j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                      "lep_chan_lst" : ["2lss_p_2b" , "2lss_m_2b", "2lss_p_3b", "2lss_m_3b", "2lss_p_4b", "2lss_m_4b"],
                       "lep_flav_lst" : ["ee" , "em" , "mm"],
                       "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                   },
