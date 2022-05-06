@@ -14,9 +14,9 @@ python -c 'import tests.test_futures; tests.test_futures.test_nonprompt()'
 echo -e "Running initial scans\nIgnore any errors.\n"
 mkdir -p histos
 python -c 'import tests.test_futures; tests.test_futures.test_datacard_2l()'
-cp histos/ttx_multileptons-2lss_p_2b.txt analysis/topEFT/test/ttx_multileptons-2lss_p_2b_ref.txt
+cp histos/ttx_multileptons-2lss_2b_p.txt analysis/topEFT/test/ttx_multileptons-2lss_2b_p_ref.txt
 python -c 'import tests.test_futures; tests.test_futures.test_datacard_2l_ht()'
-cp histos/ttx_multileptons-2lss_p_4j_2b_ht.txt analysis/topEFT/test/ttx_multileptons-2lss_p_4j_2b_ht_ref.txt
+cp histos/ttx_multileptons-2lss_p_2b_4j_ht.txt analysis/topEFT/test/ttx_multileptons-2lss_p_2b_4j_ht_ref.txt
 python -c 'import tests.test_futures; tests.test_futures.test_datacard_3l()'
 cp histos/ttx_multileptons-3l_sfz_1b.txt analysis/topEFT/test/ttx_multileptons-3l_sfz_1b_ref.txt
 python -c 'import tests.test_futures; tests.test_futures.test_datacard_3l_ptbl()'

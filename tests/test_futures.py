@@ -1,6 +1,5 @@
 import subprocess
 import topcoffea.modules.dataDrivenEstimation as dataDrivenEstimation
-from work_queue import Factory
 from os.path import exists
 from os import getcwd
 from topcoffea.modules.comp_datacard import comp_datacard
@@ -43,7 +42,7 @@ def test_datacard_2l():
     # Run datacard maker
     subprocess.run(args)
 
-    assert(comp_datacard('histos/ttx_multileptons-2lss_p_2b.txt','analysis/topEFT/test/ttx_multileptons-2lss_p_2b_ref.txt'))
+    assert(comp_datacard('histos/ttx_multileptons-2lss_2b_p.txt','analysis/topEFT/test/ttx_multileptons-2lss_2b_p_ref.txt'))
 
 def test_datacard_2l_ht():
     args = [
@@ -59,7 +58,7 @@ def test_datacard_2l_ht():
     # Run datacard maker
     subprocess.run(args)
 
-    assert(comp_datacard('histos/ttx_multileptons-2lss_p_4j_2b_ht.txt','analysis/topEFT/test/ttx_multileptons-2lss_p_4j_2b_ht_ref.txt'))
+    assert(comp_datacard('histos/ttx_multileptons-2lss_p_2b_4j_ht.txt','analysis/topEFT/test/ttx_multileptons-2lss_p_2b_4j_ht_ref.txt'))
 
 def test_datacard_3l():
     args = [
@@ -69,7 +68,7 @@ def test_datacard_3l():
         "--var-lst",
         "njets",
         "-j",
-        "8"
+        "10"
     ]
 
     # Run datacard maker
@@ -85,7 +84,7 @@ def test_datacard_3l_ptbl():
         "--var-lst",
         "ptbl",
         "-j",
-        "32"
+        "40"
     ]
 
     # Run datacard maker
