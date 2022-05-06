@@ -635,6 +635,13 @@ class DatacardMaker():
 
             for n,wc in enumerate(self.coeffs):
                 if self.do_sm: break
+
+                # NOTE: This is an ad hoc fix for the issue where ctlTi ends up in tttt for one category
+                #     - It barely makes it over the tolerance threshold (with an integral of ~1.08e-05)
+                #     - We don't know of any reason why ctlTi should affect tttt, so we think it is just noise
+                #     - This causes problems because then the list of selected WCs is different per channel (and the model assumes they are the same for every channel, so this causes a mismatch) 
+                #     - So the current solution is to just hard code a check to enforce that this does not happen in this case
+                if wc == "ctlTi" and proc == "tttt": continue
                 
                 # Check if linear terms are non null
                 name = '_'.join([pname[:-1],'lin',wc])
@@ -857,7 +864,7 @@ class DatacardMaker():
         condorFile.write('error                 = condor/log/$(ClusterID)_$(ProcId).err\n')
         condorFile.write('log                   = condor/log/$(ClusterID).log\n')
         condorFile.write('Rank                  = Memory >= 64\n')
-        condorFile.write('Request_Memory        = 4 Gb\n')
+        condorFile.write('Request_Memory        = 6 Gb\n')
         condorFile.write('+JobFlavour           = "workday"\n')
         condorFile.write('getenv                = True\n')
         condorFile.write('Should_Transfer_Files = NO\n')
