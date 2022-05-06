@@ -51,10 +51,10 @@ hists["met"] =  HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hi
 
 # Fill the EFT histogram
 weight_val = 1.0
-hists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
-hists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='testUp', weight=nevts, eft_coeff=eft_fit_coeffs)
-hists["ptbl"].fill(ptbl=40, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
-hists["ptbl"].fill(ptbl=4, sample='ttHJet_privateUL17', channel='2lss_p', appl='isSR_2lSS', systematic='testUp', weight=nevts, eft_coeff=eft_fit_coeffs)
+hists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_2b_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
+hists["njets"].fill(njets=4, sample='ttHJet_privateUL17', channel='2lss_2b_p', appl='isSR_2lSS', systematic='testUp', weight=nevts, eft_coeff=eft_fit_coeffs)
+hists["ptbl"].fill(ptbl=40, sample='ttHJet_privateUL17', channel='2lss_2b_p', appl='isSR_2lSS', systematic='nominal', weight=nevts, eft_coeff=eft_fit_coeffs)
+hists["ptbl"].fill(ptbl=4, sample='ttHJet_privateUL17', channel='2lss_2b_p', appl='isSR_2lSS', systematic='testUp', weight=nevts, eft_coeff=eft_fit_coeffs)
 sm_weight = np.zeros(nevts)
 sm_weight[0] = 1
 sm_njets4 = sums*sm_weight
@@ -65,7 +65,7 @@ with open('topcoffea/json/lumi.json') as jf:
 lumi = {year : 1000*lumi for year,lumi in lumi.items()}
 
 def test_datacard_pkl():
-    assert(np.all(hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4] - sm_njets4) < tolerance) # Testing SM value
+    assert(np.all(hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_2b_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4] - sm_njets4) < tolerance) # Testing SM value
 
     out_pkl_file = os.path.join("tests/test_datacard.pkl.gz")
     with gzip.open(out_pkl_file, "wb") as fout:
@@ -112,8 +112,8 @@ def test_datacard_results():
     hists['njets'].scale(lumi['2017'] )
 
     # Test ttH SM
-    sm_val = hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4]
-    assert((hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4] - d['ttH_sm']) < tolerance)
+    sm_val = hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_2b_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4]
+    assert((hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_2b_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4] - d['ttH_sm']) < tolerance)
 
     '''
     ``S`` is theSM
@@ -129,9 +129,9 @@ def test_datacard_results():
     wcs_index = {wc:hists['njets']._wcnames.index(wc) for wc in wcs}
     coeffs = np.zeros(len(wc_names_lst))
     coeffs[wcs_index['ctW']] = 1
-    lin_val = hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4]
+    lin_val = hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_2b_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4]
     coeffs[wcs_index['ctW']] = 2
-    quad_val = hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4]
+    quad_val = hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_2b_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4]
     pred_val = sm_val + lin_val + quad_val
     hists['njets'].set_wilson_coeff_from_array(coeffs)
     dc_val = lin_vals['ttH_lin_ctW']
@@ -150,10 +150,10 @@ def test_datacard_results():
         coeffs = np.zeros(len(wc_names_lst))
         coeffs[wcs_index['ctW']] = 1
         hists['njets'].set_wilson_coeff_from_array(coeffs)
-        lin_val = hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4]
+        lin_val = hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_2b_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4]
         coeffs[wcs_index[mix]] = 1
         hists['njets'].set_wilson_coeff_from_array(coeffs)
-        mix_val = hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4]
+        mix_val = hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_2b_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4]
         dc_val = mix_vals[[name for name in mix_names if mix in name][0]]
         assert(np.abs(mix_val - dc_val) < tolerance)
 
@@ -161,7 +161,7 @@ def test_datacard_results():
     coeffs = np.zeros(len(wc_names_lst))
     coeffs[wcs_index['ctW']] = 2
     hists['njets'].set_wilson_coeff_from_array(coeffs)
-    quad_val = hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4]
+    quad_val = hists['njets'].integrate('sample', 'ttHJet_privateUL17').integrate('channel', '2lss_2b_p').integrate('appl', 'isSR_2lSS').integrate('systematic', 'nominal').values()[()][4]
     quad_val += -2*lin_val + sm_val
     quad_val /= 2
     dc_val = quad_vals[[name for name in quad_names if 'ctW' in name][0]]
