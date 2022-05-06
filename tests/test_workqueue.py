@@ -1,5 +1,4 @@
 import subprocess
-from work_queue import Factory
 from os.path import exists
 from os import getcwd
 
