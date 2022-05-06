@@ -141,7 +141,7 @@ class DatacardMaker():
         self.ch4l += list({k[1]:0 for k in self.hists['njets'].values().keys() if '4l' in k[1]})
         self.ch4lj = list(set([j[-2:].replace('j','') for j in self.ch4l if 'j' in j]))
         self.ch4lj.sort()
-        self.channels = {'2lss_2b': self.ch2lss2b, '2lss_2b_p': self.ch2lss2b_p, '2lss_2b_m': self.ch2lss2b_m,'2lss_3b': self.ch2lss3b, '2lss_3b_p': self.ch2lss3b_p, '2lss_3b_m': self.ch2lss3b_m,'2lss_4b': self.ch2lss4b, '2lss_4b_p': self.ch2lss4b_p, '2lss_4b_m': self.ch2lss4b_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l_p_offZ_1b': self.ch3l1b_p, '3l_m_offZ_1b': self.ch3l1b_m, '3l_p_offZ_2b': self.ch3l2b_p, '3l_m_offZ_2b': self.ch3l2b_m, '3l2b': self.ch3l2b, '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '3l_onZ_1b': self.ch3lsfz1b, '3l_onZ_2b': self.ch3lsfz2b, '4l': self.ch4l}
+        self.channels = {'2lss_2b': self.ch2lss2b, '2lss_2b_p': self.ch2lss2b_p, '2lss_2b_m': self.ch2lss2b_m,'2lss_3b': self.ch2lss3b, '2lss_3b_p': self.ch2lss3b_p, '2lss_3b_m': self.ch2lss3b_m,'2lss_4b': self.ch2lss4b, '2lss_4b_p': self.ch2lss4b_p, '2lss_4b_m': self.ch2lss4b_m, '3l_1b': self.ch3l1b, '3l_1b_p': self.ch3l1b_p, '3l_1b_m': self.ch3l1b_m, '3l_p_offZ_1b': self.ch3l1b_p, '3l_m_offZ_1b': self.ch3l1b_m, '3l_p_offZ_2b': self.ch3l2b_p, '3l_m_offZ_2b': self.ch3l2b_m, '3l_2b': self.ch3l2b, '3l_2b_p': self.ch3l2b_p, '3l_2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '3l_onZ_1b': self.ch3lsfz1b, '3l_onZ_2b': self.ch3lsfz2b, '4l': self.ch4l}
         self.skip_process_channels = {**self.skip_process_channels, **{'data': [k for k in self.channels]}} # Skip all data!
         self.skip_process_channels = {**self.skip_process_channels, **{'flips': [k for k in self.channels if '2l' not in k]}} # Charge flips only in 2lss channels
 
@@ -274,7 +274,7 @@ class DatacardMaker():
         else: charge = ''
         charge = 'p' if charge == 'ch+' else 'm'
         if 'b' in channel:
-            maxb = channel[-2:] # E.g. '3l1b' -> '1b'
+            maxb = channel[-2:] # E.g. '3l_1b' -> '1b'
         else:
             maxb = '2b' # 2lss and 4l cases
         if systematics == 'nominal': sys = ''
@@ -940,10 +940,10 @@ if __name__ == '__main__':
                 {'channel': '2lss_3b', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lssj},
                 {'channel': '2lss_4b', 'appl': 'isSR_2lSS', 'charges': 'ch+', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lssj},
                 {'channel': '2lss_4b', 'appl': 'isSR_2lSS', 'charges': 'ch-', 'systematics': 'nominal', 'variable': var, 'bins': card.ch2lssj},
-                {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
-                {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                {'channel':'3l_1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                {'channel':'3l_1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                {'channel':'3l_2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
+                {'channel':'3l_2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':card.ch3lj},
                 {'channel':'3l_sfz_1b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
                 {'channel':'3l_sfz_2b', 'appl':'isSR_3l', 'charges':['ch+','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch3lsfzj},
                 {'channel':'4l', 'appl':'isSR_4l', 'charges':['ch+','ch0','ch-'], 'systematics':'nominal', 'variable':var, 'bins':card.ch4lj}
@@ -962,10 +962,10 @@ if __name__ == '__main__':
                 ]
             for b in card.ch3lj:
                 cards += [
-                {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':b},
-                {'channel':'3l1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':b},
-                {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':b},
-                {'channel':'3l2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':b},
+                {'channel':'3l_1b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':b},
+                {'channel':'3l_1b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':b},
+                {'channel':'3l_2b', 'appl':'isSR_3l', 'charges':'ch+', 'systematics':'nominal', 'variable':var, 'bins':b},
+                {'channel':'3l_2b', 'appl':'isSR_3l', 'charges':'ch-', 'systematics':'nominal', 'variable':var, 'bins':b},
                 ]
             for b in card.ch3lsfzj:
                 cards += [
