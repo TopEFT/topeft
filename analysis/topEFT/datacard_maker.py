@@ -78,7 +78,7 @@ class DatacardMaker():
         if 'ljptsum' in self.hists:
             self.analysis_bins['ljptsum'] = [0, 400, 600, 1000, self.hists['ljptsum'].axis('ljptsum').edges()[-1]]
         if 'ptz' in self.hists:
-            self.analysis_bins['ptz'] = [0, 80, 200, 320, 440, self.hists['ptz'].axis('ptz').edges()[-1]]
+            self.analysis_bins['ptz'] = [0, 200, 300, 400, 500, self.hists['ptz'].axis('ptz').edges()[-1]]
         if 'o0pt' in self.hists:
             self.analysis_bins['o0pt'] = [0, 100, 200, 400, self.hists['o0pt'].axis('o0pt').edges()[-1]]
         if 'bl0pt' in self.hists:
