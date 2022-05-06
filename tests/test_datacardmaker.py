@@ -88,10 +88,10 @@ def test_datacard_maker():
 
 def test_datacard_results():
     '''
-    These lines parse the 2lss_p_2b datacard (njets) and
+    These lines parse the 2lss_2b_p datacard (njets) and
     extract a dictionary of {process: value} for all histograms
     '''
-    f = open('histos/ttx_multileptons-2lss_p_2b.txt', 'r')
+    f = open('histos/ttx_multileptons-2lss_2b_p.txt', 'r')
     fin = f.readlines()
     process = []
     rate = []
