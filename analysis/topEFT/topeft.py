@@ -151,12 +151,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             if d in dataset: dataset = dataset.split('_')[0]
 
         # Set the sampleType (used for MC matching requirement)
-        conversionDatasets=[x%y for x in ['UL%s_TTGJets'] for y in '16APV,16,17,18'.split(",")]
-        sampleType = 'prompt'
+        sampleType = "prompt"
         if isData:
-            sampleType = 'data'
-        elif dataset in conversionDatasets: 
-            sampleType = 'conversions'
+            sampleType = "data"
+        elif histAxisName in get_param("conv_samples"):
+            sampleType = "conversions"
 
         # Initialize objects
         met  = events.MET
