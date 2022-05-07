@@ -13,16 +13,16 @@ import get_datacard_yields as dy # Note the functions we're using from this scri
 
 
 # Get the list of histo names from a root file
-def get_histo_names(in_file,only_sm=True):
+def get_histo_names(in_file,only_sm=True,only_nom=False):
     histo_name_lst = [] 
     in_file_keys = in_file.GetListOfKeys()
     for key_object in in_file_keys:
         hname = key_object.GetName()
         if only_sm:
-            if "_sm" in hname:
-                histo_name_lst.append(hname)
-        else:
-            histo_name_lst.append(hname)
+            if "_sm" not in hname: continue
+        if only_nom:
+            if ("Up" in hname) or ("Down" in hname): continue
+        histo_name_lst.append(hname)
     return histo_name_lst
 
 
@@ -116,11 +116,16 @@ def main():
 
     ### Get list of all histos for a given category, just for ref ###
     if print_all_templates:
-        example_cat = "ttx_multileptons-2lss_p_2b.root"
-        all_histos = get_histo_names(ROOT.TFile.Open(os.path.join(args.datacards_dir_path,example_cat),"READ"),only_sm=True)
-        print(f"Printing all histos for cat {example_cat}:")
-        for name in all_histos: print(name)
-        print(f"({len(all_histos)} total)")
+        for template_name in template_files:
+            # Get root file and cat name
+            template_path_full = os.path.join(args.datacards_dir_path,template_name)
+            in_file  = ROOT.TFile.Open(template_path_full,"READ")
+            cat_name = dy.get_cat_name_from_dc_name(template_name,".root")
+            all_histos = get_histo_names(in_file,only_sm=True,only_nom=False)
+            print(f"\nHistos in {cat_name}:")
+            print(all_histos)
+            #for name in all_histos: print("\t",name)
+            print(f"({len(all_histos)} total)")
 
     ### Get info about any negative bins ###
     if dump_negative:
