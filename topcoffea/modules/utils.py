@@ -64,6 +64,27 @@ def get_files(top_dir,**kwargs):
             found.append(fpath)
     return found
 
+# Moves a list of files to the specified target directory
+def move_files(files,target):
+    width = len(max(files,key=len))
+    for src in files:
+        dst = os.path.join(target,src)
+        os.rename(src,dst)
+
+# Removes files from tdir which match any of the regex in targets list
+def clean_dir(tdir,targets,dry_run=False):
+    fnames = regex_match(get_files(tdir),targets)
+    if len(fnames) == 0: return
+    print(f"Removing files from: {tdir}")
+    print(f"\tTargets: {targets}")
+    for fn in fnames:
+        fpath = os.path.join(tdir,fn)
+        if not dry_run:
+            print(f"\tRemoving {fn}")
+            os.remove(fpath)
+        else:
+            print(f"\tRemoving {fpath}")
+
 # Read from a sample json file
 def load_sample_json_file(fpath):
     if not os.path.exists(fpath):
@@ -122,4 +143,5 @@ def read_cfg_file(fpath,cfg={},max_files=0):
                 jsn = load_sample_json_file(full_path)
                 cfg = update_cfg(jsn,sample,cfg=cfg,max_files=max_files,redirector=xrd_src)
     return cfg
+
 

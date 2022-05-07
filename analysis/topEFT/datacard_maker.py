@@ -78,7 +78,7 @@ class DatacardMaker():
         if 'ljptsum' in self.hists:
             self.analysis_bins['ljptsum'] = [0, 400, 600, 1000, self.hists['ljptsum'].axis('ljptsum').edges()[-1]]
         if 'ptz' in self.hists:
-            self.analysis_bins['ptz'] = [0, 80, 200, 320, 440, self.hists['ptz'].axis('ptz').edges()[-1]]
+            self.analysis_bins['ptz'] = [0, 200, 300, 400, 500, self.hists['ptz'].axis('ptz').edges()[-1]]
         if 'o0pt' in self.hists:
             self.analysis_bins['o0pt'] = [0, 100, 200, 400, self.hists['o0pt'].axis('o0pt').edges()[-1]]
         if 'bl0pt' in self.hists:
@@ -642,8 +642,14 @@ class DatacardMaker():
 
             for n,wc in enumerate(self.coeffs):
                 if self.do_sm: break
-                if wc == "ctlTi" and proc == "tttt": continue
 
+                # NOTE: This is an ad hoc fix for the issue where ctlTi ends up in tttt for one category
+                #     - It barely makes it over the tolerance threshold (with an integral of ~1.08e-05)
+                #     - We don't know of any reason why ctlTi should affect tttt, so we think it is just noise
+                #     - This causes problems because then the list of selected WCs is different per channel (and the model assumes they are the same for every channel, so this causes a mismatch) 
+                #     - So the current solution is to just hard code a check to enforce that this does not happen in this case
+                if wc == "ctlTi" and proc == "tttt": continue
+                
                 # Check if linear terms are non null
                 name = '_'.join([pname[:-1],'lin',wc])
                 tmp = getHist(d_hists, name); tmp.Add(h_sm,-1)
@@ -865,7 +871,7 @@ class DatacardMaker():
         condorFile.write('error                 = condor/log/$(ClusterID)_$(ProcId).err\n')
         condorFile.write('log                   = condor/log/$(ClusterID).log\n')
         condorFile.write('Rank                  = Memory >= 64\n')
-        condorFile.write('Request_Memory        = 4 Gb\n')
+        condorFile.write('Request_Memory        = 6 Gb\n')
         condorFile.write('+JobFlavour           = "workday"\n')
         condorFile.write('getenv                = True\n')
         condorFile.write('Should_Transfer_Files = NO\n')
@@ -922,6 +928,8 @@ if __name__ == '__main__':
             include_var_lst.append(var_name)
     if len(include_var_lst) == 0: raise Exception("No variables specified")
 
+    # Check for `ptz` + any others (`ptz` is special and only fills the 3l on-shell Z categroy)
+    if 'ptz' in differential_lst and len(differential_lst)>1: differential_lst.remove('ptz')
     build_var = differential_lst[0] if len(differential_lst)>0 else 'njets'
     card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm, build_var)
     card.read()

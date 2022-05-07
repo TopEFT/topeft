@@ -1,3 +1,4 @@
 /hadoop/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2
 /hadoop/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1
 /hadoop/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p2/ZZTo4l_TTJets/v1
+/hadoop/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p3/TTbarPowheg_ZG/v1
