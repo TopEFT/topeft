@@ -82,7 +82,7 @@ if __name__ == '__main__':
   # Figure out which hists to include
   if args.hist_list == ["ana"]:
     # Here we hardcode a list of hists used for the analysis
-    hist_lst = ["njets","ht","ptbl","ptz"]
+    hist_lst = ["njets","lj0pt","ptz"]
   else:
     # We want to specify a custom list
     # If we don't specify this argument, it will be None, and the processor will fill all hists 

@@ -80,12 +80,17 @@ def draw_nom_up_do_overlay(h_n,h_u,h_d,save_path):
     max_u = h_u.GetMaximum()
     max_d = h_d.GetMaximum()
     max_n = h_n.GetMaximum()
+    min_u = h_u.GetMinimum()
+    min_d = h_d.GetMinimum()
+    min_n = h_n.GetMinimum()
     max_y = max(max_n, max(max_u,max_d))
-    h_u.GetYaxis().SetRangeUser(0.0,1.3*max_y)
+    min_y = min(min_n, min(min_u,min_d))
+    h_u.GetYaxis().SetRangeUser(min(1.3*min_y,0),1.3*max_y)
 
     # Save
     print("Saviang",save_path)
     canvas.Print(save_path)
+
 
 
 
@@ -100,49 +105,72 @@ def main():
 
     out_basepath = args.out_path
 
+    # Very crude way of switching between run modes, maybe should put into the command line options
+    print_all_templates = 0
+    dump_negative = 0
+    make_plots = 1
+
     # Get the list of template root files in the dc dir
     files_all = os.listdir(args.datacards_dir_path)
     template_files = dy.get_dc_file_names(files_all,ext=".root")
 
-    # Get list of all histos for a given category, just for ref
-    print_all_templates = False
+    ### Get list of all histos for a given category, just for ref ###
     if print_all_templates:
         example_cat = "ttx_multileptons-2lss_p_2b.root"
         all_histos = get_histo_names(ROOT.TFile.Open(os.path.join(args.datacards_dir_path,example_cat),"READ"),only_sm=True)
         print(f"Printing all histos for cat {example_cat}:")
         for name in all_histos: print(name)
         print(f"({len(all_histos)} total)")
-        exit()
 
-    # Loop over templates
-    for template_name in template_files:
+    ### Get info about any negative bins ###
+    if dump_negative:
+        for template_name in template_files:
+            # Get root file and cat name
+            template_path_full = os.path.join(args.datacards_dir_path,template_name)
+            in_file  = ROOT.TFile.Open(template_path_full,"READ")
+            cat_name = dy.get_cat_name_from_dc_name(template_name,".root")
+            print("Cat name:",cat_name)
+            all_histos = get_histo_names(in_file,only_sm=True)
+            for h_name in all_histos:
+                h = in_file.Get(h_name)
+                m = h.GetMinimum()
+                a = h.Integral()
+                if a < 0:
+                    print(f"\t{h_name} sum val: {a}")
+                #if m < 0:
+                #    print(f"\t{h_name} min val: {m}")
 
-        # Get root file and cat name
-        template_path_full = os.path.join(args.datacards_dir_path,template_name)
-        in_file  = ROOT.TFile.Open(template_path_full,"READ")
-        cat_name = dy.get_cat_name_from_dc_name(template_name,".root")
-        print("Cat name:",cat_name)
+    ### Make plots for the nominal up and down ###
+    if make_plots:
+        # Loop over templates
+        for template_name in template_files:
 
-        # Get the dictionary of the variations
-        syst_name_dict = get_dict_of_nom_up_do_names(in_file)
+            # Get root file and cat name
+            template_path_full = os.path.join(args.datacards_dir_path,template_name)
+            in_file  = ROOT.TFile.Open(template_path_full,"READ")
+            cat_name = dy.get_cat_name_from_dc_name(template_name,".root")
+            print("Cat name:",cat_name)
 
-        # Make an output subdir for this category
-        out_basepath_forthiscat = os.path.join(out_basepath,cat_name)
-        os.mkdir(out_basepath_forthiscat)
+            # Get the dictionary of the variations
+            syst_name_dict = get_dict_of_nom_up_do_names(in_file)
 
-        # Make plot for each variation
-        ROOT.gROOT.SetBatch()
-        for proc_syst_var_name in syst_name_dict.keys():
-            print("proc_syst_var_name",proc_syst_var_name)
-            save_fpath = os.path.join(out_basepath_forthiscat,proc_syst_var_name+".png")
-            draw_nom_up_do_overlay(
-                h_n = in_file.Get(syst_name_dict[proc_syst_var_name]["nom"]),
-                h_u = in_file.Get(syst_name_dict[proc_syst_var_name]["up"]),
-                h_d = in_file.Get(syst_name_dict[proc_syst_var_name]["do"]),
-                save_path = save_fpath,
-            )
+            # Make an output subdir for this category
+            out_basepath_forthiscat = os.path.join(out_basepath,cat_name)
+            os.mkdir(out_basepath_forthiscat)
 
-        make_html(out_basepath_forthiscat)
+            # Make plot for each variation
+            ROOT.gROOT.SetBatch()
+            for proc_syst_var_name in syst_name_dict.keys():
+                print("proc_syst_var_name",proc_syst_var_name)
+                save_fpath = os.path.join(out_basepath_forthiscat,proc_syst_var_name+".png")
+                n_dict = draw_nom_up_do_overlay(
+                    h_n = in_file.Get(syst_name_dict[proc_syst_var_name]["nom"]),
+                    h_u = in_file.Get(syst_name_dict[proc_syst_var_name]["up"]),
+                    h_d = in_file.Get(syst_name_dict[proc_syst_var_name]["do"]),
+                    save_path = save_fpath,
+                )
+
+            make_html(out_basepath_forthiscat)
 
 
 if __name__ == "__main__":
