@@ -84,6 +84,8 @@ SR_CHAN_DICT = {
 CR_GRP_MAP = {
     "DY" : [],
     "Ttbar" : [],
+    "Ttbarpowheg" : [],
+    "ZGamma" : [],
     "Diboson" : [],
     "Triboson" : [],
     "Single top" : [],
@@ -288,10 +290,13 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
 ######### Plotting functions #########
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_arr_p=None,err_arr_m=None):
+def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_arr_p=None,err_arr_m=None,n=None):
 
     #colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
-    colors = ["tab:blue","tab:orange","brown",'tab:cyan',"tab:purple","tab:pink","tan","tab:green","tab:red"]
+    #colors = ["tab:blue","tab:orange","brown",'tab:cyan',"tab:purple","tab:pink","tan","tab:green","tab:red"]
+    ##colors = ["tab:blue","tab:orange","brown",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","darkgreen","tab:red"]
+    #colors = ["tab:blue","brown","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","darkgreen"]
+    colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown"]
 
     # Create the figure
     fig, (ax, rax) = plt.subplots(
@@ -356,10 +361,14 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_arr_p=None,err_arr
     rax.set_ylabel('Ratio')
     rax.set_ylim(0.5,1.5)
 
-    # Plot the syst error band
+
+    # Plot the syst error band for main plot and ratio plot
     dense_axes = h_mc.dense_axes()
+    data_arr = h_data.values()[('Data',)]
     bin_edges_arr = h_mc.axis(dense_axes[0]).edges()[:-1]
     ax.fill_between(bin_edges_arr,err_arr_m,err_arr_p, step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
+    #rax.fill_between(bin_edges_arr,data_arr/err_arr_m,data_arr/err_arr_p,step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
+    rax.fill_between(bin_edges_arr,err_arr_m/n,err_arr_p/n,step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
 
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
@@ -675,6 +684,10 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             CR_GRP_MAP["Conv"].append(proc_name)
         elif "TTJets" in proc_name:
             CR_GRP_MAP["Ttbar"].append(proc_name)
+        elif "TTTo" in proc_name:
+            CR_GRP_MAP["Ttbarpowheg"].append(proc_name)
+        elif "ZGTo" in proc_name:
+            CR_GRP_MAP["ZGamma"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             CR_GRP_MAP["Triboson"].append(proc_name)
         elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
@@ -688,10 +701,10 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
-    #skip_wlst = ["njets"] # Skip all but these hists
+    skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
-        #if (var_name not in skip_wlst): continue
+        if (var_name not in skip_wlst): continue
         if (var_name == "njets"):
             # We do not keep track of jets in the sparse axis for the njets hists
             cr_cat_dict = get_dict_with_stripped_bin_names(CR_CHAN_DICT,"njets")
@@ -713,16 +726,19 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
         hist_mc.scale(sample_lumi_dict,axis="sample")
 
         # TMP!!! Scale WZ by k factor
-        hist_mc.scale({"WZTo3LNu_centralUL16APV":1.19},axis="sample")
-        hist_mc.scale({"WZTo3LNu_centralUL16":1.19},axis="sample")
-        hist_mc.scale({"WZTo3LNu_centralUL17":1.19},axis="sample")
-        hist_mc.scale({"WZTo3LNu_centralUL18":1.19},axis="sample")
+        #hist_mc.scale({"WZTo3LNu_centralUL16APV":1.19},axis="sample")
+        #hist_mc.scale({"WZTo3LNu_centralUL16":1.19},axis="sample")
+        #hist_mc.scale({"WZTo3LNu_centralUL17":1.19},axis="sample")
+        #hist_mc.scale({"WZTo3LNu_centralUL18":1.19},axis="sample")
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
             if (hist_cat == "cr_2los_Z" and "j0" in var_name): continue # The 2los Z category does not require jets
             if (hist_cat == "cr_2lss_flip" and "j0" in var_name): continue # The flip category does not require jets
             print("\n\tCategory:",hist_cat)
+
+            #if hist_cat != "cr_3l": continue
+            #if hist_cat != "cr_2los_Z": continue
 
             # Make a sub dir for this category
             save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
@@ -738,13 +754,18 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
             # Remove samples that are not relevant for the given category
             samples_to_rm = []
+            #samples_to_rm = CR_GRP_MAP["Ttbarpowheg"] + CR_GRP_MAP["ZGamma"]
+            samples_to_rm = copy.deepcopy(CR_GRP_MAP["Ttbar"])
             if hist_cat == "cr_2los_tt":
-                samples_to_rm = CR_GRP_MAP["Nonprompt"]
-            if hist_cat == "cr_2lss":
-                samples_to_rm = CR_GRP_MAP["Ttbar"] + CR_GRP_MAP["DY"]
-            if hist_cat == "cr_3l":
-                samples_to_rm = CR_GRP_MAP["DY"]
+                samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
+            #if hist_cat == "cr_2lss":
+                #samples_to_rm += CR_GRP_MAP["Ttbar"] + CR_GRP_MAP["DY"]
+                #samples_to_rm += CR_GRP_MAP["Ttbarpowheg"] + CR_GRP_MAP["DY"]
+            #if hist_cat == "cr_3l":
+                #samples_to_rm += copy.deepcopy(CR_GRP_MAP["DY"])
+            print("\nRemoving:",samples_to_rm)
             hist_mc_integrated = hist_mc_integrated.remove(samples_to_rm,"sample")
+
 
             #########################
 
@@ -786,10 +807,11 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             m_err_arr = nom_arr_all - np.sqrt(sum(m_arr_rel_lst) + rate_systs_summed_arr_m)
             print("\nall_rates_p_sumw2", rate_systs_summed_arr_p)
             print("\nall_rates_m_sumw2", rate_systs_summed_arr_m)
+            print("\np_err_arr", p_err_arr)
+            print("\nm_err_arr", m_err_arr)
             print("\nnom",nom_arr_all)
 
             #########################
-
 
             # Group the samples by process type
             hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
@@ -815,7 +837,7 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             x_range = None
             if var_name == "ht": x_range = (0,250)
             #fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range)
-            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range, err_arr_p=p_err_arr, err_arr_m=m_err_arr)
+            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range, err_arr_p=p_err_arr, err_arr_m=m_err_arr,n=nom_arr_all)
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
