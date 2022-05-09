@@ -156,6 +156,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             sampleType = "data"
         elif histAxisName in get_param("conv_samples"):
             sampleType = "conversions"
+        elif histAxisName in get_param("prompt_and_conv_samples"):
+            # Just DY (since we care about prompt DY for Z CR, and conv DY for 3l CR)
+            sampleType = "prompt_and_conversions"
 
         # Initialize objects
         met  = events.MET

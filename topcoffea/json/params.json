@@ -33,6 +33,16 @@
     "btag_wp_medium_UL17" : 0.3040,
     "btag_wp_medium_UL18" : 0.2783,
 
+    "prompt_and_conv_samples": [
+        "DY10to50_centralUL16APV",
+        "DY50_centralUL16APV",
+        "DY10to50_centralUL16",
+        "DY50_centralUL16",
+        "DYJetsToLL_centralUL17",
+        "DY10to50_centralUL18",
+        "DY50_centralUL18"
+    ],
+
     "conv_samples": [
         "TTGJets_centralUL16APV",
         "TTGJets_centralUL16",
