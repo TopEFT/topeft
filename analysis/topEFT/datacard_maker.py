@@ -9,6 +9,7 @@ import os
 import re
 import json
 from copy import deepcopy 
+from topcoffea.modules.paths import topcoffea_path
 
 from ROOT import TFile, TH1D, TH2D,nullptr
 
@@ -166,6 +167,9 @@ class DatacardMaker():
             lumi = json.load(jf)
             self.lumi = lumi
         self.lumi = {year : 1000*lumi for year,lumi in self.lumi.items()}
+
+        # Populate missing parton dicts
+        self.fparton = uproot.open(topcoffea_path('data/missing_parton/missing_parton.root'))
 
     def should_skip_process(self, proc, channel):
         for proc_skip,channel_skip in self.skip_process_channels.items():
@@ -437,7 +441,7 @@ class DatacardMaker():
             xwidth = h.GetXaxis().GetBinWidth(1)
             return deepcopy(h) # to protect d_hists from modifications 
 
-        def processSyst(process, channel, systMap, d_hists, fout):
+        def processSyst(process, channel, systMap, d_hists, fout, cat):
             for syst in self.syst:
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
                 process = re.sub('UL\d\d(?:APV)?', '', process)
@@ -511,6 +515,16 @@ class DatacardMaker():
                     systMap[syst_cat].update({proc: syst})
                 else:
                     systMap[syst_cat] = {proc: syst}
+ 
+                if process.split('_')[0] in ['tllq', 'tHq'] and cat+';1' in self.fparton.keys():
+                    syst_cat = 'parton'
+                    jet = int(re.findall('\dj', channel)[0][:-1])
+                    offset = -4 if '3l' not in channel else -2
+                    syst = 1+self.fparton[f'{cat};1'][process.split('_')[0]].array()[jet+offset]
+                    if syst_cat in systMap:
+                        systMap[syst_cat].update({proc: syst})
+                    else:
+                        systMap[syst_cat] = {proc: syst}
                     
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
@@ -617,9 +631,9 @@ class DatacardMaker():
                 signalcount, bkgcount, h_sm = addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout)
                 if self.do_nuisance:
                     if any([sig in proc for sig in self.signal]):
-                       processSyst(name, channel, systMap, d_hists, fout)
+                       processSyst(name, channel, systMap, d_hists, fout, cat)
                     else:
-                       processSyst(proc+'_sm', channel, systMap, d_hists, fout)
+                       processSyst(proc+'_sm', channel, systMap, d_hists, fout, cat)
                 h_sm.SetDirectory(fout)
                 name = name.split('_')
                 if name[0] in self.rename: name[0] = self.rename[name[0]]
@@ -696,7 +710,7 @@ class DatacardMaker():
                 if allyields[name] < 0:
                     raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
 
-                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout, cat)
 
                 # Get the "Q" piece
                 name = '_'.join([pname[:-1],'quad',wc])
@@ -721,7 +735,7 @@ class DatacardMaker():
                 h_quad.Write()
                 if allyields[name] < 0:
                     raise Exception(f"This value {allyields[name]} should not be negative (except potentially due to rounding errors, if the value is tiny), check for bugs upstream.")
-                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout, cat)
                 
 
                 # Get the "S+Li+Lj+Qi+Qj+2Mij" piece
@@ -749,7 +763,7 @@ class DatacardMaker():
                     allyields[name] = h_mix.Integral()
                     if allyields[name] < 0:
                         raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
-                    if self.do_nuisance: processSyst(name, channel,  systMap, d_hists, fout)
+                    if self.do_nuisance: processSyst(name, channel,  systMap, d_hists, fout, cat)
 
         selectedWCsFile=open(f'histos/selectedWCs-{cat}.txt','w')
         json.dump(selectedWCsForProc, selectedWCsFile)
