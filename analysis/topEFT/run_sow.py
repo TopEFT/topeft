@@ -92,8 +92,6 @@ if executor == "work_queue":
     executor_args = {
         'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
 
-        'xrootdtimeout': 900,
-
         # find a port to run work queue in this range:
         'port': [9123,9130],
 
@@ -103,9 +101,6 @@ if executor == "work_queue":
 
         'environment_file': remote_environment.get_environment(),
         'extra_input_files': ["sow_processor.py"],
-
-        'schema': NanoAODSchema,
-        'skipbadfiles': False,
 
         # use mid-range compression for chunks results. 9 is the default for work
         # queue in coffea. Valid values are 0 (minimum compression, less memory
@@ -166,27 +161,14 @@ if executor == "work_queue":
 tstart = time.time()
 
 if executor == "futures":
-    output = processor.run_uproot_job(
-        flist,
-        treename=treename,
-        processor_instance=processor_instance,
-        executor=processor.futures_executor,
-        executor_args={"schema": NanoAODSchema,'workers': 8},
-        chunksize=chunksize,
-        maxchunks=nchunks,
-    )
-elif executor == "work_queue":
-    output = processor.run_uproot_job(
-        flist,
-        treename=treename,
-        processor_instance=processor_instance,
-        executor=processor.work_queue_executor,
-        executor_args=executor_args,
-        chunksize=chunksize,
-        maxchunks=nchunks,
-    )
+    exec_instance = processor.FuturesExecutor(workers=8)
+elif executor ==  "work_queue":
+    exec_instance = processor.WorkQueueExecutor(**executor_args)
 else:
-  raise Exception(f"Executor \"{executor}\" is not known.")
+    raise Exception(f"Executor \"{executor}\" is not known.")
+
+runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=900)
+output = runner(flist, treename, processor_instance)
 
 dt = time.time() - tstart
 
