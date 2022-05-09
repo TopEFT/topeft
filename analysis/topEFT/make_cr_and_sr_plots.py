@@ -286,11 +286,41 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
 
     return [sum(all_rates_m_sumw2_lst),sum(all_rates_p_sumw2_lst)]
 
+# Wrapper for getting plus and minus shape arrs
+def get_shape_syst_arrs(base_histo,proc_group_map):
+
+    # Get the list of systematic base names (i.e. without the up and down tags)
+    # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
+    syst_var_lst = []
+    all_syst_var_lst = yt.get_cat_lables(base_histo,"systematic")
+    for syst_var_name in all_syst_var_lst:
+        if syst_var_name.endswith("Up"):
+            syst_name_base = syst_var_name.replace("Up","")
+            if syst_name_base not in syst_var_lst:
+                syst_var_lst.append(syst_name_base)
+
+    # Sum each systematic's contribtuions for all samples together (e.g. the ISR for all samples is summed linearly)
+    p_arr_rel_lst = []
+    m_arr_rel_lst = []
+    for syst_name in syst_var_lst:
+        relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "sample") # The samples relevant to this syst
+        n_arr     = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()]        # Sum of all samples for nominal variation
+        u_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Up").values()[()]   # Sum of all samples for up variation
+        d_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Down").values()[()] # Sum of all samples for down variation
+        u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
+        d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
+        p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
+        m_arr_rel = np.where(u_arr_rel<0,u_arr_rel,d_arr_rel) # Just the ones that decrease the yield
+        p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
+        m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
+
+    return [sum(m_arr_rel_lst), sum(p_arr_rel_lst)]
+
 
 ######### Plotting functions #########
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_arr_p=None,err_arr_m=None,n=None):
+def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
 
     colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown"]
 
@@ -358,12 +388,12 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_arr_p=None,err_arr
     rax.set_ylim(0.5,1.5)
 
 
-    # Plot the syst error band for main plot and ratio plot
-    dense_axes = h_mc.dense_axes()
-    data_arr = h_data.values()[('Data',)]
-    bin_edges_arr = h_mc.axis(dense_axes[0]).edges()[:-1]
-    ax.fill_between(bin_edges_arr,err_arr_m,err_arr_p, step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
-    rax.fill_between(bin_edges_arr,err_arr_m/n,err_arr_p/n,step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
+    # Plot the syst error
+    if (err_p is not None) and (err_m is not None) and (err_ratio_p is not None) and (err_ratio_m is not None):
+        dense_axes = h_mc.dense_axes()
+        bin_edges_arr = h_mc.axis(dense_axes[0]).edges()[:-1]
+        ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
+        rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
 
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
@@ -621,7 +651,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 ###################### Wrapper function for all CR plots ######################
 # Wrapper function to loop over all CR categories and make plots for all variables
 # The input hist should include both the data and MC
-def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
+def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_path):
 
     # Construct list of MC samples
     mc_wl = []
@@ -743,62 +773,36 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             hist_mc_integrated = hist_mc_integrated.remove(samples_to_rm,"sample")
 
 
-            #########################
+            # Calculate the syst errors
+            p_err_arr = None
+            m_err_arr = None
+            p_err_arr_ratio = None
+            m_err_arr_ratio = None
+            if not skip_syst_errs:
+                # Get plus and minus rate and shape arrs
+                rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
+                shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated,CR_GRP_MAP)
+                # Get the arrays we will actually put in the CR plot
+                nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
+                p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
+                m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m) # This goes in the main plot
+                p_err_arr_ratio = p_err_arr/nom_arr_all # This goes in the ratio plot
+                m_err_arr_ratio = m_err_arr/nom_arr_all # This goes in the ratio plot
+                print("\nall_rates_p_sumw2", rate_systs_summed_arr_p)
+                print("\nall_rates_m_sumw2", rate_systs_summed_arr_m)
+                print("\np_err_arr", p_err_arr)
+                print("\nm_err_arr", m_err_arr)
+                print("\nnom",nom_arr_all)
 
-            ### Rate syst errors ###
-
-            # Get plus and minus rate arrs
-            rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
-
-            ### Shape syst errors ###
-
-            # Get the list of systematic base names (i.e. without the up and down tags)
-            # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
-            syst_var_lst = []
-            all_syst_var_lst = yt.get_cat_lables(hist_mc_integrated,"systematic")
-            for syst_var_name in all_syst_var_lst:
-                if syst_var_name.endswith("Up"):
-                    syst_name_base = syst_var_name.replace("Up","")
-                    if syst_name_base not in syst_var_lst:
-                        syst_var_lst.append(syst_name_base)
-
-            # Sum each systematic's contribtuions for all samples together (e.g. the ISR for all samples is summed linearly)
-            p_arr_rel_lst = []
-            m_arr_rel_lst = []
-            for syst_name in syst_var_lst:
-                relevant_samples_lst = yt.get_cat_lables(hist_mc_integrated.integrate("systematic",syst_name+"Up"), "sample") # The samples relevant to this syst
-                n_arr     = hist_mc_integrated.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()]        # Sum of all samples for nominal variation
-                u_arr_sum = hist_mc_integrated.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Up").values()[()]   # Sum of all samples for up variation
-                d_arr_sum = hist_mc_integrated.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Down").values()[()] # Sum of all samples for down variation
-                u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
-                d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
-                p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
-                m_arr_rel = np.where(u_arr_rel<0,u_arr_rel,d_arr_rel) # Just the ones that decrease the yield
-                p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
-                m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
-
-            # Add all of the systematic contribtuions in quadrature
-            nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
-            p_err_arr = nom_arr_all + np.sqrt(sum(p_arr_rel_lst) + rate_systs_summed_arr_p)
-            m_err_arr = nom_arr_all - np.sqrt(sum(m_arr_rel_lst) + rate_systs_summed_arr_m)
-            print("\nall_rates_p_sumw2", rate_systs_summed_arr_p)
-            print("\nall_rates_m_sumw2", rate_systs_summed_arr_m)
-            print("\np_err_arr", p_err_arr)
-            print("\nm_err_arr", m_err_arr)
-            print("\nnom",nom_arr_all)
-
-            #########################
-
-            # Group the samples by process type
+            # Group the samples by process type, and grab just nominal syst axis
             hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
             hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
-
-            # Get rid of the systematic axis (don't need it for plotting)
             hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
             hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
 
             # Print out total MC and data and the sf between them
             # For extracting the factors we apply to the flip contribution
+            # Probably should be an option not just a commented block...
             #if hist_cat != "cr_2lss_flip": continue
             #tot_data = sum(sum(hist_data_integrated.values().values()))
             #tot_mc   = sum(sum(hist_mc_integrated.values().values()))
@@ -812,8 +816,16 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             # Create and save the figure
             x_range = None
             if var_name == "ht": x_range = (0,250)
-            #fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range)
-            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range, err_arr_p=p_err_arr, err_arr_m=m_err_arr,n=nom_arr_all)
+            fig = make_cr_fig(
+                hist_mc_integrated,
+                hist_data_integrated,
+                unit_norm_bool,
+                set_x_lim = x_range,
+                err_p = p_err_arr,
+                err_m = m_err_arr,
+                err_ratio_p = p_err_arr_ratio,
+                err_ratio_m = m_err_arr_ratio
+            )
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
@@ -832,6 +844,7 @@ def main():
     parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
     parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
+    parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip syst errs in plots, only relevant for CR plots right now")
     args = parser.parse_args()
 
     # Whether or not to unit norm the plots
@@ -854,7 +867,7 @@ def main():
     #exit()
 
     # Make the plots
-    make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
 
