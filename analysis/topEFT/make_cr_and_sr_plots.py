@@ -292,10 +292,6 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
 def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_arr_p=None,err_arr_m=None,n=None):
 
-    #colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
-    #colors = ["tab:blue","tab:orange","brown",'tab:cyan',"tab:purple","tab:pink","tan","tab:green","tab:red"]
-    ##colors = ["tab:blue","tab:orange","brown",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","darkgreen","tab:red"]
-    #colors = ["tab:blue","brown","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","darkgreen"]
     colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown"]
 
     # Create the figure
@@ -367,7 +363,6 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_arr_p=None,err_arr
     data_arr = h_data.values()[('Data',)]
     bin_edges_arr = h_mc.axis(dense_axes[0]).edges()[:-1]
     ax.fill_between(bin_edges_arr,err_arr_m,err_arr_p, step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
-    #rax.fill_between(bin_edges_arr,data_arr/err_arr_m,data_arr/err_arr_p,step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
     rax.fill_between(bin_edges_arr,err_arr_m/n,err_arr_p/n,step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
 
     # Set the x axis lims
@@ -682,10 +677,8 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             CR_GRP_MAP["DY"].append(proc_name)
         elif "TTG" in proc_name:
             CR_GRP_MAP["Conv"].append(proc_name)
-        elif "TTJets" in proc_name:
-            CR_GRP_MAP["Ttbar"].append(proc_name)
         elif "TTTo" in proc_name:
-            CR_GRP_MAP["Ttbarpowheg"].append(proc_name)
+            CR_GRP_MAP["Ttbar"].append(proc_name)
         elif "ZGTo" in proc_name:
             CR_GRP_MAP["ZGamma"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
@@ -696,8 +689,6 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             CR_GRP_MAP["Singleboson"].append(proc_name)
         else:
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
-
-    # Get the eft sum of weights at SM norm dict
 
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
@@ -725,12 +716,6 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
         hist_mc.scale(sample_lumi_dict,axis="sample")
 
-        # TMP!!! Scale WZ by k factor
-        #hist_mc.scale({"WZTo3LNu_centralUL16APV":1.19},axis="sample")
-        #hist_mc.scale({"WZTo3LNu_centralUL16":1.19},axis="sample")
-        #hist_mc.scale({"WZTo3LNu_centralUL17":1.19},axis="sample")
-        #hist_mc.scale({"WZTo3LNu_centralUL18":1.19},axis="sample")
-
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
             if (hist_cat == "cr_2los_Z" and "j0" in var_name): continue # The 2los Z category does not require jets
@@ -747,23 +732,14 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
             # Integrate to get the categories we want
             axes_to_integrate_dict = {}
-            #axes_to_integrate_dict["systematic"] = "nominal"
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
             hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)
             hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)
 
             # Remove samples that are not relevant for the given category
             samples_to_rm = []
-            #samples_to_rm = CR_GRP_MAP["Ttbarpowheg"] + CR_GRP_MAP["ZGamma"]
-            samples_to_rm = copy.deepcopy(CR_GRP_MAP["Ttbar"])
             if hist_cat == "cr_2los_tt":
                 samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
-            #if hist_cat == "cr_2lss":
-                #samples_to_rm += CR_GRP_MAP["Ttbar"] + CR_GRP_MAP["DY"]
-                #samples_to_rm += CR_GRP_MAP["Ttbarpowheg"] + CR_GRP_MAP["DY"]
-            #if hist_cat == "cr_3l":
-                #samples_to_rm += copy.deepcopy(CR_GRP_MAP["DY"])
-            print("\nRemoving:",samples_to_rm)
             hist_mc_integrated = hist_mc_integrated.remove(samples_to_rm,"sample")
 
 
