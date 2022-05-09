@@ -10,7 +10,8 @@ from coffea import hist
 from topcoffea.modules.HistEFT import HistEFT
 
 from topcoffea.modules.YieldTools import YieldTools
-from topcoffea.modules.GetValuesFromJsons import get_lumi
+#from topcoffea.modules.GetValuesFromJsons import get_lumi
+import topcoffea.modules.GetValuesFromJsons as getj
 from topcoffea.plotter.make_html import make_html
 
 # This script takes an input pkl file that should have both data and background MC included.
@@ -45,6 +46,10 @@ CR_CHAN_DICT = {
         "2lss_ee_CRflip_3j",
     ],
     "cr_3l" : [
+        "3l_eee_CR_0j",
+        "3l_eem_CR_0j",
+        "3l_emm_CR_0j",
+        "3l_mmm_CR_0j",
         "3l_eee_CR_1j",
         "3l_eem_CR_1j",
         "3l_emm_CR_1j",
@@ -79,6 +84,8 @@ SR_CHAN_DICT = {
 CR_GRP_MAP = {
     "DY" : [],
     "Ttbar" : [],
+    "Ttbarpowheg" : [],
+    "ZGamma" : [],
     "Diboson" : [],
     "Triboson" : [],
     "Single top" : [],
@@ -123,6 +130,9 @@ WCPT_EXAMPLE = {
 
 yt = YieldTools()
 
+
+######### Utility functions #########
+
 # Takes a dictionary where the keys are catetory names and keys are lists of bin names in the category, and a string indicating what type of info (njets, or lepflav) to remove
 # Returns a dictionary of the same structure, except with njet or lepflav info stripped off of the bin names
 # E.g. if a value was ["cat_a_1j","cat_b_1j","cat_b_2j"] and we passed "njets", we should return ["cat_a","cat_b"]
@@ -145,14 +155,14 @@ def get_dict_with_stripped_bin_names(in_chan_dict,type_of_info_to_strip):
 # Figures out which year a sample is from, retruns the lumi for that year
 def get_lumi_for_sample(sample_name):
     if "UL17" in sample_name:
-        lumi = 1000.0*get_lumi("2017")
+        lumi = 1000.0*getj.get_lumi("2017")
     elif "UL18" in sample_name:
-        lumi = 1000.0*get_lumi("2018")
+        lumi = 1000.0*getj.get_lumi("2018")
     elif "UL16APV" in sample_name:
-        lumi = 1000.0*get_lumi("2016APV")
+        lumi = 1000.0*getj.get_lumi("2016APV")
     elif "UL16" in sample_name:
         # Should not be here unless "UL16APV" not in sample_name
-        lumi = 1000.0*get_lumi("2016")
+        lumi = 1000.0*getj.get_lumi("2016")
     else:
         raise Exception(f"Error: Unknown year \"{year}\".")
     return lumi
@@ -179,11 +189,149 @@ def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
     return new_histo
 
 
-# Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
+######### Functions for getting info from the systematics json #########
 
-    #colors = ['#e31a1c','#fb9a99','#a6cee3','#1f78b4','#b2df8a','#33a02c']
-    colors = ["tab:blue","tab:orange","brown",'tab:cyan',"tab:purple","tab:pink","tan","tab:green","tab:red"]
+# Match a given sample name to whatever it is called in the json
+# Will return None if a match is not found
+def get_scale_name(sample_name,sample_group_map):
+    scale_name_for_json = None
+    if sample_name in sample_group_map["Conv"]:
+        scale_name_for_json = "convs"
+    elif sample_name in sample_group_map["Diboson"]:
+        scale_name_for_json = "Diboson"
+    elif sample_name in sample_group_map["Triboson"]:
+        scale_name_for_json = "Triboson"
+    elif sample_name in sample_group_map["Signal"]:
+        for proc_str in ["ttH","tllq","ttlnu","ttll","tHq"]:
+            if proc_str in sample_name:
+                # This should only match once, but maybe we should put a check to enforce this
+                scale_name_for_json = proc_str
+    return scale_name_for_json
+
+# This function gets the tag that indicates how a particualr systematic is correlated
+#   - For pdf_scale this corresponds to the initial state (e.g. gg)
+#   - For qcd_scale this corresponds to the process type (e.g. VV)
+# For any systemaitc or process that is not included in the correlations json we return None
+def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
+    proc_name_in_json = get_scale_name(proc_name,sample_group_map)
+    corr_tag = None
+    # Right now we only have two types of uncorrelated rate systematics
+    if uncertainty_name in ["qcd_scale","pdf_scale"]:
+        if proc_name_in_json is not None:
+            corr_tag = getj.get_correlation_tag(uncertainty_name,proc_name_in_json)
+    return corr_tag
+
+# This function gets all of the the rate systematics from the json file
+# Returns a dictionary with all of the uncertainties
+# If the sample does not have an uncertainty in the json, an uncertainty of 0 is returned for that category
+def get_rate_systs(sample_name,sample_group_map):
+
+    # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
+    scale_name_for_json = get_scale_name(sample_name,sample_group_map)
+
+    # Get the lumi uncty for this sample (same for all samles)
+    lumi_uncty = getj.get_syst("lumi")
+
+    # Get the flip uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
+    if sample_name in sample_group_map["Flips"]:
+        flip_uncty = getj.get_syst("charge_flips","charge_flips_sm")
+    else:
+        flip_uncty = [1.0,1,0]
+
+    # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
+    if scale_name_for_json is not None:
+        pdf_uncty = getj.get_syst("pdf_scale",scale_name_for_json)
+        qcd_uncty = getj.get_syst("qcd_scale",scale_name_for_json)
+    else:
+        pdf_uncty = [1.0,1,0]
+        qcd_uncty = [1.0,1,0]
+
+    out_dict = {"pdf_scale":pdf_uncty, "qcd_scale":qcd_uncty, "lumi":lumi_uncty, "charge_flips":flip_uncty}
+    return out_dict
+
+
+# Wrapper for getting plus and minus rate arrs
+def get_rate_syst_arrs(base_histo,proc_group_map):
+
+    # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
+    rate_syst_arr_dict = {}
+    for rate_sys_type in getj.get_syst_lst():
+        rate_syst_arr_dict[rate_sys_type] = {}
+        for sample_name in yt.get_cat_lables(base_histo,"sample"):
+
+            # Build the plus and minus arrays from the rate uncertainty number and the nominal arr
+            rate_syst_dict = get_rate_systs(sample_name,proc_group_map)
+            thissample_nom_arr = base_histo.integrate("sample",sample_name).integrate("systematic","nominal").values()[()]
+            p_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][1]) - thissample_nom_arr # Difference between positive fluctuation and nominal
+            m_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][0]) - thissample_nom_arr # Difference between positive fluctuation and nominal
+
+            # Put the arrays into the correlation dict (organizing correlated ones together)
+            correlation_tag = get_correlation_tag(rate_sys_type,sample_name,proc_group_map)
+            out_key_name = rate_sys_type
+            if correlation_tag is not None: out_key_name += "_"+correlation_tag
+            if out_key_name not in rate_syst_arr_dict[rate_sys_type]:
+                rate_syst_arr_dict[rate_sys_type][out_key_name] = {"p":[],"m":[]}
+            rate_syst_arr_dict[rate_sys_type][out_key_name]["p"].append(p_arr)
+            rate_syst_arr_dict[rate_sys_type][out_key_name]["m"].append(m_arr)
+
+    # Now sum the linearly correlated ones and then square everything
+    all_rates_p_sumw2_lst = []
+    all_rates_m_sumw2_lst = []
+    for syst_name in rate_syst_arr_dict.keys():
+        for correlated_syst_group in rate_syst_arr_dict[syst_name]:
+            sum_p_arrs = sum(rate_syst_arr_dict[syst_name][correlated_syst_group]["p"])
+            sum_m_arrs = sum(rate_syst_arr_dict[syst_name][correlated_syst_group]["m"])
+            all_rates_p_sumw2_lst.append(sum_p_arrs*sum_p_arrs)
+            all_rates_m_sumw2_lst.append(sum_m_arrs*sum_m_arrs)
+
+    return [sum(all_rates_m_sumw2_lst),sum(all_rates_p_sumw2_lst)]
+
+# Wrapper for getting plus and minus shape arrs
+def get_shape_syst_arrs(base_histo,proc_group_map):
+
+    # Get the list of systematic base names (i.e. without the up and down tags)
+    # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
+    syst_var_lst = []
+    all_syst_var_lst = yt.get_cat_lables(base_histo,"systematic")
+    for syst_var_name in all_syst_var_lst:
+        if syst_var_name.endswith("Up"):
+            syst_name_base = syst_var_name.replace("Up","")
+            if syst_name_base not in syst_var_lst:
+                syst_var_lst.append(syst_name_base)
+
+    # Sum each systematic's contribtuions for all samples together (e.g. the ISR for all samples is summed linearly)
+    p_arr_rel_lst = []
+    m_arr_rel_lst = []
+    for syst_name in syst_var_lst:
+        relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "sample") # The samples relevant to this syst
+        n_arr     = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()]        # Sum of all samples for nominal variation
+        u_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Up").values()[()]   # Sum of all samples for up variation
+        d_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Down").values()[()] # Sum of all samples for down variation
+        u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
+        d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
+        p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
+        m_arr_rel = np.where(u_arr_rel<0,u_arr_rel,d_arr_rel) # Just the ones that decrease the yield
+        p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
+        m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
+
+    return [sum(m_arr_rel_lst), sum(p_arr_rel_lst)]
+
+
+######### Plotting functions #########
+
+# Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
+def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
+
+    colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown"]
+
+    # Decide if we're plotting stat or syst uncty for mc
+    # In principle would be better to combine them
+    # But for our cases syst is way bigger than mc stat, so if we're plotting syst, ignore stat
+    plot_syst_err = False
+    mc_err_ops = MC_ERROR_OPS
+    if (err_p is not None) and (err_m is not None) and (err_ratio_p is not None) and (err_ratio_m is not None):
+        plot_syst_err = True
+        mc_err_ops = None
 
     # Create the figure
     fig, (ax, rax) = plt.subplots(
@@ -212,12 +360,11 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
     # Plot the MC
     hist.plot1d(
         h_mc,
-        #overlay="sample",
         ax=ax,
         stack=True,
         line_opts=None,
         fill_opts=FILL_OPS,
-        error_opts=MC_ERROR_OPS,
+        error_opts=mc_err_ops,
         clear=False,
     )
 
@@ -241,6 +388,13 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None):
         unc = 'num',
         clear = False,
     )
+
+    # Plot the syst error
+    if plot_syst_err:
+        dense_axes = h_mc.dense_axes()
+        bin_edges_arr = h_mc.axis(dense_axes[0]).edges()[:-1]
+        ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
+        rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
 
     # Scale the y axis and labels
     ax.autoscale(axis='y')
@@ -504,7 +658,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 ###################### Wrapper function for all CR plots ######################
 # Wrapper function to loop over all CR categories and make plots for all variables
 # The input hist should include both the data and MC
-def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
+def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_path):
 
     # Construct list of MC samples
     mc_wl = []
@@ -560,8 +714,10 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             CR_GRP_MAP["DY"].append(proc_name)
         elif "TTG" in proc_name:
             CR_GRP_MAP["Conv"].append(proc_name)
-        elif "TTJets" in proc_name:
+        elif "TTTo" in proc_name:
             CR_GRP_MAP["Ttbar"].append(proc_name)
+        elif "ZGTo" in proc_name:
+            CR_GRP_MAP["ZGamma"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             CR_GRP_MAP["Triboson"].append(proc_name)
         elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
@@ -570,8 +726,6 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             CR_GRP_MAP["Singleboson"].append(proc_name)
         else:
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
-
-    # Get the eft sum of weights at SM norm dict
 
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
@@ -599,10 +753,6 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
         hist_mc.scale(sample_lumi_dict,axis="sample")
 
-        # Group the samples by process type
-        hist_mc = group_bins(hist_mc,CR_GRP_MAP)
-        hist_data = group_bins(hist_data,CR_GRP_MAP)
-
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
             if (hist_cat == "cr_2los_Z" and "j0" in var_name): continue # The 2los Z category does not require jets
@@ -616,22 +766,41 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
 
             # Integrate to get the categories we want
             axes_to_integrate_dict = {}
-            axes_to_integrate_dict["systematic"] = "nominal"
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
             hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)
             hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)
 
             # Remove samples that are not relevant for the given category
+            samples_to_rm = []
             if hist_cat == "cr_2los_tt":
-                hist_mc_integrated = hist_mc_integrated.remove(["Nonprompt"],"sample")
-            if hist_cat == "cr_2lss":
-                hist_mc_integrated = hist_mc_integrated.remove(["Ttbar"],"sample")
-                hist_mc_integrated = hist_mc_integrated.remove(["DY"],"sample")
-            if hist_cat == "cr_3l":
-                hist_mc_integrated = hist_mc_integrated.remove(["DY"],"sample")
+                samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
+            hist_mc_integrated = hist_mc_integrated.remove(samples_to_rm,"sample")
+
+            # Calculate the syst errors
+            p_err_arr = None
+            m_err_arr = None
+            p_err_arr_ratio = None
+            m_err_arr_ratio = None
+            if not skip_syst_errs:
+                # Get plus and minus rate and shape arrs
+                rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
+                shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated,CR_GRP_MAP)
+                # Get the arrays we will actually put in the CR plot
+                nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
+                p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
+                m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m) # This goes in the main plot
+                p_err_arr_ratio = p_err_arr/nom_arr_all # This goes in the ratio plot
+                m_err_arr_ratio = m_err_arr/nom_arr_all # This goes in the ratio plot
+
+            # Group the samples by process type, and grab just nominal syst category
+            hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
+            hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
+            hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
+            hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
 
             # Print out total MC and data and the sf between them
             # For extracting the factors we apply to the flip contribution
+            # Probably should be an option not just a commented block...
             #if hist_cat != "cr_2lss_flip": continue
             #tot_data = sum(sum(hist_data_integrated.values().values()))
             #tot_mc   = sum(sum(hist_mc_integrated.values().values()))
@@ -645,7 +814,16 @@ def make_all_cr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path):
             # Create and save the figure
             x_range = None
             if var_name == "ht": x_range = (0,250)
-            fig = make_cr_fig(hist_mc_integrated,hist_data_integrated,unit_norm_bool,set_x_lim=x_range)
+            fig = make_cr_fig(
+                hist_mc_integrated,
+                hist_data_integrated,
+                unit_norm_bool,
+                set_x_lim = x_range,
+                err_p = p_err_arr,
+                err_m = m_err_arr,
+                err_ratio_p = p_err_arr_ratio,
+                err_ratio_m = m_err_arr_ratio
+            )
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
@@ -664,6 +842,7 @@ def main():
     parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
     parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
+    parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip syst errs in plots, only relevant for CR plots right now")
     args = parser.parse_args()
 
     # Whether or not to unit norm the plots
@@ -686,7 +865,7 @@ def main():
     #exit()
 
     # Make the plots
-    make_all_cr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
 

@@ -15,9 +15,10 @@ def test_get_files():
         verbose=True
     )
 
-    assert (len(file_list) == 3)
+    assert (len(file_list) == 4)
     assert (pjoin(path,"lumi.json") in file_list)
     assert (pjoin(path,"params.json") in file_list)
+    assert (pjoin(path,"rate_systs.json") in file_list)
     assert (pjoin(path,"README.md") in file_list)
 
     # Check to see if regex matching for file names is working
@@ -29,9 +30,10 @@ def test_get_files():
         verbose=True
     )
 
-    assert (len(file_list) == 2)
+    assert (len(file_list) == 3)
     assert (pjoin(path,"lumi.json") in file_list)
     assert (pjoin(path,"params.json") in file_list)
+    assert (pjoin(path,"rate_systs.json") in file_list)
 
     # Check if the 'recursive' and 'ignore_dirs' options are working
     path = topcoffea_path("json")
@@ -44,9 +46,10 @@ def test_get_files():
         verbose=True
     )
 
-    assert (len(file_list) == 6)
+    assert (len(file_list) == 7)
     assert (pjoin(path,"lumi.json") in file_list)
     assert (pjoin(path,"params.json") in file_list)
+    assert (pjoin(path,"rate_systs.json") in file_list)
     assert (pjoin(path,"sync_samples/ttHJetToNonbb_sync.json") in file_list)
     assert (pjoin(path,"test_samples/UL17_private_ttH_for_CI.json") in file_list)
     assert (pjoin(path,"test_samples/UL17_private_ttH_hadoop_for_CI.json") in file_list)
@@ -64,9 +67,10 @@ def test_get_files():
         verbose=True
     )
 
-    assert (len(file_list) == 4)
+    assert (len(file_list) == 5)
     assert (pjoin(path,"lumi.json") not in file_list)
     assert (pjoin(path,"params.json") not in file_list)
+    assert (pjoin(path,"rate_systs.json") in file_list)
     assert (pjoin(path,"sync_samples/ttHJetToNonbb_sync.json") in file_list)
     assert (pjoin(path,"test_samples/UL17_private_ttH_for_CI.json") in file_list)
     assert (pjoin(path,"test_samples/UL17_private_ttH_hadoop_for_CI.json") in file_list)
