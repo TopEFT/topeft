@@ -324,6 +324,15 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,
 
     colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown"]
 
+    # Decide if we're plotting stat or syst uncty for mc
+    # In principle would be better to combine them
+    # But for our cases syst is way bigger than mc stat, so if we're plotting syst, ignore stat
+    plot_syst_err = False
+    mc_err_ops = MC_ERROR_OPS
+    if (err_p is not None) and (err_m is not None) and (err_ratio_p is not None) and (err_ratio_m is not None):
+        plot_syst_err = True
+        mc_err_ops = None
+
     # Create the figure
     fig, (ax, rax) = plt.subplots(
         nrows=2,
@@ -351,12 +360,11 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,
     # Plot the MC
     hist.plot1d(
         h_mc,
-        #overlay="sample",
         ax=ax,
         stack=True,
         line_opts=None,
         fill_opts=FILL_OPS,
-        error_opts=MC_ERROR_OPS,
+        error_opts=mc_err_ops,
         clear=False,
     )
 
@@ -381,19 +389,18 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,
         clear = False,
     )
 
+    # Plot the syst error
+    if plot_syst_err:
+        dense_axes = h_mc.dense_axes()
+        bin_edges_arr = h_mc.axis(dense_axes[0]).edges()[:-1]
+        ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
+        rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
+
     # Scale the y axis and labels
     ax.autoscale(axis='y')
     ax.set_xlabel(None)
     rax.set_ylabel('Ratio')
     rax.set_ylim(0.5,1.5)
-
-
-    # Plot the syst error
-    if (err_p is not None) and (err_m is not None) and (err_ratio_p is not None) and (err_ratio_m is not None):
-        dense_axes = h_mc.dense_axes()
-        bin_edges_arr = h_mc.axis(dense_axes[0]).edges()[:-1]
-        ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
-        rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Other syst.', hatch='////')
 
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
@@ -752,9 +759,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             if (hist_cat == "cr_2lss_flip" and "j0" in var_name): continue # The flip category does not require jets
             print("\n\tCategory:",hist_cat)
 
-            #if hist_cat != "cr_3l": continue
-            #if hist_cat != "cr_2los_Z": continue
-
             # Make a sub dir for this category
             save_dir_path_tmp = os.path.join(save_dir_path,hist_cat)
             if not os.path.exists(save_dir_path_tmp):
@@ -772,7 +776,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
             hist_mc_integrated = hist_mc_integrated.remove(samples_to_rm,"sample")
 
-
             # Calculate the syst errors
             p_err_arr = None
             m_err_arr = None
@@ -788,13 +791,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m) # This goes in the main plot
                 p_err_arr_ratio = p_err_arr/nom_arr_all # This goes in the ratio plot
                 m_err_arr_ratio = m_err_arr/nom_arr_all # This goes in the ratio plot
-                print("\nall_rates_p_sumw2", rate_systs_summed_arr_p)
-                print("\nall_rates_m_sumw2", rate_systs_summed_arr_m)
-                print("\np_err_arr", p_err_arr)
-                print("\nm_err_arr", m_err_arr)
-                print("\nnom",nom_arr_all)
 
-            # Group the samples by process type, and grab just nominal syst axis
+            # Group the samples by process type, and grab just nominal syst category
             hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
             hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
             hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
