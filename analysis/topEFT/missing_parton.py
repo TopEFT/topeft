@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import uproot
 import mplhep as hep
 import math
-import uproot3
 import json
 from topcoffea.modules.comp_datacard import strip
 from coffea import hist
@@ -28,13 +27,14 @@ def get_hists(fname, path, process):
     #syst_names = list(set([k.split('_')[-1] for k in up]))
     total = np.array([v for v in nom.values()]).sum(0)
 
-    systs = []
+    systs = [0,0]
     err = [np.zeros_like(total), np.zeros_like(total)]
 
     # Handle shape systematics
     if len(up) > 0:
         systs[0] = [k.split(';')[0] for k in fin.keys() if 'sm' in k and 'Up' in k]
         systs[1] = [k.split(';')[0] for k in fin.keys() if 'sm' in k and 'Down' in k]
+        total_systs = [[fin[k[0]+';1'].to_numpy()[0].sum(), fin[k[1]+';1'].to_numpy()[0].sum()] for k in systs]
         up_shift   = [abs(s[0] - total) for s in total_systs]
         down_shift = [abs(s[1] - total) for s in total_systs]
         err = [np.sqrt(np.sum(np.square(up_shift), axis=0)), np.sqrt(np.sum(np.square(down_shift), axis=0))]
