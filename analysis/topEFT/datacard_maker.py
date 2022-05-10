@@ -138,7 +138,6 @@ class DatacardMaker():
         self.ch4lj = list(set([j[-2:].replace('j','') for j in self.ch4l if 'j' in j]))
         self.ch4lj.sort()
         self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '2lss_4t': self.ch2lss_4t, '2lss_4t_p': self.ch2lss_4t_p, '2lss_4t_m': self.ch2lss_4t_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l_p_offZ_1b': self.ch3l1b_p, '3l_m_offZ_1b': self.ch3l1b_m, '3l_p_offZ_2b': self.ch3l2b_p, '3l_m_offZ_2b': self.ch3l2b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '3l_onZ_1b': self.ch3lsfz1b, '3l_onZ_2b': self.ch3lsfz2b, '4l': self.ch4l}
-        #self.skip_process_channels = {**self.skip_process_channels, **{'data': [k for k in self.channels]}} # Skip all data!
         self.skip_process_channels = {**self.skip_process_channels, **{'flips': [k for k in self.channels if '2l' not in k]}} # Charge flips only in 2lss channels
 
         # Get list of samples and cut levels from histograms
@@ -431,7 +430,6 @@ class DatacardMaker():
             ret_dict = {}
             loop_dict = deepcopy(in_dict) # Make sure we do not modify the input dict
             for loop_name,loop_histo in loop_dict.items():
-                #if 'dataUL' in loop_name and not self.unblind: continue
                 last   = loop_histo.GetBinContent(loop_histo.GetNbinsX())                # Last bin
                 over   = loop_histo.GetBinContent(loop_histo.GetNbinsX()+1)              # Overflow
                 e_last = loop_histo.GetBinError(loop_histo.GetNbinsX())                  # Last bin error
