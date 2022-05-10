@@ -224,24 +224,26 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     mask = (filters & cleanup & dilep & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
     
     # MC matching requirement (already passed for data)
-    if sampleType == 'prompt':
-        lep1_match=((padded_FOs[:,0].genPartFlav==1) | (padded_FOs[:,0].genPartFlav == 15))    
-        lep2_match=((padded_FOs[:,1].genPartFlav==1) | (padded_FOs[:,1].genPartFlav == 15))
-        lep1_charge=((padded_FOs[:,0].gen_pdgId*padded_FOs[:,0].pdgId) > 0)
-        lep2_charge=((padded_FOs[:,1].gen_pdgId*padded_FOs[:,1].pdgId) > 0)
-        mask = mask & lep1_match & lep2_match & lep1_charge & lep2_charge
-    elif sampleType =='conversions':
-        lep1_match=(padded_FOs[:,0].genPartFlav==22)
-        lep2_match=(padded_FOs[:,1].genPartFlav==22)
-        mask = mask & ( lep1_match | lep2_match ) 
-    elif sampleType == 'nonprompt':
-        lep1_match=((padded_FOs[:,0].genPartFlav!=1) & (padded_FOs[:,0].genPartFlav != 15) & (padded_FOs[:,0].genPartFlav != 22))
-        lep2_match=((padded_FOs[:,1].genPartFlav!=1) & (padded_FOs[:,1].genPartFlav != 15) & (padded_FOs[:,1].genPartFlav != 22))
-        mask = mask & ( lep1_match | lep2_match ) 
-    elif sampleType == "data":
+    if sampleType == "data":
         pass
     else:
-        raise Exception(f"Error: Unknown sampleType {sampleType}.")
+        lep1_match_prompt = ((padded_FOs[:,0].genPartFlav==1) | (padded_FOs[:,0].genPartFlav == 15))
+        lep2_match_prompt = ((padded_FOs[:,1].genPartFlav==1) | (padded_FOs[:,1].genPartFlav == 15))
+        lep1_charge       = ((padded_FOs[:,0].gen_pdgId*padded_FOs[:,0].pdgId) > 0)
+        lep2_charge       = ((padded_FOs[:,1].gen_pdgId*padded_FOs[:,1].pdgId) > 0)
+        lep1_match_conv   = (padded_FOs[:,0].genPartFlav==22)
+        lep2_match_conv   = (padded_FOs[:,1].genPartFlav==22)
+        prompt_mask = ( lep1_match_prompt & lep2_match_prompt & lep1_charge & lep2_charge )
+        conv_mask   = ( lep1_match_conv | lep2_match_conv )
+        if sampleType == 'prompt':
+            mask = (mask & prompt_mask)
+        elif sampleType =='conversions':
+            mask = (mask & conv_mask)
+        elif sampleType =='prompt_and_conversions':
+            # Samples that we use for both prompt and conv contributions (i.e. just DY)
+            mask = (mask & (prompt_mask | conv_mask))
+        else:
+            raise Exception(f"Error: Unknown sampleType {sampleType}.")
 
     mask_nozeeveto = mask
     mask = mask & (  Zee_veto )
@@ -291,25 +293,26 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3 )
 
     # MC matching requirement (already passed for data)
-    if sampleType == 'prompt':
-        lep1_match=((padded_FOs[:,0].genPartFlav==1) | (padded_FOs[:,0].genPartFlav == 15))    
-        lep2_match=((padded_FOs[:,1].genPartFlav==1) | (padded_FOs[:,1].genPartFlav == 15))
-        lep3_match=((padded_FOs[:,2].genPartFlav==1) | (padded_FOs[:,2].genPartFlav == 15))
-        mask = mask & lep1_match & lep2_match & lep3_match
-    elif sampleType =='conversions':
-        lep1_match=(padded_FOs[:,0].genPartFlav==22)
-        lep2_match=(padded_FOs[:,1].genPartFlav==22)
-        lep3_match=(padded_FOs[:,2].genPartFlav==22)
-        mask = mask & ( lep1_match | lep2_match | lep3_match ) 
-    elif sampleType == 'nonprompt':
-        lep1_match=((padded_FOs[:,0].genPartFlav!=1) & (padded_FOs[:,0].genPartFlav != 15) & (padded_FOs[:,0].genPartFlav != 22))
-        lep2_match=((padded_FOs[:,1].genPartFlav!=1) & (padded_FOs[:,1].genPartFlav != 15) & (padded_FOs[:,1].genPartFlav != 22))
-        lep3_match=((padded_FOs[:,2].genPartFlav!=1) & (padded_FOs[:,2].genPartFlav != 15) & (padded_FOs[:,2].genPartFlav != 22))
-        mask = mask & ( lep1_match | lep2_match | lep3_match ) 
-    elif sampleType == "data":
+    if sampleType == "data":
         pass
     else:
-        raise Exception(f"Error: Unknown sampleType {sampleType}.")
+        lep1_match_prompt = ((padded_FOs[:,0].genPartFlav==1) | (padded_FOs[:,0].genPartFlav == 15))
+        lep2_match_prompt = ((padded_FOs[:,1].genPartFlav==1) | (padded_FOs[:,1].genPartFlav == 15))
+        lep3_match_prompt = ((padded_FOs[:,2].genPartFlav==1) | (padded_FOs[:,2].genPartFlav == 15))
+        lep1_match_conv   = (padded_FOs[:,0].genPartFlav==22)
+        lep2_match_conv   = (padded_FOs[:,1].genPartFlav==22)
+        lep3_match_conv   = (padded_FOs[:,2].genPartFlav==22)
+        prompt_mask = ( lep1_match_prompt & lep2_match_prompt & lep3_match_prompt )
+        conv_mask   = ( lep1_match_conv | lep2_match_conv | lep3_match_conv)
+        if sampleType == 'prompt':
+            mask = (mask & prompt_mask)
+        elif sampleType =='conversions':
+            mask = (mask & conv_mask)
+        elif sampleType =='prompt_and_conversions':
+            # Samples that we use for both prompt and conv contributions (i.e. just DY)
+            mask = (mask & (prompt_mask | conv_mask))
+        else:
+            raise Exception(f"Error: Unknown sampleType {sampleType}.")
 
     events['is3l'] = ak.fill_none(mask,False)
 
