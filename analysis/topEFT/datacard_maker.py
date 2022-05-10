@@ -144,7 +144,8 @@ class DatacardMaker():
         self.channels = {'2lss_2b': self.ch2lss2b, '2lss_2b_p': self.ch2lss2b_p, '2lss_2b_m': self.ch2lss2b_m,'2lss_3b': self.ch2lss3b, '2lss_3b_p': self.ch2lss3b_p, '2lss_3b_m': self.ch2lss3b_m,'2lss_4b': self.ch2lss4b, '2lss_4b_p': self.ch2lss4b_p, '2lss_4b_m': self.ch2lss4b_m, '3l_1b': self.ch3l1b, '3l_1b_p': self.ch3l1b_p, '3l_1b_m': self.ch3l1b_m, '3l_p_offZ_1b': self.ch3l1b_p, '3l_m_offZ_1b': self.ch3l1b_m, '3l_p_offZ_2b': self.ch3l2b_p, '3l_m_offZ_2b': self.ch3l2b_m, '3l_2b': self.ch3l2b, '3l_2b_p': self.ch3l2b_p, '3l_2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '3l_onZ_1b': self.ch3lsfz1b, '3l_onZ_2b': self.ch3lsfz2b, '4l': self.ch4l}
         self.skip_process_channels = {**self.skip_process_channels, **{'data': [k for k in self.channels]}} # Skip all data!
         self.skip_process_channels = {**self.skip_process_channels, **{'flips': [k for k in self.channels if '2l' not in k]}} # Charge flips only in 2lss channels
-
+	self.skip_process_channels['data'].extend(['2lss', '2lss_m', '2lss_p'])
+	
         # Get list of samples and cut levels from histograms
         self.signal = ['ttH','tllq','ttll','ttlnu','tHq','tttt']
         self.samples = list({k[0]:0 for k in self.hists[self.build_var].values().keys()})
@@ -227,7 +228,6 @@ class DatacardMaker():
         def export2d(h):
             return h.to_hist().to_numpy()
         if isinstance(channel, str) and channel not in self.channels:
-           print(channel)
            raise Exception(f'{channel} not found in self.channels!')
         if isinstance(channel, list) and not all(ch in self.channels for ch in self.channels.keys()):
            print(self.channels.keys())
@@ -274,9 +274,10 @@ class DatacardMaker():
         else: charge = ''
         charge = 'p' if charge == 'ch+' else 'm'
         if 'b' in channel:
-            maxb = channel[-2:] # E.g. '3l_1b' -> '1b'
+            maxb_ind = channel.find('b')
+            maxb = channel[maxb_ind - 1:maxb_ind + 1]  # E.g. '3l_1b' -> '1b'
         else:
-            maxb = '2b' # 2lss and 4l cases
+            maxb = '2b' # 4l case
         if systematics == 'nominal': sys = ''
         else: sys = '_'+systematics
         if variable == 'njets':
