@@ -431,7 +431,7 @@ class DatacardMaker():
             ret_dict = {}
             loop_dict = deepcopy(in_dict) # Make sure we do not modify the input dict
             for loop_name,loop_histo in loop_dict.items():
-                if 'data' in loop_name and not self.unblind: continue
+                #if 'dataUL' in loop_name and not self.unblind: continue
                 last   = loop_histo.GetBinContent(loop_histo.GetNbinsX())                # Last bin
                 over   = loop_histo.GetBinContent(loop_histo.GetNbinsX()+1)              # Overflow
                 e_last = loop_histo.GetBinError(loop_histo.GetNbinsX())                  # Last bin error
