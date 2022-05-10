@@ -93,10 +93,10 @@ class DatacardMaker():
         # Get list of channels
         self.ch2lss2b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '2b' in k[1]})
         self.ch2lss2b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '2b' in k[1]})
-        self.ch2lss2b_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss_p' in k[1] and '2b' in k[1]})
-        self.ch2lss2b_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_p' in k[1] and '2b' in k[1]})
-        self.ch2lss2b_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss_m' in k[1] and '2b' in k[1]})
-        self.ch2lss2b_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss_m' in k[1] and '2b' in k[1]})
+        self.ch2lss2b_p = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and 'p' in k[1] and '2b' in k[1]})
+        self.ch2lss2b_p += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and 'p' in k[1] and '2b' in k[1]})
+        self.ch2lss2b_m = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and 'm' in k[1] and '2b' in k[1]})
+        self.ch2lss2b_m += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and 'm' in k[1] and '2b' in k[1]})
 
         self.ch2lss3b = list({k[1]:0 for k in self.hists[self.build_var].values().keys() if '2lss' in k[1] and '3b' in k[1]})
         self.ch2lss3b += list({k[1]:0 for k in self.hists['njets'].values().keys() if '2lss' in k[1] and '3b' in k[1]})
