@@ -464,15 +464,19 @@ central_UL16_dict = {
         "histAxisName": "ttZ_centralUL16",
         "xsecName": "TTZToLLNuNu_M_10",
     },
-    "UL16_tZq" : {
-        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIISummer16NanoAODv7-PUMoriond17_Nano02Apr2020_102X_mcRun2_asymptotic_v8-v1/NANOAODSIM",
-        "histAxisName": "tZq_centralUL17",
-        "xsecName": "tZq",
-    },
     "UL16_tttt" : {
         "path" : "/TTTT_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v2/NANOAODSIM",
         "histAxisName": "tttt_centralUL16",
         "xsecName": "tttt",
+    },
+}
+
+central_UL16_tZq_dict = {                                                                                                               #tZq is the only central sig sample in hadoop for now
+    "UL16_tZq" : {
+        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODv9/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
+        "histAxisName": "tZq_centralUL17",
+        "xsecName": "tZq",
     },
 }
 
@@ -482,8 +486,12 @@ central_UL16APV_dict = {
         "histAxisName": "ttHJet_centralUL16APV",
         "xsecName": "ttHnobb",
     },
+}
+
+central_UL16APV_tZq_dict = {                                                                                                            #tZq is the only central sig sample in hadoop for now
     "UL16APV_tZq" : {
-        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIISummer16NanoAODv6-PUMoriond17_Nano25Oct2019_102X_mcRun2_asymptotic_v7-v1/NANOAODSIM",
+        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1",
         "histAxisName": "tZq_centralUL17",
         "xsecName": "tZq",
     },
@@ -505,8 +513,12 @@ central_UL17_dict = {
         "histAxisName": "ttZ_centralUL17",
         "xsecName": "TTZToLLNuNu_M_10",
     },
+}
+
+central_UL17_tZq_dict = {                                                                                                               #tZq is the only central sig sample in hadoop for now
     "UL17_tZq" : {
-        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer19UL17NanoAODv2-106X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL17NanoAODv9/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1",
         "histAxisName": "tZq_centralUL17",
         "xsecName": "tZq",
     },
@@ -528,8 +540,12 @@ central_UL18_dict = {
         "histAxisName": "ttZ_centralUL18",
         "xsecName": "TTZToLLNuNu_M_10",
     },
+}
+
+central_UL18_tZq_dict = {                                                                                                               #tZq is the only central sig sample in hadoop for now
     "UL18_tZq" : {
-        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer19UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM",
+        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1",
         "histAxisName": "tZq_centralUL18",
         "xsecName": "tZq",
     },
@@ -629,7 +645,8 @@ central_UL17_bkg_dict = {
         "xsecName": "WWZ",
     },
     "UL17_WZTo3LNu" : {
-        "path" : "/WZTo3LNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM",
+        "path" : "/WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM",
+        "path_local" :"/store/mc/RunIISummer20UL17NanoAODv9/WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2",
         "histAxisName": "WZTo3LNu_centralUL17",
         "xsecName": "WZTo3LNu",
     },
@@ -748,7 +765,8 @@ central_UL18_bkg_dict = {
         "xsecName": "WWZ",
     },
     "UL18_WZTo3LNu" : {
-        "path" : "/WZTo3LNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM",
+        "path" : "/WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2",
         "histAxisName": "WZTo3LNu_centralUL18",
         "xsecName": "WZTo3LNu",
     },
@@ -875,7 +893,8 @@ central_UL16_bkg_dict = {
         "xsecName": "WWZ",
     },
     "UL16_WZTo3LNu" : {
-        "path" : "/WZTo3LNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
+        "path" : "/WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v2/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODv9/WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v2",
         "histAxisName": "WZTo3LNu_centralUL16",
         "xsecName": "WZTo3LNu",
     },
@@ -1364,6 +1383,11 @@ def main():
     #make_jsons_for_dict_of_samples(central_UL17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
     #make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
+    #Note: The following four sig samples are used to generate JSONs after being moved to ND. For now, these are the only central sig samples in hadoop.
+    #make_jsons_for_dict_of_samples(central_UL17_tZq_dict, "/hadoop","2017", out_dir_central_UL,on_das=False)
+    #make_jsons_for_dict_of_samples(central_UL18_tZq_dict, "/hadoop","2018", out_dir_central_UL,on_das=False)
+    #make_jsons_for_dict_of_samples(central_UL16_tZq_dict, "/hadoop","2016", out_dir_central_UL,on_das=False)
+    #make_jsons_for_dict_of_samples(central_UL16APV_tZq_dict, "/hadoop","2016APV", out_dir_central_UL,on_das=False)
 
     # Central background samples
     # Note: Some of the bkg dicts have both a "path" and a "path_local" (these are samples that generated JSONs for after moving the samples to ND),
