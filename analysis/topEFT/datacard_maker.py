@@ -53,6 +53,7 @@ class DatacardMaker():
         self.year = single_year
         self.do_sm = do_sm
         self.build_var = build_var
+        self.unblind = False
 
     def read(self):
         '''
@@ -137,7 +138,7 @@ class DatacardMaker():
         self.ch4lj = list(set([j[-2:].replace('j','') for j in self.ch4l if 'j' in j]))
         self.ch4lj.sort()
         self.channels = {'2lss': self.ch2lss, '2lss_p': self.ch2lss_p, '2lss_m': self.ch2lss_m, '2lss_4t': self.ch2lss_4t, '2lss_4t_p': self.ch2lss_4t_p, '2lss_4t_m': self.ch2lss_4t_m, '3l1b': self.ch3l1b, '3l1b_p': self.ch3l1b_p, '3l1b_m': self.ch3l1b_m, '3l_p_offZ_1b': self.ch3l1b_p, '3l_m_offZ_1b': self.ch3l1b_m, '3l_p_offZ_2b': self.ch3l2b_p, '3l_m_offZ_2b': self.ch3l2b_m, '3l2b': self.ch3l2b,  '3l2b_p': self.ch3l2b_p, '3l2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '3l_onZ_1b': self.ch3lsfz1b, '3l_onZ_2b': self.ch3lsfz2b, '4l': self.ch4l}
-        self.skip_process_channels = {**self.skip_process_channels, **{'data': [k for k in self.channels]}} # Skip all data!
+        #self.skip_process_channels = {**self.skip_process_channels, **{'data': [k for k in self.channels]}} # Skip all data!
         self.skip_process_channels = {**self.skip_process_channels, **{'flips': [k for k in self.channels if '2l' not in k]}} # Charge flips only in 2lss channels
 
         # Get list of samples and cut levels from histograms
@@ -170,6 +171,12 @@ class DatacardMaker():
 
         # Populate missing parton dicts
         self.fparton = uproot.open(topcoffea_path('data/missing_parton/missing_parton.root'))
+
+    def Unblind(self):
+        self.unblind = True
+
+    def Asimov(self):
+        self.unblind = False
 
     def should_skip_process(self, proc, channel):
         for proc_skip,channel_skip in self.skip_process_channels.items():
@@ -316,6 +323,7 @@ class DatacardMaker():
         processed = []
         for proc in self.samples:
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
+            if not self.unblind and 'data' in proc: continue
             if self.should_skip_process(proc, channel): continue
             simplified = proc.split('_central')[0].split('_private')[0].split('UL')[0].replace('_4F','').replace('_ext','')
             if simplified in processed: continue # Only one process name per 3 years
@@ -333,7 +341,7 @@ class DatacardMaker():
             if h_base.values() == {}:
                 print(f'Issue with {proc}')
                 continue
-            h_base.scale(years, axis='year')
+            if 'data' not in proc: h_base.scale(years, axis='year')
             h_base = h_base.integrate('year')
             if isinstance(self.analysis_bins[variable],dict):
                 lep_bin = channel.split('_')[0].split('l')[0] + 'l'
@@ -351,13 +359,14 @@ class DatacardMaker():
             else:
                 if any([sig in p for sig in self.signal]):
                     export1d(h_sm, pname, 'sm', fout) # Special case for SM b/c background names overlap (p not pname)
-                else:
+                elif 'data' not in proc:
                     export1d(h_sm, p, '_sm', fout) # Special case for SM b/c background names overlap (p not pname)
             # Asimov data: data_obs = MC at SM (all WCs = 0)
-            if len(h_base.axes())>1:
-                fout['data_obs'] = export2d(h_sm)
-            else:
-                export1d(h_sm, 'data_obs', 'sm', fout)
+            if not self.unblind or 'data' in proc: # data is skipped earlier if unblid is `False`
+                if len(h_base.axes())>1:
+                    fout['data_obs'] = export2d(h_sm)
+                else:
+                    export1d(h_sm, 'data_obs', 'sm', fout)
 
             isSignal = p in self.signal or (p in self.rename and self.rename[p] in self.signal)
             if not self.do_sm and isSignal and self.wcs is not None:
@@ -422,6 +431,7 @@ class DatacardMaker():
             ret_dict = {}
             loop_dict = deepcopy(in_dict) # Make sure we do not modify the input dict
             for loop_name,loop_histo in loop_dict.items():
+                if 'data' in loop_name and not self.unblind: continue
                 last   = loop_histo.GetBinContent(loop_histo.GetNbinsX())                # Last bin
                 over   = loop_histo.GetBinContent(loop_histo.GetNbinsX()+1)              # Overflow
                 e_last = loop_histo.GetBinError(loop_histo.GetNbinsX())                  # Last bin error
@@ -583,26 +593,31 @@ class DatacardMaker():
             if isinstance(data_obs, list):
                 if any([sig in proc for sig in self.signal]):
                     data_obs = getHist(d_hists,p+'_sm').Clone('data_obs')
-                else:
+                elif 'data' not in proc and not self.unblind:
                     data_obs = getHist(d_hists,proc+'_sm').Clone('data_obs') # Special case for SM b/c background names overlap
+                elif self.unblind and 'data' in proc:
+                    data_obs = getHist(d_hists,'data_obs').Clone('data_obs') # Special case for SM b/c background names overlap
             else:
                 if any([sig in proc for sig in self.signal]):
                     data_obs.Add(getHist(d_hists,p+'_sm').Clone('data_obs'))
-                else:
+                elif 'data' not in proc and not self.unblind:
                     data_obs.Add(getHist(d_hists,proc+'_sm').Clone('data_obs')) # Special case for SM b/c background names overlap
+                elif self.unblind and 'data' in proc:
+                    data_obs = getHist(d_hists,'data_obs').Clone('data_obs') # Special case for SM b/c background names overlap
             data_obs.SetDirectory(fout)
             allyields[name] = data_obs.Integral()
             fout.Delete(name+';1')
             data_obs.Write()
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             name = pname + 'sm'
-            if name not in d_hists and proc+'_sm' not in d_hists and proc.split('UL')[0]+'_sm' not in d_hists:
+            if name not in d_hists and proc+'_sm' not in d_hists and proc.split('UL')[0]+'_sm' not in d_hists and 'data' not in name:
                 print(f'{name} not found in {channel}!')
                 continue
             if any([sig in proc for sig in self.signal]):
                 h_sm = getHist(d_hists, name)
-            else:
+            elif 'data' not in proc:
                 h_sm = getHist(d_hists, proc+'_sm') # Special case for SM b/c background names overlap
+            else: continue
             def addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout):
                 if p in self.signal:
                     if name in iproc:
@@ -847,7 +862,7 @@ class DatacardMaker():
             raise Exception(f"Error: the WCs \"{wc}\" are specified in an unknown format")
         self.wcs     = wcpt
         return wcpt
-    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm, var_lst):
+    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm, var_lst, unblide=False):
         os.system('mkdir -p %s/condor' % os.getcwd())
         os.system('mkdir -p %s/condor/log' % os.getcwd())
         target = '%s/condor_submit.sh' % os.getcwd()
@@ -863,6 +878,7 @@ class DatacardMaker():
         if do_nuisance: args.append('--do-nuisance')
         if len(wcs) > 0: args.append('--POI ' + ','.join(wcs))
         if do_sm: args.append('--do-sm')
+        if unblind: args.append('--unblind')
         if len(args) > 0:
             condorFile.write('python analysis/topEFT/datacard_maker.py %s --job "${job}" %s\n' % (pklfile, ' '.join(args)))
         else:
@@ -904,6 +920,8 @@ if __name__ == '__main__':
     parser.add_argument('--year',     '-y', default=''         , help = 'Run over single year')
     parser.add_argument('--do-sm',          action='store_true', help = 'Run over SM only')
     parser.add_argument('--var-lst',        default=[], action='extend', nargs='+', help = 'Specify a list of variables to make cards for.')
+    parser.add_argument('--unblind',        action='store_true', help = 'Run over SM only')
+    parser.add_argument('--asimov',         action='store_true', help = 'Run over SM only')
 
     args = parser.parse_args()
     pklfile  = args.pklfile
@@ -914,6 +932,12 @@ if __name__ == '__main__':
     year = args.year
     do_sm = args.do_sm
     var_lst = args.var_lst
+    unblind = args.unblind
+    asimov = args.asimov
+    if not unblind: asimov = True
+    if unblind and asimov:
+        print('Both the Asimov and unblind were specified. Please remove one!')
+        exit()
     if isinstance(wcs, str): wcs = wcs.split(',')
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
@@ -941,6 +965,12 @@ if __name__ == '__main__':
     card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm, build_var)
     card.read()
     card.buildWCString()
+    if unblind:
+        print('Running with actual data')
+        card.Unblind()
+    if asimov:
+        print('Running with Asimov data')
+        card.Asimov()
     jobs = []
     print(f"\nMaking cards for: {include_var_lst}\n")
 
@@ -1001,7 +1031,7 @@ if __name__ == '__main__':
 
     njobs = len(jobs)
     if job == -1:
-        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm, include_var_lst)
+        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm, include_var_lst, unblind)
     elif job < njobs:
         d = jobs[job]
         card.analyzeChannel(**d)
