@@ -9,3 +9,4 @@ dependencies:
   - dill
   - xrootd
   - git
+  - pip=22.0.4
