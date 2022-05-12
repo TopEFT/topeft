@@ -35,6 +35,7 @@ class DatacardMaker():
                                  'tttt':     {'pdf_scale': 'gg', 'qcd_scale': 'tttt'},
                                  'tHq':      {'pdf_scale': 'qg', 'qcd_scale': 'tHq' },
                                  'ttlnu':    {'pdf_scale': 'qq', 'qcd_scale': 'ttlnu' },
+                                 'tttt':     {'qcd_scale': 'tttt' },
                                  'tllq':     {'pdf_scale': 'qq', 'qcd_scale': 'V'   }, 
                                  'Diboson':  {'pdf_scale': 'qq', 'qcd_scale': 'VV'  },
                                  'Triboson': {'pdf_scale': 'qq', 'qcd_scale': 'VVV' },
