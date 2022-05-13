@@ -26,7 +26,7 @@ class DatacardMaker():
         # PDF/QCD scale uncertainties take from TOP-19-001
         # Asymmetric errors are provided as k_down / k_up in combine
                                               # 30% flat uncertainty for charge flips
-        self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.016, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '0.908/1.058', 'tllq': 0.01, 'ttlnu': '0.88/1.13', 'ttll': '0.88/1.10', 'tHq': '0.92/1.06', 'tttt': '0.82/1.21', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
+        self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.016, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '0.908/1.058', 'tllq': 0.01, 'ttlnu': '0.88/1.13', 'ttll': '0.88/1.10', 'tHq': '0.92/1.06', 'tttt': '0.79/1.18', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
         # (Un)correlated systematics
         # {'proc': {'syst': name, 'type': name} will assign all procs a special name for the give systematics
         # e.g. {'ttH': {'pdf_scale': 'gg', 'qcd_scale': 'ttH'}} will add `_gg` to the ttH for the pdf scale and `_ttH` for the qcd scale (names correspond to `self.syst_correlated`)
