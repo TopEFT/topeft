@@ -27,8 +27,8 @@ class DatacardMaker():
         # Asymmetric errors are provided as k_down / k_up in combine
                                               # 30% flat uncertainty for charge flips
         self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.016, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '0.908/1.058', 'tllq': 0.01, 'ttlnu': '0.88/1.13', 'ttll': '0.88/1.10', 'tHq': '0.92/1.06', 'tttt': '0.74/1.32', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
-        # (Un)correlated systematics
         self.syst_scale = {'WZ': {2: 1.19, 3: 1.89, 4: 1.80, 5: 2.64, 6: 2.38 }}
+        # (Un)correlated systematics
         # {'proc': {'syst': name, 'type': name} will assign all procs a special name for the give systematics
         # e.g. {'ttH': {'pdf_scale': 'gg', 'qcd_scale': 'ttH'}} will add `_gg` to the ttH for the pdf scale and `_ttH` for the qcd scale (names correspond to `self.syst_correlated`)
         self.syst_correlation = {'ttH':      {'pdf_scale': 'gg', 'qcd_scale': 'ttH' }, 
@@ -454,18 +454,18 @@ class DatacardMaker():
         def processSyst(process, channel, systMap, d_hists, fout, cat):
             for syst in self.syst:
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
-                process = re.sub('UL\d\d(?:APV)?', '', process)
-                syst = syst+self.get_correlation_name(process, syst) # Tack on possible correlation name from self.syst_correlation
-                if any([process+'_'+syst in d for d in d_hists]):
-                    h_sys = getHist(d_hists, '_'.join([process,syst]))
+                proc = re.sub('UL\d\d(?:APV)?', '', process)
+                syst = syst+self.get_correlation_name(proc, syst) # Tack on possible correlation name from self.syst_correlation
+                if any([proc+'_'+syst in d for d in d_hists]):
+                    h_sys = getHist(d_hists, '_'.join([proc,syst]))
                     h_sys.SetDirectory(fout)
 
                     # Need to handle quad term to get "Q"
-                    if (("quad" in process) and ("mixed" not in process)):
+                    if (("quad" in proc) and ("mixed" not in proc)):
 
                         # Get the parts of the name (from e.g. "ttH_quad_ctG")
-                        proc_str = process.split("_")[0]
-                        wc_str = process.split("_")[2]
+                        proc_str = proc.split("_")[0]
+                        wc_str = proc.split("_")[2]
 
                         # Construct the names for the corresponding sm and lin terms, and get the hists
                         name_s = '_'.join([proc_str,'sm'])
@@ -496,16 +496,16 @@ class DatacardMaker():
                     else:
                         systMap[syst] = {proc: round(h_sys.Integral(), 3)}
             for syst_special,val in self.syst_special.items():
-                process = process.split('_')
-                if process[0] in self.rename: process[0] = self.rename[process[0]]
-                process = '_'.join(process)
+                proc = process.split('_')
+                if proc[0] in self.rename: proc[0] = self.rename[proc[0]]
+                proc = '_'.join(proc)
                 # Check for special bins
                 if isinstance(val,dict):
-                    # Check for process specific systematics (e.g. `charge_flips_sm`)
-                    if not any((b in process for b in val.keys())): continue
+                    # Check for proc specific systematics (e.g. `charge_flips_sm`)
+                    if not any((b in proc for b in val.keys())): continue
                     for b in val:
-                        if b in process:
-                            # Found the process we're looking for, no need to keep looping
+                        if b in proc:
+                            # Found the proc we're looking for, no need to keep looping
                             if isinstance(val[b],(int,float)):
                                 syst = 1+val[b]
                             elif isinstance(val[b],(str)):
@@ -535,12 +535,13 @@ class DatacardMaker():
                         systMap[syst_cat].update({proc: syst})
                     else:
                         systMap[syst_cat] = {proc: syst}
-            process = process.split('_')[0]
-            if process in self.syst_scale:
-                scale = self.syst_scale[process]
+            proc = process.split('_')[0]
+            if proc in self.syst_scale:
+                scale = self.syst_scale[proc]
                 jet = int(re.findall('\dj', channel)[0][:-1])
                 if jet > scale.keys()[-1]: jet = scale.keys()[-1]
                 if jet in scale:
+                    proc = process
                     syst = scale[jet]
                     syst_cat = 'scale_flat'
                     if syst_cat in systMap:
