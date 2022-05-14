@@ -9,6 +9,7 @@ import os
 import re
 import json
 from copy import deepcopy 
+from topcoffea.modules.paths import topcoffea_path
 
 from ROOT import TFile, TH1D, TH2D,nullptr
 
@@ -25,7 +26,7 @@ class DatacardMaker():
         # PDF/QCD scale uncertainties take from TOP-19-001
         # Asymmetric errors are provided as k_down / k_up in combine
                                               # 30% flat uncertainty for charge flips
-        self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.016, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '0.908/1.058', 'tllq': 0.01, 'ttlnu': '0.88/1.13', 'ttll': '0.88/1.10', 'tHq': '0.92/1.06', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
+        self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.016, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '0.908/1.058', 'tllq': 0.01, 'ttlnu': '0.88/1.13', 'ttll': '0.88/1.10', 'tHq': '0.92/1.06', 'tttt': '0.74/1.32', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
         # (Un)correlated systematics
         # {'proc': {'syst': name, 'type': name} will assign all procs a special name for the give systematics
         # e.g. {'ttH': {'pdf_scale': 'gg', 'qcd_scale': 'ttH'}} will add `_gg` to the ttH for the pdf scale and `_ttH` for the qcd scale (names correspond to `self.syst_correlated`)
@@ -34,6 +35,7 @@ class DatacardMaker():
                                  'tttt':     {'pdf_scale': 'gg', 'qcd_scale': 'tttt'},
                                  'tHq':      {'pdf_scale': 'qg', 'qcd_scale': 'tHq' },
                                  'ttlnu':    {'pdf_scale': 'qq', 'qcd_scale': 'ttlnu' },
+                                 'tttt':     {'qcd_scale': 'tttt' },
                                  'tllq':     {'pdf_scale': 'qq', 'qcd_scale': 'V'   }, 
                                  'Diboson':  {'pdf_scale': 'qq', 'qcd_scale': 'VV'  },
                                  'Triboson': {'pdf_scale': 'qq', 'qcd_scale': 'VVV' },
@@ -52,6 +54,7 @@ class DatacardMaker():
         self.year = single_year
         self.do_sm = do_sm
         self.build_var = build_var
+        self.unblind = False
 
     def read(self):
         '''
@@ -142,7 +145,6 @@ class DatacardMaker():
         self.ch4lj = list(set([j[-2:].replace('j','') for j in self.ch4l if 'j' in j]))
         self.ch4lj.sort()
         self.channels = {'2lss_2b': self.ch2lss2b, '2lss_2b_p': self.ch2lss2b_p, '2lss_2b_m': self.ch2lss2b_m,'2lss_3b': self.ch2lss3b, '2lss_3b_p': self.ch2lss3b_p, '2lss_3b_m': self.ch2lss3b_m,'2lss_4b': self.ch2lss4b, '2lss_4b_p': self.ch2lss4b_p, '2lss_4b_m': self.ch2lss4b_m, '3l_1b': self.ch3l1b, '3l_1b_p': self.ch3l1b_p, '3l_1b_m': self.ch3l1b_m, '3l_p_offZ_1b': self.ch3l1b_p, '3l_m_offZ_1b': self.ch3l1b_m, '3l_p_offZ_2b': self.ch3l2b_p, '3l_m_offZ_2b': self.ch3l2b_m, '3l_2b': self.ch3l2b, '3l_2b_p': self.ch3l2b_p, '3l_2b_m': self.ch3l2b_m, '3l_sfz': self.ch3lsfz, '3l_sfz_1b': self.ch3lsfz1b, '3l_sfz_2b': self.ch3lsfz2b, '3l_onZ_1b': self.ch3lsfz1b, '3l_onZ_2b': self.ch3lsfz2b, '4l': self.ch4l}
-        self.skip_process_channels = {**self.skip_process_channels, **{'data': [k for k in self.channels]}} # Skip all data!
         self.skip_process_channels = {**self.skip_process_channels, **{'flips': [k for k in self.channels if '2l' not in k]}} # Charge flips only in 2lss channels
         self.skip_process_channels['data'].extend(['2lss', '2lss_m', '2lss_p'])
 	
@@ -173,6 +175,15 @@ class DatacardMaker():
             lumi = json.load(jf)
             self.lumi = lumi
         self.lumi = {year : 1000*lumi for year,lumi in self.lumi.items()}
+
+        # Populate missing parton dicts
+        self.fparton = uproot.open(topcoffea_path('data/missing_parton/missing_parton.root'))
+
+    def Unblind(self):
+        self.unblind = True
+
+    def Asimov(self):
+        self.unblind = False
 
     def should_skip_process(self, proc, channel):
         for proc_skip,channel_skip in self.skip_process_channels.items():
@@ -320,6 +331,7 @@ class DatacardMaker():
         processed = []
         for proc in self.samples:
             if proc in self.ignore or self.rename[proc] in self.ignore: continue # Skip any CR processes that might be in the pkl file
+            if not self.unblind and 'data' in proc: continue
             if self.should_skip_process(proc, channel): continue
             simplified = proc.split('_central')[0].split('_private')[0].split('UL')[0].replace('_4F','').replace('_ext','')
             if simplified in processed: continue # Only one process name per 3 years
@@ -337,7 +349,7 @@ class DatacardMaker():
             if h_base.values() == {}:
                 print(f'Issue with {proc}')
                 continue
-            h_base.scale(years, axis='year')
+            if 'data' not in proc: h_base.scale(years, axis='year')
             h_base = h_base.integrate('year')
             if isinstance(self.analysis_bins[variable],dict):
                 lep_bin = channel.split('_')[0].split('l')[0] + 'l'
@@ -355,13 +367,14 @@ class DatacardMaker():
             else:
                 if any([sig in p for sig in self.signal]):
                     export1d(h_sm, pname, 'sm', fout) # Special case for SM b/c background names overlap (p not pname)
-                else:
+                elif 'data' not in proc:
                     export1d(h_sm, p, '_sm', fout) # Special case for SM b/c background names overlap (p not pname)
             # Asimov data: data_obs = MC at SM (all WCs = 0)
-            if len(h_base.axes())>1:
-                fout['data_obs'] = export2d(h_sm)
-            else:
-                export1d(h_sm, 'data_obs', 'sm', fout)
+            if not self.unblind or 'data' in proc: # data is skipped earlier if unblid is `False`
+                if len(h_base.axes())>1:
+                    fout['data_obs'] = export2d(h_sm)
+                else:
+                    export1d(h_sm, 'data_obs', 'sm', fout)
 
             isSignal = p in self.signal or (p in self.rename and self.rename[p] in self.signal)
             if not self.do_sm and isSignal and self.wcs is not None:
@@ -445,7 +458,7 @@ class DatacardMaker():
             xwidth = h.GetXaxis().GetBinWidth(1)
             return deepcopy(h) # to protect d_hists from modifications 
 
-        def processSyst(process, channel, systMap, d_hists, fout):
+        def processSyst(process, channel, systMap, d_hists, fout, cat):
             for syst in self.syst:
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
                 process = re.sub('UL\d\d(?:APV)?', '', process)
@@ -519,6 +532,16 @@ class DatacardMaker():
                     systMap[syst_cat].update({proc: syst})
                 else:
                     systMap[syst_cat] = {proc: syst}
+ 
+                if process.split('_')[0] in ['tllq', 'tHq'] and cat+';1' in self.fparton.keys():
+                    syst_cat = 'parton'
+                    jet = int(re.findall('\dj', channel)[0][:-1])
+                    offset = -4 if '3l' not in channel else -2
+                    syst = 1+self.fparton[f'{cat};1'][process.split('_')[0]].array()[jet+offset]
+                    if syst_cat in systMap:
+                        systMap[syst_cat].update({proc: syst})
+                    else:
+                        systMap[syst_cat] = {proc: syst}
                     
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
@@ -577,26 +600,31 @@ class DatacardMaker():
             if isinstance(data_obs, list):
                 if any([sig in proc for sig in self.signal]):
                     data_obs = getHist(d_hists,p+'_sm').Clone('data_obs')
-                else:
+                elif 'data' not in proc and not self.unblind:
                     data_obs = getHist(d_hists,proc+'_sm').Clone('data_obs') # Special case for SM b/c background names overlap
+                elif self.unblind and 'data' in proc:
+                    data_obs = getHist(d_hists,'data_obs').Clone('data_obs') # Special case for SM b/c background names overlap
             else:
                 if any([sig in proc for sig in self.signal]):
                     data_obs.Add(getHist(d_hists,p+'_sm').Clone('data_obs'))
-                else:
+                elif 'data' not in proc and not self.unblind:
                     data_obs.Add(getHist(d_hists,proc+'_sm').Clone('data_obs')) # Special case for SM b/c background names overlap
+                elif self.unblind and 'data' in proc:
+                    data_obs = getHist(d_hists,'data_obs').Clone('data_obs') # Special case for SM b/c background names overlap
             data_obs.SetDirectory(fout)
             allyields[name] = data_obs.Integral()
             fout.Delete(name+';1')
             data_obs.Write()
             pname = self.rename[proc]+'_' if proc in self.rename else proc+'_'
             name = pname + 'sm'
-            if name not in d_hists and proc+'_sm' not in d_hists and proc.split('UL')[0]+'_sm' not in d_hists:
+            if name not in d_hists and proc+'_sm' not in d_hists and proc.split('UL')[0]+'_sm' not in d_hists and 'data' not in name:
                 print(f'{name} not found in {channel}!')
                 continue
             if any([sig in proc for sig in self.signal]):
                 h_sm = getHist(d_hists, name)
-            else:
+            elif 'data' not in proc:
                 h_sm = getHist(d_hists, proc+'_sm') # Special case for SM b/c background names overlap
+            else: continue
             def addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout):
                 if p in self.signal:
                     if name in iproc:
@@ -625,9 +653,9 @@ class DatacardMaker():
                 signalcount, bkgcount, h_sm = addYields(p, name, h_sm, allyields, iproc, signalcount, bkgcount, d_sigs, d_bkgs, fout)
                 if self.do_nuisance:
                     if any([sig in proc for sig in self.signal]):
-                       processSyst(name, channel, systMap, d_hists, fout)
+                       processSyst(name, channel, systMap, d_hists, fout, cat)
                     else:
-                       processSyst(proc+'_sm', channel, systMap, d_hists, fout)
+                       processSyst(proc+'_sm', channel, systMap, d_hists, fout, cat)
                 h_sm.SetDirectory(fout)
                 name = name.split('_')
                 if name[0] in self.rename: name[0] = self.rename[name[0]]
@@ -704,7 +732,7 @@ class DatacardMaker():
                 if allyields[name] < 0:
                     raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
 
-                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout, cat)
 
                 # Get the "Q" piece
                 name = '_'.join([pname[:-1],'quad',wc])
@@ -729,7 +757,7 @@ class DatacardMaker():
                 h_quad.Write()
                 if allyields[name] < 0:
                     raise Exception(f"This value {allyields[name]} should not be negative (except potentially due to rounding errors, if the value is tiny), check for bugs upstream.")
-                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout)
+                if self.do_nuisance: processSyst(name, channel, systMap, d_hists, fout, cat)
                 
 
                 # Get the "S+Li+Lj+Qi+Qj+2Mij" piece
@@ -757,7 +785,7 @@ class DatacardMaker():
                     allyields[name] = h_mix.Integral()
                     if allyields[name] < 0:
                         raise Exception(f"This value {allyields[name]} should not be negative, check for bugs upstream.")
-                    if self.do_nuisance: processSyst(name, channel,  systMap, d_hists, fout)
+                    if self.do_nuisance: processSyst(name, channel,  systMap, d_hists, fout, cat)
 
         selectedWCsFile=open(f'histos/selectedWCs-{cat}.txt','w')
         json.dump(selectedWCsForProc, selectedWCsFile)
@@ -841,7 +869,7 @@ class DatacardMaker():
             raise Exception(f"Error: the WCs \"{wc}\" are specified in an unknown format")
         self.wcs     = wcpt
         return wcpt
-    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm, var_lst):
+    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm, var_lst, unblide=False):
         os.system('mkdir -p %s/condor' % os.getcwd())
         os.system('mkdir -p %s/condor/log' % os.getcwd())
         target = '%s/condor_submit.sh' % os.getcwd()
@@ -857,6 +885,7 @@ class DatacardMaker():
         if do_nuisance: args.append('--do-nuisance')
         if len(wcs) > 0: args.append('--POI ' + ','.join(wcs))
         if do_sm: args.append('--do-sm')
+        if unblind: args.append('--unblind')
         if len(args) > 0:
             condorFile.write('python analysis/topEFT/datacard_maker.py %s --job "${job}" %s\n' % (pklfile, ' '.join(args)))
         else:
@@ -898,6 +927,8 @@ if __name__ == '__main__':
     parser.add_argument('--year',     '-y', default=''         , help = 'Run over single year')
     parser.add_argument('--do-sm',          action='store_true', help = 'Run over SM only')
     parser.add_argument('--var-lst',        default=[], action='extend', nargs='+', help = 'Specify a list of variables to make cards for.')
+    parser.add_argument('--unblind',        action='store_true', help = 'Run over SM only')
+    parser.add_argument('--asimov',         action='store_true', help = 'Run over SM only')
 
     args = parser.parse_args()
     pklfile  = args.pklfile
@@ -908,6 +939,12 @@ if __name__ == '__main__':
     year = args.year
     do_sm = args.do_sm
     var_lst = args.var_lst
+    unblind = args.unblind
+    asimov = args.asimov
+    if not unblind: asimov = True
+    if unblind and asimov:
+        print('Both the Asimov and unblind were specified. Please remove one!')
+        exit()
     if isinstance(wcs, str): wcs = wcs.split(',')
     if pklfile == '':
         raise Exception('Please specify a pkl file!')
@@ -935,6 +972,12 @@ if __name__ == '__main__':
     card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm, build_var)
     card.read()
     card.buildWCString()
+    if unblind:
+        print('Running with actual data')
+        card.Unblind()
+    if asimov:
+        print('Running with Asimov data')
+        card.Asimov()
     jobs = []
     print(f"\nMaking cards for: {include_var_lst}\n")
 
@@ -996,7 +1039,7 @@ if __name__ == '__main__':
 
     njobs = len(jobs)
     if job == -1:
-        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm, include_var_lst)
+        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm, include_var_lst, unblind)
     elif job < njobs:
         d = jobs[job]
         card.analyzeChannel(**d)
