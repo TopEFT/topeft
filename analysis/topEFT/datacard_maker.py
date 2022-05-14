@@ -526,7 +526,7 @@ class DatacardMaker():
                     systMap[syst_cat] = {proc: syst}
  
                 if process.split('_')[0] in ['tllq', 'tHq'] and cat+';1' in self.fparton.keys():
-                    syst_cat = 'parton'
+                    syst_cat = 'parton_flat_rate'
                     jet = int(re.findall('\dj', channel)[0][:-1])
                     offset = -4 if '3l' not in channel else -2
                     syst = 1+self.fparton[f'{cat};1'][process.split('_')[0]].array()[jet+offset]
