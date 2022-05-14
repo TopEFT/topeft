@@ -28,6 +28,7 @@ class DatacardMaker():
                                               # 30% flat uncertainty for charge flips
         self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.016, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '0.908/1.058', 'tllq': 0.01, 'ttlnu': '0.88/1.13', 'ttll': '0.88/1.10', 'tHq': '0.92/1.06', 'tttt': '0.74/1.32', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
         # (Un)correlated systematics
+        self.syst_scale = {'WZ': {2: 1.19, 3: 1.89, 4: 1.80, 5: 2.64, 6: 2.38 }}
         # {'proc': {'syst': name, 'type': name} will assign all procs a special name for the give systematics
         # e.g. {'ttH': {'pdf_scale': 'gg', 'qcd_scale': 'ttH'}} will add `_gg` to the ttH for the pdf scale and `_ttH` for the qcd scale (names correspond to `self.syst_correlated`)
         self.syst_correlation = {'ttH':      {'pdf_scale': 'gg', 'qcd_scale': 'ttH' }, 
@@ -534,7 +535,18 @@ class DatacardMaker():
                         systMap[syst_cat].update({proc: syst})
                     else:
                         systMap[syst_cat] = {proc: syst}
-                    
+            process = process.split('_')[0]
+            if process in self.syst_scale:
+                scale = self.syst_scale[process]
+                jet = int(re.findall('\dj', channel)[0][:-1])
+                if jet > scale.keys()[-1]: jet = scale.keys()[-1]
+                if jet in scale:
+                    syst = scale[jet]
+                    syst_cat = 'scale_flat'
+                    if syst_cat in systMap:
+                        systMap[syst_cat].update({proc: syst})
+                    else:
+                        systMap[syst_cat] = {proc: syst}
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
