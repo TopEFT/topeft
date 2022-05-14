@@ -530,7 +530,7 @@ class DatacardMaker():
                     syst_cat = 'parton'
                     jet = int(re.findall('\dj', channel)[0][:-1])
                     offset = -4 if '3l' not in channel else -2
-                    syst = 1+self.fparton[f'{cat};1'][process.split('_')[0]].array()[jet+offset]
+                    syst = 1+self.fparton[f'{cat};1']['tllq'].array()[jet+offset]
                     if syst_cat in systMap:
                         systMap[syst_cat].update({proc: syst})
                     else:
