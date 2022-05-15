@@ -26,21 +26,15 @@ class DatacardMaker():
         # PDF/QCD scale uncertainties take from TOP-19-001
         # Asymmetric errors are provided as k_down / k_up in combine
                                               # 30% flat uncertainty for charge flips
-        self.syst_special = {'charge_flips': {'charge_flips_sm': 1.3}, 'lumi': 1.016, 'pdf_scale' : {'ttH': 1.036, 'tllq': 1.04, 'ttlnu': 1.02, 'ttll': 1.03, 'tHq': 1.037, 'Diboson': 1.02, 'Triboson': 1.042, 'convs': 1.05}, 'qcd_scale' : {'ttH': '0.908/1.058', 'tllq': 1.01, 'ttlnu': '0.88/1.13', 'ttll': '0.88/1.10', 'tHq': '0.92/1.06', 'tttt': '0.74/1.32', 'Diboson': 1.02, 'Triboson': 1.026, 'convs': 1.10}} # Strings b/c combine needs the `/` to process asymmetric errors
+        rateJson = 'topcoffea/json/rate_systs.json'
+        with open(rateJson) as jf:
+            rate = json.load(jf)
+        self.syst_special = rate['rate_uncertainties'] # Strings b/c combine needs the `/` to process asymmetric errors
         self.syst_scale = {'WZTo3LNu': {2: 1.19, 3: 1.89, 4: 1.80, 5: 2.64, 6: 2.38 }}
         # (Un)correlated systematics
         # {'proc': {'syst': name, 'type': name} will assign all procs a special name for the give systematics
         # e.g. {'ttH': {'pdf_scale': 'gg', 'qcd_scale': 'ttH'}} will add `_gg` to the ttH for the pdf scale and `_ttH` for the qcd scale (names correspond to `self.syst_correlated`)
-        self.syst_correlation = {'ttH':      {'pdf_scale': 'gg', 'qcd_scale': 'ttH' }, 
-                                 'ttll':     {'pdf_scale': 'gg', 'qcd_scale': 'ttll' }, 
-                                 'tttt':     {'pdf_scale': 'gg', 'qcd_scale': 'tttt'},
-                                 'tHq':      {'pdf_scale': 'qg', 'qcd_scale': 'tHq' },
-                                 'ttlnu':    {'pdf_scale': 'qq', 'qcd_scale': 'ttlnu' },
-                                 'tttt':     {'qcd_scale': 'tttt' },
-                                 'tllq':     {'pdf_scale': 'qq', 'qcd_scale': 'V'   }, 
-                                 'Diboson':  {'pdf_scale': 'qq', 'qcd_scale': 'VV'  },
-                                 'Triboson': {'pdf_scale': 'qq', 'qcd_scale': 'VVV' },
-                                 'convs':    {'pdf_scale': 'gg', 'qcd_scale': 'ttG' }}
+        self.syst_correlation = rate['correlations']
         # List of systematics which require specific correlations
         # Any systematic _not_ found in this list is assumed to be fully correlated across all processes
         self.syst_correlated  = ['pdf_scale', 'qcd_scale']
@@ -171,7 +165,7 @@ class DatacardMaker():
         self.lumi = {year : 1000*lumi for year,lumi in self.lumi.items()}
 
         # Populate missing parton dicts
-        self.fparton = uproot.open(topcoffea_path('data/missing_parton/missing_parton.root'))
+        #self.fparton = uproot.open(topcoffea_path('data/missing_parton/missing_parton.root'))
 
     def Unblind(self):
         self.unblind = True
@@ -555,15 +549,17 @@ class DatacardMaker():
                 else:
                     systMap[syst_cat] = {proc: syst}
  
+                '''
                 if process.split('_')[0] in ['tllq', 'tHq'] and cat+';1' in self.fparton.keys():
                     syst_cat = 'parton'
                     jet = int(re.findall('\dj', channel)[0][:-1])
                     offset = -4 if '3l' not in channel else -2
-                    syst = 1+self.fparton[f'{cat};1'][process.split('_')[0]].array()[jet+offset]
+                    syst = 1+self.fparton['tllq'][process.split('_')[0]].array()[jet+offset]
                     if syst_cat in systMap:
                         systMap[syst_cat].update({proc: syst})
                     else:
                         systMap[syst_cat] = {proc: syst}
+                '''
                     
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
@@ -814,6 +810,8 @@ class DatacardMaker():
         selectedWCsFile.close()
 
         # Write datacard
+        for k,v in allyields.items():
+                if v < 0: print(f'Warning: {k} is {v}! Setting to 0.')
         allyields = {k : (v if v>0 else 0) for k,v in allyields.items()}
         if systematics != 'nominal':
             cat = cat + '_' + systematics
