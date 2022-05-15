@@ -130,7 +130,7 @@ if __name__ == '__main__':
                     if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
                     else: parton[n] = np.sqrt(np.abs(np.square(total_central[n]) - np.square(err_high[n])))
             fout[fname] = {proc : parton}
-            sign = (np.square(err_low) - np.square(parton)) / np.abs(np.square(err_low) - np.square(parton))
+            sign = err_low / np.abs(err_low)
             plt.fill_between(bins[:-1], sign*np.sqrt(np.abs(np.square(err_low)-np.square(parton))), np.sqrt(np.square(err_high)+np.square(parton)), step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\')
             np.seterr(invalid='ignore')
             plt.ylim([0, np.max(np.max([total_private,total_private+np.max(err, axis=0)+parton], axis=0))*2])
