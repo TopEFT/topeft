@@ -26,7 +26,7 @@ class DatacardMaker():
         # PDF/QCD scale uncertainties take from TOP-19-001
         # Asymmetric errors are provided as k_down / k_up in combine
                                               # 30% flat uncertainty for charge flips
-        self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.016, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '0.908/1.058', 'tllq': 0.01, 'ttlnu': '0.88/1.13', 'ttll': '0.88/1.10', 'tHq': '0.92/1.06', 'tttt': '0.74/1.32', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
+        self.syst_special = {'charge_flips': {'charge_flips_sm': 1.3}, 'lumi': 1.016, 'pdf_scale' : {'ttH': 1.036, 'tllq': 1.04, 'ttlnu': 1.02, 'ttll': 1.03, 'tHq': 1.037, 'Diboson': 1.02, 'Triboson': 1.042, 'convs': 1.05}, 'qcd_scale' : {'ttH': '0.908/1.058', 'tllq': 1.01, 'ttlnu': '0.88/1.13', 'ttll': '0.88/1.10', 'tHq': '0.92/1.06', 'tttt': '0.74/1.32', 'Diboson': 1.02, 'Triboson': 1.026, 'convs': 1.10}} # Strings b/c combine needs the `/` to process asymmetric errors
         self.syst_scale = {'WZTo3LNu': {2: 1.19, 3: 1.89, 4: 1.80, 5: 2.64, 6: 2.38 }}
         # (Un)correlated systematics
         # {'proc': {'syst': name, 'type': name} will assign all procs a special name for the give systematics
@@ -217,33 +217,32 @@ class DatacardMaker():
                         proc = name.split('_')[0]
                         if proc in self.syst_scale:
                             scale = self.syst_scale[proc]
-                            if 'j' in cat:
+                            if 'j' in channel:
                                 jet = int(re.findall('\dj', channel)[0][:-1])
                                 if jet > max(scale): jet = max(scale)
                                 if jet in scale:
                                     syst = scale[jet]
                                     proc = name.split('_')
                                     proc[0] = self.rename.get(proc[0], proc[0])
-                                    proc = '_'.join(proc) + '_' + str(jet)
-                                    self.syst_special[proc] = syst * histo.values()[()].sum()
+                                    proc = '_'.join(proc)
+                                    self.syst_special[proc] = round(syst * histo.values()[()].sum(), 3)
                             else:
                                 lep_bin = channel.split('_')[0].split('l')[0] + 'l'
                                 bins = self.analysis_bins['njets'][lep_bin]
-                                offset = -4 if '3l' not in channel else -2
+                                offset = -3 if '3l' not in channel else -1
                                 h_syst_up = deepcopy(histo)
                                 h_syst_down = deepcopy(histo)
-                                for b in range(1,len(h_syst_up._sumw[()])-2):
+                                for b in range(1,len(h_syst_up._sumw[()][:,0])-2):
                                     jet = b - offset
                                     if jet > max(scale): jet = max(scale)
                                     syst = scale[jet]
-                                    val = h_syst_up._sumw[()][b+1+offset][0]
-                                    h_syst_up._sumw[()][b+1+offset] = val * syst
-                                    h_syst_down._sumw[()][b+1+offset] = val / syst
+                                    val = h_syst_up._sumw[()][:,0][b]
+                                    h_syst_up._sumw[()][:,0][b] = val * syst
+                                    h_syst_down._sumw[()][:,0][b] = val / syst
                                 fout[name+cat+'_jet_scaleUp'] = h_syst_up.to_hist()
                                 fout[name+cat+'_jet_scaleDown'] = h_syst_down.to_hist()
                                 self.syst.append('jet_scaleUp')
                                 self.syst.append('jet_scaleDown')
-                                #fout[self.rename.get(proc, proc)+cat+'_scale'] = h_syst.to_hist()
                         fout[name+cat] = histo.to_hist()
                     elif self.do_nuisance and name not in self.syst_special:
                         if 'nonprompt' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
@@ -256,7 +255,7 @@ class DatacardMaker():
                             nyear = ulyear.findall(syst)[0][2:]
                             # Only processes if syst year matches sample year (e.g. `btagSFbc_2017Up` and `nonpromptUL17`
                             if syear != nyear: continue
-                        if histo.values() == {} and 'scale' not in syst:
+                        if histo.values() == {}:
                             print(f'Warning: bin {name}{cat}_{syst}{self.get_correlation_name(name, syst)} do not exist. Could just be a missing sample!')
                             continue
                         fout[name+cat+'_'+syst+self.get_correlation_name(name, syst)] = histo.to_hist()
@@ -484,19 +483,18 @@ class DatacardMaker():
         def processSyst(process, channel, systMap, d_hists, fout, cat):
             for syst in self.syst:
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
-                if 'jet_scale' in syst and process.split('_')[0] not in self.syst_scale: continue
-                proc = re.sub('UL\d\d(?:APV)?', '', process)
-                syst = syst+self.get_correlation_name(proc, syst) # Tack on possible correlation name from self.syst_correlation
-                if any([proc+'_'+syst in d for d in d_hists]):
-                    h_sys = getHist(d_hists, '_'.join([proc,syst]))
+                process = re.sub('UL\d\d(?:APV)?', '', process)
+                syst = syst+self.get_correlation_name(process, syst) # Tack on possible correlation name from self.syst_correlation
+                if any([process+'_'+syst in d for d in d_hists]):
+                    h_sys = getHist(d_hists, '_'.join([process,syst]))
                     h_sys.SetDirectory(fout)
 
                     # Need to handle quad term to get "Q"
-                    if (("quad" in proc) and ("mixed" not in proc)):
+                    if (("quad" in process) and ("mixed" not in process)):
 
                         # Get the parts of the name (from e.g. "ttH_quad_ctG")
-                        proc_str = proc.split("_")[0]
-                        wc_str = proc.split("_")[2]
+                        proc_str = process.split("_")[0]
+                        wc_str = process.split("_")[2]
 
                         # Construct the names for the corresponding sm and lin terms, and get the hists
                         name_s = '_'.join([proc_str,'sm'])
@@ -527,25 +525,25 @@ class DatacardMaker():
                     else:
                         systMap[syst] = {proc: round(h_sys.Integral(), 3)}
             for syst_special,val in self.syst_special.items():
-                proc = process.split('_')
-                if proc[0] in self.rename: proc[0] = self.rename[proc[0]]
-                proc = '_'.join(proc)
+                process = process.split('_')
+                if process[0] in self.rename: process[0] = self.rename[process[0]]
+                process = '_'.join(process)
                 # Check for special bins
                 if isinstance(val,dict):
-                    # Check for proc specific systematics (e.g. `charge_flips_sm`)
-                    if not any((b in proc for b in val.keys())): continue
+                    # Check for process specific systematics (e.g. `charge_flips_sm`)
+                    if not any((b in process for b in val.keys())): continue
                     for b in val:
-                        if b in proc:
-                            # Found the proc we're looking for, no need to keep looping
+                        if b in process:
+                            # Found the process we're looking for, no need to keep looping
                             if isinstance(val[b],(int,float)):
-                                syst = 1+val[b]
+                                syst = val[b]
                             elif isinstance(val[b],(str)):
                                 syst = val[b]
                             else:
                                 raise NotImplementedError(f'Insystid systue type {syst_special} {type(val[b])=}')
                             break
                 elif isinstance(val,(int,float)):
-                    syst = 1+val
+                    syst = val
                 elif isinstance(val,(str)):
                     syst = val
                 else:
@@ -561,11 +559,12 @@ class DatacardMaker():
                     syst_cat = 'parton'
                     jet = int(re.findall('\dj', channel)[0][:-1])
                     offset = -4 if '3l' not in channel else -2
-                    syst = 1+self.fparton[f'{cat};1']['tllq'].array()[jet+offset]
+                    syst = 1+self.fparton[f'{cat};1'][process.split('_')[0]].array()[jet+offset]
                     if syst_cat in systMap:
                         systMap[syst_cat].update({proc: syst})
                     else:
                         systMap[syst_cat] = {proc: syst}
+                    
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
