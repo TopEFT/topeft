@@ -230,15 +230,19 @@ class DatacardMaker():
                                 lep_bin = channel.split('_')[0].split('l')[0] + 'l'
                                 bins = self.analysis_bins['njets'][lep_bin]
                                 offset = -4 if '3l' not in channel else -2
-                                h_syst = deepcopy(histo)
-                                for b in range(1,len(h_syst._sumw[()])-2):
+                                h_syst_up = deepcopy(histo)
+                                h_syst_down = deepcopy(histo)
+                                for b in range(1,len(h_syst_up._sumw[()])-2):
                                     jet = b - offset
                                     if jet > max(scale): jet = max(scale)
                                     syst = scale[jet]
-                                    val = h_syst._sumw[()][b+1+offset][0]
-                                    h_syst._sumw[()][b+1+offset] = val * syst
-                                fout[name+cat+'_jet_scale'] = h_syst.to_hist()
-                                self.syst.append('jet_scale')
+                                    val = h_syst_up._sumw[()][b+1+offset][0]
+                                    h_syst_up._sumw[()][b+1+offset] = val * syst
+                                    h_syst_down._sumw[()][b+1+offset] = val / syst
+                                fout[name+cat+'_jet_scaleUp'] = h_syst_up.to_hist()
+                                fout[name+cat+'_jet_scaleDown'] = h_syst_down.to_hist()
+                                self.syst.append('jet_scaleUp')
+                                self.syst.append('jet_scaleDown')
                                 #fout[self.rename.get(proc, proc)+cat+'_scale'] = h_syst.to_hist()
                         fout[name+cat] = histo.to_hist()
                     elif self.do_nuisance and name not in self.syst_special:
