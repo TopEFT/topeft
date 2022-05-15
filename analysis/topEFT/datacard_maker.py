@@ -500,14 +500,14 @@ class DatacardMaker():
                         if b in process:
                             # Found the process we're looking for, no need to keep looping
                             if isinstance(val[b],(int,float)):
-                                syst = 1+val[b]
+                                syst = val[b]
                             elif isinstance(val[b],(str)):
                                 syst = val[b]
                             else:
                                 raise NotImplementedError(f'Insystid systue type {syst_special} {type(val[b])=}')
                             break
                 elif isinstance(val,(int,float)):
-                    syst = 1+val
+                    syst = val
                 elif isinstance(val,(str)):
                     syst = val
                 else:
