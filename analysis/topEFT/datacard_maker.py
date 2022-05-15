@@ -27,7 +27,7 @@ class DatacardMaker():
         # Asymmetric errors are provided as k_down / k_up in combine
                                               # 30% flat uncertainty for charge flips
         self.syst_special = {'charge_flips': {'charge_flips_sm': 0.3}, 'lumi': 0.016, 'pdf_scale' : {'ttH': 0.036, 'tllq': 0.04, 'ttlnu': 0.02, 'ttll': 0.03, 'tHq': 0.037, 'Diboson': 0.02, 'Triboson': 0.042, 'convs': 0.05}, 'qcd_scale' : {'ttH': '0.908/1.058', 'tllq': 0.01, 'ttlnu': '0.88/1.13', 'ttll': '0.88/1.10', 'tHq': '0.92/1.06', 'tttt': '0.74/1.32', 'Diboson': 0.02, 'Triboson': 0.026, 'convs': 0.10}} # Strings b/c combine needs the `/` to process asymmetric errors
-        self.syst_scale = {'WZ': {2: 1.19, 3: 1.89, 4: 1.80, 5: 2.64, 6: 2.38 }}
+        self.syst_scale = {'WZTo3LNu': {2: 1.19, 3: 1.89, 4: 1.80, 5: 2.64, 6: 2.38 }}
         # (Un)correlated systematics
         # {'proc': {'syst': name, 'type': name} will assign all procs a special name for the give systematics
         # e.g. {'ttH': {'pdf_scale': 'gg', 'qcd_scale': 'ttH'}} will add `_gg` to the ttH for the pdf scale and `_ttH` for the qcd scale (names correspond to `self.syst_correlated`)
@@ -206,7 +206,7 @@ class DatacardMaker():
                 self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=jbin)
             return
 
-        def export1d(h, name, cat, fout):
+        def export1d(h, name, cat, fout, channel):
             ulyear = re.compile('UL\d\d')
             fullyear = re.compile('20\d\d')
             if 'data_obs' in name:
@@ -214,6 +214,32 @@ class DatacardMaker():
             else:
                 for syst,histo in h.items():
                     if syst == 'nominal':
+                        proc = name.split('_')[0]
+                        if proc in self.syst_scale:
+                            scale = self.syst_scale[proc]
+                            if 'j' in cat:
+                                jet = int(re.findall('\dj', channel)[0][:-1])
+                                if jet > max(scale): jet = max(scale)
+                                if jet in scale:
+                                    syst = scale[jet]
+                                    proc = name.split('_')
+                                    proc[0] = self.rename.get(proc[0], proc[0])
+                                    proc = '_'.join(proc) + '_' + str(jet)
+                                    self.syst_special[proc] = syst * histo.values()[()].sum()
+                            else:
+                                lep_bin = channel.split('_')[0].split('l')[0] + 'l'
+                                bins = self.analysis_bins['njets'][lep_bin]
+                                offset = -4 if '3l' not in channel else -2
+                                h_syst = deepcopy(histo)
+                                for b in range(1,len(h_syst._sumw[()])-2):
+                                    jet = b - offset
+                                    if jet > max(scale): jet = max(scale)
+                                    syst = scale[jet]
+                                    val = h_syst._sumw[()][b+1+offset][0]
+                                    h_syst._sumw[()][b+1+offset] = val * syst
+                                fout[name+cat+'_jet_scale'] = h_syst.to_hist()
+                                self.syst.append('jet_scale')
+                                #fout[self.rename.get(proc, proc)+cat+'_scale'] = h_syst.to_hist()
                         fout[name+cat] = histo.to_hist()
                     elif self.do_nuisance and name not in self.syst_special:
                         if 'nonprompt' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
@@ -226,7 +252,7 @@ class DatacardMaker():
                             nyear = ulyear.findall(syst)[0][2:]
                             # Only processes if syst year matches sample year (e.g. `btagSFbc_2017Up` and `nonpromptUL17`
                             if syear != nyear: continue
-                        if histo.values() == {}:
+                        if histo.values() == {} and 'scale' not in syst:
                             print(f'Warning: bin {name}{cat}_{syst}{self.get_correlation_name(name, syst)} do not exist. Could just be a missing sample!')
                             continue
                         fout[name+cat+'_'+syst+self.get_correlation_name(name, syst)] = histo.to_hist()
@@ -359,15 +385,15 @@ class DatacardMaker():
                 fout[pname+'sm'] = export2d(h_bases)
             else:
                 if any([sig in p for sig in self.signal]):
-                    export1d(h_sm, pname, 'sm', fout) # Special case for SM b/c background names overlap (p not pname)
+                    export1d(h_sm, pname, 'sm', fout, channel) # Special case for SM b/c background names overlap (p not pname)
                 elif 'data' not in proc:
-                    export1d(h_sm, p, '_sm', fout) # Special case for SM b/c background names overlap (p not pname)
+                    export1d(h_sm, p, '_sm', fout, channel) # Special case for SM b/c background names overlap (p not pname)
             # Asimov data: data_obs = MC at SM (all WCs = 0)
             if not self.unblind or 'data' in proc: # data is skipped earlier if unblid is `False`
                 if len(h_base.axes())>1:
                     fout['data_obs'] = export2d(h_sm)
                 else:
-                    export1d(h_sm, 'data_obs', 'sm', fout)
+                    export1d(h_sm, 'data_obs', 'sm', fout, channel)
 
             isSignal = p in self.signal or (p in self.rename and self.rename[p] in self.signal)
             if not self.do_sm and isSignal and self.wcs is not None:
@@ -382,7 +408,7 @@ class DatacardMaker():
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_lin)
                         else:
-                            export1d(h_lin, pname, name, fout)
+                            export1d(h_lin, pname, name, fout, channel)
                         if variable == 'njets':
                             if isinstance(charges, str):
                                 cat = '_'.join([channel, charge, ])  
@@ -402,7 +428,7 @@ class DatacardMaker():
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_quad)
                         else:
-                            export1d(h_quad, pname, name, fout)
+                            export1d(h_quad, pname, name, fout, channel)
                     else:
                         h_mix = h_bases
                         for hists in h_mix.values():
@@ -410,7 +436,7 @@ class DatacardMaker():
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_mix)
                         else:
-                            export1d(h_mix, pname, name, fout)
+                            export1d(h_mix, pname, name, fout, channel)
         
         fout.close()
         self.makeCardLevel(channel=channel, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
@@ -454,6 +480,7 @@ class DatacardMaker():
         def processSyst(process, channel, systMap, d_hists, fout, cat):
             for syst in self.syst:
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
+                if 'jet_scale' in syst and process.split('_')[0] not in self.syst_scale: continue
                 proc = re.sub('UL\d\d(?:APV)?', '', process)
                 syst = syst+self.get_correlation_name(proc, syst) # Tack on possible correlation name from self.syst_correlation
                 if any([proc+'_'+syst in d for d in d_hists]):
@@ -531,19 +558,6 @@ class DatacardMaker():
                     jet = int(re.findall('\dj', channel)[0][:-1])
                     offset = -4 if '3l' not in channel else -2
                     syst = 1+self.fparton[f'{cat};1']['tllq'].array()[jet+offset]
-                    if syst_cat in systMap:
-                        systMap[syst_cat].update({proc: syst})
-                    else:
-                        systMap[syst_cat] = {proc: syst}
-            proc = process.split('_')[0]
-            if proc in self.syst_scale:
-                scale = self.syst_scale[proc]
-                jet = int(re.findall('\dj', channel)[0][:-1])
-                if jet > scale.keys()[-1]: jet = scale.keys()[-1]
-                if jet in scale:
-                    proc = process
-                    syst = scale[jet]
-                    syst_cat = 'scale_flat'
                     if syst_cat in systMap:
                         systMap[syst_cat].update({proc: syst})
                     else:
