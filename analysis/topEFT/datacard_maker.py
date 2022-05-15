@@ -164,7 +164,7 @@ class DatacardMaker():
         self.lumi = {year : 1000*lumi for year,lumi in self.lumi.items()}
 
         # Populate missing parton dicts
-        self.fparton = uproot.open(topcoffea_path('data/missing_parton/missing_parton.root'))
+        #self.fparton = uproot.open(topcoffea_path('data/missing_parton/missing_parton.root'))
 
     def Unblind(self):
         self.unblind = True
@@ -519,6 +519,7 @@ class DatacardMaker():
                 else:
                     systMap[syst_cat] = {proc: syst}
  
+                '''
                 if process.split('_')[0] in ['tllq', 'tHq'] and cat+';1' in self.fparton.keys():
                     syst_cat = 'parton'
                     jet = int(re.findall('\dj', channel)[0][:-1])
@@ -528,6 +529,7 @@ class DatacardMaker():
                         systMap[syst_cat].update({proc: syst})
                     else:
                         systMap[syst_cat] = {proc: syst}
+                '''
                     
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
