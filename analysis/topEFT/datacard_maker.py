@@ -467,13 +467,16 @@ class DatacardMaker():
                 loop_histo.SetBinError(loop_histo.GetNbinsX(),(e_last**2+e_over**2)**.5) # Add overflow error in quadrature to last bin
                 loop_histo.SetBinError(loop_histo.GetNbinsX()+1,0.0)                     # Set overflow error to 0
                 ret_dict[loop_name] = loop_histo
-            # Special case for `jet_scale`
-            diboson = [k for k in ret_dict if self.rename.get(k.split('_')[0], k.split('_')[0]) == 'Diboson' and 'WZTo3LNu' not in k and 'sm' in k] # Hard coding Diboson and WZ for now
-            jet_scale_name = [k for k in loop_dict if 'jet_scale' in k]
-            if len(jet_scale_name) > 0:
-                jet_scale_name = jet_scale_name[0]
-                for loop_name,loop_histo in loop_dict.items():
-                    if loop_name in diboson: ret_dict[jet_scale_name] += loop_histo
+                # Special case for `jet_scale`
+                if 'jet_scale' not in loop_name: continue
+                diboson = [k for k in ret_dict if self.rename.get(k.split('_')[0], k.split('_')[0]) == 'Diboson' and 'WZTo3LNu' not in k and 'sm' in k] # Hard coding Diboson and WZ for now
+                jet_scale_name = [k for k in loop_dict if 'jet_scale' in k]
+                if len(jet_scale_name) > 0:
+                    jet_scale_name = jet_scale_name[0]
+                    for loop_name2,loop_histo2 in loop_dict.items():
+                        if loop_name2 not in diboson: continue
+                        if '_sm_' in loop_name2: continue # Nominal only
+                        ret_dict[jet_scale_name].Add(loop_histo2)
                 
             return ret_dict
 
