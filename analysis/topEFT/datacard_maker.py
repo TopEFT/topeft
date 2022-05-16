@@ -220,9 +220,9 @@ class DatacardMaker():
                                     proc[0] = self.rename.get(proc[0], proc[0])
                                     proc = '_'.join(proc)
                                     if 'jet_scale' in self.syst_special:
-                                        self.syst_special['jet_scale'][proc] = round(syst * histo.values()[()].sum(), 3)
+                                        self.syst_special['jet_scale'][proc] = syst * histo.values()[()].sum()
                                     else:
-                                        self.syst_special['jet_scale'] = {proc: round(syst * histo.values()[()].sum(), 3)}
+                                        self.syst_special['jet_scale'] = {proc: syst * histo.values()[()].sum()}
                             else:
                                 lep_bin = channel.split('_')[0].split('l')[0] + 'l'
                                 bins = self.analysis_bins['njets'][lep_bin]
@@ -527,9 +527,9 @@ class DatacardMaker():
                     syst = syst.replace('Up', '') # Remove 'Up' to get just the systematic name
                     if 'jet_scale' not in syst or ('jet_scale' in syst and any((self.rename.get(p, p) in proc for p in self.syst_scale))): # Prevent others from getting `jet_scale` of 0.0
                         if syst in systMap:
-                            systMap[syst].update({proc: round(h_sys.Integral(), 3)})
+                            systMap[syst].update({proc: h_sys.Integral()})
                         else:
-                            systMap[syst] = {proc: round(h_sys.Integral(), 3)}
+                            systMap[syst] = {proc: h_sys.Integral()}
             for syst_special,val in self.syst_special.items():
                 process = process.split('_')
                 if process[0] in self.rename: process[0] = self.rename[process[0]]
@@ -820,6 +820,12 @@ class DatacardMaker():
         selectedWCsFile=open(f'histos/selectedWCs-{cat}.txt','w')
         json.dump(selectedWCsForProc, selectedWCsFile)
         selectedWCsFile.close()
+
+        # Correct for `WZ` rate
+        diboson = allyields['Diboson_sm'] # Hard coding for `Diboson` for now
+        wz_unc = systMap['jet_scale_flat_rate']['Diboson_sm']
+        diboson_rate = (diboson + wz_unc) / diboson
+        systMap['jet_scale_flat_rate']['Diboson_sm'] = round(diboson_rate, 4)
 
         # Write datacard
         for k,v in allyields.items():
