@@ -516,12 +516,13 @@ class DatacardMaker():
                     proc = process.split('_')
                     if proc[0] in self.rename: proc[0] = self.rename[proc[0]]
                     proc = '_'.join(proc) + '_' + syst
-                    if any((proc in l.GetName() for l in fout.GetListOfKeys())): # Look for Up/Down (only replacing Down because of the continue a few lines down
-                        h_sys.Add(fout.Get(proc+';1'))
-                        fout.Delete(proc+';1')
-                    h_sys.SetName(proc)
-                    h_sys.SetTitle(proc)
-                    h_sys.Write()
+                    if 'jet_scale' not in syst or ('jet_scale' in syst and any((self.rename.get(p, p) in proc for p in self.syst_scale))): # Prevent others from getting `jet_scale` of 0.0
+                        if any((proc in l.GetName() for l in fout.GetListOfKeys())): # Look for Up/Down (only replacing Down because of the continue a few lines down
+                            h_sys.Add(fout.Get(proc+';1'))
+                            fout.Delete(proc+';1')
+                        h_sys.SetName(proc)
+                        h_sys.SetTitle(proc)
+                        h_sys.Write()
 
                     if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
                     syst = syst.replace('Up', '') # Remove 'Up' to get just the systematic name
