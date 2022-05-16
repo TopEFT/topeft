@@ -525,10 +525,11 @@ class DatacardMaker():
 
                     if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
                     syst = syst.replace('Up', '') # Remove 'Up' to get just the systematic name
-                    if syst in systMap:
-                        systMap[syst].update({proc: round(h_sys.Integral(), 3)})
-                    else:
-                        systMap[syst] = {proc: round(h_sys.Integral(), 3)}
+                    if 'jet_scale' not in syst or ('jet_scale' in syst and any((self.rename.get(p, p) in proc for p in self.syst_scale))): # Prevent others from getting `jet_scale` of 0.0
+                        if syst in systMap:
+                            systMap[syst].update({proc: round(h_sys.Integral(), 3)})
+                        else:
+                            systMap[syst] = {proc: round(h_sys.Integral(), 3)}
             for syst_special,val in self.syst_special.items():
                 process = process.split('_')
                 if process[0] in self.rename: process[0] = self.rename[process[0]]
