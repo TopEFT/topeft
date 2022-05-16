@@ -252,7 +252,7 @@ class DatacardMaker():
                             nyear = ulyear.findall(syst)[0][2:]
                             # Only processes if syst year matches sample year (e.g. `btagSFbc_2017Up` and `nonpromptUL17`
                             if syear != nyear: continue
-                        if histo.values() == {}:
+                        if histo.values() == {} and 'jet_scale' not in syst:
                             print(f'Warning: bin {name}{cat}_{syst}{self.get_correlation_name(name, syst)} do not exist. Could just be a missing sample!')
                             continue
                         fout[name+cat+'_'+syst+self.get_correlation_name(name, syst)] = histo.to_hist()
@@ -822,7 +822,7 @@ class DatacardMaker():
 
         # Write datacard
         for k,v in allyields.items():
-                if v < 0: print(f'Warning: {k} is {v}! Setting to 0.')
+            if v < 0: print(f'Warning: {k} is {v}! Setting to 0.')
         allyields = {k : (v if v>0 else 0) for k,v in allyields.items()}
         if systematics != 'nominal':
             cat = cat + '_' + systematics
