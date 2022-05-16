@@ -219,7 +219,10 @@ class DatacardMaker():
                                     proc = name.split('_')
                                     proc[0] = self.rename.get(proc[0], proc[0])
                                     proc = '_'.join(proc)
-                                    self.syst_special[proc] = round(syst * histo.values()[()].sum(), 3)
+                                    if 'jet_scale' in self.syst_special:
+                                        self.syst_special['jet_scale'][proc] = round(syst * histo.values()[()].sum(), 3)
+                                    else:
+                                        self.syst_special['jet_scale'] = {proc: round(syst * histo.values()[()].sum(), 3)}
                             else:
                                 lep_bin = channel.split('_')[0].split('l')[0] + 'l'
                                 bins = self.analysis_bins['njets'][lep_bin]
@@ -841,7 +844,7 @@ class DatacardMaker():
                 systEff = dict((p,"1" if any(p in m for m in systMap[syst]) else "-") for p in procs if 'rate' not in syst)
                 systEffRate = dict((p,systMap[syst][p] if any(p in m for m in systMap[syst]) else "-") for p in procs if 'rate' in syst)
                 if 'rate' in syst:
-                    datacard.write(('%s %5s' % (npatt % syst.replace('_rate',''),'lnN')) + " ".join([kpatt % systEffRate[p]  for p in procs if p in systEffRate]) +"\n")
+                    datacard.write(('%s %5s' % (npatt % syst.replace('_flat_rate',''),'lnN')) + " ".join([kpatt % systEffRate[p]  for p in procs if p in systEffRate]) +"\n")
                 else:
                     datacard.write(('%s %5s' % (npatt % syst,'shape')) + " ".join([kpatt % systEff[p]  for p in procs if p in systEff]) +"\n")
         
