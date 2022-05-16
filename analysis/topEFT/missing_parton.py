@@ -10,6 +10,7 @@ import re
 
 files = ['2lss_m_2b',  '2lss_p_2b',  '2lss_4t_m_2b', '2lss_4t_p_2b', '3l1b_m',  '3l1b_p',  '3l2b_m',  '3l2b_p',  '3l_sfz_1b',  '3l_sfz_2b',  '4l_2b']
 files_diff = ['2lss_4t_m_4j_2b', '2lss_4t_m_5j_2b', '2lss_4t_m_6j_2b', '2lss_4t_m_7j_2b', '2lss_4t_p_4j_2b', '2lss_4t_p_5j_2b', '2lss_4t_p_6j_2b', '2lss_4t_p_7j_2b', '2lss_m_4j_2b', '2lss_m_5j_2b', '2lss_m_6j_2b', '2lss_m_7j_2b', '2lss_p_4j_2b', '2lss_p_5j_2b', '2lss_p_6j_2b', '2lss_p_7j_2b', '3l_m_offZ_1b_2j', '3l_m_offZ_1b_3j', '3l_m_offZ_1b_4j', '3l_m_offZ_1b_5j', '3l_m_offZ_2b_2j', '3l_m_offZ_2b_3j', '3l_m_offZ_2b_4j', '3l_m_offZ_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
+files_ptz = ['3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j']
 
 def get_hists(fname, path, process):
     fin = uproot.open('histos/'+path+'/ttx_multileptons-'+fname+'.root')
@@ -18,23 +19,23 @@ def get_hists(fname, path, process):
   
     nom = {}; up = {}; down = {}
         
-    nom = {proc.strip(';1'): fin[proc].values(flow=True)[1:] for proc in fin if 'sm;' in proc and (process in proc or process.replace('ll','Z') in proc)}
+    nom = {proc.strip(';1'): fin[proc].values() for proc in fin if 'sm;' in proc and (process in proc or process.replace('ll','Z') in proc)}
     for val in nom.values():
         val = [x if not math.isinf(x) else 0 for x in val]
    
     up = {proc.strip('Up;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Up;' in proc or 'flat' in proc)}
     down = {proc.strip('Down;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Down;' in proc or 'flat' in proc)}
-    #syst_names = list(set([k.split('_')[-1] for k in up]))
-    total = np.array([v for v in nom.values()]).sum(0)
+    total = np.array([v for v in nom.values()])[0]
 
     systs = [0,0]
     err = [np.zeros_like(total), np.zeros_like(total)]
 
     # Handle shape systematics
     if len(up) > 0:
-        systs[0] = [k.split(';')[0] for k in fin.keys() if 'sm' in k and 'Up' in k]
-        systs[1] = [k.split(';')[0] for k in fin.keys() if 'sm' in k and 'Down' in k]
-        total_systs = [[fin[k[0]+';1'].to_numpy()[0].sum(), fin[k[1]+';1'].to_numpy()[0].sum()] for k in systs]
+        systs[0] = [k.split(';')[0] for k in fin.keys() if 'sm' in k and 'Up' in k and 'fakes' not in k]
+        systs[1] = [k.split(';')[0] for k in fin.keys() if 'sm' in k and 'Down' in k and 'fakes' not in k]
+        systs = [k for k in zip(systs[0], systs[1])]
+        total_systs = [[fin[k[0]+';1'].to_numpy()[0], fin[k[1]+';1'].to_numpy()[0]] for k in systs]
         up_shift   = [abs(s[0] - total) for s in total_systs]
         down_shift = [abs(s[1] - total) for s in total_systs]
         err = [np.sqrt(np.sum(np.square(up_shift), axis=0)), np.sqrt(np.sum(np.square(down_shift), axis=0))]
@@ -54,8 +55,8 @@ def get_hists(fname, path, process):
         err[0] = np.sqrt(np.square(err[0]) + np.square(rate*s[0]))
         err[1] = np.sqrt(np.square(err[1]) + np.square(rate*s[1]))
   
-    bins = fin[process+'_sm'].axis().edges(flow=True)[1:]
-    bins[-1] = bins[-2] + 1.
+    bins = fin[process+'_sm'].axis().edges()
+    #bins[-1] = bins[-2] + 1.
     return total, nom, err, bins, [proc.split('_sm')[0]for proc in fin if 'sm;' in proc]
 
 if __name__ == '__main__':
@@ -77,6 +78,8 @@ if __name__ == '__main__':
     var      = args.var
     if var != 'njets':
         files = files_diff
+    if var == 'ptz':
+        files = files_ptz
     if len(years)==0: years = ['2016APV', '2016', '2017', '2018']
     with open(lumiJson) as jf:
         lumi = json.load(jf)
@@ -118,7 +121,7 @@ if __name__ == '__main__':
             sign = [(np.square(total_private)-np.square(err[0])) / np.abs(np.square(total_private)-np.square(err[0])), (np.square(total_private)-np.square(err[1])) / np.abs(np.square(total_private)-np.square(err[1]))]
             err_low  = np.min([sign[0]*np.sqrt(np.abs(np.square(total_private)-np.square(err[0]))), sign[1]*np.sqrt(np.abs(np.square(total_private)-np.square(err[1])))], axis=0)
             err_high = np.max([np.sqrt(np.square(total_private)+np.square(err[0])),np.sqrt(np.square(total_private)+np.square(err[1]))], axis=0)
-            plt.fill_between(bins[:-1], err_low, err_high, step='post', facecolor='none', edgecolor='lightgray', label='Other syst.', hatch='///')
+            plt.fill_between(bins, np.append(err_low, 0.), np.append(err_high, 0.), step='post', facecolor='none', edgecolor='lightgray', label='Other syst.', hatch='///')
             parton = np.zeros_like(total_private)
             pos = total_private >= total_central
             neg = total_private < total_central
@@ -130,8 +133,10 @@ if __name__ == '__main__':
                     if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
                     else: parton[n] = np.sqrt(np.abs(np.square(total_central[n]) - np.square(err_high[n])))
             fout[fname] = {proc : parton}
-            sign = err_low / np.abs(err_low)
-            plt.fill_between(bins[:-1], sign*np.sqrt(np.abs(np.square(err_low)-np.square(parton))), np.sqrt(np.square(err_high)+np.square(parton)), step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\')
+            sign = np.ones_like(parton)
+            sign[np.square(err_low) - np.square(parton) < 0] = -1
+            mask = err_low < parton
+            plt.fill_between(bins, np.append(sign*np.sqrt(np.abs(np.square(err_low)-np.square(parton))), 0), np.append(np.sqrt(np.square(err_high)+np.square(parton)), 0), step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\') # append 0 to pad plots (matplotlib plots up to but not including the last bin)
             np.seterr(invalid='ignore')
             plt.ylim([0, np.max(np.max([total_private,total_private+np.max(err, axis=0)+parton], axis=0))*2])
             hep.cms.label(lumi='%0.3g'%sum(lumi.values()))
