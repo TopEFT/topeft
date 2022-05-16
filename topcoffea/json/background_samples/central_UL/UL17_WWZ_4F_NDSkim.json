@@ -6,20 +6,24 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_WWZ_4F/output_1434.root"
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p5/add_ext_bkg/v1/UL17_WWZ_4F/output_225.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p5/add_ext_bkg/v1/UL17_WWZ_4F/output_235.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p5/add_ext_bkg/v1/UL17_WWZ_4F/output_241.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p5/add_ext_bkg/v1/UL17_WWZ_4F/output_242.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p5/add_ext_bkg/v1/UL17_WWZ_4F/output_244.root"
   ],
-  "nEvents": 178000,
-  "nGenEvents": 178000,
-  "nSumOfWeights": 30386.291709359997,
+  "nEvents": 10116400,
+  "nGenEvents": 10116400,
+  "nSumOfWeights": 1727433.516414241,
   "isData": false,
-  "nSumOfWeights_ISRUp": 30382.93903383555,
-  "nSumOfWeights_ISRDown": 30386.748128346866,
-  "nSumOfWeights_FSRUp": 30323.55243015173,
-  "nSumOfWeights_FSRDown": 30417.42048225645,
-  "nSumOfWeights_renormUp": 29354.317680080538,
-  "nSumOfWeights_renormDown": 31630.748928149937,
-  "nSumOfWeights_factUp": 29925.949822715786,
-  "nSumOfWeights_factDown": 30942.4061507497,
-  "nSumOfWeights_renormfactUp": 28913.44254372264,
-  "nSumOfWeights_renormfactDown": 32225.087586898127
+  "nSumOfWeights_ISRUp": 1727201.418086929,
+  "nSumOfWeights_ISRDown": 1727469.7621996775,
+  "nSumOfWeights_FSRUp": 1726876.400346634,
+  "nSumOfWeights_FSRDown": 1727345.526680585,
+  "nSumOfWeights_renormUp": 1668104.3990173638,
+  "nSumOfWeights_renormDown": 1799012.7996104918,
+  "nSumOfWeights_factUp": 1702033.2180895065,
+  "nSumOfWeights_factDown": 1757951.5432073832,
+  "nSumOfWeights_renormfactUp": 1643701.9384562061,
+  "nSumOfWeights_renormfactDown": 1831521.2905133488
 }
