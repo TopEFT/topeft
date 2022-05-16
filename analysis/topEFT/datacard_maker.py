@@ -470,14 +470,15 @@ class DatacardMaker():
                 # Special case for `jet_scale`
                 if 'jet_scale' not in loop_name: continue
                 diboson = [k for k in ret_dict if self.rename.get(k.split('_')[0], k.split('_')[0]) == 'Diboson' and 'WZTo3LNu' not in k and 'sm' in k] # Hard coding Diboson and WZ for now
-                jet_scale_name = [k for k in loop_dict if 'jet_scale' in k]
-                if len(jet_scale_name) > 0:
-                    jet_scale_name = jet_scale_name[0]
-                    for loop_name2,loop_histo2 in loop_dict.items():
-                        if loop_name2 not in diboson: continue
-                        if '_sm_' in loop_name2: continue # Nominal only
-                        ret_dict[jet_scale_name].Add(loop_histo2)
-                
+            jet_scale_name = [k for k in loop_dict if 'jet_scale' in k]
+            if len(jet_scale_name) > 0:
+                jet_scale_name = jet_scale_name[0]
+                for loop_name,loop_histo in loop_dict.items():
+                    if loop_name not in diboson: continue
+                    if '_sm_' in loop_name: continue # Nominal only
+                    if 'Up' in loop_name or 'Down' in loop_name: continue # Nominal only
+                    ret_dict[jet_scale_name].Add(loop_histo)
+
             return ret_dict
 
         def getHist(d_hists,name):
