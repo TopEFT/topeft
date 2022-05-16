@@ -9,12 +9,15 @@ from coffea import hist
 import re
 
 files = ['2lss_m_2b',  '2lss_p_2b',  '2lss_4t_m_2b', '2lss_4t_p_2b', '3l1b_m',  '3l1b_p',  '3l2b_m',  '3l2b_p',  '3l_sfz_1b',  '3l_sfz_2b',  '4l_2b']
+files = ['2lss_p_2b']
 files_diff = ['2lss_4t_m_4j_2b', '2lss_4t_m_5j_2b', '2lss_4t_m_6j_2b', '2lss_4t_m_7j_2b', '2lss_4t_p_4j_2b', '2lss_4t_p_5j_2b', '2lss_4t_p_6j_2b', '2lss_4t_p_7j_2b', '2lss_m_4j_2b', '2lss_m_5j_2b', '2lss_m_6j_2b', '2lss_m_7j_2b', '2lss_p_4j_2b', '2lss_p_5j_2b', '2lss_p_6j_2b', '2lss_p_7j_2b', '3l_m_offZ_1b_2j', '3l_m_offZ_1b_3j', '3l_m_offZ_1b_4j', '3l_m_offZ_1b_5j', '3l_m_offZ_2b_2j', '3l_m_offZ_2b_3j', '3l_m_offZ_2b_4j', '3l_m_offZ_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
 files_ptz = ['3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j']
 
 def get_hists(fname, path, process):
+    print(fname)
     fin = uproot.open('histos/'+path+'/ttx_multileptons-'+fname+'.root')
     card = strip('histos/'+path+'/ttx_multileptons-'+fname+'.txt')
+    print('histos/'+path+'/ttx_multileptons-'+fname+'.txt')
     sm = [k.split(';')[0] for k in fin.keys() if 'sm' in k]
   
     nom = {}; up = {}; down = {}
@@ -23,9 +26,12 @@ def get_hists(fname, path, process):
     for val in nom.values():
         val = [x if not math.isinf(x) else 0 for x in val]
    
-    up = {proc.strip('Up;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Up;' in proc or 'flat' in proc)}
-    down = {proc.strip('Down;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Down;' in proc or 'flat' in proc)}
+    up = {proc.strip('Up;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Up;' in proc or 'flat' in proc) and 'fakes' not in proc}
+    down = {proc.strip('Down;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Down;' in proc or 'flat' in proc) and 'fakes' not in proc}
+    print(up)
+    print(down)
     total = np.array([v for v in nom.values()])[0]
+    print(f'{total=}')
 
     systs = [0,0]
     err = [np.zeros_like(total), np.zeros_like(total)]
@@ -41,19 +47,25 @@ def get_hists(fname, path, process):
         err = [np.sqrt(np.sum(np.square(up_shift), axis=0)), np.sqrt(np.sum(np.square(down_shift), axis=0))]
 
     # Handle flat rate systematics
-    flat_systs = ([k,r,v] for c in card[1] for k,r,v in zip(fin.keys(), total, c))
-    for proc,rate,val in flat_systs:
+    flat_systs = zip(card[0], card[0].values(), *card[1])
+    for c in flat_systs:
+        proc = c[0]
+        rate = c[1]
+        vals = c[2:]
         if 'sm' not in proc: continue
-        s = [0,0]
-        if '-' in val: continue
-        if '/' in val:
-            s[0] = 1. - float(val.split('/')[0])
-            s[1] = 1. - float(val.split('/')[1])
-        else:
-            s[0] = 1. - float(val)
-            s[1] = 1. - float(val)
-        err[0] = np.sqrt(np.square(err[0]) + np.square(rate*s[0]))
-        err[1] = np.sqrt(np.square(err[1]) + np.square(rate*s[1]))
+        for val in vals:
+            s = [0,0]
+            if '-' in val: continue
+            if '/' in val:
+                s[0] = 1 - float(val.split('/')[0])
+                s[1] = float(val.split('/')[1]) - 1
+            else:
+                s[0] = float(val) - 1
+                s[1] = float(val) - 1
+            print('here',proc,rate,val,total*s[0],total*s[1])
+            err[0] = np.sqrt(np.square(err[0]) + np.square(total*s[0]))
+            err[1] = np.sqrt(np.square(err[1]) + np.square(total*s[1]))
+    print(f'{err=}')
   
     bins = fin[process+'_sm'].axis().edges()
     #bins[-1] = bins[-2] + 1.
@@ -134,8 +146,17 @@ if __name__ == '__main__':
                     else: parton[n] = np.sqrt(np.abs(np.square(total_central[n]) - np.square(err_high[n])))
             fout[fname] = {proc : parton}
             sign = np.ones_like(parton)
-            sign[np.square(err_low) - np.square(parton) < 0] = -1
-            mask = err_low < parton
+            for n,_ in enumerate(sign):
+                if np.square(err_low[n]) - np.square(parton[n]) < 0 or err_low[n] < 0: sign[n] = -1
+            if '3l' in fname:
+                print(fname)
+                print(f'{total_central=}')
+                print(f'{total_private=}')
+                print(f'{err_low=}')
+                print(f'{err_high=}')
+                print(f'{parton=}')
+                print(f'{sign=}')
+                print(np.append(sign*np.sqrt(np.abs(np.square(err_low)-np.square(parton))), 0), np.append(np.sqrt(np.square(err_high)+np.square(parton)), 0))
             plt.fill_between(bins, np.append(sign*np.sqrt(np.abs(np.square(err_low)-np.square(parton))), 0), np.append(np.sqrt(np.square(err_high)+np.square(parton)), 0), step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\') # append 0 to pad plots (matplotlib plots up to but not including the last bin)
             np.seterr(invalid='ignore')
             plt.ylim([0, np.max(np.max([total_private,total_private+np.max(err, axis=0)+parton], axis=0))*2])
