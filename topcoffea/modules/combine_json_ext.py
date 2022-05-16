@@ -1,4 +1,5 @@
 import json
+import os
 
 def combine_json_ext(ext_name):
     if '_ext' not in ext_name:
@@ -7,7 +8,9 @@ def combine_json_ext(ext_name):
     jsonFile = open(ext_name,'r')
     ext = json.load(jsonFile) # Load the JSON information for the ext file
 
-    nom_name = ext_name.replace('_ext','') # Remove '_ext' from the file name
+    ext_json_name = os.path.basename(ext_name)
+    nom_json_name = ext_json_name.replace('_ext','') # Remove '_ext' from the file name
+    nom_name = ext_name.replace(ext_json_name,nom_json_name)
     try:
         jsonFile = open(nom_name,'r')
     except FileNotFoundError:
