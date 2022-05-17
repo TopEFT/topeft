@@ -832,8 +832,9 @@ class DatacardMaker():
         if 'jet_scale_flat_rate' in systMap:
             diboson = allyields['Diboson_sm'] # Hard coding for `Diboson` for now
             wz_unc = systMap['jet_scale_flat_rate']['Diboson_sm']
-            diboson_rate = (diboson + wz_unc) / diboson
-            systMap['jet_scale_flat_rate']['Diboson_sm'] = round(diboson_rate, 4)
+            diboson_rate_up = (diboson + wz_unc) / diboson
+            diboson_rate_down = (diboson - wz_unc) / diboson
+            systMap['jet_scale_flat_rate']['Diboson_sm'] = str(round(diboson_rate_down, 4)) + '/' + str(round(diboson_rate_up, 4))
 
         # Write datacard
         for k,v in allyields.items():
