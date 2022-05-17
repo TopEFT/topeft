@@ -9,6 +9,7 @@ import time
 import logging
 import glob
 import os
+import re
 import string
 from pathlib import Path
 from setuptools import version
@@ -63,6 +64,37 @@ def _check_git_min_version(min_version):
         raise FileNotFoundError("Could not find the git executable in PATH")
     return output
 
+def _check_current_env():
+    with tempfile.NamedTemporaryFile() as f:
+        # export current conda enviornment
+        subprocess.check_call(['conda', 'env', 'export', '--json'], stdout=f)
+        spec_file = open(f.name,  'r')
+        current_spec = json.load(spec_file)
+        spec = json.loads(packages_json)
+	# get current conda packages
+        conda_deps = {re.sub("[!~=<>].*$", "", x):x  for x in current_spec['dependencies'] if not isinstance(x, dict)}
+	# get current pip packages
+        pip_deps = {re.sub("[!~=<>].*$", "", y):y for y in  [x for x in current_spec['dependencies'] if isinstance(x, dict) and 'pip' in x for x in x['pip']]}
+    
+
+        # replcae any conda packages
+        for i in range(len(spec['conda']['packages'])):
+            # ignore packages where a version is already specified
+            package = spec['conda']['packages'][i]
+            if not re.search("[!~=<>].*$", package):
+                if package in conda_deps:
+                    spec['conda']['packages'][i] = conda_deps[package]
+                                         
+        # replcae any pip packages
+        for i in range(len(spec['pip'])):
+            # ignore packages where a version is already specified
+            package = spec['pip'][i]
+            if not re.search("[!~=<>].*$", package):
+                if package in pip_deps:
+                    spec['pip'][i] = pip_deps[package]
+
+    return spec
+
 def _create_env(env_name, force=False):
     if force:
         logger.info("Forcing rebuilding of {}".format(env_name))
@@ -72,6 +104,9 @@ def _create_env(env_name, force=False):
         return env_name
 
     with tempfile.NamedTemporaryFile() as f:
+        logger.info("Checking current Conda environment")
+        spec = _check_current_env()
+        packages_json = json.dumps(spec)
         logger.info("base env specification:{}".format(packages_json))
         f.write(packages_json.encode())
         f.flush()
