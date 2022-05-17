@@ -39,8 +39,8 @@ def get_hists(fname, path, process):
         for syst in total_systs:
             mask = syst - total > 0
             shift = (syst - total)
-            err[0][mask] = np.sqrt(np.square(err[0][mask]) + np.square(shift[mask]))
-            err[1][~mask] = np.sqrt(np.square(err[1][~mask]) + np.square(-shift[~mask]))
+            err[0][~mask] = np.sqrt(np.square(err[1][~mask]) + np.square(-shift[~mask]))
+            err[1][mask] = np.sqrt(np.square(err[0][mask]) + np.square(shift[mask]))
 
     # Handle flat rate systematics
     flat_systs = zip(card[0], card[0].values(), *card[1])
@@ -124,9 +124,8 @@ if __name__ == '__main__':
             hep.histplot(total_private, bins=bins, stack=False, label='Priavte LO', ax=ax, sort='yield')
             hep.histplot(total_central, bins=bins, stack=False, label='Central NLO', ax=ax, sort='yield')
             # Keep track of negative sign (since abs is requried to in sqrt)
-            sign = [(np.square(total_private)-np.square(err[0])) / np.abs(np.square(total_private)-np.square(err[0])), (np.square(total_private)-np.square(err[1])) / np.abs(np.square(total_private)-np.square(err[1]))]
-            err_low  = np.min([sign[0]*np.sqrt(np.abs(np.square(total_private)-np.square(err[0]))), sign[1]*np.sqrt(np.abs(np.square(total_private)-np.square(err[1])))], axis=0)
-            err_high = np.max([np.sqrt(np.square(total_private)+np.square(err[0])),np.sqrt(np.square(total_private)+np.square(err[1]))], axis=0)
+            err_low  = total_private - err[0]
+            err_high = total_private + err[1]
             plt.fill_between(bins, np.append(err_low, 0.), np.append(err_high, 0.), step='post', facecolor='none', edgecolor='lightgray', label='Other syst.', hatch='///')
             parton = np.zeros_like(total_private)
             pos = total_private >= total_central
@@ -140,6 +139,7 @@ if __name__ == '__main__':
                     else: parton[n] = np.sqrt(np.abs(np.square(total_central[n]) - np.square(err_high[n])))
             fout[fname] = {proc : parton}
             sign = np.ones_like(parton)
+            # Correct for cases where parton > err_low (negative)
             for n,_ in enumerate(sign):
                 if np.square(err_low[n]) - np.square(parton[n]) < 0 or err_low[n] < 0: sign[n] = -1
             plt.fill_between(bins, np.append(sign*np.sqrt(np.abs(np.square(err_low)-np.square(parton))), 0), np.append(np.sqrt(np.square(err_high)+np.square(parton)), 0), step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\') # append 0 to pad plots (matplotlib plots up to but not including the last bin)
