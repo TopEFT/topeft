@@ -470,13 +470,12 @@ class DatacardMaker():
                 loop_histo.SetBinError(loop_histo.GetNbinsX()+1,0.0)                     # Set overflow error to 0
                 ret_dict[loop_name] = loop_histo
                 # Special case for `jet_scale`
-                if 'jet_scale' not in loop_name: continue
-                diboson = [k for k in ret_dict if self.rename.get(k.split('_')[0], k.split('_')[0]) == 'Diboson' and 'WZTo3LNu' not in k and 'sm' in k] # Hard coding Diboson and WZ for now
-            jet_scale_names = [k for k in loop_dict if 'jet_scale' in k and 'WZ' in k]
+            diboson = [k for k in ret_dict if self.rename.get(k.split('_')[0], k.split('_')[0]) == 'Diboson' and 'WZTo3LNu' not in k and 'sm' in k] # Hard coding Diboson and WZ for now
+            jet_scale_names = [k for k in loop_dict if 'jet_scale' in k and 'WZ' in k and k in self.syst_scale]
             if len(jet_scale_names) > 0:
                 for jet_scale_name in jet_scale_names:
                     for loop_name,loop_histo in loop_dict.items():
-                        if loop_name not in diboson: continue
+                        if not any((loop_name in d for d in diboson)): continue
                         if '_sm_' in loop_name: continue # Nominal only
                         if 'Up' in loop_name or 'Down' in loop_name: continue # Nominal only
                         ret_dict[jet_scale_name].Add(loop_histo)
