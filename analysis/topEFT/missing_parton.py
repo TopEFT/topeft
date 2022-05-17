@@ -131,9 +131,10 @@ if __name__ == '__main__':
             pos = total_private >= total_central
             neg = total_private < total_central
             for n in range(len(total_private)):
+                sign = total_central[n] / np.abs(total_central[n])
                 if total_private[n] >= total_central[n]:
                     if err_low[n]<total_central[n]: parton[n] = 0 # Error larger than central value
-                    else: parton[n] = np.sqrt(np.abs(np.square(err_low[n]) - np.square(total_central[n])))
+                    else: parton[n] = np.sqrt(np.abs(np.square(err_low[n]) - sign * np.square(total_central[n])))
                 else:
                     if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
                     else: parton[n] = np.sqrt(np.abs(np.square(total_central[n]) - np.square(err_high[n])))
