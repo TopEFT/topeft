@@ -14,10 +14,8 @@ files_diff = ['2lss_4t_m_4j_2b', '2lss_4t_m_5j_2b', '2lss_4t_m_6j_2b', '2lss_4t_
 files_ptz = ['3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j']
 
 def get_hists(fname, path, process):
-    print(fname)
     fin = uproot.open('histos/'+path+'/ttx_multileptons-'+fname+'.root')
     card = strip('histos/'+path+'/ttx_multileptons-'+fname+'.txt')
-    print('histos/'+path+'/ttx_multileptons-'+fname+'.txt')
     sm = [k.split(';')[0] for k in fin.keys() if 'sm' in k]
   
     nom = {}; up = {}; down = {}
@@ -28,23 +26,22 @@ def get_hists(fname, path, process):
    
     up = {proc.strip('Up;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Up;' in proc or 'flat' in proc) and 'fakes' not in proc}
     down = {proc.strip('Down;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Down;' in proc or 'flat' in proc) and 'fakes' not in proc}
-    print(up)
-    print(down)
     total = np.array([v for v in nom.values()])[0]
-    print(f'{total=}')
 
     systs = [0,0]
     err = [np.zeros_like(total), np.zeros_like(total)]
+    total_systs = [fin[k].to_numpy()[0] for k in fin.keys() if 'sm' in k and ('Up' in k or 'Down' in k) and 'fakes' not in k]
 
     # Handle shape systematics
-    if len(up) > 0:
+    if len(total_systs) > 0:
         systs[0] = [k.split(';')[0] for k in fin.keys() if 'sm' in k and 'Up' in k and 'fakes' not in k]
         systs[1] = [k.split(';')[0] for k in fin.keys() if 'sm' in k and 'Down' in k and 'fakes' not in k]
         systs = [k for k in zip(systs[0], systs[1])]
-        total_systs = [[fin[k[0]+';1'].to_numpy()[0], fin[k[1]+';1'].to_numpy()[0]] for k in systs]
-        up_shift   = [abs(s[0] - total) for s in total_systs]
-        down_shift = [abs(s[1] - total) for s in total_systs]
-        err = [np.sqrt(np.sum(np.square(up_shift), axis=0)), np.sqrt(np.sum(np.square(down_shift), axis=0))]
+        for syst in total_systs:
+            mask = syst - total > 0
+            shift = (syst - total)
+            err[0][mask] = np.sqrt(np.square(err[0][mask]) + np.square(shift[mask]))
+            err[1][~mask] = np.sqrt(np.square(err[1][~mask]) + np.square(-shift[~mask]))
 
     # Handle flat rate systematics
     flat_systs = zip(card[0], card[0].values(), *card[1])
@@ -53,6 +50,7 @@ def get_hists(fname, path, process):
         rate = c[1]
         vals = c[2:]
         if 'sm' not in proc: continue
+        if 'tllq' not in proc: continue
         for val in vals:
             s = [0,0]
             if '-' in val: continue
@@ -62,13 +60,10 @@ def get_hists(fname, path, process):
             else:
                 s[0] = float(val) - 1
                 s[1] = float(val) - 1
-            print('here',proc,rate,val,total*s[0],total*s[1])
             err[0] = np.sqrt(np.square(err[0]) + np.square(total*s[0]))
             err[1] = np.sqrt(np.square(err[1]) + np.square(total*s[1]))
-    print(f'{err=}')
   
     bins = fin[process+'_sm'].axis().edges()
-    #bins[-1] = bins[-2] + 1.
     return total, nom, err, bins, [proc.split('_sm')[0]for proc in fin if 'sm;' in proc]
 
 if __name__ == '__main__':
@@ -119,7 +114,7 @@ if __name__ == '__main__':
         fout = uproot.update(fout)
 
     rename = {'tllq': 'tZq', 'ttZ': 'ttll', 'ttW': 'ttlnu'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
-    for proc in ['tllq']:#, 'tHq']:
+    for proc in ['tllq']:
         for fname in files:
             if var != 'njets': fname += '_' + var
             total_private, nom_private, err, bins, label = get_hists(fname, 'private_sm', proc)
@@ -127,8 +122,8 @@ if __name__ == '__main__':
             total_central, nom_central, _, _, _ = get_hists(fname, 'central_sm', rproc)
             hep.style.use("CMS")
             fig,ax = plt.subplots(figsize=(8, 6))
-            hep.histplot(total_private, bins=bins, stack=False, label='Priavte LO', ax=ax, sort='yield')#, histtype='fill')
-            hep.histplot(total_central, bins=bins, stack=False, label='Central NLO', ax=ax, sort='yield')#, histtype='fill')
+            hep.histplot(total_private, bins=bins, stack=False, label='Priavte LO', ax=ax, sort='yield')
+            hep.histplot(total_central, bins=bins, stack=False, label='Central NLO', ax=ax, sort='yield')
             # Keep track of negative sign (since abs is requried to in sqrt)
             sign = [(np.square(total_private)-np.square(err[0])) / np.abs(np.square(total_private)-np.square(err[0])), (np.square(total_private)-np.square(err[1])) / np.abs(np.square(total_private)-np.square(err[1]))]
             err_low  = np.min([sign[0]*np.sqrt(np.abs(np.square(total_private)-np.square(err[0]))), sign[1]*np.sqrt(np.abs(np.square(total_private)-np.square(err[1])))], axis=0)
