@@ -833,6 +833,7 @@ class DatacardMaker():
             wz_unc = systMap['jet_scale_flat_rate']['Diboson_sm']
             diboson_rate_up = (diboson + wz_unc) / diboson
             diboson_rate_down = (diboson - wz_unc) / diboson
+            if diboson_rate_down < 0: diboson_rate_down = 0
             systMap['jet_scale_flat_rate']['Diboson_sm'] = str(round(diboson_rate_down, 4)) + '/' + str(round(diboson_rate_up, 4))
 
         # Write datacard
