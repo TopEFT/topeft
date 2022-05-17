@@ -138,22 +138,26 @@ if __name__ == '__main__':
             neg = total_private < total_central
             for n in range(len(total_private)):
                 sign = total_central[n] / np.abs(total_central[n])
+                # total_private - sqrt(err_low^2 + parton^2) = total_central
                 if total_private[n] >= total_central[n]:
                     if err_low[n]<total_central[n]: parton[n] = 0 # Error larger than central value
-                    else: parton[n] = np.sqrt(np.abs(np.square(err_low[n]) - sign * np.square(total_central[n])))
+                    else: parton[n] = np.sqrt(np.square(total_private[n] - total_central[n]) - np.square(err[0][n]))
+                # total_private + sqrt(err_low^2 + parton^2) = total_central
                 else:
                     if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
-                    else: parton[n] = np.sqrt(np.abs(np.square(total_central[n]) - np.square(err_high[n])))
+                    else: parton[n] = np.sqrt(np.square(total_private[n] - total_central[n]) - np.square(err[1][n]))
             fout[fname] = {proc : parton}
             sign = np.ones_like(parton)
-            err_low = total_private - np.sqrt(np.square(err[0]) + np.square(parton))
+            err_low  = total_private - np.sqrt(np.square(err[0]) + np.square(parton))
             err_high = total_private + np.sqrt(np.square(err[1]) + np.square(parton))
             # Correct for cases where parton > err_low (negative)
             for n,_ in enumerate(sign):
                 if np.square(err_low[n]) - np.square(parton[n]) < 0 or err_low[n] < 0: sign[n] = -1
             plt.fill_between(bins, np.append(err_low, 0), np.append(err_high, 0), step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\') # append 0 to pad plots (matplotlib plots up to but not including the last bin)
             np.seterr(invalid='ignore')
-            plt.ylim([0, np.max(np.max([total_private,total_private+np.max(err, axis=0)+parton], axis=0))*2])
+            maxbin = np.max(np.max([total_private,total_private+np.max(err, axis=0)+parton], axis=0))*2
+            if np.isnan(maxbin) or np.isinf(maxbin): maxbin = 1
+            plt.ylim([0, maxbin])
             hep.cms.label(lumi='%0.3g'%sum(lumi.values()))
             plt.ylabel('Predicted yield')
             ax.legend(loc='upper right', fontsize='xx-small', ncol=2)
