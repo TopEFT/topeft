@@ -220,9 +220,9 @@ class DatacardMaker():
                                     proc[0] = self.rename.get(proc[0], proc[0])
                                     proc = '_'.join(proc)
                                     if 'jet_scale' in self.syst_special:
-                                        self.syst_special['jet_scale'][proc] = syst * histo.values()[()].sum()
+                                        self.syst_special['jet_scale'][proc] = (syst-1) * histo.values()[()].sum()
                                     else:
-                                        self.syst_special['jet_scale'] = {proc: syst * histo.values()[()].sum()}
+                                        self.syst_special['jet_scale'] = {proc: (syst-1) * histo.values()[()].sum()}
                             else:
                                 lep_bin = channel.split('_')[0].split('l')[0] + 'l'
                                 bins = self.analysis_bins['njets'][lep_bin]
