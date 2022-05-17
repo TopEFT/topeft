@@ -1,3 +1,9 @@
+'''
+This script computes the msising parton rate
+It requires the central (tZq) and private (tllq) samples exist in 
+`histos/central_sm/` and `histos/private_sm/` respectively
+To create these, run the datacard maker (tllq `with` systematics, tZq without)
+'''
 import numpy as np
 import matplotlib.pyplot as plt
 import uproot
