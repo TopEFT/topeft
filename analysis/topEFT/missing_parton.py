@@ -146,7 +146,7 @@ if __name__ == '__main__':
                 else:
                     if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
                     else: parton[n] = np.sqrt(np.square(total_private[n] - total_central[n]) - np.square(err[1][n]))
-            fout[fname] = {proc : parton}
+            fout[fname] = {proc : parton/total_private}
             sign = np.ones_like(parton)
             err_low  = total_private - np.sqrt(np.square(err[0]) + np.square(parton))
             err_high = total_private + np.sqrt(np.square(err[1]) + np.square(parton))
