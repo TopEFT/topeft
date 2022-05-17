@@ -9,7 +9,6 @@ from coffea import hist
 import re
 
 files = ['2lss_m_2b',  '2lss_p_2b',  '2lss_4t_m_2b', '2lss_4t_p_2b', '3l1b_m',  '3l1b_p',  '3l2b_m',  '3l2b_p',  '3l_sfz_1b',  '3l_sfz_2b',  '4l_2b']
-files = ['2lss_p_2b']
 files_diff = ['2lss_4t_m_4j_2b', '2lss_4t_m_5j_2b', '2lss_4t_m_6j_2b', '2lss_4t_m_7j_2b', '2lss_4t_p_4j_2b', '2lss_4t_p_5j_2b', '2lss_4t_p_6j_2b', '2lss_4t_p_7j_2b', '2lss_m_4j_2b', '2lss_m_5j_2b', '2lss_m_6j_2b', '2lss_m_7j_2b', '2lss_p_4j_2b', '2lss_p_5j_2b', '2lss_p_6j_2b', '2lss_p_7j_2b', '3l_m_offZ_1b_2j', '3l_m_offZ_1b_3j', '3l_m_offZ_1b_4j', '3l_m_offZ_1b_5j', '3l_m_offZ_2b_2j', '3l_m_offZ_2b_3j', '3l_m_offZ_2b_4j', '3l_m_offZ_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
 files_ptz = ['3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j']
 
@@ -143,15 +142,6 @@ if __name__ == '__main__':
             sign = np.ones_like(parton)
             for n,_ in enumerate(sign):
                 if np.square(err_low[n]) - np.square(parton[n]) < 0 or err_low[n] < 0: sign[n] = -1
-            if '3l' in fname:
-                print(fname)
-                print(f'{total_central=}')
-                print(f'{total_private=}')
-                print(f'{err_low=}')
-                print(f'{err_high=}')
-                print(f'{parton=}')
-                print(f'{sign=}')
-                print(np.append(sign*np.sqrt(np.abs(np.square(err_low)-np.square(parton))), 0), np.append(np.sqrt(np.square(err_high)+np.square(parton)), 0))
             plt.fill_between(bins, np.append(sign*np.sqrt(np.abs(np.square(err_low)-np.square(parton))), 0), np.append(np.sqrt(np.square(err_high)+np.square(parton)), 0), step='post', facecolor='none', edgecolor='lightgray', label='Total syst.', hatch='\\\\\\') # append 0 to pad plots (matplotlib plots up to but not including the last bin)
             np.seterr(invalid='ignore')
             plt.ylim([0, np.max(np.max([total_private,total_private+np.max(err, axis=0)+parton], axis=0))*2])
