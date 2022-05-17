@@ -234,8 +234,10 @@ class DatacardMaker():
                                     if jet > max(scale): jet = max(scale)
                                     syst = scale[jet]
                                     val = h_syst_up._sumw[()][:,0][b]
-                                    h_syst_up._sumw[()][:,0][b] = val * syst
-                                    h_syst_down._sumw[()][:,0][b] = val / syst
+                                    shift = val * syst - val
+                                    h_syst_up._sumw[()][:,0][b] = val + shift
+                                    # Down is bin content - shift or 0 if negative
+                                    h_syst_down._sumw[()][:,0][b] = val - shift if val - shift > 0 else 0
                                 fout[name+cat+'_jet_scaleUp'] = h_syst_up.to_hist()
                                 fout[name+cat+'_jet_scaleDown'] = h_syst_down.to_hist()
                                 self.syst.append('jet_scaleUp')
