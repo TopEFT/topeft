@@ -218,11 +218,13 @@ class DatacardMaker():
                             if variable != 'njets':
                                 jet_bin = int(re.findall('\dj', fname)[0][:-1])
                                 parton = parton[jet_bin]
-                                h_syst_up._sumw[()] = h_syst_up._sumw[()][:,0][b] = val * (1 + parton)
-                                h_syst_down._sumw[()] = h_syst_down._sumw[()][:,0][b] = val * (1 - parton)
+                                h_syst_up._sumw[()][:,0] = h_syst_up._sumw[()][:,0] = val * (1 + parton)
+                                h_syst_down._sumw[()][:,0] = h_syst_down._sumw[()][:,0] = val * (1 - parton)
                             else:
                                 h_syst_up._sumw[()][:,0][1:-2]   *= (1 + parton)
                                 h_syst_down._sumw[()][:,0][1:-2] *= (1 - parton)
+                                mask = h_syst_down._sumw[()][:,0][1:-2] < 0
+                                h_syst_down._sumw[()][:,0][1:-2][mask] = 0.
                             fout[name+cat+'_missing_partonUp'] = h_syst_up.to_hist()
                             fout[name+cat+'_missing_partonDown'] = h_syst_down.to_hist()
                             if 'missing_partonUp' not in self.syst: self.syst.append('missing_partonUp')
