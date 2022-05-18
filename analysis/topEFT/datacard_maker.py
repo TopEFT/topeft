@@ -208,18 +208,27 @@ class DatacardMaker():
                 for syst,histo in h.items():
                     if syst == 'nominal':
                         fout[name+cat] = histo.to_hist()
-                        if name.split('_')[0] in ['tllq', 'tHq'] and fcat+';1' in self.fparton.keys():
+                        if re.findall('\dj', fcat):
+                            lep_bin = re.sub('_'+var, '', fcat)
+                            lep_bin = re.sub('_\wj', '', lep_bin)
+                            if 'offZ' in lep_bin:
+                                lep_bin = re.sub('_offZ', '', lep_bin)
+                                lep_bin = lep_bin.split('_')
+                                lep_bin = lep_bin[0] + lep_bin[-1] + '_' + lep_bin[1]
+                            if 'onZ' in lep_bin:
+                                lep_bin = re.sub('onZ', 'sfz', lep_bin)
+                        else: lep_bin = fcat
+                        if name.split('_')[0] in ['tllq', 'tHq'] and lep_bin+';1' in self.fparton.keys():
                             syst_cat = 'parton_flat_rate'
-                            lep_bin = f'{fcat};1'
                             offset = -4 if '3l' not in fcat else -2
                             parton = np.array(self.fparton[lep_bin]['tllq'].array())
                             h_syst_up = deepcopy(histo)
                             h_syst_down = deepcopy(histo)
-                            if variable != 'njets':
-                                jet_bin = int(re.findall('\dj', fname)[0][:-1])
-                                parton = parton[jet_bin]
-                                h_syst_up._sumw[()][:,0] = h_syst_up._sumw[()][:,0] = val * (1 + parton)
-                                h_syst_down._sumw[()][:,0] = h_syst_down._sumw[()][:,0] = val * (1 - parton)
+                            if re.findall('\dj', fcat):
+                                jet_bin = int(re.findall('\dj', fcat)[0][:-1])
+                                parton = parton[jet_bin+offset]
+                                h_syst_up._sumw[()][:,0] = h_syst_up._sumw[()][:,0] * (1 + parton)
+                                h_syst_down._sumw[()][:,0] = h_syst_down._sumw[()][:,0] * (1 - parton)
                             else:
                                 h_syst_up._sumw[()][:,0][1:-2]   *= (1 + parton)
                                 h_syst_down._sumw[()][:,0][1:-2] *= (1 - parton)
@@ -377,9 +386,9 @@ class DatacardMaker():
                     cat = '_'.join([channel, maxb])
             else:
                 if 'b' in channel:
-                    cat = '_'.join([channel, variable])  
+                    cat = channel
                 else:
-                    cat = '_'.join([channel, maxb, variable])
+                    cat = '_'.join([channel, maxb])
             if len(h_base.axes())>1:
                 fout[pname+'sm'] = export2d(h_bases)
             else:
