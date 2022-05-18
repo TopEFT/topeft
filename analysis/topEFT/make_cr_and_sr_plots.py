@@ -392,7 +392,11 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,
     # Plot the syst error
     if plot_syst_err:
         dense_axes = h_mc.dense_axes()
-        bin_edges_arr = h_mc.axis(dense_axes[0]).edges()[:-1]
+        bin_edges_arr = h_mc.axis(dense_axes[0]).edges()
+        err_p = np.append(err_p,0) # Work around off by one error
+        err_m = np.append(err_m,0) # Work around off by one error
+        err_ratio_p = np.append(err_ratio_p,0) # Work around off by one error
+        err_ratio_m = np.append(err_ratio_m,0) # Work around off by one error
         ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
         rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
 
@@ -789,8 +793,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
                 p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
                 m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m) # This goes in the main plot
-                p_err_arr_ratio = p_err_arr/nom_arr_all # This goes in the ratio plot
-                m_err_arr_ratio = m_err_arr/nom_arr_all # This goes in the ratio plot
+                p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
+                m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
 
             # Group the samples by process type, and grab just nominal syst category
             hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
