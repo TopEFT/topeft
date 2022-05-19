@@ -215,14 +215,14 @@ class DatacardMaker():
                                 jet = int(re.findall('\dj', channel)[0][:-1])
                                 if jet > max(scale): jet = max(scale)
                                 if jet in scale:
-                                    syst = scale[jet]
+                                    syst_val = scale[jet]
                                     proc = name.split('_')
                                     proc[0] = self.rename.get(proc[0], proc[0])
                                     proc = '_'.join(proc)
                                     if 'jet_scale' in self.syst_special:
-                                        self.syst_special['jet_scale'][proc] = (syst-1) * histo.values()[()].sum()
+                                        self.syst_special['jet_scale'][proc] = (syst_val-1) * histo.values()[()].sum()
                                     else:
-                                        self.syst_special['jet_scale'] = {proc: (syst-1) * histo.values()[()].sum()}
+                                        self.syst_special['jet_scale'] = {proc: (syst_val-1) * histo.values()[()].sum()}
                             else:
                                 lep_bin = channel.split('_')[0].split('l')[0] + 'l'
                                 bins = self.analysis_bins['njets'][lep_bin]
@@ -232,9 +232,9 @@ class DatacardMaker():
                                 for b in range(1,len(h_syst_up._sumw[()][:,0])-2):
                                     jet = b - offset
                                     if jet > max(scale): jet = max(scale)
-                                    syst = scale[jet]
+                                    syst_val = scale[jet]
                                     val = h_syst_up._sumw[()][:,0][b]
-                                    shift = val * syst - val
+                                    shift = val * syst_val - val
                                     h_syst_up._sumw[()][:,0][b] = val + shift
                                     # Down is bin content - shift or 0 if negative
                                     h_syst_down._sumw[()][:,0][b] = val - shift if val - shift > 0 else 0
@@ -471,7 +471,7 @@ class DatacardMaker():
                 ret_dict[loop_name] = loop_histo
                 # Special case for `jet_scale`
             diboson = [k for k in ret_dict if self.rename.get(k.split('_')[0], k.split('_')[0]) == 'Diboson' and 'WZTo3LNu' not in k and 'sm' in k] # Hard coding Diboson and WZ for now
-            jet_scale_names = [k for k in loop_dict if 'jet_scale' in k and 'WZ' in k and k in self.syst_scale]
+            jet_scale_names = [k for k in loop_dict if 'jet_scale' in k and 'WZ' in k and k.split('_')[0] in self.syst_scale]
             if len(jet_scale_names) > 0:
                 for jet_scale_name in jet_scale_names:
                     for loop_name,loop_histo in loop_dict.items():
