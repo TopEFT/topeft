@@ -208,6 +208,8 @@ class DatacardMaker():
                 for syst,histo in h.items():
                     if syst == 'nominal':
                         fout[name+cat] = histo.to_hist()
+
+                        # Missing parton part
                         if re.findall('\dj', fcat):
                             lep_bin = re.sub('_'+var, '', fcat)
                             lep_bin = re.sub('_\wj', '', lep_bin)
@@ -238,6 +240,8 @@ class DatacardMaker():
                             fout[name+cat+'_missing_partonDown'] = h_syst_down.to_hist()
                             if 'missing_partonUp' not in self.syst: self.syst.append('missing_partonUp')
                             if 'missing_partonDown' not in self.syst: self.syst.append('missing_partonDown')
+
+                    # Systematics
                     elif self.do_nuisance and name not in self.syst_special:
                         if 'nonprompt' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
                         if 'fakes' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
@@ -379,6 +383,8 @@ class DatacardMaker():
             h_sm = h_bases
             for hists in h_sm.values():
                 hists.set_sm()
+	
+            # Compute category (used mainly for missing parton)
             if variable == 'njets':
                 if 'b' in channel:
                     cat = channel
@@ -389,6 +395,7 @@ class DatacardMaker():
                     cat = channel
                 else:
                     cat = '_'.join([channel, maxb])
+
             if len(h_base.axes())>1:
                 fout[pname+'sm'] = export2d(h_bases)
             else:
