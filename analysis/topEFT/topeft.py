@@ -877,10 +877,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             "eft_err_coeff" : eft_w2_coeffs_cut,
                                         }
 
-                                        if (("j0" in dense_axis_name) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
+                                        # Skip histos that are not defined (or not relevant) to given categories
+                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
+                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
                                         if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                        if (("j0" in dense_axis_name) & ("0j" in ch_name)): continue
-                                        if ((dense_axis_name in ["o0pt","b0pt","bl0pt","lj0pt"]) & ("CR" in ch_name)): continue
+                                        if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
+
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
