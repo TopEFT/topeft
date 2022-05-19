@@ -199,7 +199,7 @@ class DatacardMaker():
                 self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=jbin)
             return
 
-        def export1d(h, name, cat, fout, channel, fcat=''):
+        def export1d(h, name, cat, fout, fcat=''):
             ulyear = re.compile('UL\d\d')
             fullyear = re.compile('20\d\d')
             if 'data_obs' in name:
@@ -400,15 +400,15 @@ class DatacardMaker():
                 fout[pname+'sm'] = export2d(h_bases)
             else:
                 if any([sig in p for sig in self.signal]):
-                    export1d(h_sm, pname, 'sm', fout, channel, cat) # Special case for SM b/c background names overlap (p not pname)
+                    export1d(h_sm, pname, 'sm', fout, cat) # Special case for SM b/c background names overlap (p not pname)
                 elif 'data' not in proc:
-                    export1d(h_sm, p, '_sm', fout, channel, cat) # Special case for SM b/c background names overlap (p not pname)
+                    export1d(h_sm, p, '_sm', fout, cat) # Special case for SM b/c background names overlap (p not pname)
             # Asimov data: data_obs = MC at SM (all WCs = 0)
             if not self.unblind or 'data' in proc: # data is skipped earlier if unblid is `False`
                 if len(h_base.axes())>1:
                     fout['data_obs'] = export2d(h_sm)
                 else:
-                    export1d(h_sm, 'data_obs', 'sm', fout, channel)
+                    export1d(h_sm, 'data_obs', 'sm', fout) # No `cat` since data won't have a missing parton unc.
 
             isSignal = p in self.signal or (p in self.rename and self.rename[p] in self.signal)
             if not self.do_sm and isSignal and self.wcs is not None:
@@ -423,7 +423,7 @@ class DatacardMaker():
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_lin)
                         else:
-                            export1d(h_lin, pname, name, fout, channel, cat)
+                            export1d(h_lin, pname, name, fout, cat)
                         if variable == 'njets':
                             if isinstance(charges, str):
                                 cat = '_'.join([channel, charge, ])  
@@ -443,7 +443,7 @@ class DatacardMaker():
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_quad)
                         else:
-                            export1d(h_quad, pname, name, fout, channel, cat)
+                            export1d(h_quad, pname, name, fout, cat)
                     else:
                         h_mix = h_bases
                         for hists in h_mix.values():
@@ -451,7 +451,7 @@ class DatacardMaker():
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_mix)
                         else:
-                            export1d(h_mix, pname, name, fout, channel, cat)
+                            export1d(h_mix, pname, name, fout, cat)
         
         fout.close()
         self.makeCardLevel(channel=channel, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
