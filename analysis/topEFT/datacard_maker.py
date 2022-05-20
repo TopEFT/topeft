@@ -831,7 +831,7 @@ class DatacardMaker():
                 diboson = allyields['Diboson_sm'] # Hard coding for `Diboson` for now
                 diboson_unc = systMap['jet_scale_flat_rate']['Diboson_sm']
                 diboson_rate_up = (diboson + diboson_unc) / diboson
-                diboson_rate_down = (diboson - diboson_unc) / diboson
+                diboson_rate_down = max((diboson - diboson_unc) / diboson, 0)
                 systMap['jet_scale_flat_rate']['Diboson_sm'] = str(round(diboson_rate_down, 4)) + '/' + str(round(diboson_rate_up, 4))
 
         # Write datacard
