@@ -818,8 +818,13 @@ class DatacardMaker():
                     h_syst_down.SetTitle(loop_name+'_jet_scaleDown')
                     h_syst_up.Write()
                     h_syst_down.Write()
-                    self.syst.append('jet_scaleUp')
-                    self.syst.append('jet_scaleDown')
+                    proc = loop_name.split('_')
+                    proc[0] = self.rename.get(proc[0], proc[0])
+                    proc = '_'.join(proc)
+                    if 'jet_scale' in self.syst_special:
+                        systMap['jet_scale'][proc] = (syst_val-1) * loop_histo.Integral()
+                    else:
+                        systMap['jet_scale'] = {proc: (syst_val-1) * loop_histo.Integral()}
         # Correct for `Diboson` rate
         if 'jet_scale_flat_rate' in systMap:
             diboson = allyields['Diboson_sm'] # Hard coding for `Diboson` for now
