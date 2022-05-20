@@ -36,6 +36,9 @@
         "Diboson":  {"pdf_scale": "qq", "qcd_scale": "VV"  },
         "Triboson": {"pdf_scale": "qq", "qcd_scale": "VVV" },
         "convs":    {"pdf_scale": "gg", "qcd_scale": "ttG" }
+    },
+    "jet_scale" : {
+        "Diboson": {"2": 1.19, "3": 1.89, "4": 1.80, "5": 2.64, "6": 2.38 }
     }
 
 }
