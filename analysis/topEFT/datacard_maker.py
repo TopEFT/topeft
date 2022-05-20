@@ -564,6 +564,7 @@ class DatacardMaker():
         selectedWCsForProc={}
         processed = []
         for proc in samples:
+            if not self.unblind and 'data' in proc: continue
             simplified = proc.split('_central')[0].split('_private')[0].split('UL')[0].replace('_4F','').replace('_ext','')
             if simplified in processed: continue # Only one process name per 3 years
             processed.append(simplified)
