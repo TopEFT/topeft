@@ -65,33 +65,34 @@ def _check_git_min_version(min_version):
     return output
 
 def _check_current_env():
+    spec = json.loads(packages_json)
     with tempfile.NamedTemporaryFile() as f:
         # export current conda enviornment
         subprocess.check_call(['conda', 'env', 'export', '--json'], stdout=f)
         spec_file = open(f.name,  'r')
         current_spec = json.load(spec_file)
-        spec = json.loads(packages_json)
-	# get current conda packages
-        conda_deps = {re.sub("[!~=<>].*$", "", x):x  for x in current_spec['dependencies'] if not isinstance(x, dict)}
-	# get current pip packages
-        pip_deps = {re.sub("[!~=<>].*$", "", y):y for y in  [x for x in current_spec['dependencies'] if isinstance(x, dict) and 'pip' in x for x in x['pip']]}
+        if 'dependencies' in current_spec:
+	    # get current conda packages
+            conda_deps = {re.sub("[!~=<>].*$", "", x):x  for x in current_spec['dependencies'] if not isinstance(x, dict)}
+	    # get current pip packages
+            pip_deps = {re.sub("[!~=<>].*$", "", y):y for y in  [x for x in current_spec['dependencies'] if isinstance(x, dict) and 'pip' in x for x in x['pip']]}
     
 
-        # replcae any conda packages
-        for i in range(len(spec['conda']['packages'])):
-            # ignore packages where a version is already specified
-            package = spec['conda']['packages'][i]
-            if not re.search("[!~=<>].*$", package):
-                if package in conda_deps:
-                    spec['conda']['packages'][i] = conda_deps[package]
+            # replcae any conda packages
+            for i in range(len(spec['conda']['packages'])):
+                # ignore packages where a version is already specified
+                package = spec['conda']['packages'][i]
+                if not re.search("[!~=<>].*$", package):
+                    if package in conda_deps:
+                        spec['conda']['packages'][i] = conda_deps[package]
                                          
-        # replcae any pip packages
-        for i in range(len(spec['pip'])):
-            # ignore packages where a version is already specified
-            package = spec['pip'][i]
-            if not re.search("[!~=<>].*$", package):
-                if package in pip_deps:
-                    spec['pip'][i] = pip_deps[package]
+            # replcae any pip packages
+            for i in range(len(spec['pip'])):
+                # ignore packages where a version is already specified
+                package = spec['pip'][i]
+                if not re.search("[!~=<>].*$", package):
+                    if package in pip_deps:
+                        spec['pip'][i] = pip_deps[package]
 
     return spec
 
