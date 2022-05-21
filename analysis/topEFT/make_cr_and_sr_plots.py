@@ -701,6 +701,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     print("\nAll samples:",all_samples)
     print("\nMC samples:",mc_sample_lst)
     print("\nData samples:",data_sample_lst)
+    print("\nVariables:",dict_of_hists.keys())
 
     # Fill group map (should we just fully hard code this?)
     for proc_name in all_samples:
