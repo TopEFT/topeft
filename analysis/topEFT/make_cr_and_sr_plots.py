@@ -760,8 +760,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
-            if (hist_cat == "cr_2los_Z" and "j0" in var_name): continue # The 2los Z category does not require jets
-            if (hist_cat == "cr_2lss_flip" and "j0" in var_name): continue # The flip category does not require jets
+            if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The 2los Z category does not require jets (so leading jet plots do not make sense)
+            if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The flip category does not require jets (so leading jet plots do not make sense)
             print("\n\tCategory:",hist_cat)
 
             # Make a sub dir for this category
