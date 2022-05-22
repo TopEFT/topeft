@@ -246,6 +246,7 @@ class DatacardMaker():
                         if 'nonprompt' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
                         if 'fakes' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
                         if 'nonprompt' not in name and 'FF' in syst: continue # Don't processes fake factor systs for others
+                        if not name.split('_')[0] in ['tllq', 'tHq'] and 'missing_parton' in syst: continue # Only tllq and tHq
                         # Special cass for systematics NOT correlated by year
                         if ulyear.search(name) and fullyear.search(syst):
                             # Find systematic year
@@ -424,18 +425,6 @@ class DatacardMaker():
                             fout[pname+name] = export2d(h_lin)
                         else:
                             export1d(h_lin, pname, name, fout, cat)
-                        if variable == 'njets':
-                            if isinstance(charges, str):
-                                cat = '_'.join([channel, charge, ])  
-                            else:
-                                cat = '_'.join([channel, maxb])  
-                        else:
-                            if 'b' in channel:
-                                cat = channel
-                            elif isinstance(charges, str):
-                                cat = '_'.join([channel, charge, maxb, variable])
-                            else:
-                                cat = '_'.join([channel, maxb, variable])
                     elif 'quad' in name and 'mix' not in name:
                         h_quad = h_bases
                         for hists in h_quad.values():
