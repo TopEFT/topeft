@@ -30,6 +30,7 @@ class DatacardMaker():
         with open(rateJson) as jf:
             rate = json.load(jf)
         self.syst_special = rate['rate_uncertainties'] # Strings b/c combine needs the `/` to process asymmetric errors
+        self.syst_scale = rate['jet_scale']
         # (Un)correlated systematics
         # {'proc': {'syst': name, 'type': name} will assign all procs a special name for the give systematics
         # e.g. {'ttH': {'pdf_scale': 'gg', 'qcd_scale': 'ttH'}} will add `_gg` to the ttH for the pdf scale and `_ttH` for the qcd scale (names correspond to `self.syst_correlated`)
@@ -199,7 +200,7 @@ class DatacardMaker():
                 self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=jbin)
             return
 
-        def export1d(h, name, cat, fout):
+        def export1d(h, name, cat, fout, channel):
             ulyear = re.compile('UL\d\d')
             fullyear = re.compile('20\d\d')
             if 'data_obs' in name:
@@ -219,7 +220,7 @@ class DatacardMaker():
                             nyear = ulyear.findall(syst)[0][2:]
                             # Only processes if syst year matches sample year (e.g. `btagSFbc_2017Up` and `nonpromptUL17`
                             if syear != nyear: continue
-                        if histo.values() == {}:
+                        if histo.values() == {} and 'jet_scale' not in syst:
                             print(f'Warning: bin {name}{cat}_{syst}{self.get_correlation_name(name, syst)} do not exist. Could just be a missing sample!')
                             continue
                         fout[name+cat+'_'+syst+self.get_correlation_name(name, syst)] = histo.to_hist()
@@ -352,15 +353,15 @@ class DatacardMaker():
                 fout[pname+'sm'] = export2d(h_bases)
             else:
                 if any([sig in p for sig in self.signal]):
-                    export1d(h_sm, pname, 'sm', fout) # Special case for SM b/c background names overlap (p not pname)
+                    export1d(h_sm, pname, 'sm', fout, channel) # Special case for SM b/c background names overlap (p not pname)
                 elif 'data' not in proc:
-                    export1d(h_sm, p, '_sm', fout) # Special case for SM b/c background names overlap (p not pname)
+                    export1d(h_sm, p, '_sm', fout, channel) # Special case for SM b/c background names overlap (p not pname)
             # Asimov data: data_obs = MC at SM (all WCs = 0)
             if not self.unblind or 'data' in proc: # data is skipped earlier if unblid is `False`
                 if len(h_base.axes())>1:
                     fout['data_obs'] = export2d(h_sm)
                 else:
-                    export1d(h_sm, 'data_obs', 'sm', fout)
+                    export1d(h_sm, 'data_obs', 'sm', fout, channel)
 
             isSignal = p in self.signal or (p in self.rename and self.rename[p] in self.signal)
             if not self.do_sm and isSignal and self.wcs is not None:
@@ -375,7 +376,7 @@ class DatacardMaker():
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_lin)
                         else:
-                            export1d(h_lin, pname, name, fout)
+                            export1d(h_lin, pname, name, fout, channel)
                         if variable == 'njets':
                             if isinstance(charges, str):
                                 cat = '_'.join([channel, charge, ])  
@@ -395,7 +396,7 @@ class DatacardMaker():
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_quad)
                         else:
-                            export1d(h_quad, pname, name, fout)
+                            export1d(h_quad, pname, name, fout, channel)
                     else:
                         h_mix = h_bases
                         for hists in h_mix.values():
@@ -403,7 +404,7 @@ class DatacardMaker():
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_mix)
                         else:
-                            export1d(h_mix, pname, name, fout)
+                            export1d(h_mix, pname, name, fout, channel)
         
         fout.close()
         self.makeCardLevel(channel=channel, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
@@ -475,19 +476,21 @@ class DatacardMaker():
                     proc = process.split('_')
                     if proc[0] in self.rename: proc[0] = self.rename[proc[0]]
                     proc = '_'.join(proc) + '_' + syst
-                    if any((proc in l.GetName() for l in fout.GetListOfKeys())): # Look for Up/Down (only replacing Down because of the continue a few lines down
-                        h_sys.Add(fout.Get(proc+';1'))
-                        fout.Delete(proc+';1')
-                    h_sys.SetName(proc)
-                    h_sys.SetTitle(proc)
-                    h_sys.Write()
+                    if 'jet_scale' not in syst or ('jet_scale' in syst and any((self.rename.get(p, p) in proc for p in self.syst_scale))): # Prevent others from getting `jet_scale` of 0.0
+                        if any((proc in l.GetName() for l in fout.GetListOfKeys())): # Look for Up/Down (only replacing Down because of the continue a few lines down
+                            h_sys.Add(fout.Get(proc+';1'))
+                            fout.Delete(proc+';1')
+                        h_sys.SetName(proc)
+                        h_sys.SetTitle(proc)
+                        h_sys.Write()
 
                     if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
                     syst = syst.replace('Up', '') # Remove 'Up' to get just the systematic name
-                    if syst in systMap:
-                        systMap[syst].update({proc: round(h_sys.Integral(), 3)})
-                    else:
-                        systMap[syst] = {proc: round(h_sys.Integral(), 3)}
+                    if 'jet_scale' not in syst or ('jet_scale' in syst and any((self.rename.get(p, p) in proc for p in self.syst_scale))): # Prevent others from getting `jet_scale` of 0.0
+                        if syst in systMap:
+                            systMap[syst].update({proc: h_sys.Integral()})
+                        else:
+                            systMap[syst] = {proc: h_sys.Integral()}
             for syst_special,val in self.syst_special.items():
                 process = process.split('_')
                 if process[0] in self.rename: process[0] = self.rename[process[0]]
@@ -519,18 +522,6 @@ class DatacardMaker():
                 else:
                     systMap[syst_cat] = {proc: syst}
  
-                '''
-                if process.split('_')[0] in ['tllq', 'tHq'] and cat+';1' in self.fparton.keys():
-                    syst_cat = 'parton'
-                    jet = int(re.findall('\dj', channel)[0][:-1])
-                    offset = -4 if '3l' not in channel else -2
-                    syst = 1+self.fparton['tllq'][process.split('_')[0]].array()[jet+offset]
-                    if syst_cat in systMap:
-                        systMap[syst_cat].update({proc: syst})
-                    else:
-                        systMap[syst_cat] = {proc: syst}
-                '''
-                    
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
@@ -572,6 +563,7 @@ class DatacardMaker():
         selectedWCsForProc={}
         processed = []
         for proc in samples:
+            if not self.unblind and 'data' in proc: continue
             simplified = proc.split('_central')[0].split('_private')[0].split('UL')[0].replace('_4F','').replace('_ext','')
             if simplified in processed: continue # Only one process name per 3 years
             processed.append(simplified)
@@ -779,9 +771,72 @@ class DatacardMaker():
         json.dump(selectedWCsForProc, selectedWCsFile)
         selectedWCsFile.close()
 
+        # Compute `jet_scale` uncertainties
+        if do_nuisance:
+            for loop_histo in fout.GetListOfKeys():
+                loop_name = loop_histo.GetName()
+                if 'Up' in loop_name or 'Down' in loop_name: continue # Only adjust nominal
+                if loop_name.split('_')[0] not in self.syst_scale: continue
+                loop_histo = fout.Get(loop_name+';1')
+                proc = loop_name.split('_')
+                proc = self.rename.get(proc[0], proc[0])
+                if proc in self.syst_scale:
+                    scale = self.syst_scale[proc]
+                    scale = {int(k):v for k,v in scale.items()}
+                    if 'j' in channel:
+                        jet = int(re.findall('\dj', channel)[0][:-1])
+                        if jet > max(scale): jet = max(scale)
+                        if jet in scale:
+                            syst_val = scale[jet]
+                            proc = loop_name.split('_')
+                            proc[0] = self.rename.get(proc[0], proc[0])
+                            proc = '_'.join(proc)
+                            if 'jet_scale' in self.syst_special:
+                                systMap['jet_scale_flat_rate'][proc] = (syst_val-1) * loop_histo.Integral()
+                            else:
+                                systMap['jet_scale_flat_rate'] = {proc: (syst_val-1) * loop_histo.Integral()}
+                    else:
+                        lep_bin = channel.split('_')[0].split('l')[0] + 'l'
+                        bins = self.analysis_bins['njets'][lep_bin]
+                        offset = -3 if '3l' not in channel else -1
+                        h_syst_up = loop_histo.Clone()
+                        h_syst_down = loop_histo.Clone()
+                        h_syst_up.SetDirectory(fout)
+                        h_syst_down.SetDirectory(fout)
+                        for b in range(1,loop_histo.GetNbinsX()+1):
+                            jet = b - offset
+                            if jet > max(scale): jet = max(scale)
+                            syst_val = scale[jet]
+                            val = h_syst_up.GetBinContent(b)
+                            shift = val * (syst_val - 1)
+                            h_syst_up.SetBinContent(b, val + shift)
+                            # Down is bin content - shift or 0 if negative
+                            val = val - shift if val - shift > 0 else 0
+                            h_syst_down.SetBinContent(b, val)
+                        h_syst_up.SetName(loop_name+'_jet_scaleUp')
+                        h_syst_up.SetTitle(loop_name+'_jet_scaleUp')
+                        h_syst_down.SetName(loop_name+'_jet_scaleDown')
+                        h_syst_down.SetTitle(loop_name+'_jet_scaleDown')
+                        h_syst_up.Write()
+                        h_syst_down.Write()
+                        proc = loop_name.split('_')
+                        proc[0] = self.rename.get(proc[0], proc[0])
+                        proc = '_'.join(proc)
+                        if 'jet_scale' in self.syst_special:
+                            systMap['jet_scale'][proc] = (syst_val-1) * loop_histo.Integral()
+                        else:
+                            systMap['jet_scale'] = {proc: (syst_val-1) * loop_histo.Integral()}
+            # Correct for `Diboson` rate
+            if 'jet_scale_flat_rate' in systMap:
+                diboson = allyields['Diboson_sm'] # Hard coding for `Diboson` for now
+                diboson_unc = systMap['jet_scale_flat_rate']['Diboson_sm']
+                diboson_rate_up = (diboson + diboson_unc) / diboson
+                diboson_rate_down = max((diboson - diboson_unc) / diboson, 0.001)
+                systMap['jet_scale_flat_rate']['Diboson_sm'] = str(round(diboson_rate_down, 4)) + '/' + str(round(diboson_rate_up, 4))
+
         # Write datacard
         for k,v in allyields.items():
-                if v < 0: print(f'Warning: {k} is {v}! Setting to 0.')
+            if v < 0: print(f'Warning: {k} is {v}! Setting to 0.')
         allyields = {k : (v if v>0 else 0) for k,v in allyields.items()}
         if systematics != 'nominal':
             cat = cat + '_' + systematics
@@ -811,7 +866,7 @@ class DatacardMaker():
                 systEff = dict((p,"1" if any(p in m for m in systMap[syst]) else "-") for p in procs if 'rate' not in syst)
                 systEffRate = dict((p,systMap[syst][p] if any(p in m for m in systMap[syst]) else "-") for p in procs if 'rate' in syst)
                 if 'rate' in syst:
-                    datacard.write(('%s %5s' % (npatt % syst.replace('_rate',''),'lnN')) + " ".join([kpatt % systEffRate[p]  for p in procs if p in systEffRate]) +"\n")
+                    datacard.write(('%s %5s' % (npatt % syst.replace('_flat_rate',''),'lnN')) + " ".join([kpatt % systEffRate[p]  for p in procs if p in systEffRate]) +"\n")
                 else:
                     datacard.write(('%s %5s' % (npatt % syst,'shape')) + " ".join([kpatt % systEff[p]  for p in procs if p in systEff]) +"\n")
         
