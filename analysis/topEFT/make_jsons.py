@@ -635,7 +635,7 @@ central_UL17_bkg_dict = {
     "UL17_WWZ_4F_ext" : {
         "path" : "/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9_ext1-v2/NANOAODSIM",
         "path_local" : "/store/mc/RunIISummer20UL17NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9_ext1-v2",
-        "histAxisName": "WWZ_ext_centralUL17",
+        "histAxisName": "WWZ_centralUL17",
         "xsecName": "WWZ",
     },
     "UL17_WZTo3LNu" : {
@@ -756,24 +756,26 @@ central_UL18_bkg_dict = {
     },
     "UL18_WWW_4F" : {
         "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1",
         "histAxisName": "WWW_4F_centralUL18",
         "xsecName": "WWW",
     },
-    "UL18_WWW_4F" : {
+    "UL18_WWW_4F_ext" : {
         "path" : "/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1_ext1-v2/NANOAODSIM",
         "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/WWW_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1_ext1-v2",
-        "histAxisName": "WWW_4F_ext_centralUL18",
+        "histAxisName": "WWW_4F_centralUL18",
         "xsecName": "WWW",
     },
     "UL18_WWZ_4F" : {
         "path" : "/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1",
         "histAxisName": "WWZ_4F_centralUL18",
         "xsecName": "WWZ",
     },
-    "UL18_WWZ_4F" : {
+    "UL18_WWZ_4F_ext" : {
         "path" : "/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1_ext1-v2/NANOAODSIM",
         "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/WWZ_4F_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1_ext1-v2",
-        "histAxisName": "WWZ_4F_ext_centralUL18",
+        "histAxisName": "WWZ_4F_centralUL18",
         "xsecName": "WWZ",
     },
     "UL18_WZTo3LNu" : {
@@ -800,13 +802,14 @@ central_UL18_bkg_dict = {
     },
     "UL18_ZZZ" : {
         "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/",
         "histAxisName": "ZZZ_centralUL18",
         "xsecName": "ZZZ",
     },
-    "UL18_ZZZ" : {
+    "UL18_ZZZ_ext" : {
         "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1_ext1-v2/NANOAODSIM",
         "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1_ext1-v2",
-        "histAxisName": "ZZZ_ext_centralUL18",
+        "histAxisName": "ZZZ_centralUL18",
         "xsecName": "ZZZ",
     },
 }
