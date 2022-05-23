@@ -808,6 +808,9 @@ class DatacardMaker():
                         h_syst_down = loop_histo.Clone()
                         h_syst_up.SetDirectory(fout)
                         h_syst_down.SetDirectory(fout)
+                        bmin = 0.001
+                        for b in range(1,loop_histo.GetNbinsX()+1):
+                            bmin = mim(h_syst_up.GetBinContent(b) * 0.001, bmin)
                         for b in range(1,loop_histo.GetNbinsX()+1):
                             jet = b - offset
                             if jet > max(scale): jet = max(scale)
@@ -816,7 +819,7 @@ class DatacardMaker():
                             shift = val * (syst_val - 1)
                             h_syst_up.SetBinContent(b, val + shift)
                             # Down is bin content - shift or 0 if negative
-                            val = val - shift if val - shift > 0 else 0.001
+                            val = val - shift if val - shift > 0 else bmin
                             h_syst_down.SetBinContent(b, val)
                         h_syst_up.SetName(loop_name+'_jet_scaleUp')
                         h_syst_up.SetTitle(loop_name+'_jet_scaleUp')
@@ -860,6 +863,9 @@ class DatacardMaker():
                 h_syst_down = loop_histo.Clone()
                 h_syst_up.SetDirectory(fout)
                 h_syst_down.SetDirectory(fout)
+                bmin = 0.001
+                for b in range(1,loop_histo.GetNbinsX()+1):
+                    bmin = mim(h_syst_up.GetBinContent(b) * 0.001, bmin)
                 for b in range(1,loop_histo.GetNbinsX()+1):
                     if re.findall('\dj', cat):
                         jet_bin = int(re.findall('\dj', cat)[0][:-1])
@@ -871,7 +877,7 @@ class DatacardMaker():
                     shift = val * syst_val
                     h_syst_up.SetBinContent(b, val + shift)
                     # Down is bin content - shift or 0 if negative
-                        val = val - shift if val - shift > 0 else 0.001
+                        val = val - shift if val - shift > 0 else bmin
                         h_syst_down.SetBinContent(b, val)
                     h_syst_up.SetName(loop_name+'_missing_partonUp')
                     h_syst_up.SetTitle(loop_name+'_missing_partonUp')
