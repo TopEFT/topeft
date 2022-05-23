@@ -819,7 +819,7 @@ class DatacardMaker():
                             shift = val * (syst_val - 1)
                             h_syst_up.SetBinContent(b, val + shift)
                             # Down is bin content - shift or 0 if negative
-                            val = val - shift if val - shift > 0 else bmin
+                            val = val - shift if val - shift > 0 else 0
                             h_syst_down.SetBinContent(b, val)
                         h_syst_up.SetName(loop_name+'_jet_scaleUp')
                         h_syst_up.SetTitle(loop_name+'_jet_scaleUp')
@@ -877,25 +877,25 @@ class DatacardMaker():
                     shift = val * syst_val
                     h_syst_up.SetBinContent(b, val + shift)
                     # Down is bin content - shift or 0 if negative
-                        val = val - shift if val - shift > 0 else bmin
-                        h_syst_down.SetBinContent(b, val)
-                    h_syst_up.SetName(loop_name+'_missing_partonUp')
-                    h_syst_up.SetTitle(loop_name+'_missing_partonUp')
-                    h_syst_down.SetName(loop_name+'_missing_partonDown')
-                    h_syst_down.SetTitle(loop_name+'_missing_partonDown')
-                    h_syst_up.Write()
-                    h_syst_down.Write()
-                    proc = loop_name.split('_')
-                    proc[0] = self.rename.get(proc[0], proc[0])
-                    proc = '_'.join(proc)
-                    if 'missing_parton' in systMap:
-                        systMap['missing_parton'][proc] = syst_val * loop_histo.Integral()
-                    else:
-                        systMap['missing_parton'] = {proc: syst_val * loop_histo.Integral()}
+                    val = val - shift if val - shift > 0 else bmin
+                    h_syst_down.SetBinContent(b, val)
+                h_syst_up.SetName(loop_name+'_missing_partonUp')
+                h_syst_up.SetTitle(loop_name+'_missing_partonUp')
+                h_syst_down.SetName(loop_name+'_missing_partonDown')
+                h_syst_down.SetTitle(loop_name+'_missing_partonDown')
+                h_syst_up.Write()
+                h_syst_down.Write()
+                proc = loop_name.split('_')
+                proc[0] = self.rename.get(proc[0], proc[0])
+                proc = '_'.join(proc)
+                if 'missing_parton' in systMap:
+                    systMap['missing_parton'][proc] = syst_val * loop_histo.Integral()
+                else:
+                    systMap['missing_parton'] = {proc: syst_val * loop_histo.Integral()}
 
-            # Write datacard
-            for k,v in allyields.items():
-                if v < 0: print(f'Warning: {k} is {v}! Setting to 0.')
+        # Write datacard
+        for k,v in allyields.items():
+            if v < 0: print(f'Warning: {k} is {v}! Setting to 0.')
         allyields = {k : (v if v>0 else 0) for k,v in allyields.items()}
         if systematics != 'nominal':
             cat = cat + '_' + systematics
