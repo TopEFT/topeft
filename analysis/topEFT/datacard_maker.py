@@ -484,7 +484,6 @@ class DatacardMaker():
 
         def processSyst(process, channel, systMap, d_hists, fout, cat):
             for syst in self.syst:
-                #print('all files', [l.GetName() for l in fout.GetListOfKeys()])
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
                 process = re.sub('UL\d\d(?:APV)?', '', process)
                 syst = syst+self.get_correlation_name(process, syst) # Tack on possible correlation name from self.syst_correlation
