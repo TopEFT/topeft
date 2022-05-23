@@ -810,7 +810,8 @@ class DatacardMaker():
                         h_syst_down.SetDirectory(fout)
                         bmin = 0.001
                         for b in range(1,loop_histo.GetNbinsX()+1):
-                            bmin = mim(h_syst_up.GetBinContent(b) * 0.001, bmin)
+                            bmin = min(abs(h_syst_up.GetBinContent(b)) * 0.001, bmin)
+                        if bmin == 0: bmin = 0.001
                         for b in range(1,loop_histo.GetNbinsX()+1):
                             jet = b - offset
                             if jet > max(scale): jet = max(scale)
@@ -865,7 +866,8 @@ class DatacardMaker():
                 h_syst_down.SetDirectory(fout)
                 bmin = 0.001
                 for b in range(1,loop_histo.GetNbinsX()+1):
-                    bmin = mim(h_syst_up.GetBinContent(b) * 0.001, bmin)
+                    bmin = min(abs(h_syst_up.GetBinContent(b)) * 0.001, bmin)
+                if bmin == 0: bmin = 0.001
                 for b in range(1,loop_histo.GetNbinsX()+1):
                     if re.findall('\dj', cat):
                         jet_bin = int(re.findall('\dj', cat)[0][:-1])
