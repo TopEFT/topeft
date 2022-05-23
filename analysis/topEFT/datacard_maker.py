@@ -210,38 +210,6 @@ class DatacardMaker():
                     if syst == 'nominal':
                         fout[name+cat] = histo.to_hist()
 
-                        # Missing parton part
-                        if re.findall('\dj', fcat):
-                            lep_bin = re.sub('_'+var, '', fcat)
-                            lep_bin = re.sub('_\wj', '', lep_bin)
-                            if 'offZ' in lep_bin:
-                                lep_bin = re.sub('_offZ', '', lep_bin)
-                                lep_bin = lep_bin.split('_')
-                                lep_bin = lep_bin[0] + lep_bin[-1] + '_' + lep_bin[1]
-                            if 'onZ' in lep_bin:
-                                lep_bin = re.sub('onZ', 'sfz', lep_bin)
-                        else: lep_bin = fcat
-                        if name.split('_')[0] in ['tllq', 'tHq'] and lep_bin+';1' in self.fparton.keys():
-                            syst_cat = 'parton_flat_rate'
-                            offset = -4 if '3l' not in fcat else -2
-                            parton = np.array(self.fparton[lep_bin]['tllq'].array())
-                            h_syst_up = deepcopy(histo)
-                            h_syst_down = deepcopy(histo)
-                            if re.findall('\dj', fcat):
-                                jet_bin = int(re.findall('\dj', fcat)[0][:-1])
-                                parton = parton[jet_bin+offset]
-                                h_syst_up._sumw[()][:,0] = h_syst_up._sumw[()][:,0] * (1 + parton)
-                                h_syst_down._sumw[()][:,0] = h_syst_down._sumw[()][:,0] * (1 - parton)
-                            else:
-                                h_syst_up._sumw[()][:,0][1:-2]   *= (1 + parton)
-                                h_syst_down._sumw[()][:,0][1:-2] *= (1 - parton)
-                            mask = h_syst_down._sumw[()][:,0][1:-2] < 0
-                            h_syst_down._sumw[()][:,0][1:-2][mask] = 0.
-                            fout[name+cat+'_missing_partonUp'] = h_syst_up.to_hist()
-                            fout[name+cat+'_missing_partonDown'] = h_syst_down.to_hist()
-                            if 'missing_partonUp' not in self.syst: self.syst.append('missing_partonUp')
-                            if 'missing_partonDown' not in self.syst: self.syst.append('missing_partonDown')
-
                     # Systematics
                     elif self.do_nuisance and name not in self.syst_special:
                         if 'nonprompt' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
@@ -484,6 +452,7 @@ class DatacardMaker():
 
         def processSyst(process, channel, systMap, d_hists, fout, cat):
             for syst in self.syst:
+                #print('all files', [l.GetName() for l in fout.GetListOfKeys()])
                 if channel in self.skip_process_channels and self.skip_process_channels[channel] in syst: continue
                 process = re.sub('UL\d\d(?:APV)?', '', process)
                 syst = syst+self.get_correlation_name(process, syst) # Tack on possible correlation name from self.syst_correlation
@@ -870,6 +839,54 @@ class DatacardMaker():
                 diboson_rate_up = (diboson + diboson_unc) / diboson
                 diboson_rate_down = max((diboson - diboson_unc) / diboson, 0.001)
                 systMap['jet_scale_flat_rate']['Diboson_sm'] = str(round(diboson_rate_down, 4)) + '/' + str(round(diboson_rate_up, 4))
+
+            # Missing parton part
+            missing_parton = [k for k in allyields if 'tllq' in k or 'tHq' in k and 'Up' not in k and 'Down' not in k]
+            for loop_name in missing_parton:
+                loop_histo = fout.Get(loop_name+';1')
+                if re.findall('\dj', cat):
+                    lep_bin = re.sub('_'+variable, '', cat)
+                    lep_bin = re.sub('_\wj', '', lep_bin)
+                    if 'offZ' in lep_bin:
+                        lep_bin = re.sub('_offZ', '', lep_bin)
+                        lep_bin = lep_bin.split('_')
+                        lep_bin = lep_bin[0] + lep_bin[-1] + '_' + lep_bin[1]
+                    if 'onZ' in lep_bin:
+                        lep_bin = re.sub('onZ', 'sfz', lep_bin)
+                else: lep_bin = cat
+                print(loop_name, cat, lep_bin)
+                offset = -4 if '3l' not in cat else -2
+                parton = np.array(self.fparton[lep_bin]['tllq'].array())
+                h_syst_up = loop_histo.Clone()
+                h_syst_down = loop_histo.Clone()
+                h_syst_up.SetDirectory(fout)
+                h_syst_down.SetDirectory(fout)
+                for b in range(1,loop_histo.GetNbinsX()+1):
+                    if re.findall('\dj', cat):
+                        jet_bin = int(re.findall('\dj', cat)[0][:-1])
+                        syst_val = parton[jet_bin+offset]
+                    else:
+                        print(b, parton)
+                        syst_val = parton[b-1]
+                    val = h_syst_up.GetBinContent(b)
+                    shift = val * syst_val
+                    h_syst_up.SetBinContent(b, val + shift)
+                    # Down is bin content - shift or 0 if negative
+                    val = val - shift if val - shift > 0 else 0
+                    h_syst_down.SetBinContent(b, val)
+                h_syst_up.SetName(loop_name+'_missing_partonUp')
+                h_syst_up.SetTitle(loop_name+'_missing_partonUp')
+                h_syst_down.SetName(loop_name+'_missing_partonDown')
+                h_syst_down.SetTitle(loop_name+'_missing_partonDown')
+                h_syst_up.Write()
+                h_syst_down.Write()
+                proc = loop_name.split('_')
+                proc[0] = self.rename.get(proc[0], proc[0])
+                proc = '_'.join(proc)
+                if 'missing_parton' in systMap:
+                    systMap['missing_parton'][proc] = syst_val * loop_histo.Integral()
+                else:
+                    systMap['missing_parton'] = {proc: syst_val * loop_histo.Integral()}
 
         # Write datacard
         for k,v in allyields.items():
