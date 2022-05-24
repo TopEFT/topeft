@@ -822,11 +822,11 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 # Get plus and minus rate and shape arrs
                 rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
                 shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated,CR_GRP_MAP)
-                if ((hist_cat == "cr_3l") and (var_name == "njets")):
+                if (var_name == "njets"):
                     # This is a special case for the diboson jet dependent systematic
                     db_hist = hist_mc_integrated.integrate("sample",CR_GRP_MAP["Diboson"]).integrate("systematic","nominal").values()[()]
-                    rate_systs_summed_arr_p = rate_systs_summed_arr_p + get_jet_scale_syst_arr(db_hist,bin0_njets=0)
-                    rate_systs_summed_arr_m = rate_systs_summed_arr_m + get_jet_scale_syst_arr(db_hist,bin0_njets=0)
+                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_jet_scale_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
+                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_jet_scale_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
                 # Get the arrays we will actually put in the CR plot
                 nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
                 p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
