@@ -1,5 +1,6 @@
 import json
 import argparse
+import re
  
 tolerance = 0.5e-5
 
@@ -21,12 +22,13 @@ def strip(fname='ttx_multileptons-2lss_p_2b.txt'):
             line = line.split()[1:]
             #if line[0] == '0': continue
             process = line
-        if 'rate' in line:
+        elif 'rate' in line:
             line = line.split()[1:]
             line = [float(l) for l in line]
             rate = line
-        if 'flat' in line:
+        elif any([re.findall('\.\d*', str(l)) for l in line]) and '*' not in line and '#' not in line:
             line = line.split()[2:]
+            if len(line) == 0: continue
             line = [str(l) for l in line]
             systs.append(line)
     return [dict(zip(process, rate)), systs]

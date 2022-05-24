@@ -165,7 +165,7 @@ class DatacardMaker():
         self.lumi = {year : 1000*lumi for year,lumi in self.lumi.items()}
 
         # Populate missing parton dicts
-        #self.fparton = uproot.open(topcoffea_path('data/missing_parton/missing_parton.root'))
+        self.fparton = uproot.open(topcoffea_path('data/missing_parton/missing_parton.root'))
 
     def Unblind(self):
         self.unblind = True
@@ -200,7 +200,7 @@ class DatacardMaker():
                 self.analyzeChannel(channel=channel, appl=appl, charges=charges, systematics=systematics, variable=variable, bins=jbin)
             return
 
-        def export1d(h, name, cat, fout, channel):
+        def export1d(h, name, cat, fout, fcat=''):
             ulyear = re.compile('UL\d\d')
             fullyear = re.compile('20\d\d')
             if 'data_obs' in name:
@@ -209,10 +209,13 @@ class DatacardMaker():
                 for syst,histo in h.items():
                     if syst == 'nominal':
                         fout[name+cat] = histo.to_hist()
+
+                    # Systematics
                     elif self.do_nuisance and name not in self.syst_special:
                         if 'nonprompt' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
                         if 'fakes' in name and 'FF' not in syst: continue # Only processes fake factor systs for fakes
                         if 'nonprompt' not in name and 'FF' in syst: continue # Don't processes fake factor systs for others
+                        if not name.split('_')[0] in ['tllq', 'tHq'] and 'missing_parton' in syst: continue # Only tllq and tHq
                         # Special cass for systematics NOT correlated by year
                         if ulyear.search(name) and fullyear.search(syst):
                             # Find systematic year
@@ -224,6 +227,7 @@ class DatacardMaker():
                             print(f'Warning: bin {name}{cat}_{syst}{self.get_correlation_name(name, syst)} do not exist. Could just be a missing sample!')
                             continue
                         fout[name+cat+'_'+syst+self.get_correlation_name(name, syst)] = histo.to_hist()
+ 
         def export2d(h):
             return h.to_hist().to_numpy()
         if isinstance(channel, str) and channel not in self.channels:
@@ -349,19 +353,32 @@ class DatacardMaker():
             h_sm = h_bases
             for hists in h_sm.values():
                 hists.set_sm()
+	
+            # Compute category (used mainly for missing parton)
+            if variable == 'njets':
+                if 'b' in channel:
+                    cat = channel
+                else:
+                    cat = '_'.join([channel, maxb])
+            else:
+                if 'b' in channel:
+                    cat = channel
+                else:
+                    cat = '_'.join([channel, maxb])
+
             if len(h_base.axes())>1:
                 fout[pname+'sm'] = export2d(h_bases)
             else:
                 if any([sig in p for sig in self.signal]):
-                    export1d(h_sm, pname, 'sm', fout, channel) # Special case for SM b/c background names overlap (p not pname)
+                    export1d(h_sm, pname, 'sm', fout, cat) # Special case for SM b/c background names overlap (p not pname)
                 elif 'data' not in proc:
-                    export1d(h_sm, p, '_sm', fout, channel) # Special case for SM b/c background names overlap (p not pname)
+                    export1d(h_sm, p, '_sm', fout, cat) # Special case for SM b/c background names overlap (p not pname)
             # Asimov data: data_obs = MC at SM (all WCs = 0)
             if not self.unblind or 'data' in proc: # data is skipped earlier if unblid is `False`
                 if len(h_base.axes())>1:
                     fout['data_obs'] = export2d(h_sm)
                 else:
-                    export1d(h_sm, 'data_obs', 'sm', fout, channel)
+                    export1d(h_sm, 'data_obs', 'sm', fout) # No `cat` since data won't have a missing parton unc.
 
             isSignal = p in self.signal or (p in self.rename and self.rename[p] in self.signal)
             if not self.do_sm and isSignal and self.wcs is not None:
@@ -376,19 +393,7 @@ class DatacardMaker():
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_lin)
                         else:
-                            export1d(h_lin, pname, name, fout, channel)
-                        if variable == 'njets':
-                            if isinstance(charges, str):
-                                cat = '_'.join([channel, charge, ])  
-                            else:
-                                cat = '_'.join([channel, maxb])  
-                        else:
-                            if 'b' in channel:
-                                cat = channel
-                            elif isinstance(charges, str):
-                                cat = '_'.join([channel, charge, maxb, variable])
-                            else:
-                                cat = '_'.join([channel, maxb, variable])
+                            export1d(h_lin, pname, name, fout, cat)
                     elif 'quad' in name and 'mix' not in name:
                         h_quad = h_bases
                         for hists in h_quad.values():
@@ -396,7 +401,7 @@ class DatacardMaker():
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_quad)
                         else:
-                            export1d(h_quad, pname, name, fout, channel)
+                            export1d(h_quad, pname, name, fout, cat)
                     else:
                         h_mix = h_bases
                         for hists in h_mix.values():
@@ -404,7 +409,7 @@ class DatacardMaker():
                         if len(h_base.axes())>1:
                             fout[pname+name] = export2d(h_mix)
                         else:
-                            export1d(h_mix, pname, name, fout, channel)
+                            export1d(h_mix, pname, name, fout, cat)
         
         fout.close()
         self.makeCardLevel(channel=channel, charges=charges, nbjet=maxb, systematics=systematics, variable=variable)
@@ -521,7 +526,7 @@ class DatacardMaker():
                     systMap[syst_cat].update({proc: syst})
                 else:
                     systMap[syst_cat] = {proc: syst}
- 
+
         print(f'Making the datacard for {channel}')
         if isinstance(charges, str): charge = charges
         else: charge = ''
@@ -803,6 +808,10 @@ class DatacardMaker():
                         h_syst_down = loop_histo.Clone()
                         h_syst_up.SetDirectory(fout)
                         h_syst_down.SetDirectory(fout)
+                        bmin = 0.00001
+                        for b in range(1,loop_histo.GetNbinsX()+1):
+                            bmin = min(abs(h_syst_up.GetBinContent(b)) * 0.00001, bmin)
+                        if bmin == 0: bmin = 0.00001
                         for b in range(1,loop_histo.GetNbinsX()+1):
                             jet = b - offset
                             if jet > max(scale): jet = max(scale)
@@ -833,6 +842,58 @@ class DatacardMaker():
                 diboson_rate_up = (diboson + diboson_unc) / diboson
                 diboson_rate_down = max((diboson - diboson_unc) / diboson, 0.001)
                 systMap['jet_scale_flat_rate']['Diboson_sm'] = str(round(diboson_rate_down, 4)) + '/' + str(round(diboson_rate_up, 4))
+
+            # Missing parton part
+            missing_parton = [k for k in allyields if 'tllq' in k or 'tHq' in k and 'Up' not in k and 'Down' not in k]
+            for loop_name in missing_parton:
+                loop_histo = fout.Get(loop_name+';1')
+                if re.findall('\dj', cat):
+                    lep_bin = re.sub('_'+variable, '', cat)
+                    lep_bin = re.sub('_\wj', '', lep_bin)
+                    if 'offZ' in lep_bin:
+                        lep_bin = re.sub('_offZ', '', lep_bin)
+                        lep_bin = lep_bin.split('_')
+                        lep_bin = lep_bin[0] + lep_bin[-1] + '_' + lep_bin[1]
+                    if 'onZ' in lep_bin:
+                        lep_bin = re.sub('onZ', 'sfz', lep_bin)
+                else: lep_bin = cat
+                print(loop_name, cat, lep_bin)
+                offset = -4 if '3l' not in cat else -2
+                parton = np.array(self.fparton[lep_bin]['tllq'].array())
+                h_syst_up = loop_histo.Clone()
+                h_syst_down = loop_histo.Clone()
+                h_syst_up.SetDirectory(fout)
+                h_syst_down.SetDirectory(fout)
+                bmin = 0.00001
+                for b in range(1,loop_histo.GetNbinsX()+1):
+                    bmin = min(abs(h_syst_up.GetBinContent(b)) * 0.00001, bmin)
+                if bmin == 0: bmin = 0.00001
+                for b in range(1,loop_histo.GetNbinsX()+1):
+                    if re.findall('\dj', cat):
+                        jet_bin = int(re.findall('\dj', cat)[0][:-1])
+                        syst_val = parton[jet_bin+offset]
+                    else:
+                        print(b, parton)
+                        syst_val = parton[b-1]
+                    val = h_syst_up.GetBinContent(b)
+                    shift = val * syst_val
+                    h_syst_up.SetBinContent(b, val + shift)
+                    # Down is bin content - shift or 0 if negative
+                    val = val - shift if val - shift > 0 else bmin
+                    h_syst_down.SetBinContent(b, val)
+                h_syst_up.SetName(loop_name+'_missing_partonUp')
+                h_syst_up.SetTitle(loop_name+'_missing_partonUp')
+                h_syst_down.SetName(loop_name+'_missing_partonDown')
+                h_syst_down.SetTitle(loop_name+'_missing_partonDown')
+                h_syst_up.Write()
+                h_syst_down.Write()
+                proc = loop_name.split('_')
+                proc[0] = self.rename.get(proc[0], proc[0])
+                proc = '_'.join(proc)
+                if 'missing_parton' in systMap:
+                    systMap['missing_parton'][proc] = syst_val * loop_histo.Integral()
+                else:
+                    systMap['missing_parton'] = {proc: syst_val * loop_histo.Integral()}
 
         # Write datacard
         for k,v in allyields.items():
