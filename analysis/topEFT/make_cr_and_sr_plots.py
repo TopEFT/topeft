@@ -316,6 +316,37 @@ def get_shape_syst_arrs(base_histo,proc_group_map):
 
     return [sum(m_arr_rel_lst), sum(p_arr_rel_lst)]
 
+# Get the squared arr for the jet dependent syst (e.g. for diboson jet dependent syst)
+def get_jet_scale_syst_arr(njets_histo_vals_arr,bin0_njets):
+
+    # Get the list of njets vals for which we have SFs
+    sf_int_lst = []
+    jet_scale_dict = getj.get_jet_dependent_syst_dict()
+    sf_str_lst = list(jet_scale_dict.keys())
+    for s in sf_str_lst: sf_int_lst.append(int(s))
+    min_njets = min(sf_int_lst) # The lowest njets bin we have a SF for
+    max_njets = max(sf_int_lst) # The highest njets bin we have a SF for
+
+    # Put the SFs into an array that matches the njets hist array
+    sf_lst = []
+    jet_idx = bin0_njets
+    for idx in range(len(njets_histo_vals_arr)):
+        if jet_idx < min_njets:
+            # We do not apply the syst for these low jet bins
+            sf_lst.append(1.0)
+        elif jet_idx > max_njets:
+            # For jet bins higher than the highest one in the dict, just use the val of the highest one
+            sf_lst.append(jet_scale_dict[str(max_njets)])
+        else:
+            # In this case, the exact jet bin should be included in the dict so use it directly
+            sf_lst.append(jet_scale_dict[str(jet_idx)])
+        jet_idx = jet_idx + 1
+    sf_arr = np.array(sf_lst)
+
+    shift = abs(njets_histo_vals_arr - sf_arr*njets_histo_vals_arr)
+    shift_sq = shift*shift # Return shift squared so we can combine with other syts in quadrature
+    return shift*shift
+
 
 ######### Plotting functions #########
 
@@ -734,10 +765,10 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
 
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
-    skip_wlst = ["njets"] # Skip all but these hists
+    #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
-        if (var_name not in skip_wlst): continue
+        #if (var_name not in skip_wlst): continue
         if (var_name == "njets"):
             # We do not keep track of jets in the sparse axis for the njets hists
             cr_cat_dict = get_dict_with_stripped_bin_names(CR_CHAN_DICT,"njets")
@@ -760,8 +791,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
-            if "cr_3l" != hist_cat: continue
-            if var_name != "njets": continue
             if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The 2los Z category does not require jets (so leading jet plots do not make sense)
             if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The flip category does not require jets (so leading jet plots do not make sense)
             print("\n\tCategory:",hist_cat)
@@ -783,36 +812,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
             hist_mc_integrated = hist_mc_integrated.remove(samples_to_rm,"sample")
 
-            # Get arr for the jet dependent syst
-            def get_jet_scale_syst_arr(njets_histo_vals_arr,bin0_njets):
-
-                # Get the list of njets vals for which we have SFs
-                sf_int_lst = []
-                jet_scale_dict = getj.get_jet_dependent_syst_dict()
-                sf_str_lst = list(jet_scale_dict.keys())
-                for s in sf_str_lst: sf_int_lst.append(int(s))
-                min_njets = min(sf_int_lst) # The lowest njets bin we have a SF for
-                max_njets = max(sf_int_lst) # The highest njets bin we have a SF for
-
-                # Put the SFs into an array that matches the njets hist array
-                sf_lst = []
-                jet_idx = bin0_njets
-                for idx in range(len(njets_histo_vals_arr)):
-                    if jet_idx < min_njets:
-                        # We do not apply the syst for these low jet bins
-                        sf_lst.append(1.0)
-                    elif jet_idx > max_njets:
-                        # For jet bins higher than the highest one in the dict, just use the val of the highest one
-                        sf_lst.append(jet_scale_dict[str(max_njets)])
-                    else:
-                        # In this case, the exact jet bin should be included in the list so use it directly
-                        sf_lst.append(jet_scale_dict[str(jet_idx)])
-                    jet_idx = jet_idx + 1
-                sf_arr = np.array(sf_lst)
-
-                shift = abs(njets_histo_vals_arr - sf_arr*njets_histo_vals_arr)
-                shift_sq = shift*shift # Return shift squared so we can combine with other syts in quadrature
-                return shift*shift
 
             # Calculate the syst errors
             p_err_arr = None
@@ -824,8 +823,10 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
                 shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated,CR_GRP_MAP)
                 if ((hist_cat == "cr_3l") and (var_name == "njets")):
+                    # This is a special case for the diboson jet dependent systematic
                     db_hist = hist_mc_integrated.integrate("sample",CR_GRP_MAP["Diboson"]).integrate("systematic","nominal").values()[()]
-                    diboson_jet_syst_arr = get_jet_scale_syst_arr(db_hist,bin0_njets=0)
+                    rate_systs_summed_arr_p = rate_systs_summed_arr_p + get_jet_scale_syst_arr(db_hist,bin0_njets=0)
+                    rate_systs_summed_arr_m = rate_systs_summed_arr_m + get_jet_scale_syst_arr(db_hist,bin0_njets=0)
                 # Get the arrays we will actually put in the CR plot
                 nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
                 p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
@@ -833,18 +834,12 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
                 m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
 
-                print("")
-                print(hist_mc_integrated.integrate("systematic","nominal").values())
 
             # Group the samples by process type, and grab just nominal syst category
             hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
             hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
             hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
             hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
-
-            print("")
-            print(hist_mc_integrated.values())
-            exit()
 
             # Print out total MC and data and the sf between them
             # For extracting the factors we apply to the flip contribution
