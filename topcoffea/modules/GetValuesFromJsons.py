@@ -75,3 +75,10 @@ def get_correlation_tag(syst_type,proc_name):
                 return corr_dict[proc_name][syst_type]
             else: raise Exception(f"Error: Unknown syst type \"{syst_type}\", known systematics with correlations are: {list(corr_dict[proc_name].keys())}")
         else: raise Exception(f"Error: Unknown proc name \"{proc_name}\", known processes are: {list(corr_dict.keys())}")
+
+# Get the dict of jet-dependent scaling factors
+def get_jet_dependent_syst_dict(process="Diboson"):
+    syst_json = topcoffea_path("json/rate_systs.json")
+    with open(syst_json) as f_systs:
+        jet_scale_dict = json.load(f_systs)["jet_scale"]
+        return(jet_scale_dict[process])
