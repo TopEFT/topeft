@@ -11,7 +11,8 @@
             "ttll": 1.03,
             "tHq": 1.037,
             "Diboson": 1.02,
-            "Triboson": 1.042
+            "Triboson": 1.042,
+            "convs": 1.05
         },
         "qcd_scale" : {
             "ttH": "0.908/1.058",
@@ -32,7 +33,8 @@
         "ttlnu":    {"pdf_scale": "qq", "qcd_scale": "ttlnu"},
         "tllq":     {"pdf_scale": "qq", "qcd_scale": "V"   },
         "Diboson":  {"pdf_scale": "qq", "qcd_scale": "VV"  },
-        "Triboson": {"pdf_scale": "qq", "qcd_scale": "VVV" }
+        "Triboson": {"pdf_scale": "qq", "qcd_scale": "VVV" },
+        "convs":    {"pdf_scale": "gg", }
     },
     "jet_scale" : {
         "Diboson": {"2": 1.20, "3": 1.48, "4": 1.77, "5": 2.05, "6": 2.34, "7": 2.62}
