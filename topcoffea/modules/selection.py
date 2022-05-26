@@ -94,16 +94,14 @@ dataset_dict = {
         "EGamma" : [
             "Ele32_WPTight_Gsf",
             "Ele35_WPTight_Gsf",
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
         ],
         "DoubleMuon" : [
             "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ",
             "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
             "TripleMu_12_10_5",
-        ],
-        "DoubleEG" : [
-            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
-            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
-            "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
         ],
         "MuonEG" : [
             "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
