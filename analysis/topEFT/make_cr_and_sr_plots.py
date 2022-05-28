@@ -423,6 +423,7 @@ def make_single_fig(histo,unit_norm_bool):
 # Takes a hist with one sparse axis (axis_name) and one dense axis, overlays everything on the sparse axis
 # Makes a ratio of each cateogory on the sparse axis with respect to ref_cat
 def make_single_fig_with_ratio(histo,axis_name,cat_ref):
+    #print("\nPlotting values:",histo.values())
 
     # Create the figure
     fig, (ax, rax) = plt.subplots(
@@ -487,6 +488,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
             samples_to_rm_from_sig_hist.append(sample_name)
     print("\nAll samples:",all_samples)
     print("\nSig samples:",sig_sample_lst)
+    print("\nAll systematics:",yt.get_cat_lables(dict_of_hists,"systematic",h_name=yt.get_hist_list(dict_of_hists)[0]))
 
     # Loop over hists and make plots
     skip_lst = [] # Skip this hist

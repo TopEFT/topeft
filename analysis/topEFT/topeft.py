@@ -124,16 +124,34 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
-            sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"          ]
-            sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"        ]
-            sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"          ]
-            sow_FSRDown        = self._samples[dataset]["nSumOfWeights_FSRDown"        ]
-            sow_renormUp       = self._samples[dataset]["nSumOfWeights_renormUp"       ]
-            sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"     ]
-            sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"         ]
-            sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"       ]
-            sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"   ]
-            sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown" ]
+            if histAxisName in get_param("lo_xsec_samples"):
+                # We have a LO xsec for these samples, so for these systs we will have e.g. xsec_LO*(N_pass_up/N_gen_nom)
+                # Thus these systs will cover the cross section uncty and the acceptance and effeciency and shape
+                # So no NLO rate uncty for xsec should be applied in the text data card
+                sow_ISRUp          = self._samples[dataset]["nSumOfWeights"]
+                sow_ISRDown        = self._samples[dataset]["nSumOfWeights"]
+                sow_FSRUp          = self._samples[dataset]["nSumOfWeights"]
+                sow_FSRDown        = self._samples[dataset]["nSumOfWeights"]
+                sow_renormUp       = self._samples[dataset]["nSumOfWeights"]
+                sow_renormDown     = self._samples[dataset]["nSumOfWeights"]
+                sow_factUp         = self._samples[dataset]["nSumOfWeights"]
+                sow_factDown       = self._samples[dataset]["nSumOfWeights"]
+                sow_renormfactUp   = self._samples[dataset]["nSumOfWeights"]
+                sow_renormfactDown = self._samples[dataset]["nSumOfWeights"]
+            else:
+                # Otherwise we have an NLO xsec, so for these systs we will have e.g. xsec_NLO*(N_pass_up/N_gen_up)
+                # Thus these systs should only affect acceptance and effeciency and shape
+                # The uncty on xsec comes from NLO and is applied as a rate uncty in the text datacard
+                sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"          ]
+                sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"        ]
+                sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"          ]
+                sow_FSRDown        = self._samples[dataset]["nSumOfWeights_FSRDown"        ]
+                sow_renormUp       = self._samples[dataset]["nSumOfWeights_renormUp"       ]
+                sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"     ]
+                sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"         ]
+                sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"       ]
+                sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"   ]
+                sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown" ]
         else: 
             sow_ISRUp          = -1
             sow_ISRDown        = -1
