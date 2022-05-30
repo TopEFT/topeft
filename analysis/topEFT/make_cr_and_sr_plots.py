@@ -218,7 +218,12 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
     # Right now we only have two types of uncorrelated rate systematics
     if uncertainty_name in ["qcd_scale","pdf_scale"]:
         if proc_name_in_json is not None:
-            corr_tag = getj.get_correlation_tag(uncertainty_name,proc_name_in_json)
+            if proc_name_in_json == "convs":
+                # Special case for conversions since we estimate from LO sample, we have _only_ pdf key not qcd
+                # Would be better to handle this in a more general way
+                corr_tag = None
+            else:
+                corr_tag = getj.get_correlation_tag(uncertainty_name,proc_name_in_json)
     return corr_tag
 
 # This function gets all of the the rate systematics from the json file
@@ -241,7 +246,13 @@ def get_rate_systs(sample_name,sample_group_map):
     # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if scale_name_for_json is not None:
         pdf_uncty = getj.get_syst("pdf_scale",scale_name_for_json)
-        qcd_uncty = getj.get_syst("qcd_scale",scale_name_for_json)
+        if scale_name_for_json == "convs":
+            # Special case for conversions, since we estimate these from a LO sample, so we don't have an NLO uncty here
+            # Would be better to handle this in a more general way
+            qcd_uncty = [1.0,1,0]
+        else:
+            # In all other cases, use the qcd scale uncty that we have for the process
+            qcd_uncty = getj.get_syst("qcd_scale",scale_name_for_json)
     else:
         pdf_uncty = [1.0,1,0]
         qcd_uncty = [1.0,1,0]
