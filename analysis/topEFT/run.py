@@ -85,7 +85,7 @@ if __name__ == '__main__':
     hist_lst = ["njets","lj0pt","ptz"]
   elif args.hist_list == ["cr"]:
     # Here we hardcode a list of hists used for the CRs
-    hist_lst = ["met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass"]
+    hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass"]
   else:
     # We want to specify a custom list
     # If we don't specify this argument, it will be None, and the processor will fill all hists 
