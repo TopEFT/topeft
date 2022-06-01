@@ -2,7 +2,7 @@
   "xsec": 0.0758,
   "year": "2016",
   "treeName": "Events",
-  "histAxisName": "tZq_centralUL16APV",
+  "histAxisName": "tZq_centralUL16",
   "options": "",
   "WCnames": [],
   "files": [
@@ -63,15 +63,5 @@
   "nGenEvents": 3967000,
   "nSumOfWeights": 307250.93320640014,
   "isData": false,
-  "path": "/store/mc/RunIISummer20UL16NanoAODv9/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
-  "nSumOfWeights_ISRUp": 307429.0718475876,
-  "nSumOfWeights_ISRDown": 307068.72690377285,
-  "nSumOfWeights_FSRUp": 307237.9197246039,
-  "nSumOfWeights_FSRDown": 307381.0180378193,
-  "nSumOfWeights_renormUp": 289328.9155793895,
-  "nSumOfWeights_renormDown": 326891.35351828614,
-  "nSumOfWeights_factUp": 302440.2478036918,
-  "nSumOfWeights_factDown": 313506.7120262132,
-  "nSumOfWeights_renormfactUp": 283195.7588089242,
-  "nSumOfWeights_renormfactDown": 331054.51756141847
+  "path": "/store/mc/RunIISummer20UL16NanoAODv9/tZq_ll_4f_ckm_NLO_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1"
 }
