@@ -1487,14 +1487,14 @@ def main():
 
     # Central signal samples
     #make_jsons_for_dict_of_samples(central_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_2016,on_das=True)
-    #make_jsons_for_dict_of_samples(central_UL16_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_2016APV,on_das=True)
-    #make_jsons_for_dict_of_samples(central_UL16APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_UL,on_das=True)
     #make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
     #make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
-    #make_jsons_for_dict_of_samples(central_UL17_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_UL,on_das=True)
-    #make_jsons_for_dict_of_samples(central_UL18_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_central_UL,on_das=True)
     #make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
+    #make_jsons_for_dict_of_samples(central_UL16_dict,    "/hadoop","2016",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
+    #make_jsons_for_dict_of_samples(central_UL16APV_dict, "/hadoop","2016APV", out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
+    #make_jsons_for_dict_of_samples(central_UL17_dict,    "/hadoop","2017",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
+    #make_jsons_for_dict_of_samples(central_UL18_dict,    "/hadoop","2018",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
 
     # Central background samples
     # Note: Some of the bkg dicts have both a "path" and a "path_local" (these are samples that generated JSONs for after moving the samples to ND),
