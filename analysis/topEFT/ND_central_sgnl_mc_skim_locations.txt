@@ -1,1 +1,2 @@
 /hadoop/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1
+/hadoop/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/tZqPowheg/v1

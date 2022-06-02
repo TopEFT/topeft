@@ -6,13 +6,13 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_tZq/output_203.root",
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_tZq/output_438.root",
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_tZq/output_509.root",
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_tZq/output_546.root",
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_tZq/output_563.root",
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_tZq/output_583.root",
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_tZq/output_588.root"
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/tZqPowheg/v1/UL16APV_tZq/output_104.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/tZqPowheg/v1/UL16APV_tZq/output_110.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/tZqPowheg/v1/UL16APV_tZq/output_112.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/tZqPowheg/v1/UL16APV_tZq/output_123.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/tZqPowheg/v1/UL16APV_tZq/output_133.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/tZqPowheg/v1/UL16APV_tZq/output_142.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/tZqPowheg/v1/UL16APV_tZq/output_28.root"
   ],
   "nEvents": 3723000,
   "nGenEvents": 3723000,
