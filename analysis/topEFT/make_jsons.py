@@ -543,7 +543,7 @@ central_UL17_dict = {
     },
     "UL17_tttt" : {
         "path" : "/TTTT_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM",
-        "path_local" : "store/mc/RunIISummer20UL17NanoAODv9/TTTT_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2",
+        "path_local" : "/store/mc/RunIISummer20UL17NanoAODv9/TTTT_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2",
         "histAxisName": "tttt_centralUL17",
         "xsecName": "tttt",
     },
