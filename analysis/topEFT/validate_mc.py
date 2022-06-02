@@ -41,6 +41,7 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,sa
         "tttt_central" : [],
     }
     for sample_name in sample_lst:
+        if not sample_name.endswith(year): continue
         # Get name of sample without the year in it
         if "APV" in sample_name: sample_name_noyear = sample_name[:-7]
         else: sample_name_noyear = sample_name[:-4]
@@ -52,11 +53,11 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,sa
             "central" : proc_dict["ttH_central"],
             "private": proc_dict["ttHJet_private"],
         },
-        "ttW" : {
+        "ttlnu" : {
             "central" : proc_dict["ttW_central"],
             "private" : proc_dict["ttlnuJet_private"],
         },
-        "ttZ": {
+        "ttll": {
             "central" : proc_dict["ttZ_central"],
             "private" : proc_dict["ttllJet_private"],
         },
@@ -64,20 +65,20 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,sa
             "central" : proc_dict["tttt_central"],
             "private" : proc_dict["tttt_private"],
         },
-        "tZq": {
+        "tllq": {
             "central" : proc_dict["tZq_central"],
             "private" : proc_dict["tllq_private"],
         }
     }
-
     print(comp_proc_dict)
+
+
 
     # Loop over variables
     for var_name in vars_lst:
         #if var_name != "njets": continue
 
         # Sum over channels, and just grab the nominal from the syst axis
-        #histo = dict_of_hists[var_name].sum("channel").integrate("systematic","nominal")
         histo = dict_of_hists[var_name].sum("channel")
 
         # Normalize by lumi (important to do this before grouping by year)
@@ -88,20 +89,45 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,sa
 
         # Now loop over processes and make plots
         for proc in comp_proc_dict.keys():
-            if "tZq" not in proc: continue
+            if "tllq" not in proc: continue
             print(f"\nProcess: {proc}")
+
+            # A group map is expected by the code that gets the rate systs
+            group_map = {"Conv":[], "Diboson":[], "Triboson":[], "Flips":[], "Signal":[proc+"_private"]}
 
             # Group the histos
             proc_histo = mcp.group_bins(histo,comp_proc_dict[proc],drop_unspecified=True)
 
+            # Get the nominal private
+            private_proc_histo = mcp.group_bins(histo,{proc+"_private":comp_proc_dict[proc]["private"]},drop_unspecified=True)
+            nom_arr_all = private_proc_histo.sum("sample").integrate("systematic","nominal").values()[()]
+
             # Get the systematic uncertainties
-            #shape_systs_summed_arr_m , shape_systs_summed_arr_p = mcp.get_shape_syst_arrs(proc_histo)
+            shape_systs_summed_arr_m , shape_systs_summed_arr_p = mcp.get_shape_syst_arrs(private_proc_histo)
+            rate_systs_summed_arr_m , rate_systs_summed_arr_p = mcp.get_rate_syst_arrs(private_proc_histo,group_map)
+            p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
+            m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m) # This goes in the main plot
+            print("shape m",shape_systs_summed_arr_m)
+            print("shape p",shape_systs_summed_arr_p)
+            print("rate m",rate_systs_summed_arr_m)
+            print("rate p",rate_systs_summed_arr_p)
+            print("\nnom_arr_all:",nom_arr_all)
+            print("p_err_arr",p_err_arr)
+            print("m_err_arr",m_err_arr)
+            p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
+            m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
 
             # Integrate out the syst axis from the histo, as we've already accoounted for it
             proc_histo = proc_histo.integrate("systematic","nominal")
 
             # Make the plots
-            fig = mcp.make_single_fig_with_ratio(proc_histo,"sample","central")
+            fig = mcp.make_single_fig_with_ratio(
+                proc_histo,"sample","central",
+                err_p = p_err_arr,
+                err_m = m_err_arr,
+                err_ratio_p = p_err_arr_ratio,
+                err_ratio_m = m_err_arr_ratio
+            )
             fig.savefig(os.path.join(save_dir_path,proc+"_"+var_name))
             if "www" in save_dir_path: make_html(save_dir_path)
 
@@ -116,7 +142,7 @@ def main():
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
     parser.add_argument("-n", "--output-name", default="plots", help = "A name for the output directory")
     parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
-    parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
+    parser.add_argument("-y", "--year", default="UL18", help = "The year of the sample")
     parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
     parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip syst errs in plots, only relevant for CR plots right now")
     args = parser.parse_args()
