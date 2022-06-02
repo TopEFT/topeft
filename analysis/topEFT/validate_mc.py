@@ -6,12 +6,15 @@ import argparse
 import matplotlib.pyplot as plt
 from cycler import cycler
 
+import uproot
 from coffea import hist
-from topcoffea.modules.HistEFT import HistEFT
 
+from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.YieldTools import YieldTools
-import topcoffea.modules.GetValuesFromJsons as getj
 from topcoffea.plotter.make_html import make_html
+
+import topcoffea.modules.GetValuesFromJsons as getj
 
 # This script should maybe just be a part of make_cr_and_sr_plots, though that script is getting really long
 # Probably I should move the utility functions out of that script and put them in modules
@@ -20,11 +23,57 @@ import make_cr_and_sr_plots as mcp
 
 yt = YieldTools()
 
-def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_path):
+# Opens the missing parton SF root file and returns a dict of the values
+def get_missing_parton_sf_dict():
+
+    fparton = uproot.open(topcoffea_path("data/missing_parton/missing_parton.root"))
+
+    # Which njets values the lepton categories begin with
+    njets_start_dict = {
+        "2l" : 4,
+        "3l" : 2,
+        "4l" : 2,
+    }
+
+    # Mapping between categories from the datacard to cateogries in the HistEFT
+    cat_name_map = {
+        "2lss_4t_m_2b" : "2lss_4t_m",
+        "2lss_4t_p_2b" : "2lss_4t_p",
+        "2lss_m_2b"    : "2lss_m",
+        "2lss_p_2b"    : "2lss_p",
+        "3l_sfz_1b"    : "3l_onZ_1b",
+        "3l_sfz_2b"    : "3l_onZ_2b",
+        "3l1b_p"       : "3l_p_offZ_1b",
+        "3l1b_m"       : "3l_m_offZ_1b",
+        "3l2b_p"       : "3l_p_offZ_2b",
+        "3l2b_m"       : "3l_m_offZ_2b",
+        "4l_2b"        : "4l",
+    }
+
+    # Loop over the keys in the root file and fill the dict of SFs
+    sf_dict = {}
+    for k in fparton.keys():
+        cat_name = k.split(";")[0] # Keys seem to be e.g. 2lss_m_2b;1
+        lep_cat = k[0:2] # Assumes the keys start with "nl" where n is the number of leptons
+        sf_arr = np.array(fparton[k]['tllq'].array())
+        njet = njets_start_dict[lep_cat]
+        for sf in sf_arr:
+            histeft_cat_name = cat_name_map[cat_name]
+            histeft_cat_name_with_j = f"{histeft_cat_name}_{njet}j"
+            sf_dict[histeft_cat_name_with_j] = sf
+            njet = njet +1
+
+    return sf_dict
+
+
+# Main wrapper script for making the private vs central comparison plots
+def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
     sample_lst = yt.get_cat_lables(dict_of_hists,"sample")
+    cat_lst = yt.get_cat_lables(dict_of_hists,"channel")
     vars_lst = dict_of_hists.keys()
-    print("\nVariables:",sample_lst)
+    print("\nSamples:",sample_lst)
     print("\nVariables:",vars_lst)
+    print("\nChannels:",cat_lst)
 
     # Get the dictionary of histograms that we want to group together in the plots
     # This is way more hard coded than it probably should be
@@ -76,7 +125,7 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,sa
 
     # Loop over variables
     for var_name in vars_lst:
-        #if var_name != "njets": continue
+        if var_name != "njets": continue
 
         # Sum over channels, and just grab the nominal from the syst axis
         histo = dict_of_hists[var_name].sum("channel")
@@ -143,12 +192,8 @@ def main():
     parser.add_argument("-n", "--output-name", default="plots", help = "A name for the output directory")
     parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
     parser.add_argument("-y", "--year", default="UL18", help = "The year of the sample")
-    parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
     parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip syst errs in plots, only relevant for CR plots right now")
     args = parser.parse_args()
-
-    # Whether or not to unit norm the plots
-    unit_norm_bool = args.unit_norm
 
     # Make a tmp output directory in curren dir a different dir is not specified
     timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
@@ -163,7 +208,7 @@ def main():
     hin_dict = yt.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
 
     # Make the plots
-    make_mc_validation_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
+    make_mc_validation_plots(hin_dict,args.year,args.skip_syst,save_dir_path)
 
 if __name__ == "__main__":
     main()
