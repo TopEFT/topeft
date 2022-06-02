@@ -24,5 +24,15 @@
   "nGenEvents": 10450000,
   "nSumOfWeights": 3502613.3919518394,
   "isData": false,
-  "path": "/store/mc/RunIISummer20UL18NanoAODv9/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1"
+  "path": "/store/mc/RunIISummer20UL18NanoAODv9/TTWJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1",
+  "nSumOfWeights_ISRUp": 3456576.9104020773,
+  "nSumOfWeights_ISRDown": 3538764.8683123044,
+  "nSumOfWeights_FSRUp": 3499663.981916922,
+  "nSumOfWeights_FSRDown": 3506046.77264826,
+  "nSumOfWeights_renormUp": 3155187.990473683,
+  "nSumOfWeights_renormDown": 3825518.520845335,
+  "nSumOfWeights_factUp": 3451263.985294066,
+  "nSumOfWeights_factDown": 3570263.0681395335,
+  "nSumOfWeights_renormfactUp": 3090553.0250067282,
+  "nSumOfWeights_renormfactDown": 3862088.271228575
 }
