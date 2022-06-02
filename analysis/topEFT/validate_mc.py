@@ -77,7 +77,8 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,sa
         #if var_name != "njets": continue
 
         # Sum over channels, and just grab the nominal from the syst axis
-        histo = dict_of_hists[var_name].sum("channel").integrate("systematic","nominal")
+        #histo = dict_of_hists[var_name].sum("channel").integrate("systematic","nominal")
+        histo = dict_of_hists[var_name].sum("channel")
 
         # Normalize by lumi (important to do this before grouping by year)
         sample_lumi_dict = {}
@@ -87,13 +88,20 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,sa
 
         # Now loop over processes and make plots
         for proc in comp_proc_dict.keys():
+            if "tZq" not in proc: continue
             print(f"\nProcess: {proc}")
 
             # Group the histos
             proc_histo = mcp.group_bins(histo,comp_proc_dict[proc],drop_unspecified=True)
 
+            # Get the systematic uncertainties
+            #shape_systs_summed_arr_m , shape_systs_summed_arr_p = mcp.get_shape_syst_arrs(proc_histo)
+
+            # Integrate out the syst axis from the histo, as we've already accoounted for it
+            proc_histo = proc_histo.integrate("systematic","nominal")
+
             # Make the plots
-            fig = mcp.make_single_fig(proc_histo,False)
+            fig = mcp.make_single_fig_with_ratio(proc_histo,"sample","central")
             fig.savefig(os.path.join(save_dir_path,proc+"_"+var_name))
             if "www" in save_dir_path: make_html(save_dir_path)
 
