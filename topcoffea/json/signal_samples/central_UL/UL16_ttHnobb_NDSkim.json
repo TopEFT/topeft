@@ -1,0 +1,31 @@
+{
+  "xsec": 0.2151,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "ttHJet_centralUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16_ttHnobb/output_207.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16_ttHnobb/output_520.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16_ttHnobb/output_527.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16_ttHnobb/output_539.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16_ttHnobb/output_558.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16_ttHnobb/output_567.root"
+  ],
+  "nEvents": 4941250,
+  "nGenEvents": 4941250,
+  "nSumOfWeights": 4656112.588117201,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL16NanoAODv9/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
+  "nSumOfWeights_ISRUp": 4554074.301102735,
+  "nSumOfWeights_ISRDown": 4739664.25277902,
+  "nSumOfWeights_FSRUp": 4641563.750323859,
+  "nSumOfWeights_FSRDown": 4663242.057565786,
+  "nSumOfWeights_renormUp": 4363498.2262064945,
+  "nSumOfWeights_renormDown": 4690957.358074126,
+  "nSumOfWeights_factUp": 4632649.692427481,
+  "nSumOfWeights_factDown": 4688159.787345114,
+  "nSumOfWeights_renormfactUp": 4262967.282964665,
+  "nSumOfWeights_renormfactDown": 4537392.208120838
+}
