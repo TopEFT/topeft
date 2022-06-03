@@ -24,7 +24,7 @@ import make_cr_and_sr_plots as mcp
 yt = YieldTools()
 
 # Opens the missing parton SF root file and returns a dict of the values
-def get_missing_parton_sf_dict():
+def get_missing_parton_sf_dict(per_jet_bin=True):
 
     fparton = uproot.open(topcoffea_path("data/missing_parton/missing_parton.root"))
 
@@ -50,18 +50,43 @@ def get_missing_parton_sf_dict():
         "4l_2b"        : "4l",
     }
 
-    # Loop over the keys in the root file and fill the dict of SFs
-    sf_dict = {}
-    for k in fparton.keys():
-        cat_name = k.split(";")[0] # Keys seem to be e.g. 2lss_m_2b;1
-        lep_cat = k[0:2] # Assumes the keys start with "nl" where n is the number of leptons
-        sf_arr = np.array(fparton[k]['tllq'].array())
-        njet = njets_start_dict[lep_cat]
-        for sf in sf_arr:
+    # Loop over the keys in the root file and fill the dict of SFs for each of the 43 categoreis
+    if per_jet_bin:
+        sf_dict = {}
+        for k in fparton.keys():
+            cat_name = k.split(";")[0] # Keys seem to be e.g. 2lss_m_2b;1
+            lep_cat = k[0:2] # Assumes the keys start with "nl" where n is the number of leptons
+            sf_arr = np.array(fparton[k]['tllq'].array())
+            njet = njets_start_dict[lep_cat]
+            for sf in sf_arr:
+                histeft_cat_name = cat_name_map[cat_name]
+                histeft_cat_name_with_j = f"{histeft_cat_name}_{njet}j"
+                sf_dict[histeft_cat_name_with_j] = sf
+                njet = njet +1
+
+    # Loop over the keys in the root file and fill the dict of arrays of SFs for each of the 11 categories
+    else:
+        sf_dict = {}
+        for k in fparton.keys():
+            cat_name = k.split(";")[0] # Keys seem to be e.g. 2lss_m_2b;1
+            lep_cat = k[0:2] # Assumes the keys start with "nl" where n is the number of leptons
+            sf_arr = np.array(fparton[k]['tllq'].array())
             histeft_cat_name = cat_name_map[cat_name]
-            histeft_cat_name_with_j = f"{histeft_cat_name}_{njet}j"
-            sf_dict[histeft_cat_name_with_j] = sf
-            njet = njet +1
+
+            # Pad the array for the 10 jet njets histo
+            sf_lst = []
+            njets_cat_highest_multiplicity = njets_start_dict[lep_cat] + len(sf_arr) - 1
+            for njet in range(10):
+                if njet < njets_start_dict[lep_cat]:
+                    sf_lst.append(0)
+                elif njet >= njets_start_dict[lep_cat] and njet < njets_cat_highest_multiplicity:
+                    sf_lst.append(sf_arr[njet-njets_start_dict[lep_cat]])
+                elif njet >= njets_cat_highest_multiplicity:
+                    sf_lst.append(sf_arr[-1])
+                else:
+                    raise Exception("This should not be possible, something is wrong with the logic.")
+
+            sf_dict[histeft_cat_name] = np.array(sf_lst)
 
     return sf_dict
 
@@ -125,6 +150,7 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
 
     # Loop over variables
     for var_name in vars_lst:
+        print("\nVar name:",var_name)
         #if var_name != "njets": continue
         #if var_name != "lj0pt": continue
 
@@ -140,10 +166,13 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
 
         # Now loop over processes and make plots
         for proc in comp_proc_dict.keys():
-            #if "tllq" not in proc: continue
+            if "tllq" not in proc: continue
             print(f"\nProcess: {proc}")
 
             histo = histo_base.sum("channel")
+
+            #for cat in cat_lst:
+            #histo = histo_base.integrate("channel",cat)
 
             # Get the nominal private
             private_proc_histo = mcp.group_bins(histo,{proc+"_private":comp_proc_dict[proc]["private"]},drop_unspecified=True)
@@ -156,36 +185,47 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
 
             # Get the missing parton uncertainty, add it to the rate uncertainties
             histo_private_all_cats = histo_base.integrate("sample",comp_proc_dict[proc]["private"]).integrate("systematic","nominal")
-            histo_private_all_cats.scale(get_missing_parton_sf_dict(),axis="channel")
-            missing_parton_err_summed = histo_private_all_cats.sum("channel").values()[()]
             if proc == "tllq" and var_name != "njets":
+                histo_private_all_cats.scale(get_missing_parton_sf_dict(),axis="channel")
+                missing_parton_err_summed = histo_private_all_cats.sum("channel").values()[()]
+                #missing_parton_err_summed = histo_private_all_cats.integrate("channel",cat).values()[()]
                 rate_systs_summed_arr_p = rate_systs_summed_arr_p + missing_parton_err_summed*missing_parton_err_summed
                 rate_systs_summed_arr_m = rate_systs_summed_arr_m + missing_parton_err_summed*missing_parton_err_summed
-            #if proc == "tllq" and var_name == "njets":
+            if proc == "tllq" and var_name == "njets":
+                missing_parton_dict_of_arrs = get_missing_parton_sf_dict(per_jet_bin=False)
+                missing_parton_err_arr_dict = {}
+                missing_parton_err_arr_lst = []
+                for cat_name,sf_arr in missing_parton_dict_of_arrs.items():
+                    missing_parton_err_arr_dict[cat_name] = missing_parton_dict_of_arrs[cat_name]*histo_private_all_cats.values()[(cat_name,)] # Store in a dict in case we want to look channel by channel
+                    missing_parton_err_arr_lst.append(missing_parton_dict_of_arrs[cat_name]*histo_private_all_cats.values()[(cat_name,)]) # Also store in a list since it's easier to sum all the arrays... this is not good code.
+                missing_parton_err_arr_summed = sum(missing_parton_err_arr_lst)
+                rate_systs_summed_arr_p = rate_systs_summed_arr_p + missing_parton_err_arr_summed*missing_parton_err_arr_summed
+                rate_systs_summed_arr_m = rate_systs_summed_arr_m + missing_parton_err_arr_summed*missing_parton_err_arr_summed
 
             # Find the plus and minus arrays
             p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
             m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m) # This goes in the main plot
-            print("shape m",shape_systs_summed_arr_m)
-            print("shape p",shape_systs_summed_arr_p)
-            print("rate m",rate_systs_summed_arr_m)
-            print("rate p",rate_systs_summed_arr_p)
-            print("\nnom_arr_all:",nom_arr_all)
-            print("p_err_arr",p_err_arr)
-            print("m_err_arr",m_err_arr)
+            #print("shape m",shape_systs_summed_arr_m)
+            #print("shape p",shape_systs_summed_arr_p)
+            #print("rate m",rate_systs_summed_arr_m)
+            #print("rate p",rate_systs_summed_arr_p)
+            #print("\nnom_arr_all:",nom_arr_all)
+            #print("p_err_arr",p_err_arr)
+            #print("m_err_arr",m_err_arr)
             p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
             m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
 
             # Make the plots
             proc_histo = mcp.group_bins(histo,comp_proc_dict[proc],drop_unspecified=True).integrate("systematic","nominal")
             fig = mcp.make_single_fig_with_ratio(
-                proc_histo,"sample","central",
+                proc_histo,"sample","private",
                 err_p = p_err_arr,
                 err_m = m_err_arr,
                 err_ratio_p = p_err_arr_ratio,
                 err_ratio_m = m_err_arr_ratio
             )
             fig.savefig(os.path.join(save_dir_path,proc+"_"+var_name))
+            #fig.savefig(os.path.join(save_dir_path,proc+"_"+var_name+"_"+cat))
             if "www" in save_dir_path: make_html(save_dir_path)
 
 
