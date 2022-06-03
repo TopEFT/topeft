@@ -125,7 +125,7 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
 
     # Loop over variables
     for var_name in vars_lst:
-        if var_name != "njets": continue
+        #if var_name != "njets": continue
 
         # Sum over channels, and just grab the nominal from the syst axis
         histo = dict_of_hists[var_name].sum("channel")
@@ -138,22 +138,22 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
 
         # Now loop over processes and make plots
         for proc in comp_proc_dict.keys():
-            if "tllq" not in proc: continue
+            #if "tllq" not in proc: continue
             print(f"\nProcess: {proc}")
-
-            # A group map is expected by the code that gets the rate systs
-            group_map = {"Conv":[], "Diboson":[], "Triboson":[], "Flips":[], "Signal":[proc+"_private"]}
-
-            # Group the histos
-            proc_histo = mcp.group_bins(histo,comp_proc_dict[proc],drop_unspecified=True)
 
             # Get the nominal private
             private_proc_histo = mcp.group_bins(histo,{proc+"_private":comp_proc_dict[proc]["private"]},drop_unspecified=True)
             nom_arr_all = private_proc_histo.sum("sample").integrate("systematic","nominal").values()[()]
 
+            # Get the missing parton uncertainty
+            #private_proc_histo_nom = private_proc_histo.integrate("systematic","nominal")
+            #print(private_proc_histo_nom.values())
+            #exit()
+
             # Get the systematic uncertainties
-            shape_systs_summed_arr_m , shape_systs_summed_arr_p = mcp.get_shape_syst_arrs(private_proc_histo)
+            group_map = {"Conv":[], "Diboson":[], "Triboson":[], "Flips":[], "Signal":[proc+"_private"]} # A group map is expected by the code that gets the rate systs
             rate_systs_summed_arr_m , rate_systs_summed_arr_p = mcp.get_rate_syst_arrs(private_proc_histo,group_map)
+            shape_systs_summed_arr_m , shape_systs_summed_arr_p = mcp.get_shape_syst_arrs(private_proc_histo)
             p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
             m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m) # This goes in the main plot
             print("shape m",shape_systs_summed_arr_m)
@@ -166,10 +166,8 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
             p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
             m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
 
-            # Integrate out the syst axis from the histo, as we've already accoounted for it
-            proc_histo = proc_histo.integrate("systematic","nominal")
-
             # Make the plots
+            proc_histo = mcp.group_bins(histo,comp_proc_dict[proc],drop_unspecified=True).integrate("systematic","nominal")
             fig = mcp.make_single_fig_with_ratio(
                 proc_histo,"sample","central",
                 err_p = p_err_arr,
