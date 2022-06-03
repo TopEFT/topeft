@@ -126,34 +126,44 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
     # Loop over variables
     for var_name in vars_lst:
         #if var_name != "njets": continue
+        #if var_name != "lj0pt": continue
+
 
         # Sum over channels, and just grab the nominal from the syst axis
-        histo = dict_of_hists[var_name].sum("channel")
+        histo_base = dict_of_hists[var_name]
 
         # Normalize by lumi (important to do this before grouping by year)
         sample_lumi_dict = {}
         for sample_name in sample_lst:
             sample_lumi_dict[sample_name] = mcp.get_lumi_for_sample(sample_name)
-        histo.scale(sample_lumi_dict,axis="sample")
+        histo_base.scale(sample_lumi_dict,axis="sample")
 
         # Now loop over processes and make plots
         for proc in comp_proc_dict.keys():
             #if "tllq" not in proc: continue
             print(f"\nProcess: {proc}")
 
+            histo = histo_base.sum("channel")
+
             # Get the nominal private
             private_proc_histo = mcp.group_bins(histo,{proc+"_private":comp_proc_dict[proc]["private"]},drop_unspecified=True)
             nom_arr_all = private_proc_histo.sum("sample").integrate("systematic","nominal").values()[()]
 
-            # Get the missing parton uncertainty
-            #private_proc_histo_nom = private_proc_histo.integrate("systematic","nominal")
-            #print(private_proc_histo_nom.values())
-            #exit()
-
-            # Get the systematic uncertainties
+            # Get the systematic shape and rate uncertainties
             group_map = {"Conv":[], "Diboson":[], "Triboson":[], "Flips":[], "Signal":[proc+"_private"]} # A group map is expected by the code that gets the rate systs
             rate_systs_summed_arr_m , rate_systs_summed_arr_p = mcp.get_rate_syst_arrs(private_proc_histo,group_map)
             shape_systs_summed_arr_m , shape_systs_summed_arr_p = mcp.get_shape_syst_arrs(private_proc_histo)
+
+            # Get the missing parton uncertainty, add it to the rate uncertainties
+            histo_private_all_cats = histo_base.integrate("sample",comp_proc_dict[proc]["private"]).integrate("systematic","nominal")
+            histo_private_all_cats.scale(get_missing_parton_sf_dict(),axis="channel")
+            missing_parton_err_summed = histo_private_all_cats.sum("channel").values()[()]
+            if proc == "tllq" and var_name != "njets":
+                rate_systs_summed_arr_p = rate_systs_summed_arr_p + missing_parton_err_summed*missing_parton_err_summed
+                rate_systs_summed_arr_m = rate_systs_summed_arr_m + missing_parton_err_summed*missing_parton_err_summed
+            #if proc == "tllq" and var_name == "njets":
+
+            # Find the plus and minus arrays
             p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
             m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m) # This goes in the main plot
             print("shape m",shape_systs_summed_arr_m)
