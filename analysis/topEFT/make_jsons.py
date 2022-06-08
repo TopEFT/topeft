@@ -418,21 +418,25 @@ central_2017_correctnPartonsInBorn_dict = {
 central_2017_dict = {
     "2017_ttHnobb" : {
         "path" : "/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIIFall17NanoAODv7/ttHJetToNonbb_M125_TuneCP5_13TeV_amcatnloFXFX_madspin_pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1",
         "histAxisName": "ttH_central2017",
         "xsecName": "ttHnobb",
     },
     "2017_TTWJetsToLNu" : {
         "path" : "/TTWJetsToLNu_TuneCP5_PSweights_13TeV-amcatnloFXFX-madspin-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIIFall17NanoAODv7/TTWJetsToLNu_TuneCP5_PSweights_13TeV-amcatnloFXFX-madspin-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1",
         "histAxisName": "ttW_central2017",
         "xsecName": "TTWJetsToLNu",
     },
     "2017_TTZToLLNuNu_M_10" : {
         "path" : "/TTZToLLNuNu_M-10_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIIFall17NanoAODv7/TTZToLLNuNu_M-10_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_102X_mc2017_realistic_v8-v1",
         "histAxisName": "ttZ_central2017",
         "xsecName": "TTZToLLNuNu_M_10",
     },
     "2017_tZq" : {
-        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIIFall17NanoAOD-PU2017_12Apr2018_94X_mc2017_realistic_v14-v1/NANOAODSIM",
+        "path" : "/tZq_ll_4f_ckm_NLO_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/RunIIFall17NanoAODv7-PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIIFall17NanoAODv7/tZq_ll_4f_ckm_NLO_TuneCP5_PSweights_13TeV-amcatnlo-pythia8/NANOAODSIM/PU2017_12Apr2018_Nano02Apr2020_new_pmx_102X_mc2017_realistic_v8-v1",
         "histAxisName": "tZq_central2017",
         "xsecName": "tZq",
     },
@@ -1490,6 +1494,7 @@ def main():
     #make_jsons_for_dict_of_samples(central_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_2016APV,on_das=True)
     #make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
     #make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
+    #make_jsons_for_dict_of_samples(central_2017_dict,"/hadoop","2017",out_dir_central_2017,on_das=False) # ttH, ttW, ttZ, and tZq are at ND
     #make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
     #make_jsons_for_dict_of_samples(central_UL16_dict,    "/hadoop","2016",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
     #make_jsons_for_dict_of_samples(central_UL16APV_dict, "/hadoop","2016APV", out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
