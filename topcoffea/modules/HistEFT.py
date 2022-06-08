@@ -643,12 +643,6 @@ class HistEFT(coffea.hist.Hist):
         anew[view_ax(inew)] += array[view_ax(iold)]
       return anew
 
-    # def dense_op(array):
-    #   anew = np.zeros(shape=(*out._dense_shape,out._ncoeffs), dtype=out._dtype)
-    #   for iold, inew in enumerate(binmap):
-    #     anew[view_ax(inew)] += array[view_ax(iold)]
-    #   return anew
-
     for key in self._sumw:
       out._sumw[key] = dense_op(self._sumw[key])
       if self._sumw2 is not None:
