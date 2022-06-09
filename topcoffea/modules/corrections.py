@@ -590,20 +590,18 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
 
 def GetTriggerSF(year, events, lep0, lep1):
   ls=[]
-  for syst in [0,1,2]:
+  for syst in [0,1]:
     #2l
     SF_ee=np.where(events.is_ee==True,LoadTriggerSF(year,ch='2l',flav='ee')[syst](lep0.pt,lep1.pt),1.0)
     SF_em=np.where(events.is_em==True, LoadTriggerSF(year,ch='2l',flav='em')[syst](lep0.pt,lep1.pt),1.0)
     SF_mm=np.where(events.is_mm==True, LoadTriggerSF(year,ch='2l',flav='mm')[syst](lep0.pt,lep1.pt),1.0)
     #3l
-    if syst==2: syst=1
     SF_eee=np.where(events.is_eee==True,LoadTriggerSF(year,ch='3l',flav='eee')[syst](lep0.pt,lep0.eta),1.0)
     SF_eem=np.where(events.is_eem==True,LoadTriggerSF(year,ch='3l',flav='eem')[syst](lep0.pt,lep0.eta),1.0)
     SF_emm=np.where(events.is_emm==True,LoadTriggerSF(year,ch='3l',flav='emm')[syst](lep0.pt,lep0.eta),1.0)
     SF_mmm=np.where(events.is_mmm==True,LoadTriggerSF(year,ch='3l',flav='mmm')[syst](lep0.pt,lep0.eta),1.0)
     ls.append(SF_ee*SF_em*SF_mm*SF_eee*SF_eem*SF_emm*SF_mmm)
   ls[1]=np.where(ls[1]==1.0,0.0,ls[1]) # stat unc. down
-  ls[2]=np.where(ls[2]==1.0,0.0,abs(ls[2])) # stat unc. up
   events['trigger_sf']=ls[0] #nominal
   events['trigger_sfDown']=ls[0]-np.sqrt(ls[1]*ls[1]+0.02*0.02) 
-  events['trigger_sfUp']=ls[0]+np.sqrt(ls[2]*ls[2]+0.02*0.02) 
+  events['trigger_sfUp']=ls[0]+np.sqrt(ls[1]*ls[1]+0.02*0.02) 
