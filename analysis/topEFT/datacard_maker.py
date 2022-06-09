@@ -15,7 +15,7 @@ from ROOT import TFile, TH1D, TH2D,nullptr
 
 class DatacardMaker():
 
-    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False, do_mc_stat=False build_var='ptbl'):
+    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False, do_mc_stat=False, build_var='ptbl'):
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll', 'ttW': 'ttlnu'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.rename = {**self.rename, **{'ttH_centralUL17': 'ttH', 'ttH_centralUL16': 'ttH', 'ttH_centralUL18': 'ttH', 'ttHJetToNonbb_M125_centralUL16': 'ttH', 'ttHJetToNonbb_M125_APV_centralUL16': 'ttH', 'ttW_centralUL17': 'ttlnu', 'ttZ_centralUL17': 'ttll', 'tZq_centralUL17': 'tllq', 'ttH_centralUL17': 'ttH', 'ttW_centralUL18': 'ttlnu', 'ttZ_centralUL18': 'ttll', 'tZq_centralUL18': 'tllq', 'ttH_centralUL18': 'ttH'}}
