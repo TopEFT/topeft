@@ -641,6 +641,10 @@ class DatacardMaker():
                        processSyst(name, channel, systMap, d_hists, fout, cat)
                     else:
                        processSyst(proc+'_sm', channel, systMap, d_hists, fout, cat)
+                if p in self.signal:
+                    for bin in range(1, h_sm.GetNbinsX()+1):
+                        h_sm.SetBinError(bin,0)
+
                 h_sm.SetDirectory(fout)
                 name = name.split('_')
                 if name[0] in self.rename: name[0] = self.rename[name[0]]
@@ -712,6 +716,8 @@ class DatacardMaker():
                     iproc[name] = signalcount
                     allyields[name] = h_lin.Integral()
                     d_sigs[name] = h_lin
+                for bin in range(1, h_lin.GetNbinsX()+1):
+                    h_lin.SetBinError(bin, 0)
                 h_lin.SetDirectory(fout)
                 h_lin.Write()
                 if allyields[name] < 0:
@@ -738,6 +744,9 @@ class DatacardMaker():
                     iproc[name] = signalcount
                     allyields[name] = h_quad.Integral()
                     d_sigs[name] = h_quad
+
+                for bin in range(1, h_quad.GetNbinsX()+1):
+                    h_quad.SetBinError(bin, 0)
                 h_quad.SetDirectory(fout)
                 h_quad.Write()
                 if allyields[name] < 0:
@@ -765,6 +774,9 @@ class DatacardMaker():
                         iproc[name] = signalcount
                         allyields[name] = h_mix.Integral()
                         d_sigs[name] = h_mix
+                    for bin in range(1, h_mix.GetNbinsX()+1):
+                        h_mix.SetBinError(bin, 0)
+
                     h_mix.SetDirectory(fout)
                     h_mix.Write()
                     allyields[name] = h_mix.Integral()
