@@ -34,7 +34,7 @@ class HistEFT(coffea.hist.Hist):
     self._ncoeffs = efth.n_quad_terms(n)
     self._nerrcoeffs = efth.n_quartic_terms(n)
     self._wcs = np.zeros(n)
-    
+    self.forceSMsumW2=False    
     super().__init__(label, *axes, **kwargs)
 
 
@@ -340,7 +340,6 @@ class HistEFT(coffea.hist.Hist):
 
   def add(self, other):
     """ Add another histogram into this one, in-place """
-
     if not self.compatible(other):
       raise ValueError("Cannot add this histogram with histogram %r of dissimilar dimensions" % other)
     raxes = other.sparse_axes()
@@ -377,16 +376,22 @@ class HistEFT(coffea.hist.Hist):
             raise ValueError("Attempt to add histogram bins with EFT weights to ones without.")
           else:
             left[lkey] += right[rkey]
-        # If either or both are None, we want the out to be None
-        else:
-          left[lkey] = None
+        # If either is None, we want the value of the one that is not none (at least we take into account the uncertainties we can).
+        # if both are None, its None
+        if left[lkey] is None:
+          left[lkey] = right[rkey]
+        if right[rkey] is None:
+          pass
+        
 
     # Add the sumw2 values
-    if self._sumw2 is None and other._sumw2 is None: pass
+    if self._sumw2 is None and other._sumw2 is None: 
+      pass
     elif self._sumw2 is None:
       self._init_sumw2()
       add_dict(self._sumw2, other._sumw2)
     elif other._sumw2 is None:
+      
       # This is a tricky case because we want to put in "sumw" for
       # "sumw2" for any non-EFT sparse bins, but None for any EFT
       # sparse bins
@@ -648,7 +653,7 @@ class HistEFT(coffea.hist.Hist):
 
     return out
 
-  def values(self, sumw2=False, overflow="none"):
+  def values(self, sumw2=False, overflow="none", debug=False):
     """Extract the sum of weights arrays from this histogram
     Parameters
     ----------
@@ -691,7 +696,8 @@ class HistEFT(coffea.hist.Hist):
         if self._sumw2 is not None:
             if is_eft_bin:
               if self._sumw2[sparse_key] is not None:
-                _sumw2 = efth.calc_eft_w2(self._sumw2[sparse_key],self._wcs)  
+                if self.forceSMsumW2: _sumw2 = self._sumw2[sparse_key]
+                else:                 _sumw2 = efth.calc_eft_w2(self._sumw2[sparse_key],self._wcs)  
               else:
                 # Set really tiny error bars (e.g. one one-millionth the size of the average bin)
                 _sumw2 = np.full_like(_sumw,1e-30*np.mean(_sumw))

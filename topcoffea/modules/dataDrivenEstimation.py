@@ -66,7 +66,7 @@ class DataDrivenProducer:
                     if newhist==None:
                         newhist=hAR
                     else:
-                        newhist=newhist+hAR
+                        newhist.add(hAR)
                 else:
                     if "isAR_2lSS_OS"==ident.name:
                         # we are in the flips application region and theres no "prompt" subtraction, so we just have to rename data to flips, put it in the right axis and we are done
@@ -92,7 +92,7 @@ class DataDrivenProducer:
                         if newhist==None:
                             newhist=hFlips
                         else:
-                            newhist=newhist+hFlips
+                            newhist.add( hFlips ) 
                             
 
                     else:
@@ -114,7 +114,7 @@ class DataDrivenProducer:
                                 print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
                         
                         hFakes=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
-                        
+                        hFakes.forceSMsumW2=True # so it keeps the sumw2 when summing stuff to it 
                         # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
                         hPromptSub=hAR.group('sample', hist.Cat('sample','sample'), newNameDictNoData )
 
@@ -129,13 +129,12 @@ class DataDrivenProducer:
 
                         # now we actually make the subtraction
                         hPromptSub.scale(-1)
-                        hFakes=hFakes+hPromptSub
-                        
+                        hFakes.add(hPromptSub)
                         # now adding them to the list of processes: 
                         if newhist==None:
                             newhist=hFakes
                         else:
-                            newhist=newhist+hFakes
+                            newhist.add(hFakes)
 
             # Scale back by 1/lumi all processes but data so they can be used transparently downstream
             # Mind that we scaled all mcs already above
