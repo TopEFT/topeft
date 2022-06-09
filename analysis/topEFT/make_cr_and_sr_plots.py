@@ -218,7 +218,12 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
     # Right now we only have two types of uncorrelated rate systematics
     if uncertainty_name in ["qcd_scale","pdf_scale"]:
         if proc_name_in_json is not None:
-            corr_tag = getj.get_correlation_tag(uncertainty_name,proc_name_in_json)
+            if proc_name_in_json == "convs":
+                # Special case for conversions since we estimate from LO sample, we have _only_ pdf key not qcd
+                # Would be better to handle this in a more general way
+                corr_tag = None
+            else:
+                corr_tag = getj.get_correlation_tag(uncertainty_name,proc_name_in_json)
     return corr_tag
 
 # This function gets all of the the rate systematics from the json file
@@ -241,7 +246,13 @@ def get_rate_systs(sample_name,sample_group_map):
     # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if scale_name_for_json is not None:
         pdf_uncty = getj.get_syst("pdf_scale",scale_name_for_json)
-        qcd_uncty = getj.get_syst("qcd_scale",scale_name_for_json)
+        if scale_name_for_json == "convs":
+            # Special case for conversions, since we estimate these from a LO sample, so we don't have an NLO uncty here
+            # Would be better to handle this in a more general way
+            qcd_uncty = [1.0,1,0]
+        else:
+            # In all other cases, use the qcd scale uncty that we have for the process
+            qcd_uncty = getj.get_syst("qcd_scale",scale_name_for_json)
     else:
         pdf_uncty = [1.0,1,0]
         qcd_uncty = [1.0,1,0]
@@ -315,6 +326,37 @@ def get_shape_syst_arrs(base_histo,proc_group_map):
         m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
 
     return [sum(m_arr_rel_lst), sum(p_arr_rel_lst)]
+
+# Get the squared arr for the jet dependent syst (e.g. for diboson jet dependent syst)
+def get_jet_scale_syst_arr(njets_histo_vals_arr,bin0_njets):
+
+    # Get the list of njets vals for which we have SFs
+    sf_int_lst = []
+    jet_scale_dict = getj.get_jet_dependent_syst_dict()
+    sf_str_lst = list(jet_scale_dict.keys())
+    for s in sf_str_lst: sf_int_lst.append(int(s))
+    min_njets = min(sf_int_lst) # The lowest njets bin we have a SF for
+    max_njets = max(sf_int_lst) # The highest njets bin we have a SF for
+
+    # Put the SFs into an array that matches the njets hist array
+    sf_lst = []
+    jet_idx = bin0_njets
+    for idx in range(len(njets_histo_vals_arr)):
+        if jet_idx < min_njets:
+            # We do not apply the syst for these low jet bins
+            sf_lst.append(1.0)
+        elif jet_idx > max_njets:
+            # For jet bins higher than the highest one in the dict, just use the val of the highest one
+            sf_lst.append(jet_scale_dict[str(max_njets)])
+        else:
+            # In this case, the exact jet bin should be included in the dict so use it directly
+            sf_lst.append(jet_scale_dict[str(jet_idx)])
+        jet_idx = jet_idx + 1
+    sf_arr = np.array(sf_lst)
+
+    shift = abs(njets_histo_vals_arr - sf_arr*njets_histo_vals_arr)
+    shift_sq = shift*shift # Return shift squared so we can combine with other syts in quadrature
+    return shift*shift
 
 
 ######### Plotting functions #########
@@ -392,7 +434,11 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,
     # Plot the syst error
     if plot_syst_err:
         dense_axes = h_mc.dense_axes()
-        bin_edges_arr = h_mc.axis(dense_axes[0]).edges()[:-1]
+        bin_edges_arr = h_mc.axis(dense_axes[0]).edges()
+        err_p = np.append(err_p,0) # Work around off by one error
+        err_m = np.append(err_m,0) # Work around off by one error
+        err_ratio_p = np.append(err_ratio_p,0) # Work around off by one error
+        err_ratio_m = np.append(err_ratio_m,0) # Work around off by one error
         ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
         rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
 
@@ -699,6 +745,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     print("\nAll samples:",all_samples)
     print("\nMC samples:",mc_sample_lst)
     print("\nData samples:",data_sample_lst)
+    print("\nVariables:",dict_of_hists.keys())
 
     # Fill group map (should we just fully hard code this?)
     for proc_name in all_samples:
@@ -757,8 +804,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
-            if (hist_cat == "cr_2los_Z" and "j0" in var_name): continue # The 2los Z category does not require jets
-            if (hist_cat == "cr_2lss_flip" and "j0" in var_name): continue # The flip category does not require jets
+            if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The 2los Z category does not require jets (so leading jet plots do not make sense)
+            if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The flip category does not require jets (so leading jet plots do not make sense)
             print("\n\tCategory:",hist_cat)
 
             # Make a sub dir for this category
@@ -778,6 +825,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
             hist_mc_integrated = hist_mc_integrated.remove(samples_to_rm,"sample")
 
+
             # Calculate the syst errors
             p_err_arr = None
             m_err_arr = None
@@ -787,12 +835,18 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 # Get plus and minus rate and shape arrs
                 rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
                 shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated,CR_GRP_MAP)
+                if (var_name == "njets"):
+                    # This is a special case for the diboson jet dependent systematic
+                    db_hist = hist_mc_integrated.integrate("sample",CR_GRP_MAP["Diboson"]).integrate("systematic","nominal").values()[()]
+                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_jet_scale_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
+                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_jet_scale_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
                 # Get the arrays we will actually put in the CR plot
                 nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
                 p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
                 m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m) # This goes in the main plot
-                p_err_arr_ratio = p_err_arr/nom_arr_all # This goes in the ratio plot
-                m_err_arr_ratio = m_err_arr/nom_arr_all # This goes in the ratio plot
+                p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
+                m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
+
 
             # Group the samples by process type, and grab just nominal syst category
             hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)

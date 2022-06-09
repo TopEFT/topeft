@@ -1,0 +1,32 @@
+{
+  "xsec": 0.2529,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "ttZ_centralUL16APV",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_TTZToLLNuNu_M_10/output_24.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_TTZToLLNuNu_M_10/output_295.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_TTZToLLNuNu_M_10/output_329.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_TTZToLLNuNu_M_10/output_50.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_TTZToLLNuNu_M_10/output_504.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_TTZToLLNuNu_M_10/output_560.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_sgnl/FullRun2/v1/UL16APV_TTZToLLNuNu_M_10/output_573.root"
+  ],
+  "nEvents": 5792000,
+  "nGenEvents": 5792000,
+  "nSumOfWeights": 1415599.9287821203,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL16NanoAODAPVv9/TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1",
+  "nSumOfWeights_ISRUp": 1415408.077060147,
+  "nSumOfWeights_ISRDown": 1415693.8210060545,
+  "nSumOfWeights_FSRUp": 1414590.0106199556,
+  "nSumOfWeights_FSRDown": 1416332.8557227552,
+  "nSumOfWeights_renormUp": 1299496.3867377045,
+  "nSumOfWeights_renormDown": 1526304.8991390858,
+  "nSumOfWeights_factUp": 1384676.1884764563,
+  "nSumOfWeights_factDown": 1453578.0777186977,
+  "nSumOfWeights_renormfactUp": 1261231.375719769,
+  "nSumOfWeights_renormfactDown": 1548697.4750139734
+}

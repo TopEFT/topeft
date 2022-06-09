@@ -5,7 +5,8 @@ OUT_NAME="example_name"
 
 # Build the run command
 CFGS="../../topcoffea/cfg/mc_signal_samples_NDSkim.cfg,../../topcoffea/cfg/mc_background_samples_NDSkim.cfg,../../topcoffea/cfg/data_samples_NDSkim.cfg"
-OPTIONS="--hist-list ana --skip-cr --do-systs -s 50000 --do-np -o $OUT_NAME"
+OPTIONS="--hist-list ana --skip-cr --do-systs -s 50000 --do-np -o $OUT_NAME" # For analysis
+#OPTIONS="--hist-list cr --skip-sr --do-systs --do-np --wc-list ctG -o $OUT_NAME" # For CR plots
 RUN_COMMAND="time python work_queue_run.py $CFGS $OPTIONS"
 
 # Run the processor over all Run2 samples
