@@ -942,7 +942,7 @@ class DatacardMaker():
                     datacard.write(('%s %5s' % (npatt % syst.replace('_flat_rate',''),'lnN')) + " ".join([kpatt % systEffRate[p]  for p in procs if p in systEffRate]) +"\n")
                 else:
                     datacard.write(('%s %5s' % (npatt % syst,'shape')) + " ".join([kpatt % systEff[p]  for p in procs if p in systEff]) +"\n")
-        if self.do_bbb:
+        if self.do_mc_stat:
             datacard.write('* autoMCStats 10\n')
         fout.Close()
 
@@ -1041,7 +1041,7 @@ if __name__ == '__main__':
     parser.add_argument('pklfile'           , nargs='?', default=''           , help = 'Pickle file with histograms')
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
     parser.add_argument('--do-nuisance',    action='store_true', help = 'Include nuisance parameters')
-    parser.add_argument('--do-bbb',    action='store_true', help = 'Add bin-by-bin statistical uncertainties with the autoMCstats option (for background)')
+    parser.add_argument('--do-mc-stat',    action='store_true', help = 'Add bin-by-bin statistical uncertainties with the autoMCstats option (for background)')
     parser.add_argument('--POI',            default=[],  help = 'List of WCs (comma separated)')
     parser.add_argument('--job',      '-j', default='-1'       , help = 'Job to run')
     parser.add_argument('--year',     '-y', default=''         , help = 'Run over single year')
