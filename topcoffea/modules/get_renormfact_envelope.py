@@ -3,6 +3,7 @@ import argparse
 
 from coffea.hist import StringBin
 
+import topcoffea.modules.utils as utils
 from topcoffea.modules.YieldTools import YieldTools
 yt = YieldTools()
 
@@ -125,9 +126,9 @@ def main():
     args = parser.parse_args()
 
     # Get the envelope and write to an out pkl
-    hin_dict = yt.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
+    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
     hout_dict = get_renormfact_envelope(hin_dict)
-    yt.dump_to_pkl(args.output_name,hout_dict)
+    utils.dump_to_pkl(args.output_name,hout_dict)
 
 if __name__ == "__main__":
     main()

@@ -1,7 +1,4 @@
-import gzip
 import json
-import pickle
-import cloudpickle
 import numpy as np
 import copy
 import coffea
@@ -9,6 +6,7 @@ from coffea import hist
 from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.GetValuesFromJsons import get_lumi
+import topcoffea.modules.utils as utils
 
 class YieldTools():
 
@@ -195,21 +193,7 @@ class YieldTools():
         return (e_val/m_val)**(1.0/nlep)
 
 
-    # Get the dictionary of hists from the pkl file (that the processor outputs)
-    def get_hist_from_pkl(self,path_to_pkl,allow_empty=True):
-        h = pickle.load( gzip.open(path_to_pkl) )
-        if not allow_empty:
-            h = {k:v for k,v in h.items() if v.values() != {}}
-        return h
 
-    # Save the dictionary of hists to a pkl file
-    def dump_to_pkl(self,out_name,out_histo):
-        if not out_name.endswith(".pkl.gz"):
-            out_name = out_name + ".pkl.gz"
-        print(f"\nSaving output to {out_name}...")
-        with gzip.open(out_name, "wb") as fout:
-            cloudpickle.dump(out_histo, fout)
-        print("Done.\n")
 
     # Takes a hist, and retruns a list of the axis names
     def get_axis_list(self,histo):
@@ -223,7 +207,7 @@ class YieldTools():
     def get_hist_list(self,path,allow_empty=True):
 
         # Get the dict
-        if type(path) is str: hin_dict = self.get_hist_from_pkl(path,allow_empty)
+        if type(path) is str: hin_dict = utils.get_hist_from_pkl(path,allow_empty)
         else: hin_dict = path
 
         # Get list of keys
@@ -534,7 +518,7 @@ class YieldTools():
     def print_hist_info(self,path,h_name="njets",verbose=False):
 
         # Get the dict
-        if type(path) is str: hin_dict = self.get_hist_from_pkl(path)
+        if type(path) is str: hin_dict = utils.get_hist_from_pkl(path)
         else: hin_dict = path
 
         # Print info about all keys
