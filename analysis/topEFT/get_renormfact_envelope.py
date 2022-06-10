@@ -1,16 +1,11 @@
 import numpy as np
 import argparse
-import copy
 
-import gzip
-import cloudpickle
-
-from coffea.hist import StringBin, Cat, Bin
-
-import datetime
+from coffea.hist import StringBin
 
 from topcoffea.modules.YieldTools import YieldTools
 yt = YieldTools()
+
 
 # The names of the 6 renorm and fact variations
 RENORMFACT_VAR_LST = [
@@ -38,18 +33,9 @@ NO_RENORMFACT_LST = [
     "nonpromptUL18",
 ]
 
-# Save the dictionary of hists to a pkl file
-def dump_to_pkl(out_name,out_histo):
-    if not out_name.endswith(".pkl.gz"):
-        out_name = out_name + ".pkl.gz"
-    print(f"\nSaving output to {out_name}...")
-    with gzip.open(out_name, "wb") as fout:
-        cloudpickle.dump(out_histo, fout)
-    print("Done.\n")
-
 
 # Get the most extreme renorm fact variations
-def get_rf_envelope(dict_of_hists):
+def get_renormfact_envelope(dict_of_hists):
 
     sample_lst = yt.get_cat_lables(dict_of_hists,"sample")
     cat_lst = yt.get_cat_lables(dict_of_hists,"channel")
@@ -128,19 +114,21 @@ def get_rf_envelope(dict_of_hists):
     return out_hist_dict
 
 
+# Example standalone usage of get_renormfact_envelope()
+# Generally this function will be called from the run script
 def main():
 
     # Set up the command line parser
     parser = argparse.ArgumentParser()
     parser.add_argument("pkl_file_path", help = "The path to the pkl file")
-    parser.add_argument("-n", "--output-name", default="plots", help = "A name for the output directory")
-    parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
+    parser.add_argument("-n", "--output-name", default="histos_dict", help = "A name for the output file")
     args = parser.parse_args()
 
     # Get the envelope and write to an out pkl
     hin_dict = yt.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
-    hout_dict = get_rf_envelope(hin_dict)
-    dump_to_pkl("test_rf_env",hout_dict)
+    hout_dict = get_renormfact_envelope(hin_dict)
+    yt.dump_to_pkl(args.output_name,hout_dict)
 
-main()
+if __name__ == "__main__":
+    main()
 

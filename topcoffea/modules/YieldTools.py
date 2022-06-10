@@ -1,6 +1,7 @@
 import gzip
 import json
 import pickle
+import cloudpickle
 import numpy as np
 import copy
 import coffea
@@ -200,6 +201,15 @@ class YieldTools():
         if not allow_empty:
             h = {k:v for k,v in h.items() if v.values() != {}}
         return h
+
+    # Save the dictionary of hists to a pkl file
+    def dump_to_pkl(self,out_name,out_histo):
+        if not out_name.endswith(".pkl.gz"):
+            out_name = out_name + ".pkl.gz"
+        print(f"\nSaving output to {out_name}...")
+        with gzip.open(out_name, "wb") as fout:
+            cloudpickle.dump(out_histo, fout)
+        print("Done.\n")
 
     # Takes a hist, and retruns a list of the axis names
     def get_axis_list(self,histo):
