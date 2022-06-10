@@ -454,7 +454,8 @@ class DatacardMaker():
             if not self.is_per_year_systematic(syst):
                 continue
             # Remember, h_nom only has 1 "systematic" bin called "nominal", which is the sum of the
-            #   the OTHER proc_years, e.g. ttH_UL16 is really ttH_UL16APV+ttH_UL17+ttH_UL18
+            #   the OTHER proc_years, e.g. ttH_UL16 nominal is really ttH_UL16APV+ttH_UL17+ttH_UL18
+            #   so when we add it to the per-year systematic, it has the proper decorrelated yield
             nom_arr = h_nom._sumw[nom_key]
             h._sumw[sp_key] += nom_arr
 
@@ -479,16 +480,7 @@ class DatacardMaker():
         procs = [x.name for x in h.identifiers("sample")]
         selected_wcs = {p: set() for p in procs}
 
-        # wcs = ["sm"] + h._wcnames
-        wcs = ["sm"]
-
-        for wc in h._wcnames:
-            if len(self.coeffs):
-                # Only select a subset of all possible WCs
-                if wc in self.coeffs:
-                    wcs.append(wc)
-            else:
-                wcs.append(wc)
+        wcs = ["sm"] + h._wcnames
 
         # This maps a WC to a list whose elements are the indices of the coefficient array of the
         #   HistEFT that involve that particular WC
@@ -516,6 +508,8 @@ class DatacardMaker():
                 continue
             p_hist = h.integrate("sample",[p])
             for wc,idx_arr in wc_to_terms.items():
+                if len(self.coeffs) and not wc in self.coeffs:
+                    continue
                 if wc == "sm":
                     continue
                 if wc == "ctlTi" and p == "tttt":
