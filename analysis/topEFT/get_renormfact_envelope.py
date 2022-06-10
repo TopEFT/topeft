@@ -7,6 +7,8 @@ import cloudpickle
 
 from coffea.hist import StringBin, Cat, Bin
 
+import datetime
+
 from topcoffea.modules.YieldTools import YieldTools
 yt = YieldTools()
 
@@ -26,10 +28,10 @@ NO_RENORMFACT_LST = [
     "dataUL16APV",
     "dataUL17",
     "dataUL18",
-    "flipUL16",
-    "flipUL16APV",
-    "flipUL17",
-    "flipUL18",
+    "flipsUL16",
+    "flipsUL16APV",
+    "flipsUL17",
+    "flipsUL18",
     "nonpromptUL16",
     "nonpromptUL16APV",
     "nonpromptUL17",
@@ -60,8 +62,8 @@ def get_rf_envelope(dict_of_hists):
     for var_name in dict_of_hists.keys():
         print("\tVar name:",var_name)
 
+        # Get the histo for this variable from the input dict
         histo = dict_of_hists[var_name]
-
         sample_lst = yt.get_cat_lables(histo,"sample")
         cat_lst = yt.get_cat_lables(histo,"channel")
 
@@ -72,16 +74,26 @@ def get_rf_envelope(dict_of_hists):
             for cat_name in cat_lst:
                 print("\t\t",sample_name,cat_name)
 
-                # Find the values of the 6 variations (difference of the values with respect to the nominal)
+                # Get the nominal arr
+                # Use sumw not values() since it's way faster
+                key_tup_nom = (StringBin(sample_name), StringBin(cat_name), StringBin("nominal"))
+                dense_arr_nom = histo._sumw[key_tup_nom]
+                if dense_arr_nom.ndim == 2:
+                    # If this is an EFT bin, just take SM part
+                    dense_arr_nom = dense_arr_nom[:,0]
+
+                # Get the 6 renorm/fact variation arrs, and find difference with respect to nominal, appending resulting arrays to a list
                 diff_wrt_nom_arr_lst = []
-                key_tup_nom = (sample_name, cat_name, "nominal")
-                dense_arr_nom = histo.values(overflow="allnan")[key_tup_nom]
                 for rf_variation in RENORMFACT_VAR_LST:
-                    key_tup = (sample_name, cat_name, rf_variation)
-                    dense_arr_diffwrtnom = histo.values(overflow="allnan")[key_tup] - dense_arr_nom
+                    key_tup = (StringBin(sample_name), StringBin(cat_name), StringBin(rf_variation))
+                    dense_arr_var = histo._sumw[key_tup]
+                    if dense_arr_var.ndim == 2:
+                        # If this is an EFT bin, just take SM part
+                        dense_arr_var = dense_arr_var[:,0]
+                    dense_arr_diffwrtnom = dense_arr_var - dense_arr_nom
                     diff_wrt_nom_arr_lst.append(dense_arr_diffwrtnom)
 
-                # Get the indices (of the list of the renomr/fact strings) corresponding to the most extreme variation
+                # Get the indices (of the list of the renomr/fact strings) corresponding to the most extreme variation with respect to nominal
                 max_var_idx = np.argmax(diff_wrt_nom_arr_lst,axis=0)
                 min_var_idx = np.argmin(diff_wrt_nom_arr_lst,axis=0)
 
