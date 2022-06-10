@@ -11,6 +11,8 @@ def test_topcoffea_wq():
     factory.min_workers=1
     factory.cores=2
 
+    factory.extra_options="--max-backoff 15"
+
     args = [
         "time",
         "python",
