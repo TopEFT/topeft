@@ -200,10 +200,18 @@ class DatacardMaker():
         return r
 
     def __init__(self,pkl_path,**kwargs):
+        self.year            = kwargs.pop("single_year","")
+        self.do_sm           = kwargs.pop("do_sm",False)
+        self.do_nuisance     = kwargs.pop("do_nuisance",False)
+        self.var_list        = kwargs.pop("var_list",[])
+        self.coeffs          = kwargs.pop("wcs",[])
+        self.use_real_data   = kwargs.pop("unblind",False)
+        self.verbose         = kwargs.pop("verbose",True)
+
         rate_syst_path = kwargs.pop("rate_systs_path","json/rate_systs.json")
         lumi_json_path = kwargs.pop("lumi_json_path","json/lumi.json")
         miss_part_path = kwargs.pop("missing_parton_path","data/missing_parton/missing_parton.root")
-        
+
         # TODO: Need to find a better name for this variable
         self.rate_systs = self.load_systematics(rate_syst_path,miss_part_path)
 
@@ -214,14 +222,6 @@ class DatacardMaker():
                 yr = yr.replace("20","UL")
                 self.lumi[yr] = 1000*lm
 
-        self.year            = kwargs.pop("single_year","")
-        self.do_sm           = kwargs.pop("do_sm",False)
-        self.do_nuisance     = kwargs.pop("do_nuisance",False)
-        self.var_list        = kwargs.pop("var_list",[])
-        self.coeffs          = kwargs.pop("wcs",[])
-        self.unblind         = kwargs.pop("unblind",False)
-
-        self.use_real_data = False
 
         # Samples to be excluded from the datacard
         self.ignore = [
@@ -253,12 +253,12 @@ class DatacardMaker():
         print(f"Read Time: {dt:.2f} s")
 
     def read(self,fpath):
-        print(f"Loading: {fpath}")
+        print(f"Opening: {fpath}")
         self.hists = pickle.load(gzip.open(fpath))
 
         for km_dist,h in self.hists.items():
             if len(h.values()) == 0: continue
-            print(f"Processing {km_dist}")
+            print(f"Loading: {km_dist}")
             # Remove samples that we don't include in the datacard
             to_remove = []
             for x in h.identifiers("sample"):
@@ -266,6 +266,10 @@ class DatacardMaker():
                 if p in self.ignore:
                     to_remove.append(x.name)
             h = h.remove(to_remove,"sample")
+
+            if not self.do_nuisance:
+                # Remove all shape systematics
+                h = prune_axis(h,"systematic",["nominal"])
 
             if km_dist != "njets":
                 edge_arr = self.BINNING[km_dist] + [h.axis(km_dist).edges()[-1]]
@@ -306,11 +310,13 @@ class DatacardMaker():
     # Parse out the correlated and decorrelated systematics from rate_systs.json and missing_parton.root files
     # TODO: Can be a static member function
     def load_systematics(self,rs_fpath,mp_fpath):
+        rate_systs = {}
+        if not self.do_nuisance:
+            return rate_systs
         fpath = topcoffea_path(rs_fpath)
-        print(f"Loading: {fpath}")
+        print(f"Opening: {fpath}")
         with open(fpath) as f:
             rates_json = json.load(f)
-        rate_systs = {}
         for k1,v1 in rates_json["rate_uncertainties"].items():
             # k1 will be the name of a rate systematic, like 'lumi' or 'pdf_scale'
             if isinstance(v1,dict):
@@ -367,7 +373,7 @@ class DatacardMaker():
         new_syst = RateSystematic(syst_name)
 
         fpath = topcoffea_path(mp_fpath)
-        print(f"Loading: {fpath}")
+        print(f"Opening: {fpath}")
         with uproot.open(fpath) as f:
             d = {}
             for k in f.keys():
@@ -407,6 +413,16 @@ class DatacardMaker():
     # Combine stuff over years
     # TODO: Can be a static member function
     def correlate_years(self,h):
+        if not self.do_nuisance:
+            # Only sum over the years, don't mess with nuisance stuff
+            grp_map = {}
+            for x in h.identifiers("sample"):
+                p = self.get_process(x.name)
+                if p not in grp_map:
+                    grp_map[p] = []
+                grp_map[p].append(x.name)
+            h = h.group("sample",Cat("sample","sample"),grp_map)
+            return h
         # This requires some fancy footwork to make work
         print("Correlating years")
 
@@ -463,7 +479,16 @@ class DatacardMaker():
         procs = [x.name for x in h.identifiers("sample")]
         selected_wcs = {p: set() for p in procs}
 
-        wcs = ["sm"] + h._wcnames
+        # wcs = ["sm"] + h._wcnames
+        wcs = ["sm"]
+
+        for wc in h._wcnames:
+            if len(self.coeffs):
+                # Only select a subset of all possible WCs
+                if wc in self.coeffs:
+                    wcs.append(wc)
+            else:
+                wcs.append(wc)
 
         # This maps a WC to a list whose elements are the indices of the coefficient array of the
         #   HistEFT that involve that particular WC
@@ -548,7 +573,8 @@ class DatacardMaker():
         with uproot.recreate(outf_root_name) as f:
             for p,wcs in selected_wcs.items():
                 proc_hist = ch_hist.integrate("sample",[p])
-                print(f"Decomposing {ch}-{p}")
+                if self.verbose:
+                    print(f"Decomposing {ch}-{p}")
                 decomposed_templates = self.decompose(proc_hist,wcs)
                 # Note: This feels like a messy way of picking out the data_obs info
                 if p == "data":
@@ -572,7 +598,8 @@ class DatacardMaker():
                         syst = sp_key[0]
                         sum_arr = sum(arr)
                         if syst == "nominal" and base == "sm":
-                            print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr}")
+                            if self.verbose:
+                                print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr}")
                             if not self.use_real_data:
                                 # Create asimov dataset
                                 data_obs += arr
@@ -601,10 +628,6 @@ class DatacardMaker():
                             # Handle the 'missing_parton' uncertainty
                             pass
             f["data_obs"] = to_hist(data_obs,"data_obs")
-        dt = time.time() - tic
-
-        print(f"File Time: {dt:.2f} s")
-        print(f"Num. Hists: {num_h}")
 
         line_break = "##----------------------------------\n"
         left_width = len(line_break) + 2
@@ -719,6 +742,9 @@ class DatacardMaker():
                     row.append(f"{v:>{col_width}}")
                 row = " ".join(row) + "\n"
                 f.write(row)
+        dt = time.time() - tic
+        print(f"File Write Time: {dt:.2f} s")
+        print(f"Total Hists Written: {num_h}")
 
     # TODO: Can be a static member function
     def decompose(self,h,wcs):
@@ -764,8 +790,9 @@ class DatacardMaker():
 
         toc = time.time()
         dt = toc - tic
-        print(f"\tDecompose Time: {dt:.2f} s")
-        print(f"\tTotal terms: {terms}")
+        if self.verbose:
+            print(f"\tDecompose Time: {dt:.2f} s")
+            print(f"\tTotal terms: {terms}")
 
         return r
 
