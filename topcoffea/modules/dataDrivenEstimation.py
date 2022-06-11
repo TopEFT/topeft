@@ -2,6 +2,7 @@ import argparse
 from coffea import hist, processor
 from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.modules.GetValuesFromJsons import get_lumi, get_param
+import topcoffea.modules.utils as utils
 import cloudpickle
 from collections import defaultdict 
 import re, gzip
@@ -10,7 +11,7 @@ class DataDrivenProducer:
     def __init__(self, inputHist, outputName):
         yt=YieldTools()
         if type(inputHist) == str and inputHist.endswith('.pkl.gz'): # we are plugging a pickle file
-            self.inhist=yt.get_hist_from_pkl(inputHist)
+            self.inhist=utils.get_hist_from_pkl(inputHist)
         else: # we already have the histogram
             self.inhist=inputHist
         self.outputName=outputName

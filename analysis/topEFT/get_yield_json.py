@@ -3,6 +3,7 @@ import json
 import datetime
 from topcoffea.modules.YieldTools import YieldTools
 import topcoffea.modules.MakeLatexTable as mlt
+import topcoffea.modules.utils as utils
 
 # This script takes a pkl file, finds the yields in the analysis categories, saves the yields to a json
 #   - If you do not specify a pkl file path, will default to "hists/plotsTopEFT.pkl.gz"
@@ -26,7 +27,7 @@ def main():
     args = parser.parse_args()
 
     # Get the histograms, check if split into lep flavors
-    hin_dict = yt.get_hist_from_pkl(args.pkl_file_path)
+    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path)
     if not yt.is_split_by_lepflav(hin_dict) and args.by_lep_flavor:
         raise Exception("Cannot specify --by-lep-flavor option, the yields file is not split by lepton flavor")
 

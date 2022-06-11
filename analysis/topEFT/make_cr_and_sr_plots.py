@@ -10,9 +10,9 @@ from coffea import hist
 from topcoffea.modules.HistEFT import HistEFT
 
 from topcoffea.modules.YieldTools import YieldTools
-#from topcoffea.modules.GetValuesFromJsons import get_lumi
 import topcoffea.modules.GetValuesFromJsons as getj
 from topcoffea.plotter.make_html import make_html
+import topcoffea.modules.utils as utils
 
 # This script takes an input pkl file that should have both data and background MC included.
 # Use the -y option to specify a year, if no year is specified, all years will be included.
@@ -914,7 +914,7 @@ def main():
     os.mkdir(save_dir_path)
 
     # Get the histograms
-    hin_dict = yt.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
+    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
 
     # Print info about histos
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
