@@ -90,13 +90,26 @@ def get_renormfact_envelope(dict_of_hists):
 
                 # Now loop over the dense bins (probably a way to do this without a loop)
                 # For each dense bin, get the values corresponding to the most extreme variation, and append those to a list (whihc we'll later turn into an array)
-                extreme_vals_up_lst = []
-                extreme_vals_do_lst = []
+                extreme_sumw_up_lst = []
+                extreme_sumw_do_lst = []
+                extreme_sumw2_up_lst = []
+                extreme_sumw2_do_lst = []
+                all_sumw2_exists = True # Keep track if all sumw2 arrays are meaningful (otherwise just leave leave sumw2 as None)
                 for bin_idx in range(len(rf_vars_extreme_max)):
+                    # Get the key tuple for the bin for this category
                     key_tup_extreme_up = (StringBin(sample_name), StringBin(cat_name), StringBin(rf_vars_extreme_max[bin_idx]))
                     key_tup_extreme_do = (StringBin(sample_name), StringBin(cat_name), StringBin(rf_vars_extreme_min[bin_idx]))
-                    extreme_vals_up_lst.append(histo._sumw[key_tup_extreme_up][bin_idx])
-                    extreme_vals_do_lst.append(histo._sumw[key_tup_extreme_do][bin_idx])
+                    # Append the sum2 for each bin to the list
+                    extreme_sumw_up_lst.append(histo._sumw[key_tup_extreme_up][bin_idx])
+                    extreme_sumw_do_lst.append(histo._sumw[key_tup_extreme_do][bin_idx])
+                    # Also might as well get the sumw2 for the bin (though we don't really use this right now)
+                    extreme_sumw2_up = histo._sumw2[key_tup_extreme_up]
+                    extreme_sumw2_do = histo._sumw2[key_tup_extreme_do]
+                    if (extreme_sumw2_up is not None) and (extreme_sumw2_do is not None):
+                        extreme_sumw2_up_lst.append(extreme_sumw2_up[bin_idx])
+                        extreme_sumw2_do_lst.append(extreme_sumw2_do[bin_idx])
+                    else:
+                        all_sumw2_exists = False
 
                 # This is a bit of a hack, probably not the best way to do this :(
                 # Since it's apparently very hard to add categories to a coffea hist, let's just overwrite the sumw values of an exisitng category
@@ -105,8 +118,14 @@ def get_renormfact_envelope(dict_of_hists):
                 # So what we'll be left with is a renormfact category, whose values are now the evelope of the renorm, fact, and renormfact systeamtics
                 key_tup_rf_env_up = (StringBin(sample_name), StringBin(cat_name), StringBin("renormfactUp"))
                 key_tup_rf_env_do = (StringBin(sample_name), StringBin(cat_name), StringBin("renormfactDown"))
-                histo._sumw[key_tup_rf_env_up] = np.array(extreme_vals_up_lst)
-                histo._sumw[key_tup_rf_env_do] = np.array(extreme_vals_do_lst)
+                histo._sumw[key_tup_rf_env_up] = np.array(extreme_sumw_up_lst)
+                histo._sumw[key_tup_rf_env_do] = np.array(extreme_sumw_do_lst)
+                if all_sumw2_exists:
+                    histo._sumw2[key_tup_rf_env_up] = np.array(extreme_sumw2_up_lst)
+                    histo._sumw2[key_tup_rf_env_do] = np.array(extreme_sumw2_do_lst)
+                else:
+                    histo._sumw2[key_tup_rf_env_up] = None
+                    histo._sumw2[key_tup_rf_env_do] = None
 
         # Remove the left over renorm/fact variations, and put the histo into the output dictionary
         histo = histo.remove(["factUp","factDown","renormUp","renormDown"],"systematic")
