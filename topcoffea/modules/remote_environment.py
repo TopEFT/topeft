@@ -38,7 +38,7 @@ packages_json_template = string.Template('''
         ],
         "packages": [
             "python=$py_version",
-            "pip=22.0.4",
+            "pip",
             "conda",
             "conda-pack",
             "dill",

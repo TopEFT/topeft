@@ -3,7 +3,7 @@ import argparse
 
 from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.utils import regex_match, load_sample_json_file, get_files
+from topcoffea.modules.utils import regex_match, load_sample_json_file, get_files, get_hist_from_pkl
 from topcoffea.modules.update_json import update_json
 
 pjoin = os.path.join
@@ -110,7 +110,7 @@ def main():
 
     # Find JSONs and update weights
     for fpath in hist_paths:
-        h = tools.get_hist_from_pkl(fpath)
+        h = get_hist_from_pkl(fpath)
         h_sow_nom = h[wgt_name_dict['nom']['hist_name']] # Note, just using nom here (so we assume all histos include the same samples)
         idents = h_sow_nom.identifiers('sample') # This is the list of identifiers for the sample axis
         for sname in idents:

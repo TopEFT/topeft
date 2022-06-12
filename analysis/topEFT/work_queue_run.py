@@ -16,9 +16,11 @@ from coffea.util import load, save
 from coffea.nanoevents import NanoAODSchema
 
 import topeft
+import topcoffea.modules.utils as utils
 from topcoffea.modules import samples
 from topcoffea.modules import fileReader
 from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
+from topcoffea.modules.get_renormfact_envelope import get_renormfact_envelope
 import topcoffea.modules.remote_environment as remote_environment
 
 WGT_VAR_LST = [
@@ -50,6 +52,7 @@ parser.add_argument('--split-lep-flavor', action='store_true', help = 'Split up 
 parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
 parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
 parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
+parser.add_argument('--do-renormfact-envelope', action='store_true', help = 'Perform renorm/fact envelope calculation on the output hist (saves the modified with the the same name as the original.')
 parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
 parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
 parser.add_argument('--ecut', default=None  , help = 'Energy cut threshold i.e. throw out events above this (GeV)')
@@ -70,7 +73,15 @@ split_lep_flavor = args.split_lep_flavor
 skip_sr    = args.skip_sr
 skip_cr    = args.skip_cr
 do_np      = args.do_np
+do_renormfact_envelope = args.do_renormfact_envelope
 wc_lst = args.wc_list if args.wc_list is not None else []
+
+# Check if we have valid options
+if do_renormfact_envelope:
+    if not do_systs:
+        raise Exception("Error: Cannot specify do_renormfact_envelope if we are not including systematics.")
+    if not do_np:
+        raise Exception("Error: Cannot specify do_renormfact_envelope if we have not already done the integration across the appl axis that occurs in the data driven estimator step.")
 
 # Set the threshold for the ecut (if not applying a cut, should be None)
 ecut_threshold = args.ecut
@@ -304,8 +315,14 @@ print("Done!")
 # Run the data driven estimation, save the output
 if do_np:
   print("\nDoing the nonprompt estimation...")
-  out_pkl_file_np = os.path.join(outpath,outname+"_np.pkl.gz")
-  ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_np)
-  print(f"Saving output in {out_pkl_file_np}...")
+  out_pkl_file_name_np = os.path.join(outpath,outname+"_np.pkl.gz")
+  ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np)
+  print(f"Saving output in {out_pkl_file_name_np}...")
   ddp.dumpToPickle()
   print("Done!")
+  # Run the renorm fact envelope calculation
+  if do_renormfact_envelope:
+      print("\nDoing the renorm. fact. envelope calculation...")
+      dict_of_histos = utils.get_hist_from_pkl(out_pkl_file_name_np,allow_empty=False)
+      dict_of_histos_after_applying_envelope = get_renormfact_envelope(dict_of_histos)
+      utils.dump_to_pkl(out_pkl_file_name_np,dict_of_histos_after_applying_envelope)

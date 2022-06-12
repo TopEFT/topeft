@@ -1,6 +1,9 @@
 import os
 import re
 import json
+import gzip
+import pickle
+import cloudpickle
 
 pjoin = os.path.join
 
@@ -144,4 +147,18 @@ def read_cfg_file(fpath,cfg={},max_files=0):
                 cfg = update_cfg(jsn,sample,cfg=cfg,max_files=max_files,redirector=xrd_src)
     return cfg
 
+# Save to a pkl file
+def dump_to_pkl(out_name,out_file):
+    if not out_name.endswith(".pkl.gz"):
+        out_name = out_name + ".pkl.gz"
+    print(f"\nSaving output to {out_name}...")
+    with gzip.open(out_name, "wb") as fout:
+        cloudpickle.dump(out_file, fout)
+    print("Done.\n")
 
+# Get the dictionary of hists from the pkl file (e.g. that a processor outputs)
+def get_hist_from_pkl(path_to_pkl,allow_empty=True):
+    h = pickle.load( gzip.open(path_to_pkl) )
+    if not allow_empty:
+        h = {k:v for k,v in h.items() if v.values() != {}}
+    return h
