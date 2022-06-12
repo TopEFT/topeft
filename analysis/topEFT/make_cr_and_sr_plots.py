@@ -245,7 +245,11 @@ def get_rate_systs(sample_name,sample_group_map):
 
     # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if scale_name_for_json is not None:
-        pdf_uncty = getj.get_syst("pdf_scale",scale_name_for_json)
+        if scale_name_for_json == "tttt":
+            # Special case for 4t since we apparnetly do not have a pdf uncty
+            pdf_uncty = [1.0,1,0]
+        else:
+            pdf_uncty = getj.get_syst("pdf_scale",scale_name_for_json)
         if scale_name_for_json == "convs":
             # Special case for conversions, since we estimate these from a LO sample, so we don't have an NLO uncty here
             # Would be better to handle this in a more general way
@@ -511,6 +515,7 @@ def make_single_fig_with_ratio(histo,axis_name,cat_ref,err_p=None,err_m=None,err
         err_ratio_p = np.append(err_ratio_p,0) # Work around off by one error
         err_ratio_m = np.append(err_ratio_m,0) # Work around off by one error
         ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
+        ax.set_ylim(0.0,1.2*max(err_p))
         rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
 
     # Style
