@@ -95,7 +95,7 @@ elif args.hist_list == ["cr"]:
   hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass"]
 else:
   # We want to specify a custom list
-  # If we don't specify this argument, it will be None, and the processor will fill all hists 
+  # If we don't specify this argument, it will be None, and the processor will fill all hists
   hist_lst = args.hist_list
 
 ### Load samples from json
@@ -217,6 +217,7 @@ executor_args = {
     'debug_log': 'debug.log',
     'transactions_log': 'tr.log',
     'stats_log': 'stats.log',
+	'tasks_accum_log': 'tasks.log',
 
     'environment_file': remote_environment.get_environment(),
     'extra_input_files': ["topeft.py"],
