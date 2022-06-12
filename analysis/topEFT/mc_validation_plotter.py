@@ -1,3 +1,7 @@
+# This script makes plots to compare private and central RECO level distributions
+#   - Should be run on the output of the topeft processor
+#   - Was used during the June 2022 MC validation studies (for TOP-22-006 pre approval checks)
+
 import numpy as np
 import os
 import copy

@@ -1,6 +1,6 @@
-# This script makes plots to compare private and central gen level distributions
+# This script makes plots to compare private and central GEN level distributions
 #   - Should be run on the output of the mc_validation_gen_processor.py processor
-#   - Was used during the June 12 2022 MC validation studies (for TOP-22-006 pre approval checks)
+#   - Was used during the June 2022 MC validation studies (for TOP-22-006 pre approval checks)
 
 import numpy as np
 import os
