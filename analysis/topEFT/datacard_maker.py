@@ -15,7 +15,7 @@ from ROOT import TFile, TH1D, TH2D,nullptr
 
 class DatacardMaker():
 
-    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False, build_var='ptbl'):
+    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False, do_mc_stat=False, build_var='ptbl'):
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll', 'ttW': 'ttlnu'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.rename = {**self.rename, **{'ttH_centralUL17': 'ttH', 'ttH_centralUL16': 'ttH', 'ttH_centralUL18': 'ttH', 'ttHJetToNonbb_M125_centralUL16': 'ttH', 'ttHJetToNonbb_M125_APV_centralUL16': 'ttH', 'ttW_centralUL17': 'ttlnu', 'ttZ_centralUL17': 'ttll', 'tZq_centralUL17': 'tllq', 'ttH_centralUL17': 'ttH', 'ttW_centralUL18': 'ttlnu', 'ttZ_centralUL18': 'ttll', 'tZq_centralUL18': 'tllq', 'ttH_centralUL18': 'ttH'}}
@@ -48,6 +48,7 @@ class DatacardMaker():
         if len(self.coeffs) > 0: print(f'Using the subset {self.coeffs}')
         self.year = single_year
         self.do_sm = do_sm
+        self.do_mc_stat = do_mc_stat
         self.build_var = build_var
         self.unblind = False
 
@@ -1058,6 +1059,7 @@ if __name__ == '__main__':
     job = int(args.job)
     year = args.year
     do_sm = args.do_sm
+    do_mc_stat = args.do_mc_stat
     var_lst = args.var_lst
     unblind = args.unblind
     asimov = args.asimov
@@ -1089,7 +1091,7 @@ if __name__ == '__main__':
     # Check for `ptz` + any others (`ptz` is special and only fills the 3l on-shell Z categroy)
     if 'ptz' in differential_lst and len(differential_lst)>1: differential_lst.remove('ptz')
     build_var = differential_lst[0] if len(differential_lst)>0 else 'njets'
-    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm, build_var)
+    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm, do_mc_stat, build_var)
     card.read()
     card.buildWCString()
     if unblind:

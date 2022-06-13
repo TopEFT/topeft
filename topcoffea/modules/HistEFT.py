@@ -650,7 +650,12 @@ class HistEFT(coffea.hist.Hist):
     binmap = [new_axis.index(i) for i in old_axis.identifiers(overflow='allnan')]
 
     def dense_op(array):
-      anew = np.zeros(shape=(*out._dense_shape,out._ncoeffs), dtype=out._dtype)
+      if array.shape != self._dense_shape:
+        newshape = (*out._dense_shape,out._ncoeffs)
+      else:
+        newshape = out._dense_shape
+
+      anew = np.zeros(shape=newshape, dtype=out._dtype)
       for iold, inew in enumerate(binmap):
         anew[view_ax(inew)] += array[view_ax(iold)]
       return anew
