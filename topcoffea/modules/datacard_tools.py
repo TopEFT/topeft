@@ -203,7 +203,7 @@ class DatacardMaker():
         self.year            = kwargs.pop("single_year","")
         self.do_sm           = kwargs.pop("do_sm",False)
         self.do_nuisance     = kwargs.pop("do_nuisance",False)
-        self.var_list        = kwargs.pop("var_list",[])
+        self.var_lst         = kwargs.pop("var_lst",[])
         self.coeffs          = kwargs.pop("wcs",[])
         self.use_real_data   = kwargs.pop("unblind",False)
         self.verbose         = kwargs.pop("verbose",True)
@@ -250,14 +250,18 @@ class DatacardMaker():
         tic = time.time()
         self.read(pkl_path)
         dt = time.time() - tic
-        print(f"Read Time: {dt:.2f} s")
+        print(f"Total Read+Prune Time: {dt:.2f} s")
 
     def read(self,fpath):
         print(f"Opening: {fpath}")
+        tic = time.time()
         self.hists = pickle.load(gzip.open(fpath))
+        dt = time.time() - tic
+        print(f"Pkl Open Time: {dt:.2f} s")
 
         for km_dist,h in self.hists.items():
             if len(h.values()) == 0: continue
+            if self.var_lst and not km_dist in self.var_lst: continue
             print(f"Loading: {km_dist}")
             # Remove samples that we don't include in the datacard
             to_remove = []
