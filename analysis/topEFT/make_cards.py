@@ -57,7 +57,6 @@ def main():
         matched_chs = regex_match(all_chs,ch_lst)
         if ch_lst:
             print(f"Channels to process: {matched_chs}")
-        # for ch in dc.channels(km_dist):
         for ch in matched_chs:
             r = dc.analyze(km_dist,ch,selected_wcs)
     dt = time.time() - tic

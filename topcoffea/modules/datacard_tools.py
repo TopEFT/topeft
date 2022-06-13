@@ -17,10 +17,15 @@ import topcoffea.modules.eft_helper as efth
 PRECISION = 3   # Decimal point precision in the text datacard output
 
 def prune_axis(h,axis,to_keep):
+    """ Convenience method to remove all categories except for a selected subset."""
     to_remove = [x.name for x in h.identifiers(axis) if x.name not in to_keep]
     return h.remove(to_remove,axis)
 
 def to_hist(arr,name):
+    """
+        Converts a numpy array into a hist.Hist object suitable for being written to a root file by
+        uproot.
+    """
     nbins = len(arr) - 2 # The passed in array already includes under/overflow bins
     h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name))
     h[:] = arr[1:-1]    # Assign the bin values
@@ -48,6 +53,7 @@ class RateSystematic():
         self.corrs[p] = v
 
     # TODO: This needs to be given a better name
+    # Returns the corresponding unc. (i.e. kappa values) that have been associated with a particular process
     def get_process(self,p):
         if self.all:
             return self.all_unc
@@ -56,6 +62,27 @@ class RateSystematic():
         else:
             # This is the case for a systematic that doesn't apply to the specified process
             return '-'
+
+class JetScale(RateSystematic):
+    def __init__(self,name,**kwargs):
+        super().__init__(name,**kwargs)
+    
+    # Override the base implementation to handle the different dict structure
+    def get_process(self,p,j):
+        if self.all:
+            return self.all_unc[j]
+        if self.has_process(p):
+            return self.corrs[p][j]
+        else:
+            return '-'
+
+class MissingParton(RateSystematic):
+    def __init__(self,name,**kwargs):
+        super().__init__(name,**kwargs)
+
+    # Override the base implementation to handle the different dict structure
+    def get_process(self,p,ch,l,j.b):
+        pass
 
 class DatacardMaker():
     # TODO:
@@ -132,15 +159,15 @@ class DatacardMaker():
         ]
         return any([s.endswith(x) for x in end_chks])
 
-    # Checks if the string corresponds to the name of an EFT process term after decomposition
     @classmethod
     def is_eft_term(cls,s):
+        """ Check if string corresponds an EFT process term after decomposition."""
         chks = ["_lin_","_quad_"]
         return any([x in s for x in chks])
 
-    # Strips off the year designation from a process name, can also be used for decomposed terms
     @classmethod
     def get_process(cls,s):
+        """ Strips off the year designation from a process name, can also be used for decomposed terms."""
         for yr in cls.YEARS:
             if s.endswith(yr):
                 s = s.replace(yr,"")
@@ -152,11 +179,14 @@ class DatacardMaker():
             s = s.rsplit("_",1)[0]
         return s
 
-    # Returns the njet and bjet multiplicities corresponding to the bin name in (j,b) order
     # TODO: I don't like the naming
     @classmethod
     def get_jet_mults(cls,s):
-        # Group 1 matches 'njet_bjet' and Group 2 matches 'bjet_njet' Group 3 matches '_njet'
+        """
+            Returns the njet and bjet multiplicities based on the string passed to it in (j,b) order.
+            For the regular expression, group 1 matches 'njet_bjet', group 2 matches 'bjet_njet' 
+            group 3 matches '_njet'.
+        """
         rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[2-7]j)|(_[2-7]j$)")
 
         m = rgx.search(s)
@@ -177,9 +207,9 @@ class DatacardMaker():
             b = int(b.replace("b",""))
         return (j,b)
 
-    # Same thing but for lepton multiplicity
     @classmethod
     def get_lep_mult(cls,s):
+        """ Returns the lepton multiplicity based on the string passed to it."""
         if s.startswith("2lss_"):
             return 2
         elif s.startswith("3l_"):
@@ -191,6 +221,10 @@ class DatacardMaker():
 
     @classmethod
     def get_processes_by_years(cls,h):
+        """
+            Reads the 'sample' sparse axis of a histogram and returns a dictionary that maps stripped
+            process names to the list of sparse axis categories it came from.
+        """
         r = {}
         for x in h.identifiers("sample"):
             p = cls.get_process(x.name)
@@ -223,29 +257,18 @@ class DatacardMaker():
                 yr = yr.replace("20","UL")
                 self.lumi[yr] = 1000*lm
 
-
-        # Samples to be excluded from the datacard
+        # Samples to be excluded from the datacard, should correspond to names before group_processes is run
         self.ignore = [
             "DYJetsToLL", "DY10to50", "DY50",
             "ST_antitop_t-channel", "ST_top_s-channel", "ST_top_t-channel", "tbarW", "tW",
             "TTJets", "TTTo2L2Nu", "TTToSemiLeptonic",
             "WJetsToLNu",
-
-            "TTGJets",
-
+            # "TTGJets",
             # "data","flips","nonprompt",
-            # "flips","nonprompt",
-            # "data",
-
-            # "tttt","ttlnuJet","ttHJet", "tllq", "tHq",    # Keeps ttll
-            # "tttt","ttlnuJet","ttHJet", "tllq",
-            # "tttt","ttlnuJet","ttHJet",
-
-            # "tttt","ttlnuJet","tllq","ttllJet","tHq", # Keeps ttH
-            # "tttt","tllq","ttllJet","tHq","ttHJet", # Keeps ttlnu
+            # "tttt","ttllJet","ttlnuJet","ttHJet", "tllq", "tHq",
         ]
 
-        self.tolerance = 1e-4#1e-5
+        self.tolerance = 1e-4
         self.hists = None
 
         tic = time.time()
@@ -256,6 +279,11 @@ class DatacardMaker():
         print (f"Saving output to {os.path.realpath(self.out_dir)}")
 
     def read(self,fpath):
+        """
+            Input should be a file path to a pkl file containing histograms produced by the topeft.py
+            processor. The histograms are extracted and then pre-processed to remove / group / scale
+            various sparse axes categories.
+        """
         print(f"Opening: {fpath}")
         tic = time.time()
         self.hists = pickle.load(gzip.open(fpath))
@@ -314,9 +342,12 @@ class DatacardMaker():
     def channels(self,km_dist):
         return [x.name for x in self.hists[km_dist].identifiers("channel")]
 
-    # Parse out the correlated and decorrelated systematics from rate_systs.json and missing_parton.root files
     # TODO: Can be a static member function
     def load_systematics(self,rs_fpath,mp_fpath):
+        """
+            Parse out the correlated and decorrelated systematics from rate_systs.json and
+            missing_parton.root files.
+        """
         rate_systs = {}
         if not self.do_nuisance:
             return rate_systs
@@ -368,7 +399,8 @@ class DatacardMaker():
 
         # Now deal with the 'jet_scale' systematic for Dibosons
         syst_name = "jet_scale"
-        new_syst = RateSystematic(syst_name)
+        # new_syst = RateSystematic(syst_name)
+        new_syst = JetScale(syst_name)
         for p,per_jet_uncs in rates_json["jet_scale"].items():
             new_syst.add_process(p,per_jet_uncs)
         rate_systs[syst_name] = new_syst
@@ -392,9 +424,13 @@ class DatacardMaker():
 
         return rate_systs
 
-    # Group same type processes together
     # TODO: Can be a static member function
     def group_processes(self,h):
+        """
+            Groups together certain processes from the 'sample' axis. We also abuse this method to
+            rename specific sample categories. Both of which are determined by the GROUP static data
+            member.
+        """
         # TODO: This needs work to be less convoluted...
         all_procs = set(x.name for x in h.identifiers("sample"))
         grp_map = {}
@@ -417,9 +453,12 @@ class DatacardMaker():
         h = h.group("sample",Cat("sample","sample"),grp_map)
         return h
 
-    # Combine stuff over years
     # TODO: Can be a static member function
     def correlate_years(self,h):
+        """
+            Merges together different run years, taking care to treat year-specific systematics as
+            uncorrelated from one another
+        """
         if not self.do_nuisance:
             # Only sum over the years, don't mess with nuisance stuff
             grp_map = {}
@@ -480,7 +519,12 @@ class DatacardMaker():
         return h
 
     def get_selected_wcs(self,km_dist):
-        print("Selecting WCs")
+        """
+            For each process, iterates over every channel and every bin checking the EFT parameterization
+            coefficients for if they have a significant impact or not relative to the SM contribution. If
+            any term from any channel+bin is determined to be significant, the WC is selected, otherwise
+            it is excluded for that process and won't be included in the EFT decomposition
+        """
         tic = time.time()
         h = self.hists[km_dist].integrate("systematic",["nominal"])
 
@@ -533,12 +577,13 @@ class DatacardMaker():
                     if np.any(wc_terms > self.tolerance):
                         selected_wcs[p].add(wc)
                         break
-        dt = time.time() - tic
-        print(f"WC Selection Time: {dt:.2f} s")
-
+        if self.verbose:
+            dt = time.time() - tic
+            print(f"WC Selection Time: {dt:.2f} s")
         return selected_wcs
 
     def analyze(self,km_dist,ch,selected_wcs):
+        """ Handles the EFT decomposition and the actual writing of the ROOT and text datacard files."""
         if not km_dist in self.hists:
             print(f"[ERROR] Unknown kinematic distribution: {km_dist}")
             return None
@@ -711,9 +756,10 @@ class DatacardMaker():
                     v = rate_syst.get_process(proc_name)
                     # Need to handle certain systematics in a special way
                     if syst_name == "jet_scale":
-                        v = rate_syst.get_process(proc_name)
-                        if isinstance(v,dict):
-                            v = v[str(num_j)]
+                        v = rate_syst.get_process(proc_name,num_j)
+                        # v = rate_syst.get_process(proc_name)
+                        # if isinstance(v,dict):
+                        #     v = v[str(num_j)]
                     elif syst_name == "missing_parton":
                         v = rate_syst.get_process(proc_name)
                         # First strip off any njet and/or bjet labels
@@ -751,14 +797,16 @@ class DatacardMaker():
 
     # TODO: Can be a static member function
     def decompose(self,h,wcs):
-        '''
+        """
+            Decomposes the EFT quadratic parameterization coefficients into combinations that result
+            in non-negative coefficient terms.
+
             Note: All other WCs are assumed set to 0
             sm piece:    set(c1=0.0)
             lin piece:   set(c1=1.0)
             mixed piece: set(c1=1.0,c2=1.0)
             quad piece:  0.5*[set(c1=2.0) - 2*set(c1=1.0) + set(sm)]
-        '''
-
+        """
         tic = time.time()
         h.set_sm()
         sm = h.values(overflow='all')
