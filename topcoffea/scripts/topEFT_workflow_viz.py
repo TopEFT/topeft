@@ -18,6 +18,7 @@ def parse(log_file):
     tasks = []
     max_cpu = 0
     max_mem = 0
+    max_in  = 0
     max_out = 0
 
     next(log_file) # Skip header
@@ -34,12 +35,13 @@ def parse(log_file):
             'time_end'     : float(task[9]),
             'cpu_time'     : float(task[10]),
             'memory'       : float(task[11]),
+            'fin'          : float(task[12]),
             'fout'         : float(task[13]),
         }
 
         # Track accumulated tasks, ignore preprocessing
         # Determine max CPU time, memory usage, and output size (for scaling)
-        if (task_info['status'] == 'accumulated') and (not task_info['category'] == 'preprocessing'):
+        if (task_info['status'] == 'accumulated') and (task_info['category'] != 'preprocessing'):
             tasks.append(task_info)
             max_cpu = task_info['cpu_time'] if task_info['cpu_time'] > max_cpu else max_cpu
             max_mem = task_info['memory'] if task_info['memory'] > max_mem else max_mem
@@ -50,18 +52,16 @@ def parse(log_file):
 def make_graph(tasks, workflow, max_cpu, max_mem, max_out):
     # Create nodes and directed edges between processing and accumulation tasks
     for task in tasks:
-        # Scaling variables
-        func_size  = math.sqrt(task['memory']/max_mem)
-        func_color = task['cpu_time']/max_cpu
-        fout_size  = task['fout']/max_out
 
         # Function node
         func_node_info = f'''ID: {task['task_id']}{task['category'][0]}
 CPU: {round(task['cpu_time'], 3)}s
 Wall: {round(task['time_end'] - task['time_start'], 3)}s
 {task['memory']} MB
-{task['range_stop'] - task['range_start']}'''
+{size(task['fin']) if task['fin'] != 0 else ""}'''
 
+        func_size  = math.sqrt(task['memory']/max_mem)
+        func_color = task['cpu_time']/max_cpu
         workflow.node(task['task_id'], label=func_node_info,
             width       = f'{(func_size + 1)*30}',
             height      = f'{(func_size + 1)*30}',
@@ -72,7 +72,8 @@ Wall: {round(task['time_end'] - task['time_start'], 3)}s
             color       = f'{11 - int(func_color*10)}')
 
         # Output node
-        workflow.node(f'''{task['task_id']}{task['fout']}''', label=f'''{size(task['fout'])}B''',
+        fout_size = task['fout']/max_out
+        workflow.node(f'''{task['task_id']}{task['fout']}''', label=f'''{size(task['fout'])}''',
             shape       = 'box',
             width       = f'{(fout_size + 1)*30}',
             height      = f'{(fout_size + 1)*30}',
