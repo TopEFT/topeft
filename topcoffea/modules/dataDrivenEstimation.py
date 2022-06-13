@@ -114,7 +114,6 @@ class DataDrivenProducer:
                                 print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
                         
                         hFakes=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
-                        hFakes.forceSMsumW2=True # so it keeps the sumw2 when summing stuff to it 
                         # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
                         hPromptSub=hAR.group('sample', hist.Cat('sample','sample'), newNameDictNoData )
 
@@ -126,6 +125,7 @@ class DataDrivenProducer:
                             if (syst_var_idet.name != "nominal") and (not syst_var_idet.name.startswith("FF")):
                                 syst_var_idet_rm_lst.append(syst_var_idet)
                         hPromptSub = hPromptSub.remove(syst_var_idet_rm_lst,"systematic")
+                        hPromptSub = hPromptSub.copy_sm()
 
                         # now we actually make the subtraction
                         hPromptSub.scale(-1)
@@ -135,7 +135,6 @@ class DataDrivenProducer:
                             newhist=hFakes
                         else:
                             newhist.add(hFakes)
-
             # Scale back by 1/lumi all processes but data so they can be used transparently downstream
             # Mind that we scaled all mcs already above
             scaleDict={}

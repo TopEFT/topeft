@@ -34,7 +34,6 @@ class HistEFT(coffea.hist.Hist):
     self._ncoeffs = efth.n_quad_terms(n)
     self._nerrcoeffs = efth.n_quartic_terms(n)
     self._wcs = np.zeros(n)
-    self.forceSMsumW2=False    
     super().__init__(label, *axes, **kwargs)
 
 
@@ -51,6 +50,7 @@ class HistEFT(coffea.hist.Hist):
         # EFT bins that already existed prior to calling sumw2 can't
         # be converted into bins with errors
         self._sumw2[key] = None
+
       else:
         self._sumw2[key] = self._sumw[key].copy()
             
@@ -182,6 +182,18 @@ class HistEFT(coffea.hist.Hist):
     if content:
         out._sumw = copy.deepcopy(self._sumw)
         out._sumw2 = copy.deepcopy(self._sumw2)
+    return out
+
+  def copy_sm(self):
+    """ Copy at the SM point. Setting sumw2 to zero """
+    out = HistEFT(self._label,[], *self._axes, dtype=self._dtype)
+    if self._sumw2 is not None: out._sumw2 = {}
+    """ Copy at the SM point. Setting sumw2 to zero """
+    out._sumw = {}
+    out._sumw2 = {}
+    for sparse_key in self._sumw.keys():
+      out._sumw[sparse_key]=self._sumw[sparse_key][:,0]
+      out._sumw2[sparse_key]=np.zeros_like(out._sumw[sparse_key])
     return out
 
   def identity(self):
@@ -653,6 +665,7 @@ class HistEFT(coffea.hist.Hist):
 
     return out
 
+
   def values(self, sumw2=False, overflow="none", debug=False):
     """Extract the sum of weights arrays from this histogram
     Parameters
@@ -696,8 +709,7 @@ class HistEFT(coffea.hist.Hist):
         if self._sumw2 is not None:
             if is_eft_bin:
               if self._sumw2[sparse_key] is not None:
-                if self.forceSMsumW2: _sumw2 = self._sumw2[sparse_key]
-                else:                 _sumw2 = efth.calc_eft_w2(self._sumw2[sparse_key],self._wcs)  
+                  _sumw2 = efth.calc_eft_w2(self._sumw2[sparse_key],self._wcs)  
               else:
                 # Set really tiny error bars (e.g. one one-millionth the size of the average bin)
                 _sumw2 = np.full_like(_sumw,1e-30*np.mean(_sumw))
