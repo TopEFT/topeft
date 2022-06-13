@@ -203,6 +203,7 @@ class DatacardMaker():
         self.year            = kwargs.pop("single_year","")
         self.do_sm           = kwargs.pop("do_sm",False)
         self.do_nuisance     = kwargs.pop("do_nuisance",False)
+        self.out_dir         = kwargs.pop("out_dir",".")
         self.var_lst         = kwargs.pop("var_lst",[])
         self.coeffs          = kwargs.pop("wcs",[])
         self.use_real_data   = kwargs.pop("unblind",False)
@@ -251,6 +252,8 @@ class DatacardMaker():
         self.read(pkl_path)
         dt = time.time() - tic
         print(f"Total Read+Prune Time: {dt:.2f} s")
+
+        print (f"Saving output to {os.path.realpath(self.out_dir)}")
 
     def read(self,fpath):
         print(f"Opening: {fpath}")
@@ -568,6 +571,7 @@ class DatacardMaker():
         num_h = 0
         all_shapes = set()
         text_card_info = {}
+        outf_root_name = os.path.join(self.out_dir,outf_root_name)
         with uproot.recreate(outf_root_name) as f:
             for p,wcs in selected_wcs.items():
                 proc_hist = ch_hist.integrate("sample",[p])
@@ -633,6 +637,7 @@ class DatacardMaker():
 
         outf_card_name = self.FNAME_TEMPLATE.format(cat=ch,ext="txt")
         print(f"Generating text file: {outf_card_name}")
+        outf_card_name = os.path.join(outf_card_name)
         with open(outf_card_name,"w") as f:
             f.write(f"shapes *        * {outf_root_name} $PROCESS $PROCESS_$SYSTEMATIC\n")
             f.write(line_break)
