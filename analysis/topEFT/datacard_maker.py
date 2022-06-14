@@ -989,7 +989,7 @@ class DatacardMaker():
             raise Exception(f"Error: the WCs \"{wc}\" are specified in an unknown format")
         self.wcs     = wcpt
         return wcpt
-    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm, var_lst, unblide=False):
+    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_mc_stat, do_sm, var_lst, unblide=False):
         os.system('mkdir -p %s/condor' % os.getcwd())
         os.system('mkdir -p %s/condor/log' % os.getcwd())
         target = '%s/condor_submit.sh' % os.getcwd()
@@ -1003,6 +1003,7 @@ class DatacardMaker():
         args = []
         args.append('--var-lst ' + ' '.join(var_lst))
         if do_nuisance: args.append('--do-nuisance')
+        if do_mc_stat: args.append('--do-mc-stat')
         if len(wcs) > 0: args.append('--POI ' + ','.join(wcs))
         if do_sm: args.append('--do-sm')
         if unblind: args.append('--unblind')
@@ -1160,7 +1161,7 @@ if __name__ == '__main__':
 
     njobs = len(jobs)
     if job == -1:
-        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm, include_var_lst, unblind)
+        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_mc_stat, do_sm, include_var_lst, unblind)
     elif job < njobs:
         d = jobs[job]
         card.analyzeChannel(**d)
