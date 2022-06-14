@@ -466,7 +466,10 @@ def ApplyJetCorrections(year, corr_type):
   else: raise Exception(f"Error: Unknown year \"{year}\".")
   extJEC = lookup_tools.extractor()
   extJEC.add_weight_sets(["* * "+topcoffea_path('data/JER/%s_MC_SF_AK4PFchs.jersf.txt'%jer_tag),"* * "+topcoffea_path('data/JER/%s_MC_PtResolution_AK4PFchs.jr.txt'%jer_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L1FastJet_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L2Relative_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/RegroupedV2_Summer19UL%s_MC_UncertaintySources_AK4PFchs.junc.txt'%jec_tag)])
-  jec_names = ["%s_MC_SF_AK4PFchs"%jer_tag,"%s_MC_PtResolution_AK4PFchs"%jer_tag,"Summer19UL%s_MC_L1FastJet_AK4PFchs"%jec_tag,"Summer19UL%s_MC_L2Relative_AK4PFchs"%jec_tag,"RegroupedV2_Summer19UL%s_MC_UncertaintySources_AK4PFchs"%jec_tag]
+  jec_types = ['FlavorQCD', 'RelativeBal', 'HF', 'BBEC1', 'EC2', 'Absolute', f'BBEC1_{year[0:4]}', f'EC2_{year[0:4]}', f'Absolute_{year[0:4]}', f'HF_{year[0:4]}', f'RelativeSample_{year[0:4]}']
+  jec_regroup = ["RegroupedV2_Summer19UL%s_MC_UncertaintySources_AK4PFchs_%s"%(jec_tag,jec_type) for jec_type in jec_types]
+  jec_names = ["%s_MC_SF_AK4PFchs"%jer_tag,"%s_MC_PtResolution_AK4PFchs"%jer_tag,"Summer19UL%s_MC_L1FastJet_AK4PFchs"%jec_tag,"Summer19UL%s_MC_L2Relative_AK4PFchs"%jec_tag]
+  jec_names.extend(jec_regroup)
   extJEC.finalize()
   JECevaluator = extJEC.make_evaluator()
   jec_inputs = {name: JECevaluator[name] for name in jec_names}
@@ -495,6 +498,8 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
   elif(syst_var == 'JESDown'): return cleanedJets.JES_jes.down
   elif(syst_var == 'nominal'): return cleanedJets
   elif(syst_var in ['nominal','MuonESUp','MuonESDown']): return cleanedJets
+  elif('Up' in syst_var and syst_var.replace('Up', '') in cleanedJets.fields): return cleanedJets[syst_var.replace('Up', '')].up
+  elif('Down' in syst_var and syst_var.replace('Down', '') in cleanedJets.fields): return cleanedJets[syst_var.replace('Down', '')].down
   else: raise Exception(f"Error: Unknown variation \"{syst_var}\".")
 
 ###### Muon Rochester corrections
