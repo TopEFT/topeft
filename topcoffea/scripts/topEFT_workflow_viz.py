@@ -28,8 +28,6 @@ def parse(log_file):
             'task_id'      : task[0],
             'category'     : task[1],
             'status'       : task[2],
-            'range_start'  : float(task[5]),
-            'range_stop'   : float(task[6]),
             'accum_parent' : task[7],
             'time_start'   : float(task[8]),
             'time_end'     : float(task[9]),
@@ -57,8 +55,8 @@ def make_graph(tasks, workflow, max_cpu, max_mem, max_out):
         func_node_info = f'''ID: {task['task_id']}{task['category'][0]}
 CPU: {round(task['cpu_time'], 3)}s
 Wall: {round(task['time_end'] - task['time_start'], 3)}s
-{task['memory']} MB
-{size(task['fin']) if task['fin'] != 0 else ""}'''
+Mem: {task['memory']} MB
+{f"In: {size(task['fin'])}" if task['fin'] != 0 else ""}'''
 
         func_size  = math.sqrt(task['memory']/max_mem)
         func_color = task['cpu_time']/max_cpu
@@ -73,7 +71,8 @@ Wall: {round(task['time_end'] - task['time_start'], 3)}s
 
         # Output node
         fout_size = task['fout']/max_out
-        workflow.node(f'''{task['task_id']}{task['fout']}''', label=f'''{size(task['fout'])}''',
+        workflow.node(f'''{task['task_id']}{task['fout']}''',
+            label=f'''Out:\n{size(task['fout'])}\n{f"({round(task['fout']/task['fin']*100, 2)}%)" if task['fin'] != 0 else ""}''',
             shape       = 'box',
             width       = f'{(fout_size + 1)*30}',
             height      = f'{(fout_size + 1)*30}',
@@ -90,12 +89,12 @@ Wall: {round(task['time_end'] - task['time_start'], 3)}s
     return workflow
 
 def generate_dot(workflow):
-    workflow_file = open(f'{sys.argv[1]}.wf.gv', 'w')
+    workflow_file = open(f'{sys.argv[1]}.gv', 'w')
     workflow_file.writelines(str(workflow))
     workflow_file.close()
 
 def generate_viz(log_file):
-    os.system(f'dot -Tpdf {log_file}.wf.gv -o {log_file}.wf.pdf')
+    os.system(f'dot -Tpdf {log_file}.gv -o {log_file}.pdf')
 
 # Main execution
 
