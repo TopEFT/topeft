@@ -834,7 +834,7 @@ class DatacardMaker():
                 row = " ".join(row) + "\n"
                 f.write(row)
 
-            if do_mc_stat:
+            if self.do_mc_stat:
                 f.write("* autoMCStats 10\n")
         dt = time.time() - tic
         print(f"File Write Time: {dt:.2f} s")
