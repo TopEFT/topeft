@@ -25,6 +25,10 @@ def to_hist(arr,name):
     """
         Converts a numpy array into a hist.Hist object suitable for being written to a root file by
         uproot.
+
+        Note:
+            Apparently if autoMCStats is used, then sumw2 shouldn't be included in the saved histograms.
+            Currently, we weren't saving sumw2 anyways, but something to keep in mind I guess.
     """
     nbins = len(arr) - 2 # The passed in array already includes under/overflow bins
     h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name))
@@ -257,6 +261,7 @@ class DatacardMaker():
         self.do_nuisance     = kwargs.pop("do_nuisance",False)
         self.out_dir         = kwargs.pop("out_dir",".")
         self.var_lst         = kwargs.pop("var_lst",[])
+        self.do_mc_stat      = kwargs.pop("do_mc_stat",False)
         self.coeffs          = kwargs.pop("wcs",[])
         self.use_real_data   = kwargs.pop("unblind",False)
         self.verbose         = kwargs.pop("verbose",True)
@@ -828,6 +833,9 @@ class DatacardMaker():
                     row.append(f"{v:>{col_width}}")
                 row = " ".join(row) + "\n"
                 f.write(row)
+
+            if do_mc_stat:
+                f.write("* autoMCStats 10\n")
         dt = time.time() - tic
         print(f"File Write Time: {dt:.2f} s")
         print(f"Total Hists Written: {num_h}")

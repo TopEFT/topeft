@@ -14,6 +14,7 @@ def main():
     parser.add_argument("--out-dir","-d",default=".",help="Output directory to write root and text datacard files to")
     parser.add_argument("--var-lst",default=[],action="extend",nargs="+",help="Specify a list of variables to make cards for.")
     parser.add_argument("--ch-lst","-c",default=[],action="extend",nargs="+",help="Specify a list of channels to process.")
+    parser.add_argument("--do-mc-stat",action="store_true",help="Add bin-by-bin statistical uncertainties with the autoMCstats option (for background)")
     parser.add_argument("--ignore","-i",default=[],action="extend",nargs="+",help="Specify a list of processes to exclude, must match name from 'sample' axis modulo UL year")
     parser.add_argument("--POI",default=[],help="List of WCs (comma separated)")
     parser.add_argument("--year","-y",default="",help="Run over single year")
@@ -22,19 +23,20 @@ def main():
     parser.add_argument("--verbose","-v",action="store_true",help="Set to verbose output")
 
     args = parser.parse_args()
-    pkl_file  = args.pkl_file
-    lumi_json = args.lumi_json
-    rs_json   = args.rate_syst_json
-    mp_file   = args.miss_parton_file
-    out_dir   = args.out_dir
+    pkl_file   = args.pkl_file
+    lumi_json  = args.lumi_json
+    rs_json    = args.rate_syst_json
+    mp_file    = args.miss_parton_file
+    out_dir    = args.out_dir
     # year      = args.year     # NOT IMPLEMENTED YET
-    var_lst   = args.var_lst
-    ch_lst    = args.ch_lst
-    wcs       = args.POI
-    ignore    = args.ignore
-    do_nuis   = args.do_nuisance
-    unblind   = args.unblind
-    verbose   = args.verbose
+    var_lst    = args.var_lst
+    ch_lst     = args.ch_lst
+    do_mc_stat = args.do_mc_stat
+    wcs        = args.POI
+    ignore     = args.ignore
+    do_nuis    = args.do_nuisance
+    unblind    = args.unblind
+    verbose    = args.verbose
 
     if isinstance(wcs,str):
         wcs = wcs.split(",")
@@ -46,6 +48,7 @@ def main():
         "missing_parton_path": mp_file,
         "out_dir": out_dir,
         "var_lst": var_lst,
+        "do_mc_stat": do_mc_stat,
         "ignore": ignore,
         "do_nuisance": do_nuis,
         "unblind": unblind,
