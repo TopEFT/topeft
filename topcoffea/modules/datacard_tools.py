@@ -69,6 +69,7 @@ class JetScale(RateSystematic):
     
     # Override the base implementation to handle the different dict structure
     def get_process(self,p,j):
+        j = str(j)
         if self.all:
             return self.all_unc[j]
         if self.has_process(p):
@@ -77,11 +78,26 @@ class JetScale(RateSystematic):
             return '-'
 
 class MissingParton(RateSystematic):
+    # Maps channel name from pkl file to hist name in missing_parton.root file
+    CH_MAP = {
+        "2lss_4t_m": "2lss_4t_m_2b",
+        "2lss_4t_p": "2lss_4t_p_2b",
+        "2lss_m": "2lss_m_2b",
+        "2lss_p": "2lss_p_2b",
+        "3l_onZ_1b": "3l_sfz_1b",
+        "3l_onZ_2b": "3l_sfz_2b",
+        "3l_p_offZ_1b": "3l1b_p",
+        "3l_m_offZ_1b": "3l1b_m",
+        "3l_p_offZ_2b": "3l2b_p",
+        "3l_m_offZ_2b": "3l2b_m",
+        "4l_2b": "4l",
+    }
+
     def __init__(self,name,**kwargs):
         super().__init__(name,**kwargs)
 
     # Override the base implementation to handle the different dict structure
-    def get_process(self,p,ch,l,j.b):
+    def get_process(self,p,ch,l,j,b):
         pass
 
 class DatacardMaker():
@@ -100,8 +116,9 @@ class DatacardMaker():
             "WWW_",
             "WWZ_",
             "WZZ_",
-            "ZZZ_"
+            "ZZZ_",
         ],
+        "convs": ["TTGamma_"],
         "fakes": ["nonprompt"],
         "charge_flips_": ["flips"],
         "data_obs": ["data"],
@@ -132,7 +149,8 @@ class DatacardMaker():
 
     YEARS = ["UL16","UL16APV","UL17","UL18"]
 
-    FNAME_TEMPLATE = "TESTING_ttx_multileptons-{cat}.{ext}"
+    FNAME_TEMPLATE = "ttx_multileptons-{cat}.{ext}"
+    # FNAME_TEMPLATE = "TESTING_ttx_multileptons-{cat}.{ext}"
 
     SIGNALS = set(["ttH","tllq","ttll","ttlnu","tHq","tttt"])
 
@@ -263,10 +281,21 @@ class DatacardMaker():
             "ST_antitop_t-channel", "ST_top_s-channel", "ST_top_t-channel", "tbarW", "tW",
             "TTJets", "TTTo2L2Nu", "TTToSemiLeptonic",
             "WJetsToLNu",
-            # "TTGJets",
-            # "data","flips","nonprompt",
-            # "tttt","ttllJet","ttlnuJet","ttHJet", "tllq", "tHq",
+            "TTGJets",  # This is the old low stats convs sample, new one should be TTGamma
+
+            # "TTGamma",
+            # "WWTo2L2Nu","ZZTo4L",#"WZTo3LNu",
+            # "WWW","WWW_4F","WWZ_4F","WWZ","WZZ","ZZZ",
+            # "flips","nonprompt",
+            # "tttt","ttlnuJet","tllq","tHq","ttHJet",
+            "data",
         ]
+
+        extra_ignore = kwargs.pop("ignore",[])
+
+        if extra_ignore:
+            print(f"Adding processes to ignore: {extra_ignore}")
+        self.ignore.extend(extra_ignore)
 
         self.tolerance = 1e-4
         self.hists = None
@@ -655,8 +684,10 @@ class DatacardMaker():
                             text_card_info[proc_name]["rate"] = sum_arr
                         else:
                             hist_name = f"{proc_name}_{syst}"
-                            all_shapes.add(syst)
-                            text_card_info[proc_name]["shapes"].add(syst)
+                            # Systematics in the text datacard don't have the Up/Down postfix
+                            syst_base = syst.replace("Up","").replace("Down","")
+                            all_shapes.add(syst_base)
+                            text_card_info[proc_name]["shapes"].add(syst_base)
                             syst_width = max(len(syst),syst_width)
                         f[hist_name] = to_hist(arr,hist_name)
                         num_h += 1
@@ -682,7 +713,7 @@ class DatacardMaker():
 
         outf_card_name = self.FNAME_TEMPLATE.format(cat=ch,ext="txt")
         print(f"Generating text file: {outf_card_name}")
-        outf_card_name = os.path.join(outf_card_name)
+        outf_card_name = os.path.join(self.out_dir,outf_card_name)
         with open(outf_card_name,"w") as f:
             f.write(f"shapes *        * {outf_root_name} $PROCESS $PROCESS_$SYSTEMATIC\n")
             f.write(line_break)
@@ -691,8 +722,10 @@ class DatacardMaker():
             f.write(line_break)
             f.write(line_break)
 
+            # Note: This list is what controls the columns in the text datacard, if a process appears
+            #       in this list it should NEVER be skipped in any of the following for loops.
             # proc_order = sorted(text_card_info.keys())
-            proc_order = text_card_info.keys()
+            proc_order = [k for k in text_card_info.keys() if text_card_info[k]["rate"] != -1]  # rate = -1 only happens when there's no syst histograms (e.g. flips in 3l/4l)
 
             # Bin row
             row = [f"{'bin':<{left_width}}"]    # Python string formatting is pretty great!
@@ -726,6 +759,9 @@ class DatacardMaker():
             row = [f"{'rate':<{left_width}}"]
             for p in proc_order:
                 r = text_card_info[p]["rate"]
+                if r < 0:
+                    print(f"Process {p} has negative total rate: {r:.3f} -> setting to 0 in text card")
+                    r = 0
                 row.append(f"{r:>{col_width}.{PRECISION}f}") # Do not challenge me on Python string formatting!
             row = " ".join(row) + "\n"
             f.write(row)
@@ -753,7 +789,6 @@ class DatacardMaker():
                 row = [f"{left_text:<{left_width}}"]
                 for p in proc_order:
                     proc_name = self.get_process(p) # Strips off any "_sm" or "_lin_*" junk
-                    v = rate_syst.get_process(proc_name)
                     # Need to handle certain systematics in a special way
                     if syst_name == "jet_scale":
                         v = rate_syst.get_process(proc_name,num_j)
@@ -788,6 +823,8 @@ class DatacardMaker():
                         if isinstance(v,dict):
                             v = v[ch_key][bin_idx]
                             v = f"{v:.{PRECISION}f}"
+                    else:
+                        v = rate_syst.get_process(proc_name)
                     row.append(f"{v:>{col_width}}")
                 row = " ".join(row) + "\n"
                 f.write(row)

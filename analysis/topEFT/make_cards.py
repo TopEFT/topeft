@@ -1,3 +1,5 @@
+import os
+import json
 import argparse
 
 from topcoffea.modules.datacard_tools import *
@@ -12,6 +14,7 @@ def main():
     parser.add_argument("--out-dir","-d",default=".",help="Output directory to write root and text datacard files to")
     parser.add_argument("--var-lst",default=[],action="extend",nargs="+",help="Specify a list of variables to make cards for.")
     parser.add_argument("--ch-lst","-c",default=[],action="extend",nargs="+",help="Specify a list of channels to process.")
+    parser.add_argument("--ignore","-i",default=[],action="extend",nargs="+",help="Specify a list of processes to exclude, must match name from 'sample' axis modulo UL year")
     parser.add_argument("--POI",default=[],help="List of WCs (comma separated)")
     parser.add_argument("--year","-y",default="",help="Run over single year")
     parser.add_argument("--do-nuisance",action="store_true",help="Include nuisance parameters")
@@ -28,6 +31,7 @@ def main():
     var_lst   = args.var_lst
     ch_lst    = args.ch_lst
     wcs       = args.POI
+    ignore    = args.ignore
     do_nuis   = args.do_nuisance
     unblind   = args.unblind
     verbose   = args.verbose
@@ -42,10 +46,14 @@ def main():
         "missing_parton_path": mp_file,
         "out_dir": out_dir,
         "var_lst": var_lst,
+        "ignore": ignore,
         "do_nuisance": do_nuis,
         "unblind": unblind,
         "verbose": verbose,
     }
+
+    if out_dir != "." and not os.path.exists(out_dir):
+        os.makedirs(out_dir)
 
     tic = time.time()
     dc = DatacardMaker(pkl_file,**kwargs)
@@ -53,6 +61,14 @@ def main():
     dists = var_lst if len(var_lst) else dc.hists.keys()
     for km_dist in dists:
         selected_wcs = dc.get_selected_wcs(km_dist)
+        with open(os.path.join(out_dir,f"selectedWCs-{km_dist}.txt"),"w") as f:
+            selected_wcs_for_json = {}
+            for p,v in selected_wcs.items():
+                if not dc.is_signal(p):
+                    # WC selection will include backgrounds in the dict (always with an empty list), so remove them here
+                    continue
+                selected_wcs_for_json[p] = list(v)
+            json.dump(selected_wcs_for_json,f)
         all_chs = dc.channels(km_dist)
         matched_chs = regex_match(all_chs,ch_lst)
         if ch_lst:
