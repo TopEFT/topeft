@@ -153,6 +153,8 @@ class DatacardMaker():
 
     YEARS = ["UL16","UL16APV","UL17","UL18"]
 
+    SYST_YEARS = ["2016","2016APV","2017","2018"]
+
     FNAME_TEMPLATE = "ttx_multileptons-{cat}.{ext}"
     # FNAME_TEMPLATE = "TESTING_ttx_multileptons-{cat}.{ext}"
 
@@ -160,13 +162,27 @@ class DatacardMaker():
 
     @classmethod
     def get_year(cls,s):
+        """
+            Attempt to return the year of the process or systematic string
+        """
         for yr in cls.YEARS:
             if s.endswith(yr): return yr
+        for yr in cls.SYST_YEARS:
+            if s.endswith(yr+"Up"): return yr
+            if s.endswith(yr+"Down"): return yr
         return None
 
     @classmethod
     def strip_fluctuation(cls,s):
         return s.replace("Down","").replace("Up","")
+
+    @classmethod
+    def strip_year(cls,s):
+        for yr in cls.YEARS:
+            s = s.replace(yr,"")
+        for yr in cls.SYST_YEARS:
+            s = s.replace(f"_{yr}","")  # Note the underscore
+        return s
 
     @classmethod
     def is_signal(cls,s):
@@ -298,6 +314,29 @@ class DatacardMaker():
 
         extra_ignore = kwargs.pop("ignore",[])
 
+        # For now, we leave this as a hardcoded thing, a bit tedious but it works
+        # Note: If not explicitly listed, it is assumed that all years should be uncorrelated
+        # Note: It is important to list the correlations for ALL years in which it is relevant, so
+        #       for example, if a systematic is correlated in 2016, 2016APV, and 2017, there needs
+        #       to be an entry for all three years and the list corresponding to each entry needs to
+        #       be consistent (i.e. contain the other correlated years) across all three entries
+        # Note: As a final note, the actual systematic that appears in the datacards will be just one
+        #       of the set to be correlated. So for example, if a systematic is correlated over 2016
+        #       and 2016APV, then either the 2016 or 2016APV version will appear in the datacard, but
+        #       not both. Typically, the one that remains will be the 2016 version as that's the one
+        #       that gets handled first in the loop, but it would be different if we processed things
+        #       in a different order
+        self.syst_year_corr = {
+            # Example of correlated for only 2016 and 2016APV
+            "FFcloseEl": {"2016": ["2016APV"], "2016APV": ["2016"]},
+            "FFcloseMu": {"2016": ["2016APV"], "2016APV": ["2016"]},
+
+            # Example of correlated over 2016, 2016APV, 2017, and 2018
+            # Note: This is not correct for the analysis, but just serves as an example
+            # "FFcloseEl": {"2016": ["2016APV","2017","2018"], "2016APV": ["2016","2017","2018"], "2017": ["2016","2016APV","2018"], "2018": ["2016","2016APV","2017"]},
+            # "FFcloseMu": {"2016": ["2016APV","2017","2018"], "2016APV": ["2016","2017","2018"], "2017": ["2016","2016APV","2018"], "2018": ["2016","2016APV","2017"]},
+        }
+
         if extra_ignore:
             print(f"Adding processes to ignore: {extra_ignore}")
         self.ignore.extend(extra_ignore)
@@ -335,6 +374,8 @@ class DatacardMaker():
                 if p in self.ignore:
                     to_remove.append(x.name)
             h = h.remove(to_remove,"sample")
+
+            h = prune_axis(h,"channel",["2lss_m_4j"])
 
             if not self.do_nuisance:
                 # Remove all shape systematics
@@ -506,38 +547,59 @@ class DatacardMaker():
         # This requires some fancy footwork to make work
         print("Correlating years")
 
-        # First we need to get a histogram with only the nominal contributions
-        h_nom = prune_axis(h,"systematic",["nominal"])
+        # New approach
+        proc_idx = -1
+        syst_idx = -1
+        for i,sp_field in enumerate(h.fields[:-1]):
+            if sp_field == "systematic":
+                syst_idx = i
+            elif sp_field == "sample":
+                proc_idx = i
 
-        by_years = self.get_processes_by_years(h_nom)
-        # Next we need to create a group mapping for each sample that combines all but one of the years
-        grp_map = {}
-        for p,p_yrs in by_years.items():
-            for p_yr in p_yrs:
-                # The list is all OTHER proc+year combos
-                grp_map[p_yr] = [x for x in p_yrs if x != p_yr]
-        h_nom = h_nom.group("sample",Cat("sample","sample"),grp_map)
-
-        # Now for the tricky part
+        already_correlated = set()  # Keeps track of which systematics have already been correlated
         for sp_key in h._sumw.keys():
-            syst = ""
-            nom_key = []
-            for i,sp_field in enumerate(h.fields[:-1]):  # This gives us the ordering of the sparse axes for the sparse key
-                if sp_field == "systematic":
-                    nom_key.append(StringBin("nominal"))
-                    syst = sp_key[i].name
+            proc = sp_key[proc_idx].name
+            syst = sp_key[syst_idx].name
+            proc_year = self.get_year(proc)
+            syst_year = self.get_year(syst)
+            if syst_year is None:
+                # This ensures that the systematic in question is a per-year systematic
+                continue
+            if syst in already_correlated:
+                if self.verbose: print(f"Skipping {syst} as it was already correlated in a previous year")
+                continue
+            syst_base = self.strip_fluctuation(syst)
+            syst_base = self.strip_year(syst_base)
+            corr_keys = []
+            for p_yr,s_yr in zip(self.YEARS,self.SYST_YEARS):
+                if p_yr == proc_year:
+                    # We never add self to self
+                    continue
+                if syst_base in self.syst_year_corr and s_yr in self.syst_year_corr[syst_base] and syst_year in self.syst_year_corr[syst_base][s_yr]:
+                    # The systematic for this year needs to be correlated
+                    syst_key = syst.replace(syst_year,s_yr)
+                    already_correlated.add(syst_key)
                 else:
-                    nom_key.append(sp_key[i])
-            nom_key = tuple(nom_key)
-            if syst == "nominal":
-                continue
-            if not self.is_per_year_systematic(syst):
-                continue
-            # Remember, h_nom only has 1 "systematic" bin called "nominal", which is the sum of the
-            #   the OTHER proc_years, e.g. ttH_UL16 nominal is really ttH_UL16APV+ttH_UL17+ttH_UL18
-            #   so when we add it to the per-year systematic, it has the proper decorrelated yield
-            nom_arr = h_nom._sumw[nom_key]
-            h._sumw[sp_key] += nom_arr
+                    # The systematic for this year needs to be uncorrelated
+                    syst_key = "nominal"
+                proc_key = proc.replace(proc_year,p_yr)
+
+                # Construct the sparse key
+                corr_key = [x for x in sp_key]
+                corr_key[proc_idx] = StringBin(proc_key)
+                corr_key[syst_idx] = StringBin(syst_key)
+                corr_key = tuple(corr_key)
+                corr_keys.append(corr_key)
+
+            corr_str = []
+            for k in corr_keys:
+                s = tuple([x.name for x in k])
+                corr_str.append(str(s))
+                h._sumw[sp_key] += h._sumw[k]
+            corr_str = " + ".join(corr_str)
+            sp_tup = tuple([x.name for x in sp_key])
+            if self.verbose:
+                print(f"{sp_tup} -- {corr_str}")
 
         # Finally sum over years, since the per-year systematics only appear in a corresponding
         #   "sample year", the grouping for those systematics just adds itself with nothing from
@@ -549,6 +611,12 @@ class DatacardMaker():
                 grp_map[p] = []
             grp_map[p].append(x.name)
         h = h.group("sample",Cat("sample","sample"),grp_map)
+
+        # Remove the categories which were already correlated together so as to not double count
+        if already_correlated:
+            for k in already_correlated:
+                if self.verbose: print(f"Removing: {k}")
+            h = h.remove(list(already_correlated),"systematic")
 
         return h
 
