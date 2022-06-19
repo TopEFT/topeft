@@ -83,7 +83,7 @@ if executor == "work_queue":
         'stats_log': 'stats.log',
 
         'environment_file': remote_environment.get_environment(),
-        'extra_input_files': ['extreme_events'],
+        'extra_input_files': ['extreme_events.py'],
 
         # use mid-range compression for chunks results. 9 is the default for work
         # queue in coffea. Valid values are 0 (minimum compression, less memory
