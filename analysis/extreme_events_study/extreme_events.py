@@ -23,33 +23,6 @@ from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
 
 
-# Takes strings as inputs, constructs a string for the full channel name
-# Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
-    # chan_str should look something like "3l_p_offZ_1b", NOTE: This function assumes nlep comes first
-    # njet_str should look something like "atleast_5j",   NOTE: This function assumes njets comes last
-    # flav_str should look something like "emm"
-def construct_cat_name(chan_str,njet_str=None,flav_str=None):
-
-    # Get the component strings
-    nlep_str = chan_str.split("_")[0] # Assumes n leps comes first in the str
-    chan_str = "_".join(chan_str.split("_")[1:]) # The rest of the channel name is everything that comes after nlep
-    if chan_str == "": chan_str = None # So that we properly skip this in the for loop below
-    if flav_str is not None:
-        flav_str = flav_str
-    if njet_str is not None:
-        njet_str = njet_str[-2:] # Assumes number of n jets comes at the end of the string
-        if "j" not in njet_str:
-            # The njet string should really have a "j" in it
-            raise Exception(f"Something when wrong while trying to consturct channel name, is \"{njet_str}\" an njet string?")
-
-    # Put the component strings into the channel name
-    ret_str = nlep_str
-    for component in [flav_str,chan_str,njet_str]:
-        if component is None: continue
-        ret_str = "_".join([ret_str,component])
-    return ret_str
-
-
 class AnalysisProcessor(processor.ProcessorABC):
 
     def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32):
@@ -102,32 +75,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau  = events.Tau
         jets = events.Jet
 
-        # An array of lenght events that is just 1 for each event
-        # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
-        events.nom = ak.ones_like(events.MET.pt)
-
         e["idEmu"] = ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
         e["conept"] = coneptElec(e.pt, e.mvaTTHUL, e.jetRelIso)
         mu["conept"] = coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
         e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+
         if not isData:
             e["gen_pdgId"] = ak.fill_none(e.matched_gen.pdgId, 0)
             mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
-
-        # Get the lumi mask for data
-        if year == "2016" or year == "2016APV":
-            golden_json_path = topcoffea_path("data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
-        elif year == "2017":
-            golden_json_path = topcoffea_path("data/goldenJsons/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt")
-        elif year == "2018":
-            golden_json_path = topcoffea_path("data/goldenJsons/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt")
-        else:
-            raise ValueError(f"Error: Unknown year \"{year}\".")
-        lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
-
-        # Initialize the out object
-        hout = self.accumulator.identity()
 
         ################### Electron selection ####################
 
@@ -173,14 +129,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         #################### Jets ####################
 
         # Jet cleaning, before any jet selection
-        #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
         vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
         tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
         cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
         # Selecting jets and cleaning them
         jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
-
         cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
         goodJets = cleanedJets[cleanedJets.isGood]
 
@@ -206,11 +160,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError(f"Error: Unknown year \"{year}\".")
 
         isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
-        isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
         nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
         isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
-        isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
         nbtagsm = ak.num(goodJets[isBtagJetsMedium])
 
 
@@ -234,6 +186,17 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### Masks we need for the selection ##########
 
+        # Get the lumi mask for data
+        if year == "2016" or year == "2016APV":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
+        elif year == "2017":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt")
+        elif year == "2018":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt")
+        else:
+            raise ValueError(f"Error: Unknown year \"{year}\".")
+        lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
+
         # Get mask for events that have two sf os leps close to z peak
         sfosz_3l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
 
@@ -254,36 +217,25 @@ class AnalysisProcessor(processor.ProcessorABC):
         charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
         charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
-        ######### Store boolean masks with PackedSelection ##########
-
+        # Store the masks for each of the 11 signal region categories using the PackedSelection object
         selections = PackedSelection(dtype='uint64')
-
-        # 2lss selection (drained of 4 top)
-        selections.add("2lss_p_2b", (events.is2l & events.is2l_SR & chargel0_p & charge2l_1 & bmask_atleast1med_atleast2loose & bmask_atmost2med  & (njets>=4) & pass_trg & lumi_mask ))
-        selections.add("2lss_m_2b", (events.is2l & events.is2l_SR & chargel0_m & charge2l_1 & bmask_atleast1med_atleast2loose & bmask_atmost2med  & (njets>=4) & pass_trg & lumi_mask ))
-        selections.add("2lss_p_3b", (events.is2l & events.is2l_SR & chargel0_p & charge2l_1 & bmask_atleast1med_atleast2loose & bmask_atleast3med & (njets>=4) & pass_trg & lumi_mask ))
-        selections.add("2lss_m_3b", (events.is2l & events.is2l_SR & chargel0_m & charge2l_1 & bmask_atleast1med_atleast2loose & bmask_atleast3med & (njets>=4) & pass_trg & lumi_mask ))
+        # 2lss selection
+        selections.add("2lss_p_2b", (events.is2l & events.is2l_SR & chargel0_p & charge2l_1 & bmask_atleast1med_atleast2loose & bmask_atmost2med  & (njets>=4) & pass_trg))
+        selections.add("2lss_m_2b", (events.is2l & events.is2l_SR & chargel0_m & charge2l_1 & bmask_atleast1med_atleast2loose & bmask_atmost2med  & (njets>=4) & pass_trg))
+        selections.add("2lss_p_3b", (events.is2l & events.is2l_SR & chargel0_p & charge2l_1 & bmask_atleast1med_atleast2loose & bmask_atleast3med & (njets>=4) & pass_trg))
+        selections.add("2lss_m_3b", (events.is2l & events.is2l_SR & chargel0_m & charge2l_1 & bmask_atleast1med_atleast2loose & bmask_atleast3med & (njets>=4) & pass_trg))
         # 3l selection
-        selections.add("3l_p_offZ_1b", (events.is3l & events.is3l_SR & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & (njets>=2) & pass_trg & lumi_mask))
-        selections.add("3l_m_offZ_1b", (events.is3l & events.is3l_SR & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & (njets>=2) & pass_trg & lumi_mask))
-        selections.add("3l_p_offZ_2b", (events.is3l & events.is3l_SR & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & (njets>=2) & pass_trg & lumi_mask))
-        selections.add("3l_m_offZ_2b", (events.is3l & events.is3l_SR & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & (njets>=2) & pass_trg & lumi_mask))
-        selections.add("3l_onZ_1b",    (events.is3l & events.is3l_SR &               sfosz_3l_mask & bmask_exactly1med & (njets>=2) & pass_trg & lumi_mask))
-        selections.add("3l_onZ_2b",    (events.is3l & events.is3l_SR &               sfosz_3l_mask & bmask_atleast2med & (njets>=2) & pass_trg & lumi_mask))
+        selections.add("3l_p_offZ_1b", (events.is3l & events.is3l_SR & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & (njets>=2) & pass_trg))
+        selections.add("3l_m_offZ_1b", (events.is3l & events.is3l_SR & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & (njets>=2) & pass_trg))
+        selections.add("3l_p_offZ_2b", (events.is3l & events.is3l_SR & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & (njets>=2) & pass_trg))
+        selections.add("3l_m_offZ_2b", (events.is3l & events.is3l_SR & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & (njets>=2) & pass_trg))
+        selections.add("3l_onZ_1b",    (events.is3l & events.is3l_SR &               sfosz_3l_mask & bmask_exactly1med & (njets>=2) & pass_trg))
+        selections.add("3l_onZ_2b",    (events.is3l & events.is3l_SR &               sfosz_3l_mask & bmask_atleast2med & (njets>=2) & pass_trg))
         # 4l selection
-        selections.add("4l", (events.is4l & events.is4l_SR & bmask_atleast1med_atleast2loose & (njets>=2) & pass_trg & lumi_mask))
+        selections.add("4l", (events.is4l & events.is4l_SR & bmask_atleast1med_atleast2loose & (njets>=2) & pass_trg))
 
-        ######### Variables for the dense axes of the hists ##########
 
-        # Collection of all objects (leptons and jets)
-        l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
-
-        # ST (but "st" is too hard to search in the code, so call it ljptsum)
-        ljptsum = ak.sum(l_j_collection.pt,axis=-1)
-
-        # Variables we will loop over when filling hists
-        varnames = {}
-        varnames["ljptsum"] = ljptsum
+        ######### Finding extreme objects ##########
 
         sr_category_lst = [
             "2lss_m_2b",
@@ -298,6 +250,50 @@ class AnalysisProcessor(processor.ProcessorABC):
             "3l_m_offZ_2b",
             "4l",
         ]
+
+        # Construct a mask for events that passes the selection for any of our signal regions
+        sr_event_mask = selections.any(*sr_category_lst)
+        if isData: sr_event_mask = (sr_event_mask & lumi_mask)
+
+        # Get an array of objects we're interested in, e.g. number of tight leptons
+        # Note that this array is still the same lengh as the number of events in the chunk
+        tight_lep_mask = ak.fill_none(l_fo_conept_sorted_padded.isTightLep,False)
+        tight_lep = l_fo_conept_sorted_padded[tight_lep_mask]
+
+        # Now throw out all events that do not pass the selection cuts
+        # What we're left with now should <= len(number of events)
+        tight_lep = tight_lep[sr_event_mask]
+
+        # Now find the number of tight leptons in each event, this array should look something like e.g. [3,2,2,4,2,3,2]
+        #   - In this example, this would mean 7 events in this chunk passed our event selection criteria
+        #   - For the first event that passed, there are 3 tight leptons in the event, for the second event that passed, there are 2 tight leptons in the event, etc.
+        nleps = ak.num(tight_lep)
+
+        # Next steps:
+        #   - Order the events by nleps (can use ak.argsort)
+        #   - Take the top ones (maybe top 5?) and put them into the output object
+        #   - Use a dataframe as the output object?
+        #   - Not sure what sort of info we can put into the dataframe, but would probably be useful to know e.g. run number, lumiblock, event number (events.run, events.luminosityBlock, events.event)
+        #   - Could also be interesting to store the flavor of the leptons (or check for e.g. max number of electrons or max number of mu instead of just max number of leptons)
+        #   - Then we could also do something similar for njets, number of b tagged jets, or other event quantities e.g. S_T, or invmass (i.e. find the events with the most extreme values of these variables and accumulate them as well)
+
+
+
+        ######### PLACEHOLDER Filling the histo ##########
+
+        # We probably don't want to use a histo for this processor
+        # But I'll leave the histo filling stuff here for now as a placeholder
+
+        # Collection of all objects (leptons and jets)
+        l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
+        ljptsum = ak.sum(l_j_collection.pt,axis=-1)
+
+        # Variables we will loop over when filling hists
+        varnames = {}
+        varnames["ljptsum"] = ljptsum
+
+        # Initialize the out object
+        hout = self.accumulator.identity()
 
         # Loop over the hists we want to fill
         for dense_axis_name, dense_axis_vals in varnames.items():
