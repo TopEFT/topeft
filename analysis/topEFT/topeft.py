@@ -280,7 +280,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ]
         wgt_correction_syst_lst = [
             "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
-            #"FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", "renormUp","renormDown","factUp","factDown", # Theory systs
+            "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", "renormUp","renormDown","factUp","factDown", # Theory systs
         ]
         data_syst_lst = [
             "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
