@@ -503,6 +503,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
       elif 'Bottom' in syst_var: mask = abs(cleanedJets.partonFlavour)==5
       elif 'Charm' in syst_var: mask = abs(cleanedJets.partonFlavour)==4
       elif 'Quark' in syst_var: mask = abs(cleanedJets.partonFlavour)<4
+      else: raise Exception(f'Unknown variation: {syst_var=}')
       if 'Up' in syst_var:
           cleanedJets[syst_var.replace('Up', '')].up = ak.fill_none(ak.mask(cleanedJets[syst_var.replace('Up', '')].up, mask), 1.)
           return cleanedJets[syst_var.replace('Up', '')].up
