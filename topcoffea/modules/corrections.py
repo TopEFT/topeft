@@ -467,7 +467,7 @@ def ApplyJetCorrections(year, corr_type):
   extJEC = lookup_tools.extractor()
   extJEC.add_weight_sets(["* * "+topcoffea_path('data/JER/%s_MC_SF_AK4PFchs.jersf.txt'%jer_tag),"* * "+topcoffea_path('data/JER/%s_MC_PtResolution_AK4PFchs.jr.txt'%jer_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L1FastJet_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L2Relative_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_UncertaintySources_AK4PFchs.junc.txt'%jec_tag)])
   # Note 2016APV files have corrections like BBEC1_2016 WITHOUT APV
-  jec_types = ["FlavorPureQuark", "FlavorPureCharm", "FlavorPureBottom", "SubTotalPileUp", "SubTotalRelative", "SubTotalPt", "SubTotalScale", "SubTotalAbsolute", "SubTotalMC"]
+  jec_types = ["FlavorPureGluon", "FlavorPureQuark", "FlavorPureCharm", "FlavorPureBottom", "SubTotalPileUp", "SubTotalRelative", "SubTotalPt", "SubTotalScale", "SubTotalAbsolute", "SubTotalMC"]
   jec_regroup = ["Summer19UL%s_MC_UncertaintySources_AK4PFchs_%s"%(jec_tag,jec_type) for jec_type in jec_types]
   jec_names = ["%s_MC_SF_AK4PFchs"%jer_tag,"%s_MC_PtResolution_AK4PFchs"%jer_tag,"Summer19UL%s_MC_L1FastJet_AK4PFchs"%jec_tag,"Summer19UL%s_MC_L2Relative_AK4PFchs"%jec_tag]
   jec_names.extend(jec_regroup)
