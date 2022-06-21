@@ -498,8 +498,8 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
   elif(syst_var == 'nominal'): return cleanedJets
   elif(syst_var in ['nominal','MuonESUp','MuonESDown']): return cleanedJets
   # Save `2016APV` as `2016APV` but look up `2016` corrections (no separate APV corrections available)
-  elif('Up' in syst_var and syst_var in cleanedJets.fields): return cleanedJets[syst_var.replace('Up', '')].up
-  elif('Down' in syst_var and syst_var in cleanedJets.fields): return cleanedJets[syst_var.replace('Down', '')].down
+  elif('Up' in syst_var and syst_var.replace('Up', '') in cleanedJets.fields): return cleanedJets[syst_var.replace('Up', '')].up
+  elif('Down' in syst_var and syst_var.replace('Down', '') in cleanedJets.fields): return cleanedJets[syst_var.replace('Down', '')].down
   else: raise Exception(f"Error: Unknown variation \"{syst_var}\".")
 
 ###### Muon Rochester corrections
