@@ -499,6 +499,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
   elif(syst_var in ['nominal','MuonESUp','MuonESDown']): return cleanedJets
   # Save `2016APV` as `2016APV` but look up `2016` corrections (no separate APV corrections available)
   elif('Flavor' in syst_var and 'Up' in syst_var and syst_var.replace('Up', '') in cleanedJets.fields or 'Down' in syst_var and syst_var.replace('Down', '') in cleanedJets.fields):
+      mask = ak.ones_like(cleanedJets.partonFlavour)
       if 'Gluon' in syst_var: mask = abs(cleanedJets.partonFlavour)==21
       elif 'Bottom' in syst_var: mask = abs(cleanedJets.partonFlavour)==5
       elif 'Charm' in syst_var: mask = abs(cleanedJets.partonFlavour)==4
