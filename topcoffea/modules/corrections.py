@@ -495,13 +495,11 @@ def ApplyJetCorrections(year, corr_type):
 def ApplyJetSystematics(year,cleanedJets,syst_var):
   if(syst_var == f'JER_{year}Up'): return cleanedJets.JER.up
   elif(syst_var == f'JER_{year}Down'): return cleanedJets.JER.down
-  elif(syst_var == 'JESUp'): return cleanedJets.JES_jes.up
-  elif(syst_var == 'JESDown'): return cleanedJets.JES_jes.down
   elif(syst_var == 'nominal'): return cleanedJets
   elif(syst_var in ['nominal','MuonESUp','MuonESDown']): return cleanedJets
   # Save `2016APV` as `2016APV` but look up `2016` corrections (no separate APV corrections available)
-  elif('Up' in syst_var and syst_var.replace('Up', '').replace('APV', '') in cleanedJets.fields): return cleanedJets[syst_var.replace('Up', '').replace('APV', '')].up
-  elif('Down' in syst_var and syst_var.replace('Down', '').replace('APV', '') in cleanedJets.fields): return cleanedJets[syst_var.replace('Down', '').replace('APV', '')].down
+  elif('Up' in syst_var and syst_var in cleanedJets.fields): return cleanedJets[syst_var.replace('Up', '')].up
+  elif('Down' in syst_var and syst_var in cleanedJets.fields): return cleanedJets[syst_var.replace('Down', '')].down
   else: raise Exception(f"Error: Unknown variation \"{syst_var}\".")
 
 ###### Muon Rochester corrections
