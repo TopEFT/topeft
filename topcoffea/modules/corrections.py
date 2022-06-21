@@ -509,7 +509,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
           cleanedJets[syst_var.replace('Up', '')].up = ak.fill_none(ak.mask(cleanedJets[syst_var.replace('Up', '')].up, mask), 1.)
           return cleanedJets[syst_var.replace('Up', '')].up
       if 'Down' in syst_var:
-          cleanedJets[syst_var.replace('Down', '')].Down = ak.fill_none(ak.mask(cleanedJets[syst_var.replace('Down', '')].Down, mask), 1.)
+          cleanedJets[syst_var.replace('Down', '')].down = ak.fill_none(ak.mask(cleanedJets[syst_var.replace('Down', '')].down, mask), 1.)
           return cleanedJets[syst_var.replace('Down', '')].down
   elif('Up' in syst_var and syst_var.replace('Up', '') in cleanedJets.fields): return cleanedJets[syst_var.replace('Up', '')].up
   elif('Down' in syst_var and syst_var.replace('Down', '') in cleanedJets.fields): return cleanedJets[syst_var.replace('Down', '')].down
