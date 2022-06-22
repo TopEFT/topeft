@@ -30,7 +30,7 @@ class DatacardMaker():
         with open(rateJson) as jf:
             rate = json.load(jf)
         self.syst_special = rate['rate_uncertainties'] # Strings b/c combine needs the `/` to process asymmetric errors
-        self.syst_scale = rate['jet_scale']
+        self.syst_scale = rate['diboson_njets']
         # (Un)correlated systematics
         # {'proc': {'syst': name, 'type': name} will assign all procs a special name for the give systematics
         # e.g. {'ttH': {'pdf_scale': 'gg', 'qcd_scale': 'ttH'}} will add `_gg` to the ttH for the pdf scale and `_ttH` for the qcd scale (names correspond to `self.syst_correlated`)
@@ -224,7 +224,7 @@ class DatacardMaker():
                             nyear = ulyear.findall(syst)[0][2:]
                             # Only processes if syst year matches sample year (e.g. `btagSFbc_2017Up` and `nonpromptUL17`
                             if syear != nyear: continue
-                        if histo.values() == {} and 'jet_scale' not in syst:
+                        if histo.values() == {} and 'diboson_njets' not in syst:
                             print(f'Warning: bin {name}{cat}_{syst}{self.get_correlation_name(name, syst)} do not exist. Could just be a missing sample!')
                             continue
                         fout[name+cat+'_'+syst+self.get_correlation_name(name, syst)] = histo.to_hist()
@@ -482,7 +482,7 @@ class DatacardMaker():
                     proc = process.split('_')
                     if proc[0] in self.rename: proc[0] = self.rename[proc[0]]
                     proc = '_'.join(proc) + '_' + syst
-                    if 'jet_scale' not in syst or ('jet_scale' in syst and any((self.rename.get(p, p) in proc for p in self.syst_scale))): # Prevent others from getting `jet_scale` of 0.0
+                    if 'diboson_njets' not in syst or ('diboson_njets' in syst and any((self.rename.get(p, p) in proc for p in self.syst_scale))): # Prevent others from getting `diboson_njets` of 0.0
                         if any((proc in l.GetName() for l in fout.GetListOfKeys())): # Look for Up/Down (only replacing Down because of the continue a few lines down
                             h_sys.Add(fout.Get(proc+';1'))
                             fout.Delete(proc+';1')
@@ -492,7 +492,7 @@ class DatacardMaker():
 
                     if 'Down' in syst: continue # The datacard only stores the systematic name, and combine tacks on Up/Down later
                     syst = syst.replace('Up', '') # Remove 'Up' to get just the systematic name
-                    if 'jet_scale' not in syst or ('jet_scale' in syst and any((self.rename.get(p, p) in proc for p in self.syst_scale))): # Prevent others from getting `jet_scale` of 0.0
+                    if 'diboson_njets' not in syst or ('diboson_njets' in syst and any((self.rename.get(p, p) in proc for p in self.syst_scale))): # Prevent others from getting `diboson_njets` of 0.0
                         if syst in systMap:
                             systMap[syst].update({proc: h_sys.Integral()})
                         else:
@@ -789,7 +789,7 @@ class DatacardMaker():
         json.dump(selectedWCsForProc, selectedWCsFile)
         selectedWCsFile.close()
 
-        # Compute `jet_scale` uncertainties
+        # Compute `diboson_njets` uncertainties
         if do_nuisance:
             for loop_histo in fout.GetListOfKeys():
                 loop_name = loop_histo.GetName()
@@ -809,10 +809,10 @@ class DatacardMaker():
                             proc = loop_name.split('_')
                             proc[0] = self.rename.get(proc[0], proc[0])
                             proc = '_'.join(proc)
-                            if 'jet_scale' in self.syst_special:
-                                systMap['jet_scale_flat_rate'][proc] = (syst_val-1) * loop_histo.Integral()
+                            if 'diboson_njets' in self.syst_special:
+                                systMap['diboson_njets_flat_rate'][proc] = (syst_val-1) * loop_histo.Integral()
                             else:
-                                systMap['jet_scale_flat_rate'] = {proc: (syst_val-1) * loop_histo.Integral()}
+                                systMap['diboson_njets_flat_rate'] = {proc: (syst_val-1) * loop_histo.Integral()}
                     else:
                         lep_bin = channel.split('_')[0].split('l')[0] + 'l'
                         bins = self.analysis_bins['njets'][lep_bin]
@@ -835,26 +835,26 @@ class DatacardMaker():
                             # Down is bin content - shift or 0 if negative
                             val = val - shift if val - shift > 0 else 0
                             h_syst_down.SetBinContent(b, val)
-                        h_syst_up.SetName(loop_name+'_jet_scaleUp')
-                        h_syst_up.SetTitle(loop_name+'_jet_scaleUp')
-                        h_syst_down.SetName(loop_name+'_jet_scaleDown')
-                        h_syst_down.SetTitle(loop_name+'_jet_scaleDown')
+                        h_syst_up.SetName(loop_name+'_diboson_njetsUp')
+                        h_syst_up.SetTitle(loop_name+'_diboson_njetsUp')
+                        h_syst_down.SetName(loop_name+'_diboson_njetsDown')
+                        h_syst_down.SetTitle(loop_name+'_diboson_njetsDown')
                         h_syst_up.Write()
                         h_syst_down.Write()
                         proc = loop_name.split('_')
                         proc[0] = self.rename.get(proc[0], proc[0])
                         proc = '_'.join(proc)
-                        if 'jet_scale' in self.syst_special:
-                            systMap['jet_scale'][proc] = (syst_val-1) * loop_histo.Integral()
+                        if 'diboson_njets' in self.syst_special:
+                            systMap['diboson_njets'][proc] = (syst_val-1) * loop_histo.Integral()
                         else:
-                            systMap['jet_scale'] = {proc: (syst_val-1) * loop_histo.Integral()}
+                            systMap['diboson_njets'] = {proc: (syst_val-1) * loop_histo.Integral()}
             # Correct for `Diboson` rate
-            if 'jet_scale_flat_rate' in systMap:
+            if 'diboson_njets_flat_rate' in systMap:
                 diboson = allyields['Diboson_sm'] # Hard coding for `Diboson` for now
-                diboson_unc = systMap['jet_scale_flat_rate']['Diboson_sm']
+                diboson_unc = systMap['diboson_njets_flat_rate']['Diboson_sm']
                 diboson_rate_up = (diboson + diboson_unc) / diboson
                 diboson_rate_down = max((diboson - diboson_unc) / diboson, 0.001)
-                systMap['jet_scale_flat_rate']['Diboson_sm'] = str(round(diboson_rate_down, 4)) + '/' + str(round(diboson_rate_up, 4))
+                systMap['diboson_njets_flat_rate']['Diboson_sm'] = str(round(diboson_rate_down, 4)) + '/' + str(round(diboson_rate_up, 4))
 
             # Missing parton part
             missing_parton = [k for k in allyields if 'tllq' in k or 'tHq' in k and 'Up' not in k and 'Down' not in k]
