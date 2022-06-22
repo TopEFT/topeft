@@ -42,6 +42,7 @@ packages_json_template = string.Template('''
             "conda",
             "conda-pack",
             "dill",
+	    "uproot=4.2.3",
             "xrootd"
         ]
     },

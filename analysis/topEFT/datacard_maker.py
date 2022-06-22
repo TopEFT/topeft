@@ -15,7 +15,7 @@ from ROOT import TFile, TH1D, TH2D,nullptr
 
 class DatacardMaker():
 
-    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False, build_var='ptbl'):
+    def __init__(self, infile='', lumiJson='topcoffea/json/lumi.json', do_nuisance=False, wcs=[], single_year='', do_sm=False, do_mc_stat=False, build_var='ptbl'):
         self.hists = {}
         self.rename = {'tZq': 'tllq', 'tllq_privateUL17': 'tllq', 'ttZ': 'ttll', 'ttW': 'ttlnu'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
         self.rename = {**self.rename, **{'ttH_centralUL17': 'ttH', 'ttH_centralUL16': 'ttH', 'ttH_centralUL18': 'ttH', 'ttHJetToNonbb_M125_centralUL16': 'ttH', 'ttHJetToNonbb_M125_APV_centralUL16': 'ttH', 'ttW_centralUL17': 'ttlnu', 'ttZ_centralUL17': 'ttll', 'tZq_centralUL17': 'tllq', 'ttH_centralUL17': 'ttH', 'ttW_centralUL18': 'ttlnu', 'ttZ_centralUL18': 'ttll', 'tZq_centralUL18': 'tllq', 'ttH_centralUL18': 'ttH'}}
@@ -48,6 +48,7 @@ class DatacardMaker():
         if len(self.coeffs) > 0: print(f'Using the subset {self.coeffs}')
         self.year = single_year
         self.do_sm = do_sm
+        self.do_mc_stat = do_mc_stat
         self.build_var = build_var
         self.unblind = False
 
@@ -641,6 +642,10 @@ class DatacardMaker():
                        processSyst(name, channel, systMap, d_hists, fout, cat)
                     else:
                        processSyst(proc+'_sm', channel, systMap, d_hists, fout, cat)
+                if p in self.signal:
+                    for bin in range(1, h_sm.GetNbinsX()+1):
+                        h_sm.SetBinError(bin,0)
+
                 h_sm.SetDirectory(fout)
                 name = name.split('_')
                 if name[0] in self.rename: name[0] = self.rename[name[0]]
@@ -712,6 +717,8 @@ class DatacardMaker():
                     iproc[name] = signalcount
                     allyields[name] = h_lin.Integral()
                     d_sigs[name] = h_lin
+                for bin in range(1, h_lin.GetNbinsX()+1):
+                    h_lin.SetBinError(bin, 0)
                 h_lin.SetDirectory(fout)
                 h_lin.Write()
                 if allyields[name] < 0:
@@ -738,6 +745,9 @@ class DatacardMaker():
                     iproc[name] = signalcount
                     allyields[name] = h_quad.Integral()
                     d_sigs[name] = h_quad
+
+                for bin in range(1, h_quad.GetNbinsX()+1):
+                    h_quad.SetBinError(bin, 0)
                 h_quad.SetDirectory(fout)
                 h_quad.Write()
                 if allyields[name] < 0:
@@ -765,6 +775,9 @@ class DatacardMaker():
                         iproc[name] = signalcount
                         allyields[name] = h_mix.Integral()
                         d_sigs[name] = h_mix
+                    for bin in range(1, h_mix.GetNbinsX()+1):
+                        h_mix.SetBinError(bin, 0)
+
                     h_mix.SetDirectory(fout)
                     h_mix.Write()
                     allyields[name] = h_mix.Integral()
@@ -930,7 +943,8 @@ class DatacardMaker():
                     datacard.write(('%s %5s' % (npatt % syst.replace('_flat_rate',''),'lnN')) + " ".join([kpatt % systEffRate[p]  for p in procs if p in systEffRate]) +"\n")
                 else:
                     datacard.write(('%s %5s' % (npatt % syst,'shape')) + " ".join([kpatt % systEff[p]  for p in procs if p in systEff]) +"\n")
-        
+        if self.do_mc_stat:
+            datacard.write('* autoMCStats 10\n')
         fout.Close()
 
     def buildWCString(self, wc=''):
@@ -975,7 +989,7 @@ class DatacardMaker():
             raise Exception(f"Error: the WCs \"{wc}\" are specified in an unknown format")
         self.wcs     = wcpt
         return wcpt
-    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_sm, var_lst, unblide=False):
+    def condor_job(self, pklfile, njobs, wcs, do_nuisance, do_mc_stat, do_sm, var_lst, unblide=False):
         os.system('mkdir -p %s/condor' % os.getcwd())
         os.system('mkdir -p %s/condor/log' % os.getcwd())
         target = '%s/condor_submit.sh' % os.getcwd()
@@ -989,6 +1003,7 @@ class DatacardMaker():
         args = []
         args.append('--var-lst ' + ' '.join(var_lst))
         if do_nuisance: args.append('--do-nuisance')
+        if do_mc_stat: args.append('--do-mc-stat')
         if len(wcs) > 0: args.append('--POI ' + ','.join(wcs))
         if do_sm: args.append('--do-sm')
         if unblind: args.append('--unblind')
@@ -1028,6 +1043,7 @@ if __name__ == '__main__':
     parser.add_argument('pklfile'           , nargs='?', default=''           , help = 'Pickle file with histograms')
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'     , help = 'Lumi json file')
     parser.add_argument('--do-nuisance',    action='store_true', help = 'Include nuisance parameters')
+    parser.add_argument('--do-mc-stat',    action='store_true', help = 'Add bin-by-bin statistical uncertainties with the autoMCstats option (for background)')
     parser.add_argument('--POI',            default=[],  help = 'List of WCs (comma separated)')
     parser.add_argument('--job',      '-j', default='-1'       , help = 'Job to run')
     parser.add_argument('--year',     '-y', default=''         , help = 'Run over single year')
@@ -1044,6 +1060,7 @@ if __name__ == '__main__':
     job = int(args.job)
     year = args.year
     do_sm = args.do_sm
+    do_mc_stat = args.do_mc_stat
     var_lst = args.var_lst
     unblind = args.unblind
     asimov = args.asimov
@@ -1075,7 +1092,7 @@ if __name__ == '__main__':
     # Check for `ptz` + any others (`ptz` is special and only fills the 3l on-shell Z categroy)
     if 'ptz' in differential_lst and len(differential_lst)>1: differential_lst.remove('ptz')
     build_var = differential_lst[0] if len(differential_lst)>0 else 'njets'
-    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm, build_var)
+    card = DatacardMaker(pklfile, lumiJson, do_nuisance, wcs, year, do_sm, do_mc_stat, build_var)
     card.read()
     card.buildWCString()
     if unblind:
@@ -1144,7 +1161,7 @@ if __name__ == '__main__':
 
     njobs = len(jobs)
     if job == -1:
-        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_sm, include_var_lst, unblind)
+        card.condor_job(pklfile, njobs, wcs, do_nuisance, do_mc_stat, do_sm, include_var_lst, unblind)
     elif job < njobs:
         d = jobs[job]
         card.analyzeChannel(**d)
