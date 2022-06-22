@@ -276,11 +276,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Define the lists of systematics we include
         obj_correction_syst_lst = [
             f'JER_{year}Up',f'JER_{year}Down', # Systs that affect the kinematics of objects
-            'JES_FlavorQCDUp', 'JES_RelativeBalUp', 'JES_HFUp', 'JES_BBEC1Up', 'JES_EC2Up', 'JES_AbsoluteUp', f'JES_BBEC1_{year}Up', f'JES_EC2_{year}Up', f'JES_Absolute_{year}Up', f'JES_HF_{year}Up', f'JES_RelativeSample_{year}Up','JES_FlavorQCDDown', 'JES_RelativeBalDown', 'JES_HFDown', 'JES_BBEC1Down', 'JES_EC2Down', 'JES_AbsoluteDown', f'JES_BBEC1_{year}Down', f'JES_EC2_{year}Down', f'JES_Absolute_{year}Down', f'JES_HF_{year}Down', f'JES_RelativeSample_{year}Down' # Systs that affect the kinematics of objects
+            'JES_FlavorQCDUp', 'JES_RelativeBalUp', 'JES_HFUp', 'JES_BBEC1Up', 'JES_EC2Up', 'JES_AbsoluteUp', f'JES_BBEC1_{year[0:4]}Up', f'JES_EC2_{year[0:4]}Up', f'JES_Absolute_{year[0:4]}Up', f'JES_HF_{year[0:4]}Up', f'JES_RelativeSample_{year[0:4]}Up','JES_FlavorQCDDown', 'JES_RelativeBalDown', 'JES_HFDown', 'JES_BBEC1Down', 'JES_EC2Down', 'JES_AbsoluteDown', f'JES_BBEC1_{year[0:4]}Down', f'JES_EC2_{year[0:4]}Down', f'JES_Absolute_{year[0:4]}Down', f'JES_HF_{year[0:4]}Down', f'JES_RelativeSample_{year[0:4]}Down' # Systs that affect the kinematics of objects
         ]
         wgt_correction_syst_lst = [
             "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
-            #"FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", "renormUp","renormDown","factUp","factDown", # Theory systs
+            "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", "renormUp","renormDown","factUp","factDown", # Theory systs
         ]
         data_syst_lst = [
             "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
