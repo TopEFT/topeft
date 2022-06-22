@@ -1033,7 +1033,7 @@ if __name__ == '__main__':
     parser.add_argument('--year',     '-y', default=''         , help = 'Run over single year')
     parser.add_argument('--do-sm',          action='store_true', help = 'Run over SM only')
     parser.add_argument('--var-lst',        default=[], action='extend', nargs='+', help = 'Specify a list of variables to make cards for.')
-    parser.add_argument('--unblind',        action='store_true', help = 'Run over SM only')
+    parser.add_argument('--unblind',        action='store_true', help = 'Run over data')
     parser.add_argument('--asimov',         action='store_true', help = 'Run over SM only')
 
     args = parser.parse_args()
