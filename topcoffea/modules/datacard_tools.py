@@ -375,8 +375,6 @@ class DatacardMaker():
                     to_remove.append(x.name)
             h = h.remove(to_remove,"sample")
 
-            h = prune_axis(h,"channel",["2lss_m_4j"])
-
             if not self.do_nuisance:
                 # Remove all shape systematics
                 h = prune_axis(h,"systematic",["nominal"])
