@@ -9,4 +9,3 @@ dependencies:
   - dill
   - xrootd
   - git
-  - uproot=4.2.3
