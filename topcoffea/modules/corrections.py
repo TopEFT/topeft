@@ -465,10 +465,10 @@ def ApplyJetCorrections(year, corr_type):
   elif year=='2018': jec_tag='18_V5'; jer_tag='Summer19UL18_JRV2'
   else: raise Exception(f"Error: Unknown year \"{year}\".")
   extJEC = lookup_tools.extractor()
-  extJEC.add_weight_sets(["* * "+topcoffea_path('data/JER/%s_MC_SF_AK4PFchs.jersf.txt'%jer_tag),"* * "+topcoffea_path('data/JER/%s_MC_PtResolution_AK4PFchs.jr.txt'%jer_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L1FastJet_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L2Relative_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/RegroupedV2_Summer19UL%s_MC_UncertaintySources_AK4PFchs.junc.txt'%jec_tag)])
-  # Note 2016APV files have corrections like BBEC1_2016 WITHOUT APV
-  jec_types = ['FlavorQCD', 'RelativeBal', 'HF', 'BBEC1', 'EC2', 'Absolute', f'BBEC1_{year[0:4]}', f'EC2_{year[0:4]}', f'Absolute_{year[0:4]}', f'HF_{year[0:4]}', f'RelativeSample_{year[0:4]}']
-  jec_regroup = ["RegroupedV2_Summer19UL%s_MC_UncertaintySources_AK4PFchs_%s"%(jec_tag,jec_type) for jec_type in jec_types]
+  extJEC.add_weight_sets(["* * "+topcoffea_path('data/JER/%s_MC_SF_AK4PFchs.jersf.txt'%jer_tag),"* * "+topcoffea_path('data/JER/%s_MC_PtResolution_AK4PFchs.jr.txt'%jer_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L1FastJet_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Summer19UL%s_MC_L2Relative_AK4PFchs.txt'%jec_tag),"* * "+topcoffea_path('data/JEC/Quad_Summer19UL%s_MC_UncertaintySources_AK4PFchs.junc.txt'%jec_tag)])
+  jec_types = ['FlavorQCD', 'BBEC1', 'Absolute', 'RelativeBal', 'RelativeSample']
+  jec_regroup = ["Quad_Summer19UL%s_MC_UncertaintySources_AK4PFchs_%s"%(jec_tag,jec_type) for jec_type in jec_types]
+  #jec_regroup = ["RegroupedV2_Summer19UL%s_MC_UncertaintySources_AK4PFchs_%s"%(jec_tag,jec_type) for jec_type in jec_types]
   jec_names = ["%s_MC_SF_AK4PFchs"%jer_tag,"%s_MC_PtResolution_AK4PFchs"%jer_tag,"Summer19UL%s_MC_L1FastJet_AK4PFchs"%jec_tag,"Summer19UL%s_MC_L2Relative_AK4PFchs"%jec_tag]
   jec_names.extend(jec_regroup)
   extJEC.finalize()
