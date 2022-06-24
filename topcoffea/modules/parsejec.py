@@ -54,8 +54,7 @@ for file in files:
                 for eta in jecs[jec]:
                     for pt in jecs[jec][eta]:
                         if eta in jecs_final[jes] and pt in jecs_final[jes][eta]:
-                            sign = np.nan_to_num(jecs_final[jes][eta][pt] / np.abs(jecs_final[jes][eta][pt]), 1)
-                            jecs_final[jes][eta][pt] = sign*np.sqrt(np.square(jecs_final[jes][eta][pt]) + np.square(jecs[jec][eta][pt]))
+                            jecs_final[jes][eta][pt] = np.sqrt(np.square(jecs_final[jes][eta][pt]) + np.square(jecs[jec][eta][pt]))
                         elif eta in jecs_final[jes]:
                             jecs_final[jes][eta].update({pt: np.array(jecs[jec][eta][pt])})
                         else:
