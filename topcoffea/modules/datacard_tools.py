@@ -155,7 +155,7 @@ class DatacardMaker():
 
     SYST_YEARS = ["2016","2016APV","2017","2018"]
 
-    FNAME_TEMPLATE = "ttx_multileptons-{cat}.{ext}"
+    FNAME_TEMPLATE = "ttx_multileptons-{cat}_{kmvar}.{ext}"
     # FNAME_TEMPLATE = "TESTING_ttx_multileptons-{cat}.{ext}"
 
     SIGNALS = set(["ttH","tllq","ttll","ttlnu","tHq","tttt"])
@@ -705,7 +705,7 @@ class DatacardMaker():
         if num_l == 2 or num_l == 4:
             num_b = 2
 
-        outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,ext="root")
+        outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="root")
 
         h = self.hists[km_dist]
         ch_hist = h.integrate("channel",[ch])
@@ -782,7 +782,7 @@ class DatacardMaker():
         left_width = len(line_break) + 2
         left_width = max(syst_width+len("shape")+1,left_width)
 
-        outf_card_name = self.FNAME_TEMPLATE.format(cat=ch,ext="txt")
+        outf_card_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="txt")
         print(f"Generating text file: {outf_card_name}")
         outf_card_name = os.path.join(self.out_dir,outf_card_name)
         with open(outf_card_name,"w") as f:
