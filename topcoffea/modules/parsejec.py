@@ -9,6 +9,7 @@ It loads flat JEC files and parses them into a dictionary as:
 The script then uses `jes_to_combine` to find all corrections which it should add in quadrature.
 Finanlly, it creates a new set of files (with `Quad` in the name instead of `RegroupedV2`) 
 and writes out the new corrections.
+'''
 
 
 import numpy as np
@@ -44,32 +45,6 @@ for file in files:
                         jecs[jec].update({(eta_low, eta_high): {name: [up,down]}})
                 else:
                     jecs[jec] = {(eta_low, eta_high): {name: [up,down]}}
-    '''
-    for jec in jecs:
-        for name,corr in jecs[jec].items():
-            if(corr[0] != corr[1]):
-                print(name,corr)
-    
-    # Use FlavorQCD as template (all have same nubmer of corrections)
-    jes_array = np.zeros(shape=(len(jecs.keys()), len(jecs['FlavorQCD'].keys()), 2))
-    for i,jec in enumerate(jecs.values()):
-        for j,corr in enumerate(jec.values()):
-            jes_array[i][j] = corr
-    
-    for jes in jes_to_combine:
-        collapse = [n for n,jec in enumerate(jecs) if jes in jec]
-        print(collapse)
-        print([jes_array.T[:,0:,].T[n-1] for n in collapse])
-    '''
-    
-    '''
-    for jes in jes_to_combine:
-        # Use FlavorQCD as template (all have same nubmer of corrections)
-        combined = np.zeros(len(jecs['FlavorQCD']))
-        for jec in jecs:
-            if jes in jec:
-                print(jecs[jec])
-    '''
     jecs_final = {}
     for jes in jes_to_combine:
         collapse = [(n,jec) for n,jec in enumerate(jecs) if jes in jec]
