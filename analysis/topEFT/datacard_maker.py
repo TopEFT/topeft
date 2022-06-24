@@ -38,7 +38,6 @@ class DatacardMaker():
         # List of systematics which require specific correlations
         # Any systematic _not_ found in this list is assumed to be fully correlated across all processes
         self.syst_correlated  = ['pdf_scale', 'qcd_scale']
-        self.syst_corr16 = ['JES_BBEC1',  'JES_EC2',  'JES_Absolute',  'JES_HF',  'JES_RelativeSample', 'FcloseEl_', 'FFcloseEl_', 'FFcloseMu_', 'FFcloseMu_']
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'TTTo2L2Nu', 'TTToSemiLeptonic', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         # Dictionary of njet bins
@@ -319,7 +318,6 @@ class DatacardMaker():
                         if yproc.split('UL')[0] not in str(key[0]): continue
                         if yproc == str(key[0]) or 'nominal' not in str(key[1]): continue
                         kyear = re.findall("\d\d(?:APV)?", str(key[0]))[0]
-                        if 'APV' in kyear and '16' in str(mkey[0]) and any([jes in str(mkey[1]) for jes in self.syst_corr16]): continue # APV JES already added to 2016
                         h._sumw[mkey] += h._sumw[key] * self.lumi['20'+kyear]/self.lumi['20'+pyear]
         # Scale each plot to the SM
         processed = []
