@@ -38,7 +38,7 @@ class DatacardMaker():
         # List of systematics which require specific correlations
         # Any systematic _not_ found in this list is assumed to be fully correlated across all processes
         self.syst_correlated  = ['pdf_scale', 'qcd_scale']
-        self.syst_corr16 = ['FFcloseMu_', 'FFcloseMu_']
+        self.syst_corr16 = ['FFcloseEl_', 'FFcloseMu_']
         self.ignore = ['DYJetsToLL', 'DY10to50', 'DY50', 'ST_antitop_t-channel', 'ST_top_s-channel', 'ST_top_t-channel', 'tbarW', 'TTJets', 'TTTo2L2Nu', 'TTToSemiLeptonic', 'tW', 'WJetsToLNu']
         self.skip_process_channels = {'nonprompt': '4l'} # E.g. 4l does not include non-prompt background
         # Dictionary of njet bins
@@ -338,6 +338,7 @@ class DatacardMaker():
             p = proc.split('_')[0].split('UL')[0]
             years = {year : self.lumi[year] for year in ul}
             if self.do_nuisance: fix_uncorrelated_systs(h, proc, years) # Before processed to handle all years
+            if self.do_nuisance: fix_uncorrelated_systs(h, proc, years) # Before processed to handle all years
             # Integrate out processes
             h_base = h.group('sample', hist.Cat('year', 'year'), ul)
             if h_base.values() == {}:
@@ -434,6 +435,10 @@ class DatacardMaker():
             ret_dict = {}
             loop_dict = deepcopy(in_dict) # Make sure we do not modify the input dict
             for loop_name,loop_histo in loop_dict.items():
+                # Skip 'APV' corr16 (already included in fix_uncorrelated_systs)
+                if any([corr_syst in loop_name for corr_syst in self.syst_corr16]) and 'APV' in loop_name:
+                    print('triggered!')
+                    continue
                 last   = loop_histo.GetBinContent(loop_histo.GetNbinsX())                # Last bin
                 over   = loop_histo.GetBinContent(loop_histo.GetNbinsX()+1)              # Overflow
                 e_last = loop_histo.GetBinError(loop_histo.GetNbinsX())                  # Last bin error
