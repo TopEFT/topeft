@@ -338,7 +338,6 @@ class DatacardMaker():
             p = proc.split('_')[0].split('UL')[0]
             years = {year : self.lumi[year] for year in ul}
             if self.do_nuisance: fix_uncorrelated_systs(h, proc, years) # Before processed to handle all years
-            if self.do_nuisance: fix_uncorrelated_systs(h, proc, years) # Before processed to handle all years
             # Integrate out processes
             h_base = h.group('sample', hist.Cat('year', 'year'), ul)
             if h_base.values() == {}:
