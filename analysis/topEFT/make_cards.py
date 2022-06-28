@@ -71,6 +71,12 @@ def main():
         # Use a pre-generated selectionWCs.txt file
         with open(use_selected) as f:
             selected_wcs = json.load(f)
+        # This is needed since when we load WCs from a file, the background processes aren't included
+        for km_dist in dists:
+            all_procs = dc.processes(km_dist)
+            for p in all_procs:
+                if not p in selected_wcs:
+                    selected_wcs[p] = []
         print(f"Loading WCs from {use_selected}")
         for p,wcs in selected_wcs.items():
             print(f"\t{p}: {wcs}")
@@ -83,7 +89,7 @@ def main():
             if select_only and ch_lst:
                 print(f"Channels to process: {matched_chs}")
             dist_wcs = dc.get_selected_wcs(km_dist,matched_chs)
-            # TODO: This could be made a lot more elegant, but for is a quick and dirty way of making it work
+            # TODO: This could be made a lot more elegant, but for now is a quick and dirty way of making it work
             for p,wcs in dist_wcs.items():
                 if not p in selected_wcs:
                     selected_wcs[p] = []

@@ -37,7 +37,8 @@ python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${DIST} --select-only
 # Split the processing up into separate distinct groups of channels
 nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "2lss_p_.*" "2lss_m_.*" >& out_2l.log &
 nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "2lss_4t_.*" >& out_2l_4t.log &
-nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "3l_onZ_.*" >& out_3l_onZ.log &
+nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "3l_onZ_1b_.*" >& out_3l_onZ_1b.log &
+nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "3l_onZ_2b_.*" >& out_3l_onZ_2b.log &
 nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "3l_p_offZ_.*" >& out_3l_p_offZ.log &
 nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "3l_m_offZ_.*" >& out_3l_m_offZ.log &
 nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "4l_.*" >& out_4l.log &

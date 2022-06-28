@@ -415,6 +415,9 @@ class DatacardMaker():
     def channels(self,km_dist):
         return [x.name for x in self.hists[km_dist].identifiers("channel")]
 
+    def processes(self,km_dist):
+        return [x.name for x in self.hists[km_dist].identifiers("sample")]
+
     # TODO: Can be a static member function
     def load_systematics(self,rs_fpath,mp_fpath):
         """
