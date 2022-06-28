@@ -12,7 +12,7 @@ fi
 # INF="/scratch365/awightma/datacards_TOP-22-006/may26_fullRun2_withSys_anatest10_np.pkl.gz"
 INF=${1}
 OUT_DIR=${2}
-DIST="lj0pt"
+DIST="lj0pt ptz"
 
 if [ -z ${OUT_DIR} ]; then
     if [ ! -d "/scratch365/${USER}" ]; then
@@ -31,10 +31,13 @@ mkdir -p ${OUT_DIR}
 # IGNORE="tttt" # 5sgnl_5bkgd
 # IGNORE="tttt ttlnuJet tllq tHq ttHJet TTGamma WWW WWW_4F WWZ_4F WWZ WZZ ZZZ flips nonprompt" # 1sgnl_1bkgd
 
+# Generate the selectedWCs file
+python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${DIST} --select-only
+
 # Split the processing up into separate distinct groups of channels
-nohup python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${DIST} --do-nuisance --ch-lst "2lss_p_.*" "2lss_m_.*" >& out_2l.log &
-nohup python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${DIST} --do-nuisance --ch-lst "2lss_4t_.*" >& out_2l_4t.log &
-nohup python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${DIST} --do-nuisance --ch-lst "3l_onZ_.*" >& out_3l_onZ.log &
-nohup python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${DIST} --do-nuisance --ch-lst "3l_p_offZ_.*" >& out_3l_p_offZ.log &
-nohup python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${DIST} --do-nuisance --ch-lst "3l_m_offZ_.*" >& out_3l_m_offZ.log &
-nohup python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${DIST} --do-nuisance --ch-lst "4l_.*" >& out_4l.log &
+nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "2lss_p_.*" "2lss_m_.*" >& out_2l.log &
+nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "2lss_4t_.*" >& out_2l_4t.log &
+nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "3l_onZ_.*" >& out_3l_onZ.log &
+nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "3l_p_offZ_.*" >& out_3l_p_offZ.log &
+nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "3l_m_offZ_.*" >& out_3l_m_offZ.log &
+nohup python make_cards.py ${INF} -d ${OUT_DIR} --use-selected "${OUT_DIR}/selectedWCs.txt" --var-lst ${DIST} --do-nuisance --ch-lst "4l_.*" >& out_4l.log &

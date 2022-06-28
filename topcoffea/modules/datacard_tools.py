@@ -618,7 +618,7 @@ class DatacardMaker():
 
         return h
 
-    def get_selected_wcs(self,km_dist):
+    def get_selected_wcs(self,km_dist,ch_lst=[]):
         """
             For each process, iterates over every channel and every bin checking the EFT parameterization
             coefficients for if they have a significant impact or not relative to the SM contribution. If
@@ -627,6 +627,11 @@ class DatacardMaker():
         """
         tic = time.time()
         h = self.hists[km_dist].integrate("systematic",["nominal"])
+        if ch_lst:
+            # Only select from a subset of channels
+            if self.verbose:
+                print(f"Selecting WCs from subset of channels: {ch_lst}")
+            h = prune_axis(h,"channel",ch_lst)
 
         procs = [x.name for x in h.identifiers("sample")]
         selected_wcs = {p: set() for p in procs}

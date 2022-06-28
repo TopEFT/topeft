@@ -21,6 +21,8 @@ def main():
     parser.add_argument("--do-nuisance",action="store_true",help="Include nuisance parameters")
     parser.add_argument("--unblind",action="store_true",help="If set, use real data, otherwise use asimov data")
     parser.add_argument("--verbose","-v",action="store_true",help="Set to verbose output")
+    parser.add_argument("--select-only",action="store_true",help="Only run the WC selection step")
+    parser.add_argument("--use-selected",default="",help="Load selected process+WC combs from a file. Skips doing the normal selection step.")
 
     args = parser.parse_args()
     pkl_file   = args.pkl_file
@@ -37,6 +39,9 @@ def main():
     do_nuis    = args.do_nuisance
     unblind    = args.unblind
     verbose    = args.verbose
+
+    select_only = args.select_only
+    use_selected = args.use_selected
 
     if isinstance(wcs,str):
         wcs = wcs.split(",")
@@ -62,9 +67,30 @@ def main():
     dc = DatacardMaker(pkl_file,**kwargs)
 
     dists = var_lst if len(var_lst) else dc.hists.keys()
-    for km_dist in dists:
-        selected_wcs = dc.get_selected_wcs(km_dist)
-        with open(os.path.join(out_dir,f"selectedWCs-{km_dist}.txt"),"w") as f:
+    if use_selected:
+        # Use a pre-generated selectionWCs.txt file
+        with open(use_selected) as f:
+            selected_wcs = json.load(f)
+        print(f"Loading WCs from {use_selected}")
+        for p,wcs in selected_wcs.items():
+            print(f"\t{p}: {wcs}")
+    else:
+        # Generate the selectedWCs file based on ch-lst and var-lst
+        selected_wcs = {}
+        for km_dist in dists:
+            all_chs = dc.channels(km_dist)
+            matched_chs = regex_match(all_chs,ch_lst)
+            if select_only and ch_lst:
+                print(f"Channels to process: {matched_chs}")
+            dist_wcs = dc.get_selected_wcs(km_dist,matched_chs)
+            # TODO: This could be made a lot more elegant, but for is a quick and dirty way of making it work
+            for p,wcs in dist_wcs.items():
+                if not p in selected_wcs:
+                    selected_wcs[p] = []
+                for wc in wcs:
+                    if not wc in selected_wcs[p]:
+                        selected_wcs[p].append(wc)
+        with open(os.path.join(out_dir,f"selectedWCs.txt"),"w") as f:
             selected_wcs_for_json = {}
             for p,v in selected_wcs.items():
                 if not dc.is_signal(p):
@@ -72,6 +98,11 @@ def main():
                     continue
                 selected_wcs_for_json[p] = list(v)
             json.dump(selected_wcs_for_json,f)
+
+    if select_only:
+        return
+
+    for km_dist in dists:
         all_chs = dc.channels(km_dist)
         matched_chs = regex_match(all_chs,ch_lst)
         if ch_lst:
