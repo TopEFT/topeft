@@ -319,7 +319,6 @@ class DatacardMaker():
                         if yproc.split('UL')[0] not in str(key[0]): continue
                         if yproc == str(key[0]) or 'nominal' not in str(key[1]): continue
                         kyear = re.findall("\d\d(?:APV)?", str(key[0]))[0]
-                        if 'APV' in kyear and '16' in str(mkey[0]) and any([jes in str(mkey[1]) for jes in self.syst_corr16]): continue # APV JES already added to 2016
                         h._sumw[mkey] += h._sumw[key] * self.lumi['20'+kyear]/self.lumi['20'+pyear]
         # Scale each plot to the SM
         processed = []
@@ -434,10 +433,6 @@ class DatacardMaker():
             ret_dict = {}
             loop_dict = deepcopy(in_dict) # Make sure we do not modify the input dict
             for loop_name,loop_histo in loop_dict.items():
-                # Skip 'APV' corr16 (already included in fix_uncorrelated_systs)
-                if any([corr_syst in loop_name for corr_syst in self.syst_corr16]) and 'APV' in loop_name:
-                    print('triggered!')
-                    continue
                 last   = loop_histo.GetBinContent(loop_histo.GetNbinsX())                # Last bin
                 over   = loop_histo.GetBinContent(loop_histo.GetNbinsX()+1)              # Overflow
                 e_last = loop_histo.GetBinError(loop_histo.GetNbinsX())                  # Last bin error
@@ -446,7 +441,15 @@ class DatacardMaker():
                 loop_histo.SetBinContent(loop_histo.GetNbinsX()+1, 0.0)                  # Set overflow to 0
                 loop_histo.SetBinError(loop_histo.GetNbinsX(),(e_last**2+e_over**2)**.5) # Add overflow error in quadrature to last bin
                 loop_histo.SetBinError(loop_histo.GetNbinsX()+1,0.0)                     # Set overflow error to 0
-                ret_dict[loop_name] = loop_histo
+                if 'APV' in loop_name and any([jes in loop_name for jes in self.syst_corr16]): # APV JES already added to 2016
+                    # Already processed `2016` (Python will _always_ orders dictionaries the same, so if `2016` exists, it _always_ comes before `2016APV`)
+                    if loop_name.replace('APV', '') in ret_dict:
+                        # Compute shift due to APV
+                        loop_histo.Add(loop_histo, ret_dict[loop_name.replace('APV', '')], 1, -1)
+                        # Apply shift due to APV
+                        ret_dict[loop_name.replace('APV', '')].Add(loop_histo)
+                else:
+                    ret_dict[loop_name] = loop_histo
             return ret_dict
 
         def getHist(d_hists,name):
