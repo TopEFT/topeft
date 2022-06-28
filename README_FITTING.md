@@ -68,6 +68,7 @@ Now we can actually run combine to perform the fits.
 - Run `combineCards.py` to merge them all into one txt file. **DO NOT** merge multiple variables!
   - E.g. `njets` only: `combineCards.py ttx_multileptons-*{b,p,m}.txt > combinedcard.txt`
   - E.g. `ptbl` for all categories _but_ `3l off-shell Z` (using `HT` instead): `combineCards.py ttx_multileptons-2lss_*ptbl.txt ttx_multileptons-3l_onZ*ptbl.txt ttx_multileptons-3l_*_offZ_*ht.txt ttx_multileptons-4l_*ptbl.txt > combinedcard.txt`
+  - TOP-22-006 selection: `combineCards.py ttx_multileptons-{2,4}*lj0pt.txt ttx_multileptons-3l_{p,m}_offZ*lj0pt.txt ttx_multileptons-3l_onZ_2b_*ptz.txt ttx_multileptons-3l_onZ_1b_{4,5}j*ptz.txt ttx_multileptons-3l_onZ_1b_{2,3}j*lj0pt.txt`
 - NOTE: combine uses a lot of recursive function calls to create the workspace. When running with systematics, this can cause a segmentation fault. You must run `ulimit -s unlimited` once per session to avoid this.
 - Run the following command to generate the workspace file:
     ```
