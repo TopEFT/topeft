@@ -794,7 +794,7 @@ class DatacardMaker():
         print(f"Generating text file: {outf_card_name}")
         outf_card_name = os.path.join(self.out_dir,outf_card_name)
         with open(outf_card_name,"w") as f:
-            f.write(f"shapes *        * {outf_root_name} $PROCESS $PROCESS_$SYSTEMATIC\n")
+            f.write(f"shapes *        * {os.path.split(outf_root_name)[1]} $PROCESS $PROCESS_$SYSTEMATIC\n")
             f.write(line_break)
             f.write(f"bin         {bin_str}\n")
             f.write(f"observation {sum(data_obs):.{PRECISION}f}\n")
