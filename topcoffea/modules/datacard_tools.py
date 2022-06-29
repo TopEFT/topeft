@@ -910,6 +910,8 @@ class DatacardMaker():
 
             if self.do_mc_stat:
                 f.write("* autoMCStats 10\n")
+            else:
+                f.write("* autoMCStats -1\n")
         dt = time.time() - tic
         print(f"File Write Time: {dt:.2f} s")
         print(f"Total Hists Written: {num_h}")
