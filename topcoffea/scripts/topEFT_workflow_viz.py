@@ -4,25 +4,50 @@
 # Date: 5/26/2022
 # Program to parse topEFT task accumulation log file and produce visualization of task workflow
 
-# Libraries
-
+# Packages and definitions
 import os
 import sys
-import graphviz as gv
 import math
-from hurry.filesize import size
+
+# The graphviz package facilitates the creation and rendering of graph descriptions
+# in the DOT language of the Graphviz graph drawing software from Python.
+# Create a graph object, assemble the graph by adding nodes and edges,
+# and retrieve its DOT source code string. Save the source code to a file and
+# render it with the Graphviz installation of your system.
+try:
+    import graphviz as gv
+except ImportError:
+    print('graphviz is not installed. Please run the following command to install:')
+    print('pip install graphviz')
+
+# The hurry.filesize package is a simple Python library that can take a number of bytes and
+# returns a human-readable string with the size in it, in kilobytes (K), megabytes
+# (M), etc.
+try:
+    from hurry.filesize import size
+except ImportError:
+    print('hurry.filesize is not installed. Please run the following command to install:')
+    print('pip install hurry.filesize')
+
 
 # Functions
+def usage(status=0, prog=os.path.basename(__file__)):
+    print(f'Usage: {prog} [-o outfile] logfile')
+    print('''
+  -o  Specify the output file name, default name is <logfile>.pdf.
+''')
+    sys.exit(status)
 
-def parse(log_file):
+
+def parse(logfile):
     tasks = []
     max_cpu = 0
     max_mem = 0
     max_in  = 0
     max_out = 0
 
-    next(log_file) # Skip header
-    for task in log_file:
+    next(logfile) # Skip header
+    for task in logfile:
         task = task.strip().split(',')
         task_info = { # See tasks_accum_log
             'task_id'      : task[0],
@@ -47,10 +72,10 @@ def parse(log_file):
 
     return tasks, max_cpu, max_mem, max_out
 
+
 def make_graph(tasks, workflow, max_cpu, max_mem, max_out):
     # Create nodes and directed edges between processing and accumulation tasks
     for task in tasks:
-
         # Function node
         func_node_info = f'''ID: {task['task_id']}{task['category'][0]}
 CPU: {round(task['cpu_time'], 3)}s
@@ -88,30 +113,58 @@ Mem: {task['memory']} MB
 
     return workflow
 
-def generate_dot(workflow):
-    workflow_file = open(f'{sys.argv[1]}.gv', 'w')
+
+def generate_dot(workflow, outfile):
+    workflow_file = open(f'{outfile}.gv', 'w')
     workflow_file.writelines(str(workflow))
     workflow_file.close()
 
-def generate_viz(log_file):
-    os.system(f'dot -Tpdf {log_file}.gv -o {log_file}.pdf')
+
+def generate_viz(outfile):
+    os.system(f'dot -Tpdf {outfile}.gv -o {outfile}.pdf')
+
 
 # Main execution
-
 def main():
-    # Parse log file to collect info for processing and accumulating tasks
-    log_file = open(sys.argv[1], 'r')
-    tasks, max_cpu, max_mem, max_out = parse(log_file)
-    log_file.close()
+    arguments = sys.argv[1:]
+    logfile   = ''
+    outfile   = ''
 
-    # Generate DOT object
+    while arguments:
+        arg = arguments.pop(0)
+        if arg[0] == '-':
+            if arg == '-o':
+                outfile = arguments.pop(0)
+            elif arg == '-h':
+                usage()
+            else:
+                usage(1)
+        else:
+            logfile = arg
+
+    if not logfile:
+        print('No log file specified.')
+        usage(1)
+
+    if not outfile:
+        outfile = logfile
+
+    try:
+        logfile = open(logfile, 'r')
+    except FileNotFoundError:
+        print(f'{logfile} not found.')
+        usage(1)
+
+    tasks, max_cpu, max_mem, max_out = parse(logfile)
+
     workflow = gv.Digraph('TopEFT Workflow', graph_attr={'rankdir': 'LR', 'size': '85,110', 'ratio': 'fill'})
     workflow = make_graph(tasks, workflow, max_cpu, max_mem, max_out)
 
-    # Generate DOT (.gv) and visualization (.pdf) files
-    # .gv files contain DOT syntax to organize the graph
-    generate_dot(workflow)
-    generate_viz(sys.argv[1])
+    generate_dot(workflow, outfile)
+    generate_viz(outfile)
+
+    logfile.close()
+
 
 if __name__ == '__main__':
     main()
