@@ -58,6 +58,7 @@ class RateSystematic():
 
     # TODO: This needs to be given a better name
     # Returns the corresponding unc. (i.e. kappa values) that have been associated with a particular process
+    # Note: The return value should be as a string
     def get_process(self,p):
         if self.all:
             return self.all_unc
@@ -70,14 +71,28 @@ class RateSystematic():
 class JetScale(RateSystematic):
     def __init__(self,name,**kwargs):
         super().__init__(name,**kwargs)
+
+        self.symmeterize = True     # whether or not we attempt to make the up/down shifts equal in absolute terms
+        self.min_lo = 0.01          # For large kappa values, do not let the symmeterization go negative
     
     # Override the base implementation to handle the different dict structure
+    # Note: The return value should be as a string
     def get_process(self,p,j):
         j = str(j)
         if self.all:
-            return self.all_unc[j]
+            unc_hi = self.all_unc[j]
+            if self.symmeterize:
+                unc_lo = max(self.min_lo,2 - unc_hi)
+                return f"{unc_lo:.{PRECISION}f}/{unc_hi:.{PRECISION}f}"
+            else:
+                return f"{unc_hi:.{PRECISION}f}"
         if self.has_process(p):
-            return self.corrs[p][j]
+            unc_hi = self.corrs[p][j]
+            if self.symmeterize:
+                unc_lo = max(self.min_lo,2 - unc_hi)
+                return f"{unc_lo:.{PRECISION}f}/{unc_hi:.{PRECISION}f}"
+            else:
+                return f"{unc_hi:.{PRECISION}f}"
         else:
             return '-'
 
@@ -309,8 +324,13 @@ class DatacardMaker():
             # "WWW","WWW_4F","WWZ_4F","WWZ","WZZ","ZZZ",
             # "flips","nonprompt",
             # "tttt","ttlnuJet","tllq","tHq","ttHJet",
-            "data",
+            # "data",
         ]
+
+        if not self.use_real_data:
+            # Since we're just going to generate Asimov data, this lets us drop the real data histograms
+            #   from the histograms for a minor speed-up
+            self.ignore.append("data")
 
         extra_ignore = kwargs.pop("ignore",[])
 
@@ -493,7 +513,9 @@ class DatacardMaker():
             d = {}
             for k in f.keys():
                 k = k.replace(";1","")
-                d[k] = f[f"{k}/{branch_key}"].array()
+                # Note: Values in the ROOT file are computed as the fraction of the rate needed to
+                #   reach agreement, so need to add 1 to get the corresponding kapaa value
+                d[k] = f[f"{k}/{branch_key}"].array() + 1
             new_syst.add_process("tllq",d)
             new_syst.add_process("tHq",d)
         rate_systs[syst_name] = new_syst
@@ -702,7 +724,7 @@ class DatacardMaker():
         print(f"Analyzing {km_dist} in {ch}")
 
         bin_str = f"bin_{ch}_{km_dist}"
-        col_width = len(bin_str)
+        col_width = max(PRECISION*2+5,len(bin_str))
         syst_width = 0
 
         if km_dist != "njets":
@@ -900,8 +922,12 @@ class DatacardMaker():
                         # The bins in the missing_parton root files start indexing from 0
                         bin_idx = num_j - njet_offset
                         if isinstance(v,dict):
-                            v = v[ch_key][bin_idx]
-                            v = f"{v:.{PRECISION}f}"
+                            unc_hi = v[ch_key][bin_idx]     # Attempt to symmeterize
+                            unc_lo = max(0.01,2 - unc_hi)   # Clip unc_lo to not go negative
+                            # v = f"{v:.{PRECISION}f}"
+                            v = f"{unc_lo:.{PRECISION}f}/{unc_hi:.{PRECISION}f}"
+                        elif v != "-":
+                            raise ValueError(f"The missing_parton systematic isn't a dictionary (ch={ch}): {v}")
                     else:
                         v = rate_syst.get_process(proc_name)
                     row.append(f"{v:>{col_width}}")
