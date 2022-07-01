@@ -21,7 +21,7 @@ for file in files:
     with open(topcoffea_path(file), 'r') as f:
         fin = f.readlines()
     jecs = {}
-    jes_to_combine = ['FlavorQCD', 'BBEC1', 'Absolute', 'RelativeBal', 'RelativeSample']
+    jes_to_combine = ['FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm', 'BBEC1', 'Absolute', 'RelativeBal', 'RelativeSample']
     for line in fin:
         line = line.strip()
         if line[0] == '[':
