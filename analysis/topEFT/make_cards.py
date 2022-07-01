@@ -93,7 +93,6 @@ def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
     condor_exe_fname = "condor.sh"
     if not os.path.samefile(home,out_dir):
         condor_exe_fname = os.path.join(out_dir,"condor.sh")
-        shutil.copy("selectedWCs.txt",out_dir)
 
     print(f"Generating condor executable script")
     with open(condor_exe_fname,"w") as f:
@@ -121,7 +120,7 @@ def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
         n = max(chunk_size,1)
         chunks = np.split(matched_chs,[i for i in range(n,len(matched_chs),n)])
         for chnk in chunks:
-            print(f"[{idx+1:0>3}] Channels: {chnk}")
+            print(f"[{idx+1:0>3}] Variable: {km_dist} -- Channels: {chnk}")
             s = sub_fragment.format(
                 idx=idx,
                 usr_dir=os.path.expanduser("~"),
