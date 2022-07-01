@@ -1,9 +1,146 @@
 import os
+import time
 import json
+import shutil
 import argparse
+import numpy as np
 
 from topcoffea.modules.datacard_tools import *
-from topcoffea.modules.utils import regex_match
+from topcoffea.modules.utils import regex_match,clean_dir
+
+# Note:
+#   Not sure if constructing the condor related files this way is good or bad practice. It already
+#   feels clunky in a number of places with having to manually hardcode what options are used by the
+#   condor jobs.
+# Note 2:
+#   The single quotes on some of the arguments are to ensure the submit file passes the string of
+#   (potentially multiple) options as a single argument to the executable script, i.e. we don't want
+#   it to split the string up by spaces, but still have the executable see it as a space spearated
+#   list of arguments
+sub_fragment = """\
+universe   = vanilla
+executable = condor.sh
+arguments  = "{usr_dir} {inf} {out_dir} {var_lst} '{ch_lst}' '{other}'"
+output = {condor_dir}/job_{idx}.out
+error  = {condor_dir}/job_{idx}.err
+log    = {condor_dir}/job_{idx}.log
+
+request_cpus = 1
+request_memory = 4096
+request_disk = 1024
+
+transfer_input_files = make_cards.py,selectedWCs.txt
+should_transfer_files = yes
+transfer_executable = true
+
+getenv = true
+queue 1
+"""
+
+sh_fragment = r"""#!/bin/sh
+USR_DIR=${1}
+INF=${2}
+OUT_DIR=${3}
+VAR_LST=${4}
+CH_LST=${5}
+OTHER=${6}
+
+echo "USR_DIR: ${USR_DIR}"
+echo "INF: ${INF}"
+echo "OUT_DIR: ${OUT_DIR}"
+echo "VAR_LST: ${VAR_LST}"
+echo "CH_LST: ${CH_LST}"
+echo "OTHER: ${OTHER}"
+
+source ${USR_DIR}/miniconda3/etc/profile.d/conda.sh
+unset PYTHONPATH
+conda activate ${CONDA_DEFAULT_ENV}
+
+python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${VAR_LST} --ch-lst ${CH_LST} --use-selected "selectedWCs.txt" --do-nuisance ${OTHER}
+"""
+
+def run_local(dc,km_dists,channels,selected_wcs):
+    for km_dist in km_dists:
+        all_chs = dc.channels(km_dist)
+        matched_chs = regex_match(all_chs,channels)
+        if channels:
+            print(f"Channels to process: {matched_chs}")
+        for ch in matched_chs:
+            r = dc.analyze(km_dist,ch,selected_wcs)
+
+# VERY IMPORTANT:
+#   This setup assumes the output directory is mounted on the remote condor machines
+# Note:
+#   The condor jobs currently have to read the various .json files from the default locations, which
+#   means that they will probably be getting read from the user's AFS area (or wherever their TopEFT
+#   repo is located).
+# TODO: Currently there's no way to transparently passthrough parent arguments to the condor ones.
+#   There's also no clear way to pass customized options to different sub-sets of condor jobs
+def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
+    import subprocess
+    import stat
+
+    home = os.getcwd()
+
+    condor_dir = os.path.join(out_dir,"job_logs")
+
+    if not os.path.exists(condor_dir):
+        print(f"Making condor output directory {condor_dir}")
+        os.mkdir(condor_dir)
+
+    clean_dir(condor_dir,targets=["job_.*log","job_.*err","job_.*out","^condor.*sub$"])
+
+    condor_exe_fname = "condor.sh"
+    if not os.path.samefile(home,out_dir):
+        condor_exe_fname = os.path.join(out_dir,"condor.sh")
+        shutil.copy("selectedWCs.txt",out_dir)
+
+    print(f"Generating condor executable script")
+    with open(condor_exe_fname,"w") as f:
+        f.write(sh_fragment)
+
+    usr_perms = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR
+    grp_perms = stat.S_IRGRP | stat.S_IWGRP | stat.S_IXGRP
+    all_perms = stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH
+
+    os.chmod(condor_exe_fname,usr_perms | grp_perms | all_perms)    # equiv. to 777
+
+    other_opts = []
+    if dc.do_mc_stat:
+        other_opts.append("--do-mc-stat")
+    if dc.verbose:
+        other_opts.append("--verbose")
+    if dc.use_real_data:
+        other_opts.append("--unblind")
+    other_opts = " ".join(other_opts)
+
+    idx = 0
+    for km_dist in var_lst:
+        all_chs = dc.channels(km_dist)
+        matched_chs = regex_match(all_chs,ch_lst)
+        n = max(chunk_size,1)
+        chunks = np.split(matched_chs,[i for i in range(n,len(matched_chs),n)])
+        for chnk in chunks:
+            print(f"[{idx+1:0>3}] Channels: {chnk}")
+            s = sub_fragment.format(
+                idx=idx,
+                usr_dir=os.path.expanduser("~"),
+                inf=pkl_fpath,
+                out_dir=os.path.realpath(out_dir),
+                var_lst=km_dist,
+                ch_lst=" ".join(chnk),
+                condor_dir=condor_dir,
+                other=f"{other_opts}",
+            )
+            condor_submit_fname = os.path.join(condor_dir,f"condor.{idx}.sub")
+            with open(condor_submit_fname,"w") as f:
+                f.write(s)
+            cmd = ["condor_submit",condor_submit_fname]
+            print(f"{'':>5} Condor command: {' '.join(cmd)}")
+            os.chdir(out_dir)
+            p = subprocess.run(cmd)
+            os.chdir(home)
+            idx += 1
 
 def main():
     parser = argparse.ArgumentParser(description="You can select which file to run over")
@@ -23,6 +160,8 @@ def main():
     parser.add_argument("--verbose","-v",action="store_true",help="Set to verbose output")
     parser.add_argument("--select-only",action="store_true",help="Only run the WC selection step")
     parser.add_argument("--use-selected",default="",help="Load selected process+WC combs from a file. Skips doing the normal selection step.")
+    parser.add_argument("--condor","-C",action="store_true",help="Split up the channels into multiple condor jobs")
+    parser.add_argument("--chunks","-n",default=1,help="The number of channels each condor job should process")
 
     args = parser.parse_args()
     pkl_file   = args.pkl_file
@@ -40,11 +179,22 @@ def main():
     unblind    = args.unblind
     verbose    = args.verbose
 
+
     select_only = args.select_only
     use_selected = args.use_selected
 
+    use_condor = args.condor
+    chunks = int(args.chunks)
+
     if isinstance(wcs,str):
         wcs = wcs.split(",")
+
+    if use_condor:
+        # Note:
+        #   The dc in the parent submission is only used to generate the selectedWCs file and figure
+        #   out what channels/samples are available, so we can just drop the systematics to speed
+        #   things up
+        do_nuis = False
 
     kwargs = {
         "wcs": wcs,
@@ -62,6 +212,10 @@ def main():
 
     if out_dir != "." and not os.path.exists(out_dir):
         os.makedirs(out_dir)
+
+    # Copy over make_cards.py ASAP so a user can't accidentally modify it before the submit jobs run
+    if use_condor and not os.path.samefile(os.getcwd(),out_dir):
+        shutil.copy("make_cards.py",out_dir)
 
     tic = time.time()
     dc = DatacardMaker(pkl_file,**kwargs)
@@ -108,13 +262,10 @@ def main():
     if select_only:
         return
 
-    for km_dist in dists:
-        all_chs = dc.channels(km_dist)
-        matched_chs = regex_match(all_chs,ch_lst)
-        if ch_lst:
-            print(f"Channels to process: {matched_chs}")
-        for ch in matched_chs:
-            r = dc.analyze(km_dist,ch,selected_wcs)
+    if use_condor:
+        run_condor(dc,pkl_file,out_dir,dists,ch_lst,chunks)
+    else:
+        run_local(dc,dists,ch_lst,selected_wcs)
     dt = time.time() - tic
     print(f"Total Time: {dt:.2f} s")
     print("Finished!")
