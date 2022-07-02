@@ -10,9 +10,9 @@ from coffea import hist
 from topcoffea.modules.HistEFT import HistEFT
 
 from topcoffea.modules.YieldTools import YieldTools
-#from topcoffea.modules.GetValuesFromJsons import get_lumi
 import topcoffea.modules.GetValuesFromJsons as getj
 from topcoffea.plotter.make_html import make_html
+import topcoffea.modules.utils as utils
 
 # This script takes an input pkl file that should have both data and background MC included.
 # Use the -y option to specify a year, if no year is specified, all years will be included.
@@ -202,7 +202,7 @@ def get_scale_name(sample_name,sample_group_map):
     elif sample_name in sample_group_map["Triboson"]:
         scale_name_for_json = "Triboson"
     elif sample_name in sample_group_map["Signal"]:
-        for proc_str in ["ttH","tllq","ttlnu","ttll","tHq"]:
+        for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
             if proc_str in sample_name:
                 # This should only match once, but maybe we should put a check to enforce this
                 scale_name_for_json = proc_str
@@ -245,7 +245,11 @@ def get_rate_systs(sample_name,sample_group_map):
 
     # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if scale_name_for_json is not None:
-        pdf_uncty = getj.get_syst("pdf_scale",scale_name_for_json)
+        if scale_name_for_json == "tttt":
+            # Special case for 4t since we apparnetly do not have a pdf uncty
+            pdf_uncty = [1.0,1,0]
+        else:
+            pdf_uncty = getj.get_syst("pdf_scale",scale_name_for_json)
         if scale_name_for_json == "convs":
             # Special case for conversions, since we estimate these from a LO sample, so we don't have an NLO uncty here
             # Would be better to handle this in a more general way
@@ -298,7 +302,7 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
     return [sum(all_rates_m_sumw2_lst),sum(all_rates_p_sumw2_lst)]
 
 # Wrapper for getting plus and minus shape arrs
-def get_shape_syst_arrs(base_histo,proc_group_map):
+def get_shape_syst_arrs(base_histo):
 
     # Get the list of systematic base names (i.e. without the up and down tags)
     # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
@@ -468,7 +472,7 @@ def make_single_fig(histo,unit_norm_bool):
 
 # Takes a hist with one sparse axis (axis_name) and one dense axis, overlays everything on the sparse axis
 # Makes a ratio of each cateogory on the sparse axis with respect to ref_cat
-def make_single_fig_with_ratio(histo,axis_name,cat_ref):
+def make_single_fig_with_ratio(histo,axis_name,cat_ref,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
     #print("\nPlotting values:",histo.values())
 
     # Create the figure
@@ -499,6 +503,20 @@ def make_single_fig_with_ratio(histo,axis_name,cat_ref):
             error_opts= {'linestyle': 'none','marker': '.', 'markersize': 10, 'elinewidth': 0},
             clear = False,
         )
+
+    # Plot the syst error (if we have the necessary up/down variations)
+    plot_syst_err = False
+    if (err_p is not None) and (err_m is not None) and (err_ratio_p is not None) and (err_ratio_m is not None): plot_syst_err = True
+    if plot_syst_err:
+        dense_axes = histo.dense_axes()
+        bin_edges_arr = histo.axis(dense_axes[0]).edges()
+        err_p = np.append(err_p,0) # Work around off by one error
+        err_m = np.append(err_m,0) # Work around off by one error
+        err_ratio_p = np.append(err_ratio_p,0) # Work around off by one error
+        err_ratio_m = np.append(err_ratio_m,0) # Work around off by one error
+        ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
+        ax.set_ylim(0.0,1.2*max(err_p))
+        rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
 
     # Style
     ax.set_xlabel('')
@@ -834,7 +852,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             if not skip_syst_errs:
                 # Get plus and minus rate and shape arrs
                 rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
-                shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated,CR_GRP_MAP)
+                shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated)
                 if (var_name == "njets"):
                     # This is a special case for the diboson jet dependent systematic
                     db_hist = hist_mc_integrated.integrate("sample",CR_GRP_MAP["Diboson"]).integrate("systematic","nominal").values()[()]
@@ -914,7 +932,7 @@ def main():
     os.mkdir(save_dir_path)
 
     # Get the histograms
-    hin_dict = yt.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
+    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
 
     # Print info about histos
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")

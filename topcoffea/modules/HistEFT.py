@@ -34,7 +34,7 @@ class HistEFT(coffea.hist.Hist):
     self._ncoeffs = efth.n_quad_terms(n)
     self._nerrcoeffs = efth.n_quartic_terms(n)
     self._wcs = np.zeros(n)
-    
+
     super().__init__(label, *axes, **kwargs)
 
 
@@ -182,6 +182,18 @@ class HistEFT(coffea.hist.Hist):
     if content:
         out._sumw = copy.deepcopy(self._sumw)
         out._sumw2 = copy.deepcopy(self._sumw2)
+    return out
+
+  def copy_sm(self):
+    """ Copy at the SM point. Setting sumw2 to zero """
+    out = HistEFT(self._label,[], *self._axes, dtype=self._dtype)
+    if self._sumw2 is not None: out._sumw2 = {}
+    """ Copy at the SM point. Setting sumw2 to zero """
+    out._sumw = {}
+    out._sumw2 = {}
+    for sparse_key in self._sumw.keys():
+      out._sumw[sparse_key]=self._sumw[sparse_key][:,0]
+      out._sumw2[sparse_key]=np.zeros_like(out._sumw[sparse_key])
     return out
 
   def identity(self):
@@ -377,16 +389,22 @@ class HistEFT(coffea.hist.Hist):
             raise ValueError("Attempt to add histogram bins with EFT weights to ones without.")
           else:
             left[lkey] += right[rkey]
-        # If either or both are None, we want the out to be None
-        else:
-          left[lkey] = None
+        # If either is None, we want the value of the one that is not none (at least we take into account the uncertainties we can).
+        # if both are None, its None
+        if left[lkey] is None:
+          left[lkey] = right[rkey]
+        if right[rkey] is None:
+          pass
+        
 
     # Add the sumw2 values
-    if self._sumw2 is None and other._sumw2 is None: pass
+    if self._sumw2 is None and other._sumw2 is None: 
+      pass
     elif self._sumw2 is None:
       self._init_sumw2()
       add_dict(self._sumw2, other._sumw2)
     elif other._sumw2 is None:
+      
       # This is a tricky case because we want to put in "sumw" for
       # "sumw2" for any non-EFT sparse bins, but None for any EFT
       # sparse bins
@@ -653,7 +671,7 @@ class HistEFT(coffea.hist.Hist):
 
     return out
 
-  def values(self, sumw2=False, overflow="none"):
+  def values(self, sumw2=False, overflow="none", debug=False):
     """Extract the sum of weights arrays from this histogram
     Parameters
     ----------
@@ -696,7 +714,7 @@ class HistEFT(coffea.hist.Hist):
         if self._sumw2 is not None:
             if is_eft_bin:
               if self._sumw2[sparse_key] is not None:
-                _sumw2 = efth.calc_eft_w2(self._sumw2[sparse_key],self._wcs)  
+                _sumw2 = efth.calc_eft_w2(self._sumw2[sparse_key],self._wcs)
               else:
                 # Set really tiny error bars (e.g. one one-millionth the size of the average bin)
                 _sumw2 = np.full_like(_sumw,1e-30*np.mean(_sumw))
