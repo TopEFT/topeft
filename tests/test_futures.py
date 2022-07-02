@@ -29,66 +29,22 @@ def test_nonprompt():
 
     assert(exists('analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz'))
 
-def test_datacard_2l():
+def test_datacardmaker():
     args = [
+        "time",
         "python",
-        "analysis/topEFT/datacard_maker.py",
+        "analysis/topEFT/make_cards.py",
         "analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz",
+        "-d",
+        "histos",
         "--var-lst",
-        "njets",
-        "-j",
-        "0",
+        "lj0pt",
+        "--do-nuisance",
+        "--ch-lst",
+        "2lss_p_4j"
     ]
 
     # Run datacard maker
     subprocess.run(args)
 
-    assert(comp_datacard('histos/ttx_multileptons-2lss_p_2b.txt','analysis/topEFT/test/ttx_multileptons-2lss_p_2b_ref.txt'))
-
-def test_datacard_2l_ht():
-    args = [
-        "python",
-        "analysis/topEFT/datacard_maker.py",
-        "analysis/topEFT/histos/output_check_yields.pkl.gz",
-        "--var-lst",
-        "ht",
-        "-j",
-        "0"
-    ]
-
-    # Run datacard maker
-    subprocess.run(args)
-
-    assert(comp_datacard('histos/ttx_multileptons-2lss_p_4j_2b_ht.txt','analysis/topEFT/test/ttx_multileptons-2lss_p_4j_2b_ht_ref.txt'))
-
-def test_datacard_3l():
-    args = [
-        "python",
-        "analysis/topEFT/datacard_maker.py",
-        "analysis/topEFT/histos/output_check_yields.pkl.gz",
-        "--var-lst",
-        "njets",
-        "-j",
-        "8"
-    ]
-
-    # Run datacard maker
-    subprocess.run(args)
-
-    assert(comp_datacard('histos/ttx_multileptons-3l_sfz_1b.txt','analysis/topEFT/test/ttx_multileptons-3l_sfz_1b_ref.txt'))
-
-def test_datacard_3l_ptbl():
-    args = [
-        "python",
-        "analysis/topEFT/datacard_maker.py",
-        "analysis/topEFT/histos/output_check_yields.pkl.gz",
-        "--var-lst",
-        "ptbl",
-        "-j",
-        "32"
-    ]
-
-    # Run datacard maker
-    subprocess.run(args)
-
-    assert(comp_datacard('histos/ttx_multileptons-3l_onZ_1b_2j_ptbl.txt','analysis/topEFT/test/ttx_multileptons-3l_onZ_1b_2j_ptbl_ref.txt'))
+    assert(comp_datacard('histos/ttx_multileptons-2lss_p_4j_lj0pt.txt','analysis/topEFT/test/ttx_multileptons-2lss_p_4j_lj0pt.txt'))
