@@ -28,3 +28,24 @@ def test_nonprompt():
     a.dumpToPickle() # Do we want to write this file when testing in CI? Maybe if we ever save the CI artifacts
 
     assert(exists('analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz'))
+
+def test_datacardmaker():
+    #python make_cards.py histos/new_ref_histos_np.pkl.gz -d test --var-lst lj0pt --do-nuisance --ch-lst "2lss_p_4j"
+    args = [
+        "time",
+        "python",
+        "analysis/topEFT/make_cards.py",
+        "analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz",
+        "-d",
+        "histos",
+        "--var-lst",
+        "lj0pt",
+        "--do-nuisance",
+        "--ch-lst",
+        "2lss_p_4j"
+    ]
+
+    # Run datacard makem
+    subprocess.run(args)
+
+    assert(comp_datacard('histos/ttx_multileptons-2lss_p_4j_lj0pt.txt','analysis/topEFT/test/ttx_multileptons-2lss_p_4j_lj0pt.txt'))
