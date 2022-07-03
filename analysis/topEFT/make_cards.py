@@ -147,6 +147,7 @@ def main():
     parser.add_argument("--lumi-json","-l",default="json/lumi.json",help="Lumi json file, path relative to topcoffea_path()")
     parser.add_argument("--rate-syst-json","-s",default="json/rate_systs.json",help="Rate related systematics json file, path relative to topcoffea_path()")
     parser.add_argument("--miss-parton-file","-m",default="data/missing_parton/missing_parton.root",help="File for missing parton systematic, path relative to topcoffea_path()")
+    parser.add_argument("--selected-wcs-ref",default="test/selectedWCs.json",help="Reference file for selected wcs")
     parser.add_argument("--out-dir","-d",default=".",help="Output directory to write root and text datacard files to")
     parser.add_argument("--var-lst",default=[],action="extend",nargs="+",help="Specify a list of variables to make cards for.")
     parser.add_argument("--ch-lst","-c",default=[],action="extend",nargs="+",help="Specify a list of channels to process.")
@@ -262,12 +263,13 @@ def main():
     # Check selected WCs against what's currently the list being assumed by the physcis model
     # Right now we're set to raise an exception if these files differ (warnings are easy to miss, and we really want the user to notice)
     # If you know what you're doing and expet them to differ, then just bypass this
-    with open("test/selectedWCs.json","r") as selected_wcs_ref_f:
-        selected_wcs_ref_data = selected_wcs_ref_f.read()
-    selected_wcs_ref = json.loads(selected_wcs_ref_data)
-    wcs_agree = dict_comp(selected_wcs_ref,selected_wcs_for_json)
-    if not wcs_agree and not args.skip_selected_wcs_check:
-        raise Exception(f"The selected WCs do not agree. Please check if this is expected.\n\tRef:{selected_wcs_ref}\n\tNew:{selected_wcs_for_json}")
+    if not args.skip_selected_wcs_check:
+        with open(args.selected_wcs_ref,"r") as selected_wcs_ref_f:
+            selected_wcs_ref_data = selected_wcs_ref_f.read()
+        selected_wcs_ref = json.loads(selected_wcs_ref_data)
+        wcs_agree = dict_comp(selected_wcs_ref,selected_wcs_for_json)
+        if not wcs_agree:
+            raise Exception(f"The selected WCs do not agree. Please check if this is expected.\n\tRef:{selected_wcs_ref}\n\tNew:{selected_wcs_for_json}")
 
     if select_only:
         return
