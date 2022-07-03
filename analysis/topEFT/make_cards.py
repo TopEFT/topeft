@@ -6,7 +6,7 @@ import argparse
 import numpy as np
 
 from topcoffea.modules.datacard_tools import *
-from topcoffea.modules.utils import regex_match,clean_dir
+from topcoffea.modules.utils import regex_match,clean_dir,dict_comp
 
 # Note:
 #   Not sure if constructing the condor related files this way is good or bad practice. It already
@@ -257,6 +257,16 @@ def main():
                     continue
                 selected_wcs_for_json[p] = list(v)
             json.dump(selected_wcs_for_json,f)
+
+    # Check selected WCs against what's currently the list being assumed by the physcis model
+    # Right now we're set to raise an exception if these files differ (warnings are easy to miss, and we really want the user to notice)
+    # If you know what you're doing and expet them to differ, then just bypass this
+    with open("test/selectedWCs.json","r") as selected_wcs_ref_f:
+        selected_wcs_ref_data = selected_wcs_ref_f.read()
+    selected_wcs_ref = json.loads(selected_wcs_ref_data)
+    wcs_agree = dict_comp(selected_wcs_ref,selected_wcs_for_json)
+    if not wcs_agree:
+        raise Exception(f"The selected WCs do not agree. Please check if this is expected.\n\tDict 1:{in_dict1}\n\tDict 2:{in_dict2}")
 
     if select_only:
         return
