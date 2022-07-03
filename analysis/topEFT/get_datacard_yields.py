@@ -24,6 +24,7 @@ PROC_ORDER = [
      "tttt_sm",
      "Sum_sig",
      "Sum_expected",
+     "Observation",
 ]
 CAT_ORDER = [
     "2lss_m_3b",
@@ -115,6 +116,7 @@ def get_rates(dc_lines_lst):
     # Get the rate and processes from the datacard
     dc_proc_line = None
     dc_rate_line = None
+    dc_observation_line = None
     for dc_line in dc_lines_lst:
         # The first line starting with "process" is the one we're after
         if dc_proc_line is None and dc_line.startswith("process"):
@@ -122,10 +124,14 @@ def get_rates(dc_lines_lst):
         # Also get the rate line (note there's only one of these)
         if dc_line.startswith("rate"):
             dc_rate_line = dc_line
+        # Get the observation line
+        if dc_line.startswith("observation"):
+            dc_observation_line = dc_line
 
     # Get lst from lines (drop the "process" and "rate" string first elements)
     proc_lst = dc_proc_line.split()[1:]
     rate_lst = dc_rate_line.split()[1:]
+    observation = dc_observation_line.split()[1] # This just has one number
 
     # Check length
     n_cats = len(proc_lst)
@@ -136,6 +142,7 @@ def get_rates(dc_lines_lst):
     rate_dict = {}
     for i in range(n_cats):
         rate_dict[proc_lst[i]] = float(rate_lst[i])
+    rate_dict["Observation"] = float(observation)
 
     return(rate_dict)
 
@@ -144,7 +151,7 @@ def get_rates(dc_lines_lst):
 def get_just_sm(rate_dict):
     sm_dict = {}
     for proc_name, rate in rate_dict.items():
-        if not proc_name.endswith("_sm"): continue
+        if not proc_name.endswith("_sm") and proc_name != "Observation": continue
         sm_dict[proc_name] = rate
     return sm_dict
 
@@ -258,6 +265,7 @@ def main():
     for dc_fname in dc_files:
         rate_dict_sm = get_sm_rates(os.path.join(args.datacards_dir_path,dc_fname))
         cat_name = get_cat_name_from_dc_name(dc_fname)
+        print("rate_dict_sm",rate_dict_sm)
         print(cat_name)
         printd(rate_dict_sm)
         all_rates_dict[cat_name] = rate_dict_sm
