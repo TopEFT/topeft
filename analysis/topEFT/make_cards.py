@@ -6,7 +6,7 @@ import argparse
 import numpy as np
 
 from topcoffea.modules.datacard_tools import *
-from topcoffea.modules.utils import regex_match,clean_dir
+from topcoffea.modules.utils import regex_match,clean_dir,dict_comp
 
 # Note:
 #   Not sure if constructing the condor related files this way is good or bad practice. It already
@@ -147,6 +147,7 @@ def main():
     parser.add_argument("--lumi-json","-l",default="json/lumi.json",help="Lumi json file, path relative to topcoffea_path()")
     parser.add_argument("--rate-syst-json","-s",default="json/rate_systs.json",help="Rate related systematics json file, path relative to topcoffea_path()")
     parser.add_argument("--miss-parton-file","-m",default="data/missing_parton/missing_parton.root",help="File for missing parton systematic, path relative to topcoffea_path()")
+    parser.add_argument("--selected-wcs-ref",default="test/selectedWCs.json",help="Reference file for selected wcs")
     parser.add_argument("--out-dir","-d",default=".",help="Output directory to write root and text datacard files to")
     parser.add_argument("--var-lst",default=[],action="extend",nargs="+",help="Specify a list of variables to make cards for.")
     parser.add_argument("--ch-lst","-c",default=[],action="extend",nargs="+",help="Specify a list of channels to process.")
@@ -158,6 +159,7 @@ def main():
     parser.add_argument("--unblind",action="store_true",help="If set, use real data, otherwise use asimov data")
     parser.add_argument("--verbose","-v",action="store_true",help="Set to verbose output")
     parser.add_argument("--select-only",action="store_true",help="Only run the WC selection step")
+    parser.add_argument("--skip-selected-wcs-check",action="store_true",help="Do not raise an error if the selected WCs disagree with ref")
     parser.add_argument("--use-selected",default="",help="Load selected process+WC combs from a file. Skips doing the normal selection step.")
     parser.add_argument("--condor","-C",action="store_true",help="Split up the channels into multiple condor jobs")
     parser.add_argument("--chunks","-n",default=1,help="The number of channels each condor job should process")
@@ -257,6 +259,17 @@ def main():
                     continue
                 selected_wcs_for_json[p] = list(v)
             json.dump(selected_wcs_for_json,f)
+
+    # Check selected WCs against what's currently the list being assumed by the physcis model
+    # Right now we're set to raise an exception if these files differ (warnings are easy to miss, and we really want the user to notice)
+    # If you know what you're doing and expet them to differ, then just bypass this
+    if not args.skip_selected_wcs_check:
+        with open(args.selected_wcs_ref,"r") as selected_wcs_ref_f:
+            selected_wcs_ref_data = selected_wcs_ref_f.read()
+        selected_wcs_ref = json.loads(selected_wcs_ref_data)
+        wcs_agree = dict_comp(selected_wcs_ref,selected_wcs_for_json)
+        if not wcs_agree:
+            raise Exception(f"The selected WCs do not agree. Please check if this is expected.\n\tRef:{selected_wcs_ref}\n\tNew:{selected_wcs_for_json}")
 
     if select_only:
         return

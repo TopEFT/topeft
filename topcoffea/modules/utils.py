@@ -162,3 +162,28 @@ def get_hist_from_pkl(path_to_pkl,allow_empty=True):
     if not allow_empty:
         h = {k:v for k,v in h.items() if v.values() != {}}
     return h
+
+# Check if the contents of two dictionaries of lists agree
+# Assumes structure d = {k1: [i1,i2,...], ...}
+def dict_comp(in_dict1,in_dict2,strict=False):
+
+    def all_d1_in_d2(d1,d2):
+        agree = True
+        for k1,v1 in d1.items():
+            if k1 not in d2:
+                agree = False
+                break
+            for i1 in v1:
+                if i1 not in d2[k1]:
+                    agree = False
+                    break
+        return agree
+
+    dicts_match = all_d1_in_d2(in_dict1,in_dict2) and all_d1_in_d2(in_dict2,in_dict1)
+    print_str = f"The two dictionaries do not agree.\n\tDict 1:{in_dict1}\n\tDict 2:{in_dict2}"
+
+    if not dicts_match:
+        if strict: raise Exception("Error: "+print_str)
+        else: print("Warning: "+print_str)
+
+    return dicts_match

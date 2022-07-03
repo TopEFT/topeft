@@ -41,7 +41,8 @@ def test_datacardmaker():
         "lj0pt",
         "--do-nuisance",
         "--ch-lst",
-        "2lss_p_4j"
+        "2lss_p_4j",
+        "--skip-selected-wcs-check"
     ]
 
     # Run datacard maker
