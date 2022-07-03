@@ -29,7 +29,7 @@ def print_end():
     print("\n")
 
 # Print the body of the latex table
-def print_table(vals_dict,key_order,subkey_order,caption_text,print_errs,columns):
+def print_table(vals_dict,key_order,subkey_order,caption_text,print_errs,columns,hz_line_lst):
     print("\\begin{table}[hbtp!]")
     print("\\setlength\\tabcolsep{5pt}")
     print(f"\\caption{{{caption_text}}}") # Need to escape the "{" with another "{"
@@ -40,7 +40,7 @@ def print_table(vals_dict,key_order,subkey_order,caption_text,print_errs,columns
         tabular_info = "c"*(len(subkey_order)+1)
         print(f"\\begin{{tabular}}{{{tabular_info}}}")
         print(format_header(subkey_order))
-        for key in key_order:
+        for i,key in enumerate(key_order):
             if key not in vals_dict.keys():
                 print("\\rule{0pt}{3ex} ","-",end=' ')
                 for subkey in subkey_order:
@@ -56,14 +56,16 @@ def print_table(vals_dict,key_order,subkey_order,caption_text,print_errs,columns
                         print("&",val,"$\pm$",err,end=' ')
                     else:
                         print("&",val,end=' ')
-            print("\\\ ")
+            if i not in hz_line_lst: endl_str = "\\\ "
+            else: endl_str = "\\\ \hline "
+            print(endl_str)
 
     # Print keys as columns
     elif columns == "keys":
         tabular_info = "c"*(len(key_order)+1)
         print(f"\\begin{{tabular}}{{{tabular_info}}}")
         print(format_header(key_order))
-        for subkey in subkey_order:
+        for i,subkey in enumerate(subkey_order):
             print("\\rule{0pt}{3ex} ",subkey.replace("_"," "),end=' ')
             for key in key_order:
                 if key not in vals_dict.keys():
@@ -76,7 +78,9 @@ def print_table(vals_dict,key_order,subkey_order,caption_text,print_errs,columns
                         print("&",val,"$\pm$",err,end=' ')
                     else:
                         print("&",val,end=' ')
-            print("\\\ ")
+            if i not in hz_line_lst: endl_str = "\\\ "
+            else: endl_str = "\\\ \hline "
+            print(endl_str)
 
     else:
         raise Exception(f"\nError: Unknown column type \"{columns}\". Exiting...\n")
@@ -86,7 +90,7 @@ def print_table(vals_dict,key_order,subkey_order,caption_text,print_errs,columns
     print("\\end{table}")
 
 # Wrapper function for printing a table
-def print_latex_yield_table(vals_dict,key_order=None,subkey_order=None,tag="",print_begin_info=False,print_end_info=False,print_errs=False,column_variable="subkeys"):
+def print_latex_yield_table(vals_dict,key_order=None,subkey_order=None,tag="",print_begin_info=False,print_end_info=False,print_errs=False,column_variable="subkeys",hz_line_lst=[None]):
 
     # If order for columns and rows not specified, just use the keys of the dict:
     if key_order is None:
@@ -98,6 +102,6 @@ def print_latex_yield_table(vals_dict,key_order=None,subkey_order=None,tag="",pr
 
     # Print the table
     if print_begin_info: print_begin()
-    print_table(vals_dict,key_order,subkey_order,tag,print_errs,columns=column_variable)
+    print_table(vals_dict,key_order,subkey_order,tag,print_errs,columns=column_variable,hz_line_lst=hz_line_lst)
     if print_end_info: print_end()
 

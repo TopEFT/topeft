@@ -24,20 +24,36 @@ PROC_ORDER = [
      "tttt_sm",
      "Sum_sig",
      "Sum_expected",
+     "Observation",
 ]
 CAT_ORDER = [
-    "2lss_4t_m_2b",
-    "2lss_4t_p_2b",
+    "2lss_m_3b",
+    "2lss_p_3b",
     "2lss_m_2b",
     "2lss_p_2b",
-    "3l1b_m",
-    "3l1b_p",
-    "3l2b_m",
-    "3l2b_p",
-    "3l_sfz_1b",
-    "3l_sfz_2b",
+    "3l_m_1b",
+    "3l_p_1b",
+    "3l_m_2b",
+    "3l_p_2b",
+    "3l_onZ_1b",
+    "3l_onZ_2b",
     "4l_2b",
 ]
+
+RENAME_CAT_MAP = {
+    # name_in_card : name_we_want_want_in_the_table
+    "2lss_4t_m_2b" : "2lss_m_3b",
+    "2lss_4t_p_2b" : "2lss_p_3b",
+    "2lss_m_2b"    : "2lss_m_2b",
+    "2lss_p_2b"    : "2lss_p_2b",
+    "3l_m_offZ_1b" : "3l_m_1b",
+    "3l_m_offZ_2b" : "3l_m_2b",
+    "3l_p_offZ_1b" : "3l_p_1b",
+    "3l_p_offZ_2b" : "3l_p_2b",
+    "3l_onZ_1b"    : "3l_onZ_1b",
+    "3l_onZ_2b"    : "3l_onZ_2b",
+    "4l_2b"        : "4l_2b",
+}
 
 
 ########################################
@@ -67,6 +83,14 @@ def append_none_errs(in_dict):
             out_dict[k][subk] = [in_dict[k][subk], None]
     return out_dict
 
+# Adds values of two dictionaries that have the same keys
+# Not checking to make sure dicts agree, just assuming this
+def add_dict_vals(d1,d2):
+    out_dict = {}
+    for k in d1.keys():
+        out_dict[k] = d1[k] + d2[k]
+    return out_dict
+
 
 ########################################
 # Functions specific for our datacards
@@ -92,6 +116,7 @@ def get_rates(dc_lines_lst):
     # Get the rate and processes from the datacard
     dc_proc_line = None
     dc_rate_line = None
+    dc_observation_line = None
     for dc_line in dc_lines_lst:
         # The first line starting with "process" is the one we're after
         if dc_proc_line is None and dc_line.startswith("process"):
@@ -99,10 +124,14 @@ def get_rates(dc_lines_lst):
         # Also get the rate line (note there's only one of these)
         if dc_line.startswith("rate"):
             dc_rate_line = dc_line
+        # Get the observation line
+        if dc_line.startswith("observation"):
+            dc_observation_line = dc_line
 
     # Get lst from lines (drop the "process" and "rate" string first elements)
     proc_lst = dc_proc_line.split()[1:]
     rate_lst = dc_rate_line.split()[1:]
+    observation = dc_observation_line.split()[1] # This just has one number
 
     # Check length
     n_cats = len(proc_lst)
@@ -113,6 +142,7 @@ def get_rates(dc_lines_lst):
     rate_dict = {}
     for i in range(n_cats):
         rate_dict[proc_lst[i]] = float(rate_lst[i])
+    rate_dict["Observation"] = float(observation)
 
     return(rate_dict)
 
@@ -121,7 +151,7 @@ def get_rates(dc_lines_lst):
 def get_just_sm(rate_dict):
     sm_dict = {}
     for proc_name, rate in rate_dict.items():
-        if not proc_name.endswith("_sm"): continue
+        if not proc_name.endswith("_sm") and proc_name != "Observation": continue
         sm_dict[proc_name] = rate
     return sm_dict
 
@@ -162,6 +192,42 @@ def add_proc_sums(rates_dict):
     return ret_dict
 
 
+# Takes a string (corresponding to a cateogry name), returns the name with the njets and kinematic var info removed
+# E.g. "2lss_4t_p_4j_2b_lj0pt" -> "2lss_4t_p_2b"
+def get_base_cat_name(cat_name,var_lst=["ptz","lj0pt"]):
+    cat_name_split = cat_name.split("_")
+    substr_lst_nojets_novarname = []
+    for substr in cat_name_split:
+        if (len(substr) == 2) and substr.endswith("j"): continue
+        if substr in var_lst: continue
+        substr_lst_nojets_novarname.append(substr)
+    out_name = "_".join(substr_lst_nojets_novarname)
+    return out_name
+
+
+# Take a dictionary of rates and combine jet categories
+def comb_dict(in_dict):
+    out_dict = {}
+    cat_name_lst = in_dict.keys()
+    for cat_name in in_dict.keys():
+        cat_name_base = get_base_cat_name(cat_name)
+        if cat_name_base not in out_dict:
+            out_dict[cat_name_base] = in_dict[cat_name]
+        else:
+            old_vals_dict = out_dict[cat_name_base]
+            new_vals_dict = in_dict[cat_name]
+            out_dict[cat_name_base] = add_dict_vals(old_vals_dict,new_vals_dict)
+    return out_dict
+
+# Replace key names in dictionary of yields
+def replace_key_names(in_dict,key_names_map):
+    out_dict = {}
+    for k in in_dict.keys():
+        new_k = key_names_map[k]
+        out_dict[new_k] = in_dict[k]
+    return out_dict
+
+
 ########################################
 # Convenience functions
 ########################################
@@ -174,7 +240,6 @@ def get_sm_rates(dc_fullpath):
     rate_dict_sm_with_sums = add_proc_sums(rate_dict_sm)
     return rate_dict_sm_with_sums
     
-
 
 ########################################
 # Main function
@@ -199,13 +264,27 @@ def main():
     for dc_fname in dc_files:
         rate_dict_sm = get_sm_rates(os.path.join(args.datacards_dir_path,dc_fname))
         cat_name = get_cat_name_from_dc_name(dc_fname)
+        print("rate_dict_sm",rate_dict_sm)
         print(cat_name)
         printd(rate_dict_sm)
         all_rates_dict[cat_name] = rate_dict_sm
 
+    # Sum over jet bins and rename the keys, i.e. just some "post processing"
+    all_rates_dict = comb_dict(all_rates_dict)
+    all_rates_dict = replace_key_names(all_rates_dict,RENAME_CAT_MAP)
+
     # Dump to the screen text for a latex table
     all_rates_dict_none_errs = append_none_errs(all_rates_dict) # Get a dict that will work for the latex table (i.e. need None for errs)
-    mlt.print_latex_yield_table(all_rates_dict_none_errs,tag="SM yields",key_order=CAT_ORDER,subkey_order=PROC_ORDER,print_begin_info=True,print_end_info=True,column_variable="keys")
+    mlt.print_latex_yield_table(
+        all_rates_dict_none_errs,
+        tag="SM yields",
+        key_order=CAT_ORDER,
+        subkey_order=PROC_ORDER,
+        print_begin_info=True,
+        print_end_info=True,
+        column_variable="keys",
+        hz_line_lst=[4,5,11,12,13],
+    )
 
     # Save yields to a json
     out_json_name = args.json_name
