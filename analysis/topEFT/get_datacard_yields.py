@@ -211,7 +211,6 @@ def comb_dict(in_dict):
     cat_name_lst = in_dict.keys()
     for cat_name in in_dict.keys():
         cat_name_base = get_base_cat_name(cat_name)
-        print("cat name:",cat_name,cat_name_base)
         if cat_name_base not in out_dict:
             out_dict[cat_name_base] = in_dict[cat_name]
         else:
@@ -276,7 +275,16 @@ def main():
 
     # Dump to the screen text for a latex table
     all_rates_dict_none_errs = append_none_errs(all_rates_dict) # Get a dict that will work for the latex table (i.e. need None for errs)
-    mlt.print_latex_yield_table(all_rates_dict_none_errs,tag="SM yields",key_order=CAT_ORDER,subkey_order=PROC_ORDER,print_begin_info=True,print_end_info=True,column_variable="keys")
+    mlt.print_latex_yield_table(
+        all_rates_dict_none_errs,
+        tag="SM yields",
+        key_order=CAT_ORDER,
+        subkey_order=PROC_ORDER,
+        print_begin_info=True,
+        print_end_info=True,
+        column_variable="keys",
+        hz_line_lst=[4,5,11,12,13],
+    )
 
     # Save yields to a json
     out_json_name = args.json_name
