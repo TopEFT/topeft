@@ -489,15 +489,15 @@ class DatacardMaker():
         for syst in to_remove:
             rate_systs.pop(syst)
 
-        # Note: The 'jet_scale' and 'missing_parton' uncertainties are a bit special, the values we
+        # Note: The 'diboson_njets' and 'missing_parton' uncertainties are a bit special, the values we
         #   store in their corresponding RateSystematic objects will be dictionaries that encode the
         #   uncertainty split by njets
 
-        # Now deal with the 'jet_scale' systematic for Dibosons
-        syst_name = "jet_scale"
+        # Now deal with the 'diboson_njets' systematic for Dibosons
+        syst_name = "diboson_njets"
         # new_syst = RateSystematic(syst_name)
         new_syst = JetScale(syst_name)
-        for p,per_jet_uncs in rates_json["jet_scale"].items():
+        for p,per_jet_uncs in rates_json["diboson_njets"].items():
             new_syst.add_process(p,per_jet_uncs)
         rate_systs[syst_name] = new_syst
 
@@ -795,8 +795,8 @@ class DatacardMaker():
                     if km_dist == "njets":
                         # We need to handle certain systematics differently when looking at njets procs
                         if p == "Diboson":
-                            # Handle the 'jet_scale' uncertainty
-                            # syst = "jet_scale"
+                            # Handle the 'diboson_njets' uncertainty
+                            # syst = "diboson_njets"
                             # hist_name = f"{proc_name}_{syst}"
                             # syst_kappa = self.rate_systs[syst].get_process(p)[str(num_j)]
                             # if syst_kappa == "-":
@@ -884,14 +884,14 @@ class DatacardMaker():
             for k,rate_syst in self.rate_systs.items():
                 syst_name = rate_syst.name
                 left_text = f"{syst_name:<{syst_width}} lnN"
-                if km_dist == "njets" and (syst_name == "jet_scale" or syst_name == "missing_parton"):
+                if km_dist == "njets" and (syst_name == "diboson_njets" or syst_name == "missing_parton"):
                     # These systematics are only treated as rate systs for njets distribution
                     continue
                 row = [f"{left_text:<{left_width}}"]
                 for p in proc_order:
                     proc_name = self.get_process(p) # Strips off any "_sm" or "_lin_*" junk
                     # Need to handle certain systematics in a special way
-                    if syst_name == "jet_scale":
+                    if syst_name == "diboson_njets":
                         v = rate_syst.get_process(proc_name,num_j)
                         # v = rate_syst.get_process(proc_name)
                         # if isinstance(v,dict):
