@@ -158,6 +158,7 @@ def main():
     parser.add_argument("--unblind",action="store_true",help="If set, use real data, otherwise use asimov data")
     parser.add_argument("--verbose","-v",action="store_true",help="Set to verbose output")
     parser.add_argument("--select-only",action="store_true",help="Only run the WC selection step")
+    parser.add_argument("--skip-selected-wcs-check",action="store_true",help="Do not raise an error if the selected WCs disagree with ref")
     parser.add_argument("--use-selected",default="",help="Load selected process+WC combs from a file. Skips doing the normal selection step.")
     parser.add_argument("--condor","-C",action="store_true",help="Split up the channels into multiple condor jobs")
     parser.add_argument("--chunks","-n",default=1,help="The number of channels each condor job should process")
@@ -265,7 +266,7 @@ def main():
         selected_wcs_ref_data = selected_wcs_ref_f.read()
     selected_wcs_ref = json.loads(selected_wcs_ref_data)
     wcs_agree = dict_comp(selected_wcs_ref,selected_wcs_for_json)
-    if not wcs_agree:
+    if not wcs_agree and not args.skip_selected_wcs_check:
         raise Exception(f"The selected WCs do not agree. Please check if this is expected.\n\tRef:{selected_wcs_ref}\n\tNew:{selected_wcs_for_json}")
 
     if select_only:
