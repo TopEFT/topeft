@@ -266,7 +266,7 @@ def main():
     selected_wcs_ref = json.loads(selected_wcs_ref_data)
     wcs_agree = dict_comp(selected_wcs_ref,selected_wcs_for_json)
     if not wcs_agree:
-        raise Exception(f"The selected WCs do not agree. Please check if this is expected.\n\tDict 1:{in_dict1}\n\tDict 2:{in_dict2}")
+        raise Exception(f"The selected WCs do not agree. Please check if this is expected.\n\tRef:{selected_wcs_ref}\n\tNew:{selected_wcs_for_json}")
 
     if select_only:
         return
