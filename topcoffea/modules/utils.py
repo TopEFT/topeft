@@ -172,10 +172,11 @@ def dict_comp(in_dict1,in_dict2,strict=False):
         for k1,v1 in d1.items():
             if k1 not in d2:
                 agree = False
-                continue
+                break
             for i1 in v1:
                 if i1 not in d2[k1]:
                     agree = False
+                    break
         return agree
 
     dicts_match = all_d1_in_d2(in_dict1,in_dict2) and all_d1_in_d2(in_dict2,in_dict1)
