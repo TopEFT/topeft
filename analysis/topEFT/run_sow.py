@@ -98,6 +98,7 @@ if executor == "work_queue":
         'debug_log': 'debug.log',
         'transactions_log': 'tr.log',
         'stats_log': 'stats.log',
+        'tasks_accum_log': 'tasks.log',
 
         'environment_file': remote_environment.get_environment(),
         'extra_input_files': ["sow_processor.py"],
