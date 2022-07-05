@@ -275,7 +275,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Define the lists of systematics we include
         obj_correction_syst_lst = [
-            f'JER_{year}Up',f'JER_{year}Down','JESUp','JESDown' # Systs that affect the kinematics of objects
+            f'JER_{year}Up',f'JER_{year}Down', # Systs that affect the kinematics of objects
+            'JES_FlavorQCDUp', 'JES_AbsoluteUp', 'JES_RelativeBalUp', 'JES_BBEC1Up', 'JES_RelativeSampleUp', 'JES_FlavorQCDDown', 'JES_AbsoluteDown', 'JES_RelativeBalDown', 'JES_BBEC1Down', 'JES_RelativeSampleDown'
         ]
         wgt_correction_syst_lst = [
             "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
