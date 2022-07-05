@@ -14,7 +14,7 @@ from coffea.hist import StringBin, Cat, Bin
 from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
 
-PRECISION = 3   # Decimal point precision in the text datacard output
+PRECISION = 6   # Decimal point precision in the text datacard output
 
 def prune_axis(h,axis,to_keep):
     """ Convenience method to remove all categories except for a selected subset."""
