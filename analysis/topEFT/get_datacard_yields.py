@@ -42,17 +42,17 @@ CAT_ORDER = [
 
 RENAME_CAT_MAP = {
     # name_in_card : name_we_want_want_in_the_table
-    "2lss_4t_m_2b" : "2lss_m_3b",
-    "2lss_4t_p_2b" : "2lss_p_3b",
-    "2lss_m_2b"    : "2lss_m_2b",
-    "2lss_p_2b"    : "2lss_p_2b",
+    "2lss_4t_m"    : "2lss_m_3b",
+    "2lss_4t_p"    : "2lss_p_3b",
+    "2lss_m"       : "2lss_m_2b",
+    "2lss_p"       : "2lss_p_2b",
     "3l_m_offZ_1b" : "3l_m_1b",
     "3l_m_offZ_2b" : "3l_m_2b",
     "3l_p_offZ_1b" : "3l_p_1b",
     "3l_p_offZ_2b" : "3l_p_2b",
     "3l_onZ_1b"    : "3l_onZ_1b",
     "3l_onZ_2b"    : "3l_onZ_2b",
-    "4l_2b"        : "4l_2b",
+    "4l"           : "4l_2b",
 }
 
 
