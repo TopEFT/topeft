@@ -263,7 +263,7 @@ def main():
     # Check selected WCs against what's currently the list being assumed by the physcis model
     # Right now we're set to raise an exception if these files differ (warnings are easy to miss, and we really want the user to notice)
     # If you know what you're doing and expet them to differ, then just bypass this
-    if not args.skip_selected_wcs_check:
+    if not args.skip_selected_wcs_check and not use_selected:
         with open(args.selected_wcs_ref,"r") as selected_wcs_ref_f:
             selected_wcs_ref_data = selected_wcs_ref_f.read()
         selected_wcs_ref = json.loads(selected_wcs_ref_data)
