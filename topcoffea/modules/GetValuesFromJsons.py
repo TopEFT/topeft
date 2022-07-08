@@ -80,5 +80,5 @@ def get_correlation_tag(syst_type,proc_name):
 def get_jet_dependent_syst_dict(process="Diboson"):
     syst_json = topcoffea_path("json/rate_systs.json")
     with open(syst_json) as f_systs:
-        jet_scale_dict = json.load(f_systs)["jet_scale"]
-        return(jet_scale_dict[process])
+        diboson_njets_dict = json.load(f_systs)["diboson_njets"]
+        return(diboson_njets_dict[process])

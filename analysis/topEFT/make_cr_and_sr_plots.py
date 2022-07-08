@@ -332,12 +332,12 @@ def get_shape_syst_arrs(base_histo):
     return [sum(m_arr_rel_lst), sum(p_arr_rel_lst)]
 
 # Get the squared arr for the jet dependent syst (e.g. for diboson jet dependent syst)
-def get_jet_scale_syst_arr(njets_histo_vals_arr,bin0_njets):
+def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 
     # Get the list of njets vals for which we have SFs
     sf_int_lst = []
-    jet_scale_dict = getj.get_jet_dependent_syst_dict()
-    sf_str_lst = list(jet_scale_dict.keys())
+    diboson_njets_dict = getj.get_jet_dependent_syst_dict()
+    sf_str_lst = list(diboson_njets_dict.keys())
     for s in sf_str_lst: sf_int_lst.append(int(s))
     min_njets = min(sf_int_lst) # The lowest njets bin we have a SF for
     max_njets = max(sf_int_lst) # The highest njets bin we have a SF for
@@ -351,10 +351,10 @@ def get_jet_scale_syst_arr(njets_histo_vals_arr,bin0_njets):
             sf_lst.append(1.0)
         elif jet_idx > max_njets:
             # For jet bins higher than the highest one in the dict, just use the val of the highest one
-            sf_lst.append(jet_scale_dict[str(max_njets)])
+            sf_lst.append(diboson_njets_dict[str(max_njets)])
         else:
             # In this case, the exact jet bin should be included in the dict so use it directly
-            sf_lst.append(jet_scale_dict[str(jet_idx)])
+            sf_lst.append(diboson_njets_dict[str(jet_idx)])
         jet_idx = jet_idx + 1
     sf_arr = np.array(sf_lst)
 
@@ -856,8 +856,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 if (var_name == "njets"):
                     # This is a special case for the diboson jet dependent systematic
                     db_hist = hist_mc_integrated.integrate("sample",CR_GRP_MAP["Diboson"]).integrate("systematic","nominal").values()[()]
-                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_jet_scale_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
-                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_jet_scale_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
+                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
+                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
                 # Get the arrays we will actually put in the CR plot
                 nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
                 p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
