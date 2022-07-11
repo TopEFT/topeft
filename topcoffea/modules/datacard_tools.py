@@ -297,6 +297,9 @@ class DatacardMaker():
         self.use_real_data   = kwargs.pop("unblind",False)
         self.verbose         = kwargs.pop("verbose",True)
 
+        if self.year and not self.year in self.YEARS:
+            raise ValueError(f"Invalid year choice '{self.year}', should be empty if running over all years or one of: {self.YEARS}")
+
         rate_syst_path = kwargs.pop("rate_systs_path","json/rate_systs.json")
         lumi_json_path = kwargs.pop("lumi_json_path","json/lumi.json")
         miss_part_path = kwargs.pop("missing_parton_path","data/missing_parton/missing_parton.root")
@@ -392,7 +395,15 @@ class DatacardMaker():
             for x in h.identifiers("sample"):
                 p = self.get_process(x.name)
                 if p in self.ignore:
+                    if self.verbose: print(f"Skipping (ignored): {x.name}")
                     to_remove.append(x.name)
+                    continue
+                if self.year:
+                    yr = self.get_year(x.name)
+                    if yr != self.year:
+                        if self.verbose: print(f"Skipping (year): {x.name}")
+                        to_remove.append(x.name)
+                        continue
             h = h.remove(to_remove,"sample")
 
             if not self.do_nuisance:

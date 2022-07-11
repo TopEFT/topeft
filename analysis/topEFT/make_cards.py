@@ -111,6 +111,8 @@ def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
         other_opts.append("--verbose")
     if dc.use_real_data:
         other_opts.append("--unblind")
+    if dc.year:
+        other_opts.extend(["--year",dc.year])
     other_opts = " ".join(other_opts)
 
     idx = 0
@@ -170,7 +172,7 @@ def main():
     rs_json    = args.rate_syst_json
     mp_file    = args.miss_parton_file
     out_dir    = args.out_dir
-    # year      = args.year     # NOT IMPLEMENTED YET
+    year       = args.year
     var_lst    = args.var_lst
     ch_lst     = args.ch_lst
     do_mc_stat = args.do_mc_stat
@@ -209,6 +211,7 @@ def main():
         "do_nuisance": do_nuis,
         "unblind": unblind,
         "verbose": verbose,
+        "single_year": year,
     }
 
     if out_dir != "." and not os.path.exists(out_dir):
