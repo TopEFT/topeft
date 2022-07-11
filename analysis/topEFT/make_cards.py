@@ -111,8 +111,8 @@ def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
         other_opts.append("--verbose")
     if dc.use_real_data:
         other_opts.append("--unblind")
-    if dc.year:
-        other_opts.extend(["--year",dc.year])
+    if dc.year_lst:
+        other_opts.extend(["--year"," ".join(dc.year_lst)])
     other_opts = " ".join(other_opts)
 
     idx = 0
@@ -156,7 +156,7 @@ def main():
     parser.add_argument("--do-mc-stat",action="store_true",help="Add bin-by-bin statistical uncertainties with the autoMCstats option (for background)")
     parser.add_argument("--ignore","-i",default=[],action="extend",nargs="+",help="Specify a list of processes to exclude, must match name from 'sample' axis modulo UL year")
     parser.add_argument("--POI",default=[],help="List of WCs (comma separated)")
-    parser.add_argument("--year","-y",default="",help="Run over single year")
+    parser.add_argument("--year","-y",default=[],action="extend",nargs="+",help="Run over a subset of years")
     parser.add_argument("--do-nuisance",action="store_true",help="Include nuisance parameters")
     parser.add_argument("--unblind",action="store_true",help="If set, use real data, otherwise use asimov data")
     parser.add_argument("--verbose","-v",action="store_true",help="Set to verbose output")
@@ -172,7 +172,7 @@ def main():
     rs_json    = args.rate_syst_json
     mp_file    = args.miss_parton_file
     out_dir    = args.out_dir
-    year       = args.year
+    years      = args.year
     var_lst    = args.var_lst
     ch_lst     = args.ch_lst
     do_mc_stat = args.do_mc_stat
@@ -211,7 +211,7 @@ def main():
         "do_nuisance": do_nuis,
         "unblind": unblind,
         "verbose": verbose,
-        "single_year": year,
+        "year_lst": years,
     }
 
     if out_dir != "." and not os.path.exists(out_dir):

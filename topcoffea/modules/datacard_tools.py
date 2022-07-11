@@ -287,7 +287,7 @@ class DatacardMaker():
         return r
 
     def __init__(self,pkl_path,**kwargs):
-        self.year            = kwargs.pop("single_year","")
+        self.year_lst        = kwargs.pop("year_lst",[])
         self.do_sm           = kwargs.pop("do_sm",False)
         self.do_nuisance     = kwargs.pop("do_nuisance",False)
         self.out_dir         = kwargs.pop("out_dir",".")
@@ -297,8 +297,10 @@ class DatacardMaker():
         self.use_real_data   = kwargs.pop("unblind",False)
         self.verbose         = kwargs.pop("verbose",True)
 
-        if self.year and not self.year in self.YEARS:
-            raise ValueError(f"Invalid year choice '{self.year}', should be empty if running over all years or one of: {self.YEARS}")
+        if self.year_lst:
+            for yr in self.year_lst:
+                if not yr in self.YEARS:
+                    raise ValueError(f"Invalid year choice '{yr}', should be empty if running over all years or one of: {self.YEARS}")
 
         rate_syst_path = kwargs.pop("rate_systs_path","json/rate_systs.json")
         lumi_json_path = kwargs.pop("lumi_json_path","json/lumi.json")
@@ -398,9 +400,9 @@ class DatacardMaker():
                     if self.verbose: print(f"Skipping (ignored): {x.name}")
                     to_remove.append(x.name)
                     continue
-                if self.year:
+                if self.year_lst:
                     yr = self.get_year(x.name)
-                    if yr != self.year:
+                    if not yr in self.year_lst:
                         if self.verbose: print(f"Skipping (year): {x.name}")
                         to_remove.append(x.name)
                         continue
