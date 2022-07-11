@@ -227,6 +227,36 @@ def replace_key_names(in_dict,key_names_map):
         out_dict[new_k] = in_dict[k]
     return out_dict
 
+# Take a dictionary of rates and get rid of the Observation line
+# This is useful when ignoring real data if still blinded
+def remove_observed_rates(in_dict,comparison_threshold=None):
+
+    out_dict = {}
+    ok = True
+    for cat_name in in_dict.keys():
+        out_dict[cat_name] = {}
+
+        # Check if the observation and prediction are very different
+        if comparison_threshold is not None:
+            mu = in_dict[cat_name]["Observation"]/in_dict[cat_name]["Sum_expected"]
+            if (mu > float(comparison_threshold)) or (mu < 1.0/float(comparison_threshold)):
+                print(f"\nWARNING: Observation and Sum_expected are different than more than a factor of {comparison_threshold} in category {cat_name}.")
+                ok = False
+
+        # Create the out dict, setting the observation equal to -999
+        for proc_name in in_dict[cat_name].keys():
+            if proc_name == "Observation":
+                out_dict[cat_name][proc_name] = -999
+            else:
+                out_dict[cat_name][proc_name] = in_dict[cat_name][proc_name]
+
+    # If we were checking the threshold, print if there was agreeemnt or not
+    if comparison_threshold is not None:
+        if ok: print(f"\nOK: Observation and Sum_expected are within a factor of {comparison_threshold} in all bins.")
+        else: print(f"\nWARNING: Observation and Sum_expected are NOT within a factor of {comparison_threshold} in at least one bin.")
+
+    return out_dict
+
 
 ########################################
 # Convenience functions
@@ -253,6 +283,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("datacards_dir_path", help = "The path to the directory where the datacards live")
     parser.add_argument("-n", "--json-name", default="dc_yields", help = "Name of the json file to save")
+    parser.add_argument("--save-json",action="store_true", help = "Dump output to a json file")
+    parser.add_argument("--unblind",action="store_true", help = "Do not remove Observation numbers")
     args = parser.parse_args()
 
     # Get the list of files in the dc dir
@@ -264,14 +296,15 @@ def main():
     for dc_fname in dc_files:
         rate_dict_sm = get_sm_rates(os.path.join(args.datacards_dir_path,dc_fname))
         cat_name = get_cat_name_from_dc_name(dc_fname)
-        print("rate_dict_sm",rate_dict_sm)
-        print(cat_name)
-        printd(rate_dict_sm)
         all_rates_dict[cat_name] = rate_dict_sm
 
     # Sum over jet bins and rename the keys, i.e. just some "post processing"
     all_rates_dict = comb_dict(all_rates_dict)
     all_rates_dict = replace_key_names(all_rates_dict,RENAME_CAT_MAP)
+
+    # If we're blind, get rid of the Observation numbers (give warning if off by more than a factor of 2 from prediction)
+    if not args.unblind:
+        all_rates_dict = remove_observed_rates(all_rates_dict,2)
 
     # Dump to the screen text for a latex table
     all_rates_dict_none_errs = append_none_errs(all_rates_dict) # Get a dict that will work for the latex table (i.e. need None for errs)
@@ -287,12 +320,13 @@ def main():
     )
 
     # Save yields to a json
-    out_json_name = args.json_name
-    if args.json_name == parser.get_default("json_name"):
-        out_json_name = out_json_name + "_" + timestamp_tag
-    with open(out_json_name+".json", "w") as out_file:
-        json.dump(all_rates_dict, out_file, indent=4)
-    print(f"Saved json file: {out_json_name}.json\n")
+    if args.save_json:
+        out_json_name = args.json_name
+        if args.json_name == parser.get_default("json_name"):
+            out_json_name = out_json_name + "_" + timestamp_tag
+        with open(out_json_name+".json", "w") as out_file:
+            json.dump(all_rates_dict, out_file, indent=4)
+        print(f"Saved json file: {out_json_name}.json\n")
 
 
 if __name__ == "__main__":
