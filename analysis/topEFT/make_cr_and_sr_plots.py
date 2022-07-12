@@ -615,6 +615,110 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
 
 
+###################### Wrapper function for SR data and mc plots (unblind!) ######################
+# Wrapper function to loop over all SR categories and make plots for all variables
+def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
+
+    # Construct list of MC samples
+    mc_wl = []
+    mc_bl = ["data"]
+    data_wl = ["data"]
+    data_bl = []
+    if year is None:
+        pass # Don't think we actually need to do anything here?
+    elif year == "2017":
+        mc_wl.append("UL17")
+        data_wl.append("UL17")
+    elif year == "2018":
+        mc_wl.append("UL18")
+        data_wl.append("UL18")
+    elif year == "2016":
+        mc_wl.append("UL16")
+        mc_bl.append("UL16APV")
+        data_wl.append("UL16")
+        data_bl.append("UL16APV")
+    elif year == "2016APV":
+        mc_wl.append("UL16APV")
+        data_wl.append("UL16APV")
+    else: raise Exception(f"Error: Unknown year \"{year}\".")
+
+    # Get the list of samples we want to plot
+    samples_to_rm_from_mc_hist = []
+    samples_to_rm_from_data_hist = []
+    all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name="lj0pt")
+    mc_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
+    data_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+    for sample_name in all_samples:
+        if sample_name not in mc_sample_lst:
+            samples_to_rm_from_mc_hist.append(sample_name)
+        if sample_name not in data_sample_lst:
+            samples_to_rm_from_data_hist.append(sample_name)
+    print("\nAll samples:",all_samples)
+    print("\nMC samples:",mc_sample_lst)
+    print("\nData samples:",data_sample_lst)
+    print("\nVariables:",dict_of_hists.keys())
+
+    # The analysis bins
+    analysis_bins = {
+        'njets': {
+            '2l': [4,5,6,7,dict_of_hists['njets'].axis('njets').edges()[-1]], # Last bin in topeft.py is 10, this should grab the overflow
+            '3l': [2,3,4,5,dict_of_hists['njets'].axis('njets').edges()[-1]],
+            '4l': [2,3,4,dict_of_hists['njets'].axis('njets').edges()[-1]]}
+        }
+    analysis_bins['ptz'] = [0, 200, 300, 400, 500, dict_of_hists['ptz'].axis('ptz').edges()[-1]]
+    analysis_bins['lj0pt'] = [0, 150, 250, 500, dict_of_hists['lj0pt'].axis('lj0pt').edges()[-1]]
+
+    # Loop over hists and make plots
+    skip_lst = [] # Skip this hist
+    for idx,var_name in enumerate(dict_of_hists.keys()):
+        if (var_name in skip_lst): continue
+        print("\nVariable:",var_name)
+
+        # Extract the MC and data hists
+        hist_mc_orig = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
+        hist_data_orig = dict_of_hists[var_name].remove(samples_to_rm_from_data_hist,"sample")
+
+        # Loop over channels
+        channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
+        print("channels:",channels_lst)
+        for chan_name in channels_lst:
+
+            hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) 
+            hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",chan_name) 
+
+            # Normalize the MC hists
+            sample_lumi_dict = {}
+            for sample_name in mc_sample_lst:
+                sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
+            hist_mc.scale(sample_lumi_dict,axis="sample")
+
+            # Make a sub dir for this category
+            save_dir_path_tmp = os.path.join(save_dir_path,var_name)
+            if not os.path.exists(save_dir_path_tmp):
+                os.mkdir(save_dir_path_tmp)
+
+            # Rebin into analysis bins
+            lep_bin = chan_name[:2]
+            if var_name == "njets":
+                hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axis(var_name).label, analysis_bins[var_name][lep_bin]))
+                hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name][lep_bin]))
+            else:
+                hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axis(var_name).label, analysis_bins[var_name]))
+                hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name]))
+
+            # Make the plots
+            #print("\n\n",hist_mc.values())
+            #print("\n\n",hist_data.values())
+            fig = make_cr_fig(hist_mc, hist_data, unit_norm_bool=False)
+            title = var_name + "_" + chan_name
+            fig.savefig(os.path.join(save_dir_path_tmp,title))
+
+            # Make an index.html file if saving to web area
+            if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+
+
+
+
 
 ###################### Wrapper function for example SR plots ######################
 # Wrapper function to loop over all SR categories and make plots for all variables
@@ -939,8 +1043,9 @@ def main():
     #exit()
 
     # Make the plots
-    make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
+    #make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
 
 if __name__ == "__main__":
