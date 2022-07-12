@@ -24,6 +24,19 @@ class YieldTools():
             "tllq"  : ["tZq_centralUL17" , "tllq_privateUL18"     , "tllq_privateUL17"     , "tllq_privateUL16"     , "tllq_privateUL16APV"],
             "tHq"   : ["tHq_central2017" , "tHq_privateUL18"      , "tHq_privateUL17"      , "tHq_privateUL16"      , "tHq_privateUL16APV"],
             "tttt"  : ["tttt_central2017", "tttt_privateUL18"     , "tttt_privateUL17"     , "tttt_privateUL16"     , "tttt_privateUL16APV"],
+
+            "flips" : ["flipsUL17"            ],
+            "fakes" : ["nonpromptUL17"        ],
+            "TTg"   : ["TTGamma_centralUL17"  ],
+            "WW"    : ["WWTo2L2Nu_centralUL17"],
+            "WZ"    : ["WZTo3LNu_centralUL17" ],
+            "ZZ"    : ["ZZTo4L_centralUL17"   ],
+            "WWW"   : ["WWW_centralUL17"      ],
+            "WWZ"   : ["WWZ_centralUL17"      ],
+            "WZZ"   : ["WZZ_centralUL17"      ],
+            "ZZZ"   : ["ZZZ_centralUL17"      ],
+
+            "data"   : ["dataUL17"],
         }
 
         # The jet bins we define for the lep categories (Not currently used)
@@ -458,10 +471,14 @@ class YieldTools():
     #    - You pass a process name, and we select just that category from the sample axis
     def get_yield(self,h,proc,overflow_str="none"):
         h_vals = h[proc].values(sumw2=True,overflow=overflow_str)
-        for i,(k,v) in enumerate(h_vals.items()):
-            v_sum = v[0].sum()
-            e_sum = v[1].sum()
-            if i > 0: raise Exception("Why is i greater than 0? The hist is not what this function is expecting. Exiting...")
+        if len(h_vals) != 0: # I.e. dict is not empty, this process exists in this dict
+            for i,(k,v) in enumerate(h_vals.items()):
+                v_sum = v[0].sum()
+                e_sum = v[1].sum()
+                if i > 0: raise Exception("Why is i greater than 0? The hist is not what this function is expecting. Exiting...")
+        else:
+            v_sum = 0.0
+            e_sum = 0.0
         e_sum = np.sqrt(e_sum)
         return (v_sum,e_sum)
 
@@ -481,9 +498,10 @@ class YieldTools():
             h.set_sm()
 
 
-        # Scale by lumi
-        lumi = 1000.0*get_lumi(year)
-        h.scale(lumi)
+        # Scale the mc by lumi
+        if "data" not in proc:
+            lumi = 1000.0*get_lumi(year)
+            h.scale(lumi)
 
         return self.get_yield(h,proc,overflow_str)
 
@@ -507,7 +525,8 @@ class YieldTools():
         for ch in self.get_cat_lables(hin_dict,"channel",h_name=hist_to_use):
             cat_dict[ch] = {}
             nlep_str = ch.split("_")[0]
-            cat_dict[ch]["appl"] = self.APPL_DICT[nlep_str]
+            if "appl" in self.get_axis_list(hin_dict[hist_to_use]):
+                cat_dict[ch]["appl"] = self.APPL_DICT[nlep_str]
             cat_dict[ch]["channel"] = ch
 
         # Find the yields
