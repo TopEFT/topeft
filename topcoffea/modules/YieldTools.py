@@ -128,7 +128,7 @@ class YieldTools():
                 "4l"           : (0.0,None),
             },
 
-            "Diboson"   : {
+            "VV"   : {
                 "2lss_4t_p"    : (0,None),
                 "2lss_4t_m"    : (0,None),
                 "2lss_p"       : (1.6,None),
@@ -141,7 +141,7 @@ class YieldTools():
                 "3l_onZ_2b"    : (4.1,None),
                 "4l"           : (0.6,None),
             },
-            "Triboson"   : {
+            "VVV"   : {
                 "2lss_4t_p"    : (0,None),
                 "2lss_4t_m"    : (0,None),
                 "2lss_p"       : (0.5,None),
@@ -154,7 +154,7 @@ class YieldTools():
                 "3l_onZ_2b"    : (0.6,None),
                 "4l"           : (0.1,None),
             },
-            "ChargeFlips"   : {
+            "flips"   : {
                 "2lss_4t_p"    : (0,None),
                 "2lss_4t_m"    : (0,None),
                 "2lss_p"       : (8.5,None),
@@ -167,7 +167,7 @@ class YieldTools():
                 "3l_onZ_2b"    : (0,None),
                 "4l"           : (0,None),
             },
-            "Fakes"   : {
+            "fakes"   : {
                 "2lss_4t_p"    : (0,None),
                 "2lss_4t_m"    : (0,None),
                 "2lss_p"       : (25.6,None),
@@ -180,7 +180,7 @@ class YieldTools():
                 "3l_onZ_2b"    : (3.8,None),
                 "4l"           : (0,None),
             },
-            "Conversions"   : {
+            "conv"   : {
                 "2lss_4t_p"    : (0,None),
                 "2lss_4t_m"    : (0,None),
                 "2lss_p"       : (10.9,None),
@@ -192,6 +192,19 @@ class YieldTools():
                 "3l_onZ_1b"    : (0.8,None),
                 "3l_onZ_2b"    : (0.4,None),
                 "4l"           : (0,None),
+            },
+            "data"   : {
+                "2lss_4t_p"    : (0,None),
+                "2lss_4t_m"    : (0,None),
+                "2lss_p"       : (192,None),
+                "2lss_m"       : (171,None),
+                "3l_p_offZ_1b" : (85,None),
+                "3l_m_offZ_1b" : (64,None),
+                "3l_p_offZ_2b" : (32,None),
+                "3l_m_offZ_2b" : (28,None),
+                "3l_onZ_1b"    : (239,None),
+                "3l_onZ_2b"    : (95,None),
+                "4l"           : (12,None),
             },
 
         }
@@ -225,7 +238,7 @@ class YieldTools():
     ######### General functions #########
 
     # Get percent difference
-    def get_pdiff(self,a,b):
+    def get_pdiff(self,a,b,in_percent=False):
         #p = (float(a)-float(b))/((float(a)+float(b))/2)
         if ((a is None) or (b is None)):
             p = None
@@ -233,6 +246,8 @@ class YieldTools():
             p = None
         else:
             p = (float(a)-float(b))/float(b)
+            if in_percent:
+                p = p*100.0
         return p
 
     # Takes two dictionaries, returns the list of lists [common keys, keys unique to d1, keys unique to d2]
@@ -619,9 +634,15 @@ class YieldTools():
     # This function is a tool to sum a subset of the values in a dict (a subdict of the yield_dict)
     #   - Assumes all keys in keys_to_sum list are in the dict
     #   - Assumes the keys are tuples of val,err and we ignore the err in the sum
-    def get_subset_sum(self,in_dict,keys_to_sum):
+    def get_subset_sum(self,in_dict,keys_to_sum,skip_missing_keys=False):
         out_vals = {}
         for k in keys_to_sum:
+            if k not in in_dict:
+                if skip_missing_keys:
+                    print(f"Warning: key {k} is missing from dict with keys {list(in_dict.keys())}")
+                    continue
+                else:
+                    raise Exception(f"Error: key {k} is missing from dict with keys {list(in_dict.keys())}")
             for subk in in_dict[k].keys():
                 if subk not in out_vals:
                     out_vals[subk] = [in_dict[k][subk][0],None]
@@ -654,24 +675,59 @@ class YieldTools():
     #   - Assumes that the yld dict has all of the processes relevent for the analysis (sig, bkg, data)
     #   - Combines calculates sub category sums
     #   - Returns a new yld dict with these combined sums
-    def sum_over_ana_procs(self,yld_dict):
+    def sum_over_ana_procs(self,yld_dict,skip4t=False,comb2lss=False):
 
         # Fill the out dict with the orig set of processes
         ret_dict = {}
         for proc in yld_dict.keys():
+            if skip4t and proc == "tttt": continue
             ret_dict[proc] = yld_dict[proc]
 
         # Get sums and add those to the dict
-        ret_dict["bkg"] = self.get_subset_sum(yld_dict,self.BKG)
-        ret_dict["sig"] = self.get_subset_sum(yld_dict,self.SIG)
-        ret_dict["pred"] = self.get_subset_sum(yld_dict,self.SIG+self.BKG)
+        bkg_lst = copy.deepcopy(self.BKG)
+        sig_lst = copy.deepcopy(self.SIG)
+        if skip4t:
+            sig_lst.remove("tttt")
+        ret_dict["bkg"] = self.get_subset_sum(yld_dict,bkg_lst)
+        ret_dict["sig"] = self.get_subset_sum(yld_dict,sig_lst)
+        ret_dict["pred"] = self.get_subset_sum(yld_dict,sig_lst+bkg_lst)
 
         ret_dict["pdiff"] = {}
         for cat in ret_dict["pred"].keys():
             obs = ret_dict["data"][cat][0]
             exp = ret_dict["pred"][cat][0]
-            pdiff = 100.0*(exp-obs)/obs
+            pdiff = self.get_pdiff(exp,obs,in_percent=True)
             ret_dict["pdiff"][cat] = [pdiff,None]
+
+        # Note that this assumes the 2lss_p, 2lss_m, 2lss_4t_p, and 2lss_4t_m keys are in the dict
+        # Adds the 4t category to the regular 2lss cat
+        if comb2lss:
+            ret_dict_comb_2lss = {}
+            for proc_name in ret_dict.keys():
+                ret_dict_comb_2lss[proc_name] = {}
+                for cat_name in ret_dict[proc_name].keys():
+                    val1 = ret_dict[proc_name][cat_name][0]
+                    val2 = None
+                    if cat_name == "2lss_p":
+                        val2 = ret_dict[proc_name]["2lss_4t_p"][0]
+                    elif cat_name == "2lss_m":
+                        val2 = ret_dict[proc_name]["2lss_4t_m"][0]
+                    elif cat_name == "2lss_4t_p" or cat_name == "2lss_4t_m":
+                        # We won't have keys in the out dict for this cat
+                        continue
+
+                    # Here number+None=number, and None+None=None
+                    if val1 is None and val2 is None:
+                        val = None
+                    elif val1 is None:
+                        val = val2
+                    elif val2 is None:
+                        val = val1
+                    else:
+                        val = val1 + val2
+                    ret_dict_comb_2lss[proc_name][cat_name] = (val,None)
+
+            ret_dict = ret_dict_comb_2lss
 
         return ret_dict
 
