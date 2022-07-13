@@ -28,7 +28,10 @@ def to_hist(arr,name,zero_wgts=False):
         uproot. If 'zero_wgts' is true, then the resulting histogram will be created with bin errors
         set to 0 (instead of left unset)
     """
-    clipped = arr[1:-1]     # Strip off the under/overflow bins
+    # NOTE:
+    #   If we don't instantiate a new np.array here, then clipped will store a reference to the
+    #   sub-array arr and when we modify clipped, it will propagate back to arr as well!
+    clipped = np.array(arr[1:-1])     # Strip off the under/overflow bins
     clipped[-1] += arr[-1]  # Add the overflow bin to the right most bin content
     nbins = len(clipped)
     if zero_wgts:
