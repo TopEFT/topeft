@@ -36,7 +36,7 @@ def to_hist(arr,name,zero_wgts=False):
     nbins = len(clipped)
     if zero_wgts:
         h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name),storage=bh.storage.Weight())
-        h[...] = np.stack([arr,np.zeros_like(arr)],axis=-1) # Set the bin errors all to 0
+        h[...] = np.stack([clipped,np.zeros_like(clipped)],axis=-1) # Set the bin errors all to 0
     else:
         h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name))
         h[...] = clipped
