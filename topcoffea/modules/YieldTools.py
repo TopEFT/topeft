@@ -452,7 +452,7 @@ class YieldTools():
     #           subk : (val,err)
     #       }
     #   }
-    def get_diff_between_nested_dicts(self,dict1,dict2,difftype):
+    def get_diff_between_nested_dicts(self,dict1,dict2,difftype,inpercent=False):
 
         # Get list of keys common to both dictionaries
         common_keys, d1_keys, d2_keys = self.get_common_keys(dict1,dict2)
@@ -473,7 +473,7 @@ class YieldTools():
                 v1,e1 = dict1[k][subk]
                 v2,e1 = dict2[k][subk]
                 if difftype == "percent_diff":
-                    ret_diff = self.get_pdiff(v1,v2)
+                    ret_diff = self.get_pdiff(v1,v2,in_percent=inpercent)
                 elif difftype == "absolute_diff":
                     ret_diff = v1 - v2
                 else:
