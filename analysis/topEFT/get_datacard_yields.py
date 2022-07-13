@@ -3,6 +3,7 @@ import copy
 import datetime
 import argparse
 import json
+import numpy as np
 
 import topcoffea.modules.MakeLatexTable as mlt
 
@@ -25,6 +26,7 @@ PROC_ORDER = [
      "Sum_sig",
      "Sum_expected",
      "Observation",
+     "Pdiff",
 ]
 CAT_ORDER = [
     "2lss_m_3b",
@@ -306,6 +308,13 @@ def main():
     if not args.unblind:
         all_rates_dict = remove_observed_rates(all_rates_dict,2)
 
+    for cat in all_rates_dict.keys():
+        sm = all_rates_dict[cat]["Sum_expected"]
+        ob = all_rates_dict[cat]["Observation"]
+        pdiff = 100.0*(sm-ob)/sm
+        print(cat,pdiff)
+        all_rates_dict[cat]["Pdiff"] = pdiff
+
     # Dump to the screen text for a latex table
     all_rates_dict_none_errs = append_none_errs(all_rates_dict) # Get a dict that will work for the latex table (i.e. need None for errs)
     mlt.print_latex_yield_table(
@@ -316,7 +325,7 @@ def main():
         print_begin_info=True,
         print_end_info=True,
         column_variable="keys",
-        hz_line_lst=[4,5,11,12,13],
+        hz_line_lst=[4,5,11,12,13,14],
     )
 
     # Save yields to a json
