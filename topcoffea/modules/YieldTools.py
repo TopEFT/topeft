@@ -29,8 +29,8 @@ class YieldTools():
             "ttll"  : ["ttZ_centralUL17" , "ttllJet_privateUL18"  , "ttllJet_privateUL17"  , "ttllJet_privateUL16"  , "ttllJet_privateUL16APV"],
             "ttH"   : ["ttH_centralUL17" , "ttHJet_privateUL18"   , "ttHJet_privateUL17"   , "ttHJet_privateUL16"   , "ttHJet_privateUL16APV"],
             "tllq"  : ["tZq_centralUL17" , "tllq_privateUL18"     , "tllq_privateUL17"     , "tllq_privateUL16"     , "tllq_privateUL16APV"],
-            "tHq"   : ["tHq_central2017" , "tHq_privateUL18"      , "tHq_privateUL17"      , "tHq_privateUL16"      , "tHq_privateUL16APV"],
-            "tttt"  : ["tttt_central2017", "tttt_privateUL18"     , "tttt_privateUL17"     , "tttt_privateUL16"     , "tttt_privateUL16APV"],
+            "tHq"   : ["tHq_centralUL17" , "tHq_privateUL18"      , "tHq_privateUL17"      , "tHq_privateUL16"      , "tHq_privateUL16APV"],
+            "tttt"  : ["tttt_centralUL17", "tttt_privateUL18"     , "tttt_privateUL17"     , "tttt_privateUL16"     , "tttt_privateUL16APV"],
 
             "flips" : ["flipsUL17"            ],
             "fakes" : ["nonpromptUL17"        ],
