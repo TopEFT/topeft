@@ -16,6 +16,13 @@ class YieldTools():
         self.CAT_LST = ["2lss_p", "2lss_m", "2lss_4t_p", "2lss_4t_m", "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b", "4l"]
         self.CAT_LST_TOP19001 = ["2lss_p", "2lss_m", "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b", "4l"]
 
+        self.SIG      = ["ttH","ttlnu","ttll","tllq","tHq","tttt"]
+        self.BKG      = ["flips","fakes","conv","VV","VVV"]
+        self.DIBOSON  = ["WW","WZ","ZZ"]
+        self.TRIBOSON = ["WWW","WWZ","WZZ","ZZZ"]
+
+        self.DATA_MC_COLUMN_ORDER = ["VV", "VVV", "flips", "fakes", "conv", "bkg", "ttlnu", "ttll", "ttH", "tllq", "tHq", "tttt", "sig", "pred", "data", "pdiff"]
+
         # A dictionary mapping names of samples in the samples axis to a short version of the name
         self.PROC_MAP = {
             "ttlnu" : ["ttW_centralUL17" , "ttlnuJet_privateUL18" , "ttlnuJet_privateUL17" , "ttlnuJet_privateUL16" , "ttlnuJet_privateUL16APV"],
@@ -27,7 +34,7 @@ class YieldTools():
 
             "flips" : ["flipsUL17"            ],
             "fakes" : ["nonpromptUL17"        ],
-            "TTg"   : ["TTGamma_centralUL17"  ],
+            "conv"  : ["TTGamma_centralUL17"  ],
             "WW"    : ["WWTo2L2Nu_centralUL17"],
             "WZ"    : ["WZTo3LNu_centralUL17" ],
             "ZZ"    : ["ZZTo4L_centralUL17"   ],
@@ -278,11 +285,10 @@ class YieldTools():
 
         return out_lst
 
+
     # Get the per lepton e/m factor from e.g. eee and mmm yields
     def get_em_factor(self,e_val,m_val,nlep):
         return (e_val/m_val)**(1.0/nlep)
-
-
 
 
     # Takes a hist, and retruns a list of the axis names
@@ -545,6 +551,9 @@ class YieldTools():
         return yld_dict
 
 
+
+    ######### Functions specifically for manipulating the "yld_dict" object  #########
+
     # This function takes as input a yld_dict that's seperated by lep flavor, and sums categories over lepton flavor
     def sum_over_lepcats(self,yld_dict):
 
@@ -602,6 +611,67 @@ class YieldTools():
             for cat in yld_dict[proc].keys():
                 yld,err = yld_dict[proc][cat]
                 ret_dict[proc][cat] = (yld/sum_dict[cat],None) # No propagation of errors
+
+        return ret_dict
+
+
+
+    # This function is a tool to sum a subset of the values in a dict (a subdict of the yield_dict)
+    #   - Assumes all keys in keys_to_sum list are in the dict
+    #   - Assumes the keys are tuples of val,err and we ignore the err in the sum
+    def get_subset_sum(self,in_dict,keys_to_sum):
+        out_vals = {}
+        for k in keys_to_sum:
+            for subk in in_dict[k].keys():
+                if subk not in out_vals:
+                    out_vals[subk] = [in_dict[k][subk][0],None]
+                else:
+                    out_vals[subk][0] = out_vals[subk][0] + in_dict[k][subk][0]
+        return out_vals
+    
+    # This function
+    #   - Takes as input a yld_dict
+    #   - Combines the bkg processes (e.g. combine all diboson processes)
+    #   - Returns a new yld dict with these combined processes
+    def comb_bkg_procs(self,yld_dict):
+        ret_dict = {}
+        for proc in self.BKG:
+            if proc in yld_dict.keys():
+                ret_dict[proc] = yld_dict[proc]
+            else:
+                if proc == "VV":
+                    ret_dict["VV"] = self.get_subset_sum(yld_dict,self.DIBOSON)
+                if proc == "VVV":
+                    ret_dict["VVV"] = self.get_subset_sum(yld_dict,self.TRIBOSON)
+        for proc in self.SIG + ["data"]:
+            # Pass through
+            ret_dict[proc] = yld_dict[proc]
+
+        return ret_dict
+
+    # This function
+    #   - takes as input a yld_dict
+    #   - Assumes that the yld dict has all of the processes relevent for the analysis (sig, bkg, data)
+    #   - Combines calculates sub category sums
+    #   - Returns a new yld dict with these combined sums
+    def sum_over_ana_procs(self,yld_dict):
+
+        # Fill the out dict with the orig set of processes
+        ret_dict = {}
+        for proc in yld_dict.keys():
+            ret_dict[proc] = yld_dict[proc]
+
+        # Get sums and add those to the dict
+        ret_dict["bkg"] = self.get_subset_sum(yld_dict,self.BKG)
+        ret_dict["sig"] = self.get_subset_sum(yld_dict,self.SIG)
+        ret_dict["pred"] = self.get_subset_sum(yld_dict,self.SIG+self.BKG)
+
+        ret_dict["pdiff"] = {}
+        for cat in ret_dict["pred"].keys():
+            obs = ret_dict["data"][cat][0]
+            exp = ret_dict["pred"][cat][0]
+            pdiff = 100.0*(exp-obs)/obs
+            ret_dict["pdiff"][cat] = [pdiff,None]
 
         return ret_dict
 
