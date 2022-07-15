@@ -7,12 +7,14 @@ import copy
 import coffea
 import numpy as np
 import awkward as ak
+import pandas as pd
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 from coffea import hist, processor
 from coffea.util import load, save
 from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
+from coffea.processor import AccumulatorABC
 
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
@@ -23,6 +25,28 @@ from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
 
 
+class dataframe_accumulator(AccumulatorABC):
+
+    def __init__(self, value):
+        self._value = value
+
+    @property
+    def value(self):
+        return self._value
+
+    def identity(self):
+        return dataframe_accumulator(pd.DataFrame())
+
+    def add(self, other):
+        if isinstance(other, pd.core.frame.DataFrame):
+            self._value = pd.concat([self._value, other])
+        else:
+            self._value = pd.concat([self._value, other._value])
+    
+    def reindex(self):
+        self._value = self._value.reset_index(drop=True)
+
+
 class AnalysisProcessor(processor.ProcessorABC):
 
     def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32):
@@ -31,10 +55,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
 
-        # Create the histograms
-        self._accumulator = processor.dict_accumulator({
-            "ljptsum" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("ljptsum", "S$_{T}$ (GeV)", 11, 0, 1100)),
-        })
+        # Create the dataframe
+        self._accumulator = dataframe_accumulator(pd.DataFrame())
 
     @property
     def accumulator(self):
@@ -259,61 +281,33 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Note that this array is still the same lengh as the number of events in the chunk
         tight_lep_mask = ak.fill_none(l_fo_conept_sorted_padded.isTightLep,False)
         tight_lep = l_fo_conept_sorted_padded[tight_lep_mask]
-
-        # Now throw out all events that do not pass the selection cuts
-        # What we're left with now should <= len(number of events)
-        tight_lep = tight_lep[sr_event_mask]
+        events["tight_lep"] = tight_lep
 
         # Now find the number of tight leptons in each event, this array should look something like e.g. [3,2,2,4,2,3,2]
-        #   - In this example, this would mean 7 events in this chunk passed our event selection criteria
-        #   - For the first event that passed, there are 3 tight leptons in the event, for the second event that passed, there are 2 tight leptons in the event, etc.
         nleps = ak.num(tight_lep)
+        events["nleps"] = nleps
 
-        # Next steps:
-        #   - Order the events by nleps (can use ak.argsort)
-        #   - Take the top ones (maybe top 5?) and put them into the output object
-        #   - Use a dataframe as the output object?
-        #   - Not sure what sort of info we can put into the dataframe, but would probably be useful to know e.g. run number, lumiblock, event number (events.run, events.luminosityBlock, events.event)
+        # Now throw out all events that do not pass the selection cuts and collect events information
+        # What we're left with now should <= len(number of events)
+        tight_event_info = {}
+        info = ["run", "luminosityBlock", "event", "nleps", "njets"]
+        for label in info:
+            tight_event_info[label] = events[label][sr_event_mask]
+
+        # Use a dataframe as the output object
+        # Select events with 4 or more leptons
+        df = pd.DataFrame(tight_event_info, columns=info)
+        df = df[df["nleps"] >= 4]
+        df.insert(0, "dataset", [dataset for x in range(len(df.index))])
+
         #   - Could also be interesting to store the flavor of the leptons (or check for e.g. max number of electrons or max number of mu instead of just max number of leptons)
         #   - Then we could also do something similar for njets, number of b tagged jets, or other event quantities e.g. S_T, or invmass (i.e. find the events with the most extreme values of these variables and accumulate them as well)
 
-
-
-        ######### PLACEHOLDER Filling the histo ##########
-
-        # We probably don't want to use a histo for this processor
-        # But I'll leave the histo filling stuff here for now as a placeholder
-
-        # Collection of all objects (leptons and jets)
-        l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
-        ljptsum = ak.sum(l_j_collection.pt,axis=-1)
-
-        # Variables we will loop over when filling hists
-        varnames = {}
-        varnames["ljptsum"] = ljptsum
-
         # Initialize the out object
-        hout = self.accumulator.identity()
+        dfout = self.accumulator 
+        dfout.add(df)
 
-        # Loop over the hists we want to fill
-        for dense_axis_name, dense_axis_vals in varnames.items():
-
-            # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
-            for sr_category in sr_category_lst:
-
-                    cuts_lst = [sr_category]
-                    all_cuts_mask = selections.all(*cuts_lst)
-
-                    # Fill the histos
-                    axes_fill_info_dict = {
-                        dense_axis_name : dense_axis_vals[all_cuts_mask],
-                        "channel"       : sr_category,
-                        "sample"        : histAxisName,
-                    }
-
-                    hout[dense_axis_name].fill(**axes_fill_info_dict)
-
-        return hout
+        return dfout
 
     def postprocess(self, accumulator):
-        return accumulator
+        accumulator.reindex()
