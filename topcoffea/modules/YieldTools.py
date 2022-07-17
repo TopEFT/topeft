@@ -692,13 +692,6 @@ class YieldTools():
         ret_dict["sig"] = self.get_subset_sum(yld_dict,sig_lst)
         ret_dict["pred"] = self.get_subset_sum(yld_dict,sig_lst+bkg_lst)
 
-        ret_dict["pdiff"] = {}
-        for cat in ret_dict["pred"].keys():
-            obs = ret_dict["data"][cat][0]
-            exp = ret_dict["pred"][cat][0]
-            pdiff = self.get_pdiff(exp,obs,in_percent=True)
-            ret_dict["pdiff"][cat] = [pdiff,None]
-
         # Note that this assumes the 2lss_p, 2lss_m, 2lss_4t_p, and 2lss_4t_m keys are in the dict
         # Adds the 4t category to the regular 2lss cat
         if comb2lss:
@@ -728,6 +721,13 @@ class YieldTools():
                     ret_dict_comb_2lss[proc_name][cat_name] = (val,None)
 
             ret_dict = ret_dict_comb_2lss
+
+        ret_dict["pdiff"] = {}
+        for cat in ret_dict["pred"].keys():
+            obs = ret_dict["data"][cat][0]
+            exp = ret_dict["pred"][cat][0]
+            pdiff = self.get_pdiff(exp,obs,in_percent=True)
+            ret_dict["pdiff"][cat] = [pdiff,None]
 
         return ret_dict
 
