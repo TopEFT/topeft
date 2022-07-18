@@ -64,7 +64,7 @@ CR_CHAN_DICT = {
 }
 
 
-SR_CHAN_DICT = {
+_SR_CHAN_DICT = {
     "2lss_4t_SR": [
         "2lss_4t_p_4j", "2lss_4t_m_5j", "2lss_4t_m_6j", "2lss_4t_m_7j",
         "2lss_4t_p_4j", "2lss_4t_p_5j", "2lss_4t_p_6j", "2lss_4t_p_7j",
@@ -78,6 +78,28 @@ SR_CHAN_DICT = {
         "3l_m_offZ_2b_2j", "3l_m_offZ_2b_3j", "3l_m_offZ_2b_4j", "3l_m_offZ_2b_5j",
         "3l_p_offZ_1b_2j", "3l_p_offZ_1b_3j", "3l_p_offZ_1b_4j", "3l_p_offZ_1b_5j",
         "3l_p_offZ_2b_2j", "3l_p_offZ_2b_3j", "3l_p_offZ_2b_4j", "3l_p_offZ_2b_5j",
+        "3l_onZ_1b_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
+        "3l_onZ_2b_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
+    ],
+    "4l_SR" : [
+        "4l_2j", "4l_3j", "4l_4j",
+    ]
+}
+
+SR_CHAN_DICT = {
+    "2lss_SR": [
+        "2lss_4t_p_4j", "2lss_4t_m_5j", "2lss_4t_m_6j", "2lss_4t_m_7j",
+        "2lss_4t_p_4j", "2lss_4t_p_5j", "2lss_4t_p_6j", "2lss_4t_p_7j",
+        "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
+        "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
+    ],
+    "3l_offZ_SR" : [
+        "3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_m_offZ_1b_5j",
+        "3l_m_offZ_2b_2j", "3l_m_offZ_2b_3j", "3l_m_offZ_2b_4j", "3l_m_offZ_2b_5j",
+        "3l_p_offZ_1b_2j", "3l_p_offZ_1b_3j", "3l_p_offZ_1b_4j", "3l_p_offZ_1b_5j",
+        "3l_p_offZ_2b_2j", "3l_p_offZ_2b_3j", "3l_p_offZ_2b_4j", "3l_p_offZ_2b_5j",
+    ],
+    "3l_onZ_SR" : [
         "3l_onZ_1b_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
         "3l_onZ_2b_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
     ],
@@ -101,6 +123,19 @@ CR_GRP_MAP = {
     "Flips" : [],
     "Signal" : [],
     "Data" : [],
+}
+
+SR_GRP_MAP = {
+    "Data": [],
+    "Conv": [],
+    "Multiboson" : [],
+    "Nonprompt" : [],
+    "Flips" : [],
+    "ttH" : [],
+    "ttlnu" : [],
+    "ttll" : [],
+    "tttt" : [],
+    "tXq" : [],
 }
 
 # Best fit point from TOP-19-001 with madup numbers for the 10 new WCs
@@ -664,13 +699,41 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     print("\nData samples:",data_sample_lst)
     print("\nVariables:",dict_of_hists.keys())
 
+    # Very hard coded :(
+    for proc_name in mc_sample_lst + data_sample_lst:
+        if "data" in proc_name:
+            SR_GRP_MAP["Data"].append(proc_name)
+        elif "nonprompt" in proc_name:
+            SR_GRP_MAP["Nonprompt"].append(proc_name)
+        elif "flips" in proc_name:
+            SR_GRP_MAP["Flips"].append(proc_name)
+        elif ("ttH" in proc_name):
+            SR_GRP_MAP["ttH"].append(proc_name)
+        elif ("ttlnu" in proc_name):
+            SR_GRP_MAP["ttlnu"].append(proc_name)
+        elif ("ttll" in proc_name):
+            SR_GRP_MAP["ttll"].append(proc_name)
+        elif (("tllq" in proc_name) or ("tHq" in proc_name)):
+            SR_GRP_MAP["tXq"].append(proc_name)
+        elif ("tttt" in proc_name):
+            SR_GRP_MAP["tttt"].append(proc_name)
+        elif "TTG" in proc_name:
+            SR_GRP_MAP["Conv"].append(proc_name)
+        elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
+            SR_GRP_MAP["Multiboson"].append(proc_name)
+        elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
+            SR_GRP_MAP["Multiboson"].append(proc_name)
+        else:
+            raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+
     # The analysis bins
     analysis_bins = {
         'njets': {
             '2l': [4,5,6,7,dict_of_hists['njets'].axis('njets').edges()[-1]], # Last bin in topeft.py is 10, this should grab the overflow
             '3l': [2,3,4,5,dict_of_hists['njets'].axis('njets').edges()[-1]],
-            '4l': [2,3,4,dict_of_hists['njets'].axis('njets').edges()[-1]]}
+            '4l': [2,3,4,dict_of_hists['njets'].axis('njets').edges()[-1]]
         }
+    }
     analysis_bins['ptz'] = [0, 200, 300, 400, 500, dict_of_hists['ptz'].axis('ptz').edges()[-1]]
     analysis_bins['lj0pt'] = [0, 150, 250, 500, dict_of_hists['lj0pt'].axis('lj0pt').edges()[-1]]
 
@@ -679,6 +742,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
         print("\nVariable:",var_name)
+        #if var_name != "njets": continue
 
         # Extract the MC and data hists
         hist_mc_orig = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
@@ -697,6 +761,9 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             for sample_name in mc_sample_lst:
                 sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
             hist_mc.scale(sample_lumi_dict,axis="sample")
+
+            hist_mc = group_bins(hist_mc,SR_GRP_MAP)
+            hist_data = group_bins(hist_data,SR_GRP_MAP)
 
             # Make a sub dir for this category
             save_dir_path_tmp = os.path.join(save_dir_path,var_name)
