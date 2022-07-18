@@ -32,7 +32,10 @@ CR_CHAN_DICT = {
         "2los_mm_CRZ_0j",
     ],
     "cr_2los_tt" : [
+        #"2los_em_CRtt_0j",
+        #"2los_em_CRtt_1j",
         "2los_em_CRtt_2j",
+        #"2los_em_CRtt_3j",
     ],
     "cr_2lss" : [
         "2lss_ee_CR_1j",
@@ -41,6 +44,9 @@ CR_CHAN_DICT = {
         "2lss_ee_CR_2j",
         "2lss_em_CR_2j",
         "2lss_mm_CR_2j",
+        #"2lss_ee_CR_3j",
+        #"2lss_em_CR_3j",
+        #"2lss_mm_CR_3j",
     ],
     "cr_2lss_flip" : [
         "2lss_ee_CRflip_3j",
@@ -698,13 +704,14 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                 os.mkdir(save_dir_path_tmp)
 
             # Rebin into analysis bins
-            lep_bin = chan_name[:2]
-            if var_name == "njets":
-                hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axis(var_name).label, analysis_bins[var_name][lep_bin]))
-                hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name][lep_bin]))
-            else:
-                hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axis(var_name).label, analysis_bins[var_name]))
-                hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name]))
+            if var_name in analysis_bins.keys():
+                lep_bin = chan_name[:2]
+                if var_name == "njets":
+                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axis(var_name).label, analysis_bins[var_name][lep_bin]))
+                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name][lep_bin]))
+                else:
+                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axis(var_name).label, analysis_bins[var_name]))
+                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name]))
 
             # Make the plots
             #print("\n\n",hist_mc.values())
@@ -928,6 +935,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         for hist_cat in cr_cat_dict.keys():
             if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The 2los Z category does not require jets (so leading jet plots do not make sense)
             if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The flip category does not require jets (so leading jet plots do not make sense)
+            #if hist_cat != "cr_2lss" and hist_cat != "cr_3l": continue
+            #if hist_cat != "cr_2los_tt" and hist_cat != "cr_2los_Z": continue
             print("\n\tCategory:",hist_cat)
 
             # Make a sub dir for this category
