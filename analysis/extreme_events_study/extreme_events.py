@@ -71,6 +71,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Dataset parameters
         dataset = events.metadata["dataset"]
+        filename = events.metadata["filename"]
 
         isData             = self._samples[dataset]["isData"]
         histAxisName       = self._samples[dataset]["histAxisName"]
@@ -299,6 +300,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         df = pd.DataFrame(tight_event_info, columns=info)
         df = df[df["nleps"] >= 4]
         df.insert(0, "dataset", [dataset for x in range(len(df.index))])
+        df.insert(1, "filename", [filename for x in range(len(df.index))])
 
         #   - Could also be interesting to store the flavor of the leptons (or check for e.g. max number of electrons or max number of mu instead of just max number of leptons)
         #   - Then we could also do something similar for njets, number of b tagged jets, or other event quantities e.g. S_T, or invmass (i.e. find the events with the most extreme values of these variables and accumulate them as well)
