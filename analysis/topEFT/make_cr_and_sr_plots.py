@@ -743,6 +743,13 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         if (var_name in skip_lst): continue
         print("\nVariable:",var_name)
         #if var_name != "njets": continue
+        #if var_name == "njets": continue
+        #if var_name == "ptz": continue
+        #if var_name == "invmassz": continue
+        #if var_name != "invmassz": continue
+        #if var_name != "lj0pt": continue
+        #if var_name != "hadtpt": continue
+        #if var_name != "hadwmass": continue
 
         # Extract the MC and data hists
         hist_mc_orig = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
@@ -751,10 +758,13 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         # Loop over channels
         channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
         print("channels:",channels_lst)
-        for chan_name in channels_lst:
+        #for chan_name in channels_lst:
+        for chan_name in SR_CHAN_DICT.keys():
 
-            hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) 
-            hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",chan_name) 
+            #hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) 
+            #hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",chan_name) 
+            hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name])
+            hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name])
 
             # Normalize the MC hists
             sample_lumi_dict = {}
@@ -781,8 +791,13 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                     hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name]))
 
             # Make the plots
-            #print("\n\n",hist_mc.values())
-            #print("\n\n",hist_data.values())
+            #print("Channel",chan_name)
+            #for k,v in hist_mc.values(overflow="all").items():
+            #    print(k,sum(v),type(v))
+            #for k,v in hist_data.values(overflow="all").items():
+            #    print(k,sum(v),type(v))
+            #exit()
+            #continue
             fig = make_cr_fig(hist_mc, hist_data, unit_norm_bool=False)
             title = var_name + "_" + chan_name
             fig.savefig(os.path.join(save_dir_path_tmp,title))
@@ -1119,9 +1134,9 @@ def main():
     #exit()
 
     # Make the plots
-    #make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
+    make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
-    make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
+    #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
 
 if __name__ == "__main__":
