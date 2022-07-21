@@ -88,7 +88,7 @@ _SR_CHAN_DICT = {
 
 SR_CHAN_DICT = {
     "2lss_SR": [
-        "2lss_4t_p_4j", "2lss_4t_m_5j", "2lss_4t_m_6j", "2lss_4t_m_7j",
+        "2lss_4t_m_4j", "2lss_4t_m_5j", "2lss_4t_m_6j", "2lss_4t_m_7j",
         "2lss_4t_p_4j", "2lss_4t_p_5j", "2lss_4t_p_6j", "2lss_4t_p_7j",
         "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
         "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
@@ -225,7 +225,7 @@ def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
     # Remap the bins
     old_ax = histo.axis(axis_name)
     new_ax = hist.Cat(old_ax.name,old_ax.label)
-    new_histo = histo.group(old_ax,new_ax,bin_map)
+    new_histo = histo.group(old_ax,new_ax,bin_map,overflow="over")
 
     return new_histo
 
@@ -734,7 +734,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             '4l': [2,3,4,dict_of_hists['njets'].axis('njets').edges()[-1]]
         }
     }
-    analysis_bins['ptz'] = [0, 200, 300, 400, 500, dict_of_hists['ptz'].axis('ptz').edges()[-1]]
+    #analysis_bins['ptz'] = [0, 200, 300, 400, 500, dict_of_hists['ptz'].axis('ptz').edges()[-1]]
     analysis_bins['lj0pt'] = [0, 150, 250, 500, dict_of_hists['lj0pt'].axis('lj0pt').edges()[-1]]
 
     # Loop over hists and make plots
@@ -743,7 +743,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         if (var_name in skip_lst): continue
         print("\nVariable:",var_name)
         #if var_name != "njets": continue
-        #if var_name == "njets": continue
+        if var_name == "njets": continue
         #if var_name == "ptz": continue
         #if var_name == "invmassz": continue
         #if var_name != "invmassz": continue
@@ -763,8 +763,8 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
 
             #hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) 
             #hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",chan_name) 
-            hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name])
-            hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name])
+            hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name],overflow="over")
+            hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name],overflow="over")
 
             # Normalize the MC hists
             sample_lumi_dict = {}
@@ -792,12 +792,20 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
 
             # Make the plots
             #print("Channel",chan_name)
-            #for k,v in hist_mc.values(overflow="all").items():
+            #for k,v in hist_mc.values(overflow="over").items():
             #    print(k,sum(v),type(v))
-            #for k,v in hist_data.values(overflow="all").items():
+            #for k,v in hist_data.values(overflow="over").items():
             #    print(k,sum(v),type(v))
             #exit()
             #continue
+
+            if hist_mc.values() == {}:
+                print("Warning: empty mc histo, continuing")
+                continue
+            if hist_data.values() == {}:
+                print("Warning: empty data histo, continuing")
+                continue
+
             fig = make_cr_fig(hist_mc, hist_data, unit_norm_bool=False)
             title = var_name + "_" + chan_name
             fig.savefig(os.path.join(save_dir_path_tmp,title))
