@@ -748,6 +748,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         #if var_name == "invmassz": continue
         #if var_name != "invmassz": continue
         #if var_name != "lj0pt": continue
+        #if var_name != "met": continue
         #if var_name != "hadtpt": continue
         #if var_name != "hadwmass": continue
 
@@ -776,7 +777,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             hist_data = group_bins(hist_data,SR_GRP_MAP)
 
             # Make a sub dir for this category
-            save_dir_path_tmp = os.path.join(save_dir_path,var_name)
+            save_dir_path_tmp = os.path.join(save_dir_path,chan_name)
             if not os.path.exists(save_dir_path_tmp):
                 os.mkdir(save_dir_path_tmp)
 
@@ -807,7 +808,9 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                 continue
 
             fig = make_cr_fig(hist_mc, hist_data, unit_norm_bool=False)
-            title = var_name + "_" + chan_name
+            if year is not None: year_str = year
+            else: year_str = "ULall"
+            title = chan_name + "_" + var_name + "_" + year_str
             fig.savefig(os.path.join(save_dir_path_tmp,title))
 
             # Make an index.html file if saving to web area
@@ -1146,6 +1149,13 @@ def main():
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
+
+    # Make unblinded SR data MC comparison plots by year
+    #make_all_sr_data_mc_plots(hin_dict,"2016",save_dir_path)
+    #make_all_sr_data_mc_plots(hin_dict,"2016APV",save_dir_path)
+    #make_all_sr_data_mc_plots(hin_dict,"2017",save_dir_path)
+    #make_all_sr_data_mc_plots(hin_dict,"2018",save_dir_path)
+    #make_all_sr_data_mc_plots(hin_dict,None,save_dir_path)
 
 if __name__ == "__main__":
     main()
