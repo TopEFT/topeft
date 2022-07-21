@@ -89,9 +89,9 @@ cd analysis/topEFT
 
 ## optional: initialize your proxy credentials to access the needed xrootd files.
 ## It is not needed if the .cfg file is using root files from local paths.
-# voms-init-proxy2
+# voms-proxy-init2
 
-python work_queue_run.py --chunksize 128000 ../../topcoffea/cfg/mc_signal_samples.cfg
+python work_queue_run.py --chunksize 128000 ../../topcoffea/cfg/data_samples_NDSkim.cfg
 ```
 
 The first time you run `work_queue_run.py` it will spend a handful of minutes
