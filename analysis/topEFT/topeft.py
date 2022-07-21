@@ -105,6 +105,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "l0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",   "Leading lep $\eta$", 10, -2.5, 2.5)),
             "l1eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l1eta",   "Second lep $\eta$", 10, -2.5, 2.5)),
             "l2eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l2eta",   "Third lep $\eta$", 10, -2.5, 2.5)),
+            "j0deepflavb": HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0deepflavb",    "Leading jet deep csv", 10, 0, 1)),
             "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 10, 0, 500)),
             "j1pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j1pt",    "Second jet  $p_{T}$ (GeV)", 10, 0, 500)),
             "j2pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j2pt",    "Third jet  $p_{T}$ (GeV)", 10, 0, 500)),
@@ -697,6 +698,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["l1eta"] = l1.eta
             varnames["l2pt"]  = l2.conept
             varnames["l2eta"] = l2.eta
+
+            varnames["j0deepflavb"]  = j0.btagDeepFlavB
 
             varnames["j0pt"]  = j0.pt
             varnames["j0eta"] = j0.eta
