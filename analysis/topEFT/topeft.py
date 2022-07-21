@@ -985,6 +985,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if (("invmassz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
+                                        # Special case since here we're specifying "at most 3j" so the category is called 3j but does not imply that there are at leas 3 jets... very bad naming conventions
+                                        # So just skip all the leading jet histos here
+                                        if ch_name.startswith("2lss_CRflip") and dense_axis_name.startswith("j"): continue
+
                                         # Skip leading object histos for categories where that object is not defined (we really need a better way of doing this)
                                         nlep_of_this_cat = int(lep_chan[0])
                                         njet_of_this_cat = None
@@ -1001,7 +1005,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if (nlep_of_dense_axis_name+1) > nlep_of_this_cat:
                                                 # Note the +1 since off by one for chan names and hist names
                                                 continue
-                                        print("dummy")
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
 
