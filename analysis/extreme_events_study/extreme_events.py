@@ -23,6 +23,7 @@ from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
+import topcoffea.modules.GetValuesFromJsons as getj
 
 
 class dataframe_accumulator(AccumulatorABC):
@@ -43,7 +44,9 @@ class dataframe_accumulator(AccumulatorABC):
         else:
             self._value = pd.concat([self._value, other._value])
     
-    def reindex(self):
+    def sort(self):
+        # Columns to sort by depend on events of interest
+        self._value = self._value.sort_values(by=["njets", "nleps"], ascending=False)
         self._value = self._value.reset_index(drop=True)
 
 
@@ -76,6 +79,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         isData             = self._samples[dataset]["isData"]
         histAxisName       = self._samples[dataset]["histAxisName"]
         year               = self._samples[dataset]["year"]
+        xsec               = self._samples[dataset]["xsec"]
+        sow                = self._samples[dataset]["nSumOfWeights"]
+       
+        lumi = 1000.0*getj.get_lumi(year)
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
@@ -107,6 +114,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isData:
             e["gen_pdgId"] = ak.fill_none(e.matched_gen.pdgId, 0)
             mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
+
+        ######### EFT coefficients ##########
+
+        # Extract the EFT quadratic coefficients
+        eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
+        if eft_coeffs is not None:
+            # Check to see if the ordering of WCs for this sample matches what want
+            if self._samples[dataset]["WCnames"] != self._wc_names_lst:
+                eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
+            events["weight"] = eft_coeffs[:,0]
+            events["yield"] = eft_coeffs[:,0]*lumi*xsec/sow
+        else: 
+            genw = events["genWeight"]
+            events["weight"] = genw
+            events["yield"] = genw*lumi*xsec/sow
 
         ################### Electron selection ####################
 
@@ -191,9 +213,17 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         #################### Add variables into event object so that they persist ####################
 
-        # Put njets and l_fo_conept_sorted into events
-        events["njets"] = njets
+        # Put l_fo_conept_sorted and information of jets into events
         events["l_fo_conept_sorted"] = l_fo_conept_sorted
+        events["njets"] = njets
+        events["jet_pt"] = goodJets.pt
+        events["jet_eta"] = goodJets.eta
+
+        # Put S_T and H_T into events
+        l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
+        ljptsum = ak.sum(l_j_collection.pt,axis=-1)
+        events["S_T"] = ljptsum
+        events["H_T"] = ht
 
         # The event selection
         add2lMaskAndSFs(events, year, isData, sampleType)
@@ -291,16 +321,29 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Now throw out all events that do not pass the selection cuts and collect events information
         # What we're left with now should <= len(number of events)
         tight_event_info = {}
-        info = ["run", "luminosityBlock", "event", "nleps", "njets"]
+        info = ["run", "luminosityBlock", "event", "weight", "yield", "nleps", "njets", "S_T", "H_T"]
         for label in info:
             tight_event_info[label] = events[label][sr_event_mask]
 
-        # Use a dataframe as the output object
-        # Select events with 4 or more leptons
+        # Put pt and eta of jets of each event to two dataframes
+        # njets_max is predetermined and set as the index length
+        pt_index = []
+        eta_index = []
+        for i in range(20):
+            pt_index.append("pt_"+str(i))
+            eta_index.append("eta_"+str(i))
+        df_pt = pd.DataFrame(ak.to_list(ak.pad_none(events["jet_pt"][sr_event_mask], 20)), columns=pt_index)
+        df_eta = pd.DataFrame(ak.to_list(ak.pad_none(events["jet_eta"][sr_event_mask], 20)), columns=eta_index)
+
+        # Create a dataframe as the output object and append pt and eta
         df = pd.DataFrame(tight_event_info, columns=info)
-        df = df[df["nleps"] >= 4]
+        df = df.join(df_pt) if len(df.index)==len(df_pt.index) else None
+        df = df.join(df_eta) if len(df.index)==len(df_eta.index) else None
+
+        df = df[(df["nleps"] >= 4) | (df["njets"] >= 10)]
         df.insert(0, "dataset", [dataset for x in range(len(df.index))])
-        df.insert(1, "filename", [filename for x in range(len(df.index))])
+        df.insert(1, "year", [year for x in range(len(df.index))])
+        df.insert(2, "filename", [filename for x in range(len(df.index))])
 
         #   - Could also be interesting to store the flavor of the leptons (or check for e.g. max number of electrons or max number of mu instead of just max number of leptons)
         #   - Then we could also do something similar for njets, number of b tagged jets, or other event quantities e.g. S_T, or invmass (i.e. find the events with the most extreme values of these variables and accumulate them as well)
@@ -312,4 +355,4 @@ class AnalysisProcessor(processor.ProcessorABC):
         return dfout
 
     def postprocess(self, accumulator):
-        accumulator.reindex()
+        accumulator.sort()
