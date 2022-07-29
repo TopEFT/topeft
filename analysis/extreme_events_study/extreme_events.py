@@ -43,11 +43,44 @@ class dataframe_accumulator(AccumulatorABC):
             self._value = pd.concat([self._value, other])
         else:
             self._value = pd.concat([self._value, other._value])
-    
-    def sort(self):
-        # Columns to sort by depend on events of interest
-        self._value = self._value.sort_values(by=["njets", "nleps"], ascending=False)
-        self._value = self._value.reset_index(drop=True)
+
+    def get_nleps(self):
+        self._value = self._value[self._value["nleps"] >= 4]
+
+    def get_njets(self):
+        self._value = self._value[self._value["njets"] >= 10]
+
+    def get_ST(self):
+        self._value.sort_values(by=["S_T"], ascending=False, inplace=True)[0:20]
+
+    def get_HT(self):
+        self._value.sort_values(by=["H_T"], ascending=False, inplace=True)[0:20]
+
+    def get_invMass(self):
+        self._value = self._value[self._value["invMass"] >= 2000]
+
+    def get_pt(self, key):
+        if key=="pt_l":
+            self._value = self._value[self._value[key+"_0"] >= 500]
+        elif key=="pt_j":
+            self._value = self._value[self._value[key+"_0"] >= 1000]
+        else:
+            raise Exception("key should be either 'pt_l' or 'pt_j'")
+
+    def sort(self, key):
+        if key=="nleps":
+            self._value.sort_values(by=["nleps", "njets"], ascending=False, inplace=True)
+        elif key=="njets":
+            self._value.sort_values(by=["njets", "nleps"], ascending=False, inplace=True)
+        elif key=="ST":
+            self._value = self._value.sort_values(by=["S_T"], ascending=False)[0:30]
+        elif key=="HT":
+            self._value = self._value.sort_values(by=["H_T"], ascending=False)[0:30]
+        elif key=="invMass":
+            self._value.sort_values(by=["invMass"], ascending=False, inplace=True)
+        elif key=="pt_l" or key=="pt_j":
+            self._value.sort_values(by=[key+"_0"], ascending=False, inplace=True)
+        self._value.reset_index(drop=True, inplace=True)
 
 
 class AnalysisProcessor(processor.ProcessorABC):
@@ -58,8 +91,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
 
-        # Create the dataframe
-        self._accumulator = dataframe_accumulator(pd.DataFrame())
+        # Create an accumulator of multiple dataframes
+        self._accumulator = processor.dict_accumulator({
+                                "nleps": dataframe_accumulator(pd.DataFrame()), 
+                                "njets": dataframe_accumulator(pd.DataFrame()),
+                                "ST": dataframe_accumulator(pd.DataFrame()),
+                                "HT": dataframe_accumulator(pd.DataFrame()),
+                                "invMass": dataframe_accumulator(pd.DataFrame()),
+                                "pt_l": dataframe_accumulator(pd.DataFrame()),
+                                "pt_j": dataframe_accumulator(pd.DataFrame())
+                            })
 
     @property
     def accumulator(self):
@@ -75,14 +116,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Dataset parameters
         dataset = events.metadata["dataset"]
         filename = events.metadata["filename"]
+        json_name = dataset
 
         isData             = self._samples[dataset]["isData"]
         histAxisName       = self._samples[dataset]["histAxisName"]
         year               = self._samples[dataset]["year"]
-        xsec               = self._samples[dataset]["xsec"]
-        sow                = self._samples[dataset]["nSumOfWeights"]
+        #xsec               = self._samples[dataset]["xsec"]
+        #sow                = self._samples[dataset]["nSumOfWeights"]
        
-        lumi = 1000.0*getj.get_lumi(year)
+        #lumi = 1000.0*getj.get_lumi(year)
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
@@ -117,18 +159,19 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### EFT coefficients ##########
 
+        # Get yields from the MC samples 
         # Extract the EFT quadratic coefficients
-        eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
-        if eft_coeffs is not None:
+        #eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
+        #if eft_coeffs is not None:
             # Check to see if the ordering of WCs for this sample matches what want
-            if self._samples[dataset]["WCnames"] != self._wc_names_lst:
-                eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
-            events["weight"] = eft_coeffs[:,0]
-            events["yield"] = eft_coeffs[:,0]*lumi*xsec/sow
-        else: 
-            genw = events["genWeight"]
-            events["weight"] = genw
-            events["yield"] = genw*lumi*xsec/sow
+            #if self._samples[dataset]["WCnames"] != self._wc_names_lst:
+                #eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
+            #events["weight"] = eft_coeffs[:,0]
+            #events["yield"] = eft_coeffs[:,0]*lumi*xsec/sow
+        #else: 
+            #genw = events["genWeight"]
+            #events["weight"] = genw
+            #events["yield"] = genw*lumi*xsec/sow
 
         ################### Electron selection ####################
 
@@ -216,7 +259,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Put l_fo_conept_sorted and information of jets into events
         events["l_fo_conept_sorted"] = l_fo_conept_sorted
         events["njets"] = njets
-        events["jet_pt"] = goodJets.pt
+        events["jet_pt"] = goodJets.pt[ak.argsort(goodJets.pt, ascending=False)]
         events["jet_eta"] = goodJets.eta
 
         # Put S_T and H_T into events
@@ -224,6 +267,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         ljptsum = ak.sum(l_j_collection.pt,axis=-1)
         events["S_T"] = ljptsum
         events["H_T"] = ht
+
+        # Put invariant mass into events
+        l_j_sum = l_j_collection.sum()
+        events["invMass"] = l_j_sum.mass
 
         # The event selection
         add2lMaskAndSFs(events, year, isData, sampleType)
@@ -317,42 +364,46 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Now find the number of tight leptons in each event, this array should look something like e.g. [3,2,2,4,2,3,2]
         nleps = ak.num(tight_lep)
         events["nleps"] = nleps
+        events["lep_pt"] = tight_lep.pt
 
         # Now throw out all events that do not pass the selection cuts and collect events information
         # What we're left with now should <= len(number of events)
         tight_event_info = {}
-        info = ["run", "luminosityBlock", "event", "weight", "yield", "nleps", "njets", "S_T", "H_T"]
+        info = ["run", "luminosityBlock", "event", "nleps", "njets", "invMass", "S_T", "H_T"]
         for label in info:
             tight_event_info[label] = events[label][sr_event_mask]
 
-        # Put pt and eta of jets of each event to two dataframes
+        # Put pt of leptons and jets of each event to two dataframes
         # njets_max is predetermined and set as the index length
-        pt_index = []
-        eta_index = []
-        for i in range(20):
-            pt_index.append("pt_"+str(i))
-            eta_index.append("eta_"+str(i))
-        df_pt = pd.DataFrame(ak.to_list(ak.pad_none(events["jet_pt"][sr_event_mask], 20)), columns=pt_index)
-        df_eta = pd.DataFrame(ak.to_list(ak.pad_none(events["jet_eta"][sr_event_mask], 20)), columns=eta_index)
+        pt_l_index = []
+        pt_j_index = []
+        for i in range(4):
+            pt_l_index.append("pt_l_"+str(i))
+        for i in range(12):
+            pt_j_index.append("pt_j_"+str(i))
+        df_pt_l = pd.DataFrame(ak.to_list(ak.pad_none(events["lep_pt"][sr_event_mask], 4)), columns=pt_l_index)
+        df_pt_j = pd.DataFrame(ak.to_list(ak.pad_none(events["jet_pt"][sr_event_mask], 12)), columns=pt_j_index)
 
-        # Create a dataframe as the output object and append pt and eta
+        # Create a dataframe as the output object and append pt
         df = pd.DataFrame(tight_event_info, columns=info)
-        df = df.join(df_pt) if len(df.index)==len(df_pt.index) else None
-        df = df.join(df_eta) if len(df.index)==len(df_eta.index) else None
+        df = df.join(df_pt_l) if len(df.index)==len(df_pt_l.index) else None
+        df = df.join(df_pt_j) if len(df.index)==len(df_pt_j.index) else None
 
-        df = df[(df["nleps"] >= 4) | (df["njets"] >= 10)]
         df.insert(0, "dataset", [dataset for x in range(len(df.index))])
         df.insert(1, "year", [year for x in range(len(df.index))])
-        df.insert(2, "filename", [filename for x in range(len(df.index))])
-
-        #   - Could also be interesting to store the flavor of the leptons (or check for e.g. max number of electrons or max number of mu instead of just max number of leptons)
-        #   - Then we could also do something similar for njets, number of b tagged jets, or other event quantities e.g. S_T, or invmass (i.e. find the events with the most extreme values of these variables and accumulate them as well)
+        df.insert(2, "json_name", [json_name for x in range(len(df.index))])
+        df.insert(3, "root_name", [filename for x in range(len(df.index))])
 
         # Initialize the out object
-        dfout = self.accumulator 
-        dfout.add(df)
+        self.accumulator["pt_j"].add(df)
+        self.accumulator["pt_j"].get_pt("pt_j")
 
-        return dfout
+        self.accumulator["njets"].add(df)
+        self.accumulator["njets"].get_njets()
+
+        return self.accumulator
 
     def postprocess(self, accumulator):
-        accumulator.sort()
+        for key, df_accum in accumulator.items():
+            if not df_accum.value.empty:
+                df_accum.sort(key) 
