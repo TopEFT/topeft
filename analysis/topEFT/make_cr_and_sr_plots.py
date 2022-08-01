@@ -28,14 +28,23 @@ FILL_OPS = {}
 # The channels that define the CR categories
 CR_CHAN_DICT = {
     "cr_2los_Z" : [
-        "2los_ee_CRZ_0j",
-        "2los_mm_CRZ_0j",
+        #"2los_ee_CRZ_0j",
+        #"2los_mm_CRZ_0j",
+        #"2los_ee_CRZ_1j",
+        #"2los_mm_CRZ_1j",
+        #"2los_ee_CRZ_2j",
+        #"2los_mm_CRZ_2j",
+        #"2los_ee_CRZ_3j",
+        #"2los_mm_CRZ_3j",
     ],
     "cr_2los_tt" : [
         #"2los_em_CRtt_0j",
         #"2los_em_CRtt_1j",
-        "2los_em_CRtt_2j",
+        #"2los_em_CRtt_2j",
         #"2los_em_CRtt_3j",
+        #"2los_em_CRtt_4j",
+        "2los_em_CRtt_5j",
+        #"2los_em_CRtt_6j",
     ],
     "cr_2lss" : [
         "2lss_ee_CR_1j",
@@ -656,6 +665,57 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
 
 
+###################### Wrapper function for simple plots ######################
+# Wrapper function to loop over categories and make plots for all variables
+def make_simple_plots(dict_of_hists,year,save_dir_path):
+
+    all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name="njets")
+
+    for idx,var_name in enumerate(dict_of_hists.keys()):
+        #if var_name == "njets": continue
+        #if "parton" in var_name: save_tag = "partonFlavour"
+        #if "hadron" in var_name: save_tag = "hadronFlavour"
+        #if "hadron" not in var_name: continue
+        #if var_name != "j0hadronFlavour": continue
+        if var_name != "j0partonFlavour": continue
+
+        histo_orig = dict_of_hists[var_name]
+
+        # Loop over channels
+        channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
+        for chan_name in channels_lst:
+
+            histo = copy.deepcopy(histo_orig)
+
+            # Normalize the MC hists
+            sample_lumi_dict = {}
+            for sample_name in all_samples:
+                sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
+            histo.scale(sample_lumi_dict,axis="sample")
+
+            histo = yt.integrate_out_appl(histo,chan_name)
+            histo = histo.integrate("systematic","nominal")
+            histo = histo.integrate("channel",chan_name)
+
+            print("\n",chan_name)
+            print(histo.values())
+            summed_histo = histo.sum("sample")
+            print("sum:",sum(summed_histo.values()[()]))
+            continue
+
+            # Make a sub dir for this category
+            save_dir_path_tmp = os.path.join(save_dir_path,save_tag)
+            if not os.path.exists(save_dir_path_tmp):
+                os.mkdir(save_dir_path_tmp)
+
+            fig = make_single_fig(histo, unit_norm_bool=False)
+            title = chan_name + "_" + var_name
+            fig.savefig(os.path.join(save_dir_path_tmp,title))
+
+            # Make an index.html file if saving to web area
+            if "www" in save_dir_path: make_html(save_dir_path_tmp)
+
+
 ###################### Wrapper function for SR data and mc plots (unblind!) ######################
 # Wrapper function to loop over all SR categories and make plots for all variables
 def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
@@ -752,6 +812,8 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         #if var_name != "hadtpt": continue
         #if var_name != "hadwmass": continue
 
+        if var_name not in ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"]: continue
+
         # Extract the MC and data hists
         hist_mc_orig = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
         hist_data_orig = dict_of_hists[var_name].remove(samples_to_rm_from_data_hist,"sample")
@@ -791,13 +853,13 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                     hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axis(var_name).label, analysis_bins[var_name]))
                     hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name]))
 
-            # Make the plots
+            ## Make the plots
             #print("Channel",chan_name)
             #for k,v in hist_mc.values(overflow="over").items():
             #    print(k,sum(v),type(v))
             #for k,v in hist_data.values(overflow="over").items():
             #    print(k,sum(v),type(v))
-            #exit()
+            ##exit()
             #continue
 
             if hist_mc.values() == {}:
@@ -1030,6 +1092,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The flip category does not require jets (so leading jet plots do not make sense)
             #if hist_cat != "cr_2lss" and hist_cat != "cr_3l": continue
             #if hist_cat != "cr_2los_tt" and hist_cat != "cr_2los_Z": continue
+            if hist_cat != "cr_2los_tt": continue
             print("\n\tCategory:",hist_cat)
 
             # Make a sub dir for this category
@@ -1061,6 +1124,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated)
                 if (var_name == "njets"):
                     # This is a special case for the diboson jet dependent systematic
+                    print("\n\nHERE!!!",hist_mc_integrated.integrate("sample",CR_GRP_MAP["Diboson"]).integrate("systematic","nominal").values())
                     db_hist = hist_mc_integrated.integrate("sample",CR_GRP_MAP["Diboson"]).integrate("systematic","nominal").values()[()]
                     shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
                     shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
@@ -1145,10 +1209,12 @@ def main():
     #exit()
 
     # Make the plots
-    make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
+    #make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
+
+    make_simple_plots(hin_dict,args.year,save_dir_path)
 
     # Make unblinded SR data MC comparison plots by year
     #make_all_sr_data_mc_plots(hin_dict,"2016",save_dir_path)
