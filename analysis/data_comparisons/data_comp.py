@@ -6,6 +6,8 @@ import pprint
 import copy
 import coffea
 import numpy as np
+from numba import njit
+from numba.typed import List
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 from coffea import hist, processor
@@ -25,14 +27,15 @@ import topcoffea.modules.eft_helper as efth
 
 # Compares run:lumi:event for this chunk agianst a given reference
 # Makes a mask that is True for the events that are present in the ref list
+@njit
 def construct_mask(runlumievt_test_arr,runlumievt_ref_lst):
-    out_mask = []
+    out_mask = List()
     for runlumievt_tup in runlumievt_test_arr:
         if runlumievt_tup in runlumievt_ref_lst:
             out_mask.append(True)
         else:
             out_mask.append(False)
-    return ak.Array(out_mask)
+    return out_mask
 
 
 class AnalysisProcessor(processor.ProcessorABC):
@@ -296,7 +299,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             (278193,127,12794198),
         ]
 
-        test_mask = construct_mask(rle_tup_arr,event_lst)
+        test_mask = ak.Array(construct_mask(List(rle_tup_arr),List(event_lst)))
+        print("test_mask",test_mask)
 
         print("")
         ######### PLACEHOLDER Filling the histo ##########
