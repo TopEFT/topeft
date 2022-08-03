@@ -23,6 +23,18 @@ from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
 
 
+# Compares run:lumi:event for this chunk agianst a given reference
+# Makes a mask that is True for the events that are present in the ref list
+def construct_mask(runlumievt_test_arr,runlumievt_ref_lst):
+    out_mask = []
+    for runlumievt_tup in runlumievt_test_arr:
+        if runlumievt_tup in runlumievt_ref_lst:
+            out_mask.append(True)
+        else:
+            out_mask.append(False)
+    return ak.Array(out_mask)
+
+
 class AnalysisProcessor(processor.ProcessorABC):
 
     def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32):
@@ -268,32 +280,25 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("event",event,type(event))
 
         # Get these as numpy arrs of strs
-        run   = ak.to_numpy(run)
-        lumi  = ak.to_numpy(lumi)
-        event = ak.to_numpy(event)
-        run   = run.astype(str)
-        lumi  = lumi.astype(str)
-        event = event.astype(str)
+        #run   = ak.to_numpy(run)
+        #lumi  = ak.to_numpy(lumi)
+        #event = ak.to_numpy(event)
+        #rle_tup_arr = np.array(list(zip(run,lumi,event)))
 
-        for x in run: print(x,type(x))
-        for x in lumi: print(x,type(x))
-        for x in event: print(x,type(x))
-
-        rle_arr = np.core.defchararray.add(run,":")
-        rle_arr = np.core.defchararray.add(rle_arr,lumi)
-        rle_arr = np.core.defchararray.add(rle_arr,":")
-        rle_arr = np.core.defchararray.add(rle_arr,event)
+        rle_tup_arr = ak.to_list(ak.zip([run,lumi,event]))
 
         # Standin
         event_lst = [
-            "276950:828:1512686435",
-            "277072:261:451912501",
-            "272775:86:64058753",
-            "277420:290:414069303",
-            "278193:127:127941983",
+            (272775, 86, 64058753),
+            (276950,828,1512686435),
+            (277072,261,45191250),
+            (277420,290,41406930),
+            (278193,127,12794198),
         ]
 
+        test_mask = construct_mask(rle_tup_arr,event_lst)
 
+        print("")
         ######### PLACEHOLDER Filling the histo ##########
 
         # We probably don't want to use a histo for this processor
