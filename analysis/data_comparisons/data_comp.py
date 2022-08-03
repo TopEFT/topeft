@@ -16,6 +16,7 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
+import topcoffea.modules.utils as utils
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
 from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachPdfWeights, AttachScaleWeights, GetTriggerSF
@@ -36,6 +37,15 @@ def construct_mask(runlumievt_test_arr,runlumievt_ref_lst):
         else:
             out_mask.append(False)
     return out_mask
+
+
+# Takes a list of run:lumi:event strings, returns as a list of tuples
+def get_runlumievent_tup_from_strs(in_lst):
+    out_lst = []
+    for rle_str in in_lst:
+        run,lumi,event = rle_str.split(":")
+        out_lst.append((int(run),int(lumi),int(event)))
+    return out_lst
 
 
 class AnalysisProcessor(processor.ProcessorABC):
@@ -274,33 +284,25 @@ class AnalysisProcessor(processor.ProcessorABC):
         tight_lep = l_fo_conept_sorted_padded[tight_lep_mask]
         tight_lep = tight_lep[sr_event_mask]
 
+        # Get the run, lumi, event info
         run = events.run
         lumi = events.luminosityBlock
         event = events.event
-
-        print("run",run,type(run))
-        print("lumi",lumi,type(lumi))
-        print("event",event,type(event))
-
-        # Get these as numpy arrs of strs
-        #run   = ak.to_numpy(run)
-        #lumi  = ak.to_numpy(lumi)
-        #event = ak.to_numpy(event)
-        #rle_tup_arr = np.array(list(zip(run,lumi,event)))
-
         rle_tup_arr = ak.to_list(ak.zip([run,lumi,event]))
 
-        # Standin
-        event_lst = [
-            (272775, 86, 64058753),
-            (276950,828,1512686435),
-            (277072,261,45191250),
-            (277420,290,41406930),
-            (278193,127,12794198),
-        ]
+        # Get the events from the ttH event lists
+        ttH_leg_3lonZ  = topcoffea_path("data/eventLists/events_ttH_analysis_legacy_3l_onZ_aug02_2022.txt")
+        ttH_uleg_3lonZ = topcoffea_path("data/eventLists/events_ttH_analysis_ultralegacy_3l_onZ_aug02_2022.txt")
+        events_ttHanalysis_leg_3lonZ  = set(get_runlumievent_tup_from_strs(utils.read_lines_from_file(ttH_leg_3lonZ)))
+        events_ttHanalysis_uleg_3lonZ = set(get_runlumievent_tup_from_strs(utils.read_lines_from_file(ttH_uleg_3lonZ)))
+        events_3lonZ_uleg_unique = events_ttHanalysis_uleg_3lonZ.difference(events_ttHanalysis_leg_3lonZ)
+        events_3lonZ_uleg_common = events_ttHanalysis_uleg_3lonZ.intersection(events_ttHanalysis_leg_3lonZ)
 
-        test_mask = ak.Array(construct_mask(List(rle_tup_arr),List(event_lst)))
-        print("test_mask",test_mask)
+        # Masks for the common events (i.e. in both ul and leg) and unique events (i.e. in ul but not leg)
+        mask_3lonZ_ul_unique = ak.Array(construct_mask(List(rle_tup_arr),List(events_3lonZ_uleg_unique)))
+        mask_3lonZ_ul_common = ak.Array(construct_mask(List(rle_tup_arr),List(events_3lonZ_uleg_common)))
+        print("test_mask",mask_3lonZ_ul_unique)
+        print("test_mask",mask_3lonZ_ul_common)
 
         print("")
         ######### PLACEHOLDER Filling the histo ##########
