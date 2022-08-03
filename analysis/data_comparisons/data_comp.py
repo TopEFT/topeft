@@ -260,13 +260,39 @@ class AnalysisProcessor(processor.ProcessorABC):
         tight_lep = tight_lep[sr_event_mask]
 
         run = events.run
-        luminosityBlock = events.luminosityBlock
+        lumi = events.luminosityBlock
         event = events.event
 
-        print("run",run)
-        print("luminosityBlock",luminosityBlock)
-        print("event",event)
-        print("")
+        print("run",run,type(run))
+        print("lumi",lumi,type(lumi))
+        print("event",event,type(event))
+
+        # Get these as numpy arrs of strs
+        run   = ak.to_numpy(run)
+        lumi  = ak.to_numpy(lumi)
+        event = ak.to_numpy(event)
+        run   = run.astype(str)
+        lumi  = lumi.astype(str)
+        event = event.astype(str)
+
+        for x in run: print(x,type(x))
+        for x in lumi: print(x,type(x))
+        for x in event: print(x,type(x))
+
+        rle_arr = np.core.defchararray.add(run,":")
+        rle_arr = np.core.defchararray.add(rle_arr,lumi)
+        rle_arr = np.core.defchararray.add(rle_arr,":")
+        rle_arr = np.core.defchararray.add(rle_arr,event)
+
+        # Standin
+        event_lst = [
+            "276950:828:1512686435",
+            "277072:261:451912501",
+            "272775:86:64058753",
+            "277420:290:414069303",
+            "278193:127:127941983",
+        ]
+
 
         ######### PLACEHOLDER Filling the histo ##########
 
