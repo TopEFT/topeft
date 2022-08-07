@@ -1,0 +1,25 @@
+{
+  "xsec": 0.0015,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "TWZToLL_centralUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/120000/0A5421C3-2B20-074F-925C-55628F20EF08.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/270000/2DF37001-6624-5A4F-9379-DB2D4E3FFB7A.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/270000/6AFB4C95-B3EB-0142-9401-AEB8C9E55888.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/270000/91EC5A0E-869C-6043-AA02-DA50F8F27B0D.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/270000/A5B51EA5-DE77-C648-B955-4C45D79635D7.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/888F3111-8A8B-0846-BD41-0261655B2445.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/8FCF0172-7811-204E-A7F6-4EDEB6EDF3B5.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/A2A92049-ACA3-734A-A9EA-14B9B3B031A5.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/280000/B60AB203-FBBC-8B43-A232-8EFE58FC0AD2.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/70000/9AF83281-9A8D-6541-948B-A8E61C0A63F6.root"
+  ],
+  "nEvents": 1000000,
+  "nGenEvents": 1000000,
+  "nSumOfWeights": 1503.079102063,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1"
+}
