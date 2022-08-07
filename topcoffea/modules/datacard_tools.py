@@ -2,6 +2,7 @@ import pickle
 import gzip
 import topcoffea.modules.HistEFT
 import numpy as np
+import boost_histogram as bh
 import uproot
 import hist
 import os
@@ -21,19 +22,24 @@ def prune_axis(h,axis,to_keep):
     to_remove = [x.name for x in h.identifiers(axis) if x.name not in to_keep]
     return h.remove(to_remove,axis)
 
-def to_hist(arr,name):
+def to_hist(arr,name,zero_wgts=False):
     """
         Converts a numpy array into a hist.Hist object suitable for being written to a root file by
-        uproot.
-
-        Note:
-            Apparently if autoMCStats is used, then sumw2 shouldn't be included in the saved histograms.
-            Currently, we weren't saving sumw2 anyways, but something to keep in mind I guess.
+        uproot. If 'zero_wgts' is true, then the resulting histogram will be created with bin errors
+        set to 0 (instead of left unset)
     """
-    nbins = len(arr) - 2 # The passed in array already includes under/overflow bins
-    h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name))
-    h[:] = arr[1:-1]    # Assign the bin values
-    h[-1] += arr[-1]    # Add in the overflow bin to the right most bin content
+    # NOTE:
+    #   If we don't instantiate a new np.array here, then clipped will store a reference to the
+    #   sub-array arr and when we modify clipped, it will propagate back to arr as well!
+    clipped = np.array(arr[1:-1])     # Strip off the under/overflow bins
+    clipped[-1] += arr[-1]  # Add the overflow bin to the right most bin content
+    nbins = len(clipped)
+    if zero_wgts:
+        h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name),storage=bh.storage.Weight())
+        h[...] = np.stack([clipped,np.zeros_like(clipped)],axis=-1) # Set the bin errors all to 0
+    else:
+        h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name))
+        h[...] = clipped
     return h
 
 class RateSystematic():
@@ -776,6 +782,7 @@ class DatacardMaker():
                 if self.verbose:
                     print(f"Decomposing {ch}-{p}")
                 decomposed_templates = self.decompose(proc_hist,wcs)
+                is_eft = self.is_signal(p)
                 # Note: This feels like a messy way of picking out the data_obs info
                 if p == "data":
                     data_sm = decomposed_templates.pop("sm")
@@ -813,7 +820,7 @@ class DatacardMaker():
                             all_shapes.add(syst_base)
                             text_card_info[proc_name]["shapes"].add(syst_base)
                             syst_width = max(len(syst),syst_width)
-                        f[hist_name] = to_hist(arr,hist_name)
+                        f[hist_name] = to_hist(arr,hist_name,zero_wgts=is_eft)
                         num_h += 1
                     if km_dist == "njets":
                         # We need to handle certain systematics differently when looking at njets procs
