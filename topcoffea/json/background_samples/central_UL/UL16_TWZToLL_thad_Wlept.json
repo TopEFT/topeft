@@ -15,5 +15,15 @@
   "nGenEvents": 926000,
   "nSumOfWeights": 2781.729212217,
   "isData": false,
-  "path": "/store/mc/RunIISummer20UL16NanoAODv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1"
+  "path": "/store/mc/RunIISummer20UL16NanoAODv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
+  "nSumOfWeights_ISRUp": 2782.3492968051764,
+  "nSumOfWeights_ISRDown": 2781.1843134020364,
+  "nSumOfWeights_FSRUp": 2780.922104086734,
+  "nSumOfWeights_FSRDown": 2780.264427322283,
+  "nSumOfWeights_renormUp": 2669.4663412749646,
+  "nSumOfWeights_renormDown": 2887.6857585305042,
+  "nSumOfWeights_factUp": 2816.129882645603,
+  "nSumOfWeights_factDown": 2762.7991450840905,
+  "nSumOfWeights_renormfactUp": 2700.699008358794,
+  "nSumOfWeights_renormfactDown": 2876.3441774342195
 }
