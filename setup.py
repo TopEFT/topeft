@@ -26,6 +26,7 @@ setuptools.setup(
             "data/pileup/*.root",
             "data/MuonScale/*txt",
             "data/goldenJsons/*.txt",
+            "data/eventLists/*txt",
         ],
     }
 )
