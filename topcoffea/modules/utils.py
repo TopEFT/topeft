@@ -187,3 +187,10 @@ def dict_comp(in_dict1,in_dict2,strict=False):
         else: print("Warning: "+print_str)
 
     return dicts_match
+
+# Retrun a list of lines from a file
+def read_lines_from_file(file_path):
+    with open(file_path) as f:
+        content = f.readlines()
+    content = [x.strip() for x in content]
+    return content
