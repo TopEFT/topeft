@@ -1451,6 +1451,9 @@ def replace_val_in_json(path_to_json_file,key,new_val,verbose=True):
 def replace_xsec_for_dict_of_samples(samples_dict,out_dir):
     for sample_name,sample_info in samples_dict.items():
         path_to_json = os.path.join(out_dir,sample_name+".json")
+        if not os.path.exists(path_to_json):
+            print(f"\nWARNING: This json does not exist, continuing ({path_to_json})")
+            continue
         xsecName = sample_info["xsecName"]
         new_xsec = XSECDIC[xsecName]
         print(f"\nReplacing XSEC for {sample_name} JSON with the value from xsec.cfg for \"{xsecName}\":")
@@ -1592,7 +1595,29 @@ def main():
     #make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
 
 
+
     ######### Just replace xsec in JSON with whatever is in xsec.cfg #########
+
+    #replace_xsec_for_dict_of_samples(test_private_UL17_dict,out_dir_test_private_UL)
+    #replace_xsec_for_dict_of_samples(private_UL17_dict,out_dir_private_UL)
+    #replace_xsec_for_dict_of_samples(private_UL18_dict,out_dir_private_UL)
+    #replace_xsec_for_dict_of_samples(private_UL16_dict,out_dir_private_UL)
+    #replace_xsec_for_dict_of_samples(private_UL16APV_dict,out_dir_private_UL)
+
+    #replace_xsec_for_dict_of_samples(private_2017_dict,out_dir_top19001_local)
+    #replace_xsec_for_dict_of_samples(private_UL17_dict_b1b4_local,out_dir_private_UL_subset_local)
+
+    ##replace_xsec_for_dict_of_samples(central_2016_dict,out_dir_central_2016)
+    ##replace_xsec_for_dict_of_samples(central_2016APV_dict,out_dir_central_2016APV)
+    #replace_xsec_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,out_dir_central_2017)
+    #replace_xsec_for_dict_of_samples(central_2017_dict,out_dir_central_2017)
+    #replace_xsec_for_dict_of_samples(central_2017_dict,out_dir_central_2017)
+    #replace_xsec_for_dict_of_samples(sync_dict,out_dir_central_sync)
+    #replace_xsec_for_dict_of_samples(central_UL16_dict,out_dir_central_UL)
+    #replace_xsec_for_dict_of_samples(central_UL16APV_dict,out_dir_central_UL)
+    #replace_xsec_for_dict_of_samples(central_UL17_dict,out_dir_central_UL)
+    #replace_xsec_for_dict_of_samples(central_UL18_dict,out_dir_central_UL)
+
     #replace_xsec_for_dict_of_samples(central_UL17_bkg_dict,out_dir_central_bkg_UL)
     #replace_xsec_for_dict_of_samples(central_UL18_bkg_dict,out_dir_central_bkg_UL)
     #replace_xsec_for_dict_of_samples(central_UL16_bkg_dict,out_dir_central_bkg_UL)
