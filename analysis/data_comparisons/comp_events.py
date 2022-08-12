@@ -14,6 +14,13 @@ def read_file(file_path):
     content = [x.strip() for x in content]
     return content
 
+# Takes a list of strings, returns as a list of tuples
+def get_runlumievent_tup_from_strs(in_lst):
+    out_lst = []
+    for rle_str in in_lst:
+        run,lumi,event = rle_str.split(":")
+        out_lst.append((int(run),int(lumi),int(event)))
+    return out_lst
 
 # Takes as input a dict with keys of years, subkeys of channels
 # Returns a dict with all years summed
@@ -67,6 +74,7 @@ def print_set_comp_info(set1,set2,tag1,tag2):
     print(f"\tPercent of {tag2} events that overlap with {tag1}: {100*n_set1set2_common/n_set2}")
 
 
+# Main function
 def main():
 
     # Read in the top 22006 event numbers
@@ -94,6 +102,25 @@ def main():
     print_set_comp_info(top22006_onZ_set,tth_ultralegacy_onZ_set,"topcoffea","tthUL")
     print("\n-----------------------\n")
 
+    tth_legacy_onZ_tup_lst = get_runlumievent_tup_from_strs(tth_legacy_onZ_lst)
+    tth_ultralegacy_onZ_tup_lst = get_runlumievent_tup_from_strs(tth_ultralegacy_onZ_lst)
+
+
+# A function for just comparing the mmm yields
+def comp_mmm():
+
+    ttHframwk_onZ_mmm        = "event_lists/ul_mmm.txt"
+    topcoffea_onZ_mmm        = "event_lists/topcoffea_lepflav_mmm.txt"
+    topcoffea_onZ_mmm_cleanWithTau = "event_lists/topcoffea_lepflav_mmm_cleanJetsWithTaus.txt"
+
+    ttHframwk_onZ_mmm_set = set(read_file(ttHframwk_onZ_mmm))
+    topcoffea_onZ_mmm_set = set(read_file(topcoffea_onZ_mmm))
+    topcoffea_onZ_mmm_cleanWithTau_set = set(read_file(topcoffea_onZ_mmm_cleanWithTau))
+
+    print_set_comp_info(ttHframwk_onZ_mmm_set,topcoffea_onZ_mmm_set,"tthframwk","topcoffea")
+    print_set_comp_info(ttHframwk_onZ_mmm_set,topcoffea_onZ_mmm_cleanWithTau_set,"ttH","tau")
+
 
 if __name__ == "__main__":
     main()
+    #comp_mmm()
