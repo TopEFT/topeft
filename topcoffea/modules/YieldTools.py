@@ -32,19 +32,21 @@ class YieldTools():
             "tHq"   : ["tHq_centralUL17" , "tHq_privateUL18"      , "tHq_privateUL17"      , "tHq_privateUL16"      , "tHq_privateUL16APV"],
             "tttt"  : ["tttt_centralUL17", "tttt_privateUL18"     , "tttt_privateUL17"     , "tttt_privateUL16"     , "tttt_privateUL16APV"],
 
-            "flips" : ["flipsUL17"            ],
-            "fakes" : ["nonpromptUL17"        ],
-            "conv"  : ["TTGamma_centralUL17"  ],
-            "WW"    : ["WWTo2L2Nu_centralUL17"],
-            "WZ"    : ["WZTo3LNu_centralUL17" ],
-            "ZZ"    : ["ZZTo4L_centralUL17"   ],
-            "WWW"   : ["WWW_centralUL17"      ],
-            "WWZ"   : ["WWZ_centralUL17"      ],
-            "WZZ"   : ["WZZ_centralUL17"      ],
-            "ZZZ"   : ["ZZZ_centralUL17"      ],
+            "flips" : ["flipsUL16"            ,"flipsUL16APV"            ,"flipsUL17"            ,"flipsUL18"            ],
+            "fakes" : ["nonpromptUL16"        ,"nonpromptUL16APV"        ,"nonpromptUL17"        ,"nonpromptUL18"        ],
+            "conv"  : ["TTGamma_centralUL16"  ,"TTGamma_centralUL16APV"  ,"TTGamma_centralUL17"  ,"TTGamma_centralUL18"  ],
+            "WW"    : ["WWTo2L2Nu_centralUL16","WWTo2L2Nu_centralUL16APV","WWTo2L2Nu_centralUL17","WWTo2L2Nu_centralUL18"],
+            "WZ"    : ["WZTo3LNu_centralUL16" ,"WZTo3LNu_centralUL16APV" ,"WZTo3LNu_centralUL17" ,"WZTo3LNu_centralUL18" ],
+            "ZZ"    : ["ZZTo4L_centralUL16"   ,"ZZTo4L_centralUL16APV"   ,"ZZTo4L_centralUL17"   ,"ZZTo4L_centralUL18"   ],
+            "WWW"   : ["WWW_4F_centralUL16"   ,"WWW_centralUL16APV"      ,"WWW_centralUL17"      ,"WWW_4F_centralUL18"   ],
+            "WWZ"   : ["WWZ_4F_centralUL16"   ,"WWZ_4F_centralUL16APV"   ,"WWZ_centralUL17"      ,"WWZ_4F_centralUL18"   ],
+            "WZZ"   : ["WZZ_centralUL16"      ,"WZZ_centralUL16APV"      ,"WZZ_centralUL17"      ,"WZZ_centralUL18"      ],
+            "ZZZ"   : ["ZZZ_centralUL16"      ,"ZZZ_centralUL16APV"      ,"ZZZ_centralUL17"      ,"ZZZ_centralUL18"      ],
+            "tWZ"   : ["TWZToLL_centralUL16"  ,"TWZToLL_centralUL16APV"  ,"TWZToLL_centralUL17"  ,"TWZToLL_centralUL18"  ],
 
-            "data"   : ["dataUL17"],
+            "data"   : ["dataUL16","dataUL16APV","dataUL17","dataUL18"],
         }
+
 
         # The jet bins we define for the lep categories (Not currently used)
         self.JET_BINS = {
@@ -483,6 +485,21 @@ class YieldTools():
 
         return ret_dict
 
+    # Figures out which year a sample is from, retruns the lumi for that year
+    def get_lumi_for_sample(self,sample_name):
+        if "UL17" in sample_name:
+            lumi = 1000.0*get_lumi("2017")
+        elif "UL18" in sample_name:
+            lumi = 1000.0*get_lumi("2018")
+        elif "UL16APV" in sample_name:
+            lumi = 1000.0*get_lumi("2016APV")
+        elif "UL16" in sample_name:
+            # Should not be here unless "UL16APV" not in sample_name
+            lumi = 1000.0*get_lumi("2016")
+        else:
+            raise Exception(f"Error: Unknown year \"{year}\".")
+        return lumi
+
 
     ######### Functions specifically for getting yields #########
 
@@ -501,11 +518,11 @@ class YieldTools():
             v_sum = 0.0
             e_sum = 0.0
         e_sum = np.sqrt(e_sum)
-        return (v_sum,e_sum)
+        return [v_sum,e_sum]
 
 
     # Integrates out categories, normalizes, then calls get_yield()
-    def get_normalized_yield(self,hin_dict,year,proc,cat_dict,overflow_str,rwgt_pt=None,h_name="ht"):
+    def get_normalized_yield(self,hin_dict,lumi_factor,proc,cat_dict,overflow_str,rwgt_pt=None,h_name="ht"):
 
         # Integrate out cateogries
         h = hin_dict[h_name]
@@ -521,8 +538,7 @@ class YieldTools():
 
         # Scale the mc by lumi
         if "data" not in proc:
-            lumi = 1000.0*get_lumi(year)
-            h.scale(lumi)
+            h.scale(lumi_factor)
 
         return self.get_yield(h,proc,overflow_str)
 
@@ -531,7 +547,7 @@ class YieldTools():
     #   - Takes as input a hist dict (i.e. what the processor outptus)
     #   - Returns a dictionary of yields for the categories in the "channel" axis
     #   - Optionally sums over njets or lep flavs
-    def get_yld_dict(self,hin_dict,year,njets=False,lepflav=False):
+    def get_yld_dict(self,hin_dict,year=None,njets=False,lepflav=False):
 
         # Check for options that do not make sense
         if lepflav and not self.is_split_by_lepflav(hin_dict):
@@ -553,11 +569,20 @@ class YieldTools():
         # Find the yields
         yld_dict = {}
         proc_lst = self.get_cat_lables(hin_dict,"sample")
+        print("proc_lst",proc_lst)
         for proc in proc_lst:
+            if year is not None:
+                if not proc.endswith(year): continue
+            lumi_factor = self.get_lumi_for_sample(proc)
             proc_name_short = self.get_short_name(proc)
-            yld_dict[proc_name_short] = {}
-            for cat,cuts_dict in cat_dict.items():
-                yld_dict[proc_name_short][cat] = self.get_normalized_yield(hin_dict,year,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
+            if proc_name_short not in yld_dict:
+                yld_dict[proc_name_short] = {}
+                for cat,cuts_dict in cat_dict.items():
+                    yld_dict[proc_name_short][cat] = self.get_normalized_yield(hin_dict,lumi_factor,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
+            else:
+                for cat,cuts_dict in cat_dict.items():
+                    yld_dict[proc_name_short][cat][0] += self.get_normalized_yield(hin_dict,lumi_factor,proc,cuts_dict,overflow_str="over",h_name=hist_to_use)[0] # Important to keep overflow
+                    yld_dict[proc_name_short][cat][1] = None # Ok, let's just forget the sumw2...
 
         # If the file is split by lepton flav, but we don't want that, sum over lep flavors:
         if self.is_split_by_lepflav(hin_dict) and not lepflav:
