@@ -44,7 +44,7 @@ class dataframe_accumulator(AccumulatorABC):
         else:
             self._value = pd.concat([self._value, other._value])
     
-    # The cutoff value is set manually 
+    # The cutoff values are set manually 
     # First sort the dataframe to get a sufficient amount of top events (e.g. get_ST)
     # Then determine what values to focus on
     def get_nleps(self):

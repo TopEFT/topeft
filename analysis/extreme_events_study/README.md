@@ -1,4 +1,4 @@
-Extreme Events Study
+# Extreme Events Study
 
 ## How to get dataframes from the output of `extreme_events.py`?
 
@@ -36,4 +36,4 @@ python work_queue_run.py ../../topcoffea/cfg/mc_signal_samples_NDSkim.cfg --hist
 * Add `events["yield"]` to the initial dataframe as a column like other event quantities (e.g. nleps).
 * After the events are further filtered by interesting characteristics, get the output dataframe (e.g. df_nleps).
 * Calculate the yield by summing up the yield column (e.g. `df_nleps['yield'].sum()`).
- 
+
