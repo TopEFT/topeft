@@ -14,7 +14,7 @@ https://ispy-webgl.web.cern.ch/
 ## Procedure to get the `.ig` file
 
 * Modify `find_file.py` to generate a dataframe of selected event(s) from the skimmed files.
-* Modify `run_extreme_events.py` to run the find file processor (replace extreme_events with find_file in the script). 
+* Modify `run_extreme_events.py` to run the find file processor (replace `extreme_events` with `find_file` in the script). 
 * Run `find_file.py` on the non-skimmed data `data_samples.cfg`.
 * Get run, luminosityBlock, event, and the non-skimmed root file of the event from the output dataframe.
 * Use `dasgoclient` to find the AOD file:
