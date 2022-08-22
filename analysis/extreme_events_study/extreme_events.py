@@ -43,7 +43,10 @@ class dataframe_accumulator(AccumulatorABC):
             self._value = pd.concat([self._value, other])
         else:
             self._value = pd.concat([self._value, other._value])
-
+    
+    # The cutoff value is set manually 
+    # First sort the dataframe to get a sufficient amount of top events (e.g. get_ST)
+    # Then determine what values to focus on
     def get_nleps(self):
         self._value = self._value[self._value["nleps"] >= 4]
 
@@ -51,10 +54,10 @@ class dataframe_accumulator(AccumulatorABC):
         self._value = self._value[self._value["njets"] >= 10]
 
     def get_ST(self):
-        self._value.sort_values(by=["S_T"], ascending=False, inplace=True)[0:20]
+        self._value.sort_values(by=["S_T"], ascending=False, inplace=True)[0:5]
 
     def get_HT(self):
-        self._value.sort_values(by=["H_T"], ascending=False, inplace=True)[0:20]
+        self._value.sort_values(by=["H_T"], ascending=False, inplace=True)[0:5]
 
     def get_invMass(self):
         self._value = self._value[self._value["invMass"] >= 2000]
@@ -121,10 +124,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         isData             = self._samples[dataset]["isData"]
         histAxisName       = self._samples[dataset]["histAxisName"]
         year               = self._samples[dataset]["year"]
-        #xsec               = self._samples[dataset]["xsec"]
-        #sow                = self._samples[dataset]["nSumOfWeights"]
-       
-        #lumi = 1000.0*getj.get_lumi(year)
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets: 
@@ -159,7 +158,12 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### EFT coefficients ##########
 
-        # Get yields from the MC samples 
+        # Uncomment to get yields from the MC samples
+
+        #xsec = self._samples[dataset]["xsec"]
+        #sow = self._samples[dataset]["nSumOfWeights"]
+	#lumi = 1000.0*getj.get_lumi(year)
+ 
         # Extract the EFT quadratic coefficients
         #eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
         #if eft_coeffs is not None:
@@ -259,6 +263,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Put l_fo_conept_sorted and information of jets into events
         events["l_fo_conept_sorted"] = l_fo_conept_sorted
         events["njets"] = njets
+        # Sort pt descendingly
         events["jet_pt"] = goodJets.pt[ak.argsort(goodJets.pt, ascending=False)]
         events["jet_eta"] = goodJets.eta
 
@@ -364,7 +369,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Now find the number of tight leptons in each event, this array should look something like e.g. [3,2,2,4,2,3,2]
         nleps = ak.num(tight_lep)
         events["nleps"] = nleps
-        events["lep_pt"] = tight_lep.pt
+        events["lep_pt"] = tight_lep.pt[ak.argsort(tight_lep.pt, ascending=False)]
 
         # Now throw out all events that do not pass the selection cuts and collect events information
         # What we're left with now should <= len(number of events)
@@ -374,7 +379,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             tight_event_info[label] = events[label][sr_event_mask]
 
         # Put pt of leptons and jets of each event to two dataframes
-        # njets_max is predetermined and set as the index length
+        # nleps_max and njets_max are predetermined and set as the loop ranges (number of columns)
         pt_l_index = []
         pt_j_index = []
         for i in range(4):
@@ -394,12 +399,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         df.insert(2, "json_name", [json_name for x in range(len(df.index))])
         df.insert(3, "root_name", [filename for x in range(len(df.index))])
 
-        # Initialize the out object
+        # Put any quantities of interest into the output
         self.accumulator["pt_j"].add(df)
         self.accumulator["pt_j"].get_pt("pt_j")
 
         self.accumulator["njets"].add(df)
         self.accumulator["njets"].get_njets()
+
+        self.accumulator["nleps"].add(df)
+        self.accumulator["nleps"].get_nleps()
 
         return self.accumulator
 
