@@ -1,8 +1,10 @@
 # Extreme Events Study
 
+The `extreme_events` processor is designed to search for high-energy events from the multi-lepton data. The first part of the study is getting the actual data in the form of dataframes from the processor. The second part is getting the yields from the Monte Carlo data. There are two ways of getting the yields: summing up the bins of the output histogram from the `topeft` processor and summing up the columns of the output dataframe from the `extreme_events` processor. Since it is less likely to make a mistake with `topeft`, it is recommended as the first method to try.
+
 ## How to get dataframes from the output of `extreme_events.py`?
 
-There are multiple dataframes stored as the values of the `dataframe_accumulator` objects in the `dict` output.
+The output of the processor is a dictionary of `dataframe_accumulator` objects. The keys in the dictionary are the event characteristics (e.g. nleps is the lepton multiplicity). Dataframes are stored as `.values` of the items in the dictionary. An example of getting two dataframes:
 
 ```
 import pickle
