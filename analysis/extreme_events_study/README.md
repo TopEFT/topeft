@@ -1,6 +1,6 @@
 # Extreme Events Study
 
-The `extreme_events` processor is designed to search for high-energy events from the multi-lepton data. The first part of the study is getting the actual data in the form of dataframes from the processor. The second part is getting the yields from the Monte Carlo data. There are two ways of getting the yields: summing up the bins of the output histogram from the `topeft` processor and summing up the columns of the output dataframe from the `extreme_events` processor. Since it is less likely to make a mistake with `topeft`, it is recommended as the first method to try.
+The `extreme_events` processor is designed to search for top high-energy events from the multi-lepton data. The first part of the study is getting the actual data in the form of dataframes from the processor. The second part is getting the yields from the Monte Carlo data. There are two ways of getting the yields: summing up the bins of the output histogram from the `topeft` processor and summing up the columns of the output dataframe from the `extreme_events` processor. Since it is less likely to make a mistake with `topeft`, it is recommended as the first method to try.
 
 ## How to get dataframes from the output of `extreme_events.py`?
 
@@ -10,7 +10,7 @@ The output of the processor is a dictionary of `dataframe_accumulator` objects. 
 import pickle
 import gzip
 
-# Load output
+# Load the output
 with gzip.open("path/to/output/file", "rb") as infile:
     output = pickle.load(infile)
 
