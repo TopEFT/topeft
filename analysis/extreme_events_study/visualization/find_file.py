@@ -64,6 +64,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         with gzip.open("dataframe/flipTopEFT.pkl.gz", "rb") as infile:
             output = pickle.load(infile)
 
+        ############# Specify events to track #############
+
         # Put event information of selected events from SKIM files into one dataframe 
         df_pt_j = output["pt_j"].value[["run", "luminosityBlock", "event"]][:1]
         df_njets = output["njets"].value[["run", "luminosityBlock", "event"]][:1]
