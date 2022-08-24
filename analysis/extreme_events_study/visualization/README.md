@@ -6,12 +6,12 @@ Copy the `.ig` file to local. Open the file in [iSpy WebGL](https://ispy-webgl.w
 
 ## File Information
 
-* **njets: 12 jets event**..
-Run/Lumi/Event: 297296/266/385206686
-* **nleps: 4 leptons event with top lepton pt (553GeV)**..
-Run/Lumi/Event: 274971/893/1292050723
-* **pt_j: Top 2 jet pt (1.8TeV, 1.6TeV), top S_T (3.7TeV), and top H_T (3.5TeV) event**..
-Run/Lumi/Event: 278018/957/1779662550
+* **njets: 12 jets event**<br>
+  Run/Lumi/Event: 297296/266/385206686
+* **nleps: 4 leptons event with top lepton pt (553GeV)**<br>
+  Run/Lumi/Event: 274971/893/1292050723
+* **pt_j: Top 2 jet pt (1.8TeV, 1.6TeV), top S_T (3.7TeV), and top H_T (3.5TeV) event**<br>
+  Run/Lumi/Event: 278018/957/1779662550
 
 ## Procedure to get the `.ig` file
 
