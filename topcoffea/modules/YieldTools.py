@@ -17,11 +17,11 @@ class YieldTools():
         self.CAT_LST_TOP19001 = ["2lss_p", "2lss_m", "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b", "4l"]
 
         self.SIG      = ["ttH","ttlnu","ttll","tllq","tHq","tttt"]
-        self.BKG      = ["flips","fakes","conv","VV","VVV"]
+        self.BKG      = ["flips","fakes","conv","VV","VVV","tWZ"]
         self.DIBOSON  = ["WW","WZ","ZZ"]
         self.TRIBOSON = ["WWW","WWZ","WZZ","ZZZ"]
 
-        self.DATA_MC_COLUMN_ORDER = ["VV", "VVV", "flips", "fakes", "conv", "bkg", "ttlnu", "ttll", "ttH", "tllq", "tHq", "tttt", "sig", "pred", "data", "pdiff"]
+        self.DATA_MC_COLUMN_ORDER = ["tWZ", "VV", "VVV", "flips", "fakes", "conv", "bkg", "ttlnu", "ttll", "ttH", "tllq", "tHq", "tttt", "sig", "pred", "data", "pdiff"]
 
         # A dictionary mapping names of samples in the samples axis to a short version of the name
         self.PROC_MAP = {
