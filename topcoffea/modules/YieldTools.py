@@ -501,6 +501,46 @@ class YieldTools():
         return lumi
 
 
+    # Takes as input a dictionary {"k": {"subk":[val,err]}} and returns {"k":{"subk":val}}
+    def strip_errs(self,in_dict):
+        out_dict = {}
+        for k in in_dict.keys():
+            out_dict[k] = {}
+            for subk in in_dict[k]:
+                out_dict[k][subk] = in_dict[k][subk][0]
+        return out_dict
+
+
+    # This function:
+    #   - Takes as input yield dict {"proc":{"cat":yld}}
+    #   - For each process we cobine categories that have the same name except for the given str (e.g. combine across charges if you pass ["p","m"])
+    #   - Can also take as input {"proc":{"cat":[yld,err]}}, but note we will not propagate errors, and instead will just replace errors with None
+    def sum_over_cats(self,in_dict,combine_str_lst):
+        out_dict = {}
+        for proc_name in in_dict.keys():
+            tmp_dict = {}
+            for cat_name in in_dict[proc_name]:
+                # Do we have errors or not
+                if isinstance(in_dict[proc_name][cat_name],float): errs = False
+                else: errs = True # Assumes we have [yld,err]
+                # Get the stripped name
+                cat_name_component_lst = cat_name.split("_")
+                for s in combine_str_lst:
+                    if s in cat_name_component_lst: cat_name_component_lst.remove(s)
+                cat_name_stripped = "_".join(cat_name_component_lst)
+                # Add the common cateogires to the out dict
+                if cat_name_stripped not in tmp_dict:
+                    if errs: tmp_dict[cat_name_stripped] = [in_dict[proc_name][cat_name][0],None]
+                    else   : tmp_dict[cat_name_stripped] =  in_dict[proc_name][cat_name]
+                else:
+                    if errs: tmp_dict[cat_name_stripped][0] = tmp_dict[cat_name_stripped][0] + in_dict[proc_name][cat_name][0]
+                    else   : tmp_dict[cat_name_stripped]    = tmp_dict[cat_name_stripped]    + in_dict[proc_name][cat_name]
+            out_dict[proc_name] = tmp_dict
+
+        return out_dict
+
+
+
     ######### Functions specifically for getting yields #########
 
     # Sum all the values of a hist 
@@ -556,6 +596,7 @@ class YieldTools():
         # If we want to seperate by njets, don't use njets hist since njets are not in it's sparse axis
         hist_to_use = "njets"
         if njets: hist_to_use = "ht"
+        #if njets: hist_to_use = "lj0pt"
 
         # Get the cat dict (that we will integrate over)
         cat_dict = {}
