@@ -273,6 +273,17 @@ class YieldTools():
 
         return [common_lst,unique_1_lst,unique_2_lst]
 
+    # For a nested dict {k:{subk:v}} reorganizes to be {subk:{k:v}}
+    def swap_keys_subkeys(self,in_dict):
+        out_dict = {}
+        for k in in_dict.keys():
+            for subk in in_dict[k].keys():
+                if subk not in out_dict: out_dict[subk] = {}
+                if k in out_dict[subk].keys():
+                    raise Exception("Cannot invert this dict")
+                else:
+                    out_dict[subk][k] = in_dict[k][subk]
+        return out_dict
 
     # Get a subset of the elements from a list of strings given a whitelist and/or blacklist of substrings
     def filter_lst_of_strs(self,in_lst,substr_whitelist=[],substr_blacklist=[]):
@@ -508,6 +519,15 @@ class YieldTools():
             out_dict[k] = {}
             for subk in in_dict[k]:
                 out_dict[k][subk] = in_dict[k][subk][0]
+        return out_dict
+
+    # Takes as input a dictionary {"k":{"subk":val}} and returns {"k": {"subk":[val,None]}}
+    def put_none_errs(self,in_dict):
+        out_dict = {}
+        for k in in_dict.keys():
+            out_dict[k] = {}
+            for subk in in_dict[k]:
+                out_dict[k][subk] = [in_dict[k][subk],None]
         return out_dict
 
 
