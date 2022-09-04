@@ -51,7 +51,7 @@ packages_json_template = string.Template('''
         ]
 }''')
 
-pip_local_to_ignore = { "topcoffea": ["analysis"] }
+pip_local_to_watch = { "topcoffea": ["topcoffea", "setup.py"] }
 
 packages_json = packages_json_template.substitute(py_version=py_version,coffea_version=coffea_version)
 
@@ -137,19 +137,20 @@ def _commits_local_pip(paths):
     commits = {}
     for (pkg, path) in paths.items():
         try:
-            to_ignore = []
-            paths = pip_local_to_ignore.get(pkg, None)
+            to_watch = []
+            paths = pip_local_to_watch.get(pkg, None)
             if paths:
                 # exclude magic word added to git in version 1.9.5
+
                 if _check_git_min_version("1.9.5"):
-                    to_ignore = [":(exclude,top){}".format(d) for d in paths]
+                    to_watch = [":(top){}".format(d) for d in paths]
                 else:
-                    logger.warning("git version is older than 1.9.5, ignoring paths to exclude when checking for changes: {}".format(",".join(paths)))
+                    logger.warning("git version is older than 1.9.5, ignoring path restricitons when checking for changes: {}".format(",".join(paths)))
 
             commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=path).decode().rstrip()
-            changed = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no', '.'] + to_ignore, cwd=path).decode().rstrip()
+            changed = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'] + to_watch, cwd=path).decode().rstrip()
             if changed:
-                logger.warning("Found unstaged changes in '{}'".format(path))
+                logger.warning("Found unstaged changes in {}:\n{}".format(path,changed))
                 commits[pkg] = 'HEAD'
             else:
                 commits[pkg] = commit
