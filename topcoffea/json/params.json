@@ -66,6 +66,7 @@
     ],
 
     "prompt_subtraction_samples": [
+        "TWZToLL_central",
         "TTGamma_central",
         "TTGJets_central",
         "WWW_central",

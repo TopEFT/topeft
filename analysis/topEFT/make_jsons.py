@@ -729,6 +729,24 @@ central_UL17_bkg_dict = {
         "histAxisName": "ZZZ_centralUL17",
         "xsecName": "ZZZ",
     },
+    "UL17_TWZToLL_thad_Wlept" : {
+        "path" : "/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL17NanoAODv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1",
+        "histAxisName": "TWZToLL_centralUL17",
+        "xsecName": "TWZToLL_thad_Wlept",
+    },
+    "UL17_TWZToLL_tlept_Whad" : {
+        "path" : "/TWZToLL_tlept_Whad_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL17NanoAODv9/TWZToLL_tlept_Whad_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1",
+        "histAxisName": "TWZToLL_centralUL17",
+        "xsecName": "TWZToLL_tlept_Whad",
+    },
+    "UL17_TWZToLL_tlept_Wlept" : {
+        "path" : "/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL17NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1",
+        "histAxisName": "TWZToLL_centralUL17",
+        "xsecName": "TWZToLL_tlept_Wlept",
+    },
 }
 
 
@@ -883,6 +901,24 @@ central_UL18_bkg_dict = {
         "histAxisName": "ZZZ_centralUL18",
         "xsecName": "ZZZ",
     },
+    "UL18_TWZToLL_thad_Wlept" : {
+        "path" : "/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1",
+        "histAxisName": "TWZToLL_centralUL18",
+        "xsecName": "TWZToLL_thad_Wlept",
+    },
+    "UL18_TWZToLL_tlept_Whad" : {
+        "path" : "/TWZToLL_tlept_Whad_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Whad_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1",
+        "histAxisName": "TWZToLL_centralUL18",
+        "xsecName": "TWZToLL_tlept_Whad",
+    },
+    "UL18_TWZToLL_tlept_Wlept" : {
+        "path" : "/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1",
+        "histAxisName": "TWZToLL_centralUL18",
+        "xsecName": "TWZToLL_tlept_Wlept",
+    },
 }
 
 
@@ -1028,6 +1064,24 @@ central_UL16_bkg_dict = {
         "histAxisName": "ZZZ_centralUL16",
         "xsecName": "ZZZ",
     },
+    "UL16_TWZToLL_thad_Wlept" : {
+        "path" : "/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
+        "histAxisName": "TWZToLL_centralUL16",
+        "xsecName": "TWZToLL_thad_Wlept",
+    },
+    "UL16_TWZToLL_tlept_Whad" : {
+        "path" : "/TWZToLL_tlept_Whad_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODv9/TWZToLL_tlept_Whad_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
+        "histAxisName": "TWZToLL_centralUL16",
+        "xsecName": "TWZToLL_tlept_Whad",
+    },
+    "UL16_TWZToLL_tlept_Wlept" : {
+        "path" : "/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
+        "histAxisName": "TWZToLL_centralUL16",
+        "xsecName": "TWZToLL_tlept_Wlept",
+    },
 
 }
 
@@ -1171,6 +1225,24 @@ central_UL16APV_bkg_dict = {
         "path" : "/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11_ext1-v1/NANOAODSIM",
         "histAxisName": "ZZZ_centralUL16APV",
         "xsecName": "ZZZ",
+    },
+    "UL16APV_TWZToLL_thad_Wlept" : {
+        "path" : "/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1",
+        "histAxisName": "TWZToLL_centralUL16APV",
+        "xsecName": "TWZToLL_thad_Wlept",
+    },
+    "UL16APV_TWZToLL_tlept_Whad" : {
+        "path" : "/TWZToLL_tlept_Whad_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/TWZToLL_tlept_Whad_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1",
+        "histAxisName": "TWZToLL_centralUL16APV",
+        "xsecName": "TWZToLL_tlept_Whad",
+    },
+    "UL16APV_TWZToLL_tlept_Wlept" : {
+        "path" : "/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/TWZToLL_tlept_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1",
+        "histAxisName": "TWZToLL_centralUL16APV",
+        "xsecName": "TWZToLL_tlept_Wlept",
     },
 }
 
@@ -1379,6 +1451,9 @@ def replace_val_in_json(path_to_json_file,key,new_val,verbose=True):
 def replace_xsec_for_dict_of_samples(samples_dict,out_dir):
     for sample_name,sample_info in samples_dict.items():
         path_to_json = os.path.join(out_dir,sample_name+".json")
+        if not os.path.exists(path_to_json):
+            print(f"\nWARNING: This json does not exist, continuing ({path_to_json})")
+            continue
         xsecName = sample_info["xsecName"]
         new_xsec = XSECDIC[xsecName]
         print(f"\nReplacing XSEC for {sample_name} JSON with the value from xsec.cfg for \"{xsecName}\":")
@@ -1520,7 +1595,29 @@ def main():
     #make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
 
 
+
     ######### Just replace xsec in JSON with whatever is in xsec.cfg #########
+
+    #replace_xsec_for_dict_of_samples(test_private_UL17_dict,out_dir_test_private_UL)
+    #replace_xsec_for_dict_of_samples(private_UL17_dict,out_dir_private_UL)
+    #replace_xsec_for_dict_of_samples(private_UL18_dict,out_dir_private_UL)
+    #replace_xsec_for_dict_of_samples(private_UL16_dict,out_dir_private_UL)
+    #replace_xsec_for_dict_of_samples(private_UL16APV_dict,out_dir_private_UL)
+
+    #replace_xsec_for_dict_of_samples(private_2017_dict,out_dir_top19001_local)
+    #replace_xsec_for_dict_of_samples(private_UL17_dict_b1b4_local,out_dir_private_UL_subset_local)
+
+    ##replace_xsec_for_dict_of_samples(central_2016_dict,out_dir_central_2016)
+    ##replace_xsec_for_dict_of_samples(central_2016APV_dict,out_dir_central_2016APV)
+    #replace_xsec_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,out_dir_central_2017)
+    #replace_xsec_for_dict_of_samples(central_2017_dict,out_dir_central_2017)
+    #replace_xsec_for_dict_of_samples(central_2017_dict,out_dir_central_2017)
+    #replace_xsec_for_dict_of_samples(sync_dict,out_dir_central_sync)
+    #replace_xsec_for_dict_of_samples(central_UL16_dict,out_dir_central_UL)
+    #replace_xsec_for_dict_of_samples(central_UL16APV_dict,out_dir_central_UL)
+    #replace_xsec_for_dict_of_samples(central_UL17_dict,out_dir_central_UL)
+    #replace_xsec_for_dict_of_samples(central_UL18_dict,out_dir_central_UL)
+
     #replace_xsec_for_dict_of_samples(central_UL17_bkg_dict,out_dir_central_bkg_UL)
     #replace_xsec_for_dict_of_samples(central_UL18_bkg_dict,out_dir_central_bkg_UL)
     #replace_xsec_for_dict_of_samples(central_UL16_bkg_dict,out_dir_central_bkg_UL)

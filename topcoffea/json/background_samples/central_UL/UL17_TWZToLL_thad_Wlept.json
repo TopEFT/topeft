@@ -1,0 +1,31 @@
+{
+  "xsec": 0.003004,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "TWZToLL_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL17NanoAODv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/130000/3B3F2422-A47B-D845-AF66-78BD38E82FB3.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/130000/C0C3A99A-6BBC-8A48-B435-2BA080A4E6BA.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/130000/C73AF0D3-E8F5-BB47-B3AE-B0542A37924C.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/130000/CF90EBE4-58B6-BA4D-8260-DA4992916242.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/130000/E94D37B8-40A1-3543-B0CF-3B1309E7FDFC.root",
+    "/store/mc/RunIISummer20UL17NanoAODv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1/280000/C90DF969-5ED3-C542-87CD-2F181AE6B651.root"
+  ],
+  "nEvents": 2092000,
+  "nGenEvents": 2092000,
+  "nSumOfWeights": 6296.117193402997,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL17NanoAODv9/TWZToLL_thad_Wlept_5f_DR_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1",
+  "nSumOfWeights_ISRUp": 6295.953757242537,
+  "nSumOfWeights_ISRDown": 6296.179218256825,
+  "nSumOfWeights_FSRUp": 6298.637116871923,
+  "nSumOfWeights_FSRDown": 6297.810028814973,
+  "nSumOfWeights_renormUp": 6041.978808749947,
+  "nSumOfWeights_renormDown": 6535.949369682088,
+  "nSumOfWeights_factUp": 6371.726120514697,
+  "nSumOfWeights_factDown": 6255.082254803132,
+  "nSumOfWeights_renormfactUp": 6110.7822779366625,
+  "nSumOfWeights_renormfactDown": 6512.481233918203
+}
