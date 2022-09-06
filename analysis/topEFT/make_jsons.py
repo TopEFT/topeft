@@ -753,7 +753,7 @@ central_UL17_bkg_dict = {
         "histAxisName": "TWZToLL_centralUL17",
         "xsecName": "TWZToLL_tlept_Wlept",
     },
-     NOTE: This should really be part of the signal, but no EFT effects, so it's included in the bkg samples
+    # NOTE: This should really be part of the signal, but no EFT effects, so it's included in the bkg samples
     "UL17_TTZToLL_M-1to10" : {
         "path" : "/TTZToLL_M-1to10_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM",
         "path_local" : "/store/mc/RunIISummer20UL17NanoAODv9/TTZToLL_M-1to10_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1",
@@ -938,7 +938,7 @@ central_UL18_bkg_dict = {
         "histAxisName": "TWZToLL_centralUL18",
         "xsecName": "TWZToLL_tlept_Wlept",
     },
-     NOTE: This should really be part of the signal, but no EFT effects, so it's included in the bkg samples
+    # NOTE: This should really be part of the signal, but no EFT effects, so it's included in the bkg samples
     "UL18_TTZToLL_M-1to10" : {
         "path" : "/TTZToLL_M-1to10_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
         "path_local" : "/store/mc/RunIISummer20UL18NanoAODv9/TTZToLL_M-1to10_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1",
@@ -1114,7 +1114,7 @@ central_UL16_bkg_dict = {
         "histAxisName": "TWZToLL_centralUL16",
         "xsecName": "TWZToLL_tlept_Wlept",
     },
-     NOTE: This should really be part of the signal, but no EFT effects, so it's included in the bkg samples
+    # NOTE: This should really be part of the signal, but no EFT effects, so it's included in the bkg samples
     "UL16_TTZToLL_M-1to10" : {
         "path" : "/TTZToLL_M-1to10_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
         "path_local" : "/store/mc/RunIISummer20UL16NanoAODv9/TTZToLL_M-1to10_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1",
@@ -1289,7 +1289,7 @@ central_UL16APV_bkg_dict = {
         "histAxisName": "TWZToLL_centralUL16APV",
         "xsecName": "TWZToLL_tlept_Wlept",
     },
-     NOTE: This should really be part of the signal, but no EFT effects, so it's included in the bkg samples
+    # NOTE: This should really be part of the signal, but no EFT effects, so it's included in the bkg samples
     "UL16APV_TTZToLL_M-1to10" : {
         "path" : "/TTZToLL_M-1to10_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
         "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/TTZToLL_M-1to10_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1",
