@@ -143,13 +143,19 @@ class DatacardMaker():
             "WZZ_",
             "ZZZ_",
         ],
+        "tWZ": ["TWZToLL_"],
         "convs": ["TTGamma_"],
         "fakes": ["nonprompt"],
         "charge_flips_": ["flips"],
         "data_obs": ["data"],
 
         "ttH_": ["ttHJet_"],
-        "ttll_": ["ttllJet_"],
+        "ttll_": [
+            "ttllJet_",
+            "TTZToLL_M1to10_",
+            "TTToSemiLeptonic_",
+            "TTTo2L2Nu_",
+        ],
         "ttlnu_": ["ttlnuJet_"],
     }
 
@@ -326,7 +332,7 @@ class DatacardMaker():
         self.ignore = [
             "DYJetsToLL", "DY10to50", "DY50",
             "ST_antitop_t-channel", "ST_top_s-channel", "ST_top_t-channel", "tbarW", "tW",
-            "TTJets", "TTTo2L2Nu", "TTToSemiLeptonic",
+            "TTJets",
             "WJetsToLNu",
             "TTGJets",  # This is the old low stats convs sample, new one should be TTGamma
 
@@ -335,6 +341,7 @@ class DatacardMaker():
             # "WWW","WWW_4F","WWZ_4F","WWZ","WZZ","ZZZ",
             # "flips","nonprompt",
             # "tttt","ttlnuJet","tllq","tHq","ttHJet",
+            # "TTTo2L2Nu", "TTToSemiLeptonic",
             # "data",
         ]
 

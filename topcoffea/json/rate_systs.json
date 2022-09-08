@@ -7,21 +7,20 @@
         "pdf_scale" : {
             "ttH": 1.024,
             "tllq": 1.033,
-            "ttlnu": 1.02,
             "tHq": 1.051,
             "Diboson": 1.02,
-            "Triboson": 1.042,
             "convs": 1.05
         },
         "qcd_scale" : {
             "ttH": "0.929/1.076",
             "tllq": 1.01,
-            "ttlnu": "0.88/1.13",
+            "ttlnu": "0.89/1.10",
             "ttll": "0.898/1.117",
             "tHq": "0.851/1.065",
             "tttt": "0.79/1.18",
+            "tWZ": 1.5,
             "Diboson": 1.02,
-            "Triboson": 1.026
+            "Triboson": 1.5
         }
     },
     "correlations" : {
@@ -31,6 +30,7 @@
         "tHq":      {"pdf_scale": "qg", "qcd_scale": "tHq" },
         "ttlnu":    {"pdf_scale": "qq", "qcd_scale": "ttlnu"},
         "tllq":     {"pdf_scale": "qq", "qcd_scale": "V"   },
+        "tWZ":      {                   "qcd_scale": "tWZ" },
         "Diboson":  {"pdf_scale": "qq", "qcd_scale": "VV"  },
         "Triboson": {"pdf_scale": "qq", "qcd_scale": "VVV" },
         "convs":    {"pdf_scale": "gg"}
