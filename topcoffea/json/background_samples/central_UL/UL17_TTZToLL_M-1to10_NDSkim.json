@@ -1,0 +1,27 @@
+{
+  "xsec": 0.082,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "TTZToLL_M1to10_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p8/WZ_lowMassTTZ/v1/UL17_TTZToLL_M_1to10/output_187.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p8/WZ_lowMassTTZ/v1/UL17_TTZToLL_M_1to10/output_188.root"
+  ],
+  "nEvents": 707000,
+  "nGenEvents": 707000,
+  "nSumOfWeights": 37686.07935048801,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL17NanoAODv9/TTZToLL_M-1to10_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v1",
+  "nSumOfWeights_ISRUp": 37674.03495173948,
+  "nSumOfWeights_ISRDown": 37690.48041313363,
+  "nSumOfWeights_FSRUp": 37759.53480341786,
+  "nSumOfWeights_FSRDown": 37666.185795611236,
+  "nSumOfWeights_renormUp": 33960.72379936284,
+  "nSumOfWeights_renormDown": 41641.421658358835,
+  "nSumOfWeights_factUp": 36879.72811473244,
+  "nSumOfWeights_factDown": 38677.78854763312,
+  "nSumOfWeights_renormfactUp": 33088.1039130063,
+  "nSumOfWeights_renormfactDown": 42488.46512934937
+}
