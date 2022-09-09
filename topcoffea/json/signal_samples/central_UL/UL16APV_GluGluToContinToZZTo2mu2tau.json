@@ -1,0 +1,33 @@
+{
+  "xsec": 0.00319,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "GluGluToContinToZZTo2mu2tau_centralUL16APV",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/GluGluToContinToZZTo2mu2tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2/2430000/0B78B9D8-4250-8148-A1BA-DE983CA3E0D2.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/GluGluToContinToZZTo2mu2tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2/2430000/831EA4B5-E21A-B44D-B2A6-6F1B19B7D4B9.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/GluGluToContinToZZTo2mu2tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2/2430000/F6E193FB-7341-B74A-9E94-2934CC9C9B8E.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/GluGluToContinToZZTo2mu2tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2/250000/79A2E8E9-2BE4-C540-A686-C1D54B442689.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/GluGluToContinToZZTo2mu2tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2/2500000/323906F2-CF33-A744-9427-B0ED6DF6C20A.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/GluGluToContinToZZTo2mu2tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2/2500000/39D18AF0-5C89-4D42-A729-5B347A7F3F68.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/GluGluToContinToZZTo2mu2tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2/2500000/EDCB54A5-EB97-B749-A0A8-25FC4E95E35E.root",
+    "/store/mc/RunIISummer20UL16NanoAODAPVv9/GluGluToContinToZZTo2mu2tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2/2510000/81BB0B18-4C6A-9A45-A70F-23BAF14684C1.root"
+  ],
+  "nEvents": 500000,
+  "nGenEvents": 500000,
+  "nSumOfWeights": 500000.0,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL16NanoAODAPVv9/GluGluToContinToZZTo2mu2tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2",
+  "nSumOfWeights_ISRUp": 499963.42474365234,
+  "nSumOfWeights_ISRDown": 500025.99101257324,
+  "nSumOfWeights_FSRUp": 499718.9188480377,
+  "nSumOfWeights_FSRDown": 500163.43310165405,
+  "nSumOfWeights_renormUp": 500000.0,
+  "nSumOfWeights_renormDown": 500000.0,
+  "nSumOfWeights_factUp": 500000.0,
+  "nSumOfWeights_factDown": 500000.0,
+  "nSumOfWeights_renormfactUp": 500000.0,
+  "nSumOfWeights_renormfactDown": 500000.0
+}
