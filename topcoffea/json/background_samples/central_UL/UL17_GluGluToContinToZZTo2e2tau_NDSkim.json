@@ -1,0 +1,27 @@
+{
+  "xsec": 0.00319,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "GluGluToContinToZZTo2e2tau_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p9/GluGluToContinToZZ/v1/UL17_GluGluToContinToZZTo2e2tau/output_421.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p9/GluGluToContinToZZ/v1/UL17_GluGluToContinToZZTo2e2tau/output_434.root"
+  ],
+  "nEvents": 498000,
+  "nGenEvents": 498000,
+  "nSumOfWeights": 498000.0,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL17NanoAODv9/GluGluToContinToZZTo2e2tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2",
+  "nSumOfWeights_ISRUp": 498123.5231323242,
+  "nSumOfWeights_ISRDown": 497929.93228149414,
+  "nSumOfWeights_FSRUp": 498654.14548397064,
+  "nSumOfWeights_FSRDown": 497863.34479141235,
+  "nSumOfWeights_renormUp": 498000.0,
+  "nSumOfWeights_renormDown": 498000.0,
+  "nSumOfWeights_factUp": 498000.0,
+  "nSumOfWeights_factDown": 498000.0,
+  "nSumOfWeights_renormfactUp": 498000.0,
+  "nSumOfWeights_renormfactDown": 498000.0
+}
