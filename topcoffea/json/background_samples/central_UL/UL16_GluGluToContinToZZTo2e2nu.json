@@ -1,0 +1,26 @@
+{
+  "xsec": 0.00319,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "ZZTo4L_centralUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/120000/6DC731E9-B3F0-154C-A111-F3C4A53A4E74.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/120000/DD0A427C-D228-DC40-BCF9-62A877747DCB.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/130000/2456F5B0-7BB1-A449-B1E3-77C3CE7F6CF8.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/130000/2BADFDFC-EED6-C74D-A2E7-6F5F8712EF25.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/270000/367419FC-872D-7F45-9644-E87C4485F99A.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/270000/6C0910E8-F050-CA40-8B3D-6451DEA1EDC1.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/280000/0B7C63B1-E0AC-9F4E-AF3B-5B661644489C.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/280000/2A835C20-340B-6A46-8148-821812F67C55.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/280000/CF0BC06A-B7F7-4249-9E47-E16D4CC15055.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/70000/AE092BDC-ED44-7B4C-AE54-B43805E89DFA.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1/70000/C9D3DC3F-6F62-E644-994C-AC0461F9CF03.root"
+  ],
+  "nEvents": 500000,
+  "nGenEvents": 500000,
+  "nSumOfWeights": 500000.0,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v1"
+}

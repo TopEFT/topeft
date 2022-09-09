@@ -2,7 +2,7 @@
   "xsec": 0.00159,
   "year": "2017",
   "treeName": "Events",
-  "histAxisName": "GluGluToContinToZZTo4tau_centralUL17",
+  "histAxisName": "ZZTo4L_centralUL17",
   "options": "",
   "WCnames": [],
   "files": [
@@ -30,15 +30,5 @@
   "nGenEvents": 499000,
   "nSumOfWeights": 499000.0,
   "isData": false,
-  "path": "/store/mc/RunIISummer20UL17NanoAODv9/GluGluToContinToZZTo4tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2",
-  "nSumOfWeights_ISRUp": 499100.3388366699,
-  "nSumOfWeights_ISRDown": 498923.2704772949,
-  "nSumOfWeights_FSRUp": 499654.3395175934,
-  "nSumOfWeights_FSRDown": 498895.10119247437,
-  "nSumOfWeights_renormUp": 499000.0,
-  "nSumOfWeights_renormDown": 499000.0,
-  "nSumOfWeights_factUp": 499000.0,
-  "nSumOfWeights_factDown": 499000.0,
-  "nSumOfWeights_renormfactUp": 499000.0,
-  "nSumOfWeights_renormfactDown": 499000.0
+  "path": "/store/mc/RunIISummer20UL17NanoAODv9/GluGluToContinToZZTo4tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2"
 }

@@ -1,0 +1,19 @@
+{
+  "xsec": 0.00319,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "ZZTo4L_centralUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL18NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/110000/F207F0A9-982E-F241-B5A4-686572E9D8A5.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/230000/8CF50391-A567-DE45-A15A-2908CAB2944D.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/2500000/13CD9CFA-6E9B-C94B-AC1D-3C71C7CD5769.root",
+    "/store/mc/RunIISummer20UL18NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/260000/5FCA6785-981F-9D49-B0AA-8A5452992F69.root"
+  ],
+  "nEvents": 500000,
+  "nGenEvents": 500000,
+  "nSumOfWeights": 500000.0,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL18NanoAODv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2"
+}
