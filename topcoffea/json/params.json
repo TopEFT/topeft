@@ -66,6 +66,9 @@
     ],
 
     "prompt_subtraction_samples": [
+        "TTTo2L2Nu_central",
+        "TTToSemiLeptonic_central",
+        "TTZToLL_M1to10_central",
         "TWZToLL_central",
         "TTGamma_central",
         "TTGJets_central",
