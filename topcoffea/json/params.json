@@ -86,7 +86,13 @@
         "ttHJet_private",
         "ttllJet_private",
         "ttlnuJet_private",
-        "tttt_private"
+        "tttt_private",
+        "tZq_central",
+        "ttHJet_central",
+        "ttH_central",
+        "ttW_central",
+        "ttZ_central",
+        "tttt_central"
     ],
 
     "chargeflip_sf_dict" : {
