@@ -1,0 +1,26 @@
+{
+  "xsec": 0.00319,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "ZZTo4L_centralUL16APV",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p9/missing_GluGluToContinToZZTo2e2nu/v1/UL16APV_GluGluToContinToZZTo2e2nu/output_46.root"
+  ],
+  "nEvents": 500000,
+  "nGenEvents": 500000,
+  "nSumOfWeights": 500000.0,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL16NanoAODAPVv9/GluGluToContinToZZTo2e2nu_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v3",
+  "nSumOfWeights_ISRUp": 499993.1834716797,
+  "nSumOfWeights_ISRDown": 500024.79876708984,
+  "nSumOfWeights_FSRUp": 500242.37208366394,
+  "nSumOfWeights_FSRDown": 499940.12774276733,
+  "nSumOfWeights_renormUp": 500000.0,
+  "nSumOfWeights_renormDown": 500000.0,
+  "nSumOfWeights_factUp": 500000.0,
+  "nSumOfWeights_factDown": 500000.0,
+  "nSumOfWeights_renormfactUp": 500000.0,
+  "nSumOfWeights_renormfactDown": 500000.0
+}

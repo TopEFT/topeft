@@ -1,0 +1,31 @@
+{
+  "xsec": 0.00159,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "ZZTo4L_centralUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo4e_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v2/100000/02FDA806-2B35-C44D-95D6-94D7A9B9A216.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo4e_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v2/230000/903E435E-AFA1-AD4F-8F7E-F9F65F232138.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo4e_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v2/2430000/A545931B-D846-FB4C-B529-337688364562.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo4e_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v2/250000/59777831-A9B3-374B-9C86-6E5CCACBE686.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo4e_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v2/2510000/5EFB75B5-7640-2346-8F5C-B677DE705144.root",
+    "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo4e_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v2/40000/86942260-F9E8-8A47-9D47-3305636CDA6B.root"
+  ],
+  "nEvents": 992608,
+  "nGenEvents": 992608,
+  "nSumOfWeights": 992608.0,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL16NanoAODv9/GluGluToContinToZZTo4e_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_v17-v2",
+  "nSumOfWeights_ISRUp": 992781.0269622803,
+  "nSumOfWeights_ISRDown": 992468.0705718994,
+  "nSumOfWeights_FSRUp": 992887.3382740021,
+  "nSumOfWeights_FSRDown": 992763.0606498718,
+  "nSumOfWeights_renormUp": 992608.0,
+  "nSumOfWeights_renormDown": 992608.0,
+  "nSumOfWeights_factUp": 992608.0,
+  "nSumOfWeights_factDown": 992608.0,
+  "nSumOfWeights_renormfactUp": 992608.0,
+  "nSumOfWeights_renormfactDown": 992608.0
+}
