@@ -300,8 +300,17 @@ def GetBTagSF(jets, year, wp='MEDIUM', sys='central'):
   elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL17_v3.csv"),wp)
   elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL18_v2.csv"),wp)
   else: raise Exception(f"Error: Unknown year \"{year}\".")
+
   pt = jets.pt; abseta = np.abs(jets.eta); flavor = jets.hadronFlavour
   SF=SFevaluatorBtag.eval('central',jets.hadronFlavour,np.abs(jets.eta),jets.pt)
+
+  # For UL16, use the SFs from the UL16APV
+  if year == "2016":
+      had_flavor = jets.hadronFlavour
+      SFevaluatorBtag_UL16APV = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp)
+      SF_UL16APV = SFevaluatorBtag_UL16APV.eval('central',jets.hadronFlavour,np.abs(jets.eta),jets.pt)
+      SF = ak.where(had_flavor==0,SF_UL16APV,SF)
+
   if sys=='central':    
     return (SF)
   else:
