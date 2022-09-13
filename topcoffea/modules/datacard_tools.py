@@ -31,15 +31,21 @@ def to_hist(arr,name,zero_wgts=False):
     # NOTE:
     #   If we don't instantiate a new np.array here, then clipped will store a reference to the
     #   sub-array arr and when we modify clipped, it will propagate back to arr as well!
-    clipped = np.array(arr[1:-1])     # Strip off the under/overflow bins
-    clipped[-1] += arr[-1]  # Add the overflow bin to the right most bin content
-    nbins = len(clipped)
+    clipped=[]
+    for i in range(2): # first entry is sum(weight), second entry is sum(weight^2)
+        if arr[i] is not None:
+            clipped.append( np.array(arr[i][1:-1]))     # Strip off the under/overflow bins
+            clipped[i][-1] += arr[i][-1]  # Add the overflow bin to the right most bin content
+        else: 
+            clipped[i]=None
+
+    nbins = len(clipped[0])
     if zero_wgts:
         h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name),storage=bh.storage.Weight())
-        h[...] = np.stack([clipped,np.zeros_like(clipped)],axis=-1) # Set the bin errors all to 0
+        h[...] = np.stack([clipped[0],np.zeros_like(clipped[0])],axis=-1) # Set the bin errors all to 0
     else:
-        h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name))
-        h[...] = clipped
+        h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name),storage=bh.storage.Weight())
+        h[...] = np.stack([clipped[0], clipped[1]],axis=-1)
     return h
 
 class RateSystematic():
@@ -775,7 +781,7 @@ class DatacardMaker():
 
         h = self.hists[km_dist]
         ch_hist = h.integrate("channel",[ch])
-        data_obs = np.zeros(ch_hist._dense_shape[0] - 1) # '_dense_shape' includes the nanflow bin
+        data_obs = [np.zeros(ch_hist._dense_shape[0] - 1), np.zeros(ch_hist._dense_shape[0] - 1)] # '_dense_shape' includes the nanflow bin
 
         print(f"Generating root file: {outf_root_name}")
         tic = time.time()
@@ -796,10 +802,10 @@ class DatacardMaker():
                     if self.use_real_data:
                         if len(data_sm) != 1:
                             raise RuntimeError("obs data has unexpected number of sparse bins")
-                        elif sum(data_obs) != 0:
+                        elif sum(data_obs[0]) != 0:
                             raise RuntimeError("filling obs data more than once!")
                         for sp_key,arr in data_sm.items():
-                            data_obs += arr
+                            data_obs[0] += arr[0]
                 for base,v in decomposed_templates.items():
                     proc_name = f"{p}_{base}"
                     col_width = max(len(proc_name),col_width)
@@ -810,13 +816,13 @@ class DatacardMaker():
                     # There should be only 1 sparse axis at this point, the systematics axis
                     for sp_key,arr in v.items():
                         syst = sp_key[0]
-                        sum_arr = sum(arr)
+                        sum_arr = sum(arr[0])
                         if syst == "nominal" and base == "sm":
                             if self.verbose:
-                                print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr}")
+                                print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr[0]}")
                             if not self.use_real_data:
                                 # Create asimov dataset
-                                data_obs += arr
+                                data_obs[0] += arr[0]
                         if syst == "nominal":
                             hist_name = f"{proc_name}"
                             text_card_info[proc_name]["rate"] = sum_arr
@@ -858,7 +864,7 @@ class DatacardMaker():
             f.write(f"shapes *        * {os.path.split(outf_root_name)[1]} $PROCESS $PROCESS_$SYSTEMATIC\n")
             f.write(line_break)
             f.write(f"bin         {bin_str}\n")
-            f.write(f"observation {sum(data_obs):.{PRECISION}f}\n")
+            f.write(f"observation {sum(data_obs[0]):.{PRECISION}f}\n")
             f.write(line_break)
             f.write(line_break)
 
@@ -995,17 +1001,16 @@ class DatacardMaker():
         """
         tic = time.time()
         h.set_sm()
-        sm = h.values(overflow='all')
-
+        sm = h.values(sumw2=True, overflow='all')
         # Note: The keys of this dictionary are a pretty contrived, but are useful later on
         r = {}
         r["sm"] = sm
         terms = 1
         for n1,wc1 in enumerate(wcs):
             h.set_wilson_coefficients(**{wc1: 1.0})
-            tmp_lin_1 = h.values(overflow='all')
+            tmp_lin_1 = h.values(overflow='all', sumw2=True)
             h.set_wilson_coefficients(**{wc1: 2.0})
-            tmp_lin_2 = h.values(overflow='all')
+            tmp_lin_2 = h.values(overflow='all',sumw2=True)
 
             lin_name = f"lin_{wc1}"
             quad_name = f"quad_{wc1}"
@@ -1016,13 +1021,15 @@ class DatacardMaker():
             r[quad_name] = {}
             for sparse_key in h._sumw.keys():
                 tup = tuple(x.name for x in sparse_key)
-                r[quad_name][tup] = 0.5*(tmp_lin_2[tup] - 2*tmp_lin_1[tup] + sm[tup])
-
+                r[quad_name][tup]=[]
+                for i in range(2):
+                    r[quad_name][tup].append( 0.5*(tmp_lin_2[tup][i] - 2*tmp_lin_1[tup][i] + sm[tup][i]) ) 
+                    
             for n2,wc2 in enumerate(wcs):
                 if n1 >= n2: continue
                 mixed_name = f"quad_mixed_{wc1}_{wc2}"
                 h.set_wilson_coefficients(**{wc1:1.0,wc2:1.0})
-                r[mixed_name] = h.values(overflow='all')
+                r[mixed_name] = h.values(overflow='all',sumw2=True)
                 terms += 1
 
         toc = time.time()
