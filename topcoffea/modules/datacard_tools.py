@@ -22,7 +22,7 @@ def prune_axis(h,axis,to_keep):
     to_remove = [x.name for x in h.identifiers(axis) if x.name not in to_keep]
     return h.remove(to_remove,axis)
 
-def to_hist(arr,name,zero_wgts=False):
+def to_hist(arr,name,zero_wgts=False, cropNegativeBins=False):
     """
         Converts a numpy array into a hist.Hist object suitable for being written to a root file by
         uproot. If 'zero_wgts' is true, then the resulting histogram will be created with bin errors
@@ -38,6 +38,12 @@ def to_hist(arr,name,zero_wgts=False):
             clipped[i][-1] += arr[i][-1]  # Add the overflow bin to the right most bin content
         else: 
             clipped[i]=None
+
+    if cropNegativeBins:
+        negative_bin_mask = np.where( clipped[0] < 0) # see where bins are negative
+        clipped[0][negative_bin_mask] = np.zeros_like( clipped[0][negative_bin_mask] )  # set those to zero
+        if clipped[1] is not None:
+            clipped[1][negative_bin_mask] = np.zeros_like( clipped[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative 
 
     nbins = len(clipped[0])
     if zero_wgts:
@@ -834,7 +840,7 @@ class DatacardMaker():
                             text_card_info[proc_name]["shapes"].add(syst_base)
                             syst_width = max(len(syst),syst_width)
                         zero_out_sumw2 = p != "fakes" # Zero out sumw2 for all proc but fakes, so that we only do auto stats for fakes
-                        f[hist_name] = to_hist(arr,hist_name,zero_wgts=zero_out_sumw2)
+                        f[hist_name] = to_hist(arr,hist_name,zero_wgts=zero_out_sumw2, cropNegativeBins=True)
 
                         num_h += 1
                     if km_dist == "njets":
