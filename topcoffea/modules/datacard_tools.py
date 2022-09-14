@@ -22,7 +22,7 @@ def prune_axis(h,axis,to_keep):
     to_remove = [x.name for x in h.identifiers(axis) if x.name not in to_keep]
     return h.remove(to_remove,axis)
 
-def to_hist(arr,name,zero_wgts=False, cropNegativeBins=False):
+def to_hist(arr,name,zero_wgts=False):
     """
         Converts a numpy array into a hist.Hist object suitable for being written to a root file by
         uproot. If 'zero_wgts' is true, then the resulting histogram will be created with bin errors
@@ -39,11 +39,6 @@ def to_hist(arr,name,zero_wgts=False, cropNegativeBins=False):
         else: 
             clipped[i]=None
 
-    if cropNegativeBins:
-        negative_bin_mask = np.where( clipped[0] < 0) # see where bins are negative
-        clipped[0][negative_bin_mask] = np.zeros_like( clipped[0][negative_bin_mask] )  # set those to zero
-        if clipped[1] is not None:
-            clipped[1][negative_bin_mask] = np.zeros_like( clipped[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative 
 
     nbins = len(clipped[0])
     if zero_wgts:
@@ -760,7 +755,7 @@ class DatacardMaker():
             print(f"WC Selection Time: {dt:.2f} s")
         return selected_wcs
 
-    def analyze(self,km_dist,ch,selected_wcs):
+    def analyze(self,km_dist,ch,selected_wcs, cropNegativeBins):
         """ Handles the EFT decomposition and the actual writing of the ROOT and text datacard files."""
         if not km_dist in self.hists:
             print(f"[ERROR] Unknown kinematic distribution: {km_dist}")
@@ -821,7 +816,14 @@ class DatacardMaker():
                     }
                     # There should be only 1 sparse axis at this point, the systematics axis
                     for sp_key,arr in v.items():
+                        if cropNegativeBins:
+                            negative_bin_mask = np.where( arr[0] < 0) # see where bins are negative
+                            arr[0][negative_bin_mask] = np.zeros_like( arr[0][negative_bin_mask] )  # set those to zero
+                            if arr[1] is not None:
+                                arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative 
+
                         syst = sp_key[0]
+
                         sum_arr = sum(arr[0])
                         if syst == "nominal" and base == "sm":
                             if self.verbose:
@@ -840,7 +842,7 @@ class DatacardMaker():
                             text_card_info[proc_name]["shapes"].add(syst_base)
                             syst_width = max(len(syst),syst_width)
                         zero_out_sumw2 = p != "fakes" # Zero out sumw2 for all proc but fakes, so that we only do auto stats for fakes
-                        f[hist_name] = to_hist(arr,hist_name,zero_wgts=zero_out_sumw2, cropNegativeBins=True)
+                        f[hist_name] = to_hist(arr,hist_name,zero_wgts=zero_out_sumw2)
 
                         num_h += 1
                     if km_dist == "njets":
@@ -1084,7 +1086,7 @@ if __name__ == '__main__':
     for cat in dc.channels(km_dist):
         if not cat in chans:
             continue
-        r = dc.analyze(km_dist,cat,selected_wcs)
+        r = dc.analyze(km_dist,cat,selected_wcs, True)
     dt = time.time() - tic
     print(f"Total Time: {dt:.2f} s")
 
