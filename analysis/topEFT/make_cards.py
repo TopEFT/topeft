@@ -59,14 +59,14 @@ conda activate ${CONDA_DEFAULT_ENV}
 python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${VAR_LST} --ch-lst ${CH_LST} --use-selected "selectedWCs.txt" --do-nuisance ${OTHER}
 """
 
-def run_local(dc,km_dists,channels,selected_wcs, cropNegativeBins):
+def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins):
     for km_dist in km_dists:
         all_chs = dc.channels(km_dist)
         matched_chs = regex_match(all_chs,channels)
         if channels:
             print(f"Channels to process: {matched_chs}")
         for ch in matched_chs:
-            r = dc.analyze(km_dist,ch,selected_wcs, cropNegativeBins)
+            r = dc.analyze(km_dist,ch,selected_wcs, crop_negative_bins)
 
 # VERY IMPORTANT:
 #   This setup assumes the output directory is mounted on the remote condor machines
@@ -165,7 +165,7 @@ def main():
     parser.add_argument("--use-selected",default="",help="Load selected process+WC combs from a file. Skips doing the normal selection step.")
     parser.add_argument("--condor","-C",action="store_true",help="Split up the channels into multiple condor jobs")
     parser.add_argument("--chunks","-n",default=1,help="The number of channels each condor job should process")
-    parser.add_argument("--keepNegativeBins",action="store_true",help="Don't crop negative bins")
+    parser.add_argument("--keep-negative-bins",action="store_true",help="Don't crop negative bins")
 
     args = parser.parse_args()
     pkl_file   = args.pkl_file
@@ -281,7 +281,7 @@ def main():
     if use_condor:
         run_condor(dc,pkl_file,out_dir,dists,ch_lst,chunks)
     else:
-        run_local(dc,dists,ch_lst,selected_wcs, not args.keepNegativeBins)
+        run_local(dc,dists,ch_lst,selected_wcs, not args.keep_negative_bins)
     dt = time.time() - tic
     print(f"Total Time: {dt:.2f} s")
     print("Finished!")
