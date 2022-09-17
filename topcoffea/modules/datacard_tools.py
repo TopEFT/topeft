@@ -41,11 +41,10 @@ def to_hist(arr,name,zero_wgts=False):
 
 
     nbins = len(clipped[0])
+    h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name),storage=bh.storage.Weight())
     if zero_wgts:
-        h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name),storage=bh.storage.Weight())
         h[...] = np.stack([clipped[0],np.zeros_like(clipped[0])],axis=-1) # Set the bin errors all to 0
     else:
-        h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name),storage=bh.storage.Weight())
         h[...] = np.stack([clipped[0], clipped[1]],axis=-1)
     return h
 
@@ -755,7 +754,7 @@ class DatacardMaker():
             print(f"WC Selection Time: {dt:.2f} s")
         return selected_wcs
 
-    def analyze(self,km_dist,ch,selected_wcs, cropNegativeBins):
+    def analyze(self,km_dist,ch,selected_wcs, crop_negative_bins):
         """ Handles the EFT decomposition and the actual writing of the ROOT and text datacard files."""
         if not km_dist in self.hists:
             print(f"[ERROR] Unknown kinematic distribution: {km_dist}")
@@ -782,7 +781,7 @@ class DatacardMaker():
 
         h = self.hists[km_dist]
         ch_hist = h.integrate("channel",[ch])
-        data_obs = [np.zeros(ch_hist._dense_shape[0] - 1), np.zeros(ch_hist._dense_shape[0] - 1)] # '_dense_shape' includes the nanflow bin
+        data_obs = np.zeros((2,ch_hist._dense_shape[0] - 1)) # '_dense_shape' includes the nanflow bin
 
         print(f"Generating root file: {outf_root_name}")
         tic = time.time()
@@ -806,7 +805,7 @@ class DatacardMaker():
                         elif sum(data_obs[0]) != 0:
                             raise RuntimeError("filling obs data more than once!")
                         for sp_key,arr in data_sm.items():
-                            data_obs[0] += arr[0]
+                            data_obs += arr
                 for base,v in decomposed_templates.items():
                     proc_name = f"{p}_{base}"
                     col_width = max(len(proc_name),col_width)
@@ -816,7 +815,7 @@ class DatacardMaker():
                     }
                     # There should be only 1 sparse axis at this point, the systematics axis
                     for sp_key,arr in v.items():
-                        if cropNegativeBins:
+                        if crop_negative_bins:
                             negative_bin_mask = np.where( arr[0] < 0) # see where bins are negative
                             arr[0][negative_bin_mask] = np.zeros_like( arr[0][negative_bin_mask] )  # set those to zero
                             if arr[1] is not None:
@@ -830,7 +829,7 @@ class DatacardMaker():
                                 print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr[0]}")
                             if not self.use_real_data:
                                 # Create asimov dataset
-                                data_obs[0] += arr[0]
+                                data_obs += arr
                         if syst == "nominal":
                             hist_name = f"{proc_name}"
                             text_card_info[proc_name]["rate"] = sum_arr
