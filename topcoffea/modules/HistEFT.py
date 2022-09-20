@@ -194,9 +194,9 @@ class HistEFT(coffea.hist.Hist):
     for sparse_key in self._sumw.keys():
       is_eft_bin = (self._sumw[sparse_key].shape != self._dense_shape)
       if is_eft_bin:
-        out._sumw[sparse_key]=self._sumw[sparse_key][:,0]
+        out._sumw[sparse_key] = np.copy(self._sumw[sparse_key][:,0])
       else:
-        out._sumw[sparse_key]=self._sumw[sparse_key]
+        out._sumw[sparse_key] = np.copy(self._sumw[sparse_key])
       out._sumw2[sparse_key]=np.zeros_like(out._sumw[sparse_key])
     return out
 
