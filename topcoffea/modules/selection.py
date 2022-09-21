@@ -426,70 +426,19 @@ def get_Z_peak_mask(lep_collection,pt_window,flavor="os"):
     return sfosz_mask
 
 # Returns the pt of the l+l that form the Z peak
-def get_Z_pt(lep_collection,pt_window,return_var="pt"):
+def get_Z_pt(lep_collection,pt_window):
 
     ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
     zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<pt_window)
     sfos_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
     sfosz_mask = ak.fill_none((sfos_mask & zpeak_mask),False)
 
-    n_sfosz = ak.count_nonzero(sfosz_mask,axis=-1)
-
-    pair_pt      = (ll_pairs.l0 + ll_pairs.l1).pt
     pair_invmass = (ll_pairs.l0 + ll_pairs.l1).mass
-
-    pair_pt_with_sfosz_mask   = pair_pt[sfosz_mask]
-    pair_mass_with_sfosz_mask = pair_invmass[sfosz_mask]
-
-    # Get z peak index
     pair_invmass_with_sfosz_mask = pair_invmass[sfosz_mask]
+    pair_pt = (ll_pairs.l0 + ll_pairs.l1).pt
+    pair_pt_with_sfosz_mask = pair_pt[sfosz_mask]
+
     zpeak_idx = ak.argmin(abs(pair_invmass_with_sfosz_mask - 91.2),keepdims=True,axis=1)
+    pt_of_sfosz = pair_pt_with_sfosz_mask[zpeak_idx]
 
-    pt_of_sfosz   = pair_pt_with_sfosz_mask[zpeak_idx]
-    mass_of_sfosz = pair_mass_with_sfosz_mask[zpeak_idx]
-
-    if return_var == "pt":
-        return [ak.flatten(pt_of_sfosz),n_sfosz]
-    elif return_var == "mass":
-        return [ak.flatten(mass_of_sfosz),n_sfosz]
-    else:
-        raise Exception(f"Error: Unknown return variable {return_var}.")
-
-# Hadtop
-def get_hadt_mass(jet_collection,btagwpl,pt_window=10):
-
-    jjj_triplets = ak.combinations(jet_collection, 3, fields=["i0","i1","i2"])
-    triplets_with_1b_mask  = ((ak.values_astype(jjj_triplets.i0.btagDeepFlavB>btagwpl,int)+ak.values_astype(jjj_triplets.i1.btagDeepFlavB>btagwpl,np.int32)+ak.values_astype(jjj_triplets.i2.btagDeepFlavB>btagwpl,np.int32))==1)
-
-    jjb_triplets = jjj_triplets[triplets_with_1b_mask]
-
-    jjb_mass = (jjb_triplets.i0+jjb_triplets.i1+jjb_triplets.i2).mass
-    jjb_pt = (jjb_triplets.i0+jjb_triplets.i1+jjb_triplets.i2).pt
-
-    jj_mass = ak.where( jjb_triplets.i0.btagDeepFlavB>btagwpl,(jjb_triplets.i1+jjb_triplets.i2).mass,( ak.where( jjb_triplets.i1.btagDeepFlavB>btagwpl,(jjb_triplets.i0+jjb_triplets.i2).mass, (jjb_triplets.i0+jjb_triplets.i1).mass)))
-
-    # From gen level studies: https://indico.cern.ch/event/1103036/contributions/4688968/attachments/2373293/4053575/hadtop_studies_jan14_2022.pdf
-    t_mass = 170.0
-    w_mass = 83.0
-    t_width = 20.0
-    w_width = 11.0
-    chisq_threhsold = 3.0
-
-    chi_sq = (((jjb_mass-t_mass)*(jjb_mass-t_mass)/((t_width)*(t_width))) + ((jj_mass-w_mass)*(jj_mass-w_mass)/((w_width)*(w_width))))
-    chi_sq_min_idx = ak.argmin(chi_sq,keepdims=True,axis=1)
-    jjb_mass_best = jjb_mass[chi_sq_min_idx]
-    jjb_pt_best = jjb_pt[chi_sq_min_idx]
-    jj_mass_best = jj_mass[chi_sq_min_idx]
-
-    ### Find the triplet with max pt and chi2<threshold ###
-
-    # get rid of large chi2
-    small_chi_sq_mask = (chi_sq<chisq_threhsold)
-    jjb_pt_small_chi_sq = jjb_pt[small_chi_sq_mask]
-    jjb_pt_max_small_chi_sq = jjb_pt_small_chi_sq[ak.argmax(jjb_pt_small_chi_sq,keepdims=True,axis=1)]
-
-    has_hadt_candidate_mask = ak.fill_none(ak.any((chi_sq<chisq_threhsold),axis=1),False)
-
-    # Clean this up before we merge (only return the useful things we actully want to plot e.g. hadtop mass)
-    #return has_hadt_candidate_mask,ak.flatten(chi_sq[chi_sq_min_idx]),ak.flatten(jjb_mass_best),ak.flatten(jjb_pt_best),ak.flatten(jj_mass_best),jjb_mass,jj_mass , jjb_triplets[chi_sq_min_idx]
-    return has_hadt_candidate_mask,ak.flatten(chi_sq[chi_sq_min_idx]),ak.flatten(jjb_mass_best),ak.flatten(jjb_pt_best),ak.flatten(jj_mass_best),jjb_mass,jj_mass , jjb_triplets[chi_sq_min_idx] , jjb_pt_max_small_chi_sq
+    return ak.flatten(pt_of_sfosz)
