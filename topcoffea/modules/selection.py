@@ -433,6 +433,8 @@ def get_Z_pt(lep_collection,pt_window,return_var="pt"):
     sfos_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
     sfosz_mask = ak.fill_none((sfos_mask & zpeak_mask),False)
 
+    n_sfosz = ak.count_nonzero(sfosz_mask,axis=-1)
+
     pair_pt      = (ll_pairs.l0 + ll_pairs.l1).pt
     pair_invmass = (ll_pairs.l0 + ll_pairs.l1).mass
 
@@ -447,9 +449,9 @@ def get_Z_pt(lep_collection,pt_window,return_var="pt"):
     mass_of_sfosz = pair_mass_with_sfosz_mask[zpeak_idx]
 
     if return_var == "pt":
-        return ak.flatten(pt_of_sfosz)
+        return [ak.flatten(pt_of_sfosz),n_sfosz]
     elif return_var == "mass":
-        return ak.flatten(mass_of_sfosz)
+        return [ak.flatten(mass_of_sfosz),n_sfosz]
     else:
         raise Exception(f"Error: Unknown return variable {return_var}.")
 
