@@ -82,16 +82,47 @@ class AnalysisProcessor(processor.ProcessorABC):
             "nbtagsm" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsm", "Med btag multiplicity ", 5, 0, 5)),
             "bmask_atleast1med_atleast2loose" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bmask_atleast1med_atleast2loose", "2lss b tag mask", 5, 0, 5)),
 
+            "n_eloose": HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("n_eloose", "Loose e multiplicity ", 10, 0, 10)),
+            "n_mloose": HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("n_mloose", "Loose e multiplicity ", 10, 0, 10)),
+
             # Combinations of objects
-            "invmass"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 1000)),
-            "invmassz" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmassz", "invmass Z (GeV)", 12, 70, 130)),
+            "invmass01"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass01", "$m_{\ell\ell}$ 01 (GeV) ", 10, 0, 200)),
+            "invmass02"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass02", "$m_{\ell\ell}$ 02 (GeV) ", 10, 0, 200)),
+            "invmass12"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass12", "$m_{\ell\ell}$ 12 (GeV) ", 10, 0, 200)),
+            "invmassz" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmassz", "invmass Z (GeV)", 10, 0, 200)),
+            "invmass_min" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass_min", "invmass mll min (GeV)", 10, 0, 200)),
             "ptz"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptz",     "$p_{T}$ Z (GeV)", 12, 0, 600)),
+            "n_sfosz"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("n_sfosz", "Number sfosz pairs", 5, 0, 5)),
             "ptbl"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 40, 0, 1000)),
-            "hadtmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadtmass", "Mass of had t (GeV)", 20, 0, 400)),
+            "hadtmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadtmass", "Mass of had t (GeV)", 10, 0, 500)),
+            "hadt_chi2" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadt_chi2", "Had top chi2", 10, 0, 40)),
             "hadwmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadwmass", "Mass of had W (GeV)", 10, 0, 200)),
             "hadtpt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("hadtpt",   "Pt of had t (GeV)", 10, 0, 500)),
             "bl0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 10, 0, 500)),
             "lj0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
+
+            "dRmin_lj"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("dRmin_lj", "dR min from lj pairs", 8, 0, 4)),
+
+            "dR_01"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("dR_01", "dR 01", 10, 0, 6)),
+            "dR_02"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("dR_02", "dR 02", 10, 0, 6)),
+            "dR_12"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("dR_12", "dR 12", 10, 0, 6)),
+
+            "ptll_fromMllMin"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll_fromMllMin", "$pt ll of min mll (GeV) ", 10, 0, 500)),
+            "ptll_fromMllMin_minMllOnZ"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll_fromMllMin_minMllOnZ", "$pt ll of min mll (GeV) ", 10, 0, 500)),
+            "ptll_fromMllMin_minMllOffZ" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll_fromMllMin_minMllOffZ", "$pt ll of min mll (GeV) ", 10, 0, 500)),
+
+            "ptll01"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll01", "$pt ll 01 (GeV) ", 10, 0, 500)),
+            "ptll02"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll02", "$pt ll 02 (GeV) ", 10, 0, 500)),
+            "ptll12"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll12", "$pt ll 12 (GeV) ", 10, 0, 500)),
+            "ptll01_mll01onZ"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll01_mll01onZ", "$pt ll 01 (GeV) ", 10, 0, 500)),
+            "ptll02_mll01onZ"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll02_mll01onZ", "$pt ll 02 (GeV) ", 10, 0, 500)),
+            "ptll12_mll01onZ"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll12_mll01onZ", "$pt ll 12 (GeV) ", 10, 0, 500)),
+            "ptll01_mll02onZ"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll01_mll02onZ", "$pt ll 01 (GeV) ", 10, 0, 500)),
+            "ptll02_mll02onZ"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll02_mll02onZ", "$pt ll 02 (GeV) ", 10, 0, 500)),
+            "ptll12_mll02onZ"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll12_mll02onZ", "$pt ll 12 (GeV) ", 10, 0, 500)),
+            "ptll01_mll12onZ"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll01_mll12onZ", "$pt ll 01 (GeV) ", 10, 0, 500)),
+            "ptll02_mll12onZ"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll02_mll12onZ", "$pt ll 02 (GeV) ", 10, 0, 500)),
+            "ptll12_mll12onZ"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptll12_mll12onZ", "$pt ll 12 (GeV) ", 10, 0, 500)),
 
             # "Event level" quantities
             "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 20, 0, 1000)),
@@ -117,6 +148,21 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 10, 0, 500)),
             "b0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("b0pt",    "Leading b jet  $p_{T}$ (GeV)", 10, 0, 500)),
+
+            "l_notFromMllMin_pt"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_notFromMllMin_pt", "pt of l not from min mll", 10, 0, 400)),
+            "l_notFromMllMin_eta"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_notFromMllMin_eta", "eta of l not from min mll", 10, -2.5, 2.5)),
+            "l_notFromMllMin_mvaTTH"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_notFromMllMin_mvaTTH", "mvaTTH of l not from min mll", 10, 0.8, 1.0)),
+            "l_notFromMllMin_mvaTTHUL": HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_notFromMllMin_mvaTTHUL", "mvaTTHUL of l not from min mll", 10, 0.8, 1.0)),
+
+            "l_notFromMllMin_minMllOnZ_pt"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_notFromMllMin_minMllOnZ_pt", "pt of l not from min mll", 10, 0, 400)),
+            "l_notFromMllMin_minMllOnZ_eta"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_notFromMllMin_minMllOnZ_eta", "eta of l not from min mll", 10, -2.5, 2.5)),
+            "l_notFromMllMin_minMllOnZ_mvaTTH"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_notFromMllMin_minMllOnZ_mvaTTH", "mvaTTH of l not from min mll", 10, 0.8, 1.0)),
+            "l_notFromMllMin_minMllOnZ_mvaTTHUL": HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_notFromMllMin_minMllOnZ_mvaTTHUL", "mvaTTHUL of l not from min mll", 10, 0.8, 1.0)),
+            "l_notFromMllMin_minMllOffZ_pt"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_notFromMllMin_minMllOffZ_pt", "pt of l not from min mll", 10, 0, 400)),
+            "l_notFromMllMin_minMllOffZ_eta"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_notFromMllMin_minMllOffZ_eta", "eta of l not from min mll", 10, -2.5, 2.5)),
+            "l_notFromMllMin_minMllOffZ_mvaTTH"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_notFromMllMin_minMllOffZ_mvaTTH", "mvaTTH of l not from min mll", 10, 0.8, 1.0)),
+            "l_notFromMllMin_minMllOffZ_mvaTTHUL": HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l_notFromMllMin_minMllOffZ_mvaTTHUL", "mvaTTHUL of l not from min mll", 10, 0.8, 1.0)),
+
 
         })
 
@@ -282,6 +328,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         m_loose = mu[mu.isPres & mu.isLooseM]
         e_loose = e[e.isPres & e.isLooseE]
         l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
+
+        n_mloose = ak.count_nonzero(m_loose.pt,axis=-1)
+        n_eloose = ak.count_nonzero(e_loose.pt,axis=-1)
 
         ################### Tau selection ####################
 
@@ -639,8 +688,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
 
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
-            ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
-            invmassz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0,return_var="mass")
+            ptz, n_sfosz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+            invmassz, _ = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0,return_var="mass")
 
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
@@ -654,14 +703,69 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Leading object (j or l) pt
             o0pt = ak.max(l_j_collection.pt,axis=-1)
 
-            # Pairs of l+j
+            # Pairs of l+j (i.e. pairs from the leptons plus jets collection)
             l_j_pairs = ak.combinations(l_j_collection,2,fields=["o0","o1"])
             l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
             l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
             lj0pt = ak.max(l_j_pairs_pt,axis=-1)
 
+            ##############################
+            # Test
+            # lj pairs (i.e. always one lep, one jet)
+            lj_pairs = ak.cartesian({"l":l_fo_conept_sorted,"j":goodJets})
+            lj_pairs_pt = (lj_pairs["l"] + lj_pairs["j"]).pt
+            lj_pairs_dR = lj_pairs["l"].delta_r(lj_pairs["j"])
+            lj_dR_min = ak.min(lj_pairs_dR,axis=-1)
+            ##############################
+
             # Define invariant mass hists
             mll_0_1 = (l0+l1).mass # Invmass for leading two leps
+            mll_0_2 = (l0+l2).mass # Invmass for lep pair
+            mll_1_2 = (l1+l2).mass # Invmass for lep pair
+
+            # Pt of the ll pairs
+            ptll_0_1 = (l0+l1).pt # Invmass for leading two leps
+            ptll_0_2 = (l0+l2).pt # Invmass for lep pair
+            ptll_1_2 = (l1+l2).pt # Invmass for lep pair
+
+            min_mll = ak.where(mll_0_1<mll_0_2, mll_0_1, mll_0_2)
+            min_mll = ak.where(min_mll<mll_1_2,min_mll, mll_1_2)
+
+            # Get the l that is not part of the ll pair that has the min mll
+            l_notFromMllMin = l0 # Just start with this, replace with the correct one as we figure out which pair has the min mll for each event
+            l_notFromMllMin = ak.where(min_mll==mll_0_1, l2,l_notFromMllMin) # Finding the cases where the non-min-mll lep is l2
+            l_notFromMllMin = ak.where(min_mll==mll_0_2, l1,l_notFromMllMin) # Finding the cases where the non-min-mll lep is l1
+            l_notFromMllMin = ak.where(min_mll==mll_1_2, l0,l_notFromMllMin) # Finding the cases where the non-min-mll lep is l0
+
+            # Pt of the mll pair
+            ptll_fromMllMin = ptll_0_1
+            ptll_fromMllMin = ak.where(min_mll==mll_0_2, ptll_0_2,ptll_fromMllMin)
+            ptll_fromMllMin = ak.where(min_mll==mll_1_2, ptll_1_2,ptll_fromMllMin)
+
+            #print("mll_0_1",mll_0_1)
+            #print("mll_0_2",mll_0_2)
+            #print("mll_1_2",mll_1_2)
+            #print("min_mll",min_mll)
+            #print("ptll_0_1",ptll_0_1)
+            #print("ptll_0_2",ptll_0_2)
+            #print("ptll_1_2",ptll_1_2)
+            #print("ptll_fromMllMin",ptll_fromMllMin)
+
+            min_mll_is_within_z_peak = ak.fill_none((abs(min_mll-91.2)<10.0),False)
+
+            mll01_is_within_z_peak = ak.fill_none((abs(mll_0_1-91.2)<10.0),False)
+            mll02_is_within_z_peak = ak.fill_none((abs(mll_0_2-91.2)<10.0),False)
+            mll12_is_within_z_peak = ak.fill_none((abs(mll_1_2-91.2)<10.0),False)
+
+            #print("mll01_is_within_z_peak",mll01_is_within_z_peak)
+            #print("mll02_is_within_z_peak",mll02_is_within_z_peak)
+            #print("mll12_is_within_z_peak",mll12_is_within_z_peak)
+            #print("")
+            #exit()
+
+            dR_0_1 = l0.delta_r(l1)
+            dR_0_2 = l0.delta_r(l2)
+            dR_1_2 = l1.delta_r(l2)
 
             # ST (but "st" is too hard to search in the code, so call it ljptsum)
             ljptsum = ak.sum(l_j_collection.pt,axis=-1)
@@ -679,18 +783,64 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["njets"]   = njets
             varnames["nbtagsl"] = nbtagsl
             varnames["nbtagsm"] = nbtagsm
-            varnames["invmass"] = mll_0_1
+            varnames["invmass01"] = mll_0_1
+            varnames["invmass02"] = mll_0_2
+            varnames["invmass12"] = mll_1_2
+            varnames["invmass_min"] = min_mll
             varnames["ptbl"]    = ak.flatten(ptbl)
             varnames["ptz"]     = ptz
             varnames["invmassz"] = invmassz
+            varnames["n_sfosz"] = n_sfosz
             varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
             varnames["hadtmass"] = hadtmass
+            varnames["hadt_chi2"] = chisq
             varnames["hadwmass"] = hadwmass
             varnames["hadtpt"]   = hadtpt
             varnames["bmask_atleast1med_atleast2loose"]  = bmask_atleast1med_atleast2loose
+
+            #varnames["dRmin_lj"] = lj_dR_min
+
+            varnames["dR_01"] = dR_0_1
+            varnames["dR_02"] = dR_0_2
+            varnames["dR_12"] = dR_1_2
+
+            varnames["ptll01"] = ptll_0_1
+            varnames["ptll02"] = ptll_0_2
+            varnames["ptll12"] = ptll_1_2
+            varnames["ptll_fromMllMin"] = ptll_fromMllMin
+            varnames["ptll_fromMllMin_minMllOnZ"] = ptll_fromMllMin
+            varnames["ptll_fromMllMin_minMllOffZ"] = ptll_fromMllMin
+
+            varnames["ptll01_mll01onZ"] = ptll_0_1
+            varnames["ptll02_mll01onZ"] = ptll_0_2
+            varnames["ptll12_mll01onZ"] = ptll_1_2
+            varnames["ptll01_mll02onZ"] = ptll_0_1
+            varnames["ptll02_mll02onZ"] = ptll_0_2
+            varnames["ptll12_mll02onZ"] = ptll_1_2
+            varnames["ptll01_mll12onZ"] = ptll_0_1
+            varnames["ptll02_mll12onZ"] = ptll_0_2
+            varnames["ptll12_mll12onZ"] = ptll_1_2
+
+            varnames["l_notFromMllMin_pt"] = l_notFromMllMin.pt
+            varnames["l_notFromMllMin_eta"] = l_notFromMllMin.eta
+            varnames["l_notFromMllMin_mvaTTH"] = l_notFromMllMin.mvaTTH
+            varnames["l_notFromMllMin_mvaTTHUL"] = l_notFromMllMin.mvaTTHUL
+
+            # Copies for now, apply masks in the filling loop
+            varnames["l_notFromMllMin_minMllOnZ_pt"] = l_notFromMllMin.pt
+            varnames["l_notFromMllMin_minMllOnZ_eta"] = l_notFromMllMin.eta
+            varnames["l_notFromMllMin_minMllOnZ_mvaTTH"] = l_notFromMllMin.mvaTTH
+            varnames["l_notFromMllMin_minMllOnZ_mvaTTHUL"] = l_notFromMllMin.mvaTTHUL
+            varnames["l_notFromMllMin_minMllOffZ_pt"] = l_notFromMllMin.pt
+            varnames["l_notFromMllMin_minMllOffZ_eta"] = l_notFromMllMin.eta
+            varnames["l_notFromMllMin_minMllOffZ_mvaTTH"] = l_notFromMllMin.mvaTTH
+            varnames["l_notFromMllMin_minMllOffZ_mvaTTHUL"] = l_notFromMllMin.mvaTTHUL
+
+            varnames["n_eloose"] = n_eloose
+            varnames["n_mloose"] = n_mloose
 
             varnames["l0pt"]  = l0.conept
             varnames["l0eta"] = l0.eta
@@ -719,28 +869,28 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # This dictionary keeps track of which selections go with which SR categories
             sr_cat_dict = {
-              "2l" : {
-                  "exactly_4j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                      "lep_flav_lst" : ["ee" , "em" , "mm"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                  },
-                  "exactly_5j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                      "lep_flav_lst" : ["ee" , "em" , "mm"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                  },
-                  "exactly_6j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                      "lep_flav_lst" : ["ee" , "em" , "mm"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                  },
-                  "atleast_7j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                      "lep_flav_lst" : ["ee" , "em" , "mm"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                  },
-              },
+              #"2l" : {
+              #    "exactly_4j" : {
+              #        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+              #        "lep_flav_lst" : ["ee" , "em" , "mm"],
+              #        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+              #    },
+              #    "exactly_5j" : {
+              #        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+              #        "lep_flav_lst" : ["ee" , "em" , "mm"],
+              #        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+              #    },
+              #    "exactly_6j" : {
+              #        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+              #        "lep_flav_lst" : ["ee" , "em" , "mm"],
+              #        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+              #    },
+              #    "atleast_7j" : {
+              #        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+              #        "lep_flav_lst" : ["ee" , "em" , "mm"],
+              #        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+              #    },
+              #},
               "3l" : {
                   "exactly_2j" : {
                       "lep_chan_lst" : [
@@ -771,23 +921,23 @@ class AnalysisProcessor(processor.ProcessorABC):
                       "appl_lst"     : ["isSR_3l", "isAR_3l"],
                   },
               },
-              "4l" : {
-                      "exactly_2j" : {
-                          "lep_chan_lst" : ["4l"],
-                          "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                          "appl_lst"     : ["isSR_4l"],
-                      },
-                      "exactly_3j" : {
-                          "lep_chan_lst" : ["4l"],
-                          "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                          "appl_lst"     : ["isSR_4l"],
-                      },
-                      "atleast_4j" : {
-                          "lep_chan_lst" : ["4l"],
-                          "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                          "appl_lst"     : ["isSR_4l"],
-                      },
-              },
+              #"4l" : {
+              #        "exactly_2j" : {
+              #            "lep_chan_lst" : ["4l"],
+              #            "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+              #            "appl_lst"     : ["isSR_4l"],
+              #        },
+              #        "exactly_3j" : {
+              #            "lep_chan_lst" : ["4l"],
+              #            "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+              #            "appl_lst"     : ["isSR_4l"],
+              #        },
+              #        "atleast_4j" : {
+              #            "lep_chan_lst" : ["4l"],
+              #            "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+              #            "appl_lst"     : ["isSR_4l"],
+              #        },
+              #},
             }
 
             # This dictionary keeps track of which selections go with which CR categories
@@ -952,8 +1102,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             all_cuts_mask = (all_cuts_mask & ecut_mask)
 
                                         # If we are filling a had top histo, make sure we have identified a had top candidate
-                                        if dense_axis_name in ["hadtpt","hadwmass","hadtmass"]:
+                                        if dense_axis_name in ["hadtpt","hadwmass","hadtmass","hadt_chi2"]:
                                             all_cuts_mask = (all_cuts_mask & has_hadt_candidate_mask)
+
+                                        if "minMllOnZ" in dense_axis_name:
+                                            all_cuts_mask = (all_cuts_mask & min_mll_is_within_z_peak)
+                                        if "minMllOffZ" in dense_axis_name:
+                                            all_cuts_mask = (all_cuts_mask & (~min_mll_is_within_z_peak))
+
+                                        if "mll01onZ" in dense_axis_name:
+                                            all_cuts_mask = (all_cuts_mask & mll01_is_within_z_peak)
+                                        if "mll02onZ" in dense_axis_name:
+                                            all_cuts_mask = (all_cuts_mask & mll02_is_within_z_peak)
+                                        if "mll12onZ" in dense_axis_name:
+                                            all_cuts_mask = (all_cuts_mask & mll12_is_within_z_peak)
 
                                         # Weights and eft coeffs
                                         weights_flat = weight[all_cuts_mask]
@@ -986,6 +1148,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
                                         if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if (("invmassz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                        if (("n_sfosz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                        if (("invmass" in dense_axis_name) & ("3l" not in lep_chan)): continue
+                                        if (("dR" in dense_axis_name) & ("3l" not in lep_chan)): continue
+                                        if (("ptll" in dense_axis_name) & ("3l" not in lep_chan)): continue
+                                        if (("l_notFromMllMin" in dense_axis_name) & ("3l" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
                                         # Special case since here we're specifying "at most 3j" so the category is called 3j but does not imply that there are at leas 3 jets... very bad naming conventions
@@ -1009,6 +1176,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                 # Note the +1 since off by one for chan names and hist names
                                                 continue
 
+                                        print("dense_axis_name",dense_axis_name)
+                                        print("test")
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
