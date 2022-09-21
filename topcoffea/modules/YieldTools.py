@@ -620,7 +620,6 @@ class YieldTools():
 
         # If we want to seperate by njets, don't use njets hist since njets are not in it's sparse axis
         hist_to_use = "njets"
-        #if njets: hist_to_use = "ht"
         if njets: hist_to_use = "lj0pt"
 
         # Get the cat dict (that we will integrate over)
@@ -637,9 +636,9 @@ class YieldTools():
         proc_lst = self.get_cat_lables(hin_dict,"sample")
         if "flipsUL17" not in proc_lst: proc_lst = proc_lst + ["flipsUL16","flipsUL16APV","flipsUL17","flipsUL18"] # Very bad workaround for _many_ reasons
         print("proc_lst",proc_lst)
-        #for proc in proc_lst:
-        #    p = self.get_short_name(proc)
-        #    print("Name:",p,proc) # Print what name the sample has been matched to
+        for proc in proc_lst:
+            p = self.get_short_name(proc)
+            print("Name:",p,proc) # Print what name the sample has been matched to
 
         for proc in proc_lst:
             if year is not None:

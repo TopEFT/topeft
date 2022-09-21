@@ -41,9 +41,6 @@ CR_CHAN_DICT = {
         "2lss_ee_CR_2j",
         "2lss_em_CR_2j",
         "2lss_mm_CR_2j",
-        #"2lss_ee_CR_3j",
-        #"2lss_em_CR_3j",
-        #"2lss_mm_CR_3j",
     ],
     "cr_2lss_flip" : [
         "2lss_ee_CRflip_3j",

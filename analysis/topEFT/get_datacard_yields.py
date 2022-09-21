@@ -302,10 +302,6 @@ def main():
         all_rates_dict[cat_name] = rate_dict_sm
 
     #printd(all_rates_dict)
-    #for k,v in all_rates_dict.items():
-        #print("\n",k)
-        #printd(v)
-    #exit()
 
     # Sum over jet bins and rename the keys, i.e. just some "post processing"
     all_rates_dict = comb_dict(all_rates_dict)
