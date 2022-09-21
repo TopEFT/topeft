@@ -764,25 +764,16 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             '4l': [2,3,4,dict_of_hists['njets'].axis('njets').edges()[-1]]
         }
     }
-    #analysis_bins['ptz'] = [0, 200, 300, 400, 500, dict_of_hists['ptz'].axis('ptz').edges()[-1]]
+    analysis_bins['ptz'] = [0, 200, 300, 400, 500, dict_of_hists['ptz'].axis('ptz').edges()[-1]]
     analysis_bins['lj0pt'] = [0, 150, 250, 500, dict_of_hists['lj0pt'].axis('lj0pt').edges()[-1]]
 
     # Loop over hists and make plots
     skip_lst = [] # Skip this hist
+    #keep_lst = ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
+        #if (var_name not in keep_lst): continue
         print("\nVariable:",var_name)
-        #if var_name != "njets": continue
-        if var_name == "njets": continue
-        #if var_name == "ptz": continue
-        #if var_name == "invmassz": continue
-        #if var_name != "invmassz": continue
-        #if var_name != "lj0pt": continue
-        #if var_name != "met": continue
-        #if var_name != "hadtpt": continue
-        #if var_name != "hadwmass": continue
-
-        if var_name not in ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"]: continue
 
         # Extract the MC and data hists
         hist_mc_orig = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
@@ -1082,7 +1073,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated)
                 if (var_name == "njets"):
                     # This is a special case for the diboson jet dependent systematic
-                    print("\n\nHERE!!!",hist_mc_integrated.integrate("sample",CR_GRP_MAP["Diboson"]).integrate("systematic","nominal").values())
                     db_hist = hist_mc_integrated.integrate("sample",CR_GRP_MAP["Diboson"]).integrate("systematic","nominal").values()[()]
                     shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
                     shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
