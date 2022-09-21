@@ -25,12 +25,13 @@ class YieldTools():
 
         # A dictionary mapping names of samples in the samples axis to a short version of the name
         self.PROC_MAP = {
-            "ttlnu" : ["ttW_centralUL17" , "ttlnuJet_privateUL18" , "ttlnuJet_privateUL17" , "ttlnuJet_privateUL16" , "ttlnuJet_privateUL16APV"],
-            "ttll"  : ["ttZ_centralUL17" , "ttllJet_privateUL18"  , "ttllJet_privateUL17"  , "ttllJet_privateUL16"  , "ttllJet_privateUL16APV"],
-            "ttH"   : ["ttH_centralUL17" , "ttHJet_privateUL18"   , "ttHJet_privateUL17"   , "ttHJet_privateUL16"   , "ttHJet_privateUL16APV"],
-            "tllq"  : ["tZq_centralUL17" , "tllq_privateUL18"     , "tllq_privateUL17"     , "tllq_privateUL16"     , "tllq_privateUL16APV"],
-            "tHq"   : ["tHq_centralUL17" , "tHq_privateUL18"      , "tHq_privateUL17"      , "tHq_privateUL16"      , "tHq_privateUL16APV"],
-            "tttt"  : ["tttt_centralUL17", "tttt_privateUL18"     , "tttt_privateUL17"     , "tttt_privateUL16"     , "tttt_privateUL16APV"],
+
+            "ttlnu" : ["ttW_centralUL16APV"    ,"ttW_centralUL16"    ,"ttW_centralUL17" ,"ttW_centralUL18" , "ttlnuJet_privateUL18" , "ttlnuJet_privateUL17" , "ttlnuJet_privateUL16" , "ttlnuJet_privateUL16APV"],
+            "ttll"  : ["ttZ_centralUL16APV"    ,"ttZ_centralUL16"    ,"ttZ_centralUL17" ,"ttZ_centralUL18" , "ttllJet_privateUL18"  , "ttllJet_privateUL17"  , "ttllJet_privateUL16"  , "ttllJet_privateUL16APV"],
+            "ttH"   : ["ttHJet_centralUL16APV" ,"ttHJet_centralUL16" ,"ttH_centralUL17" ,"ttH_centralUL18" , "ttHJet_privateUL18"   , "ttHJet_privateUL17"   , "ttHJet_privateUL16"   , "ttHJet_privateUL16APV"],
+            "tllq"  : ["tZq_centralUL16APV"    ,"tZq_centralUL16"    ,"tZq_centralUL17" ,"tZq_centralUL18" , "tllq_privateUL18"     , "tllq_privateUL17"     , "tllq_privateUL16"     , "tllq_privateUL16APV"],
+            "tHq"   : ["tHq_centralUL16APV"    ,"tHq_centralUL16"    ,"tHq_centralUL17" ,"tHq_centralUL18" , "tHq_privateUL18"      , "tHq_privateUL17"      , "tHq_privateUL16"      , "tHq_privateUL16APV"],
+            "tttt"  : ["tttt_centralUL16APV"   ,"tttt_centralUL16"   ,"tttt_centralUL17","tttt_centralUL18", "tttt_privateUL18"     , "tttt_privateUL17"     , "tttt_privateUL16"     , "tttt_privateUL16APV"],
 
             "flips" : ["flipsUL16"            ,"flipsUL16APV"            ,"flipsUL17"            ,"flipsUL18"            ],
             "fakes" : ["nonpromptUL16"        ,"nonpromptUL16APV"        ,"nonpromptUL17"        ,"nonpromptUL18"        ],
@@ -43,6 +44,10 @@ class YieldTools():
             "WZZ"   : ["WZZ_centralUL16"      ,"WZZ_centralUL16APV"      ,"WZZ_centralUL17"      ,"WZZ_centralUL18"      ],
             "ZZZ"   : ["ZZZ_centralUL16"      ,"ZZZ_centralUL16APV"      ,"ZZZ_centralUL17"      ,"ZZZ_centralUL18"      ],
             "tWZ"   : ["TWZToLL_centralUL16"  ,"TWZToLL_centralUL16APV"  ,"TWZToLL_centralUL17"  ,"TWZToLL_centralUL18"  ],
+
+            "ttZlowMll"   : ["TTZToLL_M1to10_centralUL16"  ,"TTZToLL_M1to10_centralUL16APV"  ,"TTZToLL_M1to10_centralUL17"  ,"TTZToLL_M1to10_centralUL18"  ],
+            "ttbarll" : ["TTTo2L2Nu_centralUL16", "TTTo2L2Nu_centralUL16APV", "TTTo2L2Nu_centralUL17", "TTTo2L2Nu_centralUL18"],
+            "ttbarsl" : ["TTToSemiLeptonic_centralUL16", "TTToSemiLeptonic_centralUL16APV", "TTToSemiLeptonic_centralUL17", "TTToSemiLeptonic_centralUL18"],
 
             "data"   : ["dataUL16","dataUL16APV","dataUL17","dataUL18"],
         }
@@ -615,8 +620,8 @@ class YieldTools():
 
         # If we want to seperate by njets, don't use njets hist since njets are not in it's sparse axis
         hist_to_use = "njets"
-        if njets: hist_to_use = "ht"
-        #if njets: hist_to_use = "lj0pt"
+        #if njets: hist_to_use = "ht"
+        if njets: hist_to_use = "lj0pt"
 
         # Get the cat dict (that we will integrate over)
         cat_dict = {}
@@ -630,7 +635,12 @@ class YieldTools():
         # Find the yields
         yld_dict = {}
         proc_lst = self.get_cat_lables(hin_dict,"sample")
+        if "flipsUL17" not in proc_lst: proc_lst = proc_lst + ["flipsUL16","flipsUL16APV","flipsUL17","flipsUL18"] # Very bad workaround for _many_ reasons
         print("proc_lst",proc_lst)
+        #for proc in proc_lst:
+        #    p = self.get_short_name(proc)
+        #    print("Name:",p,proc) # Print what name the sample has been matched to
+
         for proc in proc_lst:
             if year is not None:
                 if not proc.endswith(year): continue
