@@ -709,14 +709,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
             lj0pt = ak.max(l_j_pairs_pt,axis=-1)
 
-            ##############################
-            # Test
-            # lj pairs (i.e. always one lep, one jet)
+            # lj pairs (i.e. always one lep, one jet) # Testing
             lj_pairs = ak.cartesian({"l":l_fo_conept_sorted,"j":goodJets})
             lj_pairs_pt = (lj_pairs["l"] + lj_pairs["j"]).pt
             lj_pairs_dR = lj_pairs["l"].delta_r(lj_pairs["j"])
-            lj_dR_min = ak.min(lj_pairs_dR,axis=-1)
-            ##############################
+            lj_dR_min = ak.min(lj_pairs_dR,axis=-1) # Testing
 
             # Define invariant mass hists
             mll_0_1 = (l0+l1).mass # Invmass for leading two leps
@@ -742,26 +739,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             ptll_fromMllMin = ak.where(min_mll==mll_0_2, ptll_0_2,ptll_fromMllMin)
             ptll_fromMllMin = ak.where(min_mll==mll_1_2, ptll_1_2,ptll_fromMllMin)
 
-            #print("mll_0_1",mll_0_1)
-            #print("mll_0_2",mll_0_2)
-            #print("mll_1_2",mll_1_2)
-            #print("min_mll",min_mll)
-            #print("ptll_0_1",ptll_0_1)
-            #print("ptll_0_2",ptll_0_2)
-            #print("ptll_1_2",ptll_1_2)
-            #print("ptll_fromMllMin",ptll_fromMllMin)
-
             min_mll_is_within_z_peak = ak.fill_none((abs(min_mll-91.2)<10.0),False)
 
             mll01_is_within_z_peak = ak.fill_none((abs(mll_0_1-91.2)<10.0),False)
             mll02_is_within_z_peak = ak.fill_none((abs(mll_0_2-91.2)<10.0),False)
             mll12_is_within_z_peak = ak.fill_none((abs(mll_1_2-91.2)<10.0),False)
-
-            #print("mll01_is_within_z_peak",mll01_is_within_z_peak)
-            #print("mll02_is_within_z_peak",mll02_is_within_z_peak)
-            #print("mll12_is_within_z_peak",mll12_is_within_z_peak)
-            #print("")
-            #exit()
 
             dR_0_1 = l0.delta_r(l1)
             dR_0_2 = l0.delta_r(l2)
@@ -800,8 +782,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["hadwmass"] = hadwmass
             varnames["hadtpt"]   = hadtpt
             varnames["bmask_atleast1med_atleast2loose"]  = bmask_atleast1med_atleast2loose
-
-            #varnames["dRmin_lj"] = lj_dR_min
+            #varnames["dRmin_lj"] = lj_dR_min # Testing
 
             varnames["dR_01"] = dR_0_1
             varnames["dR_02"] = dR_0_2
@@ -869,28 +850,28 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # This dictionary keeps track of which selections go with which SR categories
             sr_cat_dict = {
-              #"2l" : {
-              #    "exactly_4j" : {
-              #        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-              #        "lep_flav_lst" : ["ee" , "em" , "mm"],
-              #        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-              #    },
-              #    "exactly_5j" : {
-              #        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-              #        "lep_flav_lst" : ["ee" , "em" , "mm"],
-              #        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-              #    },
-              #    "exactly_6j" : {
-              #        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-              #        "lep_flav_lst" : ["ee" , "em" , "mm"],
-              #        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-              #    },
-              #    "atleast_7j" : {
-              #        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-              #        "lep_flav_lst" : ["ee" , "em" , "mm"],
-              #        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-              #    },
-              #},
+              "2l" : {
+                  "exactly_4j" : {
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+                  "exactly_5j" : {
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+                  "exactly_6j" : {
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+                  "atleast_7j" : {
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+              },
               "3l" : {
                   "exactly_2j" : {
                       "lep_chan_lst" : [
@@ -921,23 +902,23 @@ class AnalysisProcessor(processor.ProcessorABC):
                       "appl_lst"     : ["isSR_3l", "isAR_3l"],
                   },
               },
-              #"4l" : {
-              #        "exactly_2j" : {
-              #            "lep_chan_lst" : ["4l"],
-              #            "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-              #            "appl_lst"     : ["isSR_4l"],
-              #        },
-              #        "exactly_3j" : {
-              #            "lep_chan_lst" : ["4l"],
-              #            "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-              #            "appl_lst"     : ["isSR_4l"],
-              #        },
-              #        "atleast_4j" : {
-              #            "lep_chan_lst" : ["4l"],
-              #            "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-              #            "appl_lst"     : ["isSR_4l"],
-              #        },
-              #},
+              "4l" : {
+                      "exactly_2j" : {
+                          "lep_chan_lst" : ["4l"],
+                          "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                          "appl_lst"     : ["isSR_4l"],
+                      },
+                      "exactly_3j" : {
+                          "lep_chan_lst" : ["4l"],
+                          "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                          "appl_lst"     : ["isSR_4l"],
+                      },
+                      "atleast_4j" : {
+                          "lep_chan_lst" : ["4l"],
+                          "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                          "appl_lst"     : ["isSR_4l"],
+                      },
+              },
             }
 
             # This dictionary keeps track of which selections go with which CR categories
