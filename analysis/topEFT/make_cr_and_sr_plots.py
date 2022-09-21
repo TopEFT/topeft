@@ -28,23 +28,11 @@ FILL_OPS = {}
 # The channels that define the CR categories
 CR_CHAN_DICT = {
     "cr_2los_Z" : [
-        #"2los_ee_CRZ_0j",
-        #"2los_mm_CRZ_0j",
-        #"2los_ee_CRZ_1j",
-        #"2los_mm_CRZ_1j",
-        #"2los_ee_CRZ_2j",
-        #"2los_mm_CRZ_2j",
-        #"2los_ee_CRZ_3j",
-        #"2los_mm_CRZ_3j",
+        "2los_ee_CRZ_0j",
+        "2los_mm_CRZ_0j",
     ],
     "cr_2los_tt" : [
-        #"2los_em_CRtt_0j",
-        #"2los_em_CRtt_1j",
-        #"2los_em_CRtt_2j",
-        #"2los_em_CRtt_3j",
-        #"2los_em_CRtt_4j",
-        "2los_em_CRtt_5j",
-        #"2los_em_CRtt_6j",
+        "2los_em_CRtt_2j",
     ],
     "cr_2lss" : [
         "2lss_ee_CR_1j",
@@ -72,28 +60,6 @@ CR_CHAN_DICT = {
     ],
 }
 
-
-_SR_CHAN_DICT = {
-    "2lss_4t_SR": [
-        "2lss_4t_p_4j", "2lss_4t_m_5j", "2lss_4t_m_6j", "2lss_4t_m_7j",
-        "2lss_4t_p_4j", "2lss_4t_p_5j", "2lss_4t_p_6j", "2lss_4t_p_7j",
-    ],
-    "2lss_SR" : [
-        "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
-        "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
-    ],
-    "3l_SR" : [
-        "3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_m_offZ_1b_5j",
-        "3l_m_offZ_2b_2j", "3l_m_offZ_2b_3j", "3l_m_offZ_2b_4j", "3l_m_offZ_2b_5j",
-        "3l_p_offZ_1b_2j", "3l_p_offZ_1b_3j", "3l_p_offZ_1b_4j", "3l_p_offZ_1b_5j",
-        "3l_p_offZ_2b_2j", "3l_p_offZ_2b_3j", "3l_p_offZ_2b_4j", "3l_p_offZ_2b_5j",
-        "3l_onZ_1b_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
-        "3l_onZ_2b_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
-    ],
-    "4l_SR" : [
-        "4l_2j", "4l_3j", "4l_4j",
-    ]
-}
 
 SR_CHAN_DICT = {
     "2lss_SR": [
@@ -825,11 +791,11 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         # Loop over channels
         channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
         print("channels:",channels_lst)
-        #for chan_name in channels_lst:
+        #for chan_name in channels_lst: # For each channel individually
         for chan_name in SR_CHAN_DICT.keys():
 
-            #hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) 
-            #hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",chan_name) 
+            #hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
+            #hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
             hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name],overflow="over")
             hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name],overflow="over")
 
@@ -856,15 +822,6 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                 else:
                     hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axis(var_name).label, analysis_bins[var_name]))
                     hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name]))
-
-            ## Make the plots
-            #print("Channel",chan_name)
-            #for k,v in hist_mc.values(overflow="over").items():
-            #    print(k,sum(v),type(v))
-            #for k,v in hist_data.values(overflow="over").items():
-            #    print(k,sum(v),type(v))
-            ##exit()
-            #continue
 
             if hist_mc.values() == {}:
                 print("Warning: empty mc histo, continuing")
@@ -1094,9 +1051,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         for hist_cat in cr_cat_dict.keys():
             if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The 2los Z category does not require jets (so leading jet plots do not make sense)
             if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The flip category does not require jets (so leading jet plots do not make sense)
-            #if hist_cat != "cr_2lss" and hist_cat != "cr_3l": continue
-            #if hist_cat != "cr_2los_tt" and hist_cat != "cr_2los_Z": continue
-            if hist_cat != "cr_2los_tt": continue
             print("\n\tCategory:",hist_cat)
 
             # Make a sub dir for this category
@@ -1213,12 +1167,11 @@ def main():
     #exit()
 
     # Make the plots
-    #make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
+    make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
-
-    make_simple_plots(hin_dict,args.year,save_dir_path)
+    #make_simple_plots(hin_dict,args.year,save_dir_path)
 
     # Make unblinded SR data MC comparison plots by year
     #make_all_sr_data_mc_plots(hin_dict,"2016",save_dir_path)
