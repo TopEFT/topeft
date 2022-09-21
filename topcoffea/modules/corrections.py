@@ -300,10 +300,22 @@ def GetBTagSF(jets, year, wp='MEDIUM', sys='central'):
   elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL17_v3.csv"),wp)
   elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL18_v2.csv"),wp)
   else: raise Exception(f"Error: Unknown year \"{year}\".")
+
   pt = jets.pt; abseta = np.abs(jets.eta); flavor = jets.hadronFlavour
   SF=SFevaluatorBtag.eval('central',jets.hadronFlavour,np.abs(jets.eta),jets.pt)
+
+  # Workaround: For UL16, use the SFs from the UL16APV for light flavor jets
+  SFevaluatorBtag_UL16APV = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp)
+  if year == "2016":
+      had_flavor = jets.hadronFlavour
+      SF_UL16APV = SFevaluatorBtag_UL16APV.eval('central',jets.hadronFlavour,np.abs(jets.eta),jets.pt)
+      SF = ak.where(had_flavor==0,SF_UL16APV,SF)
+
+  # If we are just getting the central, return here
   if sys=='central':    
     return (SF)
+
+  # We are calculating up and down
   else:
     flavors = {
         0: ["light_corr", f"light_{year}"],
@@ -315,12 +327,24 @@ def GetBTagSF(jets, year, wp='MEDIUM', sys='central'):
     jets[f"btag_{sys}_down"] = SF
     for f, f_syst in flavors.items():
       if sys in f_syst:
-        if f"{year}" in sys:   
-          jets[f"btag_{sys}_up"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("up_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_up"])
-          jets[f"btag_{sys}_down"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("down_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_down"])
+
+        # Workaround: For UL16, use the SFs from the UL16APV for light flavor jets
+        if (f == 0) and (year == "2016"):
+          if f"{year}" in sys:
+            jets[f"btag_{sys}_up"]=np.where(abs(jets.hadronFlavour)   == f, SFevaluatorBtag_UL16APV.eval("up_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_up"])
+            jets[f"btag_{sys}_down"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag_UL16APV.eval("down_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_down"])
+          else:
+            jets[f"btag_{sys}_up"]=np.where(abs(jets.hadronFlavour)   == f, SFevaluatorBtag_UL16APV.eval("up_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_up"])
+            jets[f"btag_{sys}_down"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag_UL16APV.eval("down_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_down"])
+
+        # Otherwise, proceed as usual
         else:
-          jets[f"btag_{sys}_up"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("up_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_up"])
-          jets[f"btag_{sys}_down"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("down_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_down"])
+          if f"{year}" in sys:
+            jets[f"btag_{sys}_up"]=np.where(abs(jets.hadronFlavour)   == f, SFevaluatorBtag.eval("up_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_up"])
+            jets[f"btag_{sys}_down"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("down_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_down"])
+          else:
+            jets[f"btag_{sys}_up"]=np.where(abs(jets.hadronFlavour)   == f, SFevaluatorBtag.eval("up_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_up"])
+            jets[f"btag_{sys}_down"]=np.where(abs(jets.hadronFlavour) == f, SFevaluatorBtag.eval("down_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),jets[f"btag_{sys}_down"])
 
     return([jets[f"btag_{sys}_up"],jets[f"btag_{sys}_down"]])
  
