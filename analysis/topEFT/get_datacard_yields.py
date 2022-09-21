@@ -7,10 +7,11 @@ import numpy as np
 
 import topcoffea.modules.MakeLatexTable as mlt
 
-BKG_PROC_LST = ["convs_sm","Diboson_sm","Triboson_sm","charge_flips_sm","fakes_sm"]
+BKG_PROC_LST = ["tWZ_sm", "convs_sm","Diboson_sm","Triboson_sm","charge_flips_sm","fakes_sm"]
 SIG_PROC_LST = ["ttH_sm", "ttlnu_sm", "ttll_sm", "tllq_sm", "tHq_sm", "tttt_sm"]
 
 PROC_ORDER = [
+     "tWZ_sm",
      "Diboson_sm",
      "Triboson_sm",
      "charge_flips_sm",
@@ -300,6 +301,12 @@ def main():
         cat_name = get_cat_name_from_dc_name(dc_fname)
         all_rates_dict[cat_name] = rate_dict_sm
 
+    #printd(all_rates_dict)
+    #for k,v in all_rates_dict.items():
+        #print("\n",k)
+        #printd(v)
+    #exit()
+
     # Sum over jet bins and rename the keys, i.e. just some "post processing"
     all_rates_dict = comb_dict(all_rates_dict)
     all_rates_dict = replace_key_names(all_rates_dict,RENAME_CAT_MAP)
@@ -308,6 +315,7 @@ def main():
     if not args.unblind:
         all_rates_dict = remove_observed_rates(all_rates_dict,2)
 
+    # Get pdiff
     for cat in all_rates_dict.keys():
         sm = all_rates_dict[cat]["Sum_expected"]
         ob = all_rates_dict[cat]["Observation"]
@@ -325,7 +333,7 @@ def main():
         print_begin_info=True,
         print_end_info=True,
         column_variable="keys",
-        hz_line_lst=[4,5,11,12,13,14],
+        hz_line_lst=[5,6,12,13,14,15],
     )
 
     # Save yields to a json
