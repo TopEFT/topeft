@@ -18,7 +18,7 @@ def main():
     # Set up the command line parser
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
-    parser.add_argument("-y", "--year", default="2017", help = "The year of the sample")
+    parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
     parser.add_argument("-t", "--tag", default="Sample", help = "A string to describe the pkl file")
     parser.add_argument("-n", "--json-name", default="yields", help = "Name of the json file to save")
     parser.add_argument("-q", "--quiet", action="store_true", help = "Do not print out anything")
@@ -27,7 +27,7 @@ def main():
     args = parser.parse_args()
 
     # Get the histograms, check if split into lep flavors
-    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path)
+    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
     if not yt.is_split_by_lepflav(hin_dict) and args.by_lep_flavor:
         raise Exception("Cannot specify --by-lep-flavor option, the yields file is not split by lepton flavor")
 
