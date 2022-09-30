@@ -250,6 +250,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau["isGood"]  =  tau["isClean"] & tau["isPres"]
         tau = tau[tau.isGood] # use these to clean jets
         tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+        ntau = ak.num(tau["isTight"])
 
         # Compute pair invariant masses, for all flavors all signes
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
@@ -508,6 +509,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
+            #tau mask
+            ex0tau = (ntau==0)
+            ex1tau = (ntau==1)
 
             ######### Store boolean masks with PackedSelection ##########
 
@@ -517,8 +521,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("is_good_lumi",lumi_mask)
 
             # 2lss selection (drained of 4 top)
-            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ex0tau))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ex0tau))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_p_1tau", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ex1tau))
+            selections.add("2lss_m_1tau", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ex1tau))
+            selections.add("2los_1tau", (events.is2l & charge2l_0 & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ex1tau))
 
             # 2lss selection (enriched in 4 top)
             selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
@@ -540,6 +547,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
             selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
             selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
+            selections.add("3l_1tau_1b", (events.is3l & bmask_exactly1med & pass_trg & ex1tau))
+            selections.add("3l_1tau_2b", (events.is3l & bmask_exactly2med & pass_trg & ex1tau))
 
             # 4l selection
             selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
@@ -650,51 +659,51 @@ class AnalysisProcessor(processor.ProcessorABC):
             sr_cat_dict = {
               "2l" : {
                   "exactly_4j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau"],
                       "lep_flav_lst" : ["ee" , "em" , "mm"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
                   },
                   "exactly_5j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau"],
                       "lep_flav_lst" : ["ee" , "em" , "mm"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
                   },
                   "exactly_6j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau"],
                       "lep_flav_lst" : ["ee" , "em" , "mm"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
                   },
                   "atleast_7j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau"],
                       "lep_flav_lst" : ["ee" , "em" , "mm"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
                   },
               },
               "3l" : {
                   "exactly_2j" : {
                       "lep_chan_lst" : [
-                          "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                          "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b", "3l_1tau_2b"
                       ],
                       "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                       "appl_lst"     : ["isSR_3l", "isAR_3l"],
                   },
                   "exactly_3j" : {
                       "lep_chan_lst" : [
-                          "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                          "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b", "3l_1tau_2b"
                       ],
                       "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                       "appl_lst"     : ["isSR_3l", "isAR_3l"],
                   },
                   "exactly_4j" : {
                       "lep_chan_lst" : [
-                          "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                          "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b", "3l_1tau_2b"
                       ],
                       "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                       "appl_lst"     : ["isSR_3l", "isAR_3l"],
                   },
                   "atleast_5j" : {
                       "lep_chan_lst" : [
-                          "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                          "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b", "3l_1tau_2b"
                       ],
                       "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                       "appl_lst"     : ["isSR_3l", "isAR_3l"],
@@ -885,7 +894,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
                                         eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
-
                                         # Fill the histos
                                         axes_fill_info_dict = {
                                             dense_axis_name : dense_axis_vals[all_cuts_mask],
@@ -897,15 +905,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             "eft_coeff"     : eft_coeffs_cut,
                                             "eft_err_coeff" : eft_w2_coeffs_cut,
                                         }
-
+                                    
                                         # Skip histos that are not defined (or not relevant) to given categories
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
                                         if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-
+                                        
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
-
+                                        
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
 
