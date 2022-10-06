@@ -11,4 +11,4 @@ time python run.py ../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.jso
 
 # Run the datacard maker
 printf "\nRunning the datacard maker...\n"
-python make_cards.py histos/new_ref_histos_np.pkl.gz -d test --var-lst lj0pt --do-nuisance --ch-lst "2lss_p_4j"
+python make_cards.py histos/new_ref_histos_np.pkl.gz -d test --var-lst lj0pt --do-nuisance --ch-lst "2lss_p_4j" --selected-wcs-ref "test/selectedWCs_ref_ci.json"
