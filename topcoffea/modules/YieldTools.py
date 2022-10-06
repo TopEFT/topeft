@@ -634,7 +634,7 @@ class YieldTools():
         # Find the yields
         yld_dict = {}
         proc_lst = self.get_cat_lables(hin_dict,"sample")
-        if "flipsUL17" not in proc_lst: proc_lst = proc_lst + ["flipsUL16","flipsUL16APV","flipsUL17","flipsUL18"] # Very bad workaround for _many_ reasons
+        #if "flipsUL17" not in proc_lst: proc_lst = proc_lst + ["flipsUL16","flipsUL16APV","flipsUL17","flipsUL18"] # Very bad workaround for _many_ reasons.. leaving it in since it's useful for getting yields of the full pkl file (but we don't need it for e.g. the CI, so leave it commented), note this entire class is a mess and should be totally rewritten before the next analysis
         print("proc_lst",proc_lst)
         for proc in proc_lst:
             p = self.get_short_name(proc)
