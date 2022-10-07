@@ -249,8 +249,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
         tau["isGood"]  =  tau["isClean"] & tau["isPres"]
         tau = tau[tau.isGood] # use these to clean jets
-        tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
-        ntau = ak.num(tau["isTight"])
+        tau["isVLoose"]  = isVLooseTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+        tau["isLoose"]   = isLooseTau(tau.idDeepTau2017v2p1VSjet)
+        tau["isMedium"]  = isMediumTau(tau.idDeepTau2017v2p1VSjet)
+        tau["isTight"]   = isTightTau(tau.idDeepTau2017v2p1VSjet)
+        tau["isVTight"]  = isVTightTau(tau.idDeepTau2017v2p1VSjet)
+        tau["isVVTight"] = isVVTightTau(tau.idDeepTau2017v2p1VSjet)
 
         # Compute pair invariant masses, for all flavors all signes
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
@@ -335,8 +339,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             #################### Jets ####################
 
             # Jet cleaning, before any jet selection
-            #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
-            vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
+            vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
+            #vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
             tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
             cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
@@ -510,8 +514,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
             #tau mask
-            ex0tau = (ntau==0)
-            ex1tau = (ntau==1)
+            tau_2lss_0tau_mask = (ak.num(tau["isMedium"])==0)
+            tau_2lss_1tau_mask = (ak.num(tau["isVLoose"])==1)
+            tau_2los_1tau_mask = (ak.num(tau["isVTight"])==1)
+            tau_3l_tau_mask    = (ak.num(tau["isVLoose"])==1)
 
             ######### Store boolean masks with PackedSelection ##########
 
@@ -521,11 +527,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("is_good_lumi",lumi_mask)
 
             # 2lss selection (drained of 4 top)
-            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ex0tau))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ex0tau))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_p_1tau", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ex1tau))
-            selections.add("2lss_m_1tau", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ex1tau))
-            selections.add("2los_1tau", (events.is2l & charge2l_0 & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ex1tau))
+            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2lss_0tau_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2lss_0tau_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_p_1tau", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2lss_1tau_mask))
+            selections.add("2lss_m_1tau", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2lss_1tau_mask))
+            selections.add("2los_1tau", (events.is2l & charge2l_0 & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2los_1tau_mask))
 
             # 2lss selection (enriched in 4 top)
             selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
@@ -547,8 +553,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
             selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
             selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
-            selections.add("3l_1tau_1b", (events.is3l & bmask_exactly1med & pass_trg & ex1tau))
-            selections.add("3l_1tau_2b", (events.is3l & bmask_exactly2med & pass_trg & ex1tau))
+            selections.add("3l_1tau_1b", (events.is3l & bmask_exactly1med & pass_trg & tau_3l_tau_mask))
+            selections.add("3l_1tau_2b", (events.is3l & bmask_exactly2med & pass_trg & tau_3l_tau_mask))
 
             # 4l selection
             selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
@@ -658,6 +664,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             # This dictionary keeps track of which selections go with which SR categories
             sr_cat_dict = {
               "2l" : {
+                  "exactly_2j" : {
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+                  "exactly_3j" : {
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
                   "exactly_4j" : {
                       "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau"],
                       "lep_flav_lst" : ["ee" , "em" , "mm"],
