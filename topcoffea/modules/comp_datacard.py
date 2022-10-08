@@ -26,7 +26,7 @@ def strip(fname='ttx_multileptons-2lss_p_2b.txt'):
             line = line.split()[1:]
             line = [float(l) for l in line]
             rate = line
-        elif any([re.findall('\.\d*', str(l)) for l in line]) and '*' not in line and '#' not in line:
+        elif any([re.findall(r'\.\d*', str(l)) for l in line]) and '*' not in line and '#' not in line:
             line = line.split()[2:]
             if len(line) == 0: continue
             line = [str(l) for l in line]
