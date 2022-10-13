@@ -517,7 +517,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             tau_2lss_0tau_mask = (ak.num(tau["isMedium"])==0)
             tau_2lss_1tau_mask = (ak.num(tau["isVLoose"])==1)
             tau_2los_1tau_mask = (ak.num(tau["isVTight"])==1)
-            tau_3l_tau_mask    = (ak.num(tau["isVLoose"])==1)
+            tau_3l_0tau_mask   = (ak.num(tau["isVLoose"])==0)
+            tau_3l_1tau_mask   = (ak.num(tau["isVLoose"])==1)
 
             ######### Store boolean masks with PackedSelection ##########
 
@@ -546,15 +547,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
             # 3l selection
-            selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
+            selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg & tau_3l_0tau_mask))
+            selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg & tau_3l_0tau_mask))
+            selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg & tau_3l_0tau_mask))
+            selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg & tau_3l_0tau_mask))
+            selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg & tau_3l_0tau_mask))
+            selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg & tau_3l_0tau_mask))
             selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
-            selections.add("3l_1tau_1b", (events.is3l & bmask_exactly1med & pass_trg & tau_3l_tau_mask))
-            selections.add("3l_1tau_2b", (events.is3l & bmask_exactly2med & pass_trg & tau_3l_tau_mask))
+            selections.add("3l_1tau_1b", (events.is3l & bmask_exactly1med & pass_trg & tau_3l_1tau_mask))
+            selections.add("3l_1tau_2b", (events.is3l & bmask_exactly2med & pass_trg & tau_3l_1tau_mask))
 
             # 4l selection
             selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
@@ -664,11 +665,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             # This dictionary keeps track of which selections go with which SR categories
             sr_cat_dict = {
               "2l" : {
-                  "exactly_2j" : {
-                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau"],
-                      "lep_flav_lst" : ["ee" , "em" , "mm"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
-                  },
                   "exactly_3j" : {
                       "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau"],
                       "lep_flav_lst" : ["ee" , "em" , "mm"],
