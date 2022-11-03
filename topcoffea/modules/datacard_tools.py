@@ -15,7 +15,11 @@ from coffea.hist import StringBin, Cat, Bin
 from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
 
-PRECISION = 6   # Decimal point precision in the text datacard output
+PRECISION = 6           # Decimal point precision in the text datacard output
+NOM_CLIP_SCALE = 1e-3   # When clipping negative yield bins, this is the ratio to the nominal yield used
+
+# np.set_printoptions(precision=8,sign=' ',floatmode='fixed')
+np.set_printoptions(linewidth=100,formatter={'float': lambda x: f"{x:>+12.8f}"})
 
 def prune_axis(h,axis,to_keep):
     """ Convenience method to remove all categories except for a selected subset."""
@@ -181,7 +185,8 @@ class DatacardMaker():
         "o0pt":    [0,100,200,400],
         "bl0pt":   [0,100,200,400],
         "l0pt":    [0,50,100,200],
-        "lj0pt":   [0,150,250,500]
+        # "lj0pt":   [0,150,250,500],
+        "lj0pt": [0,500],
     }
 
     YEARS = ["UL16","UL16APV","UL17","UL18"]
@@ -807,22 +812,31 @@ class DatacardMaker():
                         for sp_key,arr in data_sm.items():
                             data_obs += arr
                 for base,v in decomposed_templates.items():
+                    # There should be only 1 sparse axis at this point, the systematics axis
                     proc_name = f"{p}_{base}"
                     col_width = max(len(proc_name),col_width)
                     text_card_info[proc_name] = {
                         "shapes": set(),
                         "rate": -1
                     }
-                    # There should be only 1 sparse axis at this point, the systematics axis
+                    # Construct a positive non-zero scaled down version of the nominal yields
+                    if len(v):
+                        nz_nom_arr = np.abs(v[('nominal',)][0]*NOM_CLIP_SCALE)
                     for sp_key,arr in v.items():
                         if crop_negative_bins:
-                            negative_bin_mask = np.where( arr[0] < 0) # see where bins are negative
-                            arr[0][negative_bin_mask] = np.zeros_like( arr[0][negative_bin_mask] )  # set those to zero
+                            bin_mask = np.where( arr[0] < 0)        # see where bins are negative
+                            if self.verbose and np.sum(nz_nom_arr[bin_mask] > 0):
+                                print(f"{' '*2}{proc_name}_{sp_key[0]}: {arr[0][bin_mask]} -> {nz_nom_arr[bin_mask]}")
+                                print(f"{' '*6}{'Before:':<7} {arr[0]}")
+                            arr[0][bin_mask] = nz_nom_arr[bin_mask] # replace negative values with non-zero values
                             if arr[1] is not None:
-                                arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative 
-
+                                # If there's a sumw2 defined, that one's clipped as well.
+                                #   Otherwise we will get 0 +/- something, which is compatible with
+                                #   negative
+                                arr[1][bin_mask] = nz_nom_arr[bin_mask]**2
+                            if self.verbose and np.sum(nz_nom_arr[bin_mask] > 0):
+                                print(f"{' '*6}{'After:':<7} {arr[0]}")
                         syst = sp_key[0]
-
                         sum_arr = sum(arr[0])
                         if syst == "nominal" and base == "sm":
                             if self.verbose:
