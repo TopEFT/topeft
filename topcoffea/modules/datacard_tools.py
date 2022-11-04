@@ -810,9 +810,9 @@ class DatacardMaker():
                             raise RuntimeError("filling obs data more than once!")
                         for sp_key,arr in data_sm.items():
                             data_obs += arr
-                for base,v in decomposed_templates.items():
+                for eft_term,v in decomposed_templates.items():
                     # There should be only 1 sparse axis at this point, the systematics axis
-                    proc_name = f"{p}_{base}"
+                    proc_name = f"{p}_{eft_term}"
                     col_width = max(len(proc_name),col_width)
                     text_card_info[proc_name] = {
                         "shapes": set(),
@@ -837,7 +837,7 @@ class DatacardMaker():
                                 print(f"{' '*6}{'After:':<7} {arr[0]}")
                         syst = sp_key[0]
                         sum_arr = sum(arr[0])
-                        if syst == "nominal" and base == "sm":
+                        if syst == "nominal" and eft_term == "sm":
                             if self.verbose:
                                 print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr[0]}")
                             if not self.use_real_data:
