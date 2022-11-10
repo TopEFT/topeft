@@ -115,6 +115,8 @@ class MissingParton(RateSystematic):
         "2lss_4t_p": "2lss_4t_p_2b",
         "2lss_m": "2lss_m_2b",
         "2lss_p": "2lss_p_2b",
+        "2lss_fwd_m": "2lss_fwd_m_2b",
+        "2lss_fwd_p": "2lss_fwd_p_2b",
         "3l_onZ_1b": "3l_sfz_1b",
         "3l_onZ_2b": "3l_sfz_2b",
         "3l_p_offZ_1b": "3l1b_p",
@@ -181,7 +183,8 @@ class DatacardMaker():
         "o0pt":    [0,100,200,400],
         "bl0pt":   [0,100,200,400],
         "l0pt":    [0,50,100,200],
-        "lj0pt":   [0,150,250,500]
+        "lj0pt":   [0,150,250,500],
+        "lt"   :   [0,150,250,500]
     }
 
     YEARS = ["UL16","UL16APV","UL17","UL18"]
@@ -735,9 +738,9 @@ class DatacardMaker():
                     continue
                 if wc == "sm":
                     continue
-                if wc == "ctlTi" and p == "tttt":
+                if  p == "tttt" and wc in ["ctlSi","ctli","cQl3i",'ctlTi']:
                     continue
-                for (ch,),arr in p_hist._sumw.items():
+                for ch,arr in p_hist._sumw.items():
                     # Ignore nanflow,underflow, and overflow bins
                     sl_arr = arr[2:-1]
                     # Here we replace any SM terms that are too small with a large dummy value
@@ -1054,7 +1057,7 @@ if __name__ == '__main__':
     dc = DatacardMaker(fpath)
 
     km_dist = "lj0pt"
-    chans = ["2lss_m_4j","2lss_4t_m_4j"]
+    chans = ["2lss_m_4j","2lss_4t_m_4j","2lss_fwd_m_4j",]
     # km_dist = "njets"
     # chans = ["2lss_m","2lss_4t_m"]
 
