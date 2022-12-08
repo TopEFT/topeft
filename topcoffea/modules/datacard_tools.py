@@ -442,6 +442,8 @@ class DatacardMaker():
                     else:
                         to_drop.add(f"{syst}Up")
                         to_drop.add(f"{syst}Down")
+                for x in to_drop:
+                    print(f"Removing systematic: {x}")
                 h = h.remove(list(to_drop),"systematic")
 
             if km_dist != "njets":
@@ -853,13 +855,16 @@ class DatacardMaker():
                             if syst_base in ["renorm","fact"]:  # Note: Requires exact matches
                                 # We want to split the renorm and fact systematics to be uncorrelated
                                 #   between processes, so we modify the systematic name to make combine
-                                #   treat them as separate systematics
+                                #   treat them as separate systematics. Also, we use 'p' instead of
+                                #   'proc_name' for renaming since we want the decomposed EFT terms
+                                #   for a particular process to share the same nuisance parameter
                                 # TODO: We should move the hardcoded list in the if statement somewhere
                                 #   else to make it less buried in the weeds
-                                split_syst = f"{syst_base}_{proc_name}"
+                                split_syst = f"{syst_base}_{p}"
                                 hist_name = hist_name.replace(syst_base,split_syst)
                                 all_shapes.add(split_syst)
                                 text_card_info[proc_name]["shapes"].add(split_syst)
+                                print(f"Splitting {syst_base} --> {split_syst}")
                             else:
                                 all_shapes.add(syst_base)
                                 text_card_info[proc_name]["shapes"].add(syst_base)
