@@ -850,8 +850,19 @@ class DatacardMaker():
                             hist_name = f"{proc_name}_{syst}"
                             # Systematics in the text datacard don't have the Up/Down postfix
                             syst_base = syst.replace("Up","").replace("Down","")
-                            all_shapes.add(syst_base)
-                            text_card_info[proc_name]["shapes"].add(syst_base)
+                            if syst_base in ["renorm","fact"]:  # Note: Requires exact matches
+                                # We want to split the renorm and fact systematics to be uncorrelated
+                                #   between processes, so we modify the systematic name to make combine
+                                #   treat them as separate systematics
+                                # TODO: We should move the hardcoded list in the if statement somewhere
+                                #   else to make it less buried in the weeds
+                                split_syst = f"{syst_base}_{proc_name}"
+                                hist_name = hist_name.replace(syst_base,split_syst)
+                                all_shapes.add(split_syst)
+                                text_card_info[proc_name]["shapes"].add(split_syst)
+                            else:
+                                all_shapes.add(syst_base)
+                                text_card_info[proc_name]["shapes"].add(syst_base)
                             syst_width = max(len(syst),syst_width)
                         zero_out_sumw2 = p != "fakes" # Zero out sumw2 for all proc but fakes, so that we only do auto stats for fakes
                         f[hist_name] = to_hist(arr,hist_name,zero_wgts=zero_out_sumw2)
