@@ -864,7 +864,8 @@ class DatacardMaker():
                                 hist_name = hist_name.replace(syst_base,split_syst)
                                 all_shapes.add(split_syst)
                                 text_card_info[proc_name]["shapes"].add(split_syst)
-                                print(f"Splitting {syst_base} --> {split_syst}")
+                                if self.verbose:
+                                    print(f"\t {hist_name}: Splitting {syst_base} --> {split_syst}")
                             else:
                                 all_shapes.add(syst_base)
                                 text_card_info[proc_name]["shapes"].add(syst_base)
