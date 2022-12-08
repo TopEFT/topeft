@@ -308,6 +308,7 @@ class DatacardMaker():
         self.year_lst        = kwargs.pop("year_lst",[])
         self.do_sm           = kwargs.pop("do_sm",False)
         self.do_nuisance     = kwargs.pop("do_nuisance",False)
+        self.drop_syst       = kwargs.pop("drop_syst",[])
         self.out_dir         = kwargs.pop("out_dir",".")
         self.var_lst         = kwargs.pop("var_lst",[])
         self.do_mc_stat      = kwargs.pop("do_mc_stat",False)
@@ -430,6 +431,18 @@ class DatacardMaker():
             if not self.do_nuisance:
                 # Remove all shape systematics
                 h = prune_axis(h,"systematic",["nominal"])
+
+            if self.drop_syst:
+                to_drop = set()
+                for syst in self.drop_syst:
+                    if syst.endswith("Up"):
+                        to_drop.add(syst)
+                    elif syst.endswith("Down"):
+                        to_drop.add(syst)
+                    else:
+                        to_drop.add(f"{syst}Up")
+                        to_drop.add(f"{syst}Down")
+                h = h.remove(list(to_drop),"systematic")
 
             if km_dist != "njets":
                 edge_arr = self.BINNING[km_dist] + [h.axis(km_dist).edges()[-1]]
