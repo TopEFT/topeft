@@ -113,6 +113,8 @@ def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
         other_opts.append("--unblind")
     if dc.year_lst:
         other_opts.extend(["--year"," ".join(dc.year_lst)])
+    if dc.drop_syst:
+        other_opts.extend(["--drop-syst"," ".join(dc.drop_syst)])
     other_opts = " ".join(other_opts)
 
     idx = 0
