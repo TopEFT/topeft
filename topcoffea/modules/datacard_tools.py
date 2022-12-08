@@ -431,6 +431,10 @@ class DatacardMaker():
                         continue
             h = h.remove(to_remove,"sample")
 
+            # Integrate out the application region axis if its present
+            if "appl" in [x.name for x in h.sparse_axes()]:
+                h = h.integrate("appl",["isSR_2lSS","isSR_3l","isSR_4l"])   # This is pretty hardcoded right now, might want to fix
+
             if not self.do_nuisance:
                 # Remove all shape systematics
                 h = prune_axis(h,"systematic",["nominal"])
@@ -794,6 +798,10 @@ class DatacardMaker():
         text_card_info = {}
         outf_root_name = os.path.join(self.out_dir,outf_root_name)
         with uproot.recreate(outf_root_name) as f:
+            # Get a reference for how many total events (ignoring signal processes) are in a given bin
+            ch_hist.set_sm()
+            ref_bins,ref_stats = ch_hist.remove(["data"]+list(self.SIGNALS),"sample").integrate("sample").integrate("systematic",["nominal"]).values(sumw2=True,overflow='all')[()]
+            np.sqrt(ref_stats,out=ref_stats)
             for p,wcs in selected_wcs.items():
                 proc_hist = ch_hist.integrate("sample",[p])
                 if self.verbose:
@@ -818,9 +826,26 @@ class DatacardMaker():
                         "shapes": set(),
                         "rate": -1
                     }
-                    # Construct a positive non-zero scaled down version of the nominal yields
+                    # Construct a positive non-zero scaled down version of the nominal yields and
+                    #   check if any negative yield bins are 'large'
                     if len(v):
-                        nz_nom_arr = np.abs(v[('nominal',)][0]*NOM_CLIP_SCALE)
+                        nom_arr = v[('nominal',)][0]
+                        bin_mask = np.where( nom_arr < 0)
+                        chk_arr = np.zeros_like(nom_arr)
+                        np.divide(nom_arr,ref_bins,out=chk_arr,where=ref_bins != 0)
+
+                        # if np.sum(np.where(np.abs(chk_arr[bin_mask]) > 0.01)):
+                        if np.sum(np.where(np.abs(nom_arr[bin_mask]) > ref_stats[bin_mask])):
+                            diff_arr = ref_stats - np.abs(nom_arr)
+                            print(f"ERROR: {proc_name} has bin with large negative contribution")
+                            print(f"{' '*6}Reference: {ref_bins}")
+                            print(f"{' '*6}Ref stats: {ref_stats}")
+                            print(f"{' '*6}Nominal:   {nom_arr}")
+                            print(f"{' '*6}Diff:      {diff_arr}")
+                            # print(f"{' '*6}Ratio:     {chk_arr}")
+
+                        nz_nom_arr = np.abs(nom_arr*NOM_CLIP_SCALE)
+
                     for sp_key,arr in v.items():
                         if crop_negative_bins:
                             bin_mask = np.where( arr[0] < 0)        # see where bins are negative
