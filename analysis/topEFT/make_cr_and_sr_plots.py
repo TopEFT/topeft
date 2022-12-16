@@ -142,7 +142,7 @@ WCPT_EXAMPLE = {
 
 # Some of our processes do not have rate systs split into qcd and pdf, so we just list them under qcd
 # This list keeps track of those, so we can handle them when extracting the numbers from the rate syst json
-PROC_WITH_JUST_QCD_RATE_SYST = ["tttt","ttll","ttlnu","Triboson","tWZ"]
+PROC_WITHOUT_PDF_RATE_SYST = ["tttt","ttll","ttlnu","Triboson","tWZ","convs"]
 
 yt = YieldTools()
 
@@ -235,7 +235,7 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
     if uncertainty_name in ["qcd_scale","pdf_scale"]:
         if proc_name_in_json is not None:
             if proc_name_in_json == "convs":
-                # Special case for conversions since we estimate from LO sample, we have _only_ pdf key not qcd
+                # Special case for conversions since we estimate from LO sample, we do not have qcd uncty
                 # Would be better to handle this in a more general way
                 corr_tag = None
             else:
@@ -261,7 +261,7 @@ def get_rate_systs(sample_name,sample_group_map):
 
     # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if scale_name_for_json is not None:
-        if scale_name_for_json in PROC_WITH_JUST_QCD_RATE_SYST:
+        if scale_name_for_json in PROC_WITHOUT_PDF_RATE_SYST:
             # Special cases for when we do not have a pdf uncty (this is a really brittle workaround)
             # NOTE Someday should fix this, it's a really hardcoded and brittle and bad workaround
             pdf_uncty = [1.0,1,0]
