@@ -113,6 +113,8 @@ def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
         other_opts.append("--unblind")
     if dc.year_lst:
         other_opts.extend(["--year"," ".join(dc.year_lst)])
+    if dc.drop_syst:
+        other_opts.extend(["--drop-syst"," ".join(dc.drop_syst)])
     other_opts = " ".join(other_opts)
 
     idx = 0
@@ -155,6 +157,7 @@ def main():
     parser.add_argument("--ch-lst","-c",default=[],action="extend",nargs="+",help="Specify a list of channels to process.")
     parser.add_argument("--do-mc-stat",action="store_true",help="Add bin-by-bin statistical uncertainties with the autoMCstats option (for background)")
     parser.add_argument("--ignore","-i",default=[],action="extend",nargs="+",help="Specify a list of processes to exclude, must match name from 'sample' axis modulo UL year")
+    parser.add_argument("--drop-syst",default=[],action="extend",nargs="+",help="Specify one or more template systematics to remove from the datacard")
     parser.add_argument("--POI",default=[],help="List of WCs (comma separated)")
     parser.add_argument("--year","-y",default=[],action="extend",nargs="+",help="Run over a subset of years")
     parser.add_argument("--do-nuisance",action="store_true",help="Include nuisance parameters")
@@ -180,6 +183,7 @@ def main():
     wcs        = args.POI
     ignore     = args.ignore
     do_nuis    = args.do_nuisance
+    drop_syst  = args.drop_syst
     unblind    = args.unblind
     verbose    = args.verbose
 
@@ -210,6 +214,7 @@ def main():
         "do_mc_stat": do_mc_stat,
         "ignore": ignore,
         "do_nuisance": do_nuis,
+        "drop_syst": drop_syst,
         "unblind": unblind,
         "verbose": verbose,
         "year_lst": years,

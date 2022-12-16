@@ -308,6 +308,7 @@ class DatacardMaker():
         self.year_lst        = kwargs.pop("year_lst",[])
         self.do_sm           = kwargs.pop("do_sm",False)
         self.do_nuisance     = kwargs.pop("do_nuisance",False)
+        self.drop_syst       = kwargs.pop("drop_syst",[])
         self.out_dir         = kwargs.pop("out_dir",".")
         self.var_lst         = kwargs.pop("var_lst",[])
         self.do_mc_stat      = kwargs.pop("do_mc_stat",False)
@@ -430,6 +431,20 @@ class DatacardMaker():
             if not self.do_nuisance:
                 # Remove all shape systematics
                 h = prune_axis(h,"systematic",["nominal"])
+
+            if self.drop_syst:
+                to_drop = set()
+                for syst in self.drop_syst:
+                    if syst.endswith("Up"):
+                        to_drop.add(syst)
+                    elif syst.endswith("Down"):
+                        to_drop.add(syst)
+                    else:
+                        to_drop.add(f"{syst}Up")
+                        to_drop.add(f"{syst}Down")
+                for x in to_drop:
+                    print(f"Removing systematic: {x}")
+                h = h.remove(list(to_drop),"systematic")
 
             if km_dist != "njets":
                 edge_arr = self.BINNING[km_dist] + [h.axis(km_dist).edges()[-1]]
@@ -837,8 +852,23 @@ class DatacardMaker():
                             hist_name = f"{proc_name}_{syst}"
                             # Systematics in the text datacard don't have the Up/Down postfix
                             syst_base = syst.replace("Up","").replace("Down","")
-                            all_shapes.add(syst_base)
-                            text_card_info[proc_name]["shapes"].add(syst_base)
+                            if syst_base in ["renorm","fact"]:  # Note: Requires exact matches
+                                # We want to split the renorm and fact systematics to be uncorrelated
+                                #   between processes, so we modify the systematic name to make combine
+                                #   treat them as separate systematics. Also, we use 'p' instead of
+                                #   'proc_name' for renaming since we want the decomposed EFT terms
+                                #   for a particular process to share the same nuisance parameter
+                                # TODO: We should move the hardcoded list in the if statement somewhere
+                                #   else to make it less buried in the weeds
+                                split_syst = f"{syst_base}_{p}"
+                                hist_name = hist_name.replace(syst_base,split_syst)
+                                all_shapes.add(split_syst)
+                                text_card_info[proc_name]["shapes"].add(split_syst)
+                                if self.verbose:
+                                    print(f"\t {hist_name}: Splitting {syst_base} --> {split_syst}")
+                            else:
+                                all_shapes.add(syst_base)
+                                text_card_info[proc_name]["shapes"].add(syst_base)
                             syst_width = max(len(syst),syst_width)
                         zero_out_sumw2 = p != "fakes" # Zero out sumw2 for all proc but fakes, so that we only do auto stats for fakes
                         f[hist_name] = to_hist(arr,hist_name,zero_wgts=zero_out_sumw2)
