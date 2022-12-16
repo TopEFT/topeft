@@ -8,8 +8,7 @@
             "ttH": 1.024,
             "tllq": 1.027,
             "tHq": 1.051,
-            "Diboson": 1.014,
-            "convs": 1.05
+            "Diboson": 1.014
         },
         "qcd_scale" : {
             "ttH": "0.929/1.076",
