@@ -321,6 +321,8 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
 # Wrapper for getting plus and minus shape arrs
 def get_shape_syst_arrs(base_histo):
 
+    print("\n\nHere in get_shape_syst_arrs")
+
     # Get the list of systematic base names (i.e. without the up and down tags)
     # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
     syst_var_lst = []
@@ -331,14 +333,63 @@ def get_shape_syst_arrs(base_histo):
             if syst_name_base not in syst_var_lst:
                 syst_var_lst.append(syst_name_base)
 
+    print("syst_var_lst",syst_var_lst)
+
     # Sum each systematic's contribtuions for all samples together (e.g. the ISR for all samples is summed linearly)
     p_arr_rel_lst = []
     m_arr_rel_lst = []
     for syst_name in syst_var_lst:
+
+        if syst_name != "renormfact":continue
+
         relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "sample") # The samples relevant to this syst
+        print("\t",syst_name)
+        print("\t",relevant_samples_lst)
         n_arr     = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()]        # Sum of all samples for nominal variation
         u_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Up").values()[()]   # Sum of all samples for up variation
         d_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Down").values()[()] # Sum of all samples for down variation
+
+        print("n_arr",n_arr)
+        print("sum u",u_arr_sum)
+        print("sum d",d_arr_sum)
+
+        # Uncorrelate renorm and fact across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
+        if syst_name == "renormfact": # TODO Change to renorm and fact once new pkl file is done
+            u_arr_sum = np.zeros_like(n_arr) # Initialize to 0
+            d_arr_sum = np.zeros_like(n_arr) # Initialize to 0
+
+            #for proc_grp in CR_GRP_MAP.keys():
+            for proc_grp in ["test"]:
+                #proc_lst = CR_GRP_MAP[proc_grp]
+                #if proc_grp in ["Nonprompt","Flips","Data"]: continue # Renormfact not relevant here
+                #if proc_lst == []: continue
+
+                proc_lst = relevant_samples_lst
+
+                # We'll keep all signal processes as uncorrelated, as in SR
+                if proc_grp == "Signal":
+                    for proc_name in proc_lst:
+                        if proc_name not in relevant_samples_lst: continue
+                        u_arr = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Up").values()[()]
+                        d_arr = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Down").values()[()]
+                        u_arr_sum += u_arr*u_arr
+                        d_arr_sum += d_arr*d_arr
+                # Otherwise corrleated across groups (e.g. ZZ and WZ, as in SR)
+                else:
+                    u_arr = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Up").values()[()]
+                    d_arr = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Down").values()[()]
+                    u_arr_sum += u_arr*u_arr
+                    d_arr_sum += d_arr*d_arr
+
+            # Before we move on, need to sqrt the outcome since later we'll square before adding in quadrature with other systs
+            print("pTHIS!",u_arr_sum)
+            print("pTHIS!",d_arr_sum)
+            u_arr_sum = np.sqrt(u_arr_sum)
+            d_arr_sum = np.sqrt(d_arr_sum)
+            print("THIS!",u_arr_sum)
+            print("THIS!",d_arr_sum)
+
+
         u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
         d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
         p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
@@ -346,6 +397,8 @@ def get_shape_syst_arrs(base_histo):
         p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
         m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
 
+    print("done")
+    exit()
     return [sum(m_arr_rel_lst), sum(p_arr_rel_lst)]
 
 # Get the squared arr for the jet dependent syst (e.g. for diboson jet dependent syst)
@@ -1011,10 +1064,10 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
 
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
-    #skip_wlst = ["njets"] # Skip all but these hists
+    skip_wlst = ["njets","lj0pt"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
-        #if (var_name not in skip_wlst): continue
+        if (var_name not in skip_wlst): continue
         if (var_name == "njets"):
             # We do not keep track of jets in the sparse axis for the njets hists
             cr_cat_dict = get_dict_with_stripped_bin_names(CR_CHAN_DICT,"njets")
@@ -1037,6 +1090,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
+            if hist_cat != "cr_3l": continue
             if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The 2los Z category does not require jets (so leading jet plots do not make sense)
             if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The flip category does not require jets (so leading jet plots do not make sense)
             print("\n\tCategory:",hist_cat)
