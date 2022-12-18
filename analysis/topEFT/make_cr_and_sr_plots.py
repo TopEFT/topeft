@@ -321,8 +321,6 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
 # Wrapper for getting plus and minus shape arrs
 def get_shape_syst_arrs(base_histo):
 
-    print("\n\nHere in get_shape_syst_arrs")
-
     # Get the list of systematic base names (i.e. without the up and down tags)
     # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
     syst_var_lst = []
@@ -333,71 +331,18 @@ def get_shape_syst_arrs(base_histo):
             if syst_name_base not in syst_var_lst:
                 syst_var_lst.append(syst_name_base)
 
-    print("syst_var_lst",syst_var_lst)
-
     # Sum each systematic's contribtuions for all samples together (e.g. the ISR for all samples is summed linearly)
     p_arr_rel_lst = []
     m_arr_rel_lst = []
     for syst_name in syst_var_lst:
 
         relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "sample") # The samples relevant to this syst
-        n_arr     = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()] # Sum of all samples for nominal variation
-
-        #if syst_name != "renormfact":continue
-        print("\t",syst_name)
-        print("\t",relevant_samples_lst)
+        n_arr = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()] # Sum of all samples for nominal variation
 
         # Special handling of renorm and fact
         # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
         if syst_name == "renormfact": # TODO Change to renorm and fact once new pkl file is done
-            a_arr_sum = np.zeros_like(n_arr) # Initialize to 0
-
-            for k,v in CR_GRP_MAP.items():
-                print("\n",k)
-                for s in v:
-                    if s in relevant_samples_lst: print(s)
-
-            # Loop over the groups of processes, generally the processes in the groups will be correlated and the different groups will be uncorrelated
-            #for proc_grp in ["test"]:
-            for proc_grp in CR_GRP_MAP.keys():
-                proc_lst = CR_GRP_MAP[proc_grp]
-                if proc_grp in ["Nonprompt","Flips","Data"]: continue # Renormfact not relevant here
-                if proc_lst == []: continue
-
-                #proc_lst = relevant_samples_lst
-
-                # We'll keep all signal processes as uncorrelated, as in SR
-                if proc_grp == "Signal":
-                    for proc_name in proc_lst:
-                        if proc_name not in relevant_samples_lst: continue
-
-                        n_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic","nominal").values()[()]
-                        u_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Up").values()[()]
-                        d_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Down").values()[()]
-
-                        u_arr_proc_rel = u_arr_proc - n_arr_proc
-                        d_arr_proc_rel = d_arr_proc - n_arr_proc
-                        a_arr_proc_rel = (abs(u_arr_proc_rel) + abs(d_arr_proc_rel))/2.0
-
-                        #print("\n\nAPPENDING!!!",proc_name,a_arr_proc_rel*a_arr_proc_rel)
-                        print("\n\nAPPENDING!!!",proc_name,a_arr_proc_rel)
-                        a_arr_sum += a_arr_proc_rel*a_arr_proc_rel
-
-                # Otherwise corrleated across groups (e.g. ZZ and WZ, as in SR)
-                else:
-                    n_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic","nominal").values()[()]
-                    u_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Up").values()[()]
-                    d_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Down").values()[()]
-                    u_arr_grp_rel = u_arr_grp - n_arr_grp
-                    d_arr_grp_rel = d_arr_grp - n_arr_grp
-                    a_arr_grp_rel = (abs(u_arr_grp_rel) + abs(d_arr_grp_rel))/2.0
-
-                    a_arr_sum += a_arr_grp_rel*a_arr_grp_rel
-
-            # Before we move on, need to sqrt the outcome since later we'll square before adding in quadrature with other systs
-            p_arr_rel =  np.sqrt(a_arr_sum)
-            m_arr_rel = -np.sqrt(a_arr_sum)
-
+            p_arr_rel,m_arr_rel = get_decorrelated_uncty(syst_name,CR_GRP_MAP,relevant_samples_lst,base_histo,n_arr)
 
         # If the syst is not renorm or fact, just treat it normally (correlate across all processes)
         else:
@@ -408,21 +353,10 @@ def get_shape_syst_arrs(base_histo):
             d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
             p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
             m_arr_rel = np.where(u_arr_rel<0,u_arr_rel,d_arr_rel) # Just the ones that decrease the yield
-            print("n_arr",n_arr)
-            print("u_arr_sum",u_arr_sum)
-            print("d_arr_sum",d_arr_sum)
-            print("m rel",m_arr_rel)
-            print("p rel",p_arr_rel)
-
-        print("\nEND:")
-        print("p_arr_rel",p_arr_rel)
-        print("m_arr_rel",m_arr_rel)
 
         # Square and append this syst to the return lists
         p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
         m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
-
-    print("done")
 
     print("\np_arr_rel_lst",p_arr_rel_lst)
     print("\nm_arr_rel_lst",m_arr_rel_lst)
@@ -431,8 +365,66 @@ def get_shape_syst_arrs(base_histo):
     print("\np",sum(p_arr_rel_lst))
     print("\nm",sum(m_arr_rel_lst))
 
-    exit()
     return [sum(m_arr_rel_lst), sum(p_arr_rel_lst)]
+
+
+# Special case for renorm and fact, as these are decorrelated across processes
+# Sorry to anyone who tries to read this in the future, this function is very ad hoc and messy and hard to follow
+# Just used in get_shape_syst_arrs()
+# Here are a few notes: 
+#   - This is complicated, so I just symmetrized the errors
+#   - The processes are generally correlated across groups (e.g. WZ and ZZ) since this is what's done in the datacard maker for the SR
+#   - So the grouping generally follows what's in the CR group map, excetp in the case of signal
+#       - Since in the SR all signal processes are uncorrelated for these systs, we also uncorrelate here
+#       - Note there are caviats to this:
+#           * In the SR, TTZToLL_M1to10 and TTToSemiLeptonic and TTTo2L2Nu are all grouped into ttll
+#           * Here in the CR TTZToLL_M1to10 is part of signal group, but TTToSemiLeptonic and TTTo2L2Nu are in their own ttbar group
+#           * So there are two differences with respect to how these processes are grouped in the SR: 
+#               1) Here TTToSemiLeptonic and TTTo2L2Nu are correlated with each other, but not with ttll
+#               2) Here TTZToLL_M1to10 is grouped as part of signal (as in SR) but here _all_ signal processes are uncorrleated so here TTZToLL_M1to10 is uncorrelated with ttll while in SR they would be correlated
+def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,template_zeros_arr):
+
+    # Initialize the array we will return (ok technically we return sqrt of this arr squared..)
+    a_arr_sum = np.zeros_like(template_zeros_arr) # Just using this template_zeros_arr for its size
+
+    # Loop over the groups of processes, generally the processes in the groups will be correlated and the different groups will be uncorrelated
+    for proc_grp in grp_map.keys():
+        proc_lst = grp_map[proc_grp]
+        if proc_grp in ["Nonprompt","Flips","Data"]: continue # Renorm and fact not relevant here
+        if proc_lst == []: continue # Nothing here
+
+        # We'll keep all signal processes as uncorrelated, similar to what's done in SR
+        if proc_grp == "Signal":
+            for proc_name in proc_lst:
+                if proc_name not in relevant_samples_lst: continue
+
+                n_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic","nominal").values()[()]
+                u_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Up").values()[()]
+                d_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Down").values()[()]
+
+                u_arr_proc_rel = u_arr_proc - n_arr_proc
+                d_arr_proc_rel = d_arr_proc - n_arr_proc
+                a_arr_proc_rel = (abs(u_arr_proc_rel) + abs(d_arr_proc_rel))/2.0
+
+                a_arr_sum += a_arr_proc_rel*a_arr_proc_rel
+
+        # Otherwise corrleated across groups (e.g. ZZ and WZ, as datacard maker does in SR)
+        else:
+            n_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic","nominal").values()[()]
+            u_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Up").values()[()]
+            d_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Down").values()[()]
+            u_arr_grp_rel = u_arr_grp - n_arr_grp
+            d_arr_grp_rel = d_arr_grp - n_arr_grp
+            a_arr_grp_rel = (abs(u_arr_grp_rel) + abs(d_arr_grp_rel))/2.0
+
+            a_arr_sum += a_arr_grp_rel*a_arr_grp_rel
+
+    # Before we move on, need to sqrt the outcome since later we'll square before adding in quadrature with other systs
+    p_arr_rel =  np.sqrt(a_arr_sum)
+    m_arr_rel = -np.sqrt(a_arr_sum)
+
+    return [p_arr_rel,m_arr_rel]
+
 
 # Get the squared arr for the jet dependent syst (e.g. for diboson jet dependent syst)
 def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
