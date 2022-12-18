@@ -335,13 +335,15 @@ def get_shape_syst_arrs(base_histo):
     p_arr_rel_lst = []
     m_arr_rel_lst = []
     for syst_name in syst_var_lst:
+        # Skip the variation of renorm and fact together, since we're treating as independent
+        if syst_name == "renormfact": continue
 
         relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "sample") # The samples relevant to this syst
         n_arr = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()] # Sum of all samples for nominal variation
 
         # Special handling of renorm and fact
         # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
-        if syst_name == "renormfact": # TODO Change to renorm and fact once new pkl file is done
+        if (syst_name == "renorm") or (syst_name == "fact"):
             p_arr_rel,m_arr_rel = get_decorrelated_uncty(syst_name,CR_GRP_MAP,relevant_samples_lst,base_histo,n_arr)
 
         # If the syst is not renorm or fact, just treat it normally (correlate across all processes)
@@ -358,13 +360,6 @@ def get_shape_syst_arrs(base_histo):
         p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
         m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
 
-    print("\np_arr_rel_lst",p_arr_rel_lst)
-    print("\nm_arr_rel_lst",m_arr_rel_lst)
-
-    print("\n\nRETURNING")
-    print("\np",sum(p_arr_rel_lst))
-    print("\nm",sum(m_arr_rel_lst))
-
     return [sum(m_arr_rel_lst), sum(p_arr_rel_lst)]
 
 
@@ -374,9 +369,9 @@ def get_shape_syst_arrs(base_histo):
 # Here are a few notes: 
 #   - This is complicated, so I just symmetrized the errors
 #   - The processes are generally correlated across groups (e.g. WZ and ZZ) since this is what's done in the datacard maker for the SR
-#   - So the grouping generally follows what's in the CR group map, excetp in the case of signal
+#   - So the grouping generally follows what's in the CR group map, except in the case of signal
 #       - Since in the SR all signal processes are uncorrelated for these systs, we also uncorrelate here
-#       - Note there are caviats to this:
+#       - Note there are caveats to this:
 #           * In the SR, TTZToLL_M1to10 and TTToSemiLeptonic and TTTo2L2Nu are all grouped into ttll
 #           * Here in the CR TTZToLL_M1to10 is part of signal group, but TTToSemiLeptonic and TTTo2L2Nu are in their own ttbar group
 #           * So there are two differences with respect to how these processes are grouped in the SR: 
@@ -1089,10 +1084,10 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
 
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
-    skip_wlst = ["njets","lj0pt"] # Skip all but these hists
+    #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
-        if (var_name not in skip_wlst): continue
+        #if (var_name not in skip_wlst): continue
         if (var_name == "njets"):
             # We do not keep track of jets in the sparse axis for the njets hists
             cr_cat_dict = get_dict_with_stripped_bin_names(CR_CHAN_DICT,"njets")
@@ -1115,7 +1110,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
-            if hist_cat != "cr_3l": continue
             if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The 2los Z category does not require jets (so leading jet plots do not make sense)
             if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The flip category does not require jets (so leading jet plots do not make sense)
             print("\n\tCategory:",hist_cat)
