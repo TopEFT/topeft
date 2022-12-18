@@ -340,64 +340,97 @@ def get_shape_syst_arrs(base_histo):
     m_arr_rel_lst = []
     for syst_name in syst_var_lst:
 
-        if syst_name != "renormfact":continue
-
         relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "sample") # The samples relevant to this syst
+        n_arr     = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()] # Sum of all samples for nominal variation
+
+        #if syst_name != "renormfact":continue
         print("\t",syst_name)
         print("\t",relevant_samples_lst)
-        n_arr     = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()]        # Sum of all samples for nominal variation
-        u_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Up").values()[()]   # Sum of all samples for up variation
-        d_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Down").values()[()] # Sum of all samples for down variation
 
-        print("n_arr",n_arr)
-        print("sum u",u_arr_sum)
-        print("sum d",d_arr_sum)
-
-        # Uncorrelate renorm and fact across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
+        # Special handling of renorm and fact
+        # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
         if syst_name == "renormfact": # TODO Change to renorm and fact once new pkl file is done
-            u_arr_sum = np.zeros_like(n_arr) # Initialize to 0
-            d_arr_sum = np.zeros_like(n_arr) # Initialize to 0
+            a_arr_sum = np.zeros_like(n_arr) # Initialize to 0
 
-            #for proc_grp in CR_GRP_MAP.keys():
-            for proc_grp in ["test"]:
-                #proc_lst = CR_GRP_MAP[proc_grp]
-                #if proc_grp in ["Nonprompt","Flips","Data"]: continue # Renormfact not relevant here
-                #if proc_lst == []: continue
+            for k,v in CR_GRP_MAP.items():
+                print("\n",k)
+                for s in v:
+                    if s in relevant_samples_lst: print(s)
 
-                proc_lst = relevant_samples_lst
+            # Loop over the groups of processes, generally the processes in the groups will be correlated and the different groups will be uncorrelated
+            #for proc_grp in ["test"]:
+            for proc_grp in CR_GRP_MAP.keys():
+                proc_lst = CR_GRP_MAP[proc_grp]
+                if proc_grp in ["Nonprompt","Flips","Data"]: continue # Renormfact not relevant here
+                if proc_lst == []: continue
+
+                #proc_lst = relevant_samples_lst
 
                 # We'll keep all signal processes as uncorrelated, as in SR
                 if proc_grp == "Signal":
                     for proc_name in proc_lst:
                         if proc_name not in relevant_samples_lst: continue
-                        u_arr = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Up").values()[()]
-                        d_arr = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Down").values()[()]
-                        u_arr_sum += u_arr*u_arr
-                        d_arr_sum += d_arr*d_arr
+
+                        n_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic","nominal").values()[()]
+                        u_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Up").values()[()]
+                        d_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Down").values()[()]
+
+                        u_arr_proc_rel = u_arr_proc - n_arr_proc
+                        d_arr_proc_rel = d_arr_proc - n_arr_proc
+                        a_arr_proc_rel = (abs(u_arr_proc_rel) + abs(d_arr_proc_rel))/2.0
+
+                        #print("\n\nAPPENDING!!!",proc_name,a_arr_proc_rel*a_arr_proc_rel)
+                        print("\n\nAPPENDING!!!",proc_name,a_arr_proc_rel)
+                        a_arr_sum += a_arr_proc_rel*a_arr_proc_rel
+
                 # Otherwise corrleated across groups (e.g. ZZ and WZ, as in SR)
                 else:
-                    u_arr = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Up").values()[()]
-                    d_arr = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Down").values()[()]
-                    u_arr_sum += u_arr*u_arr
-                    d_arr_sum += d_arr*d_arr
+                    n_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic","nominal").values()[()]
+                    u_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Up").values()[()]
+                    d_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Down").values()[()]
+                    u_arr_grp_rel = u_arr_grp - n_arr_grp
+                    d_arr_grp_rel = d_arr_grp - n_arr_grp
+                    a_arr_grp_rel = (abs(u_arr_grp_rel) + abs(d_arr_grp_rel))/2.0
+
+                    a_arr_sum += a_arr_grp_rel*a_arr_grp_rel
 
             # Before we move on, need to sqrt the outcome since later we'll square before adding in quadrature with other systs
-            print("pTHIS!",u_arr_sum)
-            print("pTHIS!",d_arr_sum)
-            u_arr_sum = np.sqrt(u_arr_sum)
-            d_arr_sum = np.sqrt(d_arr_sum)
-            print("THIS!",u_arr_sum)
-            print("THIS!",d_arr_sum)
+            p_arr_rel =  np.sqrt(a_arr_sum)
+            m_arr_rel = -np.sqrt(a_arr_sum)
 
 
-        u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
-        d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
-        p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
-        m_arr_rel = np.where(u_arr_rel<0,u_arr_rel,d_arr_rel) # Just the ones that decrease the yield
+        # If the syst is not renorm or fact, just treat it normally (correlate across all processes)
+        else:
+            u_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Up").values()[()]   # Sum of all samples for up variation
+            d_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Down").values()[()] # Sum of all samples for down variation
+
+            u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
+            d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
+            p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
+            m_arr_rel = np.where(u_arr_rel<0,u_arr_rel,d_arr_rel) # Just the ones that decrease the yield
+            print("n_arr",n_arr)
+            print("u_arr_sum",u_arr_sum)
+            print("d_arr_sum",d_arr_sum)
+            print("m rel",m_arr_rel)
+            print("p rel",p_arr_rel)
+
+        print("\nEND:")
+        print("p_arr_rel",p_arr_rel)
+        print("m_arr_rel",m_arr_rel)
+
+        # Square and append this syst to the return lists
         p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
         m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
 
     print("done")
+
+    print("\np_arr_rel_lst",p_arr_rel_lst)
+    print("\nm_arr_rel_lst",m_arr_rel_lst)
+
+    print("\n\nRETURNING")
+    print("\np",sum(p_arr_rel_lst))
+    print("\nm",sum(m_arr_rel_lst))
+
     exit()
     return [sum(m_arr_rel_lst), sum(p_arr_rel_lst)]
 
