@@ -13,6 +13,7 @@ import time
 from coffea.hist import StringBin, Cat, Bin
 
 from topcoffea.modules.paths import topcoffea_path
+from topcoffea.modules.utils import regex_match
 import topcoffea.modules.eft_helper as efth
 
 PRECISION = 6           # Decimal point precision in the text datacard output
@@ -312,6 +313,7 @@ class DatacardMaker():
         self.year_lst        = kwargs.pop("year_lst",[])
         self.do_sm           = kwargs.pop("do_sm",False)
         self.do_nuisance     = kwargs.pop("do_nuisance",False)
+        self.drop_syst       = kwargs.pop("drop_syst",[])
         self.out_dir         = kwargs.pop("out_dir",".")
         self.var_lst         = kwargs.pop("var_lst",[])
         self.do_mc_stat      = kwargs.pop("do_mc_stat",False)
@@ -385,6 +387,44 @@ class DatacardMaker():
             # "FFcloseMu": {"2016": ["2016APV","2017","2018"], "2016APV": ["2016","2017","2018"], "2017": ["2016","2016APV","2018"], "2018": ["2016","2016APV","2017"]},
         }
 
+        # Defines which systematics should be decorrelated in the self.analysis() step. Each key
+        #   should match (exactly) a particular systematic. The list for each systematic specifies
+        #   which processes should remain remain correlated or not.
+        # Note: A given process should appear AT MOST once in the "matches" list for a given systematic
+        #       grouping. If a process has an associated systematic, but doesn't match any of the
+        #       groups, then it will retain its original systematic name (i.e. all unmatched
+        #       processes will remain correlated).
+        # Note: For the special case where the group name is an empty string the systematic will
+        #       instead have the matched process' name appended to it, meaning that all matched
+        #       processes will be decorrelated!
+        # Note: Since the decorrelation happens during the self.analysis() step, the matched names
+        #       should correspond to the renamed/re-grouped processes, e.g. use "Diboson" instead of
+        #       "ZZ","WZ","WW".
+        self.syst_shape_decorrelate = {
+            "ISR": [
+                {
+                    "matches": ["ttH","ttll","tttt","convs"],
+                    "group": "gg",
+                },
+                {
+                    "matches": ["ttlnu","tllq","Diboson","Triboson"],
+                    "group": "qq",
+                },
+                {
+                    "matches": ["tHq"],
+                    "group": "qg"
+                }
+            ],
+            "renorm": [{
+                "matches": [".*"],
+                "group": "",
+            }],
+            "fact": [{
+                "matches": [".*"],
+                "group": "",
+            }]
+        }
+
         if extra_ignore:
             print(f"Adding processes to ignore: {extra_ignore}")
         self.ignore.extend(extra_ignore)
@@ -438,6 +478,20 @@ class DatacardMaker():
             if not self.do_nuisance:
                 # Remove all shape systematics
                 h = prune_axis(h,"systematic",["nominal"])
+
+            if self.drop_syst:
+                to_drop = set()
+                for syst in self.drop_syst:
+                    if syst.endswith("Up"):
+                        to_drop.add(syst)
+                    elif syst.endswith("Down"):
+                        to_drop.add(syst)
+                    else:
+                        to_drop.add(f"{syst}Up")
+                        to_drop.add(f"{syst}Down")
+                for x in to_drop:
+                    print(f"Removing systematic: {x}")
+                h = h.remove(list(to_drop),"systematic")
 
             if km_dist != "njets":
                 edge_arr = self.BINNING[km_dist] + [h.axis(km_dist).edges()[-1]]
@@ -875,8 +929,39 @@ class DatacardMaker():
                             hist_name = f"{proc_name}_{syst}"
                             # Systematics in the text datacard don't have the Up/Down postfix
                             syst_base = syst.replace("Up","").replace("Down","")
-                            all_shapes.add(syst_base)
-                            text_card_info[proc_name]["shapes"].add(syst_base)
+                            if syst_base in self.syst_shape_decorrelate:
+                                # We want to split this systematic to be uncorrelated between certain
+                                #   processes, so we modify the systematic name to make combine treat
+                                #   them as separate systematics. Also, we use 'p' instead of 'proc_name'
+                                #   for renaming since we want the decomposed EFT terms for a particular
+                                #   process to share the same nuisance parameter
+                                matched = []
+                                for r in self.syst_shape_decorrelate[syst_base]:
+                                    if regex_match([p],r["matches"]):
+                                        # The matched process should have this systematic put into a new group
+                                        matched.append(r["group"])
+                                if len(matched) == 0:
+                                    # No matches found, so keep the original systematic name
+                                    split_syst = syst_base
+                                elif len(matched) == 1:
+                                    # Found a match, so decorrelate the process from non-matched processes 
+                                    group = matched[0]
+                                    split_syst = f"{syst_base}_{group}"
+                                    if group == "":
+                                        # In the special case that the group is an empty string,
+                                        #   decorrelate ALL matched processes
+                                        split_syst = f"{syst_base}_{p}"
+                                else:
+                                    # We shouldn't have more than one match for a given systematic
+                                    raise RuntimeError(f"Unable to decorrelate shape systematic {syst_base} for {p}. Multiple group matches found: {matched}")
+                                hist_name = hist_name.replace(syst_base,split_syst)
+                                all_shapes.add(split_syst)
+                                text_card_info[proc_name]["shapes"].add(split_syst)
+                                if base == "sm" and self.verbose:
+                                    print(f"\tDecorrelate {p} for {syst_base} into {split_syst} ({syst.replace(syst_base,'')})")
+                            else:
+                                all_shapes.add(syst_base)
+                                text_card_info[proc_name]["shapes"].add(syst_base)
                             syst_width = max(len(syst),syst_width)
                         zero_out_sumw2 = p != "fakes" # Zero out sumw2 for all proc but fakes, so that we only do auto stats for fakes
                         f[hist_name] = to_hist(arr,hist_name,zero_wgts=zero_out_sumw2)

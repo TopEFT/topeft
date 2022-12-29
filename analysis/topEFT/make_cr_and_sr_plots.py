@@ -142,7 +142,7 @@ WCPT_EXAMPLE = {
 
 # Some of our processes do not have rate systs split into qcd and pdf, so we just list them under qcd
 # This list keeps track of those, so we can handle them when extracting the numbers from the rate syst json
-PROC_WITH_JUST_QCD_RATE_SYST = ["tttt","ttll","ttlnu","Triboson","tWZ"]
+PROC_WITHOUT_PDF_RATE_SYST = ["tttt","ttll","ttlnu","Triboson","tWZ","convs"]
 
 yt = YieldTools()
 
@@ -235,7 +235,7 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
     if uncertainty_name in ["qcd_scale","pdf_scale"]:
         if proc_name_in_json is not None:
             if proc_name_in_json == "convs":
-                # Special case for conversions since we estimate from LO sample, we have _only_ pdf key not qcd
+                # Special case for conversions since we estimate from LO sample, we do not have qcd uncty
                 # Would be better to handle this in a more general way
                 corr_tag = None
             else:
@@ -261,7 +261,7 @@ def get_rate_systs(sample_name,sample_group_map):
 
     # Get the scale uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if scale_name_for_json is not None:
-        if scale_name_for_json in PROC_WITH_JUST_QCD_RATE_SYST:
+        if scale_name_for_json in PROC_WITHOUT_PDF_RATE_SYST:
             # Special cases for when we do not have a pdf uncty (this is a really brittle workaround)
             # NOTE Someday should fix this, it's a really hardcoded and brittle and bad workaround
             pdf_uncty = [1.0,1,0]
@@ -335,18 +335,91 @@ def get_shape_syst_arrs(base_histo):
     p_arr_rel_lst = []
     m_arr_rel_lst = []
     for syst_name in syst_var_lst:
+        # Skip the variation of renorm and fact together, since we're treating as independent
+        if syst_name == "renormfact": continue
+
         relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "sample") # The samples relevant to this syst
-        n_arr     = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()]        # Sum of all samples for nominal variation
-        u_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Up").values()[()]   # Sum of all samples for up variation
-        d_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Down").values()[()] # Sum of all samples for down variation
-        u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
-        d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
-        p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
-        m_arr_rel = np.where(u_arr_rel<0,u_arr_rel,d_arr_rel) # Just the ones that decrease the yield
+        n_arr = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()] # Sum of all samples for nominal variation
+
+        # Special handling of renorm and fact
+        # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
+        if (syst_name == "renorm") or (syst_name == "fact"):
+            p_arr_rel,m_arr_rel = get_decorrelated_uncty(syst_name,CR_GRP_MAP,relevant_samples_lst,base_histo,n_arr)
+
+        # If the syst is not renorm or fact, just treat it normally (correlate across all processes)
+        else:
+            u_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Up").values()[()]   # Sum of all samples for up variation
+            d_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Down").values()[()] # Sum of all samples for down variation
+
+            u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
+            d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
+            p_arr_rel = np.where(u_arr_rel>0,u_arr_rel,d_arr_rel) # Just the ones that increase the yield
+            m_arr_rel = np.where(u_arr_rel<0,u_arr_rel,d_arr_rel) # Just the ones that decrease the yield
+
+        # Square and append this syst to the return lists
         p_arr_rel_lst.append(p_arr_rel*p_arr_rel) # Square each element in the arr and append the arr to the out list
         m_arr_rel_lst.append(m_arr_rel*m_arr_rel) # Square each element in the arr and append the arr to the out list
 
     return [sum(m_arr_rel_lst), sum(p_arr_rel_lst)]
+
+
+# Special case for renorm and fact, as these are decorrelated across processes
+# Sorry to anyone who tries to read this in the future, this function is very ad hoc and messy and hard to follow
+# Just used in get_shape_syst_arrs()
+# Here are a few notes: 
+#   - This is complicated, so I just symmetrized the errors
+#   - The processes are generally correlated across groups (e.g. WZ and ZZ) since this is what's done in the datacard maker for the SR
+#   - So the grouping generally follows what's in the CR group map, except in the case of signal
+#       - Since in the SR all signal processes are uncorrelated for these systs, we also uncorrelate here
+#       - Note there are caveats to this:
+#           * In the SR, TTZToLL_M1to10 and TTToSemiLeptonic and TTTo2L2Nu are all grouped into ttll
+#           * Here in the CR TTZToLL_M1to10 is part of signal group, but TTToSemiLeptonic and TTTo2L2Nu are in their own ttbar group
+#           * So there are two differences with respect to how these processes are grouped in the SR: 
+#               1) Here TTToSemiLeptonic and TTTo2L2Nu are correlated with each other, but not with ttll
+#               2) Here TTZToLL_M1to10 is grouped as part of signal (as in SR) but here _all_ signal processes are uncorrleated so here TTZToLL_M1to10 is uncorrelated with ttll while in SR they would be correlated
+def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,template_zeros_arr):
+
+    # Initialize the array we will return (ok technically we return sqrt of this arr squared..)
+    a_arr_sum = np.zeros_like(template_zeros_arr) # Just using this template_zeros_arr for its size
+
+    # Loop over the groups of processes, generally the processes in the groups will be correlated and the different groups will be uncorrelated
+    for proc_grp in grp_map.keys():
+        proc_lst = grp_map[proc_grp]
+        if proc_grp in ["Nonprompt","Flips","Data"]: continue # Renorm and fact not relevant here
+        if proc_lst == []: continue # Nothing here
+
+        # We'll keep all signal processes as uncorrelated, similar to what's done in SR
+        if proc_grp == "Signal":
+            for proc_name in proc_lst:
+                if proc_name not in relevant_samples_lst: continue
+
+                n_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic","nominal").values()[()]
+                u_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Up").values()[()]
+                d_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Down").values()[()]
+
+                u_arr_proc_rel = u_arr_proc - n_arr_proc
+                d_arr_proc_rel = d_arr_proc - n_arr_proc
+                a_arr_proc_rel = (abs(u_arr_proc_rel) + abs(d_arr_proc_rel))/2.0
+
+                a_arr_sum += a_arr_proc_rel*a_arr_proc_rel
+
+        # Otherwise corrleated across groups (e.g. ZZ and WZ, as datacard maker does in SR)
+        else:
+            n_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic","nominal").values()[()]
+            u_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Up").values()[()]
+            d_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Down").values()[()]
+            u_arr_grp_rel = u_arr_grp - n_arr_grp
+            d_arr_grp_rel = d_arr_grp - n_arr_grp
+            a_arr_grp_rel = (abs(u_arr_grp_rel) + abs(d_arr_grp_rel))/2.0
+
+            a_arr_sum += a_arr_grp_rel*a_arr_grp_rel
+
+    # Before we move on, need to sqrt the outcome since later we'll square before adding in quadrature with other systs
+    p_arr_rel =  np.sqrt(a_arr_sum)
+    m_arr_rel = -np.sqrt(a_arr_sum)
+
+    return [p_arr_rel,m_arr_rel]
+
 
 # Get the squared arr for the jet dependent syst (e.g. for diboson jet dependent syst)
 def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
