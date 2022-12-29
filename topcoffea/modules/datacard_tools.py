@@ -957,7 +957,7 @@ class DatacardMaker():
                                 hist_name = hist_name.replace(syst_base,split_syst)
                                 all_shapes.add(split_syst)
                                 text_card_info[proc_name]["shapes"].add(split_syst)
-                                if base == "sm" and self.verbose:
+                                if eft_term == "sm" and self.verbose:
                                     print(f"\tDecorrelate {p} for {syst_base} into {split_syst} ({syst.replace(syst_base,'')})")
                             else:
                                 all_shapes.add(syst_base)
