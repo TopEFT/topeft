@@ -12,7 +12,6 @@ import os
 import re
 import string
 from pathlib import Path
-from setuptools import version
 
 import coffea
 
@@ -55,15 +54,6 @@ pip_local_to_watch = { "topcoffea": ["topcoffea", "setup.py"] }
 
 packages_json = packages_json_template.substitute(py_version=py_version,coffea_version=coffea_version)
 
-def _check_git_min_version(min_version):
-    try:
-        output = subprocess.check_output(['git', 'version']).decode()
-        version_str = output.split(" ")[-1]
-        return version.pkg_resources.parse_version(min_version) <= version.pkg_resources.parse_version(version_str)
-    except FileNotFoundError:
-        raise FileNotFoundError("Could not find the git executable in PATH")
-    return output
-
 def _check_current_env():
     spec = json.loads(packages_json)
     with tempfile.NamedTemporaryFile() as f:
@@ -76,17 +66,17 @@ def _check_current_env():
             conda_deps = {re.sub("[!~=<>].*$", "", x):x  for x in current_spec['dependencies'] if not isinstance(x, dict)}
 	    # get current pip packages
             pip_deps = {re.sub("[!~=<>].*$", "", y):y for y in  [x for x in current_spec['dependencies'] if isinstance(x, dict) and 'pip' in x for x in x['pip']]}
-    
 
-            # replcae any conda packages
+
+            # replace any conda packages
             for i in range(len(spec['conda']['packages'])):
                 # ignore packages where a version is already specified
                 package = spec['conda']['packages'][i]
                 if not re.search("[!~=<>].*$", package):
                     if package in conda_deps:
                         spec['conda']['packages'][i] = conda_deps[package]
-                                         
-            # replcae any pip packages
+
+            # replace any pip packages
             for i in range(len(spec['pip'])):
                 # ignore packages where a version is already specified
                 package = spec['pip'][i]
@@ -105,7 +95,7 @@ def _create_env(env_name, force=False):
         return env_name
 
     with tempfile.NamedTemporaryFile() as f:
-        logger.info("Checking current Conda environment")
+        logger.info("Checking current conda environment")
         spec = _check_current_env()
         packages_json = json.dumps(spec)
         logger.info("base env specification:{}".format(packages_json))
@@ -140,15 +130,21 @@ def _commits_local_pip(paths):
             to_watch = []
             paths = pip_local_to_watch.get(pkg, None)
             if paths:
-                # exclude magic word added to git in version 1.9.5
+                to_watch = [":(top){}".format(d) for d in paths]
 
-                if _check_git_min_version("1.9.5"):
-                    to_watch = [":(top){}".format(d) for d in paths]
-                else:
-                    logger.warning("git version is older than 1.9.5, ignoring path restricitons when checking for changes: {}".format(",".join(paths)))
+            try:
+                commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=path).decode().rstrip()
+            except FileNotFoundError:
+                raise FileNotFoundError("Could not find the git executable in PATH")
 
-            commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=path).decode().rstrip()
-            changed = subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'] + to_watch, cwd=path).decode().rstrip()
+            changed = True
+            cmd = ['git', 'status', '--porcelain', '--untracked-files=no']
+            try:
+                changed = subprocess.check_output(cmd + to_watch, cwd=path).decode().rstrip()
+            except subprocess.CalledProcessError:
+                logger.warning("Could not apply git paths-to-watch filters. Trying without them...")
+                changed = subprocess.check_output(cmd, cwd=path).decode().rstrip()
+
             if changed:
                 logger.warning("Found unstaged changes in {}:\n{}".format(path,changed))
                 commits[pkg] = 'HEAD'
@@ -157,9 +153,8 @@ def _commits_local_pip(paths):
         except Exception as e:
             # on error, e.g., not a git repository, assume that current state
             # should be installed
-            print(e)
-            logger.warning("Could not get current commit of '{}'.".format(path))
-            commits[pkg] = 'HEAD'
+            logger.warning(f"Could not get current commit of '{path}': {e}")
+            commits[pkg] = "HEAD"
     return commits
 
 
