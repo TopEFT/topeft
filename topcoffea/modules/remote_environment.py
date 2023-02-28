@@ -54,15 +54,6 @@ pip_local_to_watch = { "topcoffea": ["topcoffea", "setup.py"] }
 
 packages_json = packages_json_template.substitute(py_version=py_version,coffea_version=coffea_version)
 
-def _check_git_min_version(min_version):
-    try:
-        output = subprocess.check_output(['git', 'version']).decode()
-        version_str = output.split(" ")[-1]
-        return version.pkg_resources.parse_version(min_version) <= version.pkg_resources.parse_version(version_str)
-    except FileNotFoundError:
-        raise FileNotFoundError("Could not find the git executable in PATH")
-    return output
-
 def _check_current_env():
     spec = json.loads(packages_json)
     with tempfile.NamedTemporaryFile() as f:
