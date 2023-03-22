@@ -7,7 +7,7 @@ from coffea.nanoevents import NanoEventsFactory
 
 import topcoffea.modules.fileReader as fr
 import topcoffea.modules.QuadFitTools as qft
-from topcoffea.plotter.make_html import make_html
+from topcoffea.scripts.make_html import make_html
 
 # This is more or less a placeholder script 
 #   - It shows  an example of how we might want to access the quadratic fit information using topcoffea.modules.QuadFitTools

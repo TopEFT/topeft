@@ -18,7 +18,7 @@ from coffea import hist
 from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.YieldTools import YieldTools
-from topcoffea.plotter.make_html import make_html
+from topcoffea.scripts.make_html import make_html
 
 import topcoffea.modules.GetValuesFromJsons as getj
 

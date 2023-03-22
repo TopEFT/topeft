@@ -75,7 +75,7 @@ if __name__ == '__main__':
     import argparse
     import datetime
     import os
-    from topcoffea.plotter.make_html import make_html
+    from topcoffea.scripts.make_html import make_html
 
     parser = argparse.ArgumentParser(description='You can select which file to run over')
     parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'    , help = 'Lumi json file')
