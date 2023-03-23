@@ -38,7 +38,7 @@
 import numpy as np
 import os
 import topcoffea.modules.QuadFitTools as qft
-from topcoffea.plotter.make_html import make_html
+from topcoffea.scripts.make_html import make_html
 
 # Load the input dict (with all of the values from the template histos)
 # Note this is a PLACEHOLDER (should be a command line argument?)

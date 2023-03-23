@@ -2,7 +2,6 @@
  HistEFT class - built on top of coffea.hist.Hist
  Deals with EFT coefficients. Most common methods of the parent class are redefined in order to account for the EFT coefficients
  The plotting settings are inherited.
- Uses WCPoint and WCFit to evaluate the weight fuctions (at plotter level).
 
  Example of initizalization: 
   HistEFT("Events", ['c1', 'c2', 'c3'], hist.Cat("sample", "sample"), hist.Cat("cut", "cut"), hist.Bin("met", "MET (GeV)", 40, 0, 400))

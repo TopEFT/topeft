@@ -11,7 +11,7 @@ from topcoffea.modules.HistEFT import HistEFT
 
 from topcoffea.modules.YieldTools import YieldTools
 import topcoffea.modules.GetValuesFromJsons as getj
-from topcoffea.plotter.make_html import make_html
+from topcoffea.scripts.make_html import make_html
 import topcoffea.modules.utils as utils
 
 # This script takes an input pkl file that should have both data and background MC included.

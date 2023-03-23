@@ -8,7 +8,7 @@ import os
 import argparse
 import ROOT
 
-from topcoffea.plotter.make_html import make_html
+from topcoffea.scripts.make_html import make_html
 import get_datacard_yields as dy # Note the functions we're using from this script should probably go in topocffea/modules
 
 
