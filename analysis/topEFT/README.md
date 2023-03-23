@@ -33,10 +33,6 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - This script takes two json files of yields (produced by `get_yield_json.py`), finds the difference and percent difference between them in each category, and prints out all of the information. You can also compare to the TOP-19-001 yields by specifying `TOP-19-001` as one of the inputs. Specifying the second file is optional, and it will default to the reference yield file. The script returns a non-zero exit code if any of the percent differences are larger than a given value (currently set to 1e-8). 
     - Example usage: `python comp_yields.py your_yields_1.json your_yields_2.json`
 
-* `check_yields.sh`:
-    - This script calls `run.py` (to run the `topeft` processor over a sample), `get_yield_json.py` (to find the yields, and save them to a json file), and `comp_yields.py` (to compare these yields to reference yields).
-    - Example usage: `source check_yields.sh`
-
 * `remake_ci_ref_datacard.py`:
     - This script runs the datacard maker tests.
     - Example usage: `python remake_ci_ref_datacard.py`
