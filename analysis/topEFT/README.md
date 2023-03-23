@@ -3,11 +3,16 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 ### Plotting Scripts
 
-* `make_cr_plots.py`:
-    - This script makes plots for all CRs categories. 
+* `make_cr_and_sr_plots.py`:
+    - This script makes plots for all CRs categories, also has the ability to make SR plots. 
     - The script takes as input a pkl file that should have both data and background MC included.
     - Example usage: `python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2018 -t -u`
 
+* `make_1d_quad_plots.py`:
+    - Makes plots of the inclusive 1d parameterization for the events in an input root file 
+    
+* `make_1d_quad_plots_from_template_histos.py`:
+    - The purpose of this script was to help to understand the quadratic dependence of the systematics on the WCs. This script takes as input the information from the template histograms, and the goal is to reconstruct the quadratic parameterizations from the templates. The relevant templates are the ones produced by topcoffea's datacard maker, which should be passed to `EFTFit`'s `look_at_templates.C` (which opens the templates, optionally extrapolates the up/down beyond +-1sigma, and dumps the info into a python dictionary). The comments in the script have more information about how to run it. 
 
 ### Wrappers for processors
 
@@ -23,7 +28,13 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - This script runs over the provided json files and calculates the properer sum of weights
     - Example usage: `python run_sow.py ../../topcoffea/json/signal_samples/private_UL/UL17_tHq_b1.json --xrd root://deepthought.crc.nd.edu/`
 
+* `fullR2_run.sh`: Wrapper script for making the full TOP-22-006 pkl file with `work_queue_run.py`. 
+
 ### Scripts for finding and comparing yields
+
+* `get_datacard_yields.py`:
+    - Gets SM yields from template histograms, dumps the yields (in latex table format) to the screen
+    - Example usage: `python get_datacard_yields.py /path/to/dir/with/your/templates/`
 
 * `get_yield_json.py`:
     - This script takes a pkl file produced by the processor, finds the yields in the analysis categories, and saves the yields to a json file. It can also print the info to the screen. The default pkl file to process is `hists/plotsTopEFT.pkl.gz`.
@@ -36,6 +47,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 * `remake_ci_ref_datacard.py`:
     - This script runs the datacard maker tests.
     - Example usage: `python remake_ci_ref_datacard.py`
+    
 * `remake_ci_ref_datacard.sh`:
     - This script runs `remake_ci_ref_datacard.py` and copies the resulting reference files to the `analysis/topEFT/test`
     - Example usage: `sh remake_ci_ref_datacard.sh`
