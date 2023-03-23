@@ -6,6 +6,38 @@ on:
     - cron: '0 1 * * *' # Test every day at 1AM
   
 jobs:
+
+  # Based on https://github.com/py-actions/flake8#quick-start
+  flake8-lint:
+    runs-on: ubuntu-latest
+    name: Lint
+    steps:
+      - name: Check out source repository
+        uses: actions/checkout@v3
+      - name: Set up Python environment
+        uses: actions/setup-python@v1
+      - name: flake8 Lint
+        uses: py-actions/flake8@v2
+        with:
+          ignore: "E201,E202,E203,E221,E226,E225,E227,E228,E231,E241,E261,E265,E302,E303,E501,E701,E714"
+          # E201 whitespace after '('
+          # E202 whitespace before ')'
+          # E203 whitespace before ':'
+          # E221 multiple spaces before operator
+          # E225 missing whitespace around operator
+          # E226 missing whitespace around arithmetic operator
+          # E227 missing whitespace around bitwise or shift operator
+          # E228 missing whitespace around modulo operator
+          # E231 missing whitespace after ','
+          # E241 multiple spaces after ','
+          # E261 at least two spaces before inline comment
+          # E265 block comment should start with '# '
+          # E302 expected 2 blank lines, found 1
+          # E303 too many blank lines (3)
+          # E501 line too long
+          # E701 multiple statements on one line (colon)
+          # E714 test for object identity should be 'is not'
+
   Full_Analysis:
     runs-on: ubuntu-latest
     steps:
