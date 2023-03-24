@@ -14,7 +14,7 @@ from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
-from topcoffea.modules.GetValuesFromJsons import get_param
+from topcoffea.modules.GetValuesFromJsons import get_param, get_lumi
 from topcoffea.modules.objects import *
 from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachPdfWeights, AttachScaleWeights, GetTriggerSF
 from topcoffea.modules.selection import *
@@ -299,7 +299,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
-            weights_obj_base.add("norm",(xsec/sow)*genw)
+            lumi = 1000.0*get_lumi(year)
+            weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
 
             # Attach PS weights (ISR/FSR) and scale weights (renormalization/factorization) and PDF weights
             AttachPSWeights(events)

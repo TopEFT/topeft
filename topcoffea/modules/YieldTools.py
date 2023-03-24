@@ -501,22 +501,6 @@ class YieldTools():
 
         return ret_dict
 
-    # Figures out which year a sample is from, retruns the lumi for that year
-    def get_lumi_for_sample(self,sample_name):
-        if "UL17" in sample_name:
-            lumi = 1000.0*get_lumi("2017")
-        elif "UL18" in sample_name:
-            lumi = 1000.0*get_lumi("2018")
-        elif "UL16APV" in sample_name:
-            lumi = 1000.0*get_lumi("2016APV")
-        elif "UL16" in sample_name:
-            # Should not be here unless "UL16APV" not in sample_name
-            lumi = 1000.0*get_lumi("2016")
-        else:
-            raise Exception(f"Error: Unknown year \"{year}\".")
-        return lumi
-
-
     # Takes as input a dictionary {"k": {"subk":[val,err]}} and returns {"k":{"subk":val}}
     def strip_errs(self,in_dict):
         out_dict = {}
@@ -587,7 +571,7 @@ class YieldTools():
 
 
     # Integrates out categories, normalizes, then calls get_yield()
-    def get_normalized_yield(self,hin_dict,lumi_factor,proc,cat_dict,overflow_str,rwgt_pt=None,h_name="ht"):
+    def get_normalized_yield(self,hin_dict,proc,cat_dict,overflow_str,rwgt_pt=None,h_name="ht"):
 
         # Integrate out cateogries
         h = hin_dict[h_name]
@@ -599,11 +583,6 @@ class YieldTools():
             hist.set_wilson_coefficients(**wc_vals)
         else:
             h.set_sm()
-
-
-        # Scale the mc by lumi
-        if "data" not in proc:
-            h.scale(lumi_factor)
 
         return self.get_yield(h,proc,overflow_str)
 
@@ -643,15 +622,14 @@ class YieldTools():
         for proc in proc_lst:
             if year is not None:
                 if not proc.endswith(year): continue
-            lumi_factor = self.get_lumi_for_sample(proc)
             proc_name_short = self.get_short_name(proc)
             if proc_name_short not in yld_dict:
                 yld_dict[proc_name_short] = {}
                 for cat,cuts_dict in cat_dict.items():
-                    yld_dict[proc_name_short][cat] = self.get_normalized_yield(hin_dict,lumi_factor,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
+                    yld_dict[proc_name_short][cat] = self.get_normalized_yield(hin_dict,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
             else:
                 for cat,cuts_dict in cat_dict.items():
-                    yld_dict[proc_name_short][cat][0] += self.get_normalized_yield(hin_dict,lumi_factor,proc,cuts_dict,overflow_str="over",h_name=hist_to_use)[0] # Important to keep overflow
+                    yld_dict[proc_name_short][cat][0] += self.get_normalized_yield(hin_dict,proc,cuts_dict,overflow_str="over",h_name=hist_to_use)[0] # Important to keep overflow
                     yld_dict[proc_name_short][cat][1] = None # Ok, let's just forget the sumw2...
 
         # If the file is split by lepton flav, but we don't want that, sum over lep flavors:

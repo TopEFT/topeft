@@ -48,10 +48,6 @@ class DataDrivenProducer:
                 if year not in ['16APV','16','17','18']:
                     raise RuntimeError(f"Sample {sample} does not match the naming convention, year \"{year}\" is unknown.")
 
-                if self.dataName == sampleName:
-                    continue # We do not scale data
-                scale_dict[(sample, )] = 1000.0*get_lumi('20'+year)
-
             prescale=histo.values().copy()
             histo.scale( scale_dict, axis=('sample',))
             postscale=histo.values()
