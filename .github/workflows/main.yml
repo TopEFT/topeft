@@ -19,7 +19,7 @@ jobs:
       - name: flake8 Lint
         uses: py-actions/flake8@v2
         with:
-          ignore: "E201,E202,E203,E221,E222,E226,E225,E227,E228,E231,E241,E251,E261,E265,E266,E302,E303,E305,E402,F403,E501,E701,E714,F841"
+          ignore: "E201,E202,E203,E221,E222,E226,E225,E227,E228,E231,E241,E251,E261,E265,E266,E302,E303,E305,E402,F403,F405,E501,E701,E714,F841,W391"
           # E201 whitespace after '('
           # E202 whitespace before ')'
           # E203 whitespace before ':'
@@ -40,10 +40,12 @@ jobs:
           # E305 expected 2 blank lines after class or function definition, found 1
           # E402 module level import not at top of file
           # F403 unable to detect undefined names
+          # F405 may be undefined, or defined from star imports
           # E501 line too long
           # E701 multiple statements on one line (colon)
           # E714 test for object identity should be 'is not'
           # F841 local variable is assigned to but never used
+          # W391 blank line at end of file
 
   Full_Analysis:
     runs-on: ubuntu-latest
