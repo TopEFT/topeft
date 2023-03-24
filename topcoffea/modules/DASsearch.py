@@ -5,8 +5,8 @@
 # python CheckDatasets.py /TTZToLLNuNu_M-10_TuneCP5_13TeV-amcatnlo-pythia8/RunIIAutumn18NanoAODv6-Nano25Oct2019_102X_upgrade2018_realistic_v20_ext1-v1/NANOAODSIM -o nevents
 #
 # To get a dict with all the needed info to run:
-#  Get full dataset, all files: GetDatasetFromDAS(dataset, withRedirector='root://cms-xrd-global.cern.ch/')    
-#  Get full dataset, n files  : GetDatasetFromDAS(dataset, nFiles, withRedirector='root://cms-xrd-global.cern.ch/')    
+#  Get full dataset, all files: GetDatasetFromDAS(dataset, withRedirector='root://cms-xrd-global.cern.ch/')
+#  Get full dataset, n files  : GetDatasetFromDAS(dataset, nFiles, withRedirector='root://cms-xrd-global.cern.ch/')
 #  Get info for just n files  : GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector='root://cms-xrd-global.cern.ch/') 
 #
 
@@ -97,7 +97,7 @@ def GetFilesFromDatasets(datasets, nFiles=None, withRedirector='', verbose=False
         if match.endswith('\n'): match=match[:-1]
         match = match.replace(' ', '').split('\n')
         if withRedirector != '':
-            #redirect = 'root://cms-xrd-global.cern.ch/' 
+            #redirect = 'root://cms-xrd-global.cern.ch/'
             match = [withRedirector+s for s in match]
         if verbose:
             for d in match: print(d)
@@ -154,8 +154,8 @@ def GetFilesInDataset(dataset, nFiles=1, withRedirector='', verbose=0):
         return dic
 
 def GetDatasetFromDAS(dataset, nFiles=None, options='', withRedirector='', includeRedirector=True, verbose=0):
-    ''' Get full dataset, all files: GetDatasetFromDAS(dataset, withRedirector='root://cms-xrd-global.cern.ch/')    
-        Get full dataset, n files  : GetDatasetFromDAS(dataset, nFiles, withRedirector='root://cms-xrd-global.cern.ch/')    
+    ''' Get full dataset, all files: GetDatasetFromDAS(dataset, withRedirector='root://cms-xrd-global.cern.ch/')
+        Get full dataset, n files  : GetDatasetFromDAS(dataset, nFiles, withRedirector='root://cms-xrd-global.cern.ch/')
         Get info for just n files  : GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector='root://cms-xrd-global.cern.ch/') '''
     if not 'file' in options.lower():
         # Check event numbers for nFiles

@@ -3,11 +3,11 @@
  Deals with EFT coefficients. Most common methods of the parent class are redefined in order to account for the EFT coefficients
  The plotting settings are inherited.
 
- Example of initizalization: 
+ Example of initizalization:
     HistEFT("Events", ['c1', 'c2', 'c3'], hist.Cat("sample", "sample"), hist.Cat("cut", "cut"), hist.Bin("met", "MET (GeV)", 40, 0, 400))
 
  TODO: check the group and rebin functions... in particular, the part of grouping/rebinning the coefficients
- TODO: add sum of weights for normalization? 
+ TODO: add sum of weights for normalization?
 """
 
 
@@ -52,9 +52,9 @@ class HistEFT(coffea.hist.Hist):
                 self._sumw2[key] = None
             else:
                 self._sumw2[key] = self._sumw[key].copy()
-                        
+
     def set_wilson_coeff_from_array(self, values):
-        """Set the WC values used to evaluate the bin contents of this histogram to the contents of 
+        """Set the WC values used to evaluate the bin contents of this histogram to the contents of
            an array where the elements are ordered according to the order defined by wcnames.
         """
         self._wcs = np.asarray(values).copy()
@@ -62,7 +62,7 @@ class HistEFT(coffea.hist.Hist):
     def set_sm(self):
         """Conveniece method to set the WC values to SM (all zero)"""
         self._wcs = np.zeros(self._nwc)
-        
+
     def set_wilson_coefficients(self, **values):
         """Set the WC values used to evaluate the bin contents of this histogram
            where the WCs are specified as keyword arguments.  Any WCs not listed are set to zero.
@@ -257,7 +257,7 @@ class HistEFT(coffea.hist.Hist):
             super().fill(**values)
             return
 
-        # OK then, we're doing this with EFT coefficients.    
+        # OK then, we're doing this with EFT coefficients.
 
         # We want this as a numpy array
         eft_coeff = np.asarray(eft_coeff)
@@ -265,16 +265,16 @@ class HistEFT(coffea.hist.Hist):
         # Check that we have the right number of coefficients
         if self._ncoeffs != eft_coeff.shape[1]:
             raise ValueError(
-                "Wrong number of EFT coefficients.  "+
+                "Wrong number of EFT coefficients.  " +
                 "Expecting {}, received {}".format(self._ncoeffs, eft_coeff.shape[1])
             )
         if eft_err_coeff is not None:
             if self._nerrcoeffs != eft_err_coeff.shape[1]:
                 raise ValueError(
-                    "Wrong number of EFT w*w coefficients.  "+
+                    "Wrong number of EFT w*w coefficients.  " +
                     "Expecting {}, received {}".format(self._nerrcoeffs, eft_err_coeff.shape[1])
                 )
-            
+
         # Next, if there are weights, we should multiply the EFT coefficients by those weights
         if weight is not None:
             eft_coeff = eft_coeff*weight[:,np.newaxis]
@@ -310,7 +310,7 @@ class HistEFT(coffea.hist.Hist):
         # array.  So, we're going to construct flat arrays of which
         # coefficients need to be incremented and then use np.bincount to
         # do the actual summing.
-        if self.dense_dim() > 0: 
+        if self.dense_dim() > 0:
             # repeat the dense indices ncoeffs times to account for the fact
             # that we're filling that many numbers
             dense_indices = tuple(
@@ -339,7 +339,8 @@ class HistEFT(coffea.hist.Hist):
                 xy = np.atleast_1d(
                     np.ravel_multi_index(
                         (*dense_indices,np.tile(np.arange(self._nerrcoeffs),eft_err_coeff.shape[0])),
-                    (*self._dense_shape,self._nerrcoeffs))
+                        (*self._dense_shape,self._nerrcoeffs)
+                    )
                 )
                 self._sumw2[sparse_key] += np.bincount(
                     xy, weights=eft_err_coeff.flatten(),
@@ -377,7 +378,7 @@ class HistEFT(coffea.hist.Hist):
                             # But first we have to know which hist is the EFT one
                             if len(left[lkey].shape) == 2:
                                 # The left hist is the one with eft weights
-                                left[lkey][:,0] = left[lkey][:,0] + right[rkey] 
+                                left[lkey][:,0] = left[lkey][:,0] + right[rkey]
                             elif len(right[rkey].shape) == 2:
                                 # The right hist is the one with eft weights
                                 # So we want left to be equal to left plus right (where left is just added to the SM part of right), without modifying right
@@ -398,16 +399,14 @@ class HistEFT(coffea.hist.Hist):
                     left[lkey] = right[rkey]
                 if right[rkey] is None:
                     pass
-                
 
         # Add the sumw2 values
-        if self._sumw2 is None and other._sumw2 is None: 
+        if self._sumw2 is None and other._sumw2 is None:
             pass
         elif self._sumw2 is None:
             self._init_sumw2()
             add_dict(self._sumw2, other._sumw2)
         elif other._sumw2 is None:
-            
             # This is a tricky case because we want to put in "sumw" for
             # "sumw2" for any non-EFT sparse bins, but None for any EFT
             # sparse bins
@@ -426,12 +425,12 @@ class HistEFT(coffea.hist.Hist):
         # Add the sumw values
         add_dict(self._sumw, other._sumw)
 
-        return self 
+        return self
 
     def __getitem__(self, keys):
         """ Extended from parent class """
         if not isinstance(keys, tuple): keys = (keys,)
-        if len(keys) > self.dim():  raise IndexError("Too many indices for this histogram")
+        if len(keys) > self.dim(): raise IndexError("Too many indices for this histogram")
         elif len(keys) < self.dim():
             if Ellipsis in keys:
                 idx = keys.index(Ellipsis)
@@ -493,7 +492,6 @@ class HistEFT(coffea.hist.Hist):
                     # If either sumw2 value is None, we will set the out sumw2 to None
                     else:
                         out._sumw2[sparse_key] = None
-
             else:
                 out._sumw[sparse_key] = dense_op(self._sumw[sparse_key]).copy()
                 if self._sumw2 is not None:
@@ -504,7 +502,7 @@ class HistEFT(coffea.hist.Hist):
         return out
 
     def sum(self, *axes, **kwargs):
-        """ Integrates out a set of axes, producing a new histogram 
+        """ Integrates out a set of axes, producing a new histogram
                 Project() and integrate() depends on sum() and are heritated """
         overflow = kwargs.pop('overflow', 'none')
         axes = [self.axis(ax) for ax in axes]
@@ -533,10 +531,8 @@ class HistEFT(coffea.hist.Hist):
             return array
 
         for key in self._sumw.keys():
-
             new_key = tuple(k for i, k in enumerate(key) if i not in sparse_drop)
             if new_key in out._sumw:
-
                 # Handle the sumw values
                 # Check if we're trying to combine EFT and non-EFT bins
                 if ((self.dense_dim() > 0) and (out._sumw[new_key].shape != self._sumw[key].shape)):
@@ -560,7 +556,6 @@ class HistEFT(coffea.hist.Hist):
                     raise ValueError("Attempt to sum bins with EFT weights to ones without.")
                 else:
                     out._sumw[new_key] += dense_op(self._sumw[key])
-
                 # Handle the sumw2 values
                 if self._sumw2 is not None:
                     # If neither sumw2 value is None, add them
@@ -598,10 +593,9 @@ class HistEFT(coffea.hist.Hist):
                         out._sumw2[new_key] = dense_op(self._sumw2[key]).copy()
                     else:
                         out._sumw2[new_key] = None
-                            
         return out
 
-    def group(self, old_axes, new_axis, mapping, overflow='none'): 
+    def group(self, old_axes, new_axis, mapping, overflow='none'):
         """ Group a set of slices on old axes into a single new axis """
         ### WARNING: check that this function works properly... (TODO) --> Are the EFT coefficients properly grouped?
         if not isinstance(new_axis, coffea.hist.hist_tools.SparseAxis):
@@ -682,7 +676,7 @@ class HistEFT(coffea.hist.Hist):
             If True, frequencies is a tuple of arrays (sum weights, sum squared weights)
         overflow
             See `sum` description for meaning of allowed values
-        
+
         Returns a mapping ``{(sparse identifier, ...): numpy.array(...), ...}``
         where each array has dimension `dense_dim` and shape matching
         the number of bins per axis, plus 0-3 overflow bins depending
@@ -715,14 +709,14 @@ class HistEFT(coffea.hist.Hist):
 
             if sumw2:
                 if self._sumw2 is not None:
-                        if is_eft_bin:
-                            if self._sumw2[sparse_key] is not None:
-                                _sumw2 = efth.calc_eft_w2(self._sumw2[sparse_key],self._wcs)
-                            else:
-                                # Set really tiny error bars (e.g. one one-millionth the size of the average bin)
-                                _sumw2 = np.full_like(_sumw,1e-30*np.mean(_sumw))
+                    if is_eft_bin:
+                        if self._sumw2[sparse_key] is not None:
+                            _sumw2 = efth.calc_eft_w2(self._sumw2[sparse_key],self._wcs)
                         else:
-                            _sumw2 = self._sumw2[sparse_key]
+                            # Set really tiny error bars (e.g. one one-millionth the size of the average bin)
+                            _sumw2 = np.full_like(_sumw,1e-30*np.mean(_sumw))
+                    else:
+                        _sumw2 = self._sumw2[sparse_key]
                 else:
                     if is_eft_bin:
                         # Set really tiny error bars (e.g. one one-millionth the size of the average bin)
@@ -776,7 +770,7 @@ class HistEFT(coffea.hist.Hist):
                     self._sumw[key] *= factor[factor_key]
                     if self._sumw2[key] is not None:
                         self._sumw2[key] *= factor[factor_key] ** 2
-        elif isinstance(factor, numpy.ndarray):
+        elif isinstance(factor, np.ndarray):
             axis = self.axis(axis)
             raise NotImplementedError("Scale dense dimension by a factor")
         else:

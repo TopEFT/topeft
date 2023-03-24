@@ -160,7 +160,7 @@ def AttachPerLeptonFR(leps, flavor, year):
     if year == '2018':
         leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11) * ((np.abs(leps.eta) > 1.5)*0.5 + (np.abs(leps.eta) < 1.5)*0.1) + 1.0
         leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.05 + 1.0
-  
+
     for flav in ['el','mu']:
         leps['fakefactor_%sclosuredown' % flav] = leps['fakefactor'] / leps['fakefactor_%sclosurefactor' % flav]
         leps['fakefactor_%sclosureup' % flav]   = leps['fakefactor'] * leps['fakefactor_%sclosurefactor' % flav]
@@ -202,8 +202,8 @@ def AttachMuonSF(muons, year):
     reco_err = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0) # sf error =0 when pt>20 becuase there is no reco SF available
     loose_sf  = SFevaluator['MuonLooseSF_{year}'.format(year=year)](eta,pt)
     loose_err = np.sqrt(
-        SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt) * SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt)
-        + SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt) * SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt)
+        SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt) * SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt) +
+        SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt) * SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt)
     )
     iso_sf  = SFevaluator['MuonIsoSF_{year}'.format(year=year)](eta,pt)
     iso_err = SFevaluator['MuonIsoSF_{year}_er'.format(year=year)](eta,pt)
@@ -485,7 +485,7 @@ def AttachPSWeights(events):
     ISRup = 2
     FSRup = 3
     if events.PSWeight is None:
-        raise Exception(f'PSWeight not!')
+        raise Exception('PSWeight not found!')
     # Add up variation event weights
     events['ISRUp'] = events.PSWeight[:, ISRup]
     events['FSRUp'] = events.PSWeight[:, FSRup]
@@ -558,7 +558,7 @@ def AttachPdfWeights(events):
         Should be 100 weights for NNPDF 3.1
     '''
     if events.LHEPdfWeight is None:
-        raise Exception(f'LHEPdfWeight not found!')
+        raise Exception('LHEPdfWeight not found!')
     pdf_weight = ak.Array(events.LHEPdfWeight)
     #events['Pdf'] = ak.Array(events.nLHEPdfWeight) # FIXME not working
 
