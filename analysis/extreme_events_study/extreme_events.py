@@ -10,7 +10,7 @@ from coffea.processor import AccumulatorABC
 
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, ApplyRochesterCorrections 
+from topcoffea.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, ApplyRochesterCorrections
 from topcoffea.modules.selection import *
 from topcoffea.modules.paths import topcoffea_path
 
@@ -32,7 +32,7 @@ class dataframe_accumulator(AccumulatorABC):
             self._value = pd.concat([self._value, other])
         else:
             self._value = pd.concat([self._value, other._value])
-    
+
     # The cutoff values are set manually
     # First sort the dataframe to get a sufficient amount of top events (e.g. get_ST)
     # Then determine what values to focus on
@@ -85,14 +85,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create an accumulator of multiple dataframes
         self._accumulator = processor.dict_accumulator({
-                "nleps": dataframe_accumulator(pd.DataFrame()),
-                "njets": dataframe_accumulator(pd.DataFrame()),
-                "ST": dataframe_accumulator(pd.DataFrame()),
-                "HT": dataframe_accumulator(pd.DataFrame()),
-                "invMass": dataframe_accumulator(pd.DataFrame()),
-                "pt_l": dataframe_accumulator(pd.DataFrame()),
-                "pt_j": dataframe_accumulator(pd.DataFrame())
-            })
+            "nleps": dataframe_accumulator(pd.DataFrame()),
+            "njets": dataframe_accumulator(pd.DataFrame()),
+            "ST": dataframe_accumulator(pd.DataFrame()),
+            "HT": dataframe_accumulator(pd.DataFrame()),
+            "invMass": dataframe_accumulator(pd.DataFrame()),
+            "pt_l": dataframe_accumulator(pd.DataFrame()),
+            "pt_j": dataframe_accumulator(pd.DataFrame())
+        })
 
     @property
     def accumulator(self):

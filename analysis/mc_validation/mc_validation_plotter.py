@@ -4,16 +4,11 @@
 
 import numpy as np
 import os
-import copy
 import datetime
 import argparse
-import matplotlib.pyplot as plt
-from cycler import cycler
 
 import uproot
-from coffea import hist
 
-from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.scripts.make_html import make_html

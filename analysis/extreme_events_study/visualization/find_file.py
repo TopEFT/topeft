@@ -31,7 +31,7 @@ class dataframe_accumulator(AccumulatorABC):
             df = other._value.merge(self._base, on=["run", "luminosityBlock", "event"])
             df = df.loc[:,~df.columns.duplicated()]
             self._value = pd.concat([self._value, df])
-    
+
 
 class AnalysisProcessor(processor.ProcessorABC):
 
@@ -46,7 +46,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ############# Specify events to track #############
 
-        # Put event information of selected events from SKIM files into one dataframe 
+        # Put event information of selected events from SKIM files into one dataframe
         df_pt_j = output["pt_j"].value[["run", "luminosityBlock", "event"]][:1]
         df_njets = output["njets"].value[["run", "luminosityBlock", "event"]][:1]
         df_nleps = output["nleps"].value.sort_values(by="pt_l_0", ascending=False)
@@ -54,8 +54,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         df_SKIM = pd.concat([df_pt_j, df_njets, df_nleps], ignore_index=True)
 
         self._accumulator = processor.dict_accumulator({
-                                "nonSKIM": dataframe_accumulator(df_SKIM)
-                            })
+            "nonSKIM": dataframe_accumulator(df_SKIM)
+        })
 
     @property
     def accumulator(self):
