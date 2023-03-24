@@ -99,7 +99,7 @@ if __name__ == '__main__':
         hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass"]
     else:
         # We want to specify a custom list
-        # If we don't specify this argument, it will be None, and the processor will fill all hists 
+        # If we don't specify this argument, it will be None, and the processor will fill all hists
         hist_lst = args.hist_list
 
     if dotest:
@@ -136,7 +136,7 @@ if __name__ == '__main__':
         if not os.path.isfile(f):
             raise Exception(f'[ERROR] Input file {f} not found!')
         # This input file is a json file, not a cfg
-        if f.endswith('.json'): 
+        if f.endswith('.json'):
             LoadJsonToSampleName(f, prefix)
         # Open cfg files
         else:
@@ -156,7 +156,7 @@ if __name__ == '__main__':
                         if not os.path.isfile(l): prefix = l
                         else: LoadJsonToSampleName(l, prefix)
 
-    flist = {};
+    flist = {}
     for sname in samplesdict.keys():
         redirector = samplesdict[sname]['redirector']
         flist[sname] = [(redirector+f) for f in samplesdict[sname]['files']]
@@ -192,9 +192,9 @@ if __name__ == '__main__':
         print('   - nFiles       : %i'   %len(samplesdict[sname]['files']))
         for fname in samplesdict[sname]['files']: print('     %s'%fname)
 
-    if pretend: 
+    if pretend:
         print('pretending...')
-        exit() 
+        exit()
 
     # Extract the list of all WCs, as long as we haven't already specified one.
     if len(wc_lst) == 0:

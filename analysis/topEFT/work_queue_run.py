@@ -162,7 +162,7 @@ for f in allInputFiles:
                     else:
                         LoadJsonToSampleName(l, prefix)
 
-flist = {};
+flist = {}
 nevts_total = 0
 for sname in samplesdict.keys():
     redirector = samplesdict[sname]['redirector']

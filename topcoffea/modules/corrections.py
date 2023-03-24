@@ -118,7 +118,7 @@ extLepSF.add_weight_sets(["ElecSF_2016APV_2lss_er EGamma_SF2D_error %s" % topcof
 extLepSF.add_weight_sets(["ElecSF_2016APV_3l EGamma_SF2D %s" % topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_3l_EGM2D.root')])
 extLepSF.add_weight_sets(["ElecSF_2016APV_3l_er EGamma_SF2D_error %s" % topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_3l_EGM2D.root')])
 
-# Fake rate 
+# Fake rate
 for year in ['2016APV_2016', 2017, 2018]:
     for syst in ['','_up','_down','_be1','_be2','_pt1','_pt2']:
         extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb_recorrected{syst} %s" % topcoffea_path(basepathFromTTH + 'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
@@ -160,10 +160,10 @@ def AttachPerLeptonFR(leps, flavor, year):
     if year == '2018':
         leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11) * ((np.abs(leps.eta) > 1.5)*0.5 + (np.abs(leps.eta) < 1.5)*0.1) + 1.0
         leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.05 + 1.0
-      
+  
     for flav in ['el','mu']:
-        leps['fakefactor_%sclosuredown' % flav] = leps['fakefactor'] / leps['fakefactor_%sclosurefactor' % flav] 
-        leps['fakefactor_%sclosureup' % flav]   = leps['fakefactor'] * leps['fakefactor_%sclosurefactor' % flav] 
+        leps['fakefactor_%sclosuredown' % flav] = leps['fakefactor'] / leps['fakefactor_%sclosurefactor' % flav]
+        leps['fakefactor_%sclosureup' % flav]   = leps['fakefactor'] * leps['fakefactor_%sclosurefactor' % flav]
 
     if flavor == "Elec":
         leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
@@ -172,14 +172,14 @@ def AttachPerLeptonFR(leps, flavor, year):
 
 def fakeRateWeight2l(events, lep1, lep2):
     for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown']:
-        fakefactor_2l = -1*(~lep1.isTightLep | ~lep2.isTightLep) + 1*(lep1.isTightLep & lep2.isTightLep) # if all are tight the FF is 1 because events are in the SR 
+        fakefactor_2l = -1*(~lep1.isTightLep | ~lep2.isTightLep) + 1*(lep1.isTightLep & lep2.isTightLep) # if all are tight the FF is 1 because events are in the SR
         fakefactor_2l = fakefactor_2l * (lep1.isTightLep + (~lep1.isTightLep) * getattr(lep1,'fakefactor%s' % syst))
         fakefactor_2l = fakefactor_2l * (lep2.isTightLep + (~lep2.isTightLep) * getattr(lep2,'fakefactor%s' % syst))
         events['fakefactor_2l%s' % syst] = fakefactor_2l
     # Calculation of flip factor: flip_factor_2l = 1*(isSS) + (fliprate1 + fliprate2)*(isOS):
     #     - For SS events = 1
     #     - For OS events = (fliprate1 + fliprate2)
-    events['flipfactor_2l'] = 1*((lep1.charge + lep2.charge) != 0) + (((lep1.fliprate + lep2.fliprate)) * ((lep1.charge + lep2.charge) == 0)) # only apply fliprate for OS events. to handle the OS control regions later :) #  + 
+    events['flipfactor_2l'] = 1*((lep1.charge + lep2.charge) != 0) + (((lep1.fliprate + lep2.fliprate)) * ((lep1.charge + lep2.charge) == 0)) # only apply fliprate for OS events. to handle the OS control regions later :)
 
 def fakeRateWeight3l(events, lep1, lep2, lep3):
     for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown'] :
@@ -198,12 +198,12 @@ def AttachMuonSF(muons, year):
     eta = np.abs(muons.eta)
     pt = muons.pt
     if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
-    reco_sf  = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt),1) #sf=1 when pt>20 becuase there is no reco SF available
-    reco_err = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0) #sf error =0 when pt>20 becuase there is no reco SF available
+    reco_sf  = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt),1) # sf=1 when pt>20 becuase there is no reco SF available
+    reco_err = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0) # sf error =0 when pt>20 becuase there is no reco SF available
     loose_sf  = SFevaluator['MuonLooseSF_{year}'.format(year=year)](eta,pt)
     loose_err = np.sqrt(
-        SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt) * SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt) +
-        SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt) * SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt)
+        SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt) * SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt)
+        + SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt) * SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt)
     )
     iso_sf  = SFevaluator['MuonIsoSF_{year}'.format(year=year)](eta,pt)
     iso_err = SFevaluator['MuonIsoSF_{year}_er'.format(year=year)](eta,pt)
@@ -234,7 +234,7 @@ def AttachElectronSF(electrons, year):
 
     if year not in ['2016','2016APV','2017','2018']:
         raise Exception(f"Error: Unknown year \"{year}\".")
-  
+
     reco_sf  = np.where(
         pt < 20,
         SFevaluator['ElecRecoSFBe_{year}'.format(year=year)](eta,pt),
@@ -313,14 +313,14 @@ def GetBtagEff(jets, year, wp='medium'):
         raise Exception(f"Error: Unknown year \"{year}\".")
     return GetMCeffFunc(year,wp)(jets.pt, np.abs(jets.eta), jets.hadronFlavour)
 
-def GetBTagSF(jets, year, wp='MEDIUM', sys='central'):
-    if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),wp) 
-    elif year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp) 
+def GetBTagSF(jets, year, wp='MEDIUM', syst='central'):
+    if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),wp)
+    elif year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp)
     elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL17_v3.csv"),wp)
     elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL18_v2.csv"),wp)
     else: raise Exception(f"Error: Unknown year \"{year}\".")
 
-    pt = jets.pt; abseta = np.abs(jets.eta)
+    pt = jets.pt
     SF = SFevaluatorBtag.eval('central',jets.hadronFlavour,np.abs(jets.eta),jets.pt)
 
     # Workaround: For UL16, use the SFs from the UL16APV for light flavor jets
@@ -330,7 +330,7 @@ def GetBTagSF(jets, year, wp='MEDIUM', sys='central'):
         SF_UL16APV = SFevaluatorBtag_UL16APV.eval('central',jets.hadronFlavour,np.abs(jets.eta),jets.pt)
         SF = ak.where(had_flavor == 0,SF_UL16APV,SF)
 
-    if sys == 'central':    
+    if syst == 'central':
         # If we are just getting the central, return here
         return (SF)
     else:
@@ -340,60 +340,60 @@ def GetBTagSF(jets, year, wp='MEDIUM', sys='central'):
             4: ["bc_corr",f"bc_{year}"],
             5: ["bc_corr",f"bc_{year}"]
         }
-        jets[f"btag_{sys}_up"] = SF
-        jets[f"btag_{sys}_down"] = SF
+        jets[f"btag_{syst}_up"] = SF
+        jets[f"btag_{syst}_down"] = SF
         for f, f_syst in flavors.items():
-            if sys in f_syst:
+            if syst in f_syst:
                 # Workaround: For UL16, use the SFs from the UL16APV for light flavor jets
                 if (f == 0) and (year == "2016"):
-                    if f"{year}" in sys:
-                        jets[f"btag_{sys}_up"] = np.where(
+                    if f"{year}" in syst:
+                        jets[f"btag_{syst}_up"] = np.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag_UL16APV.eval("up_uncorrelated",jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
-                            jets[f"btag_{sys}_up"]
+                            jets[f"btag_{syst}_up"]
                         )
-                        jets[f"btag_{sys}_down"] = np.where(
+                        jets[f"btag_{syst}_down"] = np.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag_UL16APV.eval("down_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
-                            jets[f"btag_{sys}_down"]
+                            jets[f"btag_{syst}_down"]
                         )
                     else:
-                        jets[f"btag_{sys}_up"] = np.where(
+                        jets[f"btag_{syst}_up"] = np.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag_UL16APV.eval("up_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
-                            jets[f"btag_{sys}_up"]
+                            jets[f"btag_{syst}_up"]
                         )
-                        jets[f"btag_{sys}_down"] = np.where(
+                        jets[f"btag_{syst}_down"] = np.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag_UL16APV.eval("down_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
-                            jets[f"btag_{sys}_down"]
+                            jets[f"btag_{syst}_down"]
                         )
                 # Otherwise, proceed as usual
                 else:
-                    if f"{year}" in sys:
-                        jets[f"btag_{sys}_up"] = np.where(
+                    if f"{year}" in syst:
+                        jets[f"btag_{syst}_up"] = np.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag.eval("up_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
-                            jets[f"btag_{sys}_up"]
+                            jets[f"btag_{syst}_up"]
                         )
-                        jets[f"btag_{sys}_down"] = np.where(
+                        jets[f"btag_{syst}_down"] = np.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag.eval("down_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
-                            jets[f"btag_{sys}_down"]
+                            jets[f"btag_{syst}_down"]
                         )
                     else:
-                        jets[f"btag_{sys}_up"] = np.where(
+                        jets[f"btag_{syst}_up"] = np.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag.eval("up_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
-                            jets[f"btag_{sys}_up"]
+                            jets[f"btag_{syst}_up"]
                         )
-                        jets[f"btag_{sys}_down"] = np.where(
+                        jets[f"btag_{syst}_down"] = np.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag.eval("down_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
-                            jets[f"btag_{sys}_down"]
+                            jets[f"btag_{syst}_down"]
                         )
-    return ([jets[f"btag_{sys}_up"],jets[f"btag_{sys}_down"]])
- 
+    return ([jets[f"btag_{syst}_up"],jets[f"btag_{syst}_down"]])
+
 ###### Pileup reweighing
 ##############################################
 ## Get central PU data and MC profiles and calculate reweighting
@@ -458,7 +458,7 @@ for year in ['2016', '2016APV', '2017', '2018']:
 def GetPUSF(nTrueInt, year, var='nominal'):
     year = str(year)
     if year not in ['2016','2016APV','2017','2018']:
-      raise Exception(f"Error: Unknown year \"{year}\".")
+        raise Exception(f"Error: Unknown year \"{year}\".")
     nMC = PUfunc[year]['MC'](nTrueInt+1)
     data_dir = 'Data'
     if var == 'up':
@@ -485,7 +485,7 @@ def AttachPSWeights(events):
     ISRup = 2
     FSRup = 3
     if events.PSWeight is None:
-        raise Exception(f'PSWeight not found in {fname}!')
+        raise Exception(f'PSWeight not!')
     # Add up variation event weights
     events['ISRUp'] = events.PSWeight[:, ISRup]
     events['FSRUp'] = events.PSWeight[:, FSRup]
@@ -522,7 +522,7 @@ def AttachScaleWeights(events):
     all_len_9_or_0_bool = ak.all((len_of_wgts==9) | (len_of_wgts==0))
     all_len_8_or_0_bool = ak.all((len_of_wgts==8) | (len_of_wgts==0))
     if all_len_9_or_0_bool:
-        scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
+        scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty
         renormDown_factDown = 0
         renormDown          = 1
         renormDown_factUp   = 2
@@ -533,7 +533,7 @@ def AttachScaleWeights(events):
         renormUp            = 7
         renormUp_factUp     = 8
     elif all_len_8_or_0_bool:
-        scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 8), 1) # FIXME this is a bandaid until we understand _why_ some are empty 
+        scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 8), 1) # FIXME this is a bandaid until we understand _why_ some are empty
         renormDown_factDown = 0
         renormDown          = 1
         renormDown_factUp   = 2
@@ -543,7 +543,7 @@ def AttachScaleWeights(events):
         renormUp            = 6
         renormUp_factUp     = 7
     else:
-        raise Exception(f"Unknown weight type")
+        raise Exception("Unknown weight type")
     # Get the weights from the event
     events['renormfactDown'] = scale_weights[:,renormDown_factDown]
     events['renormDown']     = scale_weights[:,renormDown]
@@ -558,11 +558,11 @@ def AttachPdfWeights(events):
         Should be 100 weights for NNPDF 3.1
     '''
     if events.LHEPdfWeight is None:
-        raise Exception(f'LHEPdfWeight not found in {fname}!')
+        raise Exception(f'LHEPdfWeight not found!')
     pdf_weight = ak.Array(events.LHEPdfWeight)
     #events['Pdf'] = ak.Array(events.nLHEPdfWeight) # FIXME not working
 
-####### JEC 
+####### JEC
 ##############################################
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
 # JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC
@@ -604,7 +604,7 @@ def ApplyJetCorrections(year, corr_type):
     jec_names.extend(jec_regroup)
     extJEC.finalize()
     JECevaluator = extJEC.make_evaluator()
-    jec_inputs = {name: JECevaluator[name] for name in jec_names} 
+    jec_inputs = {name: JECevaluator[name] for name in jec_names}
     jec_stack = JECStack(jec_inputs)
     name_map = jec_stack.blank_name_map
     name_map['JetPt'] = 'pt'
@@ -728,15 +728,16 @@ def GetClopperPearsonInterval(hnum, hden):
             den[i] = np.array(StackOverUnderflow(list(den[i])), dtype=float)
         den = StackOverUnderflow(den)
         num = StackOverUnderflow(num)
-    else: 
+    else:
         num = np.array(StackOverUnderflow(num), dtype=float)
         den = np.array(StackOverUnderflow(den), dtype=float)
-    num = np.array(num); den = np.array(den)
-    num[num>den] = den[num>den]
+    num = np.array(num)
+    den = np.array(den)
+    num[num>den] = den[num > den]
     down, up = hist.clopper_pearson_interval(num, den)
     ratio = np.array(num, dtype=float) / den
     return [ratio, down, up]
-  
+
 def GetEff(num, den):
     ''' Compute efficiency values from numerator and denominator histograms '''
     ratio, down, up = GetClopperPearsonInterval(num, den)
@@ -753,12 +754,12 @@ def GetSFfromCountsHisto(hnumMC, hdenMC, hnumData, hdenData):
     Xda, Yda = GetEff(hnumData, hdenData)
     ratio, do, up = GetRatioAssymetricUncertainties(Yda[0], Yda[1], Yda[2], Ymc[0], Ymc[1], Ymc[2])
     return ratio, do, up
-    
+
 def GetRatioAssymetricUncertainties(num, numDo, numUp, den, denDo, denUp):
     ''' Compute efficiencies from numerator and denominator counts histograms and uncertainties '''
     ratio = num / den
-    uncUp = ratio * np.sqrt(numUp * numUp + denUp * denUp) 
-    uncDo = ratio * np.sqrt(numDo * numDo + denDo * denDo) 
+    uncUp = ratio * np.sqrt(numUp * numUp + denUp * denUp)
+    uncDo = ratio * np.sqrt(numDo * numDo + denDo * denDo)
     return ratio, -uncDo, uncUp
 
 ######  Scale Factors
@@ -798,6 +799,6 @@ def GetTriggerSF(year, events, lep0, lep1):
         '''
         ls.append(SF_ee * SF_em * SF_mm)
     ls[1] = np.where(ls[1] == 1.0, 0.0, ls[1]) # stat unc. down
-    events['trigger_sf'] = ls[0] #nominal
+    events['trigger_sf'] = ls[0] # nominal
     events['trigger_sfDown'] = ls[0] - np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
-    events['trigger_sfUp'] = ls[0] + np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02) 
+    events['trigger_sfUp'] = ls[0] + np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
