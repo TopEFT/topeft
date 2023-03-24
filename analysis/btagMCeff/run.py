@@ -50,7 +50,10 @@ if __name__ == '__main__':
         print('Execute as [path]/run.py [path]/samples.cfg')
         exit()
 
-    flist = {}; xsec = {}; sow = {}; isData = {}
+    flist = {}
+    xsec = {}
+    sow = {}
+    isData = {}
     for k in samplesdict.keys():
         flist[k] = samplesdict[k]['files']
         xsec[k]  = samplesdict[k]['xsec']

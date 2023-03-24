@@ -111,7 +111,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         WP = {'all' : -999., 'loose': 0.0490, 'medium': 0.2783, 'tight': 0.7100}
         btagSelection = {}
         for wp, wpvals in WP.items():
-            btagSelection[wp] = (goodJets.btagDeepFlavB>wpvals) 
+            btagSelection[wp] = (goodJets.btagDeepFlavB>wpvals)
 
         for jetype in ['b', 'c', 'l']:
             for wp in WP.keys():

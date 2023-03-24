@@ -19,7 +19,8 @@ jobs:
       - name: flake8 Lint
         uses: py-actions/flake8@v2
         with:
-          ignore: "E201,E202,E203,E221,E222,E226,E225,E227,E228,E231,E241,E251,E261,E265,E266,E302,E303,E305,E402,F403,F405,E501,E701,E714,F841,W391"
+          ignore: "E116,E201,E202,E203,E221,E222,E226,E225,E227,E228,E231,E241,E251,E261,E265,E266,E302,E303,E305,E402,F403,F405,E501,E701,E714,F841,W391"
+          # E116 unexpected indentation (comment)
           # E201 whitespace after '('
           # E202 whitespace before ')'
           # E203 whitespace before ':'

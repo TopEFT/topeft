@@ -1,29 +1,18 @@
 #!/usr/bin/env python
-import lz4.frame as lz4f
-import cloudpickle
-import json
-import pprint
-import copy
-import coffea
 import numpy as np
 import awkward as ak
 import pandas as pd
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import hist, processor
-from coffea.util import load, save
-from optparse import OptionParser
+from coffea import processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 from coffea.processor import AccumulatorABC
 
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachPdfWeights, AttachScaleWeights, GetTriggerSF
+from topcoffea.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, ApplyRochesterCorrections 
 from topcoffea.modules.selection import *
-from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
-import topcoffea.modules.eft_helper as efth
-import topcoffea.modules.GetValuesFromJsons as getj
 
 
 class dataframe_accumulator(AccumulatorABC):
@@ -44,7 +33,7 @@ class dataframe_accumulator(AccumulatorABC):
         else:
             self._value = pd.concat([self._value, other._value])
     
-    # The cutoff values are set manually 
+    # The cutoff values are set manually
     # First sort the dataframe to get a sufficient amount of top events (e.g. get_ST)
     # Then determine what values to focus on
     def get_nleps(self):
@@ -96,14 +85,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create an accumulator of multiple dataframes
         self._accumulator = processor.dict_accumulator({
-                                "nleps": dataframe_accumulator(pd.DataFrame()), 
-                                "njets": dataframe_accumulator(pd.DataFrame()),
-                                "ST": dataframe_accumulator(pd.DataFrame()),
-                                "HT": dataframe_accumulator(pd.DataFrame()),
-                                "invMass": dataframe_accumulator(pd.DataFrame()),
-                                "pt_l": dataframe_accumulator(pd.DataFrame()),
-                                "pt_j": dataframe_accumulator(pd.DataFrame())
-                            })
+                "nleps": dataframe_accumulator(pd.DataFrame()),
+                "njets": dataframe_accumulator(pd.DataFrame()),
+                "ST": dataframe_accumulator(pd.DataFrame()),
+                "HT": dataframe_accumulator(pd.DataFrame()),
+                "invMass": dataframe_accumulator(pd.DataFrame()),
+                "pt_l": dataframe_accumulator(pd.DataFrame()),
+                "pt_j": dataframe_accumulator(pd.DataFrame())
+            })
 
     @property
     def accumulator(self):
@@ -126,7 +115,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         year               = self._samples[dataset]["year"]
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
-        for d in datasets: 
+        for d in datasets:
             if d in dataset: dataset = dataset.split('_')[0]
 
         # Set the sampleType (used for MC matching requirement)
@@ -162,8 +151,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         #xsec = self._samples[dataset]["xsec"]
         #sow = self._samples[dataset]["nSumOfWeights"]
-	#lumi = 1000.0*getj.get_lumi(year)
- 
+        #lumi = 1000.0*getj.get_lumi(year)
+
         # Extract the EFT quadratic coefficients
         #eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
         #if eft_coeffs is not None:
@@ -172,7 +161,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 #eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
             #events["weight"] = eft_coeffs[:,0]
             #events["yield"] = eft_coeffs[:,0]*lumi*xsec/sow
-        #else: 
+        #else:
             #genw = events["genWeight"]
             #events["weight"] = genw
             #events["yield"] = genw*lumi*xsec/sow
@@ -182,7 +171,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         e["isPres"] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
         e["isLooseE"] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
         e["isFO"] = isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
-        e["isTightLep"] = tightSelElec(e.isFO, e.mvaTTHUL)      
+        e["isTightLep"] = tightSelElec(e.isFO, e.mvaTTHUL)
 
         ################### Muon selection ####################
 
@@ -213,8 +202,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Attach per lepton fake rates
         AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
         AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
-        m_fo['convVeto'] = ak.ones_like(m_fo.charge); 
-        m_fo['lostHits'] = ak.zeros_like(m_fo.charge); 
+        m_fo['convVeto'] = ak.ones_like(m_fo.charge)
+        m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
@@ -243,7 +232,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             btagwpl = get_param("btag_wp_loose_UL18")
             btagwpm = get_param("btag_wp_medium_UL18")
         elif year=="2016":
-            btagwpl = get_param("btag_wp_loose_UL16")          
+            btagwpl = get_param("btag_wp_loose_UL16")
             btagwpm = get_param("btag_wp_medium_UL16")
         elif year=="2016APV":
             btagwpl = get_param("btag_wp_loose_UL16APV")
@@ -414,4 +403,4 @@ class AnalysisProcessor(processor.ProcessorABC):
     def postprocess(self, accumulator):
         for key, df_accum in accumulator.items():
             if not df_accum.value.empty:
-                df_accum.sort(key) 
+                df_accum.sort(key)
