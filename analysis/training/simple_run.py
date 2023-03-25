@@ -9,7 +9,23 @@ import numpy as np
 from coffea import hist, processor
 from coffea.nanoevents import NanoAODSchema
 
-import simple_processor
+import topeft
+from topcoffea.modules.utils import dump_to_pkl, get_hist_from_pkl
+from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
+from topcoffea.modules.get_renormfact_envelope import get_renormfact_envelope
+
+WGT_VAR_LST = [
+    "nSumOfWeights_ISRUp",
+    "nSumOfWeights_ISRDown",
+    "nSumOfWeights_FSRUp",
+    "nSumOfWeights_FSRDown",
+    "nSumOfWeights_renormUp",
+    "nSumOfWeights_renormDown",
+    "nSumOfWeights_factUp",
+    "nSumOfWeights_factDown",
+    "nSumOfWeights_renormfactUp",
+    "nSumOfWeights_renormfactDown",
+]
 
 if __name__ == '__main__':
 
