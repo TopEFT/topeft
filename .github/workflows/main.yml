@@ -20,7 +20,7 @@ jobs:
         uses: py-actions/flake8@v2
         with:
           exclude: "./topcoffea/modules/fileReader.py,./topcoffea/modules/samples.py,./topcoffea/modules/createJSON.py,./topcoffea/modules/WCFit.py"
-          ignore: "E116,E201,E202,E203,E221,E222,E226,E225,E227,E228,E231,E241,E251,E261,E265,E266,E271,E302,E303,E305,E402,F403,F405,E501,E701,E711,E714,E741,F841,W391,W605"
+          ignore: "E116,E201,E202,E203,E221,E222,E226,E225,E227,E228,E231,E241,E251,E261,E262,E265,E266,E271,E302,E303,E305,E402,F403,F405,E501,E701,E702,E711,E713,E714,E741,F841,W391,W605"
           # E116 unexpected indentation (comment)
           # E201 whitespace after '('
           # E202 whitespace before ')'
@@ -35,6 +35,7 @@ jobs:
           # E241 multiple spaces after ','
           # E251 unexpected spaces around keyword / parameter equals
           # E261 at least two spaces before inline comment
+          # E262 inline comment should start with '# '
           # E265 block comment should start with '# '
           # E266 too many leading '#' for block comment
           # E271 multiple spaces after keyword
@@ -46,7 +47,9 @@ jobs:
           # F405 may be undefined, or defined from star imports
           # E501 line too long
           # E701 multiple statements on one line (colon)
+          # E702 multiple statements on one line
           # E711 comparison to None should be 'if cond is not None:'
+          # E713 test for membership should be 'not in'
           # E714 test for object identity should be 'is not'
           # E741 ambiguous variable name
           # F841 local variable is assigned to but never used
