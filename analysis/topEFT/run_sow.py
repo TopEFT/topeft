@@ -6,7 +6,6 @@ import os
 import argparse
 
 # import uproot
-import numpy as np
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 import topcoffea.modules.remote_environment as remote_environment

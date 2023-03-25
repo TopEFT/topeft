@@ -5,8 +5,8 @@ from topcoffea.modules.paths import topcoffea_path
 def get_lumi(year):
     lumi_json = topcoffea_path("json/lumi.json")
     with open(lumi_json) as f_lumi:
-       lumi = json.load(f_lumi)
-       lumi = lumi[year]
+        lumi = json.load(f_lumi)
+        lumi = lumi[year]
     return lumi
 
 
@@ -14,8 +14,8 @@ def get_lumi(year):
 def get_param(param_name):
     param_json = topcoffea_path("json/params.json")
     with open(param_json) as f_params:
-       params = json.load(f_params)
-       param_val = params[param_name]
+        params = json.load(f_params)
+        param_val = params[param_name]
     return param_val
 
 
@@ -81,4 +81,4 @@ def get_jet_dependent_syst_dict(process="Diboson"):
     syst_json = topcoffea_path("json/rate_systs.json")
     with open(syst_json) as f_systs:
         diboson_njets_dict = json.load(f_systs)["diboson_njets"]
-        return(diboson_njets_dict[process])
+        return (diboson_njets_dict[process])

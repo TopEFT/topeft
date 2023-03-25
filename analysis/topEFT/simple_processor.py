@@ -28,7 +28,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
         self._do_systematics = do_systematics # Whether to process systematic samples
-        
+
     @property
     def accumulator(self):
         return self._accumulator

@@ -7,10 +7,12 @@
 # To get a dict with all the needed info to run:
 #  Get full dataset, all files: GetDatasetFromDAS(dataset, withRedirector='root://cms-xrd-global.cern.ch/')
 #  Get full dataset, n files  : GetDatasetFromDAS(dataset, nFiles, withRedirector='root://cms-xrd-global.cern.ch/')
-#  Get info for just n files  : GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector='root://cms-xrd-global.cern.ch/') 
+#  Get info for just n files  : GetDatasetFromDAS(dataset, nFiles, options='file', withRedirector='root://cms-xrd-global.cern.ch/')
 #
 
-import os, sys, subprocess
+import os
+import sys
+import subprocess
 
 das_env = None
 das_OK = False
@@ -23,7 +25,7 @@ def CheckDasEnv():
         # If this didn't raise an exception, we're good!
         das_OK = True
         return
-    except:
+    except BaseException: # Flake8 says not to use bare exception, and that a bare exception is equivalent to "except BaseException" so replacing the bare exeption with that here (though it's possible that the original author's intention of the code was closer to "except Exception"?)
         # dasgoclient's not in the path.  Can we guess where it is?
         if os.path.isfile('/cvmfs/cms.cern.ch/common/dasgoclient'):
             # Found it!  I'm just adding this to the path because it's the only command we're calling.
@@ -47,7 +49,7 @@ def RunDasGoClientCommand(dataset, mode='dataset', do_json=False):
             print('stdout:\n{}'.format(e.stdout))
             print('stderr:\n{}'.format(e.stderr))
             raise
-        except:
+        except BaseException: # Flake8 says not to use bare exception, and that a bare exception is equivalent to "except BaseException" so replacing the bare exeption with that here (though it's possible that the original author's intention of the code was closer to "except Exception"?)
             print('Problem trying to use dasgoclient',file=sys.stderr)
             raise
 
@@ -78,12 +80,20 @@ def GetEvDic(l):
 
 def CheckDatasets(datasets):
     ''' Check that a dataset exist and is accesible '''
-    command = GetDasGoClientCommand('')
-    for d in datasets:
-        match = os.popen(command%d).read()
-        match = match.replace('\n', '')
-        warn = '\033[0;32mOK       \033[0m' if match == d else '\033[0;31mNOT FOUND\033[0m'
-        print('[%s] %s'%(warn, d))
+
+    # Note from Mar 25, 2023: 
+    #   - flake8 says "GetDasGoClientCommand" is not defined, so this function is probably not usable
+    #   - Based on a search of the repo, it seems topcoffea does not try to ever use this function
+    #   - So probably we could remove the function, but in case someone wants to use it again, will leave a comment and exit
+    print("Note from Mar 25, 2023: flake8 says "GetDasGoClientCommand" is not defined, so commenting this function. So if you want to use this function, you will need to fix it first. Good luck. Exiting.")
+    exit()
+
+    #command = GetDasGoClientCommand('')
+    #for d in datasets:
+    #    match = os.popen(command%d).read()
+    #    match = match.replace('\n', '')
+    #    warn = '\033[0;32mOK       \033[0m' if match == d else '\033[0;31mNOT FOUND\033[0m'
+    #    print('[%s] %s'%(warn, d))
 
 def GetFilesFromDatasets(datasets, nFiles=None, withRedirector='', verbose=False):
     ''' Get all the rootfiles associated to a dataset '''
