@@ -1,7 +1,6 @@
 import os
 import argparse
 import datetime
-import matplotlib.pyplot as plt
 from coffea.nanoevents import NanoEventsFactory
 
 import topcoffea.modules.fileReader as fr
