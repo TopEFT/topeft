@@ -575,6 +575,19 @@ class HTMLGenerator:
         body_tag = self.getBodyTag()
         body_tag.addTag(new_tag)
 
+    # Adds a link tag to the head section of the html file
+    # A shorthand for adding a link tag to the header
+    def addLinkTag(self,_rel,_type,_href,opts={}):
+        link_tag = LinkTag()
+        link_tag.addAttributes(rel=_rel,type=_type,href=_href)
+        if opts: link_tag.addAttributes(**opts)
+        #new_link_tag.addAttribute('rel',_rel)
+        #new_link_tag.addAttribute('type',_type)
+        #new_link_tag.addAttribute('href',_href)
+        #for op in opts:
+        #    new_link_tag.addAttribute(op,opts[op])
+        self.addHeadTag(link_tag)
+
     # Dumps the entire html file to a string
     def dumpHTML(self):
         string = ""
