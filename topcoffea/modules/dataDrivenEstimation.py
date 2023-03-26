@@ -100,7 +100,7 @@ class DataDrivenProducer:
                     else:
                         # if we are in the nonprompt application region, we also integrate the application region axis
                         # and construct the new sample 'nonprompt'
-                        
+
                         # we look at data only, and rename it to fakes
                         newNameDictData=defaultdict(list); newNameDictNoData=defaultdict(list)
                         for sample in hAR.identifiers('sample'):

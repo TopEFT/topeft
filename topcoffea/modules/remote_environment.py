@@ -60,9 +60,9 @@ def _check_current_env():
         spec_file = open(f.name,  'r')
         current_spec = json.load(spec_file)
         if 'dependencies' in current_spec:
-        # get current conda packages
+            # get current conda packages
             conda_deps = {re.sub("[!~=<>].*$", "", x):x  for x in current_spec['dependencies'] if not isinstance(x, dict)}
-        # get current pip packages
+            # get current pip packages
             pip_deps = {re.sub("[!~=<>].*$", "", y):y for y in  [x for x in current_spec['dependencies'] if isinstance(x, dict) and 'pip' in x for x in x['pip']]}
 
 

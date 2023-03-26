@@ -81,7 +81,7 @@ def GetEvDic(l):
 def CheckDatasets(datasets):
     ''' Check that a dataset exist and is accesible '''
 
-    # Note from Mar 25, 2023: 
+    # Note from Mar 25, 2023:
     #   - flake8 says "GetDasGoClientCommand" is not defined, so this function is probably not usable
     #   - Based on a search of the repo, it seems topcoffea does not try to ever use this function
     #   - So probably we could remove the function, but in case someone wants to use it again, will leave a comment and exit
