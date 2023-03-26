@@ -242,7 +242,7 @@ def _remap_coeffs(current_list, target_list, coeffs):
     for i, wc in enumerate(target_list):
         try:
             target_indices[i] = current_list.index(wc)
-        except:
+        except BaseException: # Edited this line Mar 25, 2023: flake8 says not to use bare except, so replacing with "except BaseException" which is supposed to be equivalent, but would probably be better to catch specific exceptions)
             target_indices[i] = -1
 
     # Next, loop over the WC pairs from the target_list and figure out
