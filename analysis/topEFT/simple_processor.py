@@ -48,7 +48,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         isData = self._samples[dataset]['isData']
         datasets = ['SingleMuon', 'SingleElectron', 'EGamma', 'MuonEG', 'DoubleMuon', 'DoubleElectron']
         for d in datasets:
-            if d in dataset: dataset = dataset.split('_')[0] 
+            if d in dataset: dataset = dataset.split('_')[0]
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
@@ -73,7 +73,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         print("\trun:",run)
         print("\tluminosityBlock:",luminosityBlock)
         print("\tevent:",event)
- 
+
         print("\nLeptons before selection:")
         print("\te pt",e.pt)
         print("\te eta",e.eta)

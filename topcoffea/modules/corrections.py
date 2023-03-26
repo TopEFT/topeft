@@ -6,13 +6,11 @@
 #import uproot, uproot_methods
 import uproot
 from coffea import hist, lookup_tools
-import os, sys
 from topcoffea.modules.paths import topcoffea_path
 import numpy as np
 import awkward as ak
 import gzip
 import pickle
-from coffea.jetmet_tools import FactorizedJetCorrector, JetCorrectionUncertainty
 from coffea.jetmet_tools import JECStack, CorrectedJetsFactory, CorrectedMETFactory
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from topcoffea.modules.GetValuesFromJsons import get_param

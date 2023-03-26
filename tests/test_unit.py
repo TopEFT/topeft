@@ -431,7 +431,7 @@ def test_histeft():
     print('GetBinContent: ', result)
     print('test: ', chk_str)
     print('--------------\n')
-    
+
     chk_x = 0.75    # Needs to be w/e chk_x was before UNIT 6
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
     chk_vals = {wc_name:chk_x, 'ctZ':0.0}

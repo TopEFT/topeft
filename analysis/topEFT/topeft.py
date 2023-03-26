@@ -695,88 +695,88 @@ class AnalysisProcessor(processor.ProcessorABC):
                     },
                 },
                 "4l" : {
-                        "exactly_2j" : {
-                            "lep_chan_lst" : ["4l"],
-                            "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                            "appl_lst"     : ["isSR_4l"],
-                        },
-                        "exactly_3j" : {
-                            "lep_chan_lst" : ["4l"],
-                            "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                            "appl_lst"     : ["isSR_4l"],
-                        },
-                        "atleast_4j" : {
-                            "lep_chan_lst" : ["4l"],
-                            "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                            "appl_lst"     : ["isSR_4l"],
-                        },
+                    "exactly_2j" : {
+                        "lep_chan_lst" : ["4l"],
+                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                        "appl_lst"     : ["isSR_4l"],
+                    },
+                    "exactly_3j" : {
+                        "lep_chan_lst" : ["4l"],
+                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                        "appl_lst"     : ["isSR_4l"],
+                    },
+                    "atleast_4j" : {
+                        "lep_chan_lst" : ["4l"],
+                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                        "appl_lst"     : ["isSR_4l"],
+                    },
                 },
             }
 
             # This dictionary keeps track of which selections go with which CR categories
             cr_cat_dict = {
-              "2l_CRflip" : {
-                  "atmost_3j" : {
-                      "lep_chan_lst" : ["2lss_CRflip"],
-                      "lep_flav_lst" : ["ee"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                  },
-              },
-              "2l_CR" : {
-                  "exactly_1j" : {
-                      "lep_chan_lst" : ["2lss_CR"],
-                      "lep_flav_lst" : ["ee" , "em" , "mm"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                  },
-                  "exactly_2j" : {
-                      "lep_chan_lst" : ["2lss_CR"],
-                      "lep_flav_lst" : ["ee" , "em" , "mm"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                  },
-                  "exactly_3j" : {
-                      "lep_chan_lst" : ["2lss_CR"],
-                      "lep_flav_lst" : ["ee" , "em" , "mm"],
-                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                  },
-              },
-              "3l_CR" : {
-                  "exactly_0j" : {
-                      "lep_chan_lst" : ["3l_CR"],
-                      "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                      "appl_lst"     : ["isSR_3l" , "isAR_3l"],
-                  },
-                  "atleast_1j" : {
-                      "lep_chan_lst" : ["3l_CR"],
-                      "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                      "appl_lst"     : ["isSR_3l" , "isAR_3l"],
-                  },
-              },
-              "2los_CRtt" : {
-                  "exactly_2j"   : {
-                      "lep_chan_lst" : ["2los_CRtt"],
-                      "lep_flav_lst" : ["em"],
-                      "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                  },
-              },
-              "2los_CRZ" : {
-                  "atleast_0j"   : {
-                      "lep_chan_lst" : ["2los_CRZ"],
-                      "lep_flav_lst" : ["ee", "mm"],
-                      "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                  },
-              },
+                "2l_CRflip" : {
+                    "atmost_3j" : {
+                        "lep_chan_lst" : ["2lss_CRflip"],
+                        "lep_flav_lst" : ["ee"],
+                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                    },
+                },
+                "2l_CR" : {
+                    "exactly_1j" : {
+                        "lep_chan_lst" : ["2lss_CR"],
+                        "lep_flav_lst" : ["ee" , "em" , "mm"],
+                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                    },
+                    "exactly_2j" : {
+                        "lep_chan_lst" : ["2lss_CR"],
+                        "lep_flav_lst" : ["ee" , "em" , "mm"],
+                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                    },
+                    "exactly_3j" : {
+                        "lep_chan_lst" : ["2lss_CR"],
+                        "lep_flav_lst" : ["ee" , "em" , "mm"],
+                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                    },
+                },
+                "3l_CR" : {
+                    "exactly_0j" : {
+                        "lep_chan_lst" : ["3l_CR"],
+                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                        "appl_lst"     : ["isSR_3l" , "isAR_3l"],
+                    },
+                    "atleast_1j" : {
+                        "lep_chan_lst" : ["3l_CR"],
+                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                        "appl_lst"     : ["isSR_3l" , "isAR_3l"],
+                    },
+                },
+                "2los_CRtt" : {
+                    "exactly_2j"   : {
+                        "lep_chan_lst" : ["2los_CRtt"],
+                        "lep_flav_lst" : ["em"],
+                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+                    },
+                },
+                "2los_CRZ" : {
+                    "atleast_0j"   : {
+                        "lep_chan_lst" : ["2los_CRZ"],
+                        "lep_flav_lst" : ["ee", "mm"],
+                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+                    },
+                },
             }
 
             # Include SRs and CRs unless we asked to skip them
             cat_dict = {}
             if not self._skip_signal_regions:
-              cat_dict.update(sr_cat_dict)
+                cat_dict.update(sr_cat_dict)
             if not self._skip_control_regions:
-              cat_dict.update(cr_cat_dict)
+                cat_dict.update(cr_cat_dict)
             if (not self._skip_signal_regions and not self._skip_control_regions):
-              for k in sr_cat_dict:
-                  if k in cr_cat_dict:
-                      raise Exception(f"The key {k} is in both CR and SR dictionaries.")
+                for k in sr_cat_dict:
+                    if k in cr_cat_dict:
+                        raise Exception(f"The key {k} is in both CR and SR dictionaries.")
 
 
 
