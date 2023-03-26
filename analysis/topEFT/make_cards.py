@@ -199,13 +199,6 @@ def main():
     if isinstance(wcs,str):
         wcs = wcs.split(",")
 
-    #if use_condor:
-        # Note:
-        #   The dc in the parent submission is only used to generate the selectedWCs file and figure
-        #   out what channels/samples are available, so we can just drop the systematics to speed
-        #   things up
-        #do_nuis = False
-
     kwargs = {
         "wcs": wcs,
         "lumi_json_path": lumi_json,
