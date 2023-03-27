@@ -10,9 +10,6 @@ from coffea import hist, processor
 from coffea.nanoevents import NanoAODSchema
 
 import simple_processor
-from topcoffea.modules.utils import dump_to_pkl, get_hist_from_pkl
-from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
-from topcoffea.modules.get_renormfact_envelope import get_renormfact_envelope
 
 if __name__ == '__main__':
 
