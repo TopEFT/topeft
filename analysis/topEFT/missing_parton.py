@@ -1,6 +1,6 @@
 '''
 This script computes the msising parton rate
-It requires the central (tZq) and private (tllq) samples exist in 
+It requires the central (tZq) and private (tllq) samples exist in
 `histos/central_sm/` and `histos/private_sm/` respectively
 To create these, run the datacard maker (tllq `with` systematics, tZq without)
 '''
@@ -11,7 +11,7 @@ import mplhep as hep
 import math
 import json
 from topcoffea.modules.comp_datacard import strip
-from coffea import hist
+#from coffea import hist
 import re
 
 files = ['2lss_m_2b',  '2lss_p_2b',  '2lss_4t_m_2b', '2lss_4t_p_2b', '3l1b_m',  '3l1b_p',  '3l2b_m',  '3l2b_p',  '3l_sfz_1b',  '3l_sfz_2b',  '4l_2b']
@@ -22,13 +22,13 @@ def get_hists(fname, path, process):
     fin = uproot.open('histos/'+path+'/ttx_multileptons-'+fname+'.root')
     card = strip('histos/'+path+'/ttx_multileptons-'+fname+'.txt')
     sm = [k.split(';')[0] for k in fin.keys() if 'sm' in k]
-  
+
     nom = {}; up = {}; down = {}
-        
+
     nom = {proc.strip(';1'): fin[proc].values() for proc in fin if 'sm;' in proc and (process in proc or process.replace('ll','Z') in proc)}
     for val in nom.values():
         val = [x if not math.isinf(x) else 0 for x in val]
-   
+
     up = {proc.strip('Up;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Up;' in proc or 'flat' in proc) and 'fakes' not in proc}
     down = {proc.strip('Down;1'): fin[proc].to_numpy()[0] for proc in fin if 'sm' in proc and ('Down;' in proc or 'flat' in proc) and 'fakes' not in proc}
     total = np.array([v for v in nom.values()])[0]
@@ -67,7 +67,7 @@ def get_hists(fname, path, process):
                 s[1] = float(val) - 1
             err[0] = np.sqrt(np.square(err[0]) + np.square(total*s[0]))
             err[1] = np.sqrt(np.square(err[1]) + np.square(total*s[1]))
-  
+
     bins = fin[process+'_sm'].axis().edges()
     return total, nom, err, bins, [proc.split('_sm')[0]for proc in fin if 'sm;' in proc]
 

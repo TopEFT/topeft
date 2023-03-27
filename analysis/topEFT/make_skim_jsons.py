@@ -1,10 +1,9 @@
 import os
 import argparse
-import json
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.update_json import update_json
-from topcoffea.modules.utils import regex_match, load_sample_json_file, get_files
+from topcoffea.modules.utils import get_files
 
 pjoin = os.path.join
 
@@ -73,7 +72,8 @@ def main():
     ignore_files.extend(['lumi.json','params.json'])
     # These are json files for already produced skims, so skip them as well
     ignore_files.extend([".*_atPSI\\.json",".*_NDSkim\\.json"])
-    template_json_fpaths = get_files(json_dir,
+    template_json_fpaths = get_files(
+        json_dir,
         ignore_dirs  = ignore_dirs,
         match_files  = match_files,
         ignore_files = ignore_files,
@@ -114,14 +114,14 @@ def main():
         template_json_fpaths.remove(matched_json_fp)
     # These are lobster skims for which we couldn't find a matching json template
     if missing_templates:
-        print(f"Skims with no matching json template found:")
+        print("Skims with no matching json template found:")
         for x in missing_templates:
             print(f"\t{x}")
     else:
         print(f"Skims with no matching json template found: {missing_templates}")
     # These are json templates for which we couldn't find a lobster skim
     if template_json_fpaths:
-        print(f"Json templates with no matching skim found:")
+        print("Json templates with no matching skim found:")
         for x in template_json_fpaths:
             print(f"\t{x}")
     else:

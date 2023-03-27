@@ -4,21 +4,15 @@
 
 import numpy as np
 import os
-import copy
 import datetime
 import argparse
-import matplotlib.pyplot as plt
-from cycler import cycler
 
 import uproot
-from coffea import hist
 
-from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.scripts.make_html import make_html
 
-import topcoffea.modules.GetValuesFromJsons as getj
 
 # This script should maybe just be a part of make_cr_and_sr_plots, though that script is getting really long
 # Probably I should move the utility functions out of that script and put them in modules

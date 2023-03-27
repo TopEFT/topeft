@@ -1,25 +1,14 @@
 #!/usr/bin/env python
-import lz4.frame as lz4f
-import cloudpickle
-import json
-import pprint
-import copy
-import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 from coffea import hist, processor
-from coffea.util import load, save
-from optparse import OptionParser
-from coffea.analysis_tools import PackedSelection
-from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.GetValuesFromJsons import get_lumi
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachPdfWeights, AttachScaleWeights, GetTriggerSF, get_ht_sf
+#from topcoffea.modules.corrections import get_ht_sf
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
-from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
 
 
@@ -164,7 +153,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         lumi = get_lumi(year)*1000.0
         event_weight = lumi*xsec*genw/sow
 
-        # Example of reweighting based on Ht 
+        # Example of reweighting based on Ht
         #if "private" in histAxisName:
         #    ht_sf = get_ht_sf(ht,histAxisName)
         #    event_weight = event_weight*ht_sf

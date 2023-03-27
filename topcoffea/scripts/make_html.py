@@ -106,7 +106,7 @@ def make_html(tar_dir, width=355, height=355):
         image_tag.addAttributes(width=width,height=height,border=0,src="./%s" % (fname))
 
         link_tag.addAttributes(target='_blank')
-        
+
         text_div.addAttributes(style=f'width:{width}px',id='imgName')
         text_div.setContent(image_name)
 

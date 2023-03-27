@@ -1,15 +1,12 @@
 # Notes on this script:
 #   - This script runs on the output of flip_mr_processor.py
 #   - It opens the pkl file, extracts the flip and no flip histos, calculates the flip prob, and saves that to a histo (also saves the 2d hists to png for reference)
-#   - The output histo is then placed in topcoffea/data so that corrections.py can read in the values using dense lookup 
+#   - The output histo is then placed in topcoffea/data so that corrections.py can read in the values using dense lookup
 
-import os
 import copy
-import json
 import matplotlib.pyplot as plt
 import cloudpickle
 import gzip
-import uproot3
 from coffea import hist
 
 from topcoffea.modules.YieldTools import YieldTools

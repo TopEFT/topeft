@@ -2,25 +2,17 @@
 #   - Should be run on the output of the mc_validation_gen_processor.py processor
 #   - Was used during the June 2022 MC validation studies (for TOP-22-006 pre approval checks)
 
-import numpy as np
 import os
-import copy
 import datetime
 import argparse
-import matplotlib.pyplot as plt
-from cycler import cycler
 import gzip
 import cloudpickle
 
-import uproot
 from coffea import hist
 
-from topcoffea.modules.HistEFT import HistEFT
-from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.scripts.make_html import make_html
 
-import topcoffea.modules.GetValuesFromJsons as getj
 
 # Probably I should move the utility functions out of this script and put them in modules
 # Anyway, not good practice to just import it here as if it were a library, but I'm doing it anyway (for now)
@@ -37,7 +29,7 @@ def save_pkl_for_arr(sf_arr,tag):
     save_pkl_str = "ht_rwgt_sf_" + tag + ".pkl.gz"
     with gzip.open(save_pkl_str, "wb") as fout:
         cloudpickle.dump(sf_histo, fout)
-    
+
 
 # Main wrapper script for making the private vs central comparison plots
 def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
@@ -48,22 +40,22 @@ def make_mc_validation_plots(dict_of_hists,year,skip_syst_errs,save_dir_path):
 
     comp_proc_dict = {
         "ttH" : {
-            "central_nonUL" : f"ttH_central2017",
+            "central_nonUL" : "ttH_central2017",
             "central" : f"ttH_central{year}",
             "private": f"ttHJet_private{year}",
         },
         "ttlnu" : {
-            "central_nonUL" : f"ttW_central2017",
+            "central_nonUL" : "ttW_central2017",
             "central" : f"ttW_central{year}",
             "private": f"ttlnuJet_private{year}",
         },
         "ttll" : {
-            "central_nonUL" : f"ttZ_central2017",
+            "central_nonUL" : "ttZ_central2017",
             "central" : f"ttZ_central{year}",
             "private": f"ttllJet_private{year}",
         },
         "tllq" : {
-            "central_nonUL" : f"tZq_central2017",
+            "central_nonUL" : "tZq_central2017",
             "central" : f"tZq_central{year}",
             "private": f"tllq_private{year}",
         },
