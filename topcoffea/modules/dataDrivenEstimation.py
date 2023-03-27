@@ -132,18 +132,6 @@ class DataDrivenProducer:
                             newhist=hFakes
                         else:
                             newhist.add(hFakes)
-            # Scale back by 1/lumi all processes but data so they can be used transparently downstream
-            # Mind that we scaled all mcs already above
-            scaleDict={}
-            for sample in newhist.identifiers('sample'):
-                match = pattern.search(sample.name)
-                sampleName=match.group('sample')
-                if self.dataName == sampleName:
-                    continue
-                year=match.group('year')
-                scaleDict[sample]=1.0/(1000.0*get_lumi('20'+year))
-            newhist.scale( scaleDict, axis='sample')
-
 
             self.outHist[key]=newhist
 

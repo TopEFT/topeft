@@ -323,18 +323,10 @@ class DatacardMaker():
                     raise ValueError(f"Invalid year choice '{yr}', should be empty if running over all years or one of: {self.YEARS}")
 
         rate_syst_path = kwargs.pop("rate_systs_path","json/rate_systs.json")
-        lumi_json_path = kwargs.pop("lumi_json_path","json/lumi.json")
         miss_part_path = kwargs.pop("missing_parton_path","data/missing_parton/missing_parton.root")
 
         # TODO: Need to find a better name for this variable
         self.rate_systs = self.load_systematics(rate_syst_path,miss_part_path)
-
-        self.lumi = {}
-        with open(topcoffea_path(lumi_json_path)) as f:
-            jf = json.load(f)
-            for yr,lm in jf.items():
-                yr = yr.replace("20","UL")
-                self.lumi[yr] = 1000*lm
 
         # Samples to be excluded from the datacard, should correspond to names before group_processes is run
         self.ignore = [
@@ -491,17 +483,6 @@ class DatacardMaker():
             else:
                 # TODO: Still need to handle this case properly
                 pass
-
-            # Scale the histograms to intg. luminosity based on years
-            scale_map = {}
-            for x in h.identifiers("sample"):
-                yr = self.get_year(x.name)
-                proc = self.get_process(x.name)
-                if proc == "data":
-                    scale_map[x.name] = 1
-                else:
-                    scale_map[x.name] = self.lumi[yr]
-            h.scale(scale_map,axis="sample")
 
             # Remove 'central', 'private', '_4F' text from sample names
             grp_map = {}
