@@ -7,8 +7,8 @@ import subprocess
 import os
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.samples import loadxsecdic
-from topcoffea.modules.combine_json_ext  import combine_json_ext
-from topcoffea.modules.combine_json_batch  import combine_json_batch
+from topcoffea.modules.combine_json_ext import combine_json_ext
+from topcoffea.modules.combine_json_batch import combine_json_batch
 import re
 
 ########### The XSs from xsec.cfg ###########
@@ -612,12 +612,12 @@ central_UL17_bkg_dict = {
         "xsecName": "ST_top_s-channel",
     },
     "UL17_ST_top_t-channel" : {
-        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM", 
+        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM",
         "histAxisName": "ST_top_t-channel_centralUL17",
         "xsecName": "ST_top_t-channel",
     },
     "UL17_ST_antitop_t-channel" : {
-        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM", 
+        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM",
         "histAxisName": "ST_antitop_t-channel_centralUL17",
         "xsecName": "ST_antitop_t-channel",
     },
@@ -699,7 +699,7 @@ central_UL17_bkg_dict = {
     },
     "UL17_WZTo3LNu" : {
         "path" : "/WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM",
-        "path_local" : "/store/mc/RunIISummer20UL17NanoAODv9/WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2", 
+        "path_local" : "/store/mc/RunIISummer20UL17NanoAODv9/WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mc2017_realistic_v9-v2",
         "histAxisName": "WZTo3LNu_centralUL17",
         "xsecName": "WZTo3LNu",
     },
@@ -828,12 +828,12 @@ central_UL18_bkg_dict = {
         "xsecName": "ST_top_s-channel",
     },
     "UL18_ST_top_t-channel" : {
-        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM", 
+        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
         "histAxisName": "ST_top_t-channel_centralUL18",
         "xsecName": "ST_top_t-channel",
     },
     "UL18_ST_antitop_t-channel" : {
-        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM", 
+        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM",
         "histAxisName": "ST_antitop_t-channel_centralUL18",
         "xsecName": "ST_antitop_t-channel",
     },
@@ -1046,7 +1046,7 @@ central_UL16_bkg_dict = {
         "xsecName": "DYJetsToLL_M_10to50_MLM",
     },
     "UL16_DY50" : {
-        "path" : "/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM", 
+        "path" : "/DYJetsToLL_M-50_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
         "histAxisName": "DY50_centralUL16",
         "xsecName": "DYJetsToLL_M_50_MLM",
     },
@@ -1258,7 +1258,7 @@ central_UL16APV_bkg_dict = {
     },
     "UL16APV_DY10to50" : {
         "path" : "/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
-        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1", 
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/DYJetsToLL_M-10to50_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1",
         "histAxisName": "DY10to50_centralUL16APV",
         "xsecName": "DYJetsToLL_M_10to50_MLM",
     },
@@ -1273,12 +1273,12 @@ central_UL16APV_bkg_dict = {
         "xsecName": "ST_top_s-channel",
     },
     "UL16APV_ST_top_t-channel" : {
-        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM", 
+        "path" : "/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
         "histAxisName": "ST_top_t-channel_centralUL16APV",
         "xsecName": "ST_top_t-channel",
     },
     "UL16APV_ST_antitop_t-channel" : {
-        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM", 
+        "path" : "/ST_t-channel_antitop_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
         "histAxisName": "ST_antitop_t-channel_centralUL16APV",
         "xsecName": "ST_antitop_t-channel",
     },
@@ -1293,7 +1293,7 @@ central_UL16APV_bkg_dict = {
         "xsecName": "ST_tW_top_5f_inclusiveDecays",
     },
     "UL16APV_TTGJets" : {
-        "path" : "/TTGJets_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM", 
+        "path" : "/TTGJets_TuneCP5_13TeV-amcatnloFXFX-madspin-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM",
         "histAxisName": "TTGJets_centralUL16APV",
         "xsecName": "TTGJets",
     },
@@ -1311,7 +1311,7 @@ central_UL16APV_bkg_dict = {
     },
     "UL16APV_TTJets" : {
         "path" : "/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
-        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1", 
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/TTJets_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1",
         "histAxisName": "TTJets_centralUL16APV",
         "xsecName": "TT",
     },
@@ -1334,7 +1334,7 @@ central_UL16APV_bkg_dict = {
     },
     "UL16APV_WJetsToLNu" : {
         "path" : "/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM",
-        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2", 
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2",
         "histAxisName": "WJetsToLNu_centralUL16APV",
         "xsecName": "WJetsToLNu",
     },
@@ -1360,7 +1360,7 @@ central_UL16APV_bkg_dict = {
     },
     "UL16APV_WZTo3LNu" : {
         "path" : "/WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM",
-        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1", 
+        "path_local" : "/store/mc/RunIISummer20UL16NanoAODAPVv9/WZTo3LNu_mllmin4p0_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1",
         "histAxisName": "WZTo3LNu_centralUL16APV",
         "xsecName": "WZTo3LNu",
     },
@@ -1634,7 +1634,7 @@ for era in dataset_eras:
         ds_path = "/{ds}/{year}{era}_{ver}/NANOAOD".format(year=year,ds=ds_name,era=era,ver=version)
         data_2018_dict[key_name]['path'] = ds_path
 
-########### TESTING ########### 
+########### TESTING ###########
 
 test_dict = {
     "test_dy_sample" : {
@@ -1651,7 +1651,7 @@ def replace_val_in_json(path_to_json_file,key,new_val,verbose=True):
 
     # Replace value if it's different than what's in the JSON
     with open(path_to_json_file) as json_file:
-       json_dict = json.load(json_file)
+        json_dict = json.load(json_file)
     if new_val == json_dict[key]:
         if verbose:
             print(f"\tValues already agree, both are {new_val}")
@@ -1730,16 +1730,16 @@ def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False
         if not os.path.exists(out_name):
             failed.append(sample_name)
 
-        subprocess.run(["mv",out_name,out_dir]) 
+        subprocess.run(["mv",out_name,out_dir])
         if '_ext' in out_name:
-          combine_json_ext(out_dir+'/'+out_name) # Merge with non-ext version
-          os.remove(out_dir+'/'+out_name) # Remove (now) outdated ext version
+            combine_json_ext(out_dir+'/'+out_name) # Merge with non-ext version
+            os.remove(out_dir+'/'+out_name) # Remove (now) outdated ext version
         # Only run if more than one file exists (differentiates between `*_b2.json` and `*_b2_atPSI.json`
         r = re.compile(re.sub(r'_b[1-9]', '_b[1-9]', out_name))
         matches = [b for b in str(subprocess.check_output(["ls",'.'], shell=True)).split('\\n') if bool(r.match(b))]
         if re.search('_b[2-9]', out_name) and len(matches)>1:
-          combine_json_batch(out_dir+'/'+out_name) # Merge batches
-          os.remove(out_dir+'/'+out_name) # Remove (now) outdated batch version
+            combine_json_batch(out_dir+'/'+out_name) # Merge batches
+            os.remove(out_dir+'/'+out_name) # Remove (now) outdated batch version
 
         print("sample name:",sample_name)
         print("\tpath:",path,"\n\thistAxisName:",hist_axis_name,"\n\txsecName",xsec_name,"\n\tout name:",out_name,"\n\tout dir:",out_dir)

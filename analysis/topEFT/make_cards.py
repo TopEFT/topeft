@@ -94,7 +94,7 @@ def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
     if not os.path.samefile(home,out_dir):
         condor_exe_fname = os.path.join(out_dir,"condor.sh")
 
-    print(f"Generating condor executable script")
+    print("Generating condor executable script")
     with open(condor_exe_fname,"w") as f:
         f.write(sh_fragment)
 
@@ -255,7 +255,7 @@ def main():
                 for wc in wcs:
                     if not wc in selected_wcs[p]:
                         selected_wcs[p].append(wc)
-        with open(os.path.join(out_dir,f"selectedWCs.txt"),"w") as f:
+        with open(os.path.join(out_dir,"selectedWCs.txt"),"w") as f:
             selected_wcs_for_json = {}
             for p,v in selected_wcs.items():
                 if not dc.is_signal(p):

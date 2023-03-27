@@ -1,26 +1,16 @@
 #!/usr/bin/env python
-import lz4.frame as lz4f
-import cloudpickle
-import json
-import pprint
-import copy
 import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 from coffea import hist, processor
-from coffea.util import load, save
-from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
-from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachPdfWeights, AttachScaleWeights, GetTriggerSF
+from topcoffea.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
 from topcoffea.modules.selection import *
-from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
-import topcoffea.modules.eft_helper as efth
 
 # Check if the values in an array are within a given range
 def in_range_mask(in_var,lo_lim=None,hi_lim=None):
@@ -82,8 +72,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         sow                = self._samples[dataset]["nSumOfWeights"]
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
-        for d in datasets: 
-            if d in dataset: dataset = dataset.split('_')[0] 
+        for d in datasets:
+            if d in dataset: dataset = dataset.split('_')[0]
 
         # Set the sampleType (used for MC matching requirement)
         # Does not really matter for this processor, but still need to pass it to the selection function anyway
@@ -92,7 +82,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         sampleType = 'prompt'
         if isData:
             sampleType = 'data'
-        elif dataset in conversionDatasets: 
+        elif dataset in conversionDatasets:
             sampleType = 'conversions'
         elif dataset in nonpromptDatasets:
             sampleType = 'nonprompt'
@@ -116,7 +106,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             mu["gen_parent_pdgId"] = mu.matched_gen.distinctParent.pdgId
             e["gen_gparent_pdgId"] = e.matched_gen.distinctParent.distinctParent.pdgId
             mu["gen_gparent_pdgId"] = mu.matched_gen.distinctParent.distinctParent.pdgId
-        
+
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
             golden_json_path = topcoffea_path("data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
@@ -128,7 +118,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError(f"Error: Unknown year \"{year}\".")
         lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
 
-        
+
         ################### Object selection ####################
 
         # Electron selection
@@ -161,8 +151,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Attach per lepton fake rates
         AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
         AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
-        m_fo['convVeto'] = ak.ones_like(m_fo.charge); 
-        m_fo['lostHits'] = ak.zeros_like(m_fo.charge); 
+        m_fo['convVeto'] = ak.ones_like(m_fo.charge)
+        m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
         events["l_fo_conept_sorted"] = l_fo_conept_sorted
