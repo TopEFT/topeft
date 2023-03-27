@@ -1,5 +1,5 @@
 ## training
-This directory contains example scripts that are useful for learning to run coffea and topcoffea. 
+This directory contains example scripts that may be useful for learning to run coffea and topcoffea. 
 
 ### Past tutorials:
 
@@ -11,7 +11,13 @@ This directory contains example scripts that are useful for learning to run coff
 
 ### Scripts:
 
-* `simple_processor.py` and `simple_run.py`: A minimal example of a topcoffea processor. To run:
-    - Download a root file to the local directory, e.g.: `wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root`
-    - Run the run script over a json that points to the root file you downloaded: `python simple_run.py ../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.json`
+* `simple_processor.py` and `simple_run.py`: A minimal example of a topcoffea processor. The processor can be run as follows.
+    - Download a root file to the local directory, e.g.:
+    ```
+    wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root
+    ```
+    - Run the run script over a json that points to the root file you downloaded: 
+    ```
+    python simple_run.py ../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.json
+    ```
 
