@@ -14,19 +14,6 @@ from topcoffea.modules.utils import dump_to_pkl, get_hist_from_pkl
 from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
 from topcoffea.modules.get_renormfact_envelope import get_renormfact_envelope
 
-WGT_VAR_LST = [
-    "nSumOfWeights_ISRUp",
-    "nSumOfWeights_ISRDown",
-    "nSumOfWeights_FSRUp",
-    "nSumOfWeights_FSRDown",
-    "nSumOfWeights_renormUp",
-    "nSumOfWeights_renormDown",
-    "nSumOfWeights_factUp",
-    "nSumOfWeights_factDown",
-    "nSumOfWeights_renormfactUp",
-    "nSumOfWeights_renormfactDown",
-]
-
 if __name__ == '__main__':
 
     import argparse
@@ -34,7 +21,6 @@ if __name__ == '__main__':
     parser.add_argument('jsonFiles'           , nargs='?', default=''           , help = 'Json file(s) containing files and metadata')
     parser.add_argument('--prefix', '-r'     , nargs='?', default=''           , help = 'Prefix or redirector to look for the files')
     parser.add_argument('--test','-t'       , action='store_true'  , help = 'To perform a test, run over a few events in a couple of chunks')
-    parser.add_argument('--pretend'        , action='store_true'  , help = 'Read json files but, not execute the analysis')
     parser.add_argument('--nworkers','-n'   , default=8  , help = 'Number of workers')
     parser.add_argument('--chunksize','-s'   , default=100000  , help = 'Number of events per chunk')
     parser.add_argument('--nchunks','-c'   , default=None  , help = 'You can choose to run only a number of chunks')
@@ -42,64 +28,20 @@ if __name__ == '__main__':
     parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the output directory')
     parser.add_argument('--treename'   , default='Events', help = 'Name of the tree inside the files')
     parser.add_argument('--do-errors', action='store_true', help = 'Save the w**2 coefficients')
-    parser.add_argument('--do-systs', action='store_true', help = 'Run over systematic samples (takes longer)')
     parser.add_argument('--split-lep-flavor', action='store_true', help = 'Split up categories by lepton flavor')
-    parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
-    parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
-    parser.add_argument('--do-np', action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
-    parser.add_argument('--do-renormfact-envelope', action='store_true', help = 'Perform renorm/fact envelope calculation on the output hist (saves the modified with the the same name as the original.')
     parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
-    parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
-    parser.add_argument('--ecut', default=None  , help = 'Energy cut threshold i.e. throw out events above this (GeV)')
 
     args = parser.parse_args()
     jsonFiles        = args.jsonFiles
     prefix           = args.prefix
-    dotest           = args.test
     nworkers         = int(args.nworkers)
     chunksize        = int(args.chunksize)
     nchunks          = int(args.nchunks) if not args.nchunks is None else args.nchunks
     outname          = args.outname
     outpath          = args.outpath
-    pretend          = args.pretend
     treename         = args.treename
     do_errors        = args.do_errors
-    do_systs         = args.do_systs
-    split_lep_flavor = args.split_lep_flavor
-    skip_sr          = args.skip_sr
-    skip_cr          = args.skip_cr
-    do_np            = args.do_np
-    do_renormfact_envelope= args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
-
-    # Check if we have valid options
-    if do_renormfact_envelope:
-        if not do_systs:
-            raise Exception("Error: Cannot specify do_renormfact_envelope if we are not including systematics.")
-        if not do_np:
-            raise Exception("Error: Cannot specify do_renormfact_envelope if we have not already done the integration across the appl axis that occurs in the data driven estimator step.")
-
-    # Set the threshold for the ecut (if not applying a cut, should be None)
-    ecut_threshold = args.ecut
-    if ecut_threshold is not None: ecut_threshold = float(args.ecut)
-
-    # Figure out which hists to include
-    if args.hist_list == ["ana"]:
-        # Here we hardcode a list of hists used for the analysis
-        hist_lst = ["njets","lj0pt","ptz"]
-    elif args.hist_list == ["cr"]:
-        # Here we hardcode a list of hists used for the CRs
-        hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass"]
-    else:
-        # We want to specify a custom list
-        # If we don't specify this argument, it will be None, and the processor will fill all hists
-        hist_lst = args.hist_list
-
-    if dotest:
-        nchunks = 2
-        chunksize = 10000
-        nworkers = 1
-        print('Running a fast test with %i workers, %i chunks of %i events'%(nworkers, nchunks, chunksize))
 
     ### Load samples from json
     samplesdict = {}
@@ -158,14 +100,6 @@ if __name__ == '__main__':
         samplesdict[sname]['nEvents'] = int(samplesdict[sname]['nEvents'])
         samplesdict[sname]['nGenEvents'] = int(samplesdict[sname]['nGenEvents'])
         samplesdict[sname]['nSumOfWeights'] = float(samplesdict[sname]['nSumOfWeights'])
-        if not samplesdict[sname]["isData"]:
-            for wgt_var in WGT_VAR_LST:
-                # Check that MC samples have all needed weight sums (only needed if doing systs)
-                if do_systs:
-                    if (wgt_var not in samplesdict[sname]):
-                        raise Exception(f"Missing weight variation \"{wgt_var}\".")
-                    else:
-                        samplesdict[sname][wgt_var] = float(samplesdict[sname][wgt_var])
         # Print file info
         print('>> '+sname)
         print('   - isData?      : %s'   %('YES' if samplesdict[sname]['isData'] else 'NO'))
@@ -177,17 +111,10 @@ if __name__ == '__main__':
         print('   - nEvents      : %i'   %samplesdict[sname]['nEvents'])
         print('   - nGenEvents   : %i'   %samplesdict[sname]['nGenEvents'])
         print('   - SumWeights   : %f'   %samplesdict[sname]['nSumOfWeights'])
-        if not samplesdict[sname]["isData"]:
-            for wgt_var in WGT_VAR_LST:
-                if wgt_var in samplesdict[sname]:
-                    print(f'   - {wgt_var}: {samplesdict[sname][wgt_var]}')
         print('   - Prefix       : %s'   %samplesdict[sname]['redirector'])
         print('   - nFiles       : %i'   %len(samplesdict[sname]['files']))
         for fname in samplesdict[sname]['files']: print('     %s'%fname)
 
-    if pretend:
-        print('pretending...')
-        exit()
 
     # Extract the list of all WCs, as long as we haven't already specified one.
     if len(wc_lst) == 0:
@@ -230,17 +157,3 @@ if __name__ == '__main__':
     with gzip.open(out_pkl_file, "wb") as fout:
         cloudpickle.dump(output, fout)
     print("Done!")
-
-    # Run the data driven estimation, save the output
-    if do_np:
-        print("\nDoing the nonprompt estimation...")
-        out_pkl_file_name_np = os.path.join(outpath,outname+"_np.pkl.gz")
-        ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np)
-        print(f"Saving output in {out_pkl_file_name_np}...")
-        ddp.dumpToPickle()
-        print("Done!")
-        if do_renormfact_envelope:
-            print("\nDoing the renorm. fact. envelope calculation...")
-            dict_of_histos = get_hist_from_pkl(out_pkl_file_name_np,allow_empty=False)
-            dict_of_histos_after_applying_envelope = get_renormfact_envelope(dict_of_histos)
-            dump_to_pkl(out_pkl_file_name_np,dict_of_histos_after_applying_envelope)
