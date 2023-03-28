@@ -123,11 +123,11 @@ samplesdict = {}
 allInputFiles = []
 
 def LoadJsonToSampleName(jsonFile, prefix):
- sampleName = jsonFile if not '/' in jsonFile else jsonFile[jsonFile.rfind('/')+1:]
- if sampleName.endswith('.json'): sampleName = sampleName[:-5]
- with open(jsonFile) as jf:
-   samplesdict[sampleName] = json.load(jf)
-   samplesdict[sampleName]['redirector'] = prefix
+    sampleName = jsonFile if not '/' in jsonFile else jsonFile[jsonFile.rfind('/')+1:]
+    if sampleName.endswith('.json'): sampleName = sampleName[:-5]
+    with open(jsonFile) as jf:
+        samplesdict[sampleName] = json.load(jf)
+        samplesdict[sampleName]['redirector'] = prefix
 
 if isinstance(jsonFiles, str) and ',' in jsonFiles:
     jsonFiles = jsonFiles.replace(' ', '').split(',')
@@ -171,7 +171,7 @@ for f in allInputFiles:
                     else:
                         LoadJsonToSampleName(l, prefix)
 
-flist = {};
+flist = {}
 nevts_total = 0
 for sname in samplesdict.keys():
     redirector = samplesdict[sname]['redirector']
