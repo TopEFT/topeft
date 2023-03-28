@@ -310,11 +310,11 @@ if executor == "work_queue":
 tstart = time.time()
 
 if executor == "futures":
-     exec_instance = processor.FuturesExecutor(workers=nworkers)
-     runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
+    exec_instance = processor.FuturesExecutor(workers=nworkers)
+    runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
 elif executor ==  "work_queue":
-     executor = processor.WorkQueueExecutor(**executor_args)
-     runner = processor.Runner(executor, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=180)
+    executor = processor.WorkQueueExecutor(**executor_args)
+    runner = processor.Runner(executor, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=180)
 
 output = runner(flist, treename, processor_instance)
 
@@ -328,7 +328,7 @@ nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.v
 print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
 if executor == "futures":
-     print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
+    print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
 
 # Save the output
 if not os.path.isdir(outpath): os.system("mkdir -p %s"%outpath)
