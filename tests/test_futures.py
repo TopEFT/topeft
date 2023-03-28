@@ -1,8 +1,6 @@
 import subprocess
 import topcoffea.modules.dataDrivenEstimation as dataDrivenEstimation
-from work_queue import Factory
 from os.path import exists
-from os import getcwd
 from topcoffea.modules.comp_datacard import comp_datacard
 
 def test_topcoffea():
@@ -20,14 +18,14 @@ def test_topcoffea():
     # Run TopCoffea
     subprocess.run(args)
 
-    assert(exists('analysis/topEFT/histos/output_check_yields.pkl.gz'))
+    assert (exists('analysis/topEFT/histos/output_check_yields.pkl.gz'))
 
 
 def test_nonprompt():
     a=dataDrivenEstimation.DataDrivenProducer('analysis/topEFT/histos/output_check_yields.pkl.gz', 'analysis/topEFT/histos/output_check_yields_nonprompt')
     a.dumpToPickle() # Do we want to write this file when testing in CI? Maybe if we ever save the CI artifacts
 
-    assert(exists('analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz'))
+    assert (exists('analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz'))
 
 def test_datacardmaker():
     args = [
@@ -48,4 +46,4 @@ def test_datacardmaker():
     # Run datacard maker
     subprocess.run(args)
 
-    assert(comp_datacard('histos/ttx_multileptons-2lss_p_4j_lj0pt.txt','analysis/topEFT/test/ttx_multileptons-2lss_p_4j_lj0pt.txt'))
+    assert (comp_datacard('histos/ttx_multileptons-2lss_p_4j_lj0pt.txt','analysis/topEFT/test/ttx_multileptons-2lss_p_4j_lj0pt.txt'))

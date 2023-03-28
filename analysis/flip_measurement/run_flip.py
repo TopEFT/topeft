@@ -5,7 +5,6 @@ import gzip
 import os
 import argparse
 
-import numpy as np
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 import topcoffea.modules.remote_environment as remote_environment
@@ -45,7 +44,8 @@ for fn in inputFiles:
     if fn.endswith('.json'):
         sample = os.path.basename(fn).replace('.json','')
         jsn = load_sample_json_file(fn)
-        samples_to_process = update_cfg(jsn,
+        samples_to_process = update_cfg(
+            jsn,
             name=sample,
             cfg=samples_to_process,
             max_files=max_files,

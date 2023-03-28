@@ -1,12 +1,11 @@
-# Notes on this script: 
-#   - This script runs on the output of flip_ar_processor.py 
+# Notes on this script:
+#   - This script runs on the output of flip_ar_processor.py
 #   - It opens the pkl file and plots the SS data and the prediction
 #   - The prediction was calculated in the processor by applying flip probabilities to the OS data
 
 import os
 import copy
 import matplotlib.pyplot as plt
-import uproot3
 from coffea import hist
 
 from topcoffea.modules.YieldTools import YieldTools

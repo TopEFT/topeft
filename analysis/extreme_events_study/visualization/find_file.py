@@ -1,29 +1,9 @@
 #!/usr/bin/env python
-import lz4.frame as lz4f
-import cloudpickle
-import json
-import pprint
-import copy
-import coffea
 import numpy as np
-import awkward as ak
 import pandas as pd
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import hist, processor
-from coffea.util import load, save
-from optparse import OptionParser
-from coffea.analysis_tools import PackedSelection
-from coffea.lumi_tools import LumiMask
+from coffea import processor
 from coffea.processor import AccumulatorABC
-
-from topcoffea.modules.GetValuesFromJsons import get_param
-from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachPdfWeights, AttachScaleWeights, GetTriggerSF
-from topcoffea.modules.selection import *
-from topcoffea.modules.HistEFT import HistEFT
-from topcoffea.modules.paths import topcoffea_path
-import topcoffea.modules.eft_helper as efth
-import topcoffea.modules.GetValuesFromJsons as getj
 
 import pickle
 import gzip
@@ -51,7 +31,7 @@ class dataframe_accumulator(AccumulatorABC):
             df = other._value.merge(self._base, on=["run", "luminosityBlock", "event"])
             df = df.loc[:,~df.columns.duplicated()]
             self._value = pd.concat([self._value, df])
-    
+
 
 class AnalysisProcessor(processor.ProcessorABC):
 
@@ -66,7 +46,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ############# Specify events to track #############
 
-        # Put event information of selected events from SKIM files into one dataframe 
+        # Put event information of selected events from SKIM files into one dataframe
         df_pt_j = output["pt_j"].value[["run", "luminosityBlock", "event"]][:1]
         df_njets = output["njets"].value[["run", "luminosityBlock", "event"]][:1]
         df_nleps = output["nleps"].value.sort_values(by="pt_l_0", ascending=False)
@@ -74,8 +54,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         df_SKIM = pd.concat([df_pt_j, df_njets, df_nleps], ignore_index=True)
 
         self._accumulator = processor.dict_accumulator({
-                                "nonSKIM": dataframe_accumulator(df_SKIM)
-                            })
+            "nonSKIM": dataframe_accumulator(df_SKIM)
+        })
 
     @property
     def accumulator(self):

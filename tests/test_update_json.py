@@ -16,7 +16,7 @@ def test_update_json():
     # Check to make sure that dry_run doesn't actually generate a file
     update_json(src_fname,dry_run=True,outname=dst_fname,verbose=True)
 
-    assert(not os.path.exists(dst_fname))
+    assert (not os.path.exists(dst_fname))
 
     # No updates, should just create a copy
     update_json(src_fname,outname=dst_fname,verbose=True)

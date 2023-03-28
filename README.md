@@ -26,9 +26,6 @@ Top quark analyses using the Coffea framework
 - `topcoffea/modules`:
   Auxiliar python modules and scripts
 
-- `topcoffea/plotter`:
-  Tools to produce stack plots and other plots
-
 - `setup.py`: File for installing the `topcoffea` package
 
 ### Clone the repository

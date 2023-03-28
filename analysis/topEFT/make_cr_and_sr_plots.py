@@ -7,17 +7,17 @@ import matplotlib.pyplot as plt
 from cycler import cycler
 
 from coffea import hist
-from topcoffea.modules.HistEFT import HistEFT
+#from topcoffea.modules.HistEFT import HistEFT
 
 from topcoffea.modules.YieldTools import YieldTools
 import topcoffea.modules.GetValuesFromJsons as getj
-from topcoffea.plotter.make_html import make_html
+from topcoffea.scripts.make_html import make_html
 import topcoffea.modules.utils as utils
 
 # This script takes an input pkl file that should have both data and background MC included.
 # Use the -y option to specify a year, if no year is specified, all years will be included.
 # There are various other options available from the command line.
-# For example, to make unit normalized plots for 2018, with the timestamp appended to the directory name, you would run:    
+# For example, to make unit normalized plots for 2018, with the timestamp appended to the directory name, you would run:
 #     python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2018 -t -u
 
 # Some options for plotting the data and MC
@@ -165,7 +165,7 @@ def get_dict_with_stripped_bin_names(in_chan_dict,type_of_info_to_strip):
                 raise Exception(f"Error: Unknown type of string to remove \"{type_of_info_to_strip}\".")
             if bin_name_no_njet not in out_chan_dict[cat]:
                 out_chan_dict[cat].append(bin_name_no_njet)
-    return(out_chan_dict)
+    return (out_chan_dict)
 
 # Group bins in a hist, returns a new hist
 def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
@@ -350,7 +350,7 @@ def get_shape_syst_arrs(base_histo):
 # Special case for renorm and fact, as these are decorrelated across processes
 # Sorry to anyone who tries to read this in the future, this function is very ad hoc and messy and hard to follow
 # Just used in get_shape_syst_arrs()
-# Here are a few notes: 
+# Here are a few notes:
 #   - This is complicated, so I just symmetrized the errors
 #   - The processes are generally correlated across groups (e.g. WZ and ZZ) since this is what's done in the datacard maker for the SR
 #   - So the grouping generally follows what's in the CR group map, except in the case of signal
@@ -358,7 +358,7 @@ def get_shape_syst_arrs(base_histo):
 #       - Note there are caveats to this:
 #           * In the SR, TTZToLL_M1to10 and TTToSemiLeptonic and TTTo2L2Nu are all grouped into ttll
 #           * Here in the CR TTZToLL_M1to10 is part of signal group, but TTToSemiLeptonic and TTTo2L2Nu are in their own ttbar group
-#           * So there are two differences with respect to how these processes are grouped in the SR: 
+#           * So there are two differences with respect to how these processes are grouped in the SR:
 #               1) Here TTToSemiLeptonic and TTTo2L2Nu are correlated with each other, but not with ttll
 #               2) Here TTZToLL_M1to10 is grouped as part of signal (as in SR) but here _all_ signal processes are uncorrleated so here TTZToLL_M1to10 is uncorrelated with ttll while in SR they would be correlated
 def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,template_zeros_arr):
@@ -716,6 +716,7 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
             continue
 
             # Make a sub dir for this category
+            save_tag = "placeholder" # Flake8 pointed out that save_tag is not defined, should figure out why at some point if this function is ever used again
             save_dir_path_tmp = os.path.join(save_dir_path,save_tag)
             if not os.path.exists(save_dir_path_tmp):
                 os.mkdir(save_dir_path_tmp)
@@ -915,7 +916,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 
         # Make plots for each SR category
         if split_by_chan:
-            for hist_cat in SR_CHAN_DICT.keys(): 
+            for hist_cat in SR_CHAN_DICT.keys():
                 if ((var_name == "ptz") and ("3l" not in hist_cat)): continue
 
                 # Make a sub dir for this category

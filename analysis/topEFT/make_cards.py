@@ -56,7 +56,7 @@ source ${USR_DIR}/miniconda3/etc/profile.d/conda.sh
 unset PYTHONPATH
 conda activate ${CONDA_DEFAULT_ENV}
 
-python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${VAR_LST} --ch-lst ${CH_LST} --use-selected "selectedWCs.txt" --do-nuisance ${OTHER}
+python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${VAR_LST} --ch-lst ${CH_LST} --use-selected "selectedWCs.txt" ${OTHER}
 """
 
 def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins):
@@ -94,7 +94,7 @@ def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
     if not os.path.samefile(home,out_dir):
         condor_exe_fname = os.path.join(out_dir,"condor.sh")
 
-    print(f"Generating condor executable script")
+    print("Generating condor executable script")
     with open(condor_exe_fname,"w") as f:
         f.write(sh_fragment)
 
@@ -111,6 +111,8 @@ def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
         other_opts.append("--verbose")
     if dc.use_real_data:
         other_opts.append("--unblind")
+    if dc.do_nuisance:
+        other_opts.append("--do-nuisance")
     if dc.year_lst:
         other_opts.extend(["--year"," ".join(dc.year_lst)])
     if dc.drop_syst:
@@ -197,13 +199,6 @@ def main():
     if isinstance(wcs,str):
         wcs = wcs.split(",")
 
-    if use_condor:
-        # Note:
-        #   The dc in the parent submission is only used to generate the selectedWCs file and figure
-        #   out what channels/samples are available, so we can just drop the systematics to speed
-        #   things up
-        do_nuis = False
-
     kwargs = {
         "wcs": wcs,
         "lumi_json_path": lumi_json,
@@ -260,7 +255,7 @@ def main():
                 for wc in wcs:
                     if not wc in selected_wcs[p]:
                         selected_wcs[p].append(wc)
-        with open(os.path.join(out_dir,f"selectedWCs.txt"),"w") as f:
+        with open(os.path.join(out_dir,"selectedWCs.txt"),"w") as f:
             selected_wcs_for_json = {}
             for p,v in selected_wcs.items():
                 if not dc.is_signal(p):

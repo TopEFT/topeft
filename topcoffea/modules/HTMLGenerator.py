@@ -36,7 +36,7 @@ class BaseHTMLTag:
         for k,v in kwargs.items():
             # Skip already defined attributes
             if k in self.CLASS_TRANSLATION: k = 'class'
-            if self.hasAttribute(k): continue 
+            if self.hasAttribute(k): continue
             self.tag_attributes[k] = v
 
     # Modify existing attributes (if found)
@@ -163,7 +163,7 @@ class BaseHTMLTag:
                     string += tag_opt[0] + "=%d" % tag_opt[1]
                 else:
                     string += tag_opt[0] + "=\"%s\"" % tag_opt[1]
-        
+
         if self.getContent() == "" and len(self.nested_tags) == 0:
             # Format an empty tag
             string += "/>"
@@ -576,11 +576,11 @@ class HTMLGenerator:
         body_tag.addTag(new_tag)
 
     # Adds a link tag to the head section of the html file
-    # TODO: Should probably remove this, since it can be done using the addHeadTag() method instead
+    # A shorthand for adding a link tag to the header
     def addLinkTag(self,_rel,_type,_href,opts={}):
         link_tag = LinkTag()
         link_tag.addAttributes(rel=_rel,type=_type,href=_href)
-        if opts: new_link_tag.addAttributes(**opts)
+        if opts: link_tag.addAttributes(**opts)
         #new_link_tag.addAttribute('rel',_rel)
         #new_link_tag.addAttribute('type',_type)
         #new_link_tag.addAttribute('href',_href)
@@ -600,10 +600,10 @@ class HTMLGenerator:
     def saveHTML(self,f_name='index.html',f_dir='.'):
         #output = self.html.dumpTag()
         output = self.dumpHTML()
-        f_path = os.path.join(f_dir,f_name);
-        
+        f_path = os.path.join(f_dir,f_name)
+
         print(f"Saving HTML output to: {f_path})")
-        
+
         #html_file = open(f_path,'wb')
         html_file = open(f_path,'w')
         html_file.write(output)

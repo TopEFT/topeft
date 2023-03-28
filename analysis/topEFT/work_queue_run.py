@@ -1,24 +1,17 @@
 #!/usr/bin/env python
 
-import lz4.frame as lz4f
-import pickle
 import json
 import time
 import cloudpickle
 import gzip
 import os
-from optparse import OptionParser
 
-import uproot
 import numpy as np
 from coffea import hist, processor
-from coffea.util import load, save
 from coffea.nanoevents import NanoAODSchema
 
 import topeft
 import topcoffea.modules.utils as utils
-from topcoffea.modules import samples
-from topcoffea.modules import fileReader
 from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
 from topcoffea.modules.get_renormfact_envelope import get_renormfact_envelope
 import topcoffea.modules.remote_environment as remote_environment
@@ -99,123 +92,129 @@ if len(port) == 1:
 
 # Figure out which hists to include
 if args.hist_list == ["ana"]:
-  # Here we hardcode a list of hists used for the analysis
-  hist_lst = ["njets","lj0pt","ptz"]
+    # Here we hardcode a list of hists used for the analysis
+    hist_lst = ["njets","lj0pt","ptz"]
 elif args.hist_list == ["cr"]:
-  # Here we hardcode a list of hists used for the CRs
-  hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass"]
+    # Here we hardcode a list of hists used for the CRs
+    hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass"]
 else:
-  # We want to specify a custom list
-  # If we don't specify this argument, it will be None, and the processor will fill all hists
-  hist_lst = args.hist_list
+    # We want to specify a custom list
+    # If we don't specify this argument, it will be None, and the processor will fill all hists
+    hist_lst = args.hist_list
 
 ### Load samples from json
 samplesdict = {}
 allInputFiles = []
 
 def LoadJsonToSampleName(jsonFile, prefix):
- sampleName = jsonFile if not '/' in jsonFile else jsonFile[jsonFile.rfind('/')+1:]
- if sampleName.endswith('.json'): sampleName = sampleName[:-5]
- with open(jsonFile) as jf:
-   samplesdict[sampleName] = json.load(jf)
-   samplesdict[sampleName]['redirector'] = prefix
+    sampleName = jsonFile if not '/' in jsonFile else jsonFile[jsonFile.rfind('/')+1:]
+    if sampleName.endswith('.json'): sampleName = sampleName[:-5]
+    with open(jsonFile) as jf:
+        samplesdict[sampleName] = json.load(jf)
+        samplesdict[sampleName]['redirector'] = prefix
 
-if   isinstance(jsonFiles, str) and ',' in jsonFiles: jsonFiles = jsonFiles.replace(' ', '').split(',')
-elif isinstance(jsonFiles, str)                     : jsonFiles = [jsonFiles]
+if isinstance(jsonFiles, str) and ',' in jsonFiles:
+    jsonFiles = jsonFiles.replace(' ', '').split(',')
+elif isinstance(jsonFiles, str):
+    jsonFiles = [jsonFiles]
 for jsonFile in jsonFiles:
-  if os.path.isdir(jsonFile):
-    if not jsonFile.endswith('/'): jsonFile+='/'
-    for f in os.path.listdir(jsonFile):
-      if f.endswith('.json'): allInputFiles.append(jsonFile+f)
-  else:
-    allInputFiles.append(jsonFile)
+    if os.path.isdir(jsonFile):
+        if not jsonFile.endswith('/'): jsonFile+='/'
+        for f in os.path.listdir(jsonFile):
+            if f.endswith('.json'): allInputFiles.append(jsonFile+f)
+    else:
+        allInputFiles.append(jsonFile)
 
 # Read from cfg files
 for f in allInputFiles:
-  if not os.path.isfile(f):
-    raise Exception(f'[ERROR] Input file {f} not found!')
-  # This input file is a json file, not a cfg
-  if f.endswith('.json'):
-    LoadJsonToSampleName(f, prefix)
-  # Open cfg files
-  else:
-    with open(f) as fin:
-      print(' >> Reading json from cfg file...')
-      lines = fin.readlines()
-      for l in lines:
-        if '#' in l: l=l[:l.find('#')]
-        l = l.replace(' ', '').replace('\n', '')
-        if l == '': continue
-        if ',' in l:
-          l = l.split(',')
-          for nl in l:
-            if not os.path.isfile(l): prefix = nl
-            else: LoadJsonToSampleName(nl, prefix)
-        else:
-          if not os.path.isfile(l): prefix = l
-          else: LoadJsonToSampleName(l, prefix)
+    if not os.path.isfile(f):
+        raise Exception(f'[ERROR] Input file {f} not found!')
+    # This input file is a json file, not a cfg
+    if f.endswith('.json'):
+        LoadJsonToSampleName(f, prefix)
+    # Open cfg files
+    else:
+        with open(f) as fin:
+            print(' >> Reading json from cfg file...')
+            lines = fin.readlines()
+            for l in lines:
+                if '#' in l:
+                    l=l[:l.find('#')]
+                l = l.replace(' ', '').replace('\n', '')
+                if l == '': continue
+                if ',' in l:
+                    l = l.split(',')
+                    for nl in l:
+                        if not os.path.isfile(l):
+                            prefix = nl
+                        else:
+                            LoadJsonToSampleName(nl, prefix)
+                else:
+                    if not os.path.isfile(l):
+                        prefix = l
+                    else:
+                        LoadJsonToSampleName(l, prefix)
 
-flist = {};
+flist = {}
 nevts_total = 0
 for sname in samplesdict.keys():
-  redirector = samplesdict[sname]['redirector']
-  flist[sname] = [(redirector+f) for f in samplesdict[sname]['files']]
-  samplesdict[sname]['year'] = samplesdict[sname]['year']
-  samplesdict[sname]['xsec'] = float(samplesdict[sname]['xsec'])
-  samplesdict[sname]['nEvents'] = int(samplesdict[sname]['nEvents'])
-  nevts_total += samplesdict[sname]['nEvents']
-  samplesdict[sname]['nGenEvents'] = int(samplesdict[sname]['nGenEvents'])
-  samplesdict[sname]['nSumOfWeights'] = float(samplesdict[sname]['nSumOfWeights'])
-  if not samplesdict[sname]["isData"]:
-    for wgt_var in WGT_VAR_LST:
-      # Check that MC samples have all needed weight sums (only needed if doing systs)
-      if do_systs:
-          if (wgt_var not in samplesdict[sname]):
-            raise Exception(f"Missing weight variation \"{wgt_var}\".")
-          else:
-            samplesdict[sname][wgt_var] = float(samplesdict[sname][wgt_var])
-
-  # Print file info
-  print('>> '+sname)
-  print('   - isData?      : %s'   %('YES' if samplesdict[sname]['isData'] else 'NO'))
-  print('   - year         : %s'   %samplesdict[sname]['year'])
-  print('   - xsec         : %f'   %samplesdict[sname]['xsec'])
-  print('   - histAxisName : %s'   %samplesdict[sname]['histAxisName'])
-  print('   - options      : %s'   %samplesdict[sname]['options'])
-  print('   - tree         : %s'   %samplesdict[sname]['treeName'])
-  print('   - nEvents      : %i'   %samplesdict[sname]['nEvents'])
-  print('   - nGenEvents   : %i'   %samplesdict[sname]['nGenEvents'])
-  print('   - SumWeights   : %i'   %samplesdict[sname]['nSumOfWeights'])
-  if not samplesdict[sname]["isData"]:
-    for wgt_var in WGT_VAR_LST:
-      if wgt_var in samplesdict[sname]:
-        print(f'   - {wgt_var}: {samplesdict[sname][wgt_var]}')
-  print('   - Prefix       : %s'   %samplesdict[sname]['redirector'])
-  print('   - nFiles       : %i'   %len(samplesdict[sname]['files']))
-  for fname in samplesdict[sname]['files']: print('     %s'%fname)
+    redirector = samplesdict[sname]['redirector']
+    flist[sname] = [(redirector+f) for f in samplesdict[sname]['files']]
+    samplesdict[sname]['year'] = samplesdict[sname]['year']
+    samplesdict[sname]['xsec'] = float(samplesdict[sname]['xsec'])
+    samplesdict[sname]['nEvents'] = int(samplesdict[sname]['nEvents'])
+    nevts_total += samplesdict[sname]['nEvents']
+    samplesdict[sname]['nGenEvents'] = int(samplesdict[sname]['nGenEvents'])
+    samplesdict[sname]['nSumOfWeights'] = float(samplesdict[sname]['nSumOfWeights'])
+    if not samplesdict[sname]["isData"]:
+        for wgt_var in WGT_VAR_LST:
+            # Check that MC samples have all needed weight sums (only needed if doing systs)
+            if do_systs:
+                if (wgt_var not in samplesdict[sname]):
+                    raise Exception(f"Missing weight variation \"{wgt_var}\".")
+                else:
+                    samplesdict[sname][wgt_var] = float(samplesdict[sname][wgt_var])
+    # Print file info
+    print('>> '+sname)
+    print('   - isData?      : %s'   %('YES' if samplesdict[sname]['isData'] else 'NO'))
+    print('   - year         : %s'   %samplesdict[sname]['year'])
+    print('   - xsec         : %f'   %samplesdict[sname]['xsec'])
+    print('   - histAxisName : %s'   %samplesdict[sname]['histAxisName'])
+    print('   - options      : %s'   %samplesdict[sname]['options'])
+    print('   - tree         : %s'   %samplesdict[sname]['treeName'])
+    print('   - nEvents      : %i'   %samplesdict[sname]['nEvents'])
+    print('   - nGenEvents   : %i'   %samplesdict[sname]['nGenEvents'])
+    print('   - SumWeights   : %i'   %samplesdict[sname]['nSumOfWeights'])
+    if not samplesdict[sname]["isData"]:
+        for wgt_var in WGT_VAR_LST:
+            if wgt_var in samplesdict[sname]:
+                print(f'   - {wgt_var}: {samplesdict[sname][wgt_var]}')
+    print('   - Prefix       : %s'   %samplesdict[sname]['redirector'])
+    print('   - nFiles       : %i'   %len(samplesdict[sname]['files']))
+    for fname in samplesdict[sname]['files']: print('     %s'%fname)
 
 if pretend:
-  print('pretending...')
-  exit()
+    print('pretending...')
+    exit()
 
 # Extract the list of all WCs, as long as we haven't already specified one.
 if len(wc_lst) == 0:
- for k in samplesdict.keys():
-  for wc in samplesdict[k]['WCnames']:
-   if wc not in wc_lst:
-    wc_lst.append(wc)
+    for k in samplesdict.keys():
+        for wc in samplesdict[k]['WCnames']:
+            if wc not in wc_lst:
+                wc_lst.append(wc)
 
 if len(wc_lst) > 0:
- # Yes, why not have the output be in correct English?
- if len(wc_lst) == 1:
-  wc_print = wc_lst[0]
- elif len(wc_lst) == 2:
-  wc_print = wc_lst[0] + ' and ' + wc_lst[1]
- else:
-  wc_print = ', '.join(wc_lst[:-1]) + ', and ' + wc_lst[-1]
-  print('Wilson Coefficients: {}.'.format(wc_print))
+    # Yes, why not have the output be in correct English?
+    if len(wc_lst) == 1:
+        wc_print = wc_lst[0]
+    elif len(wc_lst) == 2:
+        wc_print = wc_lst[0] + ' and ' + wc_lst[1]
+    else:
+        wc_print = ', '.join(wc_lst[:-1]) + ', and ' + wc_lst[-1]
+        print('Wilson Coefficients: {}.'.format(wc_print))
 else:
- print('No Wilson coefficients specified')
+    print('No Wilson coefficients specified')
 
 processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
 
@@ -228,7 +227,7 @@ executor_args = {
     'debug_log': 'debug.log',
     'transactions_log': 'tr.log',
     'stats_log': 'stats.log',
-	'tasks_accum_log': 'tasks.log',
+    'tasks_accum_log': 'tasks.log',
 
     'environment_file': remote_environment.get_environment(),
     'extra_input_files': ["topeft.py"],
@@ -310,20 +309,20 @@ if not os.path.isdir(outpath): os.system("mkdir -p %s"%outpath)
 out_pkl_file = os.path.join(outpath,outname+".pkl.gz")
 print(f"\nSaving output in {out_pkl_file}...")
 with gzip.open(out_pkl_file, "wb") as fout:
-  cloudpickle.dump(output, fout)
+    cloudpickle.dump(output, fout)
 print("Done!")
 
 # Run the data driven estimation, save the output
 if do_np:
-  print("\nDoing the nonprompt estimation...")
-  out_pkl_file_name_np = os.path.join(outpath,outname+"_np.pkl.gz")
-  ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np)
-  print(f"Saving output in {out_pkl_file_name_np}...")
-  ddp.dumpToPickle()
-  print("Done!")
-  # Run the renorm fact envelope calculation
-  if do_renormfact_envelope:
-      print("\nDoing the renorm. fact. envelope calculation...")
-      dict_of_histos = utils.get_hist_from_pkl(out_pkl_file_name_np,allow_empty=False)
-      dict_of_histos_after_applying_envelope = get_renormfact_envelope(dict_of_histos)
-      utils.dump_to_pkl(out_pkl_file_name_np,dict_of_histos_after_applying_envelope)
+    print("\nDoing the nonprompt estimation...")
+    out_pkl_file_name_np = os.path.join(outpath,outname+"_np.pkl.gz")
+    ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np)
+    print(f"Saving output in {out_pkl_file_name_np}...")
+    ddp.dumpToPickle()
+    print("Done!")
+    # Run the renorm fact envelope calculation
+    if do_renormfact_envelope:
+        print("\nDoing the renorm. fact. envelope calculation...")
+        dict_of_histos = utils.get_hist_from_pkl(out_pkl_file_name_np,allow_empty=False)
+        dict_of_histos_after_applying_envelope = get_renormfact_envelope(dict_of_histos)
+        utils.dump_to_pkl(out_pkl_file_name_np,dict_of_histos_after_applying_envelope)

@@ -1,11 +1,9 @@
 #! /usr/bin/env python
 import json
 import hashlib
-import shutil
 import subprocess
 import sys
 import tempfile
-import time
 import logging
 import glob
 import os
@@ -21,8 +19,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s:%(levelname)s:%(mess
 env_dir_cache = Path.cwd().joinpath(Path('topeft-envs'))
 
 py_version = "{}.{}.{}".format(
-        sys.version_info[0], sys.version_info[1], sys.version_info[2]
-        )  # 3.8 or 3.9, or etc.
+    sys.version_info[0], sys.version_info[1], sys.version_info[2]
+)  # 3.8 or 3.9, or etc.
 
 coffea_version = coffea.__version__
 
@@ -62,9 +60,9 @@ def _check_current_env():
         spec_file = open(f.name,  'r')
         current_spec = json.load(spec_file)
         if 'dependencies' in current_spec:
-	    # get current conda packages
+            # get current conda packages
             conda_deps = {re.sub("[!~=<>].*$", "", x):x  for x in current_spec['dependencies'] if not isinstance(x, dict)}
-	    # get current pip packages
+            # get current pip packages
             pip_deps = {re.sub("[!~=<>].*$", "", y):y for y in  [x for x in current_spec['dependencies'] if isinstance(x, dict) and 'pip' in x for x in x['pip']]}
 
 

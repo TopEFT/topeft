@@ -1,13 +1,14 @@
 import argparse
-from coffea import hist, processor
+from coffea import hist
 from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.modules.GetValuesFromJsons import get_lumi, get_param
 import topcoffea.modules.utils as utils
 import cloudpickle
-from collections import defaultdict 
-import re, gzip
+from collections import defaultdict
+import re
+import gzip
 
-class DataDrivenProducer: 
+class DataDrivenProducer:
     def __init__(self, inputHist, outputName):
         yt=YieldTools()
         if type(inputHist) == str and inputHist.endswith('.pkl.gz'): # we are plugging a pickle file
@@ -43,7 +44,7 @@ class DataDrivenProducer:
                 match = pattern.search(sample.name)
                 sampleName=match.group('sample')
                 year=match.group('year')
-                if not match: 
+                if not match:
                     raise RuntimeError(f"Sample {sample} does not match the naming convention.")
                 if year not in ['16APV','16','17','18']:
                     raise RuntimeError(f"Sample {sample} does not match the naming convention, year \"{year}\" is unknown.")
@@ -58,7 +59,7 @@ class DataDrivenProducer:
                 hAR=histo.integrate('appl', ident)
 
                 if 'isAR' not in ident.name:
-                    # if we are in the signal region, we just take the 
+                    # if we are in the signal region, we just take the
                     # whole histogram integrating out the application region axis
                     if newhist==None:
                         newhist=hAR
@@ -84,18 +85,18 @@ class DataDrivenProducer:
                             if (syst_var_idet.name != "nominal"):
                                 syst_var_idet_rm_lst.append(syst_var_idet)
                         hFlips = hFlips.remove(syst_var_idet_rm_lst,"systematic")
-                        
-                        # now adding them to the list of processes: 
+
+                        # now adding them to the list of processes:
                         if newhist==None:
                             newhist=hFlips
                         else:
-                            newhist.add( hFlips ) 
-                            
+                            newhist.add( hFlips )
+
 
                     else:
                         # if we are in the nonprompt application region, we also integrate the application region axis
                         # and construct the new sample 'nonprompt'
-                        
+
                         # we look at data only, and rename it to fakes
                         newNameDictData=defaultdict(list); newNameDictNoData=defaultdict(list)
                         for sample in hAR.identifiers('sample'):
@@ -105,17 +106,17 @@ class DataDrivenProducer:
                             nonPromptName='nonpromptUL%s'%year
                             if self.dataName==sampleName:
                                 newNameDictData[nonPromptName].append(sample.name)
-                            elif sampleName in self.promptSubtractionSamples: 
+                            elif sampleName in self.promptSubtractionSamples:
                                 newNameDictNoData[nonPromptName].append(sample.name)
                             else:
                                 print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
-                        
+
                         hFakes=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
                         # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
                         hPromptSub=hAR.group('sample', hist.Cat('sample','sample'), newNameDictNoData )
 
                         # remove the up/down variations (if any) from the prompt subtraction histo
-                        # but keep FFUp and FFDown, as these are the nonprompt up and down variations 
+                        # but keep FFUp and FFDown, as these are the nonprompt up and down variations
                         syst_var_idet_rm_lst = []
                         syst_var_idet_lst = hPromptSub.identifiers("systematic")
                         for syst_var_idet in syst_var_idet_lst:
@@ -127,7 +128,7 @@ class DataDrivenProducer:
                         # now we actually make the subtraction
                         hPromptSub.scale(-1)
                         hFakes.add(hPromptSub)
-                        # now adding them to the list of processes: 
+                        # now adding them to the list of processes:
                         if newhist==None:
                             newhist=hFakes
                         else:
