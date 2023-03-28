@@ -230,7 +230,7 @@ import gzip #read zipped pickle file
 pkl_dir = "tutorialpkldir"
 if not os.path.exists(pkl_dir):
     os.makedirs(pkl_dir)
-os.system("curl -o pkl_dir/all2017mcsigsamples_skipSR_2022sept13_topcoffeatutorial.pkl.gz https://www.crc.nd.edu/~abasnet/EFT/topcoffeaTutorial/all2017mcsigsamples_skipSR_2022sept13_topcoffeatutorial.pkl.gz") 
+os.system("curl -o pkl_dir/all2017mcsigsamples_skipSR_2022sept13_topcoffeatutorial.pkl.gz https://www.crc.nd.edu/~abasnet/EFT/topcoffeaTutorial/all2017mcsigsamples_skipSR_2022sept13_topcoffeatutorial.pkl.gz")
 fin = 'pkl_dir/all2017mcsigsamples_skipSR_2022sept13_topcoffeatutorial.pkl.gz'
 hists = {} #dictionary of histograms
 with gzip.open(fin) as fin:
