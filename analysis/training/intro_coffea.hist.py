@@ -13,6 +13,7 @@
 from coffea import hist
 import matplotlib.pyplot as plt #plot histograms
 import numpy as np
+import os
 
 
 # Let's first explore 1D coffea histograms
@@ -20,10 +21,7 @@ import numpy as np
 # In[2]:
 
 
-hist_1D = hist.Hist("Beverage items",
-                    hist.Cat("soda", "different soda"),
-                    hist.Bin("x","x coordinate [m]",20, -5,5),
-                   )
+hist_1D = hist.Hist("Beverage items", hist.Cat("soda", "different soda"), hist.Bin("x","x coordinate [m]",20, -5,5))
 
 
 # Retrieving the histogram's bin contents using `values()`
@@ -62,10 +60,9 @@ hist_1D.fill(soda="pepsi",x=np.random.normal(size=10), weight=np.ones(10)*5)
 hist_1D.values()
 
 
-# Let's use `axes()` to explore the histogram 
+# Let's use `axes()` to explore the histogram
 
 # In[8]:
-
 
 hist_1D.axes()
 
@@ -109,11 +106,7 @@ hist.plot1d(hist_1D.integrate('soda'),stack=True)
 # In[14]:
 
 
-h = hist.Hist("Observed bird count",
-               hist.Cat("species", "Bird species"),
-               hist.Bin("x", "x coordinate [m]", 10, -5, 5),
-               hist.Bin("y", "y coordinate [m]", 10, -5, 5),
-             )
+h = hist.Hist("Observed bird count", hist.Cat("species", "Bird species"), hist.Bin("x", "x coordinate [m]", 10, -5, 5), hist.Bin("y", "y coordinate [m]", 10, -5, 5))
 
 
 # Now we'ss use `fill()` to add 10 `ducks`, with random `x-y` values using `numpy.random`, each with a weight of 3
@@ -226,31 +219,26 @@ hist.plot1d(h.integrate('x'), stack=True) #stack makes a stack plot
 
 
 import pickle #read pickle file
-import coffea
-from coffea import hist
-import topcoffea.modules.HistEFT as HistEFT
-import topcoffea.modules.eft_helper as efth
 import gzip #read zipped pickle file
-import matplotlib.pyplot as plt #plot histograms
-import numpy as np
 
 
 # Next, we'll open the pickle file, and load its histograms into a dictionary
 
 # In[30]:
 
-
-#This only works in Jupyter notebooks. Run the wget command directly in the terminal otherwise
-get_ipython().system('mkdir -p ../histos/')
-get_ipython().system('wget -nc https://www.crc.nd.edu/~abasnet/EFT/topcoffeaTutorial/all2017mcsigsamples_skipSR_2022sept13_topcoffeatutorial.pkl.gz -O ../histos/all2017mcsigsamples_skipSR_2022sept13_topcoffeatutorial.pkl.gz')
-fin = '../histos/all2017mcsigsamples_skipSR_2022sept13_topcoffeatutorial.pkl.gz'
+# create a dir where pkl file will be downloaded from web area on earth
+pkl_dir = "tutorialpkldir"
+if not os.path.exists(pkl_dir):
+    os.makedirs(pkl_dir)
+os.system("curl -o pkl_dir/all2017mcsigsamples_skipSR_2022sept13_topcoffeatutorial.pkl.gz https://www.crc.nd.edu/~abasnet/EFT/topcoffeaTutorial/all2017mcsigsamples_skipSR_2022sept13_topcoffeatutorial.pkl.gz") 
+fin = 'pkl_dir/all2017mcsigsamples_skipSR_2022sept13_topcoffeatutorial.pkl.gz'
 hists = {} #dictionary of histograms
 with gzip.open(fin) as fin:
-  hin = pickle.load(fin)
-  for k in hin.keys():
-    if k in hists: hists[k]+=hin[k]
-    else:               hists[k]=hin[k]
-    print(hists[k])
+    hin = pickle.load(fin)
+    for k in hin.keys():
+        if k in hists: hists[k]+=hin[k]
+        else: hists[k]=hin[k]
+        print(hists[k])
 
 
 # Now we'll grab the histogram for `njets`
@@ -408,13 +396,13 @@ hist.plot1d(h, stack=True)
 
 # There's one last thing we must due in order to produce the predicted event yields.<br>
 # The EFT samples come normalized to $\sigma * w_{\mathrm{gen}}$<br>
-# In order to produce event yields, we must scale them by $\frac{\mathcal{L}}{\sum{w_{\mathrm{event}}^{\mathrm{SM}}}}$ , where $\sum{w_{\mathrm{event}}^{\mathrm{SM}}}$ is the sum of the event weights, evaluated at the SM. When we run the topcoffea processor to make our pkl file, this scaling with $\sum{w_{\mathrm{event}}^{\mathrm{SM}}}$ is already done. We just need to scale by lumi. 
+# In order to produce event yields, we must scale them by $\frac{\mathcal{L}}{\sum{w_{\mathrm{event}}^{\mathrm{SM}}}}$ , where $\sum{w_{\mathrm{event}}^{\mathrm{SM}}}$ is the sum of the event weights, evaluated at the SM. When we run the topcoffea processor to make our pkl file, this scaling with $\sum{w_{\mathrm{event}}^{\mathrm{SM}}}$ is already done. We just need to scale by lumi.
 
 # In[50]:
 
 
 h.set_sm()    #set WCs to be SM values to be safe
-wgt = 1000*41.48 #multiply 1000 for units 
+wgt = 1000*41.48 #multiply 1000 for units
 print('Scaling by', wgt)
 h.scale(wgt) #2017 lumi of 41.48 fb^-1
 
