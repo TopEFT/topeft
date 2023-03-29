@@ -12,6 +12,7 @@ from coffea.nanoevents import NanoAODSchema
 
 import topeft
 import topcoffea.modules.utils as utils
+from topcoffea.modules.utils import dump_to_pkl, get_hist_from_pkl
 from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
 from topcoffea.modules.get_renormfact_envelope import get_renormfact_envelope
 import topcoffea.modules.remote_environment as remote_environment
@@ -32,8 +33,11 @@ WGT_VAR_LST = [
 import argparse
 parser = argparse.ArgumentParser(description='You can customize your run')
 parser.add_argument('jsonFiles'        , nargs='?', default='', help = 'Json file(s) containing files and metadata')
+parser.add_argument('--executor','-x'  , default='work_queue', help = 'Which executor to use')
 parser.add_argument('--prefix', '-r'   , nargs='?', default='', help = 'Prefix or redirector to look for the files')
+parser.add_argument('--test','-t'       , action='store_true'  , help = 'To perform a test, run over a few events in a couple of chunks')
 parser.add_argument('--pretend'        , action='store_true', help = 'Read json files but, not execute the analysis')
+parser.add_argument('--nworkers','-n'   , default=8  , help = 'Number of workers')
 parser.add_argument('--chunksize','-s' , default=100000, help = 'Number of events per chunk')
 parser.add_argument('--nchunks','-c'   , default=None, help = 'You can choose to run only a number of chunks')
 parser.add_argument('--outname','-o'   , default='plotsTopEFT', help = 'Name of the output file with histograms')
@@ -51,9 +55,13 @@ parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a
 parser.add_argument('--ecut', default=None  , help = 'Energy cut threshold i.e. throw out events above this (GeV)')
 parser.add_argument('--port', default='9123-9130', help = 'Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.')
 
+
 args = parser.parse_args()
 jsonFiles  = args.jsonFiles
 prefix     = args.prefix
+executor   = args.executor
+dotest     = args.test
+nworkers   = int(args.nworkers)
 chunksize  = int(args.chunksize)
 nchunks    = int(args.nchunks) if not args.nchunks is None else args.nchunks
 outname    = args.outname
@@ -80,15 +88,16 @@ if do_renormfact_envelope:
 ecut_threshold = args.ecut
 if ecut_threshold is not None: ecut_threshold = float(args.ecut)
 
-# construct wq port range
-port = list(map(int, args.port.split('-')))
-if len(port) < 1:
-    raise ValueError("At least one port value should be specified.")
-if len(port) > 2:
-    raise ValueError("More than one port range was specified.")
-if len(port) == 1:
-    # convert single values into a range of one element
-    port.append(port[0])
+if executor == "work_queue":
+    # construct wq port range
+    port = list(map(int, args.port.split('-')))
+    if len(port) < 1:
+        raise ValueError("At least one port value should be specified.")
+    if len(port) > 2:
+        raise ValueError("More than one port range was specified.")
+    if len(port) == 1:
+        # convert single values into a range of one element
+        port.append(port[0])
 
 # Figure out which hists to include
 if args.hist_list == ["ana"]:
@@ -101,6 +110,13 @@ else:
     # We want to specify a custom list
     # If we don't specify this argument, it will be None, and the processor will fill all hists
     hist_lst = args.hist_list
+
+if executor == "futures":
+    if dotest:
+        nchunks = 2
+        chunksize = 10000
+        nworkers = 1
+        print('Running a fast test with %i workers, %i chunks of %i events'%(nworkers, nchunks, chunksize))
 
 ### Load samples from json
 samplesdict = {}
@@ -218,91 +234,101 @@ else:
 
 processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
 
-executor_args = {
-    'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
+if executor == "work_queue":
+    executor_args = {
+        'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
 
-    # find a port to run work queue in this range:
-    'port': port,
+        # find a port to run work queue in this range:
+        'port': port,
 
-    'debug_log': 'debug.log',
-    'transactions_log': 'tr.log',
-    'stats_log': 'stats.log',
-    'tasks_accum_log': 'tasks.log',
+        'debug_log': 'debug.log',
+        'transactions_log': 'tr.log',
+        'stats_log': 'stats.log',
+        'tasks_accum_log': 'tasks.log',
 
-    'environment_file': remote_environment.get_environment(),
-    'extra_input_files': ["topeft.py"],
+        'environment_file': remote_environment.get_environment(),
+        'extra_input_files': ["topeft.py"],
 
-    'retries': 5,
+        'retries': 5,
 
-    # use mid-range compression for chunks results. 9 is the default for work
-    # queue in coffea. Valid values are 0 (minimum compression, less memory
-    # usage) to 16 (maximum compression, more memory usage).
-    'compression': 9,
+        # use mid-range compression for chunks results. 9 is the default for work
+        # queue in coffea. Valid values are 0 (minimum compression, less memory
+        # usage) to 16 (maximum compression, more memory usage).
+        'compression': 9,
 
-    # automatically find an adequate resource allocation for tasks.
-    # tasks are first tried using the maximum resources seen of previously ran
-    # tasks. on resource exhaustion, they are retried with the maximum resource
-    # values, if specified below. if a maximum is not specified, the task waits
-    # forever until a larger worker connects.
-    'resource_monitor': True,
-    'resources_mode': 'auto',
+        # automatically find an adequate resource allocation for tasks.
+        # tasks are first tried using the maximum resources seen of previously ran
+        # tasks. on resource exhaustion, they are retried with the maximum resource
+        # values, if specified below. if a maximum is not specified, the task waits
+        # forever until a larger worker connects.
+        'resource_monitor': True,
+        'resources_mode': 'auto',
 
-    # this resource values may be omitted when using
-    # resources_mode: 'auto', but they do make the initial portion
-    # of a workflow run a little bit faster.
-    # Rather than using whole workers in the exploratory mode of
-    # resources_mode: auto, tasks are forever limited to a maximum
-    # of 8GB of mem and disk.
-    #
-    # NOTE: The very first tasks in the exploratory
-    # mode will use the values specified here, so workers need to be at least
-    # this large. If left unspecified, tasks will use whole workers in the
-    # exploratory mode.
-    # 'cores': 1,
-    # 'disk': 8000,   #MB
-    # 'memory': 10000, #MB
+        # this resource values may be omitted when using
+        # resources_mode: 'auto', but they do make the initial portion
+        # of a workflow run a little bit faster.
+        # Rather than using whole workers in the exploratory mode of
+        # resources_mode: auto, tasks are forever limited to a maximum
+        # of 8GB of mem and disk.
+        #
+        # NOTE: The very first tasks in the exploratory
+        # mode will use the values specified here, so workers need to be at least
+        # this large. If left unspecified, tasks will use whole workers in the
+        # exploratory mode.
+        # 'cores': 1,
+        # 'disk': 8000,   #MB
+        # 'memory': 10000, #MB
 
-    # control the size of accumulation tasks. Results are
-    # accumulated in groups of size chunks_per_accum, keeping at
-    # most chunks_per_accum at the same time in memory per task.
-    'chunks_per_accum': 25,
-    'chunks_accum_in_mem': 2,
+        # control the size of accumulation tasks. Results are
+        # accumulated in groups of size chunks_per_accum, keeping at
+        # most chunks_per_accum at the same time in memory per task.
+        'chunks_per_accum': 25,
+        'chunks_accum_in_mem': 2,
 
-    # terminate workers on which tasks have been running longer than average.
-    # This is useful for temporary conditions on worker nodes where a task will
-    # be finish faster is ran in another worker.
-    # the time limit is computed by multipliying the average runtime of tasks
-    # by the value of 'fast_terminate_workers'.  Since some tasks can be
-    # legitimately slow, no task can trigger the termination of workers twice.
-    #
-    # warning: small values (e.g. close to 1) may cause the workflow to misbehave,
-    # as most tasks will be terminated.
-    #
-    # Less than 1 disables it.
-    'fast_terminate_workers': 0,
+        # terminate workers on which tasks have been running longer than average.
+        # This is useful for temporary conditions on worker nodes where a task will
+        # be finish faster is ran in another worker.
+        # the time limit is computed by multipliying the average runtime of tasks
+        # by the value of 'fast_terminate_workers'.  Since some tasks can be
+        # legitimately slow, no task can trigger the termination of workers twice.
+        #
+        # warning: small values (e.g. close to 1) may cause the workflow to misbehave,
+        # as most tasks will be terminated.
+        #
+        # Less than 1 disables it.
+        'fast_terminate_workers': 0,
 
-    # print messages when tasks are submitted, finished, etc.,
-    # together with their resource allocation and usage. If a task
-    # fails, its standard output is also printed, so we can turn
-    # off print_stdout for all tasks.
-    'verbose': True,
-    'print_stdout': False,
-}
+        # print messages when tasks are submitted, finished, etc.,
+        # together with their resource allocation and usage. If a task
+        # fails, its standard output is also printed, so we can turn
+        # off print_stdout for all tasks.
+        'verbose': True,
+        'print_stdout': False,
+    }
 
 # Run the processor and get the output
 tstart = time.time()
 
-executor = processor.WorkQueueExecutor(**executor_args)
-runner = processor.Runner(executor, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=180)
+if executor == "futures":
+    exec_instance = processor.FuturesExecutor(workers=nworkers)
+    runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
+elif executor ==  "work_queue":
+    executor = processor.WorkQueueExecutor(**executor_args)
+    runner = processor.Runner(executor, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=180)
+
 output = runner(flist, treename, processor_instance)
 
 dt = time.time() - tstart
 
-print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
+if executor == "work_queue":
+    print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
 
 nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
 nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
 print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
+
+if executor == "futures":
+    print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
 
 # Save the output
 if not os.path.isdir(outpath): os.system("mkdir -p %s"%outpath)
