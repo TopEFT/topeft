@@ -12,6 +12,6 @@ OPTIONS="--hist-list ana --skip-cr --do-systs -s 50000 --do-np -o $OUT_NAME" # F
 #OPTIONS="--hist-list cr --skip-sr --do-systs --do-np --wc-list ctG -o $OUT_NAME" # For CR plots
 
 # Run the processor over all Run2 samples
-RUN_COMMAND="time python run_topcoffea.py $CFGS $OPTIONS"
+RUN_COMMAND="time python run_topeft.py $CFGS $OPTIONS"
 printf "\nRunning the following command:\n$RUN_COMMAND\n\n"
 $RUN_COMMAND

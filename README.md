@@ -59,9 +59,9 @@ The `-e` option installs the project in editable mode (i.e. setuptools "develop 
 First, set up the config file you want to use in the `topcoffea/cfg` directory. This config file should point to the JSON files for the samples that that you would like to process. There are examples in the `topcoffea/cfg` directory.
 
 #### To run with the default workqueue executor:
-- `cd` into `analysis/topEFT` and run the `run_topcoffea.py` script, passing it the path to your config:
+- `cd` into `analysis/topEFT` and run the `run_topeft.py` script, passing it the path to your config:
 ```
-python run_topcoffea.py ../../topcoffea/cfg/your_cfg.cfg
+python run_topeft.py ../../topcoffea/cfg/your_cfg.cfg
 ```
 Next, submit some workers. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
 ```
@@ -73,7 +73,7 @@ The workers will terminate themselves after 15 minutes of inactivity.
 #### To run with the non-default futures executor:
 - In the same `analysis/topEFT` directory, simply run:
 ```
-python run_topcoffea.py -x futures ../../topcoffea/cfg/your_cfg.cfg
+python run_topeft.py -x futures ../../topcoffea/cfg/your_cfg.cfg
 ```
 
 ### How to contribute
