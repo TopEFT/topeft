@@ -16,6 +16,8 @@ from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
 from topcoffea.modules.get_renormfact_envelope import get_renormfact_envelope
 import topcoffea.modules.remote_environment as remote_environment
 
+LST_OF_KNOWN_EXECUTORS = ["futures","work_queue"]
+
 WGT_VAR_LST = [
     "nSumOfWeights_ISRUp",
     "nSumOfWeights_ISRDown",
@@ -77,11 +79,22 @@ do_renormfact_envelope = args.do_renormfact_envelope
 wc_lst = args.wc_list if args.wc_list is not None else []
 
 # Check if we have valid options
+if executor not in LST_OF_KNOWN_EXECUTORS:
+    raise Exception(f"The \"{executor}\" executor is not known. Please specify an executor from the known executors ({LST_OF_KNOWN_EXECUTORS}). Exiting.")
 if do_renormfact_envelope:
     if not do_systs:
         raise Exception("Error: Cannot specify do_renormfact_envelope if we are not including systematics.")
     if not do_np:
         raise Exception("Error: Cannot specify do_renormfact_envelope if we have not already done the integration across the appl axis that occurs in the data driven estimator step.")
+if dotest:
+    if executor == "futures":
+        nchunks = 2
+        chunksize = 10000
+        nworkers = 1
+        print('Running a fast test with %i workers, %i chunks of %i events'%(nworkers, nchunks, chunksize))
+    else:
+        raise Exception(f"The \"test\" option is not set up to work with the {executor} executor. Exiting.")
+
 
 # Set the threshold for the ecut (if not applying a cut, should be None)
 ecut_threshold = args.ecut
@@ -110,12 +123,6 @@ else:
     # If we don't specify this argument, it will be None, and the processor will fill all hists
     hist_lst = args.hist_list
 
-if executor == "futures":
-    if dotest:
-        nchunks = 2
-        chunksize = 10000
-        nworkers = 1
-        print('Running a fast test with %i workers, %i chunks of %i events'%(nworkers, nchunks, chunksize))
 
 ### Load samples from json
 samplesdict = {}
