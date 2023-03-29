@@ -12,7 +12,6 @@ from coffea.nanoevents import NanoAODSchema
 
 import topeft
 import topcoffea.modules.utils as utils
-from topcoffea.modules.utils import dump_to_pkl, get_hist_from_pkl
 from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
 from topcoffea.modules.get_renormfact_envelope import get_renormfact_envelope
 import topcoffea.modules.remote_environment as remote_environment
@@ -304,7 +303,7 @@ if executor == "work_queue":
         # off print_stdout for all tasks.
         'verbose': True,
         'print_stdout': False,
-    }
+        }
 
 # Run the processor and get the output
 tstart = time.time()
