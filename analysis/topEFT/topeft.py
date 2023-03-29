@@ -222,7 +222,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ele["isPres"] = isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
         ele["isLooseE"] = isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
         ele["isFO"] = isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTHUL, ele.jetRelIso, ele.mvaFall17V2noIso_WP90, year)
-        ele["isTightLep"] = tightSelElec(ele.isFO, ele.mvaTTHUL)      
+        ele["isTightLep"] = tightSelElec(ele.isFO, ele.mvaTTHUL)
 
         ################### Muon selection ####################
 
