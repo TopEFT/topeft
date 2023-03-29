@@ -48,19 +48,15 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 ### Run scripts and processors
 
-* `run.py` for `topeft.py`:
-    - This is the run script for the main `topeft.py` processor. Its usage is documented on the repository's main README. It uses the `futures` executor, with 8 cores by default. You can configure the run with a number of command line arguments, but the most important one is the config file, where you list the samples you would like to process (by pointing to the JSON files for each sample, located inside of `topcoffea/json`. 
-    - Example usage: `python run.py ../../topcoffea/cfg/your_cfg.cfg`  
-
-* `work_queue_run.py` for `topeft.py`:
-    - This run script also runs the main `topeft.py` processor, but it uses the `work_queue` executor. Pass the config file to this script in exactly the same was as with `run.py`. The `work_queue` executor makes use of remote resources, and you will need to submit workers using a `condor_submit_workers` command as explained on the main `topcoffea` README.
-    - Example usage: `python work_queue_run.py ../../topcoffea/cfg/your_cfg.cfg`
+* `run_topeft.py` for `topeft.py`:
+    - This is the run script for the main `topeft.py` processor. Its usage is documented on the repository's main README. It uses either the `work_queue` or the `futures` executors (with `futures` it uses 8 cores by default). The `work_queue` executor makes use of remote resources, and you will need to submit workers using a `condor_submit_workers` command as explained on the main `topcoffea` README. You can configure the run with a number of command line arguments, but the most important one is the config file, where you list the samples you would like to process (by pointing to the JSON files for each sample, located inside of `topcoffea/json`. 
+    - Example usage: `python run_topeft.py ../../topcoffea/cfg/your_cfg.cfg`  
 
 * `run_sow.py` for `sow_processor.py`:
     - This script runs over the provided json files and calculates the properer sum of weights
     - Example usage: `python run_sow.py ../../topcoffea/json/signal_samples/private_UL/UL17_tHq_b1.json --xrd root://deepthought.crc.nd.edu/`
 
-* `fullR2_run.sh`: Wrapper script for making the full TOP-22-006 pkl file with `work_queue_run.py`. 
+* `fullR2_run.sh`: Wrapper script for making the full TOP-22-006 pkl file with `run_topeft.py`. 
 
 
 ### Scripts for finding, comparing and plotting yields from histograms (from the processor)
