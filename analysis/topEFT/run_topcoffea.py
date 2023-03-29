@@ -303,7 +303,7 @@ if executor == "work_queue":
         # off print_stdout for all tasks.
         'verbose': True,
         'print_stdout': False,
-        }
+    }
 
 # Run the processor and get the output
 tstart = time.time()
