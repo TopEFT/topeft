@@ -34,35 +34,35 @@ def print_yields():
 
     # Specify the values of the WCs
     wc_ranges_differential = {
-            'cQQ1' : 4.0,
-            'cQei' : 4.0,
-            'cQl3i': 5.5,
-            'cQlMi': 4.0,
-            'cQq11': 0.7,
-            'cQq13': 0.35,
-            'cQq81': 1.5,
-            'cQq83': 0.6,
-            'cQt1' : 4.0,
-            'cQt8' : 8.0,
-            'cbW'  : 3.0,
-            'cpQ3' : 4.0,
-            'cpQM' : 17.0,
-            'cpt'  : 15.0,
-            'cptb' : 9.0,
-            'ctG'  : 0.8,
-            'ctW'  : 1.5,
-            'ctZ'  : 2.0,
-            'ctei' : 4.0,
-            'ctlSi': 5.0,
-            'ctlTi': 0.9,
-            'ctli' : 4.0,
-            'ctp'  : 35.0,
-            'ctq1' : 0.6,
-            'ctq8' : 1.4,
-            'ctt1' : 2.1,
-        }
+        'cQQ1' : 4.0,
+        'cQei' : 4.0,
+        'cQl3i': 5.5,
+        'cQlMi': 4.0,
+        'cQq11': 0.7,
+        'cQq13': 0.35,
+        'cQq81': 1.5,
+        'cQq83': 0.6,
+        'cQt1' : 4.0,
+        'cQt8' : 8.0,
+        'cbW'  : 3.0,
+        'cpQ3' : 4.0,
+        'cpQM' : 17.0,
+        'cpt'  : 15.0,
+        'cptb' : 9.0,
+        'ctG'  : 0.8,
+        'ctW'  : 1.5,
+        'ctZ'  : 2.0,
+        'ctei' : 4.0,
+        'ctlSi': 5.0,
+        'ctlTi': 0.9,
+        'ctli' : 4.0,
+        'ctp'  : 35.0,
+        'ctq1' : 0.6,
+        'ctq8' : 1.4,
+        'ctt1' : 2.1,
+    }
 
-    # Initialize the output to print    
+    # Initialize the output to print
     sum_dict = {}
 
     # Calculate the SM prediction

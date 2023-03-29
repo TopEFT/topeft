@@ -13,16 +13,16 @@ pjoin = os.path.join
 #   SumOfWeights histograms and then tries to find a matching json file from somewhere in the
 #   'topcoffea/json' directory. If it finds a matching file it replaces the value for the
 #   'nSumOfWeights' key in the file with the one computed from the histogram.
-# 
+#
 #   This is typically a pre-processing step to running the topeft processor so that both the central
 #   and private MC samples can be normalized and treated in the same way. The issue is that when the
 #   JSON files for the EFT samples are initially made, the 'nSumOfWeights' that is computed is not
 #   correct. This means we had to recompute this value to get the correct normaliztion, but only for
 #   the EFT samples! After running this script the EFT sample JSON files will have the correct value
 #   and can be treated the same as the central MC samples.
-# 
+#
 # Usage:
-#   
+#
 # Note:
 #   A current limitation of this script is that if it encounters two JSON files with the exact
 #   same name, but in different sub-directories, then it skips updating that file and instead prints
@@ -97,7 +97,8 @@ def main():
     match_files.extend(['.*\\.json'])                   # Make sure to always only find .json files
     ignore_files.extend(['lumi.json','params.json'])    # These are not sample json files
 
-    json_fpaths = get_files(json_dir,
+    json_fpaths = get_files(
+        json_dir,
         ignore_dirs=ignore_dirs,
         match_files=match_files,
         ignore_files=ignore_files,

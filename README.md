@@ -26,9 +26,6 @@ Top quark analyses using the Coffea framework
 - `topcoffea/modules`:
   Auxiliar python modules and scripts
 
-- `topcoffea/plotter`:
-  Tools to produce stack plots and other plots
-
 - `setup.py`: File for installing the `topcoffea` package
 
 ### Clone the repository
@@ -49,24 +46,22 @@ conda env create -f environment.yml
 conda activate coffea-env
 ```
 
-### Install the topcoffea package and run an example job
+### Install the topcoffea package
 - This directory is set up to be installed as a python package. To install, activate your conda environment, then run this command from the top level `topcoffea` directory:
 ```
 pip install -e .
 ```
 The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`.
-- Next, set up the config file you want to use in the `topcoffea/cfg` directory. This config file should point to the JSON files for the samples that that you would like to process. There are examples in the `topcoffea/cfg` directory.
-- Lastly, `cd` into `analysis/topEFT` and run the `run.py` script, passing it the path to your config: 
-```
-python run.py ../../topcoffea/cfg/your_cfg.cfg
-```
 
 
-### To run the WQ version of `run.py`:
+### To run an example job with one of the two executors
 
-To run with the work-queue executor, use the `work_queue_run.py` script instead of the `run.py` script. Please note that `work_queue_run.py` must be run from the directory it is located in, since the `extra-input-files` option of `executor_args` assumes the extra input will be in the current working directory. So from `analysis/topEFT`, you would run:
+First, set up the config file you want to use in the `topcoffea/cfg` directory. This config file should point to the JSON files for the samples that that you would like to process. There are examples in the `topcoffea/cfg` directory.
+
+#### To run with the default workqueue executor:
+- `cd` into `analysis/topEFT` and run the `run_topeft.py` script, passing it the path to your config:
 ```
-python work_queue_run.py ../../topcoffea/cfg/your_cfg.cfg
+python run_topeft.py ../../topcoffea/cfg/your_cfg.cfg
 ```
 Next, submit some workers. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
 ```
@@ -75,6 +70,11 @@ condor_submit_workers -M ${USER}-workqueue-coffea -t 900 --cores 12 --memory 480
 ```
 The workers will terminate themselves after 15 minutes of inactivity.
 
+#### To run with the non-default futures executor:
+- In the same `analysis/topEFT` directory, simply run:
+```
+python run_topeft.py -x futures ../../topcoffea/cfg/your_cfg.cfg
+```
 
 ### How to contribute
 

@@ -1,6 +1,5 @@
 import pickle
 import gzip
-import topcoffea.modules.HistEFT
 import numpy as np
 import boost_histogram as bh
 import uproot
@@ -14,7 +13,6 @@ from coffea.hist import StringBin, Cat, Bin
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.utils import regex_match
-import topcoffea.modules.eft_helper as efth
 
 PRECISION = 6           # Decimal point precision in the text datacard output
 NOM_CLIP_SCALE = 1e-3   # When clipping negative yield bins, this is the ratio to the nominal yield used
@@ -41,7 +39,7 @@ def to_hist(arr,name,zero_wgts=False):
         if arr[i] is not None:
             clipped.append( np.array(arr[i][1:-1]))     # Strip off the under/overflow bins
             clipped[i][-1] += arr[i][-1]  # Add the overflow bin to the right most bin content
-        else: 
+        else:
             clipped[i]=None
 
 
@@ -91,7 +89,7 @@ class JetScale(RateSystematic):
 
         self.symmeterize = True     # whether or not we attempt to make the up/down shifts equal in absolute terms
         self.min_lo = 0.01          # For large kappa values, do not let the symmeterization go negative
-    
+
     # Override the base implementation to handle the different dict structure
     # Note: The return value should be as a string
     def get_process(self,p,j):
@@ -176,7 +174,7 @@ class DatacardMaker():
         "njets": {
             "2l": [4,5,6,7],
             "3l": [2,3,4,5],
-            "4l": [2,3,4],    
+            "4l": [2,3,4],
         },
 
         "ptbl":    [0,100,200,400],
@@ -260,7 +258,7 @@ class DatacardMaker():
     def get_jet_mults(cls,s):
         """
             Returns the njet and bjet multiplicities based on the string passed to it in (j,b) order.
-            For the regular expression, group 1 matches 'njet_bjet', group 2 matches 'bjet_njet' 
+            For the regular expression, group 1 matches 'njet_bjet', group 2 matches 'bjet_njet'
             group 3 matches '_njet'.
         """
         rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[2-7]j)|(_[2-7]j$)")
@@ -944,7 +942,7 @@ class DatacardMaker():
                                     # No matches found, so keep the original systematic name
                                     split_syst = syst_base
                                 elif len(matched) == 1:
-                                    # Found a match, so decorrelate the process from non-matched processes 
+                                    # Found a match, so decorrelate the process from non-matched processes
                                     group = matched[0]
                                     split_syst = f"{syst_base}_{group}"
                                     if group == "":
@@ -1153,8 +1151,8 @@ class DatacardMaker():
                 tup = tuple(x.name for x in sparse_key)
                 r[quad_name][tup]=[]
                 for i in range(2):
-                    r[quad_name][tup].append( 0.5*(tmp_lin_2[tup][i] - 2*tmp_lin_1[tup][i] + sm[tup][i]) ) 
-                    
+                    r[quad_name][tup].append( 0.5*(tmp_lin_2[tup][i] - 2*tmp_lin_1[tup][i] + sm[tup][i]) )
+
             for n2,wc2 in enumerate(wcs):
                 if n1 >= n2: continue
                 mixed_name = f"quad_mixed_{wc1}_{wc2}"

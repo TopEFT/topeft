@@ -3,7 +3,6 @@ import copy
 import datetime
 import argparse
 import json
-import numpy as np
 
 import topcoffea.modules.MakeLatexTable as mlt
 
@@ -11,23 +10,23 @@ BKG_PROC_LST = ["tWZ_sm", "convs_sm","Diboson_sm","Triboson_sm","charge_flips_sm
 SIG_PROC_LST = ["ttH_sm", "ttlnu_sm", "ttll_sm", "tllq_sm", "tHq_sm", "tttt_sm"]
 
 PROC_ORDER = [
-     "tWZ_sm",
-     "Diboson_sm",
-     "Triboson_sm",
-     "charge_flips_sm",
-     "fakes_sm",
-     "convs_sm",
-     "Sum_bkg",
-     "ttlnu_sm",
-     "ttll_sm",
-     "ttH_sm",
-     "tllq_sm",
-     "tHq_sm",
-     "tttt_sm",
-     "Sum_sig",
-     "Sum_expected",
-     "Observation",
-     "Pdiff",
+    "tWZ_sm",
+    "Diboson_sm",
+    "Triboson_sm",
+    "charge_flips_sm",
+    "fakes_sm",
+    "convs_sm",
+    "Sum_bkg",
+    "ttlnu_sm",
+    "ttll_sm",
+    "ttH_sm",
+    "tllq_sm",
+    "tHq_sm",
+    "tttt_sm",
+    "Sum_sig",
+    "Sum_expected",
+    "Observation",
+    "Pdiff",
 ]
 CAT_ORDER = [
     "2lss_m_3b",
@@ -105,7 +104,7 @@ def get_dc_file_names(flst,ext=".txt"):
     for fname in flst:
         if fname.startswith("ttx") and fname.endswith(ext):
             dclst.append(fname)
-    return(dclst)
+    return (dclst)
 
 # Take the name of a datacard and extract the process name
 def get_cat_name_from_dc_name(dc_name,ext=".txt"):
@@ -147,7 +146,7 @@ def get_rates(dc_lines_lst):
         rate_dict[proc_lst[i]] = float(rate_lst[i])
     rate_dict["Observation"] = float(observation)
 
-    return(rate_dict)
+    return (rate_dict)
 
 
 # Takes a rate dict (as returned by get_rates) and returns just the sm terms
@@ -272,7 +271,7 @@ def get_sm_rates(dc_fullpath):
     rate_dict_sm = get_just_sm(rate_dict)
     rate_dict_sm_with_sums = add_proc_sums(rate_dict_sm)
     return rate_dict_sm_with_sums
-    
+
 
 ########################################
 # Main function
