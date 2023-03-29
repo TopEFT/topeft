@@ -15,7 +15,7 @@ def test_topcoffea_wq():
     args = [
         "time",
         "python",
-        "work_queue_run.py",
+        "run_topcoffea.py",
         "../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.json",
         "-o",
         "output_check_yields_wq",
