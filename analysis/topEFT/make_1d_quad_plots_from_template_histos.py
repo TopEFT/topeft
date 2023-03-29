@@ -1,16 +1,16 @@
 # About this script:
 #     - This script takes as input the information from the template histograms
 #     - The goal is to reconstruct the quadratic parameterizations from the templates
-#     - The script extracts the full 26-dimensional quadratic, but currently just plots the 1d quadratics 
+#     - The script extracts the full 26-dimensional quadratic, but currently just plots the 1d quadratics
 # About the input to this script:
-#     - The relevant templates are the ones produced by topcoffea's datacard_maker.py, which should be passed 
+#     - The relevant templates are the ones produced by topcoffea's datacard_maker.py, which should be passed
 #       to EFTFit's look_at_templates.C (which opens the templates, optionally extrapolates the up/down beyond +-1sigma,
 #       and dumps the info into a python dictionary), so it is the output of look_at_templates.C that this script runs on
-#     - It would probably be better for look_at_templates.C to dump the info into e.g. a json, but right now it just prints 
-#       the info to the screen in the form of a python dictionary, so this script assumes that dictionary has been pasted 
+#     - It would probably be better for look_at_templates.C to dump the info into e.g. a json, but right now it just prints
+#       the info to the screen in the form of a python dictionary, so this script assumes that dictionary has been pasted
 #       into a .py file and we can just directly import the dictionary
 #     - That dictionary that we import is a global variable called IN_DICT in the script
-#     - Note that so far this script assumes the templates are just njets (i.e. none of the naming and conventions etc. are 
+#     - Note that so far this script assumes the templates are just njets (i.e. none of the naming and conventions etc. are
 #       currently set up to work with e.g. bins in lj0pt)
 
 # Some notes on the naming conventions for the decomposed and reconstructed quadratic parameterization
@@ -23,7 +23,7 @@
 # Thus, to reconstruct the quadratic parameterization, we need the following combinations of decomposed terms:
 #     S    = sm
 #     Qi   = quad_i
-#     Li   = lin_i - S - Qi 
+#     Li   = lin_i - S - Qi
 #          = lin_i - sm - quad_i
 #     2Mij = mixed_ij - S - Qi - Qj - Li - Lj
 #          = mixed_ij - sm - quad_i - quad_j - (lin_i - sm - Qi) - (lin_j - sm - quad_j)
@@ -31,11 +31,10 @@
 # To run this script:
 #     - The script is currently very basic and hard coded
 #     - The inputs dictionary is hardcoded, also where to save the output plots is hard coded
-#     - So to run it is just: 
+#     - So to run it is just:
 #       python make_1d_quad_plots_from_template_histos.py
 
 
-import numpy as np
 import os
 import topcoffea.modules.QuadFitTools as qft
 from topcoffea.scripts.make_html import make_html
@@ -96,7 +95,7 @@ def get_decomp_term_sm(decomp_lst):
         if "sm" in decomp_term_name:
             ret = decomp_term_name
     if ret is None:
-        print(f"\nError: Can't find term for wc \"{wc}\" in this list of terms: {decomp_lst}")
+        print("\nError: Can't find term for sm in this list of terms: {decomp_lst}")
         raise Exception("Error, no sm term found")
     else: return ret
 
@@ -132,7 +131,7 @@ def get_decomp_term_mix(decomp_lst,wc0,wc1):
         if ("mix" in decomp_term_name) and (wc0 in substr_lst) and (wc1 in substr_lst):
             ret = decomp_term_name
     if ret is None:
-        print(f"\nError: Can't find term for wc \"{wc}\" in this list of terms: {decomp_lst}")
+        print(f"\nError: Can't find term for WCs \"{wc0}\" and \"{wc1}\" in this list of terms: {decomp_lst}")
         raise Exception("Error, no mixed term found")
     else: return ret
 

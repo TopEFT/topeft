@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 import numpy as np
-import lz4.frame as lz4f
-import cloudpickle
 import awkward as ak
-import coffea
 from coffea import hist, processor
 
 import topcoffea.modules.objects as obj
@@ -20,7 +17,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "ptabseta" : hist.Hist(
                 "Counts",
                 hist.Cat("sample", "sample"),
-                hist.Cat("flipstatus", "flipstatus"), 
+                hist.Cat("flipstatus", "flipstatus"),
                 hist.Bin("pt", "pt", [0, 30.0, 45.0, 60.0, 100.0, 200.0]),
                 hist.Bin("abseta", "abseta", [0, 0.4, 0.8, 1.1, 1.4, 1.6, 1.9, 2.2, 2.5]),
             ),

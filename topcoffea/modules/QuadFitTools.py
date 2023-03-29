@@ -1,11 +1,8 @@
 import os
-from coffea.nanoevents import NanoEventsFactory
 import awkward as ak
 
 import matplotlib.pyplot as plt
 import numpy as np
-
-import topcoffea.modules.fileReader as fr
 
 # Some useful dictionaries (should these go somewhere else?)
 
@@ -80,7 +77,7 @@ ARXIV1901_LIMS = {
     "cQt8" : [-12.0,10.0]
 }
 
-FIT_RANGES = {  
+FIT_RANGES = {
     'ctW':(-4,4),     'ctZ':(-5,5),
     'cpt':(-40,30),   'ctp':(-35,65),
     'ctli':(-10,10),  'ctlSi':(-10,10),
@@ -147,7 +144,7 @@ def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[
         # Get the quad fit params from the list
         if len(quad_params) != 3:
             raise Exception(f"Error: Wrong number of parameters specified for 1d quadratic. Require 3, received {len(quad_params)}.")
-        s0 = quad_params[0] 
+        s0 = quad_params[0]
         s1 = quad_params[1]
         s2 = quad_params[2]
 
@@ -168,7 +165,7 @@ def make_1d_quad_plot(quad_params_dict,xaxis_name,yaxis_name,title,xaxis_range=[
         if key_name != "none": tag = key_name + " "
         else: tag = ""
         if key_name in quad_params_dict.keys():
-            s0 = quad_params_dict[key_name][0] 
+            s0 = quad_params_dict[key_name][0]
             s1 = quad_params_dict[key_name][1]
             s2 = quad_params_dict[key_name][2]
             leg_str = get_fit_str(tag+"fit",xaxis_name,s0,s1,s2)
@@ -203,7 +200,7 @@ def get_summed_quad_fit_arr(events):
         raise Exception("Error: This file does not have any EFT fit coefficients.")
 
     # Get array of quad coeffs
-    quad_coeffs_arr = ak.to_numpy(events["EFTfitCoefficients"]) 
+    quad_coeffs_arr = ak.to_numpy(events["EFTfitCoefficients"])
     quad_coeffs_arr = ak.sum(quad_coeffs_arr,axis=0)
 
     return quad_coeffs_arr
@@ -252,7 +249,7 @@ def get_1d_fit(fit_dict,wc):
 def scale_fit_dict(fit_dict,scale_val):
     ret_dict = {}
     for k,v in fit_dict.items():
-       ret_dict[k] = v*scale_val 
+        ret_dict[k] = v*scale_val
     return ret_dict
 
 # Scale all values in a fit to the SM value, returns a new dictionary
@@ -287,7 +284,7 @@ def eval_fit(fit_dict,wcpt_dict):
 # Evaluate a 1d quadratic at a given point
 def eval_1d_quad( quad_params_1d,x):
     if len(quad_params_1d) != 3:
-        raise Exception(f"Error: Wrong number of parameters specified for 1d quadratic. Require 3, received {len(quad_params)}.")
+        raise Exception(f"Error: Wrong number of parameters specified for 1d quadratic. Require 3, received {len(quad_params_1d)}.")
     y = quad_params_1d[0] + quad_params_1d[1]*x + quad_params_1d[2]*x*x
     return y
 
@@ -297,7 +294,7 @@ def find_where_fit_crosses_threshold(quad_params_1d,threshold):
 
     # Get the individual params
     if len(quad_params_1d) != 3:
-        raise Exception(f"Error: Wrong number of parameters specified for 1d quadratic. Require 3, received {len(quad_params)}.")
+        raise Exception(f"Error: Wrong number of parameters specified for 1d quadratic. Require 3, received {len(quad_params_1d)}.")
     s0 = quad_params_1d[0]
     s1 = quad_params_1d[1]
     s2 = quad_params_1d[2]

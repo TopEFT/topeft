@@ -1,6 +1,6 @@
 import gzip
 import pickle
-from coffea import lookup_tools
+#from coffea import lookup_tools
 
 # The committed pkl files
 pkl_lst_committed = [

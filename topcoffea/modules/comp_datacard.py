@@ -1,7 +1,6 @@
-import json
 import argparse
 import re
- 
+
 tolerance = 0.5e-5
 
 '''
@@ -72,14 +71,14 @@ def comp_datacard_dict(wc1, wc2):
 def comp_datacard(fin1, fin2):
     wc1,_ = strip(fin1)
     wc2,_ = strip(fin2)
-    
+
     return comp_datacard_dict(wc1,wc2)
 
 if __name__ == '__main__':
- 
+
     parser = argparse.ArgumentParser(description='You can select which file to run over')
     parser.add_argument('fin1'           , nargs='?', default=''           , help = 'First input file')
     parser.add_argument('fin2'           , nargs='?', default=''           , help = 'Second input file')
     args = parser.parse_args()
-    
+
     comp_datacard(args.fin1, args.fin2)
