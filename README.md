@@ -126,7 +126,7 @@ where `test_futures` is the file/test you would like to run (check the `tests` d
 
 ## To reproduce the TOP-22-006 histograms and datacards
 
-Use the [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5)
+Use the [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5).
 
 1. Run the processor to obtain the histograms (from the skimmed naod files). Use the `fullR2_run.sh` script in the `analysis/topEFT` directory.
     ```
@@ -138,11 +138,11 @@ Use the [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5)
     time python make_cards.py /path/to/your/examplename_np.pkl.gz -C --do-nuisance --var-lst lj0pt ptz -d /scratch365/you/somedir --unblind --do-mc-stat
     ```
 
-3. Run the post-processing checks on the cards to look for any unexpected errors in the condor logs and to grab the right set of ptz and lj0pt templates and cards used in TOP-22-006. The script will copy the relevant cards/templates to a directory it makes (inside of the directory you pass that points to the cards and templates made in step 2). This is the directory that can be copied to wherever you plan to run the `combine` steps (e.g. PSI).
+3. Run the post-processing checks on the cards to look for any unexpected errors in the condor logs and to grab the right set of ptz and lj0pt templates and cards used in TOP-22-006. The script will copy the relevant cards/templates to a directory it makes (inside of the directory you pass that points to the cards and templates made in Step 2). This is the directory that can be copied to wherever you plan to run the `combine` steps (e.g. PSI).
     ```
     time python datacards_post_processing.py /scratch365/you/somedir -c -s
     ```
 
-4. Proceed with the "Steps for reproducing the "official" TOP-22-006 workspace" steps listed in the EFTFit Readme [here](https://github.com/TopEFT/EFTFit#steps-for-reproducing-the-official-top-22-006-workspace).
+4. Proceed to the [Steps for reproducing the "official" TOP-22-006 workspace](https://github.com/TopEFT/EFTFit#steps-for-reproducing-the-official-top-22-006-workspace) steps listed in the EFTFit Readme.
 
 

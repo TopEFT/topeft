@@ -89,3 +89,9 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 
 * `make_1d_quad_plots_from_template_histos.py`:
     - The purpose of this script was to help to understand the quadratic dependence of the systematics on the WCs. This script takes as input the information from the template histograms, and the goal is to reconstruct the quadratic parameterizations from the templates. The relevant templates are the ones produced by topcoffea's datacard maker, which should be passed to `EFTFit`'s `look_at_templates.C` (which opens the templates, optionally extrapolates the up/down beyond +-1sigma, and dumps the info into a python dictionary). The comments in the script have more information about how to run it. 
+
+* `datacards_post_processing.py`:
+    - This script does some basic checks of the cards and templates produced by the `make_cards.py` script.
+    - It also can parse the condor log files and dump a summary of the contents
+    - Additionally, it can also grab the right set of ptz and lj0pt templates (for the right categories) used in TOP-22-006
+

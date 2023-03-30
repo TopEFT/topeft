@@ -2,6 +2,9 @@ import os
 import shutil
 import argparse
 
+# This script does some basic checks of the cards and templates produced by the `make_cards.py` script.
+#   - It also can parse the condor log files and dump a summary of the contents
+#   - Additionally, it can also grab the right set of ptz and lj0pt templates (for the right categories) used in TOP-22-006
 
 # Lines that show up in the condor err files that we want to ignore
 IGNORE_LINES = [
