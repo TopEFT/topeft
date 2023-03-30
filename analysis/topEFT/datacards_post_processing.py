@@ -163,7 +163,6 @@ def main():
         if ((n_txt != 43) or (n_root != 43)):
             raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
         print("Done.\n")
-    
 
 
 
