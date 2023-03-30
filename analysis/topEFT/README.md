@@ -94,4 +94,5 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - This script does some basic checks of the cards and templates produced by the `make_cards.py` script.
     - It also can parse the condor log files and dump a summary of the contents
     - Additionally, it can also grab the right set of ptz and lj0pt templates (for the right categories) used in TOP-22-006
+    - Example: `python datacards_post_processing.py /path/to/your/datacards/dir -c -s`
 
