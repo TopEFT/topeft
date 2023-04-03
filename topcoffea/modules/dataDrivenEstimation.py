@@ -1,7 +1,7 @@
 import argparse
 from coffea import hist
 from topcoffea.modules.YieldTools import YieldTools
-from topcoffea.modules.GetValuesFromJsons import get_lumi, get_param
+from topcoffea.modules.GetValuesFromJsons import get_param
 import topcoffea.modules.utils as utils
 import cloudpickle
 from collections import defaultdict
@@ -48,10 +48,6 @@ class DataDrivenProducer:
                     raise RuntimeError(f"Sample {sample} does not match the naming convention.")
                 if year not in ['16APV','16','17','18']:
                     raise RuntimeError(f"Sample {sample} does not match the naming convention, year \"{year}\" is unknown.")
-
-                if self.dataName == sampleName:
-                    continue # We do not scale data
-                scale_dict[(sample, )] = 1000.0*get_lumi('20'+year)
 
             prescale=histo.values().copy()
             histo.scale( scale_dict, axis=('sample',))
@@ -100,7 +96,6 @@ class DataDrivenProducer:
                     else:
                         # if we are in the nonprompt application region, we also integrate the application region axis
                         # and construct the new sample 'nonprompt'
-
                         # we look at data only, and rename it to fakes
                         newNameDictData=defaultdict(list); newNameDictNoData=defaultdict(list)
                         for sample in hAR.identifiers('sample'):
@@ -114,7 +109,6 @@ class DataDrivenProducer:
                                 newNameDictNoData[nonPromptName].append(sample.name)
                             else:
                                 print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
-
                         hFakes=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
                         # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
                         hPromptSub=hAR.group('sample', hist.Cat('sample','sample'), newNameDictNoData )
@@ -137,18 +131,6 @@ class DataDrivenProducer:
                             newhist=hFakes
                         else:
                             newhist.add(hFakes)
-            # Scale back by 1/lumi all processes but data so they can be used transparently downstream
-            # Mind that we scaled all mcs already above
-            scaleDict={}
-            for sample in newhist.identifiers('sample'):
-                match = pattern.search(sample.name)
-                sampleName=match.group('sample')
-                if self.dataName == sampleName:
-                    continue
-                year=match.group('year')
-                scaleDict[sample]=1.0/(1000.0*get_lumi('20'+year))
-            newhist.scale( scaleDict, axis='sample')
-
 
             self.outHist[key]=newhist
 

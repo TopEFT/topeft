@@ -167,22 +167,6 @@ def get_dict_with_stripped_bin_names(in_chan_dict,type_of_info_to_strip):
                 out_chan_dict[cat].append(bin_name_no_njet)
     return (out_chan_dict)
 
-
-# Figures out which year a sample is from, retruns the lumi for that year
-def get_lumi_for_sample(sample_name):
-    if "UL17" in sample_name:
-        lumi = 1000.0*getj.get_lumi("2017")
-    elif "UL18" in sample_name:
-        lumi = 1000.0*getj.get_lumi("2018")
-    elif "UL16APV" in sample_name:
-        lumi = 1000.0*getj.get_lumi("2016APV")
-    elif "UL16" in sample_name:
-        # Should not be here unless "UL16APV" not in sample_name
-        lumi = 1000.0*getj.get_lumi("2016")
-    else:
-        raise Exception(f"Error: Unknown year for \"{sample_name}\".")
-    return lumi
-
 # Group bins in a hist, returns a new hist
 def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
 
@@ -660,12 +644,6 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
         # Extract the signal hists
         hist_sig = dict_of_hists[var_name].remove(samples_to_rm_from_sig_hist,"sample")
 
-        # Normalize the hists
-        sample_lumi_dict = {}
-        for sample_name in sig_sample_lst:
-            sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
-        hist_sig.scale(sample_lumi_dict,axis="sample")
-
         # If we only want to look at a subset of the systematics (Probably should be an option? For now, just uncomment if you want to use it)
         syst_subset_dict = {
             "nominal":["nominal"],
@@ -726,12 +704,6 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
         for chan_name in channels_lst:
 
             histo = copy.deepcopy(histo_orig)
-
-            # Normalize the MC hists
-            sample_lumi_dict = {}
-            for sample_name in all_samples:
-                sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
-            histo.scale(sample_lumi_dict,axis="sample")
 
             histo = yt.integrate_out_appl(histo,chan_name)
             histo = histo.integrate("systematic","nominal")
@@ -861,12 +833,6 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name],overflow="over")
             hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name],overflow="over")
 
-            # Normalize the MC hists
-            sample_lumi_dict = {}
-            for sample_name in mc_sample_lst:
-                sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
-            hist_mc.scale(sample_lumi_dict,axis="sample")
-
             hist_mc = group_bins(hist_mc,SR_GRP_MAP)
             hist_data = group_bins(hist_data,SR_GRP_MAP)
 
@@ -947,13 +913,6 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
         # Extract the signal hists, and integrate over systematic axis
         hist_sig = dict_of_hists[var_name].remove(samples_to_rm_from_sig_hist,"sample")
         hist_sig = hist_sig.integrate("systematic","nominal")
-
-        # Normalize the hists
-        sample_lumi_dict = {}
-        for sample_name in sig_sample_lst:
-            sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
-        hist_sig.scale(sample_lumi_dict,axis="sample")
-
 
         # Make plots for each SR category
         if split_by_chan:
@@ -1102,12 +1061,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         # Extract the MC and data hists
         hist_mc = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
         hist_data = dict_of_hists[var_name].remove(samples_to_rm_from_data_hist,"sample")
-
-        # Normalize the MC hists
-        sample_lumi_dict = {}
-        for sample_name in mc_sample_lst:
-            sample_lumi_dict[sample_name] = get_lumi_for_sample(sample_name)
-        hist_mc.scale(sample_lumi_dict,axis="sample")
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
