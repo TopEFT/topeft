@@ -9,9 +9,9 @@ import math
 @numba.njit
 def calc_eft_weights(q_coeffs,wc_values):
     """Calculate the weights for a specific set of WC values.
-
+        
     Args:
-        q_coeffs: Array specifying a set of quadric coefficients parameterizing the weights.
+        q_coeffs: Array specifying a set of quadric coefficients parameterizing the weights.  
                   The last dimension should specify the coefficients, while any earlier dimensions
                   might be for different histogram bins, events, etc.
         wc_values: A 1D array specifying the Wilson coefficients corrersponding to the desired weight.
@@ -19,7 +19,7 @@ def calc_eft_weights(q_coeffs,wc_values):
     Returns:
         An array of the weight values calculated from the quadratic parameterization.
     """
-
+    
     # Prepend "1" to the start of the WC array to account for constant and linear terms
     wcs = np.hstack((np.ones(1),wc_values))
 
@@ -132,7 +132,7 @@ def n_quartic_terms(n_wc):
 def calc_w2_coeffs(q_coeffs, dtype=np.float64):
     """Calculate the quartic coefficients for calculating the w**2 value (needed for histogram errors.
 
-    Args:
+    Args: 
         q_coeffs: Array specifying a set of quadric coefficients
                     parameterizing the weights.  The last dimension should
                     specify the coefficients, while any earlier dimensions
@@ -151,7 +151,7 @@ def calc_w2_coeffs(q_coeffs, dtype=np.float64):
 
     # Storage for the factors to multiply these coefficients
     factors = np.zeros(4)
-
+    
     # Loop over the quadratic terms and multiply them together
     for i in range(n_quad):
         for j in range(i+1):
@@ -177,10 +177,10 @@ def calc_w2_coeffs(q_coeffs, dtype=np.float64):
 @numba.njit
 def calc_eft_w2(quartic_coeffs_unique, wc_values):
     """Calculate the w**2 values for a specific set of WC values.
-
+        
     Args:
         quartic_coeffs_unique: Array specifying a set of quartic coefficients parameterizing the
-                    w**2 values.  Coefficients multiplying redundant terms have been summed.
+                    w**2 values.  Coefficients multiplying redundant terms have been summed.  
                     The last dimension should specify the coefficients, while any earlier dimensions
                     might be for different histogram bins, events, etc.
         wc_values: A 1D array specifying the Wilson coefficients corrersponding to the desired weight.
@@ -207,7 +207,7 @@ def calc_eft_w2(quartic_coeffs_unique, wc_values):
 
 def remap_coeffs(current_list, target_list, coeffs):
     """Remaps the quadratic fit coefficients to the appropriate order desired for filling a HistEFT.
-
+    
     Args:
         current_list: The list of WC names for this sample
         target_list: The list of WC names needed to fill the HistEFT
@@ -233,7 +233,7 @@ def remap_coeffs(current_list, target_list, coeffs):
 
     # The actual logic is inside this compiled code
     return _remap_coeffs(cl, tl, coeffs)
-
+    
 
 @numba.njit
 def _remap_coeffs(current_list, target_list, coeffs):
@@ -242,7 +242,7 @@ def _remap_coeffs(current_list, target_list, coeffs):
     for i, wc in enumerate(target_list):
         try:
             target_indices[i] = current_list.index(wc)
-        except BaseException: # Edited this line Mar 25, 2023: flake8 says not to use bare except, so replacing with "except BaseException" which is supposed to be equivalent, but would probably be better to catch specific exceptions)
+        except:
             target_indices[i] = -1
 
     # Next, loop over the WC pairs from the target_list and figure out

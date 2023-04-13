@@ -73,6 +73,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 10, 0, 500)),
             "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 10, 0, 500)),
             "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
+            "pp_pt"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("pp_pt",     "$p_{T}$ $\gamma\gamma$ (GeV)", 12, 0, 600)),
+            "pp_mass"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("pp_mass",     "$m_{\gamma\gamma}$ (GeV)", 60, 0, 600)),
         })
 
         # Set the list of hists to fill
@@ -177,6 +179,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         met  = events.MET
         ele  = events.Electron
         mu   = events.Muon
+        ph   = events.Photon
         tau  = events.Tau
         jets = events.Jet
 
@@ -232,6 +235,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
         mu["isTightLep"]= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
 
+        ################### Photon selection ###################
+
+        ph["isTightPhoton"] = tightSelPhoton(ph.cutBased)
+
         ################### Loose selection ####################
 
         m_loose = mu[mu.isPres & mu.isLooseM]
@@ -245,10 +252,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau["isGood"]  =  tau["isClean"] & tau["isPres"]
         tau = tau[tau.isGood] # use these to clean jets
         tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+        p_tight = ph[ph.isTightPhoton]
 
         # Compute pair invariant masses, for all flavors all signes
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
         events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
+
+        # Photon pairs
+        pppairs = ak.combinations(p_tight, 2, fields=["p0","p1"])
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
@@ -398,6 +409,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             add3lMaskAndSFs(events, year, isData, sampleType)
             add4lMaskAndSFs(events, year, isData)
             addLepCatMasks(events)
+            addPhotCatMasks(events)
 
             # Convenient to have l0, l1, l2 on hand
             l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
@@ -439,7 +451,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over categories and fill the dict
             weights_dict = {}
-            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ"]:
+            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "photon"]:
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
@@ -472,6 +484,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                     elif ch_name.startswith("4l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
+                    elif ch_name.startswith("photon"):
+                        pass
                     else:
                         raise Exception(f"Unknown channel name: {ch_name}")
 
@@ -514,6 +528,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # 2lss selection (drained of 4 top)
             selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2l_photon", (events.is2l_photon & bmask_atleast1med_atleast2loose))
 
             # 2lss selection (enriched in 4 top)
             selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
@@ -549,6 +564,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("mmm", events.is_mmm)
             selections.add("llll", (events.is_eeee | events.is_eeem | events.is_eemm | events.is_emmm | events.is_mmmm | events.is_gr4l)) # Not keepting track of these separately
 
+            # Photon selection
+            selections.add("hasPhoton_atleast_4j",  events.is_p)
+
             # Njets selection
             selections.add("exactly_0j", (njets==0))
             selections.add("exactly_1j", (njets==1))
@@ -565,6 +583,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("atmost_3j" , (njets<=3))
 
             # AR/SR categories
+            selections.add("isSR_2lp",     ( events.is2lp_SR) & charge2l_0)
             selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1)
             selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1)
             selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
@@ -587,6 +606,16 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
             ptz = get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+
+            # Photon mass
+            pp_pt = (pppairs.p0 + pppairs.p1).pt
+            pp_mass = (pppairs.p0 + pppairs.p1).mass
+            pp_mass = ak.fill_none(pp_mass[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1)
+            pp_pt = pp_pt[ak.argmax(pp_pt, axis=-1, keepdims=True)]
+            pp_mass = ak.flatten(ak.fill_none(pp_mass, -1))
+            pp_pt = ak.flatten(ak.fill_none(pp_pt, -1))
+            #pp_pt = ak.flatten(ak.fill_none(pp_pt[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1))
+            #pp_mass = ak.flatten(ak.fill_none(pp_mass[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1))
 
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
@@ -637,6 +666,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
+            varnames["pp_pt"]     = pp_pt
+            varnames["pp_mass"]     = pp_mass
 
 
             ########## Fill the histograms ##########
@@ -644,6 +675,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             # This dictionary keeps track of which selections go with which SR categories
             sr_cat_dict = {
                 "2l" : {
+                    "hasPhoton_atleast_4j" : {
+                        "lep_chan_lst" : ["2l_photon"],
+                        "lep_flav_lst" : ["ee" , "em" , "mm"],
+                        "appl_lst"     : ["isSR_2lp"] + ([] if isData else []),
+                    },
                     "exactly_4j" : {
                         "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
