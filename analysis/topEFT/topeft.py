@@ -73,7 +73,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 10, 0, 500)),
             "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 10, 0, 500)),
             "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
-            "pp_pt"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("pp_pt",     "$p_{T}$ $\gamma\gamma$ (GeV)", 12, 0, 600)),
+            "photon_pt"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("photon_pt",     "$p_{T}$ $\gamma$ (GeV)", 12, 0, 600)),
             "pp_mass"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("pp_mass",     "$m_{\gamma\gamma}$ (GeV)", 60, 0, 600)),
         })
 
@@ -410,6 +410,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             add4lMaskAndSFs(events, year, isData)
             addLepCatMasks(events)
             addPhotCatMasks(events)
+            addTightPhotonMask(events)
 
             # Convenient to have l0, l1, l2 on hand
             l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
@@ -528,11 +529,14 @@ class AnalysisProcessor(processor.ProcessorABC):
             # 2lss selection (drained of 4 top)
             selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2l_photon", (events.is2l_photon & bmask_atleast1med_atleast2loose))
+            selections.add("2lss_p_photon", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & events.photon))
+            selections.add("2lss_m_photon", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & events.photon))
 
             # 2lss selection (enriched in 4 top)
             selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_4t_p_photon", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med & events.photon))
             selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_4t_m_photon", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med & events.photon))
 
             # 2lss selection for CR
             selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
@@ -616,6 +620,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             pp_pt = ak.flatten(ak.fill_none(pp_pt, -1))
             #pp_pt = ak.flatten(ak.fill_none(pp_pt[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1))
             #pp_mass = ak.flatten(ak.fill_none(pp_mass[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1))
+            photon_pt = ak.fill_none(ak.firsts(p_tight.pt), -1)
 
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
@@ -666,7 +671,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
-            varnames["pp_pt"]     = pp_pt
+            varnames["photon_pt"]     = photon_pt
             varnames["pp_mass"]     = pp_mass
 
 
@@ -675,28 +680,23 @@ class AnalysisProcessor(processor.ProcessorABC):
             # This dictionary keeps track of which selections go with which SR categories
             sr_cat_dict = {
                 "2l" : {
-                    "hasPhoton_atleast_4j" : {
-                        "lep_chan_lst" : ["2l_photon"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lp"] + ([] if isData else []),
-                    },
                     "exactly_4j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                        "lep_chan_lst" : ["2lss_p_photon" , "2lss_m_photon", "2lss_4t_p_photon", "2lss_4t_m_photon"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
                         "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                     },
                     "exactly_5j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                        "lep_chan_lst" : ["2lss_p_photon" , "2lss_m_photon", "2lss_4t_p_photon", "2lss_4t_m_photon"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
                         "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                     },
                     "exactly_6j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                        "lep_chan_lst" : ["2lss_p_photon" , "2lss_m_photon", "2lss_4t_p_photon", "2lss_4t_m_photon"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
                         "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                     },
                     "atleast_7j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                        "lep_chan_lst" : ["2lss_p_photon" , "2lss_m_photon", "2lss_4t_p_photon", "2lss_4t_m_photon"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
                         "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                     },
