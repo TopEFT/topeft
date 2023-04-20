@@ -422,6 +422,10 @@ def addPhotCatMasks(events):
     is_p_mask = ak.num(events.Photon) >= 2
     events['is_p'] = is_p_mask
 
+def addTightPhotonMask(events):
+    tight_photon = ak.fill_none(ak.any(events.Photon.cutBased == 3, axis=1), False)           #tight photon mask
+    
+    events['photon'] = tight_photon
 
 # Returns a mask for events with a same flavor opposite (same) sign pair close to the Z
 # Mask will be True if any combination of 2 leptons from within the given collection satisfies the requirement
