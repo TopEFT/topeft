@@ -4,8 +4,8 @@ import numpy as np
 import matplotlib.patches as mpatches
 import copy
 
-
 import mplhep as hep
+#hep.style.use("CMS")
 
 
 #WC_LST = ["ctG","cpt","ctp"]
@@ -58,20 +58,18 @@ TOP22006_LIMS_DICT = {
 ################### Plotting ###################
 
 # Make the summary comparison plot
-def make_plot(wc_lst,range_dict_a,range_dict_b,bestpoint_dict_a=None,bestpoint_dict_b=None,save_name="summary_lims_comp",tag_a="DataA",tag_b="DataB",xlog=False,lambda_leg=False):
+def make_plot(wc_lst,range_dict_a,range_dict_b=None,save_name="summary_lims_comp",tag_a="DataA",tab_b="DataB",tag_b=None,xlog=False):
 
     y_min = 0
     y_max = len(wc_lst)
 
-    clr_a = "k"
-    clr_b = "b"
-
     style_a = "-"
     style_b = "-"
-    width_a = 4 
-    width_b = 4
+    width_a = 8 
+    width_b = 8
 
     clr_lst_a = ["dimgrey","darkgrey","lightgrey"]
+    #clr_lst_a = ["mediumblue","royalblue","lightsteelblue"]
     clr_lst_b = ["mediumblue","royalblue","lightsteelblue"]
 
     plt.figure(figsize = (5,10)) # 5,8 or 5,10 also good for a more expanded
@@ -86,10 +84,12 @@ def make_plot(wc_lst,range_dict_a,range_dict_b,bestpoint_dict_a=None,bestpoint_d
     for i,wc in enumerate(wc_lst):
 
         # Get the y coordinate
+        if range_dict_b is not None: y_offset = 0.2
+        else: y_offset = 0
         y = i+1
         y_lst.append(y)
-        y_a = y + 0.2 # 0.1, or 0.2
-        y_b = y - 0.2 # 0.1, or 0.2
+        y_a = y + y_offset
+        y_b = y - y_offset
 
         # Plot the values from the a dataset
         if wc in range_dict_a.keys():
@@ -97,30 +97,23 @@ def make_plot(wc_lst,range_dict_a,range_dict_b,bestpoint_dict_a=None,bestpoint_d
             plt.plot([x_a[0],x_a[1]], [y_a,y_a], clr_lst_a[0], linestyle=style_a, linewidth=width_a, zorder=100)
             if len(x_a)>=4: plt.plot([x_a[2],x_a[3]], [y_a,y_a], clr_lst_a[1], linestyle=style_a, linewidth=width_a, zorder=99) # If there is a second range, plot that too
             if len(x_a)>=6: plt.plot([x_a[4],x_a[5]], [y_a,y_a], clr_lst_a[2], linestyle=style_a, linewidth=width_a, zorder=98) # If there is a third range, plot that too
-            if bestpoint_dict_a is not None: plt.plot(bestpoint_dict_a[wc], y_a, marker="o", markersize=3, markeredgecolor=clr_a, markerfacecolor=clr_a,zorder=100) # Plot the best fit point if we have it
 
-        # Plot the values from the b dataset
-        if wc in range_dict_b.keys():
-            x_b = range_dict_b[wc]
-            plt.plot([x_b[0],x_b[1]], [y_b,y_b], clr_lst_b[0], linestyle=style_b, linewidth=width_b, zorder=100)
-            if len(x_b)>=4: plt.plot([x_b[2],x_b[3]], [y_b,y_b], clr_lst_b[1], linestyle=style_b, linewidth=width_b, zorder=99) # If there is a second range, plot that too
-            if len(x_b)>=6: plt.plot([x_b[4],x_b[5]], [y_b,y_b], clr_lst_b[2], linestyle=style_b, linewidth=width_b, zorder=98) # If there is a third range, plot that too
-            if bestpoint_dict_b is not None: plt.plot(bestpoint_dict_b[wc], y_b, marker="o", markersize=3, markeredgecolor=clr_b, markerfacecolor=clr_b,zorder=100) # Plot the best fit point if we have it
+        # Plot the values from the b dataset if we have them
+        if range_dict_b is not None:
+            if wc in range_dict_b.keys():
+                x_b = range_dict_b[wc]
+                plt.plot([x_b[0],x_b[1]], [y_b,y_b], clr_lst_b[0], linestyle=style_b, linewidth=width_b, zorder=100)
+                if len(x_b)>=4: plt.plot([x_b[2],x_b[3]], [y_b,y_b], clr_lst_b[1], linestyle=style_b, linewidth=width_b, zorder=99) # If there is a second range, plot that too
+                if len(x_b)>=6: plt.plot([x_b[4],x_b[5]], [y_b,y_b], clr_lst_b[2], linestyle=style_b, linewidth=width_b, zorder=98) # If there is a third range, plot that too
 
 
     # Make the legend
-    #tag_lst = ["top19001 $c=0.01$", "top22006 $c=0.01$", "top19001 $c=1$", "top22006 $c=1$", "top19001 c=$4\pi^2$", "top22006 c=$4\pi^2$"]
-    #tag_lst = ["top22006 asimov $c=0.01$", "top22006 $c=0.01$", "top22006 asimov $c=1$", "top22006 $c=1$", "top22006 asimov c=$(4\pi)^2$", "top22006 c=$(4\pi)^2$"]
-    tag_lst = ["Asimov $c=0.01$", "Data $c=0.01$", "Asimov $c=1$", "Data $c=1$", "Asimov c=$(4\pi)^2$", "Data c=$(4\pi)^2$"]
+    tag_lst = ["$c=0.01$", "$c=1$", "c=$(4\pi)^2$"]
     patch_a0 = mpatches.Patch(color=clr_lst_a[0], label=tag_lst[0])
-    patch_a1 = mpatches.Patch(color=clr_lst_a[1], label=tag_lst[2])
-    patch_a2 = mpatches.Patch(color=clr_lst_a[2], label=tag_lst[4])
-    patch_b0 = mpatches.Patch(color=clr_lst_b[0], label=tag_lst[1])
-    patch_b1 = mpatches.Patch(color=clr_lst_b[1], label=tag_lst[3])
-    patch_b2 = mpatches.Patch(color=clr_lst_b[2], label=tag_lst[5])
-    ##patch_b1 = mpatches.Patch(color=clr_b, label=tag_b, linestyle="--")
-    ##plt.legend([patch_a0,patch_a1,patch_a2,patch_b0,patch_b1,patch_b2], [tag_a,tag_b], loc='upper right', prop={'size': 6})
-    plt.legend([patch_a0,patch_b0,patch_a1,patch_b1,patch_a2,patch_b2], tag_lst, loc='upper center', prop={'size': 6},ncol=3,framealpha=1)
+    patch_a1 = mpatches.Patch(color=clr_lst_a[1], label=tag_lst[1])
+    patch_a2 = mpatches.Patch(color=clr_lst_a[2], label=tag_lst[2])
+    #plt.legend([patch_a0,patch_b0,patch_a1,patch_b1,patch_a2,patch_b2], tag_lst, loc='upper center', prop={'size': 6},ncol=3,framealpha=1)
+    plt.legend([patch_a0,patch_a1,patch_a2], tag_lst, loc='upper center', prop={'size': 11.5},ncol=3,framealpha=0)
 
     # Label the y axis with the WC names and put in the grid lines
     wc_lst_formatted = []
@@ -128,6 +121,9 @@ def make_plot(wc_lst,range_dict_a,range_dict_b,bestpoint_dict_a=None,bestpoint_d
     plt.yticks(y_lst,wc_lst_formatted)
     plt.axvline(x=0,color="k",linestyle="-",linewidth=1,zorder=5)
     plt.grid(linestyle="--",zorder=-10)
+
+    # CMS labels
+    hep.cms.label(data=True,llabel="Supplementary",lumi="138")
 
     #plt.savefig(save_name+".pdf",format="pdf")
     plt.savefig(save_name+".png",format="png")
@@ -209,12 +205,8 @@ def main():
 
     make_plot(
         wc_lst=WC_LST,
-        #range_dict_a = lambda_dict_top19001,
-        #tag_a = "TOP-19-001 2$\sigma$ profiled",
         range_dict_a = lambda_dict_top22006,
-        range_dict_b = lambda_dict_top22006,
         tag_a = "TOP-21-006 2$\sigma$ profiled asimov",
-        tag_b = "TOP-21-006 2$\sigma$ profiled",
         xlog = True,
     )
 
