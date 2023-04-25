@@ -1,3 +1,8 @@
+# This script makes a plot of the energy scale Lambda
+#   - The WC limits (for 1TeV) are hardcoded in this script
+#   - The script converts these to Lambda for various assumptions for c
+#   - Plots the resulting Lambda for each WC
+
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import numpy as np
@@ -5,10 +10,7 @@ import matplotlib.patches as mpatches
 import copy
 
 import mplhep as hep
-#hep.style.use("CMS")
 
-
-#WC_LST = ["ctG","cpt","ctp"]
 WC_LST = [
     "cQq13", "cQq83", "cQq11", "ctq1", "cQq81", "ctq8",
     "ctt1", "cQQ1", "cQt8", "cQt1",
@@ -17,25 +19,25 @@ WC_LST = [
 ]
 
 WC_FORMAT_DICT = {
-    "cQq13" : "$c_{\mathrm{Qq}}^{31}$",
-    "cQq83" : "$c_{\mathrm{Qq}}^{38}$",
-    "cQq11" : "$c_{\mathrm{Qq}}^{11}$",
-    "ctq1"  : "$c_{\mathrm{tq}}^{1}$" ,
-    "cQq81" : "$c_{\mathrm{Qq}}^{18}$",
-    "ctq8"  : "$c_{\mathrm{tq}}^{8}$" ,
-    "ctt1"  : "$c_{\mathrm{tt}}^{1}$" ,
-    "cQQ1"  : "$c_{\mathrm{QQ}}^{1}$" ,
-    "cQt8"  : "$c_{\mathrm{Qt}}^{8}$" ,
-    "cQt1"  : "$c_{\mathrm{Qt}}^{1}$" ,
-    "ctW"   : "$c_{\mathrm{tW}}$"  ,
-    "ctZ"   : "$c_{\mathrm{tZ}}$"  ,
-    "ctp"   : "$c_{\mathrm{t} \\varphi}$"  ,
-    "cpQM"  : "$c_{\\varphi \mathrm{Q}}^{-}$" ,
-    "ctG"   : "$c_{\mathrm{tG}}$"  ,
-    "cbW"   : "$c_{\mathrm{bW}}$"  ,
-    "cpQ3"  : "$c_{\\varphi \mathrm{Q}}^{3}$" ,
-    "cptb"  : "$c_{\\varphi \mathrm{t b}}$" ,
-    "cpt"   : "$c_{\\varphi \mathrm{t}}$"  ,
+    "cQq13"  : "$c_{\mathrm{Qq}}^{31}$",
+    "cQq83"  : "$c_{\mathrm{Qq}}^{38}$",
+    "cQq11"  : "$c_{\mathrm{Qq}}^{11}$",
+    "ctq1"   : "$c_{\mathrm{tq}}^{1}$" ,
+    "cQq81"  : "$c_{\mathrm{Qq}}^{18}$",
+    "ctq8"   : "$c_{\mathrm{tq}}^{8}$" ,
+    "ctt1"   : "$c_{\mathrm{tt}}^{1}$" ,
+    "cQQ1"   : "$c_{\mathrm{QQ}}^{1}$" ,
+    "cQt8"   : "$c_{\mathrm{Qt}}^{8}$" ,
+    "cQt1"   : "$c_{\mathrm{Qt}}^{1}$" ,
+    "ctW"    : "$c_{\mathrm{tW}}$"  ,
+    "ctZ"    : "$c_{\mathrm{tZ}}$"  ,
+    "ctp"    : "$c_{\mathrm{t} \\varphi}$"  ,
+    "cpQM"   : "$c_{\\varphi \mathrm{Q}}^{-}$" ,
+    "ctG"    : "$c_{\mathrm{tG}}$"  ,
+    "cbW"    : "$c_{\mathrm{bW}}$"  ,
+    "cpQ3"   : "$c_{\\varphi \mathrm{Q}}^{3}$" ,
+    "cptb"   : "$c_{\\varphi \mathrm{t b}}$" ,
+    "cpt"    : "$c_{\\varphi \mathrm{t}}$"  ,
     "cQl3i"  : "$c_{\mathrm{Q\ell}}^{3(\ell)}$" ,
     "cQlMi"  : "$c_{\mathrm{Q\ell}}^{-(\ell)}$" ,
     "cQei"   : "$c_{\mathrm{Qe}}^{(\ell)}$"  ,
@@ -69,15 +71,13 @@ def make_plot(wc_lst,range_dict_a,range_dict_b=None,save_name="summary_lims_comp
     width_b = 8
 
     clr_lst_a = ["dimgrey","darkgrey","lightgrey"]
-    #clr_lst_a = ["mediumblue","royalblue","lightsteelblue"]
     clr_lst_b = ["mediumblue","royalblue","lightsteelblue"]
 
-    plt.figure(figsize = (5,10)) # 5,8 or 5,10 also good for a more expanded
+    plt.figure(figsize = (5,10)) 
     if xlog: plt.xscale('log')
-    plt.ylim(y_min+0.5, y_max+0.5+2.5) # If leaving room for legend
-    if 1: plt.ylim(y_min+0.5, y_max+0.5+2.7) # If leaving room for legend
+    plt.ylim(y_min+0.5, y_max+0.5+1.3) # If leaving room for legend
 
-    plt.xlabel("$\Lambda$ = $\sqrt{c \; / \; 2\sigma limit}$ [TeV]",loc="right")
+    plt.xlabel("$\Lambda$ = $\sqrt{\mathrm{WC} \; / \; 2\sigma \, \mathrm{limit}}$ [TeV]",loc="right")
 
     # Figure out where to put each row
     y_lst = []
@@ -108,12 +108,12 @@ def make_plot(wc_lst,range_dict_a,range_dict_b=None,save_name="summary_lims_comp
 
 
     # Make the legend
-    tag_lst = ["$c=0.01$", "$c=1$", "c=$(4\pi)^2$"]
+    #tag_lst = ["$c=0.01$", "$c=1$", "c=$(4\pi)^2$"]
+    tag_lst = ["$\mathrm{WC}=0.01$", "$\mathrm{WC}=1$", "$\mathrm{WC}=(4\pi)^2$"]
     patch_a0 = mpatches.Patch(color=clr_lst_a[0], label=tag_lst[0])
     patch_a1 = mpatches.Patch(color=clr_lst_a[1], label=tag_lst[1])
     patch_a2 = mpatches.Patch(color=clr_lst_a[2], label=tag_lst[2])
-    #plt.legend([patch_a0,patch_b0,patch_a1,patch_b1,patch_a2,patch_b2], tag_lst, loc='upper center', prop={'size': 6},ncol=3,framealpha=1)
-    plt.legend([patch_a0,patch_a1,patch_a2], tag_lst, loc='upper center', prop={'size': 11.5},ncol=3,framealpha=0)
+    plt.legend([patch_a0,patch_a1,patch_a2], tag_lst, loc='upper center', prop={'size': 9.5},ncol=3,framealpha=0)
 
     # Label the y axis with the WC names and put in the grid lines
     wc_lst_formatted = []
@@ -123,9 +123,9 @@ def make_plot(wc_lst,range_dict_a,range_dict_b=None,save_name="summary_lims_comp
     plt.grid(linestyle="--",zorder=-10)
 
     # CMS labels
-    hep.cms.label(data=True,llabel="Supplementary",lumi="138")
+    hep.cms.label(data=True,label="Supplementary",lumi="138")
 
-    #plt.savefig(save_name+".pdf",format="pdf")
+    plt.savefig(save_name+".pdf",format="pdf")
     plt.savefig(save_name+".png",format="png")
     plt.show()
     return plt
@@ -202,13 +202,15 @@ def get_lambda_dict_wrapper(ranges_dict):
 def main():
 
     lambda_dict_top22006 = get_lambda_dict_wrapper(TOP22006_LIMS_DICT["at25v01_2sig_obs_prof"])
+    for k,v in lambda_dict_top22006.items():
+        print(k,v)
 
     make_plot(
         wc_lst=WC_LST,
         range_dict_a = lambda_dict_top22006,
         tag_a = "TOP-21-006 2$\sigma$ profiled asimov",
+        save_name="lambda_lims_b",
         xlog = True,
     )
-
 
 main()
