@@ -422,8 +422,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
-                        bJetSFUp = [GetBTagSF(goodJets, year, 'LOOSE', sys=b_syst)[0],GetBTagSF(goodJets, year, 'MEDIUM', sys=b_syst)[0]]
-                        bJetSFDo = [GetBTagSF(goodJets, year, 'LOOSE', sys=b_syst)[1],GetBTagSF(goodJets, year, 'MEDIUM', sys=b_syst)[1]]
+                        bJetSFUp = [GetBTagSF(goodJets, year, 'LOOSE', syst=b_syst)[0],GetBTagSF(goodJets, year, 'MEDIUM', syst=b_syst)[0]]
+                        bJetSFDo = [GetBTagSF(goodJets, year, 'LOOSE', syst=b_syst)[1],GetBTagSF(goodJets, year, 'MEDIUM', syst=b_syst)[1]]
                         bJetEff_dataUp = [bJetEff[0]*bJetSFUp[0],bJetEff[1]*bJetSFUp[1]]
                         bJetEff_dataDo = [bJetEff[0]*bJetSFDo[0],bJetEff[1]*bJetSFDo[1]]
                         pDataUp = ak.prod(bJetEff_dataUp[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataUp[0][isBtagJetsLooseNotMedium] - bJetEff_dataUp[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataUp[0][isNotBtagJetsLoose]), axis=-1)
