@@ -88,16 +88,12 @@ def main():
     parser.add_argument("-s", "--set-up-top22006", action="store_true", help = "Copy the ptz and lj0pt cards used in TOP-22-006 into their own directory.")
     args = parser.parse_args()
 
-    datacards_loction = "/scratch365/kmohrman/datacards/test/test_mar29/somedir"
-    datacards_path = datacards_loction
-
-
     ###### Print out general info ######
 
     # Count the number of text data cards and root templates
     n_text_cards = 0
     n_root_templates = 0
-    datacard_files = os.listdir(datacards_path)
+    datacard_files = os.listdir(args.datacards_path)
     for fname in datacard_files:
         if fname.startswith("ttx_multileptons") and fname.endswith(".txt"):
             n_text_cards += 1
@@ -105,7 +101,7 @@ def main():
             n_root_templates += 1
 
     # Print out what we learned
-    print(f"\nSummary of cards and templates in {datacards_path}:")
+    print(f"\nSummary of cards and templates in {args.datacards_path}:")
     print(f"\tNumber of text cards    : {n_text_cards}")
     print(f"\tNumber of root templates: {n_root_templates}")
 
@@ -114,7 +110,7 @@ def main():
     if args.check_condor_logs:
         lines_from_condor_err_to_print = []
         lines_from_condor_out_to_print = []
-        condor_logs_path = os.path.join(datacards_path,"job_logs")
+        condor_logs_path = os.path.join(args.datacards_path,"job_logs")
         condor_log_files = os.listdir(condor_logs_path)
         for fname in condor_log_files:
             # Parse the .err files
@@ -147,13 +143,13 @@ def main():
     n_txt = 0
     n_root = 0
     if args.set_up_top22006:
-        ptzlj0pt_path = os.path.join(datacards_path,"ptz-lj0pt_withSys")
+        ptzlj0pt_path = os.path.join(args.datacards_path,"ptz-lj0pt_withSys")
         os.mkdir(ptzlj0pt_path)
         print(f"\nCopying TOP-22-006 relevant files to {ptzlj0pt_path}...")
         for fname in datacard_files:
             file_name_strip_ext = os.path.splitext(fname)[0]
             if file_name_strip_ext in TOP22006_CATEGORIES:
-                shutil.copyfile(os.path.join(datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
+                shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
                 if fname.endswith(".txt"): n_txt += 1
                 if fname.endswith(".root"): n_root += 1
 
