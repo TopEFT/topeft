@@ -94,7 +94,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 e[key] = df[self._e[key]]
         e['istight'] = isTightElectron(e.pt, e.eta, e.dxy, e.dz, e.id, year)
         leading_e = e[e.pt.argmax()]
-        leading_e = leading_e[leading_e.istight.astype(np.bool)]
+        leading_e = leading_e[leading_e.istight.astype(bool)]
         nElec = e.counts
 
         # Muon selection
@@ -104,7 +104,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 mu[key] = df[self._mu[key]]
         mu['istight'] = isTightMuon(mu.pt, mu.eta, mu.dxy, mu.dz, mu.iso, mu.tight_id, year)
         leading_mu = mu[mu.pt.argmax()]
-        leading_mu = leading_mu[leading_mu.istight.astype(np.bool)]
+        leading_mu = leading_mu[leading_mu.istight.astype(bool)]
         nMuon = mu.counts
 
         # Jet selection
@@ -116,9 +116,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                     j[key] = df[self._jet[key]]
 
         j['isgood']  = isGoodJet(j.pt, j.eta, j.id)
-        j['isclean'] = ~j.match(e,0.4) & ~j.match(mu,0.4) & j.isgood.astype(np.bool)
+        j['isclean'] = ~j.match(e,0.4) & ~j.match(mu,0.4) & j.isgood.astype(bool)
         j0 = j[j.pt.argmax()]
-        j0 = j0[j0.isclean.astype(np.bool)]
+        j0 = j0[j0.isclean.astype(bool)]
         nJets = j.counts
 
         # Dilepton pair
