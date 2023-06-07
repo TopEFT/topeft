@@ -7,7 +7,7 @@ It loads flat JEC files and parses them into a dictionary as:
     }
 }.
 The script then uses `jes_to_combine` to find all corrections which it should add in quadrature.
-Finanlly, it creates a new set of files (with `Quad` in the name instead of `RegroupedV2`) 
+Finanlly, it creates a new set of files (with `Quad` in the name instead of `RegroupedV2`)
 and writes out the new corrections.
 '''
 

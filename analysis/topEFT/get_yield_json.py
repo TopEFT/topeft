@@ -50,6 +50,6 @@ def main():
     with open(out_json_name+".json", "w") as out_file:
         json.dump(yld_dict, out_file, indent=4)
     print(f"Saved json file: {out_json_name}.json\n")
-    
+
 if __name__ == "__main__":
     main()

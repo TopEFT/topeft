@@ -1,9 +1,8 @@
 import subprocess
 from os.path import exists
-from os import getcwd
 
 def test_make_yields_after_processor():
-    assert(exists('analysis/topEFT/histos/output_check_yields.pkl.gz')) # Make sure the input pkl file exists
+    assert (exists('analysis/topEFT/histos/output_check_yields.pkl.gz')) # Make sure the input pkl file exists
 
     args = [
         "python",
@@ -16,7 +15,7 @@ def test_make_yields_after_processor():
 
     # Produce json
     subprocess.run(args)
-    assert(exists('analysis/topEFT/output_check_yields.json'))
+    assert (exists('analysis/topEFT/output_check_yields.json'))
 
 def test_compare_yields_after_processor():
     args = [
@@ -32,4 +31,4 @@ def test_compare_yields_after_processor():
 
     # Run comparison
     out = subprocess.run(args, stdout=True)
-    assert(out.returncode == 0) # Returns 0 if all pass
+    assert (out.returncode == 0) # Returns 0 if all pass

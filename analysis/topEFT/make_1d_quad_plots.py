@@ -1,15 +1,13 @@
 import os
 import argparse
 import datetime
-import numpy as np
-import matplotlib.pyplot as plt
 from coffea.nanoevents import NanoEventsFactory
 
 import topcoffea.modules.fileReader as fr
 import topcoffea.modules.QuadFitTools as qft
-from topcoffea.plotter.make_html import make_html
+from topcoffea.scripts.make_html import make_html
 
-# This is more or less a placeholder script 
+# This is more or less a placeholder script
 #   - It shows  an example of how we might want to access the quadratic fit information using topcoffea.modules.QuadFitTools
 #   - Currently the script doesn't do much (just processes a single ttH file, prints where fits cross a threshold, and makes 1d quadratic plots)
 #   - So this is probably not all that useful right now, but might give us a place to build from in the future
