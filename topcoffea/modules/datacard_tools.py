@@ -14,7 +14,11 @@ from coffea.hist import StringBin, Cat, Bin
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.utils import regex_match
 
-PRECISION = 6   # Decimal point precision in the text datacard output
+PRECISION = 6           # Decimal point precision in the text datacard output
+NOM_CLIP_SCALE = 1e-3   # When clipping negative yield bins, this is the ratio to the nominal yield used
+
+# np.set_printoptions(precision=8,sign=' ',floatmode='fixed')
+np.set_printoptions(linewidth=100,formatter={'float': lambda x: f"{x:>+12.8f}"})
 
 def prune_axis(h,axis,to_keep):
     """ Convenience method to remove all categories except for a selected subset."""
@@ -180,7 +184,7 @@ class DatacardMaker():
         "o0pt":    [0,100,200,400],
         "bl0pt":   [0,100,200,400],
         "l0pt":    [0,50,100,200],
-        "lj0pt":   [0,150,250,500]
+        "lj0pt":   [0,150,250,500],
     }
 
     YEARS = ["UL16","UL16APV","UL17","UL18"]
@@ -456,6 +460,10 @@ class DatacardMaker():
                         to_remove.append(x.name)
                         continue
             h = h.remove(to_remove,"sample")
+
+            # Integrate out the application region axis if its present
+            if "appl" in [x.name for x in h.sparse_axes()]:
+                h = h.integrate("appl",["isSR_2lSS","isSR_3l","isSR_4l"])   # This is pretty hardcoded right now, might want to fix
 
             if not self.do_nuisance:
                 # Remove all shape systematics
@@ -823,6 +831,10 @@ class DatacardMaker():
         text_card_info = {}
         outf_root_name = os.path.join(self.out_dir,outf_root_name)
         with uproot.recreate(outf_root_name) as f:
+            # Get a reference for how many total events (ignoring signal processes) are in a given bin
+            ch_hist.set_sm()
+            ref_bins,ref_stats = ch_hist.remove(["data"]+list(self.SIGNALS),"sample").integrate("sample").integrate("systematic",["nominal"]).values(sumw2=True,overflow='all')[()]
+            np.sqrt(ref_stats,out=ref_stats)
             for p,wcs in selected_wcs.items():
                 proc_hist = ch_hist.integrate("sample",[p])
                 if self.verbose:
@@ -839,25 +851,51 @@ class DatacardMaker():
                             raise RuntimeError("filling obs data more than once!")
                         for sp_key,arr in data_sm.items():
                             data_obs += arr
-                for base,v in decomposed_templates.items():
-                    proc_name = f"{p}_{base}"
+                for eft_term,v in decomposed_templates.items():
+                    # There should be only 1 sparse axis at this point, the systematics axis
+                    proc_name = f"{p}_{eft_term}"
                     col_width = max(len(proc_name),col_width)
                     text_card_info[proc_name] = {
                         "shapes": set(),
                         "rate": -1
                     }
-                    # There should be only 1 sparse axis at this point, the systematics axis
+                    # Construct a positive non-zero scaled down version of the nominal yields and
+                    #   check if any negative yield bins are 'large'
+                    if len(v):
+                        nom_arr = v[('nominal',)][0]
+                        bin_mask = np.where( nom_arr < 0)
+                        chk_arr = np.zeros_like(nom_arr)
+                        np.divide(nom_arr,ref_bins,out=chk_arr,where=ref_bins != 0)
+
+                        # if np.sum(np.where(np.abs(chk_arr[bin_mask]) > 0.01)):
+                        if np.sum(np.where(np.abs(nom_arr[bin_mask]) > ref_stats[bin_mask])):
+                            diff_arr = ref_stats - np.abs(nom_arr)
+                            print(f"ERROR: {proc_name} has bin with large negative contribution")
+                            print(f"{' '*6}Reference: {ref_bins}")
+                            print(f"{' '*6}Ref stats: {ref_stats}")
+                            print(f"{' '*6}Nominal:   {nom_arr}")
+                            print(f"{' '*6}Diff:      {diff_arr}")
+                            # print(f"{' '*6}Ratio:     {chk_arr}")
+
+                        nz_nom_arr = np.abs(nom_arr*NOM_CLIP_SCALE)
+
                     for sp_key,arr in v.items():
                         if crop_negative_bins:
-                            negative_bin_mask = np.where( arr[0] < 0) # see where bins are negative
-                            arr[0][negative_bin_mask] = np.zeros_like( arr[0][negative_bin_mask] )  # set those to zero
+                            bin_mask = np.where( arr[0] < 0)        # see where bins are negative
+                            if self.verbose and np.sum(nz_nom_arr[bin_mask] > 0):
+                                print(f"{' '*2}{proc_name}_{sp_key[0]}: {arr[0][bin_mask]} -> {nz_nom_arr[bin_mask]}")
+                                print(f"{' '*6}{'Before:':<7} {arr[0]}")
+                            arr[0][bin_mask] = nz_nom_arr[bin_mask] # replace negative values with non-zero values
                             if arr[1] is not None:
-                                arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative
-
+                                # If there's a sumw2 defined, that one's clipped as well.
+                                #   Otherwise we will get 0 +/- something, which is compatible with
+                                #   negative
+                                arr[1][bin_mask] = nz_nom_arr[bin_mask]**2
+                            if self.verbose and np.sum(nz_nom_arr[bin_mask] > 0):
+                                print(f"{' '*6}{'After:':<7} {arr[0]}")
                         syst = sp_key[0]
-
                         sum_arr = sum(arr[0])
-                        if syst == "nominal" and base == "sm":
+                        if syst == "nominal" and eft_term == "sm":
                             if self.verbose:
                                 print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr[0]}")
                             if not self.use_real_data:
@@ -898,7 +936,7 @@ class DatacardMaker():
                                 hist_name = hist_name.replace(syst_base,split_syst)
                                 all_shapes.add(split_syst)
                                 text_card_info[proc_name]["shapes"].add(split_syst)
-                                if base == "sm" and self.verbose:
+                                if eft_term == "sm" and self.verbose:
                                     print(f"\tDecorrelate {p} for {syst_base} into {split_syst} ({syst.replace(syst_base,'')})")
                             else:
                                 all_shapes.add(syst_base)
