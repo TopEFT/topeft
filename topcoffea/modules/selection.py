@@ -419,8 +419,11 @@ def addLepCatMasks(events):
     events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
 
 def addPhotCatMasks(events):
-    is_p_mask = ak.num(events.Photon) >= 2
-    events['is_p'] = is_p_mask
+    photon_num = ak.num(events.Photon) == 1  #require exactly 1 photon
+    photon_pT = events.Photon.pt > 20   #require photon pT be > 20 GeV
+    photon_eta = abs(events.Photon.eta) < 1.44  #eta mask of 1.44
+    is_ph_mask = (photon_num & photon_pT & photon_eta)
+    events['is_ph'] = is_ph_mask
 
 def addTightPhotonMask(events):
     tight_photon = ak.fill_none(ak.any(events.Photon.cutBased == 3, axis=1), False)           #tight photon mask
