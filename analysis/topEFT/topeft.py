@@ -410,7 +410,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             add4lMaskAndSFs(events, year, isData)
             addLepCatMasks(events)
             addPhotCatMasks(events)
-            addTightPhotonMask(events)
+            #addTightPhotonMask(events)
 
             # Convenient to have l0, l1, l2 on hand
             l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
@@ -529,22 +529,22 @@ class AnalysisProcessor(processor.ProcessorABC):
             # 2lss selection (drained of 4 top)
             selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_p_photon", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & events.photon))
-            selections.add("2lss_m_photon", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & events.photon))
+            selections.add("2lss_p_photon", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & events.is_ph))
+            selections.add("2lss_m_photon", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & events.is_ph))
 
             # 2lss selection (enriched in 4 top)
             selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_4t_p_photon", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med & events.photon))
+            selections.add("2lss_4t_p_photon", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med & events.is_ph))
             selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_4t_m_photon", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med & events.photon))
+            selections.add("2lss_4t_m_photon", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med & events.is_ph))
 
             # 2lss selection for CR
             selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
 
             # 2los selection
-            selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
-            selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
+            selections.add("2los_CRtt_photon", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg & events.is_ph)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
+            selections.add("2los_CRZ_photon", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg & events.is_ph))
 
             # 3l selection
             selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
@@ -569,7 +569,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("llll", (events.is_eeee | events.is_eeem | events.is_eemm | events.is_emmm | events.is_mmmm | events.is_gr4l)) # Not keepting track of these separately
 
             # Photon selection
-            selections.add("hasPhoton_atleast_4j",  events.is_p)
+            #selections.add("hasPhoton_atleast_4j",  events.is_p)
 
             # Njets selection
             selections.add("exactly_0j", (njets==0))
@@ -681,22 +681,22 @@ class AnalysisProcessor(processor.ProcessorABC):
             sr_cat_dict = {
                 "2l" : {
                     "exactly_4j" : {
-                        "lep_chan_lst" : ["2lss_p_photon" , "2lss_m_photon", "2lss_4t_p_photon", "2lss_4t_m_photon"],
+                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
                         "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                     },
                     "exactly_5j" : {
-                        "lep_chan_lst" : ["2lss_p_photon" , "2lss_m_photon", "2lss_4t_p_photon", "2lss_4t_m_photon"],
+                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
                         "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                     },
                     "exactly_6j" : {
-                        "lep_chan_lst" : ["2lss_p_photon" , "2lss_m_photon", "2lss_4t_p_photon", "2lss_4t_m_photon"],
+                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
                         "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                     },
                     "atleast_7j" : {
-                        "lep_chan_lst" : ["2lss_p_photon" , "2lss_m_photon", "2lss_4t_p_photon", "2lss_4t_m_photon"],
+                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
                         "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                     },
@@ -790,14 +790,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 },
                 "2los_CRtt" : {
                     "exactly_2j"   : {
-                        "lep_chan_lst" : ["2los_CRtt"],
+                        "lep_chan_lst" : ["2los_CRtt_photon"],
                         "lep_flav_lst" : ["em"],
                         "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
                     },
                 },
                 "2los_CRZ" : {
                     "atleast_0j"   : {
-                        "lep_chan_lst" : ["2los_CRZ"],
+                        "lep_chan_lst" : ["2los_CRZ_photon"],
                         "lep_flav_lst" : ["ee", "mm"],
                         "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
                     },
