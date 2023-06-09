@@ -1,6 +1,5 @@
 import pickle
 import gzip
-import topcoffea.modules.HistEFT
 import numpy as np
 import boost_histogram as bh
 import uproot
@@ -14,7 +13,6 @@ from coffea.hist import StringBin, Cat, Bin
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.utils import regex_match
-import topcoffea.modules.eft_helper as efth
 
 PRECISION = 6   # Decimal point precision in the text datacard output
 
@@ -37,7 +35,7 @@ def to_hist(arr,name,zero_wgts=False):
         if arr[i] is not None:
             clipped.append( np.array(arr[i][1:-1]))     # Strip off the under/overflow bins
             clipped[i][-1] += arr[i][-1]  # Add the overflow bin to the right most bin content
-        else: 
+        else:
             clipped[i]=None
 
 
@@ -87,7 +85,7 @@ class JetScale(RateSystematic):
 
         self.symmeterize = True     # whether or not we attempt to make the up/down shifts equal in absolute terms
         self.min_lo = 0.01          # For large kappa values, do not let the symmeterization go negative
-    
+
     # Override the base implementation to handle the different dict structure
     # Note: The return value should be as a string
     def get_process(self,p,j):
@@ -172,7 +170,7 @@ class DatacardMaker():
         "njets": {
             "2l": [4,5,6,7],
             "3l": [2,3,4,5],
-            "4l": [2,3,4],    
+            "4l": [2,3,4],
         },
 
         "ptbl":    [0,100,200,400],
@@ -256,7 +254,7 @@ class DatacardMaker():
     def get_jet_mults(cls,s):
         """
             Returns the njet and bjet multiplicities based on the string passed to it in (j,b) order.
-            For the regular expression, group 1 matches 'njet_bjet', group 2 matches 'bjet_njet' 
+            For the regular expression, group 1 matches 'njet_bjet', group 2 matches 'bjet_njet'
             group 3 matches '_njet'.
         """
         rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[2-7]j)|(_[2-7]j$)")
@@ -323,18 +321,10 @@ class DatacardMaker():
                     raise ValueError(f"Invalid year choice '{yr}', should be empty if running over all years or one of: {self.YEARS}")
 
         rate_syst_path = kwargs.pop("rate_systs_path","json/rate_systs.json")
-        lumi_json_path = kwargs.pop("lumi_json_path","json/lumi.json")
         miss_part_path = kwargs.pop("missing_parton_path","data/missing_parton/missing_parton.root")
 
         # TODO: Need to find a better name for this variable
         self.rate_systs = self.load_systematics(rate_syst_path,miss_part_path)
-
-        self.lumi = {}
-        with open(topcoffea_path(lumi_json_path)) as f:
-            jf = json.load(f)
-            for yr,lm in jf.items():
-                yr = yr.replace("20","UL")
-                self.lumi[yr] = 1000*lm
 
         # Samples to be excluded from the datacard, should correspond to names before group_processes is run
         self.ignore = [
@@ -491,17 +481,6 @@ class DatacardMaker():
             else:
                 # TODO: Still need to handle this case properly
                 pass
-
-            # Scale the histograms to intg. luminosity based on years
-            scale_map = {}
-            for x in h.identifiers("sample"):
-                yr = self.get_year(x.name)
-                proc = self.get_process(x.name)
-                if proc == "data":
-                    scale_map[x.name] = 1
-                else:
-                    scale_map[x.name] = self.lumi[yr]
-            h.scale(scale_map,axis="sample")
 
             # Remove 'central', 'private', '_4F' text from sample names
             grp_map = {}
@@ -873,7 +852,7 @@ class DatacardMaker():
                             negative_bin_mask = np.where( arr[0] < 0) # see where bins are negative
                             arr[0][negative_bin_mask] = np.zeros_like( arr[0][negative_bin_mask] )  # set those to zero
                             if arr[1] is not None:
-                                arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative 
+                                arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative
 
                         syst = sp_key[0]
 
@@ -906,7 +885,7 @@ class DatacardMaker():
                                     # No matches found, so keep the original systematic name
                                     split_syst = syst_base
                                 elif len(matched) == 1:
-                                    # Found a match, so decorrelate the process from non-matched processes 
+                                    # Found a match, so decorrelate the process from non-matched processes
                                     group = matched[0]
                                     split_syst = f"{syst_base}_{group}"
                                     if group == "":
@@ -1115,8 +1094,8 @@ class DatacardMaker():
                 tup = tuple(x.name for x in sparse_key)
                 r[quad_name][tup]=[]
                 for i in range(2):
-                    r[quad_name][tup].append( 0.5*(tmp_lin_2[tup][i] - 2*tmp_lin_1[tup][i] + sm[tup][i]) ) 
-                    
+                    r[quad_name][tup].append( 0.5*(tmp_lin_2[tup][i] - 2*tmp_lin_1[tup][i] + sm[tup][i]) )
+
             for n2,wc2 in enumerate(wcs):
                 if n1 >= n2: continue
                 mixed_name = f"quad_mixed_{wc1}_{wc2}"

@@ -1,22 +1,14 @@
 #!/usr/bin/env python
-import lz4.frame as lz4f
-import cloudpickle
-import json
-import pprint
 import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 #from coffea.arrays import Initialize # Not used and gives error
 from coffea import hist, processor
-from coffea.util import load, save
-from optparse import OptionParser
-from coffea.analysis_tools import PackedSelection
+from coffea.util import load
 
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import SFevaluator, GetLeptonSF
 from topcoffea.modules.selection import *
-from topcoffea.modules.HistEFT import HistEFT
 
 #coffea.deprecations_as_errors = True
 
@@ -29,10 +21,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
         self._accumulator = processor.dict_accumulator({
-        'jetpt'  : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("pt",  "Jet p_{T} (GeV) ", 40, 0, 800)),
-        'jeteta' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("eta", "Jet eta", 25, -2.5, 2.5)),
-        'jetpteta' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("pt",  "Jet p_{T} (GeV) ", [20, 30, 60, 120]), hist.Bin("abseta", "Jet eta", [0, 1, 1.8, 2.4])),
-        'jetptetaflav' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Bin("pt",  "Jet p_{T} (GeV) ", [20, 30, 60, 120]), hist.Bin("abseta", "Jet eta", [0, 1, 1.8, 2.4]), hist.Bin("flav", "Flavor", [0, 4, 5]) ),
+            'jetpt'  : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("pt",  "Jet p_{T} (GeV) ", 40, 0, 800)),
+            'jeteta' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("eta", "Jet eta", 25, -2.5, 2.5)),
+            'jetpteta' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("pt",  "Jet p_{T} (GeV) ", [20, 30, 60, 120]), hist.Bin("abseta", "Jet eta", [0, 1, 1.8, 2.4])),
+            'jetptetaflav' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Bin("pt",  "Jet p_{T} (GeV) ", [20, 30, 60, 120]), hist.Bin("abseta", "Jet eta", [0, 1, 1.8, 2.4]), hist.Bin("flav", "Flavor", [0, 4, 5]) ),
         })
 
     @property
@@ -52,8 +44,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         sow    = self._samples[dataset]['nSumOfWeights' ]
         isData = self._samples[dataset]['isData']
         datasets = ['SingleMuon', 'SingleElectron', 'EGamma', 'MuonEG', 'DoubleMuon', 'DoubleElectron']
-        for d in datasets: 
-          if d in dataset: dataset = dataset.split('_')[0] 
+        for d in datasets:
+            if d in dataset: dataset = dataset.split('_')[0]
 
         # Initialize objects
         met = events.MET
@@ -68,7 +60,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         leading_mu = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
         leading_mu = leading_mu[leading_mu.isGood]
-        
+
         mu = mu[mu.isGood]
         mu_pres = mu[mu.isPres]
 
@@ -81,8 +73,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         leading_e = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
         leading_e = leading_e[leading_e.isGood]
 
-        e  =  e[e .isGood]
-        e_pres = e[e .isPres & e .isClean]
+        e  =  e[e.isGood]
+        e_pres = e[e.isPres & e.isClean]
 
         nElec = ak.num(e)
         nMuon = ak.num(mu)
@@ -111,7 +103,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
 
         hout = self.accumulator.identity()
-        normweights = weights.weight().flatten() 
+        normweights = weights.weight().flatten()
         #hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=normweights)
 
         flavSelection = {'b': (np.abs(goodJets.hadronFlavour) == 5), 'c': (np.abs(goodJets.hadronFlavour) == 4), 'l': (np.abs(goodJets.hadronFlavour) <= 3) }
@@ -119,22 +111,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         WP = {'all' : -999., 'loose': 0.0490, 'medium': 0.2783, 'tight': 0.7100}
         btagSelection = {}
         for wp, wpvals in WP.items():
-          btagSelection[wp] = (goodJets.btagDeepFlavB>wpvals) 
+            btagSelection[wp] = (goodJets.btagDeepFlavB>wpvals)
 
         for jetype in ['b', 'c', 'l']:
-          for wp in WP.keys():
-            mask = (flavSelection[jetype])&(btagSelection[wp])
-            selectjets = goodJets[mask]
-            pts     = ak.flatten(selectjets.pt)
-            etas    = ak.flatten(selectjets.eta)
-            absetas = ak.flatten(np.abs(selectjets.eta))
-            flavarray = np.zeros_like(pts) if jetype == 'l' else (np.ones_like(pts)*(4 if jetype=='c' else 5))
-            weights =  np.ones_like(pts)
-            hout['jetpt'].fill(WP=wp, Flav=jetype,  pt=pts, weight=weights)
-            hout['jeteta'].fill(WP=wp, Flav=jetype,  eta=etas, weight=weights)
-            hout['jetpteta'].fill(WP=wp, Flav=jetype,  pt=pts, abseta=absetas, weight=weights)
-            hout['jetptetaflav'].fill(WP=wp, pt=pts, abseta=absetas, flav=flavarray, weight=weights)
-    
+            for wp in WP.keys():
+                mask = (flavSelection[jetype])&(btagSelection[wp])
+                selectjets = goodJets[mask]
+                pts     = ak.flatten(selectjets.pt)
+                etas    = ak.flatten(selectjets.eta)
+                absetas = ak.flatten(np.abs(selectjets.eta))
+                flavarray = np.zeros_like(pts) if jetype == 'l' else (np.ones_like(pts)*(4 if jetype=='c' else 5))
+                weights =  np.ones_like(pts)
+                hout['jetpt'].fill(WP=wp, Flav=jetype,  pt=pts, weight=weights)
+                hout['jeteta'].fill(WP=wp, Flav=jetype,  eta=etas, weight=weights)
+                hout['jetpteta'].fill(WP=wp, Flav=jetype,  pt=pts, abseta=absetas, weight=weights)
+                hout['jetptetaflav'].fill(WP=wp, pt=pts, abseta=absetas, flav=flavarray, weight=weights)
+
         return hout
 
 

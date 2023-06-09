@@ -8,13 +8,13 @@ import os
 import argparse
 import ROOT
 
-from topcoffea.plotter.make_html import make_html
+from topcoffea.scripts.make_html import make_html
 import get_datacard_yields as dy # Note the functions we're using from this script should probably go in topocffea/modules
 
 
 # Get the list of histo names from a root file
 def get_histo_names(in_file,only_sm=True,only_nom=False):
-    histo_name_lst = [] 
+    histo_name_lst = []
     in_file_keys = in_file.GetListOfKeys()
     for key_object in in_file_keys:
         hname = key_object.GetName()
@@ -72,9 +72,9 @@ def draw_nom_up_do_overlay(h_n,h_u,h_d,save_path):
     h_n.Draw("E SAME")
 
     # Set the colors
-    h_u.SetLineColor(3);
-    h_n.SetLineColor(1);
-    h_d.SetLineColor(4);
+    h_u.SetLineColor(3)
+    h_n.SetLineColor(1)
+    h_d.SetLineColor(4)
 
     # Set y range
     max_u = h_u.GetMaximum()

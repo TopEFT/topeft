@@ -1,11 +1,8 @@
-import json
 import numpy as np
 import copy
 import coffea
 from coffea import hist
 from topcoffea.modules.HistEFT import HistEFT
-from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.GetValuesFromJsons import get_lumi
 import topcoffea.modules.utils as utils
 
 class YieldTools():
@@ -235,7 +232,7 @@ class YieldTools():
     #   - Returns the long (i.e. the name of the category in the smples axis) corresponding to the short name
     def get_long_name(self,long_name_lst_in,short_name_in):
         ret_name = None
-        for long_name in PROC_MAP[short_name_in]:
+        for long_name in self.PROC_MAP[short_name_in]:
             for long_name_in in long_name_lst_in:
                 if long_name_in == long_name:
                     ret_name = long_name
@@ -390,28 +387,28 @@ class YieldTools():
                 is_a_jet_str = True
             return is_a_jet_str
 
-        # Assumes the str is separated by underscores 
+        # Assumes the str is separated by underscores
         str_components_lst = in_str.split("_")
         keep_lst = []
         for component in str_components_lst:
             if not is_jet_str(component):
                 keep_lst.append(component)
         ret_str  = "_".join(keep_lst)
-        return(ret_str)
+        return (ret_str)
 
 
     # Remove the lepflav component of a category name, returns a new str
     def get_str_without_lepflav(self,in_str):
         # The list of lep flavors we consider (this is a bit hardcoded...)
         lepflav_lst = ["ee","em","mm","eee","eem","emm","mmm"]
-        # Assumes the str is separated by underscores 
+        # Assumes the str is separated by underscores
         str_components_lst = in_str.split("_")
         keep_lst = []
         for component in str_components_lst:
             if not component in lepflav_lst:
                 keep_lst.append(component)
         ret_str  = "_".join(keep_lst)
-        return(ret_str)
+        return (ret_str)
 
 
     # This should return true if the hist is split by lep flavor, definitely not a bullet proof check..
@@ -461,7 +458,7 @@ class YieldTools():
         else:
             print("Already integrated out the appl axis. Continuing...")
         return histo_integrated
-            
+
 
     # Get the difference between values in nested dictionary, currently can get either percent diff, or absolute diff
     # Returns a dictionary in the same format (currently does not propagate errors, just returns None)
@@ -500,22 +497,6 @@ class YieldTools():
                 ret_dict[k][subk] = (ret_diff,None)
 
         return ret_dict
-
-    # Figures out which year a sample is from, retruns the lumi for that year
-    def get_lumi_for_sample(self,sample_name):
-        if "UL17" in sample_name:
-            lumi = 1000.0*get_lumi("2017")
-        elif "UL18" in sample_name:
-            lumi = 1000.0*get_lumi("2018")
-        elif "UL16APV" in sample_name:
-            lumi = 1000.0*get_lumi("2016APV")
-        elif "UL16" in sample_name:
-            # Should not be here unless "UL16APV" not in sample_name
-            lumi = 1000.0*get_lumi("2016")
-        else:
-            raise Exception(f"Error: Unknown year \"{year}\".")
-        return lumi
-
 
     # Takes as input a dictionary {"k": {"subk":[val,err]}} and returns {"k":{"subk":val}}
     def strip_errs(self,in_dict):
@@ -568,7 +549,7 @@ class YieldTools():
 
     ######### Functions specifically for getting yields #########
 
-    # Sum all the values of a hist 
+    # Sum all the values of a hist
     #    - The hist you pass should have two axes (all other should already be integrated out)
     #    - The two axes should be the samples axis, and the dense axis (e.g. ht)
     #    - You pass a process name, and we select just that category from the sample axis
@@ -587,7 +568,7 @@ class YieldTools():
 
 
     # Integrates out categories, normalizes, then calls get_yield()
-    def get_normalized_yield(self,hin_dict,lumi_factor,proc,cat_dict,overflow_str,rwgt_pt=None,h_name="ht"):
+    def get_normalized_yield(self,hin_dict,proc,cat_dict,overflow_str,rwgt_pt=None,h_name="ht"):
 
         # Integrate out cateogries
         h = hin_dict[h_name]
@@ -596,14 +577,9 @@ class YieldTools():
 
         # Reweight the hist
         if rwgt_pt is not None:
-            hist.set_wilson_coefficients(**wc_vals)
+            hist.set_wilson_coefficients(**rwgt_pt)
         else:
             h.set_sm()
-
-
-        # Scale the mc by lumi
-        if "data" not in proc:
-            h.scale(lumi_factor)
 
         return self.get_yield(h,proc,overflow_str)
 
@@ -643,15 +619,14 @@ class YieldTools():
         for proc in proc_lst:
             if year is not None:
                 if not proc.endswith(year): continue
-            lumi_factor = self.get_lumi_for_sample(proc)
             proc_name_short = self.get_short_name(proc)
             if proc_name_short not in yld_dict:
                 yld_dict[proc_name_short] = {}
                 for cat,cuts_dict in cat_dict.items():
-                    yld_dict[proc_name_short][cat] = self.get_normalized_yield(hin_dict,lumi_factor,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
+                    yld_dict[proc_name_short][cat] = self.get_normalized_yield(hin_dict,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
             else:
                 for cat,cuts_dict in cat_dict.items():
-                    yld_dict[proc_name_short][cat][0] += self.get_normalized_yield(hin_dict,lumi_factor,proc,cuts_dict,overflow_str="over",h_name=hist_to_use)[0] # Important to keep overflow
+                    yld_dict[proc_name_short][cat][0] += self.get_normalized_yield(hin_dict,proc,cuts_dict,overflow_str="over",h_name=hist_to_use)[0] # Important to keep overflow
                     yld_dict[proc_name_short][cat][1] = None # Ok, let's just forget the sumw2...
 
         # If the file is split by lepton flav, but we don't want that, sum over lep flavors:
@@ -744,7 +719,7 @@ class YieldTools():
                 else:
                     out_vals[subk][0] = out_vals[subk][0] + in_dict[k][subk][0]
         return out_vals
-    
+
     # This function
     #   - Takes as input a yld_dict
     #   - Combines the bkg processes (e.g. combine all diboson processes)
