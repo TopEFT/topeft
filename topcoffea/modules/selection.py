@@ -1,7 +1,7 @@
 '''
  selection.py
 
- This script contains several functions that implement the some event selection. 
+ This script contains several functions that implement the some event selection.
  The functinos defined here can be used to define a selection, signal/control region, etc.
  The functions are called with (jagged)arrays as imputs plus some custom paramenters and return a boolean mask.
 
@@ -149,7 +149,7 @@ exclude_dict = {
 #   - Takes events objects, and a lits of triggers
 #   - Returns an array the same length as events, elements are true if the event passed at least one of the triggers and false otherwise
 def passesTrgInLst(events,trg_name_lst):
-    tpass = np.zeros_like(np.array(events.MET.pt), dtype=np.bool)
+    tpass = np.zeros_like(np.array(events.MET.pt), dtype=bool)
     trg_info_dict = events.HLT
 
     # "fields" should be list of all triggers in the dataset
@@ -168,14 +168,14 @@ def passesTrgInLst(events,trg_name_lst):
 #   - Elements are false if they do not pass any of the triggers defined in dataset_dict
 #   - In the case of data, events are also false if they overlap with another dataset
 def trgPassNoOverlap(events,is_data,dataset,year):
-    
+
     # The trigger for 2016 and 2016APV are the same
     if year == "2016APV":
         year = "2016"
 
     # Initialize ararys and lists, get trg pass info from events
-    trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=np.bool) # Array of False the len of events
-    trg_overlaps  = np.zeros_like(np.array(events.MET.pt), dtype=np.bool) # Array of False the len of events
+    trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=bool) # Array of False the len of events
+    trg_overlaps  = np.zeros_like(np.array(events.MET.pt), dtype=bool) # Array of False the len of events
     trg_info_dict = events.HLT
     full_trg_lst  = []
 
@@ -220,7 +220,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     dilep = (ak.num(FOs)) >= 2
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
     mask = (filters & cleanup & dilep & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
-    
+
     # MC matching requirement (already passed for data)
     if sampleType == "data":
         pass
@@ -390,15 +390,15 @@ def addLepCatMasks(events):
     n_m_4l = ak.sum(is_m_mask,axis=-1)        # Look at all the leps
 
     # 2l masks
-    events['is_ee'] = ((n_e_2l==2) & (n_m_2l==0)) 
-    events['is_em'] = ((n_e_2l==1) & (n_m_2l==1)) 
-    events['is_mm'] = ((n_e_2l==0) & (n_m_2l==2)) 
+    events['is_ee'] = ((n_e_2l==2) & (n_m_2l==0))
+    events['is_em'] = ((n_e_2l==1) & (n_m_2l==1))
+    events['is_mm'] = ((n_e_2l==0) & (n_m_2l==2))
 
     # 3l masks
-    events['is_eee'] = ((n_e_3l==3) & (n_m_3l==0)) 
-    events['is_eem'] = ((n_e_3l==2) & (n_m_3l==1)) 
-    events['is_emm'] = ((n_e_3l==1) & (n_m_3l==2)) 
-    events['is_mmm'] = ((n_e_3l==0) & (n_m_3l==3)) 
+    events['is_eee'] = ((n_e_3l==3) & (n_m_3l==0))
+    events['is_eem'] = ((n_e_3l==2) & (n_m_3l==1))
+    events['is_emm'] = ((n_e_3l==1) & (n_m_3l==2))
+    events['is_mmm'] = ((n_e_3l==0) & (n_m_3l==3))
 
     # 4l masks
     events['is_eeee'] = ((n_e_4l==4) & (n_m_4l==0))

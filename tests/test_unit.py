@@ -128,7 +128,7 @@ def test_stats():
         1.15, # (00)
         1.35,1.25, # (10) (11)
         0.25,0.75,1.00, # (20) (21) (22)
-        ]
+    ]
     # Make sure there are enough pts to fully determine the fit!
     pts = [
         [x0,-1.00, 0.00],
@@ -413,7 +413,7 @@ def test_histeft():
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
     chk_vals = {wc_name:chk_x, 'ctZ':0.0}
     chk_pt.SetStrength(wc_name,chk_x)
-    
+
     h_new.set_wilson_coefficients(**chk_vals)
 
     # First check that h_new has the right value
@@ -431,7 +431,7 @@ def test_histeft():
     print('GetBinContent: ', result)
     print('test: ', chk_str)
     print('--------------\n')
-    
+
     chk_x = 0.75    # Needs to be w/e chk_x was before UNIT 6
     chk_y = s00*1.0 + s10*chk_x + s11*chk_x*chk_x
     chk_vals = {wc_name:chk_x, 'ctZ':0.0}

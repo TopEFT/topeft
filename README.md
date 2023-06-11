@@ -6,7 +6,7 @@
 # topcoffea
 Top quark analyses using the Coffea framework
 
-### Contents
+## Repository contents
 - `analysis`:
    Subfolders with different analyses: creating histograms, applying selections...
    Also including plotter scripts and/or jupyter files
@@ -26,10 +26,10 @@ Top quark analyses using the Coffea framework
 - `topcoffea/modules`:
   Auxiliar python modules and scripts
 
-- `topcoffea/plotter`:
-  Tools to produce stack plots and other plots
-
 - `setup.py`: File for installing the `topcoffea` package
+
+
+## Getting started
 
 ### Clone the repository
 First, clone the repository:
@@ -49,24 +49,22 @@ conda env create -f environment.yml
 conda activate coffea-env
 ```
 
-### Install the topcoffea package and run an example job
+### Install the topcoffea package
 - This directory is set up to be installed as a python package. To install, activate your conda environment, then run this command from the top level `topcoffea` directory:
 ```
 pip install -e .
 ```
 The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`.
-- Next, set up the config file you want to use in the `topcoffea/cfg` directory. This config file should point to the JSON files for the samples that that you would like to process. There are examples in the `topcoffea/cfg` directory.
-- Lastly, `cd` into `analysis/topEFT` and run the `run.py` script, passing it the path to your config: 
-```
-python run.py ../../topcoffea/cfg/your_cfg.cfg
-```
 
 
-### To run the WQ version of `run.py`:
+### To run an example job with one of the two executors
 
-To run with the work-queue executor, use the `work_queue_run.py` script instead of the `run.py` script. Please note that `work_queue_run.py` must be run from the directory it is located in, since the `extra-input-files` option of `executor_args` assumes the extra input will be in the current working directory. So from `analysis/topEFT`, you would run:
+First, set up the config file you want to use in the `topcoffea/cfg` directory. This config file should point to the JSON files for the samples that that you would like to process. There are examples in the `topcoffea/cfg` directory.
+
+#### To run with the default workqueue executor:
+- `cd` into `analysis/topEFT` and run the `run_topeft.py` script, passing it the path to your config:
 ```
-python work_queue_run.py ../../topcoffea/cfg/your_cfg.cfg
+python run_topeft.py ../../topcoffea/cfg/your_cfg.cfg
 ```
 Next, submit some workers. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
 ```
@@ -75,6 +73,11 @@ condor_submit_workers -M ${USER}-workqueue-coffea -t 900 --cores 12 --memory 480
 ```
 The workers will terminate themselves after 15 minutes of inactivity.
 
+#### To run with the non-default futures executor:
+- In the same `analysis/topEFT` directory, simply run:
+```
+python run_topeft.py -x futures ../../topcoffea/cfg/your_cfg.cfg
+```
 
 ### How to contribute
 
@@ -119,3 +122,32 @@ where `test_futures` is the file/test you would like to run (check the `tests` d
 
 * For more details about work queue, please see README_WORKQUEUE.md
 * For more details about how to fit the results, please see README_FITTING.md
+
+
+## To reproduce the TOP-22-006 histograms and datacards
+
+The [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5) was used to produce the results in the TOP-22-006 paper.
+
+1. Run the processor to obtain the histograms (from the skimmed naod files). Use the `fullR2_run.sh` script in the `analysis/topEFT` directory.
+    ```
+    time source fullR2_run.sh
+    ```
+
+2. Run the datacard maker to obtain the cards and templates (from the pickled histogram file produced in Step 1, be sure to use the version with the nonprompt estimation, i.e. the one with `_np` appended to the name you specified for the `OUT_NAME` in `fullR2_run.sh`).
+    ```
+    time python make_cards.py /path/to/your/examplename_np.pkl.gz -C --do-nuisance --var-lst lj0pt ptz -d /scratch365/you/somedir --unblind --do-mc-stat
+    ```
+
+3. Run the post-processing checks on the cards to look for any unexpected errors in the condor logs and to grab the right set of ptz and lj0pt templates and cards used in TOP-22-006. The script will copy the relevant cards/templates to a directory called `ptz-lj0pt_withSys` that it makes inside of the directory you pass that points to the cards and templates made in Step 2. This `ptz-lj0pt_withSys` is the directory that can be copied to wherever you plan to run the `combine` steps (e.g. PSI).
+    ```
+    time python datacards_post_processing.py /scratch365/you/somedir -c -s
+    ```
+
+4. Check the yields with `get_datacard_yields.py` script. This scrip will read the datacards in the directory produced in Step 3 and will dump the SM yields (summed over jet bins) to the screen (the text is formatted as a latex table). Use the `--unblind` option if you want to also see the data numbers.
+    ```
+    python get_datacard_yields.py /scratch365/you/somedir/ptz-lj0pt_withSys/ --unblind
+    ```
+
+5. Proceed to the [Steps for reproducing the "official" TOP-22-006 workspace](https://github.com/TopEFT/EFTFit#steps-for-reproducing-the-official-top-22-006-workspace) steps listed in the EFTFit Readme. Remember that in addition to the files cards and templates, you will also need the `selectedWCs.txt` file. 
+
+

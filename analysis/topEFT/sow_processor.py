@@ -66,7 +66,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
             if self._do_errors:
                 eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype)
-    
+
         # Get nominal wgt
         counts = np.ones_like(events['event'])
         wgts = np.ones_like(events['event'])
