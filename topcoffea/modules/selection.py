@@ -329,6 +329,27 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     # FF:
     fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
 
+# 4l selection
+def add4lMaskAndSFs_wwz(events, year, isData):
+
+    # Leptons and padded
+    leps = events.l_fo_conept_sorted
+    leps_padded = ak.pad_none(leps,4)
+
+    pt25151510 = (
+        ak.any(leps[:,0:1].conept > 25.0, axis=1) &
+        ak.any(leps[:,1:2].conept > 15.0, axis=1) &
+        ak.any(leps[:,2:3].conept > 10.0, axis=1) &
+        ak.any(leps[:,3:4].conept > 10.0, axis=1)
+    )
+
+    cleanup = events.min_mll_afos > 12
+
+    mask = pt25151510 & cleanup
+    events['is4lwwz_SR'] = mask
+    events['is4lwwz_SR'] = ak.fill_none(events['is4lwwz_SR'],False)
+
+
 
 # 4l selection
 def add4lMaskAndSFs(events, year, isData):

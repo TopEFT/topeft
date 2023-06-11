@@ -236,7 +236,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Compute pair invariant masses, for all flavors all signes
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
-        events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
+        os_pairs_mask = (llpairs.l0.pdgId*llpairs.l1.pdgId < 0)
+        ll_mass_pairs = (llpairs.l0+llpairs.l1).mass
+        ll_mass_pairs_os = ll_mass_pairs[os_pairs_mask]
+        events["min_mll_afos"] = ak.min(ll_mass_pairs_os,axis=-1) # For WWZ
+        events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1) # From TOP-22-006
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
@@ -335,6 +339,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Put njets and l_fo_conept_sorted into events
             events["njets"] = njets
             events["l_fo_conept_sorted"] = l_fo_conept_sorted
+
+            add4lMaskAndSFs_wwz(events, year, isData)
 
 
             ######### Masks we need for the selection ##########
