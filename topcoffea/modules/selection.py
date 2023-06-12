@@ -318,7 +318,6 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
             mask = (mask & (prompt_mask | conv_mask))
         else:
             raise Exception(f"Error: Unknown sampleType {sampleType}.")
-
     events['is3l'] = ak.fill_none(mask,False)
 
     # SFs
@@ -419,16 +418,17 @@ def addLepCatMasks(events):
     events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
 
 def addPhotCatMasks(events):
-    photon_num = ak.num(events.Photon) == 1  #require exactly 1 photon
-    photon_pT = events.Photon.pt > 20   #require photon pT be > 20 GeV
-    photon_eta = abs(events.Photon.eta) < 1.44  #eta mask of 1.44
+    photon_num = ak.num(events.photon) == 1  #require exactly 1 photon
+    photon_pT = events.photon.pt > 20   #require photon pT be > 20 GeV
+    photon_eta = abs(events.photon.eta) < 1.44  #eta mask of 1.44
     is_ph_mask = (photon_num & photon_pT & photon_eta)
-    events['is_ph'] = is_ph_mask
+    is_ph_mask = ak.fill_none(ak.pad_none(is_ph_mask,1),False)
+    events['is_ph'] = ak.all(is_ph_mask, axis=1)
 
-def addTightPhotonMask(events):
-    tight_photon = ak.fill_none(ak.any(events.Photon.cutBased == 3, axis=1), False)           #tight photon mask
+#def addTightPhotonMask(events):
+#    tight_photon = ak.fill_none(ak.any(events.Photon.cutBased == 2, axis=1), False)           #tight photon mask
     
-    events['photon'] = tight_photon
+#    events['photon'] = tight_photon
 
 # Returns a mask for events with a same flavor opposite (same) sign pair close to the Z
 # Mask will be True if any combination of 2 leptons from within the given collection satisfies the requirement
