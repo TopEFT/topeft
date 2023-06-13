@@ -436,33 +436,59 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             #is4lWWZ
             # For WWZ selection
-            selections.add("4l_wwz_sf_A", (events.is4l & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
-            selections.add("4l_wwz_sf_B", (events.is4l & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
-            selections.add("4l_wwz_sf_C", (events.is4l & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
-            selections.add("4l_wwz_of_1", (events.is4l & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_1 & mt2_mask))
-            selections.add("4l_wwz_of_2", (events.is4l & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_2 & mt2_mask))
-            selections.add("4l_wwz_of_3", (events.is4l & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
-            selections.add("4l_wwz_of_4", (events.is4l & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_4))
+            selections.add("4l_wwz_sf_A", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
+            selections.add("4l_wwz_sf_B", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
+            selections.add("4l_wwz_sf_C", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
+            selections.add("4l_wwz_of_1", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_1 & mt2_mask))
+            selections.add("4l_wwz_of_2", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_2 & mt2_mask))
+            selections.add("4l_wwz_of_3", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
+            selections.add("4l_wwz_of_4", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_4))
+
+            selections.add("isSR_4l",  events.is4l_SR)
+
+            selections.add("4l_tc", (events.is4l & events.is4l_SR & (njets>=2) & bmask_atleast1med_atleast2loose & pass_trg))
+
+            sr_cat_dict = {
+                #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
+                "lep_chan_lst" : ["4l_tc","4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
+            }
 
 
             ######### Fill histos #########
 
+            dense_axes_dict = {
+                "l0pt" : l0.pt
+            }
+
             weights = weights_obj_base.weight(None)
-            dense_axis_name = "j0pt"
 
             print("j0.pt",j0.pt)
             print("this")
 
-            # Fill the histos
-            axes_fill_info_dict = {
-                dense_axis_name : ak.flatten(j0.pt),
-                "channel"       : "4l",
-                "sample"        : histAxisName,
-                "systematic"    : "nominal",
-                "weight"        : weights,
-            }
 
-            hout[dense_axis_name].fill(**axes_fill_info_dict)
+            # Loop over the hists we want to fill
+            for dense_axis_name, dense_axis_vals in dense_axes_dict.items():
+                print("\ndense_axis_name,vals",dense_axis_name)
+                print("dense_axis_name,vals",dense_axis_vals)
+
+                for sr_cat in sr_cat_dict["lep_chan_lst"]:
+
+                    # Make the cuts mask
+                    cuts_lst = [sr_cat]
+                    all_cuts_mask = selections.all(*cuts_lst)
+
+                    print("all_cuts_mask",all_cuts_mask)
+
+                    # Fill the histos
+                    axes_fill_info_dict = {
+                        dense_axis_name : dense_axis_vals[all_cuts_mask],
+                        "weight"        : weights[all_cuts_mask],
+                        "channel"       : sr_cat,
+                        "sample"        : histAxisName,
+                        "systematic"    : "nominal",
+                    }
+
+                    hout[dense_axis_name].fill(**axes_fill_info_dict)
 
         return hout
 
