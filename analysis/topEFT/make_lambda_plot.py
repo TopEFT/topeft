@@ -6,7 +6,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.patches as mpatches
-import copy
 
 import mplhep as hep
 
