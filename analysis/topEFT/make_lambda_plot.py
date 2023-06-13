@@ -4,7 +4,6 @@
 #   - Plots the resulting Lambda for each WC
 
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 import numpy as np
 import matplotlib.patches as mpatches
 import copy
@@ -67,13 +66,13 @@ def make_plot(wc_lst,range_dict_a,range_dict_b=None,save_name="summary_lims_comp
 
     style_a = "-"
     style_b = "-"
-    width_a = 8 
+    width_a = 8
     width_b = 8
 
     clr_lst_a = ["dimgrey","darkgrey","lightgrey"]
     clr_lst_b = ["mediumblue","royalblue","lightsteelblue"]
 
-    plt.figure(figsize = (5,10)) 
+    plt.figure(figsize = (5,10))
     if xlog: plt.xscale('log')
     plt.ylim(y_min+0.5, y_max+0.5+1.3) # If leaving room for legend
 
@@ -155,16 +154,6 @@ def get_lambda_dict(in_dict,c):
         out_dict[k] = np.sqrt(c/v)
     return out_dict
 
-# Take a dict and if the keys are smefit keys, return new dict with keys swapped out for dim6top keys
-def smefit_to_dim6top(in_dict):
-    out_dict = {}
-    for k, v in in_dict.items():
-        if k in SMEFIT_TO_DIM6TOP_NAME_MAP.keys():
-            out_dict[SMEFIT_TO_DIM6TOP_NAME_MAP[k]] = copy.deepcopy(v)
-        else:
-            out_dict[k] = v
-    return out_dict
-
 
 ################### Convenience functions ###################
 
@@ -189,7 +178,7 @@ def get_lambda_dict_wrapper(ranges_dict):
     lambda_dict_c0p1  = get_lambda_dict(limit_dict_extreme,0.01)
     lambda_dict_c1    = get_lambda_dict(limit_dict_extreme,1.0)
     lambda_dict_c4pi2 = get_lambda_dict(limit_dict_extreme,16.0*np.pi**2)
-    
+
     # This is in a ver specific format so that the plotter will plot each of the ranges on the same line
     lambda_dict = construct_dict_for_plotter([lambda_dict_c0p1,lambda_dict_c1,lambda_dict_c4pi2])
 
