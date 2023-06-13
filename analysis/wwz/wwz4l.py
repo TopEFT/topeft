@@ -260,6 +260,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
+        l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 4) # Temp till we impliment new MVA
+        l0 = l_fo_conept_sorted_padded[:,0]
+        l1 = l_fo_conept_sorted_padded[:,1]
+        l2 = l_fo_conept_sorted_padded[:,2]
+        l3 = l_fo_conept_sorted_padded[:,3]
+
         ######### Systematics ###########
 
 
@@ -360,35 +366,28 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
 
             ######### WWZ stuff #########
-            # Testing getting the z and w candidates for wwz selection WWZ
 
-            l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 4) # Temp till we impliment new MVA
-            l0 = l_fo_conept_sorted_padded[:,0]
-            l1 = l_fo_conept_sorted_padded[:,1]
-            l2 = l_fo_conept_sorted_padded[:,2]
-            l3 = l_fo_conept_sorted_padded[:,3]
+            # Get some preliminary things we'll need
+            attach_wwz_preselection_mask(events,l_fo_conept_sorted_padded[:,0:4])                                                  # Attach preselection sf and of flags to the events
+            leps_from_z_candidate_ptordered, leps_not_z_candidate_ptordered = get_wwz_candidates(l_fo_conept_sorted_padded[:,0:4]) # Get a hold of the leptons from the Z and from the W
+            w_candidates_mll = (leps_not_z_candidate_ptordered[:,0:1]+leps_not_z_candidate_ptordered[:,1:2]).mass                  # Will need to know mass of the leps from the W
 
-            attach_wwz_preselection_mask(events,l_fo_conept_sorted_padded[:,0:4])
-            leps_from_z_candidate_ptordered, leps_not_z_candidate_ptordered = get_wwz_candidates(l_fo_conept_sorted_padded[:,0:4])
-
-            w_candidates_mll = (leps_not_z_candidate_ptordered[:,0:1]+leps_not_z_candidate_ptordered[:,1:2]).mass
-            w_candidates_mll_far_from_z = ak.fill_none(ak.any((abs(w_candidates_mll - 91.2) > 10.0),axis=1),False)
-
+            # Make masks for the SF regions
+            w_candidates_mll_far_from_z = ak.fill_none(ak.any((abs(w_candidates_mll - 91.2) > 10.0),axis=1),False) # Will enforce this for SF in the PackedSelection
             ptl4 = (l0+l1+l2+l3).pt
             sf_A = (met.pt > 120.0)
             sf_B = ((met.pt > 70.0) & (met.pt < 120.0) & (ptl4 > 70.0))
             sf_C = ((met.pt > 70.0) & (met.pt < 120.0) & (ptl4 > 40.0) & (ptl4 < 70.0))
 
+            # Make masks for the OF regions
             of_1 = ak.fill_none(ak.any((w_candidates_mll > 0.0) & (w_candidates_mll < 40.0),axis=1),False)
             of_2 = ak.fill_none(ak.any((w_candidates_mll > 40.0) & (w_candidates_mll < 60.0),axis=1),False)
             of_3 = ak.fill_none(ak.any((w_candidates_mll > 60.0) & (w_candidates_mll < 100.0),axis=1),False)
             of_4 = ak.fill_none(ak.any((w_candidates_mll > 100.0),axis=1),False)
 
-            w_lep0 = leps_not_z_candidate_ptordered[:,0:1]
-            w_lep1 = leps_not_z_candidate_ptordered[:,1:2]
-
+            ### The mt2 stuff ###
+            # Construct misspart vector, as implimented in c++: https://github.com/sgnoohc/mt2example/blob/main/main.cc#L7
             nevents = len(np.zeros_like(met))
-
             misspart = ak.zip(
                 {
                     "pt": met.pt,
@@ -399,23 +398,24 @@ class AnalysisProcessor(processor.ProcessorABC):
                 with_name="PtEtaPhiMLorentzVector",
                 behavior=vector.behavior,
             )
-
+            # Do the boosts, as implimented in c++: https://github.com/sgnoohc/mt2example/blob/main/main.cc#L7
+            w_lep0 = leps_not_z_candidate_ptordered[:,0:1]
+            w_lep1 = leps_not_z_candidate_ptordered[:,1:2]
             rest_WW = w_lep0 + w_lep1 + misspart
-
             beta_from_miss_reverse = rest_WW.boostvec
             beta_from_miss = beta_from_miss_reverse.negative()
             w_lep0_boosted = w_lep0.boost(beta_from_miss)
             w_lep1_boosted = w_lep1.boost(beta_from_miss)
             misspart_boosted = misspart.boost(beta_from_miss)
-
+            # Get the mt2 variable, use the mt2 package: https://pypi.org/project/mt2/
             mt2_var = mt2(
                 w_lep0_boosted.mass, w_lep0_boosted.px, w_lep0_boosted.py,
                 w_lep1_boosted.mass, w_lep1_boosted.px, w_lep1_boosted.py,
                 misspart_boosted.px, misspart_boosted.py,
                 np.zeros_like(events['event']), np.zeros_like(events['event']),
             )
+            # Mask for mt2 cut
             mt2_mask = ak.fill_none(ak.any((mt2_var>25.0),axis=1),False)
-
 
 
 
@@ -433,13 +433,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("isSR_4l",  events.is4l_SR)
 
             # For WWZ selection
-            selections.add("4l_wwz_sf_A", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
-            selections.add("4l_wwz_sf_B", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
-            selections.add("4l_wwz_sf_C", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
-            selections.add("4l_wwz_of_1", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_1 & mt2_mask))
-            selections.add("4l_wwz_of_2", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_2 & mt2_mask))
-            selections.add("4l_wwz_of_3", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
-            selections.add("4l_wwz_of_4", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_4))
+            selections.add("4l_wwz_sf_A", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
+            selections.add("4l_wwz_sf_B", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
+            selections.add("4l_wwz_sf_C", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
+            selections.add("4l_wwz_of_1", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_1 & mt2_mask))
+            selections.add("4l_wwz_of_2", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_2 & mt2_mask))
+            selections.add("4l_wwz_of_3", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
+            selections.add("4l_wwz_of_4", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_4))
 
             # Topcoffea 4l SR
             selections.add("4l_tc", (events.is4l & events.is4l_SR & (njets>=2) & bmask_atleast1med_atleast2loose & pass_trg))
