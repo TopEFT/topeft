@@ -269,8 +269,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Note: Here we will to the weights object the SFs that do not depend on any of the forthcoming loops
         weights_obj_base = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         if not isData:
-
-            genw = np.ones_like(events["event"])
+            genw = events["genWeight"]
 
             # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
@@ -284,7 +283,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         for syst_var in syst_var_list:
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
-            weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
 
             #################### Jets ####################
 
@@ -395,7 +393,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 {
                     "pt": met.pt,
                     "eta": np.pi / 2,
-                    #"eta": np.full(nevents, np.pi/2),
                     "phi": met.phi,
                     "mass": np.full(nevents, 0),
                 },
@@ -433,8 +430,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # 4l selection
             selections.add("4l", (events.is4lWWZ & bmask_exactly0loose & pass_trg))
+            selections.add("isSR_4l",  events.is4l_SR)
 
-            #is4lWWZ
             # For WWZ selection
             selections.add("4l_wwz_sf_A", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
             selections.add("4l_wwz_sf_B", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
@@ -444,8 +441,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("4l_wwz_of_3", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
             selections.add("4l_wwz_of_4", (events.is4l & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_4))
 
-            selections.add("isSR_4l",  events.is4l_SR)
-
+            # Topcoffea 4l SR
             selections.add("4l_tc", (events.is4l & events.is4l_SR & (njets>=2) & bmask_atleast1med_atleast2loose & pass_trg))
 
             sr_cat_dict = {
@@ -460,7 +456,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "l0pt" : l0.pt
             }
 
-            weights = weights_obj_base.weight(None)
+            weights = weights_obj_base.partial_weight(include=["norm"])
 
             print("j0.pt",j0.pt)
             print("this")
@@ -476,8 +472,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                     # Make the cuts mask
                     cuts_lst = [sr_cat]
                     all_cuts_mask = selections.all(*cuts_lst)
-
-                    print("all_cuts_mask",all_cuts_mask)
 
                     # Fill the histos
                     axes_fill_info_dict = {
