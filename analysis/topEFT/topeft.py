@@ -452,7 +452,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over categories and fill the dict
             weights_dict = {}
-            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "photon"]:
+            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "ttgamma", "2los_CRZ", "photon"]:
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
@@ -485,7 +485,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     elif ch_name.startswith("4l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
-                    elif ch_name.startswith("photon"):
+                    elif ch_name.startswith("photon") or ch_name.startswith("ttgamma"):
                         pass
                     else:
                         raise Exception(f"Unknown channel name: {ch_name}")
@@ -509,6 +509,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
             bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
+            bmask_atleast1med = (nbtagsm>=1) # Used for tttt enriched
 
             # Charge masks
             chargel0_p = ak.fill_none(((l0.charge)>0),False)
@@ -543,6 +544,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
 
             # 2los selection
+            selections.add("ttgamma", (events.is2l & bmask_atleast1med & pass_trg & events.photon))
             selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
             selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
@@ -786,6 +788,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                         "lep_chan_lst" : ["3l_CR"],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l" , "isAR_3l"],
+                    },
+                },
+                "ttgamma" : {
+                    "exactly_2j"   : {
+                        "lep_chan_lst" : ["ttgamma"],
+                        "lep_flav_lst" : ["ee", "mm", "em"],
+                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
                     },
                 },
                 "2los_CRtt" : {

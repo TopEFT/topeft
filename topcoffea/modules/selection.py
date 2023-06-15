@@ -259,7 +259,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # SR:
     events['is2l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
     events['is2l_SR'] = ak.fill_none(events['is2l_SR'],False)
-    photon = ak.fill_none(ak.any(events.Photon.cutBased == 3, axis=1), False)
+    photon = ak.fill_none(ak.any(events.Photon.cutBased & (1<<2), axis=1), False)
     events['is2lp_SR'] = (photon & (padded_FOs[:,0].isTightLep) | (padded_FOs[:,1].isTightLep))
     events['is2lp_SR'] = ak.fill_none(events['is2lp_SR'],False)
     #lep = (ak.num(FOs)) >= 1
@@ -423,7 +423,7 @@ def addPhotCatMasks(events):
     events['is_p'] = is_p_mask
 
 def addTightPhotonMask(events):
-    tight_photon = ak.fill_none(ak.any(events.Photon.cutBased == 3, axis=1), False)           #tight photon mask
+    tight_photon = ak.fill_none(ak.any(events.Photon.cutBased & (1<<2), axis=1), False)           #tight photon mask
     
     events['photon'] = tight_photon
 
