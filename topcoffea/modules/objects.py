@@ -129,6 +129,7 @@ def isClean(obj_A, obj_B, drmin=0.4):
     return (mask)
 
 
+# Get MVA score from TOP MVA
 def get_topmva_score_ele(events, model_fpath):
 
     ele = events.Electron
@@ -165,5 +166,45 @@ def get_topmva_score_ele(events, model_fpath):
     counts = ak.num(ele.pt)
     score = ak.unflatten(score,counts)
     return score
+
+
+# Get MVA score from TOP MVA
+def get_topmva_score_mu(events, model_fpath):
+
+    mu = events.Muon
+
+    # Get the input data
+    mu["btagDeepFlavB"] = ak.zeros_like(mu.pt) # TODO: Note sure how to handle this, unclear in the c++ code
+    mu["jetPtRatio"] = 1./(mu.jetRelIso+1.)
+    mu["miniPFRelIso_diff_all_chg"] = mu.miniPFRelIso_all - mu.miniPFRelIso_chg
+    in_vals = np.array([
+        ak.flatten(mu.pt),
+        ak.flatten(mu.eta),
+        ak.flatten(mu.jetNDauCharged),
+        ak.flatten(mu.miniPFRelIso_chg),
+        ak.flatten(mu.miniPFRelIso_diff_all_chg),
+        ak.flatten(mu.jetPtRelv2),
+        ak.flatten(mu.jetPtRatio),
+        ak.flatten(mu.pfRelIso03_all),
+        ak.flatten(mu.btagDeepFlavB),
+        ak.flatten(mu.sip3d),
+        ak.flatten(np.log(abs(mu.dxy))),
+        ak.flatten(np.log(abs(mu.dz))),
+        ak.flatten(mu.segmentComp),
+    ])
+    in_vals = np.transpose(in_vals)
+    in_vals = xgb.DMatrix(in_vals)
+
+    # Load model and evaluate
+    bst = xgb.Booster()
+    bst.load_model(model_fpath)
+    score = bst.predict(in_vals)
+
+    # Restore the shape (i.e. unflatten)
+    counts = ak.num(mu.pt)
+    score = ak.unflatten(score,counts)
+    return score
+
+
 
 

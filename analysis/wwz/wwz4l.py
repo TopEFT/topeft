@@ -220,6 +220,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Muon selection ####################
 
+        # Testing the TOP MVA
+        topeft_weights = topcoffea_path("data/topmva/lepid_weights/mu_TOPUL17_XGB.weights.bin") # TODO: Get by year
+        mu["topmva"] = get_topmva_score_mu(events, topeft_weights)
+
         mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
         mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
