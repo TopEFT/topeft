@@ -6,8 +6,10 @@
 
 import numpy as np
 import awkward as ak
-from topcoffea.modules.GetValuesFromJsons import get_param
 import xgboost as xgb
+
+from topcoffea.modules.GetValuesFromJsons import get_param
+from topcoffea.modules.paths import topcoffea_path
 
 ### These functions have been synchronized with ttH ###
 
@@ -130,9 +132,17 @@ def isClean(obj_A, obj_B, drmin=0.4):
 
 
 # Get MVA score from TOP MVA
-def get_topmva_score_ele(events, model_fpath):
+def get_topmva_score_ele(events, year):
 
     ele = events.Electron
+
+    # Get the model path
+    if (year == "2016"):      ulbase = "UL16"
+    elif (year == "2016APV"): ulbase = "UL16APV"
+    elif (year == "2017"):    ulbase = "UL17"
+    elif (year == "2018"):    ulbase = "UL18"
+    else: raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
+    model_fpath = topcoffea_path(f"data/topmva/lepid_weights/el_TOP{ulbase}_XGB.weights.bin")
 
     # Get the input data
     ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, 0)
@@ -169,9 +179,17 @@ def get_topmva_score_ele(events, model_fpath):
 
 
 # Get MVA score from TOP MVA
-def get_topmva_score_mu(events, model_fpath):
+def get_topmva_score_mu(events, year):
 
     mu = events.Muon
+
+    # Get the model path
+    if (year == "2016"):      ulbase = "UL16"
+    elif (year == "2016APV"): ulbase = "UL16APV"
+    elif (year == "2017"):    ulbase = "UL17"
+    elif (year == "2018"):    ulbase = "UL18"
+    else: raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
+    model_fpath = topcoffea_path(f"data/topmva/lepid_weights/mu_TOP{ulbase}_XGB.weights.bin")
 
     # Get the input data
     mu["btagDeepFlavB"] = ak.zeros_like(mu.pt) # TODO: Note sure how to handle this, unclear in the c++ code
