@@ -7,6 +7,7 @@
 import numpy as np
 import awkward as ak
 from topcoffea.modules.GetValuesFromJsons import get_param
+import xgboost as xgb
 
 ### These functions have been synchronized with ttH ###
 
@@ -126,3 +127,43 @@ def isClean(obj_A, obj_B, drmin=0.4):
     objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
     mask = ak.fill_none(objB_DR > drmin, True)
     return (mask)
+
+
+def get_topmva_score_ele(events, model_fpath):
+
+    ele = events.Electron
+
+    # Get the input data
+    ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, 0)
+    ele["jetPtRatio"] = 1./(ele.jetRelIso+1.)
+    ele["miniPFRelIso_diff_all_chg"] = ele.miniPFRelIso_all - ele.miniPFRelIso_chg
+    # The order here comes from https://github.com/cmstas/VVVNanoLooper/blob/8a194165cdbbbee3bcf69f932d837e95a0a265e6/src/ElectronIDHelper.cc#L110-L122
+    in_vals = np.array([
+        ak.flatten(ele.pt),
+        ak.flatten(ele.eta),
+        ak.flatten(ele.jetNDauCharged),
+        ak.flatten(ele.miniPFRelIso_chg),
+        ak.flatten(ele.miniPFRelIso_diff_all_chg),
+        ak.flatten(ele.jetPtRelv2),
+        ak.flatten(ele.jetPtRatio),
+        ak.flatten(ele.pfRelIso03_all),
+        ak.flatten(ele.btagDeepFlavB),
+        ak.flatten(ele.sip3d),
+        ak.flatten(np.log(abs(ele.dxy))),
+        ak.flatten(np.log(abs(ele.dz))),
+        ak.flatten(ele.mvaFall17V2noIso),
+    ])
+    in_vals = np.transpose(in_vals) # To go from e.g. [ [pt1,pt1] , [eta1,eta2] ] -> [ [pt1,eta1] , [pt2,eta2] ]
+    in_vals = xgb.DMatrix(in_vals) # The format xgb expects
+
+    # Load model and evaluate
+    bst = xgb.Booster()
+    bst.load_model(model_fpath)
+    score = bst.predict(in_vals)
+
+    # Restore the shape (i.e. unflatten)
+    counts = ak.num(ele.pt)
+    score = ak.unflatten(score,counts)
+    return score
+
+

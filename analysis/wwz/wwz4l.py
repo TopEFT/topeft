@@ -209,6 +209,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Electron selection ####################
 
+        # Testing the TOP MVA
+        topeft_weights = topcoffea_path("data/topmva/lepid_weights/el_TOPUL17_XGB.weights.bin") # TODO: Get by year
+        ele["topmva"] = get_topmva_score_ele(events, topeft_weights)
+
         ele["isPres"] = isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
         ele["isLooseE"] = isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
         ele["isFO"] = isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTHUL, ele.jetRelIso, ele.mvaFall17V2noIso_WP90, year)
