@@ -212,7 +212,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Testing the TOP MVA
         ele["topmva"] = get_topmva_score_ele(events, year)
         ele_presl_mask = is_presel_wwz_ele(ele)
-        #print("ele_presl_mask",ele_presl)
+        #print("ele_presl_mask",ele_presl_mask)
         #print("Params:")
         #print("pt",ele.pt         )
         #print("eta",abs(ele.eta)    )
@@ -232,7 +232,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Muon selection ####################
 
         # Testing the TOP MVA
+        print("THIS!!!",mu.mediumId)
+        print("THIS!!!",mu.mediumId)
+        print("THIS!!!",mu.mediumId)
         mu["topmva"] = get_topmva_score_mu(events, year)
+        mu_presl_mask = is_presel_wwz_mu(mu)
+        print("mu_presl_mask",mu_presl_mask)
+        print("Params:")
+        print("pt",mu.pt         )
+        print("eta",abs(mu.eta)    )
+        print("dxy",abs(mu.dxy)     )
+        print("dz",abs(mu.dz)       )
+        print("sip3d",abs(mu.sip3d)     )
+        print("iso",mu.miniPFRelIso_all )
+        print("this")
+        exit()
 
         mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
         mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)

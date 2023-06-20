@@ -131,6 +131,7 @@ def isClean(obj_A, obj_B, drmin=0.4):
     return (mask)
 
 
+
 ######### WWZ 4l analysis object selection #########
 
 # WWZ preselection for electrons
@@ -141,12 +142,27 @@ def is_presel_wwz_ele(ele):
         (abs(ele.dxy)         <  get_param("wwz_pres_e_dxy")) &
         (abs(ele.dz)          <  get_param("wwz_pres_e_dz")) &
         (abs(ele.sip3d)       <  get_param("wwz_pres_e_sip3d")) &
-        (ele.lostHits         <= get_param("wwz_pres_e_lostHits")) &
-        (ele.miniPFRelIso_all <  get_param("wwz_pres_e_miniPFRelIso_all"))
+        (ele.miniPFRelIso_all <  get_param("wwz_pres_e_miniPFRelIso_all")) &
+        (ele.lostHits         <= get_param("wwz_pres_e_lostHits"))
     )
     return mask
 
-# Get MVA score from TOP MVA
+
+# WWZ preselection for muons
+def is_presel_wwz_mu(mu):
+    mask = (
+        (mu.pt               >  get_param("wwz_pres_m_pt")) &
+        (abs(mu.eta)         <  get_param("wwz_pres_m_eta")) &
+        (abs(mu.dxy)         <  get_param("wwz_pres_m_dxy")) &
+        (abs(mu.dz)          <  get_param("wwz_pres_m_dz")) &
+        (abs(mu.sip3d)       <  get_param("wwz_pres_m_sip3d")) &
+        (mu.miniPFRelIso_all <  get_param("wwz_pres_m_miniPFRelIso_all")) &
+        (mu.mediumId)
+    )
+    return mask
+
+
+# Get MVA score from TOP MVA for electrons
 def get_topmva_score_ele(events, year):
 
     ele = events.Electron
@@ -193,7 +209,7 @@ def get_topmva_score_ele(events, year):
     return score
 
 
-# Get MVA score from TOP MVA
+# Get MVA score from TOP MVA for muons
 def get_topmva_score_mu(events, year):
 
     mu = events.Muon
