@@ -135,7 +135,7 @@ def isClean(obj_A, obj_B, drmin=0.4):
 ######### WWZ 4l analysis object selection #########
 
 # WWZ preselection for electrons
-def is_presel_wwz_ele(ele):
+def is_presel_wwz_ele(ele,tight):
     mask = (
         (ele.pt               >  get_param("wwz_pres_e_pt")) &
         (abs(ele.eta)         <  get_param("wwz_pres_e_eta")) &
@@ -145,6 +145,7 @@ def is_presel_wwz_ele(ele):
         (ele.miniPFRelIso_all <  get_param("wwz_pres_e_miniPFRelIso_all")) &
         (ele.lostHits         <= get_param("wwz_pres_e_lostHits"))
     )
+    if tight: mask = (mask & ele.convVeto & (ele.tightCharge == get_param("wwz_pres_e_tightCharge")))
     return mask
 
 

@@ -209,20 +209,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Electron selection ####################
 
-        # Testing the TOP MVA
+        # Do the object selection for the WWZ leptons
+        ele_presl_mask = is_presel_wwz_ele(ele,tight=True)
         ele["topmva"] = get_topmva_score_ele(events, year)
-        ele_presl_mask = is_presel_wwz_ele(ele)
-        #print("ele_presl_mask",ele_presl_mask)
-        #print("Params:")
-        #print("pt",ele.pt         )
-        #print("eta",abs(ele.eta)    )
-        #print("dxy",abs(ele.dxy)     )
-        #print("dz",abs(ele.dz)       )
-        #print("sip3d",abs(ele.sip3d)     )
-        #print("lh",ele.lostHits        )
-        #print("iso",ele.miniPFRelIso_all )
-        #print("this")
-        #exit()
+        ele["is_tight_lep_for_wwz"] = ((ele.topmva > get_param("topmva_wp_t_e")) & ele_presl_mask)
+
+        print("after")
+        exit()
 
         ele["isPres"] = isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
         ele["isLooseE"] = isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
@@ -231,22 +224,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Muon selection ####################
 
-        # Testing the TOP MVA
-        print("THIS!!!",mu.mediumId)
-        print("THIS!!!",mu.mediumId)
-        print("THIS!!!",mu.mediumId)
-        mu["topmva"] = get_topmva_score_mu(events, year)
+        # Do the object selection for the WWZ leptons
         mu_presl_mask = is_presel_wwz_mu(mu)
-        print("mu_presl_mask",mu_presl_mask)
-        print("Params:")
-        print("pt",mu.pt         )
-        print("eta",abs(mu.eta)    )
-        print("dxy",abs(mu.dxy)     )
-        print("dz",abs(mu.dz)       )
-        print("sip3d",abs(mu.sip3d)     )
-        print("iso",mu.miniPFRelIso_all )
-        print("this")
-        exit()
+        mu["topmva"] = get_topmva_score_mu(events, year)
+        mu["is_tight_lep_for_wwz"] = ((mu.topmva > get_param("topmva_wp_t_m")) & mu_presl_mask)
 
         mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
         mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)

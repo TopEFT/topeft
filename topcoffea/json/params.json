@@ -117,6 +117,7 @@
     "wwz_pres_e_sip3d" : 8.0,
     "wwz_pres_e_lostHits" : 1.0,
     "wwz_pres_e_miniPFRelIso_all" : 0.4,
+    "wwz_pres_e_tightCharge" : 2.0,
 
     "wwz_pres_m_pt"    : 10,
     "wwz_pres_m_eta"   : 2.4,
