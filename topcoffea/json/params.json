@@ -104,5 +104,18 @@
 
     "pu_w" : 69200,
     "pu_w_up" : 72400,
-    "pu_w_down" : 66000
+    "pu_w_down" : 66000,
+
+
+
+    "wwz_pres_e_pt"    : 10,
+    "wwz_pres_e_eta"   : 2.5,
+    "wwz_pres_e_dxy"   : 0.05,
+    "wwz_pres_e_dz"    : 0.1,
+    "wwz_pres_e_sip3d" : 8.0,
+    "wwz_pres_e_lostHits" : 1.0,
+    "wwz_pres_e_miniPFRelIso_all" : 0.4,
+
+    "topmva_wp_t_e" : 0.81
+
 }

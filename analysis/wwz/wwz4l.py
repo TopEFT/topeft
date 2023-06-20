@@ -211,6 +211,18 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Testing the TOP MVA
         ele["topmva"] = get_topmva_score_ele(events, year)
+        ele_presl_mask = is_presel_wwz_ele(ele)
+        #print("ele_presl_mask",ele_presl)
+        #print("Params:")
+        #print("pt",ele.pt         )
+        #print("eta",abs(ele.eta)    )
+        #print("dxy",abs(ele.dxy)     )
+        #print("dz",abs(ele.dz)       )
+        #print("sip3d",abs(ele.sip3d)     )
+        #print("lh",ele.lostHits        )
+        #print("iso",ele.miniPFRelIso_all )
+        #print("this")
+        #exit()
 
         ele["isPres"] = isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
         ele["isLooseE"] = isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)

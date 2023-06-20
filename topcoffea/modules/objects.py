@@ -131,6 +131,21 @@ def isClean(obj_A, obj_B, drmin=0.4):
     return (mask)
 
 
+######### WWZ 4l analysis object selection #########
+
+# WWZ preselection for electrons
+def is_presel_wwz_ele(ele):
+    mask = (
+        (ele.pt               >  get_param("wwz_pres_e_pt")) &
+        (abs(ele.eta)         <  get_param("wwz_pres_e_eta")) &
+        (abs(ele.dxy)         <  get_param("wwz_pres_e_dxy")) &
+        (abs(ele.dz)          <  get_param("wwz_pres_e_dz")) &
+        (abs(ele.sip3d)       <  get_param("wwz_pres_e_sip3d")) &
+        (ele.lostHits         <= get_param("wwz_pres_e_lostHits")) &
+        (ele.miniPFRelIso_all <  get_param("wwz_pres_e_miniPFRelIso_all"))
+    )
+    return mask
+
 # Get MVA score from TOP MVA
 def get_topmva_score_ele(events, year):
 
