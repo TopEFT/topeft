@@ -1,17 +1,21 @@
 #!/usr/bin/env python
+import lz4.frame as lz4f
+import cloudpickle
+import json
+import pprint
 import copy
 import coffea
 import numpy as np
 import awkward as ak
-np.seterr(divide='ignore', invalid='ignore', over='ignore')
 from coffea import hist, processor
-from coffea.util import load
+from coffea.util import load, save
+from optparse import OptionParser
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.GetValuesFromJsons import get_param, get_lumi
 from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
+from topcoffea.modules.corrections import SFevaluator, GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachPdfWeights, AttachScaleWeights, GetTriggerSF, AttachTauSF, AttachTES
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
@@ -55,7 +59,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         self._accumulator = processor.dict_accumulator({
-            "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 1000)),
+            "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 100, 0, 200)),
             "ptbl"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 40, 0, 1000)),
             "ptz"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptz",     "$p_{T}$ Z (GeV)", 12, 0, 600)),
             "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
@@ -73,6 +77,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 10, 0, 500)),
             "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 10, 0, 500)),
             "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
+            "taupt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("taupt",   "Leading pt of tau (GeV)", 20, 0, 200)),
+            "taudm"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("taudm",   "Decay mode of leading tau (0, 1, 10, 11)", 16, 0, 15)),
+            "taugen"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("taugen",   "gen match of taus", 6, 0, 6)),
+            "ntauGen"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ntauGen",   "Number of generator level taus", 9, 0, 9)),
         })
 
         # Set the list of hists to fill
@@ -147,7 +155,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"       ]
                 sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"   ]
                 sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown" ]
-        else:
+        else: 
             sow_ISRUp          = -1
             sow_ISRDown        = -1
             sow_FSRUp          = -1
@@ -155,12 +163,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_renormUp       = -1
             sow_renormDown     = -1
             sow_factUp         = -1
-            sow_factDown       = -1
+            sow_factDown       = -1        
             sow_renormfactUp   = -1
             sow_renormfactDown = -1
 
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
-        for d in datasets:
+        for d in datasets: 
             if d in dataset: dataset = dataset.split('_')[0]
 
         # Set the sampleType (used for MC matching requirement)
@@ -172,10 +180,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         elif histAxisName in get_param("prompt_and_conv_samples"):
             # Just DY (since we care about prompt DY for Z CR, and conv DY for 3l CR)
             sampleType = "prompt_and_conversions"
-
+        
         # Initialize objects
         met  = events.MET
-        ele  = events.Electron
+        e    = events.Electron
         mu   = events.Muon
         tau  = events.Tau
         jets = events.Jet
@@ -184,13 +192,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
         events.nom = ak.ones_like(events.MET.pt)
 
-        ele["idEmu"] = ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
-        ele["conept"] = coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
+        e["idEmu"] = ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
+        e["conept"] = coneptElec(e.pt, e.mvaTTHUL, e.jetRelIso)
         mu["conept"] = coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
-        ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
+        e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
         if not isData:
-            ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
+            e["gen_pdgId"] = ak.fill_none(e.matched_gen.pdgId, 0)
             mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
 
         # Get the lumi mask for data
@@ -219,10 +227,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Electron selection ####################
 
-        ele["isPres"] = isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
-        ele["isLooseE"] = isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
-        ele["isFO"] = isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTHUL, ele.jetRelIso, ele.mvaFall17V2noIso_WP90, year)
-        ele["isTightLep"] = tightSelElec(ele.isFO, ele.mvaTTHUL)
+        e["isPres"] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
+        e["isLooseE"] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
+        e["isFO"] = isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
+        e["isTightLep"] = tightSelElec(e.isFO, e.mvaTTHUL)      
 
         ################### Muon selection ####################
 
@@ -235,7 +243,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Loose selection ####################
 
         m_loose = mu[mu.isPres & mu.isLooseM]
-        e_loose = ele[ele.isPres & ele.isLooseE]
+        e_loose = e[e.isPres & e.isLooseE]
         l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
 
         ################### Tau selection ####################
@@ -244,7 +252,20 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
         tau["isGood"]  =  tau["isClean"] & tau["isPres"]
         tau = tau[tau.isGood] # use these to clean jets
-        tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+        tau["isVLoose"]  = isVLooseTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+        tau["isLoose"]   = isLooseTau(tau.idDeepTau2017v2p1VSjet)
+        tau["isMedium"]  = isMediumTau(tau.idDeepTau2017v2p1VSjet)
+        tau["isTight"]   = isTightTau(tau.idDeepTau2017v2p1VSjet)
+        tau["isVTight"]  = isVTightTau(tau.idDeepTau2017v2p1VSjet)
+        tau["isVVTight"] = isVVTightTau(tau.idDeepTau2017v2p1VSjet)
+        
+        tau['DMflag'] = ((tau.decayMode==0) | (tau.decayMode==1) | (tau.decayMode==10) | (tau.decayMode==11))
+        tau = tau[tau['DMflag']]
+        if not isData:
+            tau['genFlag'] = ((tau.genPartFlav==6) | (tau.genPartFlav==0))
+            tau = tau[~tau['genFlag']]
+        tau_padded = ak.pad_none(tau, 1)
+        tau0 = tau_padded[:,0]
 
         # Compute pair invariant masses, for all flavors all signes
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
@@ -252,17 +273,21 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
-        e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
+        e_fo = e[e.isPres & e.isLooseE & e.isFO]
 
         # Attach the lepton SFs to the electron and muons collections
         AttachElectronSF(e_fo,year=year)
         AttachMuonSF(m_fo,year=year)
+        AttachTauSF(events, tau, year=year)
+        if not isData:
+            AttachTES(events, tau, year=year)
+            ngenTau = ak.num(events.GenVisTau)
 
         # Attach per lepton fake rates
         AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
         AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
-        m_fo['convVeto'] = ak.ones_like(m_fo.charge)
-        m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
+        m_fo['convVeto'] = ak.ones_like(m_fo.charge); 
+        m_fo['lostHits'] = ak.zeros_like(m_fo.charge); 
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
@@ -274,8 +299,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             'JES_FlavorQCDUp', 'JES_AbsoluteUp', 'JES_RelativeBalUp', 'JES_BBEC1Up', 'JES_RelativeSampleUp', 'JES_FlavorQCDDown', 'JES_AbsoluteDown', 'JES_RelativeBalDown', 'JES_BBEC1Down', 'JES_RelativeSampleDown'
         ]
         wgt_correction_syst_lst = [
-            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
-            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown", # Theory systs
+            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown","lepSF_tausUp","lepSF_tausDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
+            "FSRUp","FSRDown","ISRUp","ISRDown","renormfactUp","renormfactDown", "renormUp","renormDown","factUp","factDown", # Theory systs
         ]
         data_syst_lst = [
             "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
@@ -305,6 +330,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_obj_base.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown))
             weights_obj_base.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown))
             # renorm/fact scale
+            weights_obj_base.add('renormfact', events.nom, events.renormfactUp*(sow/sow_renormfactUp), events.renormfactDown*(sow/sow_renormfactDown))
             weights_obj_base.add('renorm', events.nom, events.renormUp*(sow/sow_renormUp), events.renormDown*(sow/sow_renormDown))
             weights_obj_base.add('fact', events.nom, events.factUp*(sow/sow_factUp), events.factDown*(sow/sow_factDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
@@ -329,8 +355,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             #################### Jets ####################
 
             # Jet cleaning, before any jet selection
-            #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
-            vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
+            vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
+            #vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
             tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
             cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
@@ -362,7 +388,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             elif year == "2018":
                 btagwpl = get_param("btag_wp_loose_UL18")
             elif year=="2016":
-                btagwpl = get_param("btag_wp_loose_UL16")
+                btagwpl = get_param("btag_wp_loose_UL16")          
             elif year=="2016APV":
                 btagwpl = get_param("btag_wp_loose_UL16APV")
             else:
@@ -372,7 +398,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
             # Medium DeepJet WP
-            if year == "2017":
+            if year == "2017": 
                 btagwpm = get_param("btag_wp_medium_UL17")
             elif year == "2018":
                 btagwpm = get_param("btag_wp_medium_UL18")
@@ -394,6 +420,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             events["l_fo_conept_sorted"] = l_fo_conept_sorted
 
             # The event selection
+            add1lMaskAndSFs(events, year, isData, sampleType)
             add2lMaskAndSFs(events, year, isData, sampleType)
             add3lMaskAndSFs(events, year, isData, sampleType)
             add4lMaskAndSFs(events, year, isData)
@@ -410,7 +437,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             if not isData:
 
-                # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
+                # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods    
                 isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
                 bJetSF   = [GetBTagSF(goodJets, year, 'LOOSE'),GetBTagSF(goodJets, year, 'MEDIUM')]
                 bJetEff  = [GetBtagEff(goodJets, year, 'loose'),GetBtagEff(goodJets, year, 'medium')]
@@ -422,16 +449,16 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
-                        bJetSFUp = [GetBTagSF(goodJets, year, 'LOOSE', syst=b_syst)[0],GetBTagSF(goodJets, year, 'MEDIUM', syst=b_syst)[0]]
-                        bJetSFDo = [GetBTagSF(goodJets, year, 'LOOSE', syst=b_syst)[1],GetBTagSF(goodJets, year, 'MEDIUM', syst=b_syst)[1]]
+                        bJetSFUp = [GetBTagSF(goodJets, year, 'LOOSE', sys=b_syst)[0],GetBTagSF(goodJets, year, 'MEDIUM', sys=b_syst)[0]]
+                        bJetSFDo = [GetBTagSF(goodJets, year, 'LOOSE', sys=b_syst)[1],GetBTagSF(goodJets, year, 'MEDIUM', sys=b_syst)[1]]
                         bJetEff_dataUp = [bJetEff[0]*bJetSFUp[0],bJetEff[1]*bJetSFUp[1]]
                         bJetEff_dataDo = [bJetEff[0]*bJetSFDo[0],bJetEff[1]*bJetSFDo[1]]
                         pDataUp = ak.prod(bJetEff_dataUp[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataUp[0][isBtagJetsLooseNotMedium] - bJetEff_dataUp[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataUp[0][isNotBtagJetsLoose]), axis=-1)
-                        pDataDo = ak.prod(bJetEff_dataDo[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataDo[0][isBtagJetsLooseNotMedium] - bJetEff_dataDo[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataDo[0][isNotBtagJetsLoose]), axis=-1)
+                        pDataDo = ak.prod(bJetEff_dataDo[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataDo[0][isBtagJetsLooseNotMedium] - bJetEff_dataDo[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataDo[0][isNotBtagJetsLoose]), axis=-1)           
                         weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, (pDataUp/pMC)/(pData/pMC),(pDataDo/pMC)/(pData/pMC))
 
-                # Trigger SFs
-                GetTriggerSF(year,events,l0,l1)
+                # Trigger SFs 
+                GetTriggerSF(year,events,l0,l1)                
                 weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
 
 
@@ -443,6 +470,12 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
+                #if ch_name.startswith("1l"):
+                #    weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
+                #    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
+                #    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
+                #    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
+                #    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
                 if ch_name.startswith("2l"):
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
                     weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
@@ -463,9 +496,26 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For MC only
                 if not isData:
+                    #if ch_name.startswith("1l"):
+                    #    weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
+                    #    weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
                     if ch_name.startswith("2l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
+                        weights_dict[ch_name].add("lepSF_taus", events.sf_2l_taus, copy.deepcopy(events.sf_2l_taus_hi), copy.deepcopy(events.sf_2l_taus_lo))
+                        #print("electron")
+                        #print(events.sf_2l_hi_elec)
+                        #print(events.sf_2l_lo_elec)
+                        #print("tau")
+                        #print(events.sf_2l_taus_hi)
+                        #print(events.sf_2l_taus_lo)
+                        #print("tau stats")
+                        #print(tau0.pt)
+                        #print(tau0.decayMode)
+                        #print(tau0.genPartFlav)
+                        #print(tau0.idDeepTau2017v2p1VSjet)
+                        #print("end")
+                        #weights_dict[ch_name].add("lepSF_taus", events.sf_2l_taus)
                     elif ch_name.startswith("3l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
@@ -503,6 +553,24 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
+            #tau mask
+            tau_2lss_0tau_mask = (ak.num(tau[tau["isVLoose"]>0])==0)
+            tau_2lss_1tau_mask = (ak.num(tau[tau["isVLoose"]>0])==1)
+            tau_2los_1tau_mask = (ak.num(tau[tau["isVTight"]>0])==1)
+            #print("isVTight=", tau["isVTight"])
+            #print("VTight Mask=", tau_2los_1tau_mask)
+            tau_3l_0tau_mask   = (ak.num(tau[tau["isVLoose"]>0])==0)
+            tau_3l_1tau_mask   = (ak.num(tau[tau["isVLoose"]>0])==1)
+            tau_2los_2tau_mask = (ak.num(tau[tau["isVLoose"]>0])==2)
+            tau_2lss_2tau_mask = (ak.num(tau[tau["isVLoose"]>0])==2)
+
+            tau_Fake_mask   = (ak.num(tau)>0)
+
+            tau_VL_mask = (ak.num(tau[tau["isVLoose"]>0])==1)
+            tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) ==1)
+            tau_M_mask  = (ak.num(tau[tau["isMedium"]>0])==1)
+            tau_T_mask  = (ak.num(tau[tau["isTight"]>0]) ==1)
+            tau_VT_mask = (ak.num(tau[tau["isVTight"]>0])==1)
 
             ######### Store boolean masks with PackedSelection ##########
 
@@ -511,35 +579,53 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Lumi mask (for data)
             selections.add("is_good_lumi",lumi_mask)
 
+            #selections.add("1l_2tau", (events.is1l & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2lss_2tau_mask))
+
             # 2lss selection (drained of 4 top)
-            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2lss_0tau_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2lss_0tau_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_p_1tau", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2lss_1tau_mask))
+            selections.add("2lss_m_1tau", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2lss_1tau_mask))
+            selections.add("2los_1tau", (events.is2l & charge2l_0 & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2los_1tau_mask))
+            selections.add("2los_2tau", (events.is2l & charge2l_0 & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2los_2tau_mask))
+            selections.add("2lss_2tau", (events.is2l & charge2l_0 & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & tau_2lss_2tau_mask))
 
             # 2lss selection (enriched in 4 top)
             selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-
+		
             # 2lss selection for CR
             selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
 
             # 2los selection
             selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
+            selections.add("2los_CRtt_Ltau", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg & tau_L_mask))
             selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
+            selections.add("2los_CRZ_VLtau", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg & tau_VL_mask))
+            selections.add("2los_CRZ_Ltau", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg & tau_L_mask))
+            selections.add("2los_CRZ_Mtau", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg & tau_M_mask))
+            selections.add("2los_CRZ_Ttau", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg & tau_T_mask))
+            selections.add("2los_CRZ_VTtau", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg & tau_VT_mask))
+            selections.add("1l_1tau_CR", (events.is1l & tau_VL_mask))
 
             # 3l selection
-            selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
+            selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg & tau_3l_0tau_mask))
+            selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg & tau_3l_0tau_mask))
+            selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg & tau_3l_0tau_mask))
+            selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg & tau_3l_0tau_mask))
+            selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg & tau_3l_0tau_mask))
+            selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg & tau_3l_0tau_mask))
             selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
+            selections.add("3l_1tau_1b", (events.is3l & bmask_exactly1med & pass_trg & tau_3l_1tau_mask))
+            selections.add("3l_1tau_2b", (events.is3l & bmask_exactly2med & pass_trg & tau_3l_1tau_mask))
 
             # 4l selection
             selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
 
             # Lep flavor selection
+            selections.add("e",   events.is_e)
+            selections.add("m",   events.is_m)
             selections.add("ee",  events.is_ee)
             selections.add("em",  events.is_em)
             selections.add("mm",  events.is_mm)
@@ -564,13 +650,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("atleast_0j", (njets>=0))
             selections.add("atmost_3j" , (njets<=3))
 
-            # AR/SR categories
-            selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1)
-            selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1)
-            selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
-            selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0)
-            selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0)
+            selections.add("isSR_1l", (events.is1l))
 
+            # AR/SR categories
+            selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1) 
+            selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1) 
+            selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
+            selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0) 
+            selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0)
+            
             selections.add("isSR_3l",  events.is3l_SR)
             selections.add("isAR_3l", ~events.is3l_SR)
             selections.add("isSR_4l",  events.is4l_SR)
@@ -637,147 +725,198 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
-
+            varnames["taupt"]   = tau0.pt
+            varnames["taudm"]   = tau0.decayMode
+            varnames["taugen"]  = tau0.genPartFlav
+            varnames["ntauGen"] = ngenTau
 
             ########## Fill the histograms ##########
 
             # This dictionary keeps track of which selections go with which SR categories
             sr_cat_dict = {
-                "2l" : {
-                    "exactly_4j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "exactly_5j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "exactly_6j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "atleast_7j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                },
-                "3l" : {
-                    "exactly_2j" : {
-                        "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                        ],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                    },
-                    "exactly_3j" : {
-                        "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                        ],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                    },
-                    "exactly_4j" : {
-                        "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                        ],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                    },
-                    "atleast_5j" : {
-                        "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                        ],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                    },
-                },
-                "4l" : {
-                    "exactly_2j" : {
-                        "lep_chan_lst" : ["4l"],
-                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                        "appl_lst"     : ["isSR_4l"],
-                    },
-                    "exactly_3j" : {
-                        "lep_chan_lst" : ["4l"],
-                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                        "appl_lst"     : ["isSR_4l"],
-                    },
-                    "atleast_4j" : {
-                        "lep_chan_lst" : ["4l"],
-                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                        "appl_lst"     : ["isSR_4l"],
-                    },
-                },
+              #"1l" : {
+              #    "exactly_3j" : {
+              #        "lep_chan_lst" : ["1l_2tau"],
+              #        "lep_flav_lst" : ["e", "m"],
+              #        "appl_lst"     : ["isSR_1l"] + (["isAR_2lSS_OS"] if isData else []),
+              #    },
+              #    "exactly_4j" : {
+              #        "lep_chan_lst" : ["1l_2tau"],
+              #        "lep_flav_lst" : ["e", "m"],
+              #        "appl_lst"     : ["isSR_1l"] + (["isAR_2lSS_OS"] if isData else []),
+              #    },
+              #    "exactly_5j" : {
+              #        "lep_chan_lst" : ["1l_2tau"],
+              #        "lep_flav_lst" : ["e", "m"],
+              #        "appl_lst"     : ["isSR_1l"] + (["isAR_2lSS_OS"] if isData else []),
+              #    },
+              #    "exactly_6j" : {
+              #        "lep_chan_lst" : ["1l_2tau"],
+              #        "lep_flav_lst" : ["e", "m"],
+              #        "appl_lst"     : ["isSR_1l"] + (["isAR_2lSS_OS"] if isData else []),
+              #    },
+              #    "atleast_7j" : {
+              #        "lep_chan_lst" : ["1l_2tau"],
+              #        "lep_flav_lst" : ["e", "m"],
+              #        "appl_lst"     : ["isSR_1l"] + (["isAR_2lSS_OS"] if isData else []),
+              #    },
+              #},
+              "2l" : {
+                  "exactly_3j" : {
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau", "2los_2tau", "2lss_2tau"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+                  "exactly_4j" : {
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau", "2los_2tau", "2lss_2tau"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+                  "exactly_5j" : {
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau", "2los_2tau", "2lss_2tau"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+                  "exactly_6j" : {
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau", "2los_2tau", "2lss_2tau"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+                  "atleast_7j" : {
+                      "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_1tau", "2los_2tau", "2lss_2tau"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+              },
+              "3l" : {
+                  "exactly_2j" : {
+                      "lep_chan_lst" : [
+                          "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b", "3l_1tau_2b"
+                      ],
+                      "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                      "appl_lst"     : ["isSR_3l", "isAR_3l"],
+                  },
+                  "exactly_3j" : {
+                      "lep_chan_lst" : [
+                          "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b", "3l_1tau_2b"
+                      ],
+                      "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                      "appl_lst"     : ["isSR_3l", "isAR_3l"],
+                  },
+                  "exactly_4j" : {
+                      "lep_chan_lst" : [
+                          "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b", "3l_1tau_2b"
+                      ],
+                      "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                      "appl_lst"     : ["isSR_3l", "isAR_3l"],
+                  },
+                  "atleast_5j" : {
+                      "lep_chan_lst" : [
+                          "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b", "3l_1tau_2b"
+                      ],
+                      "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                      "appl_lst"     : ["isSR_3l", "isAR_3l"],
+                  },
+              },
+              "4l" : {
+                      "exactly_2j" : {
+                          "lep_chan_lst" : ["4l"],
+                          "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                          "appl_lst"     : ["isSR_4l"],
+                      },
+                      "exactly_3j" : {
+                          "lep_chan_lst" : ["4l"],
+                          "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                          "appl_lst"     : ["isSR_4l"],
+                      },
+                      "atleast_4j" : {
+                          "lep_chan_lst" : ["4l"],
+                          "lep_flav_lst" : ["llll"], # Not keeping track of these separately
+                          "appl_lst"     : ["isSR_4l"],
+                      },
+              },
             }
-
             # This dictionary keeps track of which selections go with which CR categories
             cr_cat_dict = {
-                "2l_CRflip" : {
-                    "atmost_3j" : {
-                        "lep_chan_lst" : ["2lss_CRflip"],
-                        "lep_flav_lst" : ["ee"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                },
-                "2l_CR" : {
-                    "exactly_1j" : {
-                        "lep_chan_lst" : ["2lss_CR"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "exactly_2j" : {
-                        "lep_chan_lst" : ["2lss_CR"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "exactly_3j" : {
-                        "lep_chan_lst" : ["2lss_CR"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                },
-                "3l_CR" : {
-                    "exactly_0j" : {
-                        "lep_chan_lst" : ["3l_CR"],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l" , "isAR_3l"],
-                    },
-                    "atleast_1j" : {
-                        "lep_chan_lst" : ["3l_CR"],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l" , "isAR_3l"],
-                    },
-                },
-                "2los_CRtt" : {
-                    "exactly_2j"   : {
-                        "lep_chan_lst" : ["2los_CRtt"],
-                        "lep_flav_lst" : ["em"],
-                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                    },
-                },
-                "2los_CRZ" : {
-                    "atleast_0j"   : {
-                        "lep_chan_lst" : ["2los_CRZ"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                    },
-                },
+              #"1l_1tau_CR": {
+              #    "exactly_2j": {
+              #        "lep_chan_lst" : ["1l_1tau_CR"],
+              #        "lep_flav_lst" : ["e", "m"],
+              #        "appl_lst"     : ["isSR_1l"] + (["isAR_2lSS_OS"] if isData else []),
+              #    },
+              #    "exactly_3j": {
+              #        "lep_chan_lst" : ["1l_1tau_CR"],
+              #        "lep_flav_lst" : ["e", "m"],
+              #        "appl_lst"     : ["isSR_1l"] + (["isAR_2lSS_OS"] if isData else []),
+              #    },
+              #    "atleast_4j": {
+              #        "lep_chan_lst" : ["1l_1tau_CR"],
+              #        "lep_flav_lst" : ["e", "m"],
+              #        "appl_lst"     : ["isSR_1l"] + (["isAR_2lSS_OS"] if isData else []),
+              #    },
+              #},
+              "2l_CRflip" : {
+                  "atmost_3j" : {
+                      "lep_chan_lst" : ["2lss_CRflip"],
+                      "lep_flav_lst" : ["ee"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+              },
+              "2l_CR" : {
+                  "exactly_1j" : {
+                      "lep_chan_lst" : ["2lss_CR"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+                  "exactly_2j" : {
+                      "lep_chan_lst" : ["2lss_CR"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+                  "exactly_3j" : {
+                      "lep_chan_lst" : ["2lss_CR"],
+                      "lep_flav_lst" : ["ee" , "em" , "mm"],
+                      "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                  },
+              },
+              "3l_CR" : {
+                  "exactly_0j" : {
+                      "lep_chan_lst" : ["3l_CR"],
+                      "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                      "appl_lst"     : ["isSR_3l" , "isAR_3l"],
+                  },
+                  "atleast_1j" : {
+                      "lep_chan_lst" : ["3l_CR"],
+                      "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                      "appl_lst"     : ["isSR_3l" , "isAR_3l"],
+                  },
+              },
+              "2los_CRtt" : {
+                  "exactly_2j"   : {
+                      "lep_chan_lst" : ["2los_CRtt", "2los_CRtt_Ltau"],
+                      "lep_flav_lst" : ["em"],
+                      "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+                  },
+              },
+              "2los_CRZ" : {
+                  "atleast_0j"   : {
+                      "lep_chan_lst" : ["2los_CRZ", "2los_CRZ_VLtau", "2los_CRZ_Ltau", "2los_CRZ_Mtau", "2los_CRZ_Ttau", "2los_CRZ_VTtau"],
+                      "lep_flav_lst" : ["ee", "mm"],
+                      "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+                  },
+              },
             }
 
             # Include SRs and CRs unless we asked to skip them
             cat_dict = {}
             if not self._skip_signal_regions:
-                cat_dict.update(sr_cat_dict)
+              cat_dict.update(sr_cat_dict)
             if not self._skip_control_regions:
-                cat_dict.update(cr_cat_dict)
+              cat_dict.update(cr_cat_dict)
             if (not self._skip_signal_regions and not self._skip_control_regions):
-                for k in sr_cat_dict:
-                    if k in cr_cat_dict:
-                        raise Exception(f"The key {k} is in both CR and SR dictionaries.")
+              for k in sr_cat_dict:
+                  if k in cr_cat_dict:
+                      raise Exception(f"The key {k} is in both CR and SR dictionaries.")
 
 
 
@@ -817,7 +956,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                             weight = weights_object.weight(None)
                         else:
                             # Otherwise get the weight from the Weights object
-                            if wgt_fluct in weights_object.variations:
+                            if wgt_fluct in weights_object.variations:                                
                                 weight = weights_object.weight(wgt_fluct)
                             else:
                                 # Note in this case there is no up/down fluct for this cateogry, so we don't want to fill a hist for it
@@ -880,7 +1019,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
                                         eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
-
                                         # Fill the histos
                                         axes_fill_info_dict = {
                                             dense_axis_name : dense_axis_vals[all_cuts_mask],
@@ -892,15 +1030,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             "eft_coeff"     : eft_coeffs_cut,
                                             "eft_err_coeff" : eft_w2_coeffs_cut,
                                         }
-
+                                    
                                         # Skip histos that are not defined (or not relevant) to given categories
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
                                         if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-
+                                        if ((("invmass" in dense_axis_name) or ("lepsign" in dense_axis_name) or ("l1" in dense_axis_name) or ("lj" in dense_axis_name)) and ("1l" in ch_name)): continue
+                                        if ((("tau" in dense_axis_name)) and (("tau" not in ch_name))): continue
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
-
+                                        
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
 

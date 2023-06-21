@@ -13,6 +13,8 @@ setuptools.setup(
             "data/scaleFactors/*.root",
             "data/fliprates/*.pkl.gz",
             "data/fromTTH/fakerate/*.root",
+            "data/fromTTH/lepSF/*/*/*.root",
+            "data/fromTTH/lepSF/*/*/*/*.root",
             "data/leptonSF/*/*.root",
             "data/leptonSF/*/*.json",
             "data/triggerSF/*.pkl.gz",
@@ -20,9 +22,11 @@ setuptools.setup(
             "data/JER/*.txt",
             "data/btagSF/UL/*.pkl.gz",
             "data/btagSF/UL/*.csv",
+            "data/btagSF/*.csv",
             "data/pileup/*.root",
             "data/MuonScale/*txt",
             "data/goldenJsons/*.txt",
+            "data/TauSF/*.json",
         ],
     }
 )

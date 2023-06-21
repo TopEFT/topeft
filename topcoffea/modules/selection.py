@@ -1,7 +1,7 @@
 '''
  selection.py
 
- This script contains several functions that implement the some event selection.
+ This script contains several functions that implement the some event selection. 
  The functinos defined here can be used to define a selection, signal/control region, etc.
  The functions are called with (jagged)arrays as imputs plus some custom paramenters and return a boolean mask.
 
@@ -10,7 +10,7 @@
 import numpy as np
 import awkward as ak
 
-from topcoffea.modules.corrections import fakeRateWeight2l, fakeRateWeight3l
+from topcoffea.modules.corrections import fakeRateWeight1l, fakeRateWeight2l, fakeRateWeight3l
 
 
 # The datasets we are using, and the triggers in them
@@ -149,7 +149,7 @@ exclude_dict = {
 #   - Takes events objects, and a lits of triggers
 #   - Returns an array the same length as events, elements are true if the event passed at least one of the triggers and false otherwise
 def passesTrgInLst(events,trg_name_lst):
-    tpass = np.zeros_like(np.array(events.MET.pt), dtype=bool)
+    tpass = np.zeros_like(np.array(events.MET.pt), dtype=np.bool)
     trg_info_dict = events.HLT
 
     # "fields" should be list of all triggers in the dataset
@@ -168,14 +168,14 @@ def passesTrgInLst(events,trg_name_lst):
 #   - Elements are false if they do not pass any of the triggers defined in dataset_dict
 #   - In the case of data, events are also false if they overlap with another dataset
 def trgPassNoOverlap(events,is_data,dataset,year):
-
+    
     # The trigger for 2016 and 2016APV are the same
     if year == "2016APV":
         year = "2016"
 
     # Initialize ararys and lists, get trg pass info from events
-    trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=bool) # Array of False the len of events
-    trg_overlaps  = np.zeros_like(np.array(events.MET.pt), dtype=bool) # Array of False the len of events
+    trg_passes    = np.zeros_like(np.array(events.MET.pt), dtype=np.bool) # Array of False the len of events
+    trg_overlaps  = np.zeros_like(np.array(events.MET.pt), dtype=np.bool) # Array of False the len of events
     trg_info_dict = events.HLT
     full_trg_lst  = []
 
@@ -194,6 +194,64 @@ def trgPassNoOverlap(events,is_data,dataset,year):
     # Return true if passes trg and does not overlap
     return (trg_passes & ~trg_overlaps)
 
+
+# 2l selection (we do not make the ss requirement here)                                                                                                                                                    
+def add1lMaskAndSFs(events, year, isData, sampleType):
+
+    # FOs and padded FOs                                                                                                                                                                                   
+    FOs = events.l_fo_conept_sorted
+    padded_FOs = ak.pad_none(FOs,1)
+
+    # Filters and cleanups                                                                                                                                                                                 
+    filter_flags = events.Flag
+    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & (((year == "2016")|(year == "2016APV")) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    cleanup = events.minMllAFAS > 12
+    muTightCharge = ((abs(padded_FOs[:,0].pdgId)!=13) | (padded_FOs[:,0].tightCharge>=1))
+
+    # IDs                                                                                                                                                                                                  
+    eleID1 = (abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0) & (padded_FOs[:,0].tightCharge>=2))
+
+    # 2l requirements:                                                                                                                                                                                     
+    exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<2
+    monlep = (ak.num(FOs)) >= 1
+    pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1))
+    mask = (monlep & exclusive & eleID1 & muTightCharge)
+
+    # MC matching requirement (already passed for data)                                                                                                                                                    
+    if sampleType == "data":
+        pass
+    else:
+        lep1_match_prompt = ((padded_FOs[:,0].genPartFlav==1) | (padded_FOs[:,0].genPartFlav == 15))
+        lep1_charge       = ((padded_FOs[:,0].gen_pdgId*padded_FOs[:,0].pdgId) > 0)
+        lep1_match_conv   = (padded_FOs[:,0].genPartFlav==22)
+        prompt_mask = ( lep1_match_prompt )
+        conv_mask   = ( lep1_match_conv )
+        if sampleType == 'prompt':
+            mask = (mask & prompt_mask)
+        elif sampleType =='conversions':
+            mask = (mask & conv_mask)
+        elif sampleType =='prompt_and_conversions':
+            # Samples that we use for both prompt and conv contributions (i.e. just DY)                                                                                                                    
+            mask = (mask & (prompt_mask | conv_mask))
+        else:
+            raise Exception(f"Error: Unknown sampleType {sampleType}.")
+
+    events['is1l'] = ak.fill_none(mask,False)
+
+    # SFs                                                                                                                                                                                                  
+    events['sf_1l_muon'] = padded_FOs[:,0].sf_nom_2l_muon
+    events['sf_1l_elec'] = padded_FOs[:,0].sf_nom_2l_elec
+    events['sf_1l_hi_muon'] = padded_FOs[:,0].sf_hi_2l_muon
+    events['sf_1l_hi_elec'] = padded_FOs[:,0].sf_hi_2l_elec
+    events['sf_1l_lo_muon'] = padded_FOs[:,0].sf_lo_2l_muon
+    events['sf_1l_lo_elec'] = padded_FOs[:,0].sf_lo_2l_elec
+
+    # SR:                                                                                                                                                                                                  
+    events['is1l_SR'] = (padded_FOs[:,0].isTightLep)
+    events['is1l_SR'] = ak.fill_none(events['is1l_SR'],False)
+
+    # FF:                                                                                                                                                                                                  
+    fakeRateWeight1l(events, padded_FOs[:,0])
 
 # 2l selection (we do not make the ss requirement here)
 def add2lMaskAndSFs(events, year, isData, sampleType):
@@ -220,7 +278,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     dilep = (ak.num(FOs)) >= 2
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
     mask = (filters & cleanup & dilep & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
-
+    
     # MC matching requirement (already passed for data)
     if sampleType == "data":
         pass
@@ -382,6 +440,8 @@ def addLepCatMasks(events):
     # Find the numbers of e and m in the event
     is_e_mask = (abs(padded_fo_id)==11)
     is_m_mask = (abs(padded_fo_id)==13)
+    n_e_1l = ak.sum(is_e_mask[:,0:1],axis=-1)
+    n_m_1l = ak.sum(is_m_mask[:,0:1],axis=-1)
     n_e_2l = ak.sum(is_e_mask[:,0:2],axis=-1) # Make sure we only look at first two leps
     n_m_2l = ak.sum(is_m_mask[:,0:2],axis=-1) # Make sure we only look at first two leps
     n_e_3l = ak.sum(is_e_mask[:,0:3],axis=-1) # Make sure we only look at first three leps
@@ -389,16 +449,20 @@ def addLepCatMasks(events):
     n_e_4l = ak.sum(is_e_mask,axis=-1)        # Look at all the leps
     n_m_4l = ak.sum(is_m_mask,axis=-1)        # Look at all the leps
 
+    # 1l masks
+    events["is_e"] = ((n_e_2l==1) & (n_m_2l==0))
+    events["is_m"] = ((n_e_2l==0) & (n_m_2l==1))
+
     # 2l masks
-    events['is_ee'] = ((n_e_2l==2) & (n_m_2l==0))
-    events['is_em'] = ((n_e_2l==1) & (n_m_2l==1))
-    events['is_mm'] = ((n_e_2l==0) & (n_m_2l==2))
+    events['is_ee'] = ((n_e_2l==2) & (n_m_2l==0)) 
+    events['is_em'] = ((n_e_2l==1) & (n_m_2l==1)) 
+    events['is_mm'] = ((n_e_2l==0) & (n_m_2l==2)) 
 
     # 3l masks
-    events['is_eee'] = ((n_e_3l==3) & (n_m_3l==0))
-    events['is_eem'] = ((n_e_3l==2) & (n_m_3l==1))
-    events['is_emm'] = ((n_e_3l==1) & (n_m_3l==2))
-    events['is_mmm'] = ((n_e_3l==0) & (n_m_3l==3))
+    events['is_eee'] = ((n_e_3l==3) & (n_m_3l==0)) 
+    events['is_eem'] = ((n_e_3l==2) & (n_m_3l==1)) 
+    events['is_emm'] = ((n_e_3l==1) & (n_m_3l==2)) 
+    events['is_mmm'] = ((n_e_3l==0) & (n_m_3l==3)) 
 
     # 4l masks
     events['is_eeee'] = ((n_e_4l==4) & (n_m_4l==0))
