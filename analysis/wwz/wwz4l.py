@@ -214,9 +214,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         ele["topmva"] = get_topmva_score_ele(events, year)
         ele["is_tight_lep_for_wwz"] = ((ele.topmva > get_param("topmva_wp_t_e")) & ele_presl_mask)
 
-        print("after")
-        exit()
-
         ele["isPres"] = isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
         ele["isLooseE"] = isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
         ele["isFO"] = isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTHUL, ele.jetRelIso, ele.mvaFall17V2noIso_WP90, year)
@@ -251,10 +248,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Compute pair invariant masses, for all flavors all signes
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
-        os_pairs_mask = (llpairs.l0.pdgId*llpairs.l1.pdgId < 0)
-        ll_mass_pairs = (llpairs.l0+llpairs.l1).mass
-        ll_mass_pairs_os = ll_mass_pairs[os_pairs_mask]
-        events["min_mll_afos"] = ak.min(ll_mass_pairs_os,axis=-1) # For WWZ
         events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1) # From TOP-22-006
 
         # Build FO collection
@@ -272,6 +265,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
+
+        # Get tight leptons for WWZ selection
+        ele_wwz_t = ele[ele.is_tight_lep_for_wwz]
+        mu_wwz_t = mu[mu.is_tight_lep_for_wwz]
+        l_wwz_t = ak.with_name(ak.concatenate([ele_wwz_t,mu_wwz_t],axis=1),'PtEtaPhiMCandidate')
+        l_wwz_t = l_wwz_t[ak.argsort(l_wwz_t.pt, axis=-1,ascending=False)] # Sort by pt
+
+        # For WWZ: Compute pair invariant masses
+        llpairs_wwz = ak.combinations(l_wwz_t, 2, fields=["l0","l1"])
+        os_pairs_mask = (llpairs_wwz.l0.pdgId*llpairs_wwz.l1.pdgId < 0)
+        ll_mass_pairs = (llpairs_wwz.l0+llpairs_wwz.l1).mass
+        ll_mass_pairs_os = ll_mass_pairs[os_pairs_mask]
+        events["min_mll_afos"] = ak.min(ll_mass_pairs_os,axis=-1) # For WWZ
+
+
 
         l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 4) # Temp till we impliment new MVA
         l0 = l_fo_conept_sorted_padded[:,0]
