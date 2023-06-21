@@ -23,7 +23,7 @@
 
     "mva_TTH_e_cut" : 0.90,
     "mva_TTH_m_cut" : 0.85,
-    "photonId" : 3,
+    "photonId" : 1,
 
     "btag_wp_loose_UL16"  : 0.0480,
     "btag_wp_loose_UL16APV"  : 0.0508,

@@ -74,6 +74,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 10, 0, 500)),
             "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
             "photon_pt"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("photon_pt",     "$p_{T}$ $\gamma$ (GeV)", 12, 0, 600)),
+            "cutBased"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("cutBased",     "$p_{T}$ $\gamma$ (GeV)", 6, 0, 6)),
             "pp_mass"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("pp_mass",     "$m_{\gamma\gamma}$ (GeV)", 60, 0, 600)),
         })
 
@@ -410,7 +411,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             add4lMaskAndSFs(events, year, isData)
             addLepCatMasks(events)
             addPhotCatMasks(events)
-            addTightPhotonMask(events)
 
             # Convenient to have l0, l1, l2 on hand
             l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
@@ -544,7 +544,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
 
             # 2los selection
-            selections.add("ttgamma", (events.is2l & bmask_atleast1med & pass_trg & events.photon))
+            selections.add("ttgamma", (events.isl & bmask_atleast1med & pass_trg & events.photon))
             selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
             selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
@@ -589,7 +589,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("atmost_3j" , (njets<=3))
 
             # AR/SR categories
-            selections.add("isSR_2lp",     ( events.is2lp_SR) & charge2l_0)
             selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1)
             selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1)
             selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
@@ -623,7 +622,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             #pp_pt = ak.flatten(ak.fill_none(pp_pt[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1))
             #pp_mass = ak.flatten(ak.fill_none(pp_mass[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1))
             photon_pt = ak.fill_none(ak.firsts(p_tight.pt), -1)
-
+            cutBased = ak.fill_none(ak.firsts(p_tight.cutBased), -1)
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
             bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
@@ -674,6 +673,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
             varnames["photon_pt"]     = photon_pt
+            varnames["cutBased"]    = cutBased
             varnames["pp_mass"]     = pp_mass
 
 
@@ -791,7 +791,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     },
                 },
                 "ttgamma" : {
-                    "exactly_2j"   : {
+                    "atleast_1j"   : {
                         "lep_chan_lst" : ["ttgamma"],
                         "lep_flav_lst" : ["ee", "mm", "em"],
                         "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],

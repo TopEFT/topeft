@@ -123,7 +123,7 @@ def tightSelMuon(clean_and_FO_selection_TTH, mediumId, mvaTTHUL):
     return (clean_and_FO_selection_TTH) & (mediumId>0) & (mvaTTHUL > get_param("mva_TTH_m_cut"))
 
 def tightSelPhoton(photonId):
-    return (photonId == get_param("photonId"))
+    return (photonId >= (1<<get_param("photonId")))
 
 def isClean(obj_A, obj_B, drmin=0.4):
     objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
