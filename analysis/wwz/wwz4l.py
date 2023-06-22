@@ -238,29 +238,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         e_loose = ele[ele.isPres & ele.isLooseE]
         l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
 
-        ################### Tau selection ####################
-
-        tau["isPres"]  = isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
-        tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
-        tau["isGood"]  =  tau["isClean"] & tau["isPres"]
-        tau = tau[tau.isGood] # use these to clean jets
-        tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
-
         # Compute pair invariant masses, for all flavors all signes
-        llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
-        events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1) # From TOP-22-006
+        llpairs = ak.combinations(l_loose, 2, fields=["a","b"])
+        events["minMllAFAS"] = ak.min( (llpairs.a+llpairs.b).mass, axis=-1) # From TOP-22-006
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
-
-        # Attach the lepton SFs to the electron and muons collections
-        AttachElectronSF(e_fo,year=year)
-        AttachMuonSF(m_fo,year=year)
-
-        # Attach per lepton fake rates
-        AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
-        AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
         m_fo['convVeto'] = ak.ones_like(m_fo.charge)
         m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
@@ -286,12 +270,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         l2 = l_wwz_t_padded[:,2]
         l3 = l_wwz_t_padded[:,3]
 
-        # For topeft
-        l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 4) # Temp till we impliment new MVA
-        lfo0 = l_fo_conept_sorted_padded[:,0]
-        lfo1 = l_fo_conept_sorted_padded[:,1]
-        lfo2 = l_fo_conept_sorted_padded[:,2]
-        lfo3 = l_fo_conept_sorted_padded[:,3]
 
         ######### Systematics ###########
 
