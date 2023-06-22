@@ -186,15 +186,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
         events.nom = ak.ones_like(events.MET.pt)
 
-        ele["idEmu"] = ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
-        ele["conept"] = coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
-        mu["conept"] = coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
-        ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
-        mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
-        if not isData:
-            ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
-            mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
-
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
             golden_json_path = topcoffea_path("data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
@@ -206,49 +197,20 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError(f"Error: Unknown year \"{year}\".")
         lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
 
+        ele["conept"] = coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
+        mu["conept"] = coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
 
-        ################### Electron selection ####################
+        ################### Lepton selection ####################
 
-        # Do the object selection for the WWZ leptons
+        # Do the object selection for the WWZ eleectrons
         ele_presl_mask = is_presel_wwz_ele(ele,tight=True)
         ele["topmva"] = get_topmva_score_ele(events, year)
         ele["is_tight_lep_for_wwz"] = ((ele.topmva > get_param("topmva_wp_t_e")) & ele_presl_mask)
 
-        ele["isPres"] = isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
-        ele["isLooseE"] = isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
-        ele["isFO"] = isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTHUL, ele.jetRelIso, ele.mvaFall17V2noIso_WP90, year)
-        ele["isTightLep"] = tightSelElec(ele.isFO, ele.mvaTTHUL)
-
-        ################### Muon selection ####################
-
-        # Do the object selection for the WWZ leptons
+        # Do the object selection for the WWZ muons
         mu_presl_mask = is_presel_wwz_mu(mu)
         mu["topmva"] = get_topmva_score_mu(events, year)
         mu["is_tight_lep_for_wwz"] = ((mu.topmva > get_param("topmva_wp_t_m")) & mu_presl_mask)
-
-        #mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
-        mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-        mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
-        mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
-        mu["isTightLep"]= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
-
-        ################### Loose selection ####################
-
-        m_loose = mu[mu.isPres & mu.isLooseM]
-        e_loose = ele[ele.isPres & ele.isLooseE]
-        l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
-
-        # Compute pair invariant masses, for all flavors all signes
-        llpairs = ak.combinations(l_loose, 2, fields=["a","b"])
-        events["minMllAFAS"] = ak.min( (llpairs.a+llpairs.b).mass, axis=-1) # From TOP-22-006
-
-        # Build FO collection
-        m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
-        e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
-        m_fo['convVeto'] = ak.ones_like(m_fo.charge)
-        m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
-        l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
-        l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
         # Get tight leptons for WWZ selection
         ele_wwz_t = ele[ele.is_tight_lep_for_wwz]
@@ -287,10 +249,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             lumi = 1000.0*get_lumi(year)
             weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
 
+        # We do not have systematics yet
         syst_var_list = ['nominal']
 
         # Loop over the list of systematic variations we've constructed
-        met_raw=met
         for syst_var in syst_var_list:
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
@@ -317,42 +279,35 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Loose DeepJet WP
             if year == "2017":
                 btagwpl = get_param("btag_wp_loose_UL17")
+                btagwpm = get_param("btag_wp_medium_UL17")
             elif year == "2018":
                 btagwpl = get_param("btag_wp_loose_UL18")
+                btagwpm = get_param("btag_wp_medium_UL18")
             elif year=="2016":
                 btagwpl = get_param("btag_wp_loose_UL16")
+                btagwpm = get_param("btag_wp_medium_UL16")
             elif year=="2016APV":
                 btagwpl = get_param("btag_wp_loose_UL16APV")
+                btagwpm = get_param("btag_wp_medium_UL16APV")
             else:
                 raise ValueError(f"Error: Unknown year \"{year}\".")
+
             isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
-            # Medium DeepJet WP
-            if year == "2017":
-                btagwpm = get_param("btag_wp_medium_UL17")
-            elif year == "2018":
-                btagwpm = get_param("btag_wp_medium_UL18")
-            elif year=="2016":
-                btagwpm = get_param("btag_wp_medium_UL16")
-            elif year=="2016APV":
-                btagwpm = get_param("btag_wp_medium_UL16APV")
-            else:
-                raise ValueError(f"Error: Unknown year \"{year}\".")
             isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
             nbtagsm = ak.num(goodJets[isBtagJetsMedium])
+
 
 
             #################### Add variables into event object so that they persist ####################
 
             # Put njets and l_fo_conept_sorted into events
             events["njets"] = njets
-            events["l_fo_conept_sorted"] = l_fo_conept_sorted
             events["l_wwz_t"] = l_wwz_t # FOR WWZ
 
-            add4lMaskAndSFs(events, year, isData)
             add4lMaskAndSFs_wwz(events, year, isData)
 
 
@@ -371,7 +326,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
 
-            ######### WWZ stuff #########
+
+            ######### WWZ event selection stuff #########
 
             # Get some preliminary things we'll need
             attach_wwz_preselection_mask(events,l_wwz_t_padded[:,0:4])                                                  # Attach preselection sf and of flags to the events
@@ -434,9 +390,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Lumi mask (for data)
             selections.add("is_good_lumi",lumi_mask)
 
-            # 4l selection
-            selections.add("4l", (events.is4lWWZ & bmask_exactly0loose & pass_trg))
-            selections.add("isSR_4l",  events.is4l_SR)
 
             # For WWZ selection
             selections.add("4l_wwz_sf_A", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
@@ -447,12 +400,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("4l_wwz_of_3", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
             selections.add("4l_wwz_of_4", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_4))
 
-            # Topcoffea 4l SR
-            selections.add("4l_tc", (events.is4l & events.is4l_SR & (njets>=2) & bmask_atleast1med_atleast2loose & pass_trg))
-
             sr_cat_dict = {
-                #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
-                "lep_chan_lst" : ["4l_tc","4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
+                "lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
+                #"lep_chan_lst" : ["4l_tc","4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
             }
 
 
