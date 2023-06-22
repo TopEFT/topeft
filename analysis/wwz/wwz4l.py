@@ -226,7 +226,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu["topmva"] = get_topmva_score_mu(events, year)
         mu["is_tight_lep_for_wwz"] = ((mu.topmva > get_param("topmva_wp_t_m")) & mu_presl_mask)
 
-        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
+        #mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
         mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
         mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
