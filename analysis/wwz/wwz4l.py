@@ -439,13 +439,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("isSR_4l",  events.is4l_SR)
 
             # For WWZ selection
-            selections.add("4l_wwz_sf_A", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
-            selections.add("4l_wwz_sf_B", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
-            selections.add("4l_wwz_sf_C", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
-            selections.add("4l_wwz_of_1", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_1 & mt2_mask))
-            selections.add("4l_wwz_of_2", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_2 & mt2_mask))
-            selections.add("4l_wwz_of_3", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
-            selections.add("4l_wwz_of_4", (events.is4lWWZ & events.is4l_SR & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_4))
+            selections.add("4l_wwz_sf_A", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
+            selections.add("4l_wwz_sf_B", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
+            selections.add("4l_wwz_sf_C", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
+            selections.add("4l_wwz_of_1", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_1 & mt2_mask))
+            selections.add("4l_wwz_of_2", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_2 & mt2_mask))
+            selections.add("4l_wwz_of_3", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
+            selections.add("4l_wwz_of_4", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_4))
 
             # Topcoffea 4l SR
             selections.add("4l_tc", (events.is4l & events.is4l_SR & (njets>=2) & bmask_atleast1med_atleast2loose & pass_trg))
