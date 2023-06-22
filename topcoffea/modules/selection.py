@@ -333,7 +333,7 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
 def add4lMaskAndSFs_wwz(events, year, isData):
 
     # Leptons and padded
-    leps = events.l_fo_conept_sorted
+    leps = events.l_wwz_t
     leps_padded = ak.pad_none(leps,4)
 
     pt25151510 = (
@@ -343,7 +343,7 @@ def add4lMaskAndSFs_wwz(events, year, isData):
         ak.any(leps[:,3:4].conept > 10.0, axis=1)
     )
 
-    cleanup = events.min_mll_afos > 12
+    cleanup = (events.min_mll_afos > 12)
 
     mask = pt25151510 & cleanup
     events['is4lWWZ'] = ak.fill_none(mask,False)

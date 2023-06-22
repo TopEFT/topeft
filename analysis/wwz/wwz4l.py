@@ -279,13 +279,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         ll_mass_pairs_os = ll_mass_pairs[os_pairs_mask]
         events["min_mll_afos"] = ak.min(ll_mass_pairs_os,axis=-1) # For WWZ
 
+        # For WWZ
+        l_wwz_t_padded = ak.pad_none(l_wwz_t, 4)
+        l0 = l_wwz_t_padded[:,0]
+        l1 = l_wwz_t_padded[:,1]
+        l2 = l_wwz_t_padded[:,2]
+        l3 = l_wwz_t_padded[:,3]
 
-
+        # For topeft
         l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 4) # Temp till we impliment new MVA
-        l0 = l_fo_conept_sorted_padded[:,0]
-        l1 = l_fo_conept_sorted_padded[:,1]
-        l2 = l_fo_conept_sorted_padded[:,2]
-        l3 = l_fo_conept_sorted_padded[:,3]
+        lfo0 = l_fo_conept_sorted_padded[:,0]
+        lfo1 = l_fo_conept_sorted_padded[:,1]
+        lfo2 = l_fo_conept_sorted_padded[:,2]
+        lfo3 = l_fo_conept_sorted_padded[:,3]
 
         ######### Systematics ###########
 
@@ -366,9 +372,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Put njets and l_fo_conept_sorted into events
             events["njets"] = njets
             events["l_fo_conept_sorted"] = l_fo_conept_sorted
+            events["l_wwz_t"] = l_wwz_t # FOR WWZ
 
-            add4lMaskAndSFs_wwz(events, year, isData)
             add4lMaskAndSFs(events, year, isData)
+            add4lMaskAndSFs_wwz(events, year, isData)
 
 
             ######### Masks we need for the selection ##########
@@ -389,9 +396,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             ######### WWZ stuff #########
 
             # Get some preliminary things we'll need
-            attach_wwz_preselection_mask(events,l_fo_conept_sorted_padded[:,0:4])                                                  # Attach preselection sf and of flags to the events
-            leps_from_z_candidate_ptordered, leps_not_z_candidate_ptordered = get_wwz_candidates(l_fo_conept_sorted_padded[:,0:4]) # Get a hold of the leptons from the Z and from the W
-            w_candidates_mll = (leps_not_z_candidate_ptordered[:,0:1]+leps_not_z_candidate_ptordered[:,1:2]).mass                  # Will need to know mass of the leps from the W
+            attach_wwz_preselection_mask(events,l_wwz_t_padded[:,0:4])                                                  # Attach preselection sf and of flags to the events
+            leps_from_z_candidate_ptordered, leps_not_z_candidate_ptordered = get_wwz_candidates(l_wwz_t_padded[:,0:4]) # Get a hold of the leptons from the Z and from the W
+            w_candidates_mll = (leps_not_z_candidate_ptordered[:,0:1]+leps_not_z_candidate_ptordered[:,1:2]).mass       # Will need to know mass of the leps from the W
 
             # Make masks for the SF regions
             w_candidates_mll_far_from_z = ak.fill_none(ak.any((abs(w_candidates_mll - 91.2) > 10.0),axis=1),False) # Will enforce this for SF in the PackedSelection
