@@ -392,13 +392,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
             # For WWZ selection
-            selections.add("4l_wwz_sf_A", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
-            selections.add("4l_wwz_sf_B", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
-            selections.add("4l_wwz_sf_C", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
-            selections.add("4l_wwz_of_1", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_1 & mt2_mask))
-            selections.add("4l_wwz_of_2", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_2 & mt2_mask))
-            selections.add("4l_wwz_of_3", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
-            selections.add("4l_wwz_of_4", (events.is4lWWZ & bmask_exactly0med & pass_trg & events.wwz_presel_of & of_4))
+            selections.add("4l_wwz_sf_A", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
+            selections.add("4l_wwz_sf_B", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
+            selections.add("4l_wwz_sf_C", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
+            selections.add("4l_wwz_of_1", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_1 & mt2_mask))
+            selections.add("4l_wwz_of_2", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_2 & mt2_mask))
+            selections.add("4l_wwz_of_3", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
+            selections.add("4l_wwz_of_4", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_4))
 
             sr_cat_dict = {
                 "lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],

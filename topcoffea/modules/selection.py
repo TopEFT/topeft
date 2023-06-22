@@ -538,7 +538,8 @@ def attach_wwz_preselection_mask(events,lep_collection):
     z_mass_mask = ak.fill_none(ak.any(z_mass_mask,axis=1),False) # Make sure None entries are false
 
     # The final preselection mask
-    wwz_presel_mask = (pt_mask & os_mask & z_mass_mask)
+    #wwz_presel_mask = (pt_mask & os_mask & z_mass_mask)
+    wwz_presel_mask = (os_mask & z_mass_mask)
 
     # Attach to the lepton objects
     events["wwz_presel_sf"] = (wwz_presel_mask & sf_mask)
