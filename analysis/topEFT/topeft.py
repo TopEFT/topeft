@@ -410,7 +410,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Put njets, l_fo_conept_sorted, and tight photons into events
             events["njets"] = njets
             events["l_fo_conept_sorted"] = l_fo_conept_sorted
-            events["photon"] = tight_ph
+            # Veto for "relaxed" ID (medium plus a differnt sigma_nn and and charged iso)
+            relaxed_veto = ak.any(ak.full_like(events.Photon.pt>=0, False), axis=-1)
+            # Keep events failing the veto (i.e. events _without_ a relaxed photon
+            events["photon"] = tight_ph[~relaxed_veto]
 
             # The event selection
             add2lMaskAndSFs(events, year, isData, sampleType)
