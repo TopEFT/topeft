@@ -337,10 +337,10 @@ def add4lMaskAndSFs_wwz(events, year, isData):
     leps_padded = ak.pad_none(leps,4)
 
     pt25151510 = (
-        ak.any(leps[:,0:1].conept > 25.0, axis=1) &
-        ak.any(leps[:,1:2].conept > 15.0, axis=1) &
-        ak.any(leps[:,2:3].conept > 10.0, axis=1) &
-        ak.any(leps[:,3:4].conept > 10.0, axis=1)
+        ak.any(leps[:,0:1].pt > 25.0, axis=1) &
+        ak.any(leps[:,1:2].pt > 15.0, axis=1) &
+        ak.any(leps[:,2:3].pt > 10.0, axis=1) &
+        ak.any(leps[:,3:4].pt > 10.0, axis=1)
     )
 
     cleanup = (events.min_mll_afos > 12)
@@ -505,8 +505,8 @@ def get_wwz_candidates(lep_collection):
     leps_from_z_candidate = lep_collection[z_candidate_mask]
     leps_not_z_candidate = lep_collection[~z_candidate_mask]
 
-    leps_from_z_candidate_ptordered = leps_from_z_candidate[ak.argsort(leps_from_z_candidate.conept, axis=-1,ascending=False)]
-    leps_not_z_candidate_ptordered  = leps_not_z_candidate[ak.argsort(leps_not_z_candidate.conept, axis=-1,ascending=False)]
+    leps_from_z_candidate_ptordered = leps_from_z_candidate[ak.argsort(leps_from_z_candidate.pt, axis=-1,ascending=False)]
+    leps_not_z_candidate_ptordered  = leps_not_z_candidate[ak.argsort(leps_not_z_candidate.pt, axis=-1,ascending=False)]
 
     return [leps_from_z_candidate,leps_not_z_candidate]
 
@@ -517,10 +517,10 @@ def attach_wwz_preselection_mask(events,lep_collection):
     leps_from_z_candidate_ptordered, leps_not_z_candidate_ptordered = get_wwz_candidates(lep_collection)
 
     # Build pt mask for z and w candidates
-    pt_mask_z_0_25 = ak.any((leps_from_z_candidate_ptordered[:,0:1].conept > 25.0),axis=1)
-    pt_mask_z_1_15 = ak.any((leps_from_z_candidate_ptordered[:,1:2].conept > 15.0),axis=1)
-    pt_mask_non_z_0_25 = ak.any((leps_not_z_candidate_ptordered[:,0:1].conept > 25.0),axis=1)
-    pt_mask_non_z_1_15 = ak.any((leps_not_z_candidate_ptordered[:,1:2].conept > 15.0),axis=1)
+    pt_mask_z_0_25 = ak.any((leps_from_z_candidate_ptordered[:,0:1].pt > 25.0),axis=1)
+    pt_mask_z_1_15 = ak.any((leps_from_z_candidate_ptordered[:,1:2].pt > 15.0),axis=1)
+    pt_mask_non_z_0_25 = ak.any((leps_not_z_candidate_ptordered[:,0:1].pt > 25.0),axis=1)
+    pt_mask_non_z_1_15 = ak.any((leps_not_z_candidate_ptordered[:,1:2].pt > 15.0),axis=1)
     pt_mask = pt_mask_z_0_25 & pt_mask_z_1_15 & pt_mask_non_z_0_25 & pt_mask_non_z_1_15
     pt_mask = ak.fill_none(pt_mask,False)
 

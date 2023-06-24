@@ -197,8 +197,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError(f"Error: Unknown year \"{year}\".")
         lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
 
-        ele["conept"] = coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
-        mu["conept"] = coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
 
         ################### Lepton selection ####################
 
