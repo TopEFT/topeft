@@ -123,7 +123,7 @@ def make_plot(wc_lst,range_dict_a,range_dict_b=None,save_name="summary_lims_comp
     plt.grid(linestyle="--",zorder=-10)
 
     # CMS labels
-    hep.cms.text("Supplementary",fontsize=17,pad=0.005) # Or "Preliminary" for PAS
+    hep.cms.text(" Supplementary",fontsize=17,pad=0.005) # Or "Preliminary" for PAS
     hep.cms.lumitext("138 fb$^{-1}$ (13 TeV)",fontsize=12)
 
     plt.savefig(save_name+".pdf",format="pdf")
