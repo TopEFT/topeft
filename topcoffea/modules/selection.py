@@ -329,12 +329,28 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     # FF:
     fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
 
-# 4l selection
+# 4l selection # SYNC
 def add4lMaskAndSFs_wwz(events, year, isData):
 
-    # Leptons and padded
+    # Leptons and padded leptons
     leps = events.l_wwz_t
     leps_padded = ak.pad_none(leps,4)
+
+    # Filters
+    filter_flags = events.Flag
+    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & (((year == "2016")|(year == "2016APV")) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+
+    # Lep multiplicity
+    nlep_4 = (ak.num(leps) == 4)
+
+    # Check if the leading lep associated with Z has pt>25
+    on_z = ak.fill_none(get_Z_peak_mask(leps_padded[:,0:4],pt_window=10.0),False)
+    leps_from_z_candidate_ptordered, leps_not_z_candidate_ptordered = get_wwz_candidates(leps_padded)
+    zpt_0_25 = ak.any((leps_from_z_candidate_ptordered[:,0:1].pt > 25.0),axis=1)
+
+    mask = filters & nlep_4 & on_z & zpt_0_25
+    events['is4lWWZ_s'] = ak.fill_none(mask,False)
+
 
     pt25151510 = (
         ak.any(leps[:,0:1].pt > 25.0, axis=1) &
@@ -342,13 +358,12 @@ def add4lMaskAndSFs_wwz(events, year, isData):
         ak.any(leps[:,2:3].pt > 10.0, axis=1) &
         ak.any(leps[:,3:4].pt > 10.0, axis=1)
     )
-
     cleanup = (events.min_mll_afos > 12)
 
     mask = pt25151510 & cleanup
     events['is4lWWZ'] = ak.fill_none(mask,False)
-    #events['is4lwwz_SR'] = mask
-    #events['is4lwwz_SR'] = ak.fill_none(events['is4lwwz_SR'],False)
+
+
 
 
 
@@ -435,7 +450,8 @@ def addLepCatMasks(events):
 # Mask will be True if any combination of 2 leptons from within the given collection satisfies the requirement
 def get_Z_peak_mask(lep_collection,pt_window,flavor="os"):
     ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
-    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<pt_window)
+    #zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<pt_window)
+    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.1876)<pt_window)
     if flavor == "os":
         sf_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
     elif flavor == "ss":
