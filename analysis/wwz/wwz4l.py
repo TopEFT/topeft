@@ -61,6 +61,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "ptbl"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 40, 0, 1000)),
             "ptz"     : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ptz",     "$p_{T}$ Z (GeV)", 12, 0, 600)),
             "njets"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
+            "nleps"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nleps",   "Lep multiplicity ", 10, 0, 10)),
             "nbtagsl" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nbtagsl", "Loose btag multiplicity ", 5, 0, 5)),
             "l0pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 10, 0, 500)),
             "l1pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("l1pt",    "Subleading lep $p_{T}$ (GeV)", 10, 0, 100)),
@@ -230,6 +231,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         l2 = l_wwz_t_padded[:,2]
         l3 = l_wwz_t_padded[:,3]
 
+        nleps = ak.num(l_wwz_t)
 
         ######### Systematics ###########
 
@@ -259,14 +261,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Jet cleaning, before any jet selection
             #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
-            vetos_tocleanjets = ak.with_name( ele_wwz_t, "PtEtaPhiMCandidate")
+            vetos_tocleanjets = ak.with_name( l_wwz_t, "PtEtaPhiMCandidate")
             tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
             cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
-            cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
+            cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=20.)
             goodJets = cleanedJets[cleanedJets.isGood]
 
             # Count jets
@@ -397,9 +399,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("4l_wwz_of_2", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_2 & mt2_mask))
             selections.add("4l_wwz_of_3", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
             selections.add("4l_wwz_of_4", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_4))
+            selections.add("all", (events.is4lWWZ | (~events.is4lWWZ)))
 
             sr_cat_dict = {
-                "lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
+                #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
+                "lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all"],
                 #"lep_chan_lst" : ["4l_tc","4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
             }
 
@@ -407,10 +411,14 @@ class AnalysisProcessor(processor.ProcessorABC):
             ######### Fill histos #########
 
             dense_axes_dict = {
-                "l0pt" : l0.pt
+                "met" : met.pt,
+                "nleps" : nleps,
+                "njets" : njets,
+                "nbtagsl" : nbtagsl,
             }
 
             weights = weights_obj_base.partial_weight(include=["norm"])
+            weights = events.nom
 
             print("j0.pt",j0.pt)
             print("this")
