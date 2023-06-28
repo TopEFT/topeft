@@ -55,7 +55,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         self._accumulator = processor.dict_accumulator({
-            "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 1000)),
+            "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 200, 0, 1000)),
             "ptbl"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 40, 0, 1000)),
             "ptz"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptz",     "$p_{T}$ Z (GeV)", 12, 0, 600)),
             "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
@@ -479,10 +479,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             ######### Masks we need for the selection ##########
 
             # Get mask for events that have two sf os leps close to z peak
-            sfosz_3l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
+            sfosz_3l_OnZ_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
+            sfosz_3l_OffZ_low_mask = get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
+            sfosz_3l_OffZ_high_mask = get_off_Z_mask_high(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
             sfosz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
             sfasz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
-
             # Pass trigger mask
             pass_trg = trgPassNoOverlap(events,isData,dataset,str(year))
 
@@ -528,12 +529,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
             # 3l selection
-            selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
+            selections.add("3l_p_offZ_1b_low", (events.is3l & charge3l_p & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_p_offZ_1b_high", (events.is3l & charge3l_p & sfosz_3l_OffZ_high_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_m_offZ_1b_low", (events.is3l & charge3l_m & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_m_offZ_1b_high", (events.is3l & charge3l_m & sfosz_3l_OffZ_high_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_p_offZ_2b_low", (events.is3l & charge3l_p & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
+            selections.add("3l_p_offZ_2b_high", (events.is3l & charge3l_p & sfosz_3l_OffZ_high_mask & bmask_exactly2med & pass_trg))
+            selections.add("3l_m_offZ_2b_low", (events.is3l & charge3l_m & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
+            selections.add("3l_m_offZ_2b_high", (events.is3l & charge3l_m & sfosz_3l_OffZ_high_mask & bmask_exactly2med & pass_trg))
+            selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_OnZ_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_OnZ_mask & bmask_atleast2med & pass_trg))
             selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
 
             # 4l selection
@@ -668,28 +673,28 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "3l" : {
                     "exactly_2j" : {
                         "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                            "3l_p_offZ_1b_low" ,"3l_p_offZ_1b_high" , "3l_m_offZ_1b_low" , "3l_m_offZ_1b_high" , "3l_p_offZ_2b_low" ,"3l_p_offZ_2b_high" , "3l_m_offZ_2b_low" , "3l_m_offZ_2b_high" , "3l_onZ_1b" , "3l_onZ_2b",
                         ],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l", "isAR_3l"],
                     },
                     "exactly_3j" : {
                         "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                            "3l_p_offZ_1b_low" ,"3l_p_offZ_1b_high" , "3l_m_offZ_1b_low" , "3l_m_offZ_1b_high" , "3l_p_offZ_2b_low" ,"3l_p_offZ_2b_high" , "3l_m_offZ_2b_low" , "3l_m_offZ_2b_high" , "3l_onZ_1b" , "3l_onZ_2b",
                         ],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l", "isAR_3l"],
                     },
                     "exactly_4j" : {
                         "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                            "3l_p_offZ_1b_low" ,"3l_p_offZ_1b_high" , "3l_m_offZ_1b_low" , "3l_m_offZ_1b_high" , "3l_p_offZ_2b_low" ,"3l_p_offZ_2b_high" , "3l_m_offZ_2b_low" , "3l_m_offZ_2b_high" , "3l_onZ_1b" , "3l_onZ_2b",
                         ],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l", "isAR_3l"],
                     },
                     "atleast_5j" : {
                         "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
+                            "3l_p_offZ_1b_low" ,"3l_p_offZ_1b_high" , "3l_m_offZ_1b_low" , "3l_m_offZ_1b_high" , "3l_p_offZ_2b_low" ,"3l_p_offZ_2b_high" , "3l_m_offZ_2b_low" , "3l_m_offZ_2b_high" , "3l_onZ_1b" , "3l_onZ_2b",
                         ],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l", "isAR_3l"],
