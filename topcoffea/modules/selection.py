@@ -208,12 +208,12 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     cleanup = events.minMllAFAS > 12
     muTightCharge = ((abs(padded_FOs[:,0].pdgId)!=13) | (padded_FOs[:,0].tightCharge>=1)) & ((abs(padded_FOs[:,1].pdgId)!=13) | (padded_FOs[:,1].tightCharge>=1))
 
-    # Zee veto
+    # Zee veto. Used for charge flips estimation
     Zee_veto = (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
 
-    #Zll veto (for photon work)
-    Zll_veto = abs( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 15             #this mask rejects any event with abs(m(ll) - m (Z)) < 15 GeV. Used for photon studies for 2los_sf cat
-    #Zllgamma_veto = abs( (
+    #Zll mask (for photon work)
+    Zll_mask = abs( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 15             #this mask rejects any event with abs(m(ll) - m (Z)) < 15 GeV. Used for photon studies for 2los_sf cat
+
     # IDs
     eleID1 = (abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0) & (padded_FOs[:,0].tightCharge>=2))
     eleID2 = (abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0) & (padded_FOs[:,1].tightCharge>=2))
@@ -250,7 +250,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     #mask_Zllveto = mask & ( Zll_veto )
     mask = mask & (  Zee_veto )
     events['is2l'] = ak.fill_none(mask,False)
-    events['mask_Zllveto'] = ak.fill_none(Zll_veto,False)      #used for photon work for 2los_sf
+    events['mask_Zll'] = ak.fill_none(Zll_mask,False)      #used for photon work for 2los_sf
     events['is2l_nozeeveto'] = ak.fill_none(mask_nozeeveto,False)
 
     # SFs
@@ -305,8 +305,6 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     pt251510 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & pt3lmask)
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
     mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3 )
-    print("3l mask")
-    print(*mask[:30])
 
     # MC matching requirement (already passed for data)
     if sampleType == "data":
@@ -442,7 +440,7 @@ def addZllGammaMask(events):                    #this mask is relevant for 2los_
     padded_FOs = ak.pad_none(FOs,2)
     tight_photons = ak.pad_none(events.photon,1)
     Zllgamma_mask = abs( (padded_FOs[:,0]+padded_FOs[:,1]+tight_photons[:,0]).mass -91.2) > 15 #for tight_photons, note that we will require only 1 photon in the event later 
-    events['mask_Zllgammaveto'] = ak.fill_none(Zllgamma_mask,False)
+    events['mask_Zllgamma'] = ak.fill_none(Zllgamma_mask,False)
 
 #def addTightPhotonMask(events):
 #    tight_photon = ak.fill_none(ak.any(events.Photon.cutBased == 2, axis=1), False)           #tight photon mask
