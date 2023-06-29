@@ -264,6 +264,10 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # SR:
     events['is2l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
     events['is2l_SR'] = ak.fill_none(events['is2l_SR'],False)
+    lep = (ak.num(FOs)) >= 1
+    pt25 = ak.any(FOs[:,0:1].conept > 25.0, axis=1)
+    mask = (filters & cleanup & lep & pt25 & exclusive & eleID1 & muTightCharge)
+    events['isl'] = ak.fill_none(mask,False)
     photon = ak.fill_none(ak.any(events.Photon.cutBased == 3, axis=1), False)
     events['is2lp_SR'] = (photon & (padded_FOs[:,0].isTightLep) | (padded_FOs[:,1].isTightLep))
     events['is2lp_SR'] = ak.fill_none(events['is2lp_SR'],False)
@@ -403,7 +407,8 @@ def addLepCatMasks(events):
     n_m_4l = ak.sum(is_m_mask,axis=-1)        # Look at all the leps
 
     # photon mask
-   
+    events['is_e'] = ((n_e_2l>=1) & (n_m_2l>=0))
+    events['is_m'] = ((n_e_2l>=0) & (n_m_2l>=1))
 
     # 2l masks
     events['is_ee'] = ((n_e_2l==2) & (n_m_2l==0))

@@ -73,7 +73,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 10, 0, 500)),
             "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 10, 0, 500)),
             "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
-            "photon_pt"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("photon_pt",     "$p_{T}$ $\gamma$ (GeV)", 20, 20, 600)),
+            "photon_pt"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("photon_pt",     "$p_{T}$ $\gamma$ (GeV)", 12, 0, 600)),
+            "cutBased"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("cutBased",     "$p_{T}$ $\gamma$ (GeV)", 6, 0, 6)),
             "pp_mass"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("pp_mass",     "$m_{\gamma\gamma}$ (GeV)", 60, 0, 600)),
         })
 
@@ -251,17 +252,29 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Photon selection ###################
 
-        #ph["isTightPhoton"] = tightSelPhoton(ph.cutBased)
-        ph["isTightPhoton"] = ph.cutBased >= 2       #selecting tight cutBased photons
-        #ph["isClean"] = isClean(ph, l_loose, drmin=0.4)
-        tight_ph = ph[ph.isTightPhoton]# & ph.isClean]
+        ph["isTightPhoton"] = tightSelPhoton(ph.cutBased)
+        ph["isClean"] = isClean(ph, l_loose, drmin=0.4)
+        tight_ph = ph[ph.isTightPhoton & ph.isClean]
+        #removing two components from cutBasedID -- 1. charged isolation and 2. sigmaetaeta
+        #split out the ID requirement using the vid (versioned ID) bitmap
+        #"(x & 3) >= 2" makes sure each component passes medium threshold 
+        ph_MinPtCut = (ph.vidNestedWPBitmap >> 0 & 3) >= 2
+        ph_PhoSCEtaMultiRangeCut = (ph.vidNestedWPBitmap >> 2 & 3) >= 2
+        ph_PhoSingleTowerHadOverEmCut = (ph.vidNestedWPBitmap >> 4 & 3) >= 2
+        ph_PhoFull5x5SigmaIEtaIEtaCut = (ph.vidNestedWPBitmap >> 6 & 3) >= 2
+        ph_ChIsoCut = (ph.vidNestedWPBitmap >> 8 & 3) >= 2
+        ph_NeuIsoCut = (ph.vidNestedWPBitmap >> 10 & 3) >= 2
+        ph_PhoIsoCut = (ph.vidNestedWPBitmap >> 12 & 3) >= 2
+
+        ph["phID_NoChIso_Nosigmaetaeta"] = (ph_MinPtCut & ph_PhoSCEtaMultiRangeCut & ph_PhoSingleTowerHadOverEmCut & ph_NeuIsoCut & ph_PhoIsoCut)
+        tight_ph_noChIso_NOsigmaetaeta = ph[ph.isClean & ph.phID_NoChIso_Nosigmaetaeta]
 
         # Compute pair invariant masses, for all flavors all signes
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
         events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
 
         # Photon pairs
-        pppairs = ak.combinations(med_ph, 2, fields=["p0","p1"])
+        pppairs = ak.combinations(tight_ph, 2, fields=["p0","p1"])
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
@@ -405,7 +418,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Put njets, l_fo_conept_sorted, and medium cutBasedID photons into events
             events["njets"] = njets
             events["l_fo_conept_sorted"] = l_fo_conept_sorted
-            events["photon"] = tight_ph
+            # Veto for "relaxed" ID (medium plus a differnt sigma_nn and and charged iso)
+            #relaxed_veto = ak.any(ak.full_like(events.Photon.pt>=0, False), axis=-1)
+            # Keep events failing the veto (i.e. events _without_ a relaxed photon
+            events["photon"] = tight_ph_noChIso_NOsigmaetaeta
 
             # The event selection
             add2lMaskAndSFs(events, year, isData, sampleType)
@@ -414,7 +430,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             addLepCatMasks(events)
             addPhotCatMasks(events)
             addZllGammaMask(events)
-            #addTightPhotonMask(events)
 
             # Convenient to have l0, l1, l2 on hand
             l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
@@ -456,7 +471,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over categories and fill the dict
             weights_dict = {}
-            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "photon"]:
+            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "ttgamma", "photon","2los_sf","2los_of"]:
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
@@ -489,7 +504,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     elif ch_name.startswith("4l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
-                    elif ch_name.startswith("photon"):
+                    elif ch_name.startswith("photon") or ch_name.startswith("ttgamma"):
                         pass
                     else:
                         raise Exception(f"Unknown channel name: {ch_name}")
@@ -513,7 +528,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
             bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
-            bmask_atleast1med = (nbtagsm>=1) #used for 2los_tt for photon studies
+            bmask_atleast1med = (nbtagsm>=1) # Used for 2los cats with photons
 
             # Charge masks
             chargel0_p = ak.fill_none(((l0.charge)>0),False)
@@ -543,14 +558,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
 
-            # 2los selection with photon
-            selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg))
+            # 2los selection
+            selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
+            selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
+            #cats with photons
+            selections.add("ttgamma", (events.isl & bmask_atleast1med & pass_trg & events.is_ph))
             selections.add("2los_CRtt_photon", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg & events.is_ph)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
             #selections.add("2los_CRtt_photon", (events.is2l_nozeeveto & charge2l_0 & bmask_exactly2med & pass_trg & events.is_ph))
-            selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
             selections.add("2los_CRZ_photon", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg & events.is_ph))
-            selections.add("2los_sf_ph", (events.is2l_nozeeveto & charge2l_0 & events.mask_Zllveto & events.mask_Zllgammaveto & bmask_atleast1med & pass_trg & events.is_ph)
-            selections.add("2los_of_ph", (events.is2l_nozeeveto & charge2l_0 & bmask_atleast1med & pass_trg & events.is_ph)
+            selections.add("2los_sf_ph", (events.is2l_nozeeveto & charge2l_0 & events.mask_Zll & events.mask_Zllgamma & bmask_atleast1med & pass_trg & events.is_ph))
+            selections.add("2los_of_ph", (events.is2l_nozeeveto & charge2l_0 & bmask_atleast1med & pass_trg & events.is_ph))
             # 3l selection
             selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
             selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
@@ -625,7 +642,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             pp_pt = ak.flatten(ak.fill_none(pp_pt, -1))
             #pp_pt = ak.flatten(ak.fill_none(pp_pt[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1))
             #pp_mass = ak.flatten(ak.fill_none(pp_mass[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1))
-            photon_pt = ak.fill_none(ak.firsts(med_ph.pt), -1)
+            cutBased = ak.fill_none(ak.firsts(tight_ph.cutBased), -1)
+            photon_pt = ak.fill_none(ak.firsts(tight_ph_noChIso_NOsigmaetaeta.pt), -1)
 
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
@@ -677,6 +695,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
             varnames["photon_pt"]     = photon_pt
+            varnames["cutBased"]    = cutBased
             varnames["pp_mass"]     = pp_mass
 
 
@@ -793,6 +812,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                         "appl_lst"     : ["isSR_3l" , "isAR_3l"],
                     },
                 },
+                "ttgamma" : {
+                    "atleast_1j"   : {
+                        "lep_chan_lst" : ["ttgamma"],
+                        "lep_flav_lst" : ["ee", "mm", "em"],
+                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+                    },
+                },
                 "2los_CRtt" : {
                     "atmost_3j"   : {
                         "lep_chan_lst" : ["2los_CRtt_photon"],
@@ -836,7 +862,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
             #edit this list if you want to select only few cat_dict keys.
-            cat_interest = ['2los_CRtt','2los_CRZ']
+            cat_interest = ['2los_of','2los_sf']
 
             # Loop over the hists we want to fill
             for dense_axis_name, dense_axis_vals in varnames.items():
