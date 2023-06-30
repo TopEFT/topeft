@@ -455,7 +455,7 @@ def addPhotCatMasks(events):
     is_ph_mask = (photon_num & photon_pT & photon_eta)
     is_ph_mask = ak.fill_none(ak.pad_none(is_ph_mask,1),False)
     events['is_ph'] = ak.all(is_ph_mask, axis=1)
-    is_ph_mask = (photon_num & photon_pT & photon_eta & photonID_relaxed)
+    is_ph_mask = (photon_pT & photon_eta & photonID_relaxed)
     is_ph_mask = ak.fill_none(ak.pad_none(is_ph_mask,1),False)
     events['is_ph_relaxed'] = ak.any(is_ph_mask, axis=1)
 

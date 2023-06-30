@@ -421,7 +421,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Veto for "relaxed" ID (medium plus a differnt sigma_nn and and charged iso)
             #relaxed_veto = ak.any(ak.full_like(events.Photon.pt>=0, False), axis=-1)
             # Keep events failing the veto (i.e. events _without_ a relaxed photon
-            events["photon"] = tight_ph_noChIso_NOsigmaetaeta
+            events["photon"] = tight_ph#_noChIso_NOsigmaetaeta
 
             # The event selection
             add2lMaskAndSFs(events, year, isData, sampleType)
