@@ -11,6 +11,7 @@ import numpy as np
 import awkward as ak
 
 from topcoffea.modules.corrections import fakeRateWeight2l, fakeRateWeight3l
+from topcoffea.modules.GetValuesFromJsons import get_param
 
 
 # The datasets we are using, and the triggers in them
@@ -328,7 +329,6 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
         else:
             raise Exception(f"Error: Unknown sampleType {sampleType}.")
     events['is3l'] = ak.fill_none(mask,False)
-    print(*events.is3l[:30])
     # SFs
     events['sf_3l_muon'] = padded_FOs[:,0].sf_nom_3l_muon*padded_FOs[:,1].sf_nom_3l_muon*padded_FOs[:,2].sf_nom_3l_muon
     events['sf_3l_elec'] = padded_FOs[:,0].sf_nom_3l_elec*padded_FOs[:,1].sf_nom_3l_elec*padded_FOs[:,2].sf_nom_3l_elec
@@ -431,9 +431,33 @@ def addPhotCatMasks(events):
     photon_num = ak.num(events.photon) == 1  #require exactly 1 photon
     photon_pT = events.photon.pt > 20   #require photon pT be > 20 GeV
     photon_eta = abs(events.photon.eta) < 1.44  #eta mask of 1.44
+    # if we want to remove one component of the cut-based ID we can
+    # split out the ID requirement using the vid (versioned ID) bitmap
+    # this is enabling Iso to be inverted for control regions
+    photonID = 1<<get_param("photonId")
+    photon_MinPtCut = (events.photon.vidNestedWPBitmap >> 0 & 3) >= photonID
+    photon_PhoSCEtaMultiRangeCut = (events.photon.vidNestedWPBitmap >> 2 & 3) >= photonID
+    photon_PhoSingleTowerHadOverEmCut = (events.photon.vidNestedWPBitmap >> 4 & 3) >= photonID
+    photon_PhoFull5x5SigmaIEtaIEtaCut = (events.photon.vidNestedWPBitmap >> 6 & 3) >= photonID
+    photon_ChIsoCut = (events.photon.vidNestedWPBitmap >> 8 & 3) >= photonID
+    photon_NeuIsoCut = (events.photon.vidNestedWPBitmap >> 10 & 3) >= photonID
+    photon_PhoIsoCut = (events.photon.vidNestedWPBitmap >> 12 & 3) >= photonID
+    # Relax sigma_nn and charged had iso to remove non-prompt overlap
+    photonID_relaxed = (
+        photon_MinPtCut
+        & photon_PhoSCEtaMultiRangeCut
+        & photon_PhoSingleTowerHadOverEmCut
+        & (events.photon.sieie > 0.012) # Relaxed sigma_nn
+        & (events.photon.pfRelIso03_chg > 1.141) & (events.photon.pfRelIso03_chg < 15) # Relaxed charge had iso
+        & photon_NeuIsoCut
+        & photon_PhoIsoCut
+    )
     is_ph_mask = (photon_num & photon_pT & photon_eta)
     is_ph_mask = ak.fill_none(ak.pad_none(is_ph_mask,1),False)
     events['is_ph'] = ak.all(is_ph_mask, axis=1)
+    is_ph_mask = (photon_num & photon_pT & photon_eta & photonID_relaxed)
+    is_ph_mask = ak.fill_none(ak.pad_none(is_ph_mask,1),False)
+    events['is_ph_relaxed'] = ak.any(is_ph_mask, axis=1)
 
 def addZllGammaMask(events):                    #this mask is relevant for 2los_sf category in ttgamma analysis. needs abs(m(llgamma) - m(Z)) > 15 GeV
     FOs = events.l_fo_conept_sorted
