@@ -348,22 +348,11 @@ def add4lMaskAndSFs_wwz(events, year, isData):
     leps_from_z_candidate_ptordered, leps_not_z_candidate_ptordered = get_wwz_candidates(leps_padded)
     zpt_0_25 = ak.any((leps_from_z_candidate_ptordered[:,0:1].pt > 25.0),axis=1)
 
-    mask = filters & nlep_4 & on_z & zpt_0_25
-    events['is4lWWZ_s'] = ak.fill_none(mask,False)
-
-
-    pt25151510 = (
-        ak.any(leps[:,0:1].pt > 25.0, axis=1) &
-        ak.any(leps[:,1:2].pt > 15.0, axis=1) &
-        ak.any(leps[:,2:3].pt > 10.0, axis=1) &
-        ak.any(leps[:,3:4].pt > 10.0, axis=1)
-    )
+    # Remove low mass resonances
     cleanup = (events.min_mll_afos > 12)
 
-    mask = pt25151510 & cleanup
+    mask = filters & nlep_4 & on_z & zpt_0_25 & cleanup
     events['is4lWWZ'] = ak.fill_none(mask,False)
-
-
 
 
 
