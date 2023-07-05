@@ -110,6 +110,11 @@
 
 
 
+    "wwz_z_sip3d"  : 4.0,
+    "wwz_w_sip3d"  : 4.0,
+    "wwz_z_iso"    : 0.2,
+    "wwz_w_iso"    : 0.2,
+
     "wwz_pres_e_pt"    : 10,
     "wwz_pres_e_eta"   : 2.5,
     "wwz_pres_e_dxy"   : 0.05,

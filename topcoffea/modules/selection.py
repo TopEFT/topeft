@@ -10,6 +10,7 @@
 import numpy as np
 import awkward as ak
 
+from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.corrections import fakeRateWeight2l, fakeRateWeight3l
 
 
@@ -519,33 +520,51 @@ def get_wwz_candidates(lep_collection):
 # Convenience function around get_wwz_candidates() and get_z_candidate_mask()
 def attach_wwz_preselection_mask(events,lep_collection):
 
-    leps_from_z_candidate_ptordered, leps_not_z_candidate_ptordered = get_wwz_candidates(lep_collection)
+    leps_z_candidate_ptordered, leps_w_candidate_ptordered = get_wwz_candidates(lep_collection)
 
     # Build pt mask for z and w candidates
-    pt_mask_z_0_25 = ak.any((leps_from_z_candidate_ptordered[:,0:1].pt > 25.0),axis=1)
-    pt_mask_z_1_15 = ak.any((leps_from_z_candidate_ptordered[:,1:2].pt > 15.0),axis=1)
-    pt_mask_non_z_0_25 = ak.any((leps_not_z_candidate_ptordered[:,0:1].pt > 25.0),axis=1)
-    pt_mask_non_z_1_15 = ak.any((leps_not_z_candidate_ptordered[:,1:2].pt > 15.0),axis=1)
+    pt_mask_z_0_25 = ak.any((leps_z_candidate_ptordered[:,0:1].pt > 25.0),axis=1)
+    pt_mask_z_1_15 = ak.any((leps_z_candidate_ptordered[:,1:2].pt > 15.0),axis=1)
+    pt_mask_non_z_0_25 = ak.any((leps_w_candidate_ptordered[:,0:1].pt > 25.0),axis=1)
+    pt_mask_non_z_1_15 = ak.any((leps_w_candidate_ptordered[:,1:2].pt > 15.0),axis=1)
     pt_mask = pt_mask_z_0_25 & pt_mask_z_1_15 & pt_mask_non_z_0_25 & pt_mask_non_z_1_15
     pt_mask = ak.fill_none(pt_mask,False)
 
     # Build mask for OS requirements for the W candidates
-    os_mask = ak.any(((leps_not_z_candidate_ptordered[:,0:1].pdgId)*(leps_not_z_candidate_ptordered[:,1:2].pdgId)<0),axis=1) # Use ak.any() here so that instead of e.g [[None],None,...] we have [False,None,...]
+    os_mask = ak.any(((leps_w_candidate_ptordered[:,0:1].pdgId)*(leps_w_candidate_ptordered[:,1:2].pdgId)<0),axis=1) # Use ak.any() here so that instead of e.g [[None],None,...] we have [False,None,...]
     os_mask = ak.fill_none(os_mask,False) # Replace the None with False in the mask just to make it easier to think about
 
     # Build a mask for same flavor W lepton candidates
-    sf_mask = ak.any((abs(leps_not_z_candidate_ptordered[:,0:1].pdgId) == abs(leps_not_z_candidate_ptordered[:,1:2].pdgId)),axis=1) # Use ak.any() here so that instead of e.g [[None],None,...] we have [False,None,...]
+    sf_mask = ak.any((abs(leps_w_candidate_ptordered[:,0:1].pdgId) == abs(leps_w_candidate_ptordered[:,1:2].pdgId)),axis=1) # Use ak.any() here so that instead of e.g [[None],None,...] we have [False,None,...]
     sf_mask = ak.fill_none(sf_mask,False) # Replace the None with False in the mask just to make it easier to think about
 
     # Build a mask that checks if the z candidates are close enough to the z
-    z_mass = (leps_from_z_candidate_ptordered[:,0:1]+leps_from_z_candidate_ptordered[:,1:2]).mass
-    z_mass_mask = (abs((leps_from_z_candidate_ptordered[:,0:1]+leps_from_z_candidate_ptordered[:,1:2]).mass-91.2) < 10.0)
+    z_mass = (leps_z_candidate_ptordered[:,0:1]+leps_z_candidate_ptordered[:,1:2]).mass
+    z_mass_mask = (abs((leps_z_candidate_ptordered[:,0:1]+leps_z_candidate_ptordered[:,1:2]).mass-91.2) < 10.0)
     z_mass_mask = ak.fill_none(ak.any(z_mass_mask,axis=1),False) # Make sure None entries are false
+
+    # Build a mask to check the iso and sip3d for leps from Z
+    leps_z_e = leps_z_candidate_ptordered[abs(leps_z_candidate_ptordered.pdgId)==11] # Just the electrons
+    iso_mask_z_e = ak.fill_none(ak.all((leps_z_e.pfRelIso03_all < get_param("wwz_z_iso")),axis=1),False)
+    id_mask_z = ak.fill_none(ak.all((leps_z_candidate_ptordered.sip3d < get_param("wwz_z_sip3d")),axis=1),False)
+
+    # Build a mask to check the iso and sip3d for leps from W
+    leps_w_e = leps_w_candidate_ptordered[abs(leps_w_candidate_ptordered.pdgId)==11] # Just the electrons
+    iso_mask_w_e = ak.fill_none(ak.all((leps_w_e.pfRelIso03_all < get_param("wwz_w_iso")),axis=1),False)
+    id_mask_w = ak.fill_none(ak.all((leps_w_candidate_ptordered.sip3d < get_param("wwz_w_sip3d")),axis=1),False)
+
+    id_iso_mask = (id_mask_z & id_mask_w & iso_mask_z_e & iso_mask_w_e)
+
+    print("id_iso_mask",id_iso_mask)
+    print("this")
 
     # The final preselection mask
     #wwz_presel_mask = (pt_mask & os_mask & z_mass_mask)
-    wwz_presel_mask = (os_mask & z_mass_mask)
+    #wwz_presel_mask = (os_mask & z_mass_mask & id_iso_mask)
+    wwz_presel_mask = (id_iso_mask)
 
     # Attach to the lepton objects
-    events["wwz_presel_sf"] = (wwz_presel_mask & sf_mask)
-    events["wwz_presel_of"] = (wwz_presel_mask & ~sf_mask)
+    #events["wwz_presel_sf"] = (wwz_presel_mask & sf_mask)
+    events["wwz_presel_of"] = (wwz_presel_mask)
+    events["wwz_presel_sf"] = (wwz_presel_mask)
+    #events["wwz_presel_of"] = (wwz_presel_mask & ~sf_mask)
