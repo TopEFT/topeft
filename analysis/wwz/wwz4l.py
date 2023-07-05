@@ -406,8 +406,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             selections.add("allfourlep", (events.is4lWWZ))
 
-            pt_mask = (l0.pt > 25) & (l1.pt > 15)
-            selections.add("allfourlep_id", (events.is4lWWZ & pt_mask & (events.wwz_presel_of | events.wwz_presel_of)))
+            selections.add("allfourlep_id", (events.is4lWWZ & (events.wwz_presel_of | events.wwz_presel_of)))
 
             sr_cat_dict = {
                 #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
