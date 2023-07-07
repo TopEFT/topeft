@@ -109,6 +109,14 @@
 
 
 
+    "btagcsv_wp_loose_UL16"     : 0.1918,
+    "btagcsv_wp_loose_UL16APV"  : 0.2027,
+    "btagcsv_wp_loose_UL17"     : 0.1355,
+    "btagcsv_wp_loose_UL18"     : 0.1208,
+    "btagcsv_wp_medium_UL16"    : 0.5847,
+    "btagcsv_wp_medium_UL16APV" : 0.6001,
+    "btagcsv_wp_medium_UL17"    : 0.4506,
+    "btagcsv_wp_medium_UL18"    : 0.4168,
 
     "wwz_z_sip3d"  : 4.0,
     "wwz_w_sip3d"  : 4.0,
@@ -133,5 +141,6 @@
 
     "topmva_wp_t_e" : 0.81,
     "topmva_wp_t_m" : 0.64
+
 
 }

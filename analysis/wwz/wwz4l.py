@@ -281,22 +281,29 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
             # Loose DeepJet WP
+            #btagger = "btag" # For deep flavor WPs
+            btagger = "btagcsv" # For deep CSV WPs
             if year == "2017":
-                btagwpl = get_param("btag_wp_loose_UL17")
-                btagwpm = get_param("btag_wp_medium_UL17")
+                btagwpl = get_param(f"{btagger}_wp_loose_UL17")
+                btagwpm = get_param(f"{btagger}_wp_medium_UL17")
             elif year == "2018":
-                btagwpl = get_param("btag_wp_loose_UL18")
-                btagwpm = get_param("btag_wp_medium_UL18")
+                btagwpl = get_param(f"{btagger}_wp_loose_UL18")
+                btagwpm = get_param(f"{btagger}_wp_medium_UL18")
             elif year=="2016":
-                btagwpl = get_param("btag_wp_loose_UL16")
-                btagwpm = get_param("btag_wp_medium_UL16")
+                btagwpl = get_param(f"{btagger}_wp_loose_UL16")
+                btagwpm = get_param(f"{btagger}_wp_medium_UL16")
             elif year=="2016APV":
-                btagwpl = get_param("btag_wp_loose_UL16APV")
-                btagwpm = get_param("btag_wp_medium_UL16APV")
+                btagwpl = get_param(f"{btagger}_wp_loose_UL16APV")
+                btagwpm = get_param(f"{btagger}_wp_medium_UL16APV")
             else:
                 raise ValueError(f"Error: Unknown year \"{year}\".")
 
-            isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
+            if btagger == "btag":
+                isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
+            if btagger == "btagcsv":
+                isBtagJetsLoose = (goodJets.btagDeepB > btagwpl)
+            #isBtagJetsLoose = (goodJets.btagDeepFlavB > 0.1355)
+            #isBtagJetsLoose = (goodJets.btagDeepB > 0.1355)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
@@ -406,7 +413,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             selections.add("allfourlep", (events.is4lWWZ))
 
-            selections.add("allfourlep_id", (events.is4lWWZ & (events.wwz_presel_of | events.wwz_presel_of)))
+            #selections.add("allfourlep_id", (events.is4lWWZ & bmask_exactly0loose & (events.wwz_presel_of | events.wwz_presel_of) & pass_trg))
+            #selections.add("allfourlep_id", (events.is4lWWZ & (events.wwz_presel_of | events.wwz_presel_of) & pass_trg))
+            selections.add("allfourlep_id", (events.is4lWWZ & bmask_exactly0loose & (events.wwz_presel_of | events.wwz_presel_of)))
+            ##selections.add("allfourlep_id", (events.is4lWWZ & (events.wwz_presel_of | events.wwz_presel_of)))
 
             sr_cat_dict = {
                 #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],

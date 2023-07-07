@@ -353,6 +353,7 @@ def add4lMaskAndSFs_wwz(events, year, isData):
     cleanup = (events.min_mll_afos > 12)
 
     mask = filters & nlep_4 & on_z & zpt_0_25 & cleanup
+    #mask = filters & nlep_4 & on_z & cleanup
     events['is4lWWZ'] = ak.fill_none(mask,False)
 
 
