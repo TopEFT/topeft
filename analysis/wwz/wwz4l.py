@@ -363,7 +363,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             misspart = ak.zip(
                 {
                     "pt": met.pt,
-                    "eta": np.pi / 2,
+                    #"eta": np.pi / 2,
+                    "eta": 0,
                     "phi": met.phi,
                     "mass": np.full(nevents, 0),
                 },
@@ -373,22 +374,77 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Do the boosts, as implimented in c++: https://github.com/sgnoohc/mt2example/blob/main/main.cc#L7
             w_lep0 = leps_not_z_candidate_ptordered[:,0:1]
             w_lep1 = leps_not_z_candidate_ptordered[:,1:2]
+            print("w_lep0.pt",w_lep0.pt)
+            print("w_lep1.pt",w_lep1.pt)
+            print("l0.pt",l0.pt)
+            print("l0.pt",l1.pt)
+            print("l0.pt",l2.pt)
+            print("l0.pt",l3.pt)
             rest_WW = w_lep0 + w_lep1 + misspart
             beta_from_miss_reverse = rest_WW.boostvec
             beta_from_miss = beta_from_miss_reverse.negative()
             w_lep0_boosted = w_lep0.boost(beta_from_miss)
             w_lep1_boosted = w_lep1.boost(beta_from_miss)
             misspart_boosted = misspart.boost(beta_from_miss)
+
+            #print("\nRest W")
+            #for i,beta in enumerate(rest_WW):
+            #    if beta is not None: print(i,rest_WW.x[i],rest_WW.y[i],rest_WW.z[i])
+
+            #print("\nbeta_from_miss")
+            #for i,beta in enumerate(beta_from_miss):
+            #    if beta is not None: print(i,beta.x,beta.y,beta.z)
+
+            #print("\n\nHERE!!!!!!",len(w_lep0_boosted.mass))
+            #for i,x in enumerate(w_lep0_boosted.mass):
+            #    print("")
+            #    print(i,"m1"  ,w_lep0_boosted.mass[i],w_lep0.mass[i])
+            #    print(i,"x1"  ,w_lep0_boosted.px[i],w_lep0.px[i])
+            #    print(i,"y1"  ,w_lep0_boosted.py[i],w_lep0.py[i])
+            #    print(i,"pt1" ,w_lep0_boosted.pt[i],w_lep0.pt[i])
+            #    print(i,"eta1",w_lep0_boosted.eta[i],w_lep0.eta[i])
+
+            #    print(i,"m2"  ,w_lep1_boosted.mass[i],w_lep1.mass[i])
+            #    print(i,"x2"  ,w_lep1_boosted.px[i],w_lep1.px[i])
+            #    print(i,"y2"  ,w_lep1_boosted.py[i],w_lep1.py[i])
+            #    print(i,"pt2" ,w_lep1_boosted.pt[i],w_lep1.pt[i])
+            #    print(i,"eta2",w_lep1_boosted.eta[i],w_lep1.eta[i])
+
+            #    print(i,"metx",misspart_boosted.px[i],misspart.px[i])
+            #    print(i,"mety",misspart_boosted.py[i],misspart.py[i])
+
+            #print("\n\nHERE!!!!!!",len(w_lep0_boosted.mass))
+            #for i,x in enumerate(w_lep0_boosted.mass):
+            #    print("\n",i)
+            #    print("l1pt    ",w_lep0.pt[i])
+            #    print("l2pt    ",w_lep1.pt[i])
+            #    print("l1eta   ",w_lep0.eta[i])
+            #    print("l2eta   ",w_lep1.eta[i])
+            #    print("l1phi   ",w_lep0.phi[i])
+            #    print("l2phi   ",w_lep1.phi[i])
+            #    print("l1energy",w_lep0.energy[i])
+            #    print("l2energy",w_lep1.energy[i])
+            #    print("met     ",met.pt[i])
+            #    print("metphi  ",met.phi[i])
+
             # Get the mt2 variable, use the mt2 package: https://pypi.org/project/mt2/
             mt2_var = mt2(
-                w_lep0_boosted.mass, w_lep0_boosted.px, w_lep0_boosted.py,
-                w_lep1_boosted.mass, w_lep1_boosted.px, w_lep1_boosted.py,
+                w_lep0.mass, w_lep0_boosted.px, w_lep0_boosted.py,
+                w_lep1.mass, w_lep1_boosted.px, w_lep1_boosted.py,
+                #w_lep0_boosted.mass, w_lep0_boosted.px, w_lep0_boosted.py,
+                #w_lep1_boosted.mass, w_lep1_boosted.px, w_lep1_boosted.py,
+                #np.zeros_like(events['event']), w_lep0_boosted.px, w_lep0_boosted.py,
+                #np.zeros_like(events['event']), w_lep1_boosted.px, w_lep1_boosted.py,
                 misspart_boosted.px, misspart_boosted.py,
                 np.zeros_like(events['event']), np.zeros_like(events['event']),
             )
             # Mask for mt2 cut
             mt2_mask = ak.fill_none(ak.any((mt2_var>25.0),axis=1),False)
 
+            #for i,x in enumerate(mt2_var):
+            #    print(i,"mt2",mt2_var[i]) 
+            #print("this")
+            #exit()
 
 
             ######### Store boolean masks with PackedSelection ##########
@@ -400,23 +456,36 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Lumi mask (for data)
             selections.add("is_good_lumi",lumi_mask)
 
+            zeroj = (njets==0)
 
             # For WWZ selection
-            selections.add("4l_wwz_sf_A", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
-            selections.add("4l_wwz_sf_B", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
-            selections.add("4l_wwz_sf_C", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
-            selections.add("4l_wwz_of_1", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_1 & mt2_mask))
-            selections.add("4l_wwz_of_2", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_2 & mt2_mask))
-            selections.add("4l_wwz_of_3", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
-            selections.add("4l_wwz_of_4", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_4))
+            #selections.add("4l_wwz_sf_A", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
+            #selections.add("4l_wwz_sf_B", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
+            #selections.add("4l_wwz_sf_C", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
+            #selections.add("4l_wwz_of_1", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_1 & mt2_mask))
+            #selections.add("4l_wwz_of_2", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_2 & mt2_mask))
+            #selections.add("4l_wwz_of_3", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
+            #selections.add("4l_wwz_of_4", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_4))
+            selections.add("4l_wwz_sf_A", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
+            selections.add("4l_wwz_sf_B", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
+            selections.add("4l_wwz_sf_C", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
+            selections.add("4l_wwz_of_1", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_1 & mt2_mask))
+            selections.add("4l_wwz_of_2", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_2 & mt2_mask))
+            selections.add("4l_wwz_of_3", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_3 & mt2_mask))
+            selections.add("4l_wwz_of_4", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_4))
             selections.add("all", (events.is4lWWZ | (~events.is4lWWZ)))
 
             selections.add("allfourlep", (events.is4lWWZ))
 
             #selections.add("allfourlep_id", (events.is4lWWZ & bmask_exactly0loose & (events.wwz_presel_of | events.wwz_presel_of) & pass_trg))
             #selections.add("allfourlep_id", (events.is4lWWZ & (events.wwz_presel_of | events.wwz_presel_of) & pass_trg))
-            selections.add("allfourlep_id", (events.is4lWWZ & bmask_exactly0loose & (events.wwz_presel_of | events.wwz_presel_of)))
+            #selections.add("allfourlep_id", (events.is4lWWZ & bmask_exactly0loose & (events.wwz_presel_of | events.wwz_presel_of)))
+            selections.add("allfourlep_id", (events.is4lWWZ & bmask_exactly0loose & (events.wwz_presel_of)))
             ##selections.add("allfourlep_id", (events.is4lWWZ & (events.wwz_presel_of | events.wwz_presel_of)))
+
+            print("zeroj",zeroj)
+            print("zeroj",zeroj)
+            print("zeroj",zeroj)
 
             sr_cat_dict = {
                 #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],

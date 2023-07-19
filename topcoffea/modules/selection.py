@@ -549,11 +549,8 @@ def attach_wwz_preselection_mask(events,lep_collection):
     id_iso_mask = (id_mask_z & id_mask_w & iso_mask_z_e & iso_mask_w_e)
 
     # The final preselection mask
-    #wwz_presel_mask = (pt_mask & os_mask & z_mass_mask)
-    wwz_presel_mask = (pt_mask & id_iso_mask)
+    wwz_presel_mask = (os_mask & pt_mask & id_iso_mask)
 
     # Attach to the lepton objects
-    #events["wwz_presel_sf"] = (wwz_presel_mask & sf_mask)
-    #events["wwz_presel_of"] = (wwz_presel_mask & ~sf_mask)
-    events["wwz_presel_of"] = (wwz_presel_mask)
-    events["wwz_presel_sf"] = (wwz_presel_mask)
+    events["wwz_presel_sf"] = (wwz_presel_mask & sf_mask)
+    events["wwz_presel_of"] = (wwz_presel_mask & ~sf_mask)
