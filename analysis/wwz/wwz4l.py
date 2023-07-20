@@ -55,11 +55,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Create the histograms
         #self._accumulator = processor.dict_accumulator({
         self._hout = {
-            "njets"   : 
+            "njets"   :
                 hist.Hist(
-                    hist.axis.StrCategory([], growth=True, name="process", label="process"), 
-                    axis.Regular(20, 0, 20, name="njets",   label="Jet multiplicity"), 
-                    storage="weight", 
+                    hist.axis.StrCategory([], growth=True, name="process", label="process"),
+                    axis.Regular(20, 0, 20, name="njets",   label="Jet multiplicity"),
+                    storage="weight",
                     name="Counts"
                 ),
             #"njets"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",   "Jet multiplicity ", 20, 0, 20)),
@@ -192,6 +192,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
         ################### Lepton selection ####################
+
+        print("\nprint statement")
+        print("\HERE AT THE START OF LEP SELECTION!!!")
+        print("\nprint statement")
 
         # Do the object selection for the WWZ eleectrons
         ele_presl_mask = is_presel_wwz_ele(ele,tight=True)
@@ -484,11 +488,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                 #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
                 #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all","allfourlep"],
                 #"lep_chan_lst" : ["4l_tc","4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
-                "lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all","allfourlep","allfourlep_id"],
+                #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all","allfourlep","allfourlep_id"],
+                "lep_chan_lst" : ["4l_wwz_sf_A"]
             }
 
 
             ######### Fill histos #########
+
+            print("\nprint statement")
+            print("\nHERE AT THE START OF HISTO FILLING!!!")
+            print("\nprint statement")
 
             dense_axes_dict = {
                 #"met" : met.pt,
