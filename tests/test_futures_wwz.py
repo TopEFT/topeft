@@ -5,7 +5,7 @@ def test_topcoffea():
     args = [
         "time",
         "python",
-        "analysis/wwz/wwz4l.py",
+        "analysis/wwz/run_wwz4l.py",
         "-x",
         "futures",
         "topcoffea/json/test_samples/UL17_WWZJetsTo4L2Nu_forCI.json",
