@@ -3,7 +3,9 @@ import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-#from coffea import hist, processor
+from coffea import processor
+import hist
+from hist import axis
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
@@ -51,36 +53,31 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._dtype = dtype
 
         # Create the histograms
-        self._accumulator = processor.dict_accumulator({
-            "invmass" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 1000)),
-            "ptbl"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 40, 0, 1000)),
-            "ptz"     : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ptz",     "$p_{T}$ Z (GeV)", 12, 0, 600)),
-            "njets"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",   "Jet multiplicity ", 20, 0, 20)),
-            "nleps"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nleps",   "Lep multiplicity ", 10, 0, 10)),
-            "nbtagsl" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nbtagsl", "Loose btag multiplicity ", 20, 0, 20)),
-            "l0pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 10, 0, 500)),
-            "l1pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("l1pt",    "Subleading lep $p_{T}$ (GeV)", 10, 0, 100)),
-            "l1eta"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("l1eta",   "Subleading $\eta$", 20, -2.5, 2.5)),
-            "j0pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 10, 0, 500)),
-            "b0pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("b0pt",    "Leading b jet  $p_{T}$ (GeV)", 10, 0, 500)),
-            "l0eta"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("l0eta",   "Leading lep $\eta$", 20, -2.5, 2.5)),
-            "j0eta"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
-            "ht"      : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ht",      "H$_{T}$ (GeV)", 20, 0, 1000)),
-            "met"     : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("met",     "MET (GeV)", 20, 0, 400)),
-            "ljptsum" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("ljptsum", "S$_{T}$ (GeV)", 11, 0, 1100)),
-            "o0pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 10, 0, 500)),
-            "bl0pt"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 10, 0, 500)),
-            "lj0pt"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
-        })
+        #self._accumulator = processor.dict_accumulator({
+        self._hout = {
+            "njets"   : 
+                hist.Hist(
+                    hist.axis.StrCategory([], growth=True, name="process", label="process"), 
+                    axis.Regular(20, 0, 20, name="njets",   label="Jet multiplicity"), 
+                    storage="weight", 
+                    name="Counts"
+                ),
+            #"njets"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",   "Jet multiplicity ", 20, 0, 20)),
+            #"nleps"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nleps",   "Lep multiplicity ", 10, 0, 10)),
+            #"nbtagsl" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nbtagsl", "Loose btag multiplicity ", 20, 0, 20)),
+            #"met"     : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("met",     "MET (GeV)", 20, 0, 400)),
+        }
 
         # Set the list of hists to fill
         if hist_lst is None:
             # If the hist list is none, assume we want to fill all hists
-            self._hist_lst = list(self._accumulator.keys())
+            #self._hist_lst = list(self._accumulator.keys())
+            self._hist_lst = list(self._hout.keys())
         else:
             # Otherwise, just fill the specified subset of hists
             for hist_to_include in hist_lst:
-                if hist_to_include not in self._accumulator.keys():
+                #if hist_to_include not in self._accumulator.keys():
+                if hist_to_include not in self._hout.keys():
                     raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
             self._hist_lst = hist_lst # Which hists to fill
 
@@ -95,9 +92,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
 
 
-    @property
-    def accumulator(self):
-        return self._accumulator
+    #@property
+    #def accumulator(self):
+    #    return self._accumulator
 
     @property
     def columns(self):
@@ -444,7 +441,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Store boolean masks with PackedSelection ##########
 
-            hout = self.accumulator.identity()
+            #hout = self.accumulator.identity()
+            hout = self._hout
 
             selections = PackedSelection(dtype='uint64')
 
@@ -493,10 +491,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             ######### Fill histos #########
 
             dense_axes_dict = {
-                "met" : met.pt,
-                "nleps" : nleps,
+                #"met" : met.pt,
+                #"nleps" : nleps,
                 "njets" : njets,
-                "nbtagsl" : nbtagsl,
+                #"nbtagsl" : nbtagsl,
             }
 
             weights = weights_obj_base.partial_weight(include=["norm"])
@@ -521,9 +519,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     axes_fill_info_dict = {
                         dense_axis_name : dense_axis_vals[all_cuts_mask],
                         "weight"        : weights[all_cuts_mask],
-                        "channel"       : sr_cat,
-                        "sample"        : histAxisName,
-                        "systematic"    : "nominal",
+                        "process"       : histAxisName,
+                        #"channel"       : sr_cat,
+                        #"sample"        : histAxisName,
+                        #"systematic"    : "nominal",
                     }
 
                     hout[dense_axis_name].fill(**axes_fill_info_dict)
