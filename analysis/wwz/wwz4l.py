@@ -3,7 +3,7 @@ import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import hist, processor
+#from coffea import hist, processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
