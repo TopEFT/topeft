@@ -7,8 +7,7 @@ import cloudpickle
 import gzip
 import os
 
-import numpy as np
-from coffea import hist, processor
+from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
 import wwz4l
