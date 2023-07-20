@@ -1,7 +1,5 @@
 import subprocess
-import topcoffea.modules.dataDrivenEstimation as dataDrivenEstimation
 from os.path import exists
-from topcoffea.modules.comp_datacard import comp_datacard
 
 def test_topcoffea():
     args = [
