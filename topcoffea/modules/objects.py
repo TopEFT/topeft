@@ -13,8 +13,23 @@ from topcoffea.modules.GetValuesFromJsons import get_param
 def isPresTau(pt, eta, dxy, dz, idDeepTau2017v2p1VSjet, minpt=20.0):
     return  (pt>minpt)&(abs(eta)<get_param("eta_t_cut"))&(abs(dxy)<get_param("dxy_tau_cut"))&(abs(dz)<get_param("dz_tau_cut"))&(idDeepTau2017v2p1VSjet>>1 & 1 ==1)
 
-def isTightTau(idDeepTau2017v2p1VSjet):
+def isVLooseTau(idDeepTau2017v2p1VSjet):
     return (idDeepTau2017v2p1VSjet>>2 & 1)
+
+def isLooseTau(idDeepTau2017v2p1VSjet):
+    return (idDeepTau2017v2p1VSjet>>3 & 1)
+
+def isMediumTau(idDeepTau2017v2p1VSjet):
+    return (idDeepTau2017v2p1VSjet>>4 & 1)
+
+def isTightTau(idDeepTau2017v2p1VSjet):
+    return (idDeepTau2017v2p1VSjet>>5 & 1)
+
+def isVTightTau(idDeepTau2017v2p1VSjet):
+    return (idDeepTau2017v2p1VSjet>>6 & 1)
+
+def isVVTightTau(idDeepTau2017v2p1VSjet):
+    return (idDeepTau2017v2p1VSjet>>7 & 1)
 
 def isTightJet(pt, eta, jet_id, jetPtCut=25.0):
     mask = ((pt>jetPtCut) & (abs(eta)<get_param("eta_j_cut")) & (jet_id>get_param("jet_id_cut")))

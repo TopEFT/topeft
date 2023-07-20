@@ -27,43 +27,80 @@ FILL_OPS = {}
 
 # The channels that define the CR categories
 CR_CHAN_DICT = {
-    "cr_2los_Z" : [
-        "2los_ee_CRZ_0j",
-        "2los_mm_CRZ_0j",
+    #"cr_2los_Z" : [
+    #    "2los_ee_CRZ_0j",
+    #    "2los_mm_CRZ_0j",
+    #],
+    "cr_2los_VL_Z" : [
+        "2los_ee_CRZ_VLtau_0j",
+        "2los_mm_CRZ_VLtau_0j",
     ],
-    "cr_2los_tt" : [
-        "2los_em_CRtt_2j",
+    "cr_2los_L_Z" : [
+        "2los_ee_CRZ_Ltau_0j",
+        "2los_mm_CRZ_Ltau_0j",
     ],
-    "cr_2lss" : [
-        "2lss_ee_CR_1j",
-        "2lss_em_CR_1j",
-        "2lss_mm_CR_1j",
-        "2lss_ee_CR_2j",
-        "2lss_em_CR_2j",
-        "2lss_mm_CR_2j",
+    "cr_2los_M_Z" : [
+        "2los_ee_CRZ_Mtau_0j",
+        "2los_mm_CRZ_Mtau_0j",
     ],
-    "cr_2lss_flip" : [
-        "2lss_ee_CRflip_3j",
+    "cr_2los_T_Z" : [
+        "2los_ee_CRZ_Ttau_0j",
+        "2los_mm_CRZ_Ttau_0j",
     ],
-    "cr_3l" : [
-        "3l_eee_CR_0j",
-        "3l_eem_CR_0j",
-        "3l_emm_CR_0j",
-        "3l_mmm_CR_0j",
-        "3l_eee_CR_1j",
-        "3l_eem_CR_1j",
-        "3l_emm_CR_1j",
-        "3l_mmm_CR_1j",
+    "cr_2los_VT_Z" : [
+        "2los_ee_CRZ_VTtau_0j",
+        "2los_mm_CRZ_VTtau_0j",
     ],
+    #"cr_2los_L" : [
+    #    "2los_ee_CR_Ltau_0j",
+    #    "2los_mm_CR_Ltau_0j",
+    #],
+    #"cr_2los_M" : [
+    #    "2los_ee_CR_Mtau_0j",
+    #    "2los_mm_CR_Mtau_0j",
+    #],
+    #"cr_2los_T" : [
+    #    "2los_ee_CR_Ttau_0j",
+    #    "2los_mm_CR_Ttau_0j",
+    #],
+    #"cr_2los_tt" : [
+    #    "2los_em_CRtt_2j",
+    #],
+    #"cr_2lss" : [
+    #    "2lss_ee_CR_1j",
+    #    "2lss_em_CR_1j",
+    #    "2lss_mm_CR_1j",
+    #    "2lss_ee_CR_2j",
+    #    "2lss_em_CR_2j",
+    #    "2lss_mm_CR_2j",
+    #],
+    #"cr_2lss_flip" : [
+    #    "2lss_ee_CRflip_3j",
+    #],
+    #"cr_3l" : [
+    #    "3l_eee_CR_0j",
+    #    "3l_eem_CR_0j",
+    #    "3l_emm_CR_0j",
+    #    "3l_mmm_CR_0j",
+    #    "3l_eee_CR_1j",
+    #    "3l_eem_CR_1j",
+    #    "3l_emm_CR_1j",
+    #    "3l_mmm_CR_1j",
+    #],
 }
 
 
-SR_CHAN_DICT = {
+SR_CHAN_DICT_OLD = {
     "2lss_SR": [
         "2lss_4t_m_4j", "2lss_4t_m_5j", "2lss_4t_m_6j", "2lss_4t_m_7j",
         "2lss_4t_p_4j", "2lss_4t_p_5j", "2lss_4t_p_6j", "2lss_4t_p_7j",
         "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
         "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
+        "2lss_p_1tau_VL_4j", "2lss_m_1tau_VL_4j", "2lss_p_1tau_VT_4j", "2lss_m_1tau_VT_4j",
+        "2lss_p_1tau_VL_5j", "2lss_m_1tau_VL_5j", "2lss_p_1tau_VT_5j", "2lss_m_1tau_VT_5j",
+        "2lss_p_1tau_VL_6j", "2lss_m_1tau_VL_6j", "2lss_p_1tau_VT_6j", "2lss_m_1tau_VT_6j",
+        "2lss_p_1tau_VL_7j", "2lss_m_1tau_VL_7j", "2lss_p_1tau_VT_7j", "2lss_m_1tau_VT_7j",
+        "2los_1tau_4j", "2los_1tau_5j", "2los_1tau_6j", "2los_1tau_7j",
     ],
     "3l_offZ_SR" : [
         "3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_m_offZ_1b_5j",
@@ -74,9 +111,37 @@ SR_CHAN_DICT = {
     "3l_onZ_SR" : [
         "3l_onZ_1b_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
         "3l_onZ_2b_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
+        "3l_1tau_1b_VL_2j","3l_1tau_2b_VL_2j","3l_1tau_1b_VT_2j","3l_1tau_2b_VT_2j",
+        "3l_1tau_1b_VL_3j","3l_1tau_2b_VL_3j","3l_1tau_1b_VT_3j","3l_1tau_2b_VT_3j",
+        "3l_1tau_1b_VL_4j","3l_1tau_2b_VL_4j","3l_1tau_1b_VT_4j","3l_1tau_2b_VT_4j",
+        "3l_1tau_1b_VL_5j","3l_1tau_2b_VL_5j","3l_1tau_1b_VT_5j","3l_1tau_2b_VT_5j",
     ],
     "4l_SR" : [
         "4l_2j", "4l_3j", "4l_4j",
+    ]
+}
+
+SR_CHAN_DICT = {
+    "2lss_SR": [
+        "2lss_4t_m", "2lss_4t_p", "2lss_m", "2lss_p",
+        "2lss_p_1tau_VL", "2lss_m_1tau_VL", "2lss_p_1tau_VT", "2lss_m_1tau_VT",
+        "2lss_2tau",
+    ],
+    "2los_SR": [
+        "2los_1tau",
+    ],
+    "3l_offZ_SR" : [
+        "3l_m_offZ_1b", 
+        "3l_m_offZ_2b", 
+        "3l_p_offZ_1b", 
+        "3l_p_offZ_2b", 
+    ],
+    "3l_onZ_SR" : [
+        "3l_onZ_1b", "3l_onZ_2b",
+        "3l_1tau_1b_VL","3l_1tau_2b_VL","3l_1tau_1b_VT","3l_1tau_2b_VT",
+    ],
+    "4l_SR" : [
+        "4l"
     ]
 }
 
@@ -100,6 +165,7 @@ CR_GRP_MAP = {
 SR_GRP_MAP = {
     "Data": [],
     "Conv": [],
+    "DY"  : [],
     "Multiboson" : [],
     "Nonprompt" : [],
     "Flips" : [],
@@ -108,6 +174,13 @@ SR_GRP_MAP = {
     "ttll" : [],
     "tttt" : [],
     "tXq" : [],
+}
+
+TAU_GRP_MAP = {
+    "emuFake": [],
+    "jetFake": [],
+    "realTau": [],
+    "Data"   : [],
 }
 
 # Best fit point from TOP-19-001 with madup numbers for the 10 new WCs
@@ -389,6 +462,13 @@ def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,tem
 
         # Otherwise corrleated across groups (e.g. ZZ and WZ, as datacard maker does in SR)
         else:
+            flag = False
+            for item in proc_lst:
+                if "16" in item:
+                    flag = True
+                    print("Skipping ", item)
+            if flag:
+                continue
             n_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic","nominal").values()[()]
             u_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Up").values()[()]
             d_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Down").values()[()]
@@ -600,6 +680,58 @@ def make_single_fig_with_ratio(histo,axis_name,cat_ref,err_p=None,err_m=None,err
 
     return fig
 
+def make_sr_fig(h_mc,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
+
+    colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown"]
+
+    # Decide if we're plotting stat or syst uncty for mc
+    # In principle would be better to combine them
+    # But for our cases syst is way bigger than mc stat, so if we're plotting syst, ignore stat
+    plot_syst_err = False
+    mc_err_ops = MC_ERROR_OPS
+    if (err_p is not None) and (err_m is not None) and (err_ratio_p is not None) and (err_ratio_m is not None):
+        plot_syst_err = True
+        mc_err_ops = None
+
+    # Create the figure
+    fig, (ax, rax) = plt.subplots(
+        nrows=2,
+        ncols=1,
+        figsize=(7,7),
+        gridspec_kw={"height_ratios": (3, 1)},
+        sharex=True
+    )
+    fig.subplots_adjust(hspace=.07)
+
+    # Set up the colors
+    ax.set_prop_cycle(cycler(color=colors))
+
+    # Normalize if we want to do that
+    if unit_norm_bool:
+        sum_mc = 0
+        for sample in h_mc.values():
+            sum_mc = sum_mc + sum(h_mc.values()[sample])
+        h_mc.scale(1.0/sum_mc)
+
+    # Plot the MC
+    hist.plot1d(
+        h_mc,
+        ax=ax,
+        stack=True,
+        line_opts=None,
+        fill_opts=FILL_OPS,
+        error_opts=mc_err_ops,
+        clear=False,
+    )
+
+    # Scale the y axis and labels
+    ax.autoscale(axis='y')
+    ax.set_xlabel(None)
+
+    # Set the x axis lims
+    if set_x_lim: plt.xlim(set_x_lim)
+
+    return fig
 
 
 ###################### Wrapper function for example SR plots with systematics ######################
@@ -736,45 +868,35 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     # Construct list of MC samples
     mc_wl = []
     mc_bl = ["data"]
-    data_wl = ["data"]
-    data_bl = []
     if year is None:
         pass # Don't think we actually need to do anything here?
     elif year == "2017":
         mc_wl.append("UL17")
-        data_wl.append("UL17")
     elif year == "2018":
         mc_wl.append("UL18")
-        data_wl.append("UL18")
     elif year == "2016":
         mc_wl.append("UL16")
         mc_bl.append("UL16APV")
-        data_wl.append("UL16")
-        data_bl.append("UL16APV")
     elif year == "2016APV":
         mc_wl.append("UL16APV")
-        data_wl.append("UL16APV")
     else: raise Exception(f"Error: Unknown year \"{year}\".")
 
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
-    samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name="lj0pt")
     mc_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
     for sample_name in all_samples:
         if sample_name not in mc_sample_lst:
             samples_to_rm_from_mc_hist.append(sample_name)
-        if sample_name not in data_sample_lst:
-            samples_to_rm_from_data_hist.append(sample_name)
-    print("\nAll samples:",all_samples)
     print("\nMC samples:",mc_sample_lst)
-    print("\nData samples:",data_sample_lst)
     print("\nVariables:",dict_of_hists.keys())
-
     # Very hard coded :(
-    for proc_name in mc_sample_lst + data_sample_lst:
-        if "data" in proc_name:
+    for proc_name in mc_sample_lst:
+        if "tau" in proc_name:
+            print("removing ", proc_name, " from list")
+            samples_to_rm_from_mc_hist.append(proc_name)
+            continue
+        elif "data" in proc_name:
             SR_GRP_MAP["Data"].append(proc_name)
         elif "nonprompt" in proc_name:
             SR_GRP_MAP["Nonprompt"].append(proc_name)
@@ -796,9 +918,23 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             SR_GRP_MAP["Multiboson"].append(proc_name)
         elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
             SR_GRP_MAP["Multiboson"].append(proc_name)
+        elif "DY" in proc_name:
+            print("DY!!!")
+            SR_GRP_MAP["DY"].append(proc_name)
         else:
-            raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
-
+            print("removing ", proc_name, " from list")
+            samples_to_rm_from_mc_hist.append(proc_name)
+            #raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+    for proc_name in all_samples:
+        if "emu" in proc_name:
+            TAU_GRP_MAP["emuFake"].append(proc_name)
+        elif "jet" in proc_name:
+            TAU_GRP_MAP["jetFake"].append(proc_name)
+        elif "real" in proc_name:
+            TAU_GRP_MAP["realTau"].append(proc_name)
+        #else:
+        #     print("removing ", proc_name, " from list")
+        #     samples_to_rm_from_mc_hist.append(proc_name)
     # The analysis bins
     analysis_bins = {
         'njets': {
@@ -813,59 +949,49 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     # Loop over hists and make plots
     skip_lst = [] # Skip this hist
     #keep_lst = ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"] # Skip all but these hists
+    #print(enumerate(dict_of_hists.keys()))
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
+        if (var_name !=  "njets"): continue
         #if (var_name not in keep_lst): continue
         print("\nVariable:",var_name)
 
         # Extract the MC and data hists
         hist_mc_orig = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
-        hist_data_orig = dict_of_hists[var_name].remove(samples_to_rm_from_data_hist,"sample")
 
         # Loop over channels
         channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
-        print("channels:",channels_lst)
         #for chan_name in channels_lst: # For each channel individually
         for chan_name in SR_CHAN_DICT.keys():
+            for ch in SR_CHAN_DICT[chan_name]:
+                #hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
+                #hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
+                hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",ch,overflow="over")
+                print("HERE!")
+                print(chan_name)
+                hist_mc = yt.integrate_out_appl(hist_mc,chan_name)
+                
+                hist_mc = group_bins(hist_mc,SR_GRP_MAP,drop_unspecified=True)
+                #hist_mc = group_bins(hist_mc,TAU_GRP_MAP,drop_unspecified=True)
+                
+                # Make a sub dir for this category
+                save_dir_path_tmp = os.path.join(save_dir_path,chan_name)
+                if not os.path.exists(save_dir_path_tmp):
+                    os.mkdir(save_dir_path_tmp)
 
-            #hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
-            #hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
-            hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name],overflow="over")
-            hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name],overflow="over")
+                if hist_mc.values() == {}:
+                    print("Warning: empty mc histo, continuing")
+                    print(ch)
+                    continue
 
-            hist_mc = group_bins(hist_mc,SR_GRP_MAP)
-            hist_data = group_bins(hist_data,SR_GRP_MAP)
+                fig = make_sr_fig(hist_mc, unit_norm_bool=False)
+                if year is not None: year_str = year
+                else: year_str = "ULall"
+                title = ch + "_" + var_name + "_" + year_str
+                fig.savefig(os.path.join(save_dir_path_tmp,title))
 
-            # Make a sub dir for this category
-            save_dir_path_tmp = os.path.join(save_dir_path,chan_name)
-            if not os.path.exists(save_dir_path_tmp):
-                os.mkdir(save_dir_path_tmp)
-
-            # Rebin into analysis bins
-            if var_name in analysis_bins.keys():
-                lep_bin = chan_name[:2]
-                if var_name == "njets":
-                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axis(var_name).label, analysis_bins[var_name][lep_bin]))
-                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name][lep_bin]))
-                else:
-                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axis(var_name).label, analysis_bins[var_name]))
-                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name]))
-
-            if hist_mc.values() == {}:
-                print("Warning: empty mc histo, continuing")
-                continue
-            if hist_data.values() == {}:
-                print("Warning: empty data histo, continuing")
-                continue
-
-            fig = make_cr_fig(hist_mc, hist_data, unit_norm_bool=False)
-            if year is not None: year_str = year
-            else: year_str = "ULall"
-            title = chan_name + "_" + var_name + "_" + year_str
-            fig.savefig(os.path.join(save_dir_path_tmp,title))
-
-            # Make an index.html file if saving to web area
-            if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
+                # Make an index.html file if saving to web area
+                if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
 
 
 
@@ -898,7 +1024,8 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 
 
     # Loop over hists and make plots
-    skip_lst = [] # Skip this hist
+    #skip_lst = [] # Skip this hist
+    skip_lst = ['ptbl', 'ptz', 'nbtagsl', 'l0pt', 'l1pt', 'l1eta', 'j0pt', 'b0pt', 'l0eta', 'j0eta', 'ht', 'met', 'ljptsum', 'o0pt', 'bl0pt', 'lj0pt', 'taupt', 'invmass']
     for idx,var_name in enumerate(dict_of_hists.keys()):
         #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if (var_name in skip_lst): continue
@@ -959,6 +1086,8 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                     hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("sample",proc_name)
 
                     # Make plots
+                    print(hist_sig_grouped_tmp)
+                    print(hist_sig_grouped_tmp[grouped_hist_cat])
                     fig = make_single_fig(hist_sig_grouped_tmp[grouped_hist_cat],unit_norm_bool)
                     title = proc_name+"_"+grouped_hist_cat+"_"+var_name
                     if unit_norm_bool: title = title + "_unitnorm"
@@ -1013,6 +1142,16 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     print("\nData samples:",data_sample_lst)
     print("\nVariables:",dict_of_hists.keys())
 
+    for proc_name in all_samples:
+        if "emu" in proc_name:
+            TAU_GRP_MAP["emuFake"].append(proc_name)
+        elif "jet" in proc_name:
+            TAU_GRP_MAP["jetFake"].append(proc_name)
+        elif "real" in proc_name:
+            TAU_GRP_MAP["realTau"].append(proc_name)
+        elif "data" in proc_name:
+            CR_GRP_MAP["Data"].append(proc_name)
+
     # Fill group map (should we just fully hard code this?)
     for proc_name in all_samples:
         if "data" in proc_name:
@@ -1043,7 +1182,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
     # Loop over hists and make plots
-    skip_lst = [] # Skip these hists
+    #skip_lst = [] # Skip these hists
+    skip_lst = ['ptbl', 'ptz', 'njets', 'nbtagsl', 'l0pt', 'l1pt', 'l1eta', 'j0pt', 'b0pt', 'l0eta', 'j0eta', 'ht', 'met', 'ljptsum', 'o0pt', 'bl0pt', 'lj0pt']
     #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
@@ -1107,12 +1247,15 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
                 m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
 
-
+            print("before mc = ", hist_mc_integrated.identifiers("sample"))
+            print("before data = ", hist_data_integrated.identifiers("sample"))
             # Group the samples by process type, and grab just nominal syst category
-            hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
+            hist_mc_integrated = group_bins(hist_mc_integrated,TAU_GRP_MAP, drop_unspecified=True)
             hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
             hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
             hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
+            print("after mc = ", hist_mc_integrated.identifiers("sample"))
+            print("after data = ", hist_data_integrated.identifiers("sample"))
 
             # Print out total MC and data and the sf between them
             # For extracting the factors we apply to the flip contribution
@@ -1181,9 +1324,9 @@ def main():
     #exit()
 
     # Make the plots
-    make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
+    #make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
+    make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
     #make_simple_plots(hin_dict,args.year,save_dir_path)
 
