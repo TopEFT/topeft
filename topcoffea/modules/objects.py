@@ -20,8 +20,8 @@ def isTightTau(idDeepTau2017v2p1VSjet):
     return (idDeepTau2017v2p1VSjet>>2 & 1)
 
 def isTightJet(pt, eta, jet_id, jetPtCut=25.0):
-    #mask = ((pt>jetPtCut) & (abs(eta)<get_param("eta_j_cut")) & (jet_id>get_param("jet_id_cut"))) # NOTE: Do not apply jet id cut for wwz sync
-    mask = ((pt>jetPtCut) & (abs(eta)<get_param("eta_j_cut")))
+    mask = ((pt>jetPtCut) & (abs(eta)<get_param("eta_j_cut")) & (jet_id>get_param("jet_id_cut"))) # NOTE: Do not apply jet id cut for wwz sync
+    #mask = ((pt>jetPtCut) & (abs(eta)<get_param("eta_j_cut")))
     return mask
 
 def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
