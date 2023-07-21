@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import copy
 import coffea
 import numpy as np
 import awkward as ak
@@ -54,7 +55,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         #self._accumulator = processor.dict_accumulator({
-        self._hout = {
+        self._dense_hists_dict = {
             "njets"   :
                 hist.Hist(
                     hist.axis.StrCategory([], growth=True, name="process", label="process"),
@@ -72,12 +73,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         if hist_lst is None:
             # If the hist list is none, assume we want to fill all hists
             #self._hist_lst = list(self._accumulator.keys())
-            self._hist_lst = list(self._hout.keys())
+            self._hist_lst = list(self._dense_hists_dict.keys())
         else:
             # Otherwise, just fill the specified subset of hists
             for hist_to_include in hist_lst:
                 #if hist_to_include not in self._accumulator.keys():
-                if hist_to_include not in self._hout.keys():
+                if hist_to_include not in self._dense_hists_dict.keys():
                     raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
             self._hist_lst = hist_lst # Which hists to fill
 
@@ -446,7 +447,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             ######### Store boolean masks with PackedSelection ##########
 
             #hout = self.accumulator.identity()
-            hout = self._hout
+            dense_hists_dict = self._dense_hists_dict
+
+            hout = {
+                "njets" : {},
+            }
 
             selections = PackedSelection(dtype='uint64')
 
@@ -488,8 +493,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
                 #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all","allfourlep"],
                 #"lep_chan_lst" : ["4l_tc","4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
-                #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all","allfourlep","allfourlep_id"],
-                "lep_chan_lst" : ["4l_wwz_sf_A"]
+                "lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all","allfourlep","allfourlep_id"],
+                #"lep_chan_lst" : ["4l_wwz_sf_A"]
             }
 
 
@@ -520,6 +525,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 for sr_cat in sr_cat_dict["lep_chan_lst"]:
 
+                    hout[dense_axis_name][sr_cat] = copy.deepcopy(dense_hists_dict[dense_axis_name])
+
                     # Make the cuts mask
                     cuts_lst = [sr_cat]
                     all_cuts_mask = selections.all(*cuts_lst)
@@ -533,8 +540,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         #"sample"        : histAxisName,
                         #"systematic"    : "nominal",
                     }
-
-                    hout[dense_axis_name].fill(**axes_fill_info_dict)
+                    hout[dense_axis_name][sr_cat].fill(**axes_fill_info_dict)
 
         return hout
 
