@@ -12,10 +12,10 @@ def test_topcoffea():
         "-o",
         "output_check_yields",
         "-p",
-        "analysis/topEFT/histos/"
+        "analysis/wwz/histos/"
     ]
 
     # Run TopCoffea
     subprocess.run(args)
 
-    assert (exists('analysis/topEFT/histos/output_check_yields.pkl.gz'))
+    assert (exists('analysis/wwz/histos/output_check_yields.pkl.gz'))
