@@ -194,10 +194,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Lepton selection ####################
 
-        print("\nprint statement")
-        print("\HERE AT THE START OF LEP SELECTION!!!")
-        print("\nprint statement")
-
         # Do the object selection for the WWZ eleectrons
         ele_presl_mask = is_presel_wwz_ele(ele,tight=True)
         ele["topmva"] = get_topmva_score_ele(events, year)
@@ -475,34 +471,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("4l_wwz_of_2", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_2 & mt2_mask))
             selections.add("4l_wwz_of_3", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_3 & mt2_mask))
             selections.add("4l_wwz_of_4", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_4))
-            selections.add("all", (events.is4lWWZ | (~events.is4lWWZ)))
 
-            selections.add("allfourlep", (events.is4lWWZ))
-
-            #selections.add("allfourlep_id", (events.is4lWWZ & bmask_exactly0loose & (events.wwz_presel_of | events.wwz_presel_of) & pass_trg))
-            #selections.add("allfourlep_id", (events.is4lWWZ & (events.wwz_presel_of | events.wwz_presel_of) & pass_trg))
-            #selections.add("allfourlep_id", (events.is4lWWZ & bmask_exactly0loose & (events.wwz_presel_of | events.wwz_presel_of)))
-            selections.add("allfourlep_id", (events.is4lWWZ & bmask_exactly0loose & (events.wwz_presel_of)))
-            ##selections.add("allfourlep_id", (events.is4lWWZ & (events.wwz_presel_of | events.wwz_presel_of)))
-
-            print("zeroj",zeroj)
-            print("zeroj",zeroj)
-            print("zeroj",zeroj)
+            selections.add("all", (events.is4lWWZ | (~events.is4lWWZ))) # All events.. this logic is a bit roundabout to just get an array of True
+            selections.add("allfourlep", (events.is4lWWZ)) # This matches the VVV looper selection (object selection and event selection)
 
             sr_cat_dict = {
-                #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
-                #"lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all","allfourlep"],
-                #"lep_chan_lst" : ["4l_tc","4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4"],
-                "lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all","allfourlep","allfourlep_id"],
-                #"lep_chan_lst" : ["4l_wwz_sf_A"]
+                "lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all","allfourlep"],
             }
 
 
             ######### Fill histos #########
-
-            print("\nprint statement")
-            print("\nHERE AT THE START OF HISTO FILLING!!!")
-            print("\nprint statement")
 
             dense_axes_dict = {
                 #"met" : met.pt,
@@ -514,18 +492,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights = weights_obj_base.partial_weight(include=["norm"])
             weights = events.nom
 
-            print("j0.pt",j0.pt)
-            print("this")
-
-
             # Loop over the hists we want to fill
             for dense_axis_name, dense_axis_vals in dense_axes_dict.items():
-                print("\ndense_axis_name,vals",dense_axis_name)
-                print("dense_axis_name,vals",dense_axis_vals)
+                #print("\ndense_axis_name,vals",dense_axis_name)
+                #print("dense_axis_name,vals",dense_axis_vals)
 
                 for sr_cat in sr_cat_dict["lep_chan_lst"]:
 
-                    hout[dense_axis_name][sr_cat] = copy.deepcopy(dense_hists_dict[dense_axis_name])
+                    hout[dense_axis_name][sr_cat] = {}
+                    hout[dense_axis_name][sr_cat][histAxisName] = copy.deepcopy(dense_hists_dict[dense_axis_name])
 
                     # Make the cuts mask
                     cuts_lst = [sr_cat]
@@ -536,11 +511,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                         dense_axis_name : dense_axis_vals[all_cuts_mask],
                         "weight"        : weights[all_cuts_mask],
                         "process"       : histAxisName,
-                        #"channel"       : sr_cat,
-                        #"sample"        : histAxisName,
                         #"systematic"    : "nominal",
                     }
-                    hout[dense_axis_name][sr_cat].fill(**axes_fill_info_dict)
+                    hout[dense_axis_name][sr_cat][histAxisName].fill(**axes_fill_info_dict)
 
         return hout
 
