@@ -264,7 +264,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Selecting jets and cleaning them
             # NOTE: The jet id cut is commented for now in objects.py for the sync
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
-            cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=20.)
+            cleanedJets["isGood"] = is_tight_jet_wwz(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=20.)
             goodJets = cleanedJets[cleanedJets.isGood]
 
             # Count jets
