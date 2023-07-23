@@ -21,7 +21,7 @@ def get_counts(histos_dict):
     for obj in ojb_lst:
         nobjs_hist = histos_dict[obj]["all_events"][wwz_sync_sample].values(flow=True)[0]
         tot_objs = 0
-        for i,v in enumerate(nobjs_hist): 
+        for i,v in enumerate(nobjs_hist):
             tot_objs = tot_objs + (i-1.)*v # Have to adjust for the fact that first bin is underflow, second bin is 0 objects
         out_dict[wwz_sync_sample][obj] = (tot_objs,None) # Save err as None
         #print("\ntotobj",obj,tot_objs)
