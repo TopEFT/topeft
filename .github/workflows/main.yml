@@ -121,9 +121,12 @@ jobs:
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_futures_wwz.py
 
-      - name: Check WWZ yields 
+      - name: Get WWZ yields 
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append -k test_make_yields_after_processor_wwz
+
+      - name: Check WWZ yields 
+        run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append -k test_compare_yields_after_processor_wwz
 
       - name: Run topeft processors over test files with futures executor
