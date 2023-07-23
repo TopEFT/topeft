@@ -346,14 +346,11 @@ def add4lMaskAndSFs_wwz(events, year, isData):
 
     # Check if the leading lep associated with Z has pt>25
     on_z = ak.fill_none(get_Z_peak_mask(leps_padded[:,0:4],pt_window=10.0),False)
-    leps_from_z_candidate_ptordered, leps_not_z_candidate_ptordered = get_wwz_candidates(leps_padded)
-    zpt_0_25 = ak.any((leps_from_z_candidate_ptordered[:,0:1].pt > 25.0),axis=1)
 
     # Remove low mass resonances
     cleanup = (events.min_mll_afos > 12)
 
-    mask = filters & nlep_4 & on_z & zpt_0_25 & cleanup
-    #mask = filters & nlep_4 & on_z & cleanup
+    mask = filters & nlep_4 & on_z & cleanup
     events['is4lWWZ'] = ak.fill_none(mask,False)
 
 
