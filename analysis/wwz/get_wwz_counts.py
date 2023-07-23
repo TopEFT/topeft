@@ -30,7 +30,7 @@ def get_counts(histos_dict):
     dense_axis = "njets"
     for cat_name in histos_dict[dense_axis].keys():
         val = sum(histos_dict[dense_axis][cat_name][wwz_sync_sample].values()[0])
-        out_dict[wwz_sync_sample][cat_name] = (tot_objs,None) # Save err as None
+        out_dict[wwz_sync_sample][cat_name] = (val,None) # Save err as None
         #print(dense_axis,cat_name,val)
 
     return out_dict
@@ -51,7 +51,8 @@ def main():
 
     # Print the counts
     print("\nCounts:")
-    for cat,val in counts_dict.items(): print(f"  {cat}:{val}")
+    for proc in counts_dict.keys():
+        for cat,val in counts_dict[proc].items(): print(f"  {cat}:{val[0]}")
 
     # Dump counts dict to json
     if "json" not in args.output_name: output_name = args.output_name + ".json"
