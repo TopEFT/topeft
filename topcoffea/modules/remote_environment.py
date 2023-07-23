@@ -45,7 +45,7 @@ packages_json_template = string.Template('''
     "pip": [
         "coffea==$coffea_version",
         "topcoffea",
-        "xgboost"
+        "xgboost",
         "mt2"
         ]
 }''')
