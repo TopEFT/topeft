@@ -63,6 +63,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                     storage="weight",
                     name="Counts"
                 ),
+            "nleps"   :
+                hist.Hist(
+                    hist.axis.StrCategory([], growth=True, name="process", label="process"),
+                    axis.Regular(20, 0, 20, name="nleps",   label="Lep multiplicity"),
+                    storage="weight",
+                    name="Counts"
+                ),
+            "nbtagsl"   :
+                hist.Hist(
+                    hist.axis.StrCategory([], growth=True, name="process", label="process"),
+                    axis.Regular(20, 0, 20, name="nbtagsl",   label="Loose btag multiplicity"),
+                    storage="weight",
+                    name="Counts"
+                ),
             #"njets"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",   "Jet multiplicity ", 20, 0, 20)),
             #"nleps"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nleps",   "Lep multiplicity ", 10, 0, 10)),
             #"nbtagsl" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nbtagsl", "Loose btag multiplicity ", 20, 0, 20)),
@@ -447,6 +461,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             hout = {
                 "njets" : {},
+                "nleps" : {},
+                "nbtagsl" : {},
             }
 
             selections = PackedSelection(dtype='uint64')
@@ -472,11 +488,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("4l_wwz_of_3", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_3 & mt2_mask))
             selections.add("4l_wwz_of_4", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_4))
 
-            selections.add("all", (events.is4lWWZ | (~events.is4lWWZ))) # All events.. this logic is a bit roundabout to just get an array of True
-            selections.add("allfourlep", (events.is4lWWZ)) # This matches the VVV looper selection (object selection and event selection)
+            selections.add("all_events", (events.is4lWWZ | (~events.is4lWWZ))) # All events.. this logic is a bit roundabout to just get an array of True
+            selections.add("4l_presel", (events.is4lWWZ)) # This matches the VVV looper selection (object selection and event selection)
 
             sr_cat_dict = {
-                "lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all","allfourlep"],
+                "lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all_events","4l_presel"],
             }
 
 
@@ -484,9 +500,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             dense_axes_dict = {
                 #"met" : met.pt,
-                #"nleps" : nleps,
+                "nleps" : nleps,
                 "njets" : njets,
-                #"nbtagsl" : nbtagsl,
+                "nbtagsl" : nbtagsl,
             }
 
             weights = weights_obj_base.partial_weight(include=["norm"])
