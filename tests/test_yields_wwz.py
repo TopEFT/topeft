@@ -1,7 +1,7 @@
 import subprocess
 from os.path import exists
 
-def test_make_yields_after_processor():
+def test_make_yields_after_processor_wwz():
     assert (exists('analysis/wwz/histos/output_check_yields.pkl.gz')) # Make sure the input pkl file exists
 
     args = [
@@ -17,7 +17,7 @@ def test_make_yields_after_processor():
     subprocess.run(args)
     assert (exists('analysis/wwz/output_check_yields.json'))
 
-def test_compare_yields_after_processor():
+def test_compare_yields_after_processor_wwz():
     args = [
         "python",
         "analysis/wwz/comp_json_yields.py",
