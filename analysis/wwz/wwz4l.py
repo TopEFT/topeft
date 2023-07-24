@@ -54,7 +54,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._dtype = dtype
 
         # Create the histograms
-        #self._accumulator = processor.dict_accumulator({
         self._dense_hists_dict = {
             "njets"   :
                 hist.Hist(
@@ -77,21 +76,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                     storage="weight",
                     name="Counts"
                 ),
-            #"njets"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("njets",   "Jet multiplicity ", 20, 0, 20)),
-            #"nleps"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nleps",   "Lep multiplicity ", 10, 0, 10)),
-            #"nbtagsl" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("nbtagsl", "Loose btag multiplicity ", 20, 0, 20)),
-            #"met"     : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Bin("met",     "MET (GeV)", 20, 0, 400)),
         }
 
         # Set the list of hists to fill
         if hist_lst is None:
             # If the hist list is none, assume we want to fill all hists
-            #self._hist_lst = list(self._accumulator.keys())
             self._hist_lst = list(self._dense_hists_dict.keys())
         else:
             # Otherwise, just fill the specified subset of hists
             for hist_to_include in hist_lst:
-                #if hist_to_include not in self._accumulator.keys():
                 if hist_to_include not in self._dense_hists_dict.keys():
                     raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
             self._hist_lst = hist_lst # Which hists to fill
@@ -106,10 +99,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
 
-
-    #@property
-    #def accumulator(self):
-    #    return self._accumulator
 
     @property
     def columns(self):
@@ -309,8 +298,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
             if btagger == "btagcsv":
                 isBtagJetsLoose = (goodJets.btagDeepB > btagwpl)
-            #isBtagJetsLoose = (goodJets.btagDeepFlavB > 0.1355)
-            #isBtagJetsLoose = (goodJets.btagDeepB > 0.1355)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
@@ -381,12 +368,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Do the boosts, as implimented in c++: https://github.com/sgnoohc/mt2example/blob/main/main.cc#L7
             w_lep0 = leps_not_z_candidate_ptordered[:,0:1]
             w_lep1 = leps_not_z_candidate_ptordered[:,1:2]
-            print("w_lep0.pt",w_lep0.pt)
-            print("w_lep1.pt",w_lep1.pt)
-            print("l0.pt",l0.pt)
-            print("l0.pt",l1.pt)
-            print("l0.pt",l2.pt)
-            print("l0.pt",l3.pt)
             rest_WW = w_lep0 + w_lep1 + misspart
             beta_from_miss_reverse = rest_WW.boostvec
             beta_from_miss = beta_from_miss_reverse.negative()
