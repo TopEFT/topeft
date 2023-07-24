@@ -40,7 +40,7 @@ packages_json_template = string.Template('''
             "conda-pack",
             "dill",
             "xrootd",
-            "xgboost",
+            "xgboost"
         ]
     },
     "pip": [
