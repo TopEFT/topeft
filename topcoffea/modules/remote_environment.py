@@ -39,15 +39,15 @@ packages_json_template = string.Template('''
             "conda",
             "conda-pack",
             "dill",
-            "xrootd"
+            "xrootd",
+            "xgboost",
         ]
     },
     "pip": [
         "coffea==$coffea_version",
         "topcoffea",
-        "xgboost",
         "mt2"
-        ]
+    ]
 }''')
 
 pip_local_to_watch = { "topcoffea": ["topcoffea", "setup.py"] }
