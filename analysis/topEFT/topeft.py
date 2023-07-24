@@ -480,8 +480,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Get mask for events that have two sf os leps close to z peak
             sfosz_3l_OnZ_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
-            sfosz_3l_OffZ_low_mask = get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
-            sfosz_3l_OffZ_high_mask = get_off_Z_mask_high(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
+            sfosz_3l_OffZ_low_mask = get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
             sfosz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
             sfasz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
             # Pass trigger mask
@@ -529,14 +528,14 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
             # 3l selection
-            selections.add("3l_p_offZ_1b_low", (events.is3l & charge3l_p & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_p_offZ_1b_high", (events.is3l & charge3l_p & sfosz_3l_OffZ_high_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_m_offZ_1b_low", (events.is3l & charge3l_m & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_m_offZ_1b_high", (events.is3l & charge3l_m & sfosz_3l_OffZ_high_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_p_offZ_2b_low", (events.is3l & charge3l_p & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_p_offZ_2b_high", (events.is3l & charge3l_p & sfosz_3l_OffZ_high_mask & bmask_exactly2med & pass_trg))
-            selections.add("3l_m_offZ_2b_low", (events.is3l & charge3l_m & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_m_offZ_2b_high", (events.is3l & charge3l_m & sfosz_3l_OffZ_high_mask & bmask_exactly2med & pass_trg))
+            selections.add("3l_p_offZ_1b_low", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_p_offZ_1b_high", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_m_offZ_1b_low", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_m_offZ_1b_high", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_p_offZ_2b_low", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
+            selections.add("3l_p_offZ_2b_high", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly2med & pass_trg))
+            selections.add("3l_m_offZ_2b_low", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
+            selections.add("3l_m_offZ_2b_high", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly2med & pass_trg))
             selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_OnZ_mask & bmask_exactly1med & pass_trg))
             selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_OnZ_mask & bmask_atleast2med & pass_trg))
             selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))

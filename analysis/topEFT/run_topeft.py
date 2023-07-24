@@ -258,7 +258,7 @@ if __name__ == '__main__':
             'extra_input_files': ["topeft.py"],
 
             'retries': 5,
-
+            'filepath': '/tmp',
             # use mid-range compression for chunks results. 9 is the default for work
             # queue in coffea. Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
