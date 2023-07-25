@@ -193,7 +193,7 @@ def get_topmva_score_ele(events, year):
     # The order here comes from https://github.com/cmstas/VVVNanoLooper/blob/8a194165cdbbbee3bcf69f932d837e95a0a265e6/src/ElectronIDHelper.cc#L110-L122
     in_vals = np.array([
         ak.flatten(ele.pt),
-        ak.flatten(ele.eta),
+        ak.flatten(ele.eta), # Kirill confirms that signed eta was used in the training
         ak.flatten(ele.jetNDauCharged),
         ak.flatten(ele.miniPFRelIso_chg),
         ak.flatten(ele.miniPFRelIso_diff_all_chg),
@@ -234,12 +234,13 @@ def get_topmva_score_mu(events, year):
     model_fpath = topcoffea_path(f"data/topmva/lepid_weights/mu_TOP{ulbase}_XGB.weights.bin")
 
     # Get the input data
-    mu["btagDeepFlavB"] = ak.zeros_like(mu.pt) # TODO: Note sure how to handle this, unclear in the c++ code
+    mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, 0)
+
     mu["jetPtRatio"] = 1./(mu.jetRelIso+1.)
     mu["miniPFRelIso_diff_all_chg"] = mu.miniPFRelIso_all - mu.miniPFRelIso_chg
     in_vals = np.array([
         ak.flatten(mu.pt),
-        ak.flatten(mu.eta),
+        ak.flatten(mu.eta), # Kirill confirms that signed eta was used in the training
         ak.flatten(mu.jetNDauCharged),
         ak.flatten(mu.miniPFRelIso_chg),
         ak.flatten(mu.miniPFRelIso_diff_all_chg),
