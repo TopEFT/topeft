@@ -39,13 +39,13 @@ packages_json_template = string.Template('''
             "conda",
             "conda-pack",
             "dill",
-            "xrootd",
-            "xgboost"
+            "xrootd"
         ]
     },
     "pip": [
         "coffea==$coffea_version",
         "topcoffea",
+        "xgboost",
         "mt2"
     ]
 }''')
