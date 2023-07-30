@@ -44,8 +44,10 @@ packages_json_template = string.Template('''
     },
     "pip": [
         "coffea==$coffea_version",
-        "topcoffea"
-        ]
+        "topcoffea",
+        "xgboost",
+        "mt2"
+    ]
 }''')
 
 pip_local_to_watch = { "topcoffea": ["topcoffea", "setup.py"] }

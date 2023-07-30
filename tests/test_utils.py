@@ -46,7 +46,7 @@ def test_get_files():
         verbose=True
     )
 
-    assert (len(file_list) == 7)
+    assert (len(file_list) == 8)
     assert (pjoin(path,"lumi.json") in file_list)
     assert (pjoin(path,"params.json") in file_list)
     assert (pjoin(path,"rate_systs.json") in file_list)
@@ -54,6 +54,7 @@ def test_get_files():
     assert (pjoin(path,"test_samples/UL17_private_ttH_for_CI.json") in file_list)
     assert (pjoin(path,"test_samples/UL17_private_ttH_hadoop_for_CI.json") in file_list)
     assert (pjoin(path,"test_samples/UL17_private_ttH_hadoop_for_CI_NDSkim.json") in file_list)
+    assert (pjoin(path,"test_samples/UL17_WWZJetsTo4L2Nu_forCI.json") in file_list)
 
     # Check if the 'ignore_files' option is working as intended
     path = topcoffea_path("json")
@@ -67,7 +68,7 @@ def test_get_files():
         verbose=True
     )
 
-    assert (len(file_list) == 5)
+    assert (len(file_list) == 6)
     assert (pjoin(path,"lumi.json") not in file_list)
     assert (pjoin(path,"params.json") not in file_list)
     assert (pjoin(path,"rate_systs.json") in file_list)
@@ -75,6 +76,7 @@ def test_get_files():
     assert (pjoin(path,"test_samples/UL17_private_ttH_for_CI.json") in file_list)
     assert (pjoin(path,"test_samples/UL17_private_ttH_hadoop_for_CI.json") in file_list)
     assert (pjoin(path,"test_samples/UL17_private_ttH_hadoop_for_CI_NDSkim.json") in file_list)
+    assert (pjoin(path,"test_samples/UL17_WWZJetsTo4L2Nu_forCI.json") in file_list)
 
     # Recurse through the entire json directory ignoring all json files. Should only match the
     #   "README.md" file

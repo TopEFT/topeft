@@ -1,0 +1,52 @@
+{
+    "UL17_WWZJetsTo4L2Nu": {
+        "nleps": [
+            158395.0,
+            null
+        ],
+        "njets": [
+            96796.0,
+            null
+        ],
+        "nbtagsl": [
+            19343.0,
+            null
+        ],
+        "4l_wwz_sf_A": [
+            930.0,
+            null
+        ],
+        "4l_wwz_sf_B": [
+            714.0,
+            null
+        ],
+        "4l_wwz_sf_C": [
+            208.0,
+            null
+        ],
+        "4l_wwz_of_1": [
+            253.0,
+            null
+        ],
+        "4l_wwz_of_2": [
+            315.0,
+            null
+        ],
+        "4l_wwz_of_3": [
+            632.0,
+            null
+        ],
+        "4l_wwz_of_4": [
+            2036.0,
+            null
+        ],
+        "all_events": [
+            54868.0,
+            null
+        ],
+        "4l_presel": [
+            9865.0,
+            null
+        ]
+    }
+}

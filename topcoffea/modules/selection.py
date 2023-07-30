@@ -411,9 +411,9 @@ def addLepCatMasks(events):
 
 # Returns a mask for events with a same flavor opposite (same) sign pair close to the Z
 # Mask will be True if any combination of 2 leptons from within the given collection satisfies the requirement
-def get_Z_peak_mask(lep_collection,pt_window,flavor="os"):
+def get_Z_peak_mask(lep_collection,pt_window,flavor="os",zmass=91.2):
     ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
-    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<pt_window)
+    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - zmass)<pt_window)
     if flavor == "os":
         sf_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
     elif flavor == "ss":
