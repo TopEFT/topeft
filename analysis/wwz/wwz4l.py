@@ -12,7 +12,6 @@ from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.GetValuesFromJsons import get_param, get_lumi
 from topcoffea.modules.paths import topcoffea_path
-import topcoffea.modules.objects as objbase
 import topcoffea.modules.objects_wwz as objwwz
 import topcoffea.modules.selection_wwz as selwwz
 import topcoffea.modules.selection as selbase
