@@ -9,6 +9,8 @@
 
 import numpy as np
 import awkward as ak
+from mt2 import mt2
+from coffea.nanoevents.methods import vector
 
 from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.corrections import fakeRateWeight2l, fakeRateWeight3l
@@ -551,3 +553,36 @@ def attach_wwz_preselection_mask(events,lep_collection):
     # Attach to the lepton objects
     events["wwz_presel_sf"] = (wwz_presel_mask & sf_mask)
     events["wwz_presel_of"] = (wwz_presel_mask & ~sf_mask)
+
+# Get MT2 for WW
+def get_mt2(w_lep0,w_lep1,met):
+
+    # Construct misspart vector, as implimented in c++: https://github.com/sgnoohc/mt2example/blob/main/main.cc#L7 (but pass 0 not pi/2 for met eta)
+    nevents = len(np.zeros_like(met))
+    misspart = ak.zip(
+        {
+            "pt": met.pt,
+            "eta": 0,
+            "phi": met.phi,
+            "mass": np.full(nevents, 0),
+        },
+        with_name="PtEtaPhiMLorentzVector",
+        behavior=vector.behavior,
+    )
+    # Do the boosts, as implimented in c++: https://github.com/sgnoohc/mt2example/blob/main/main.cc#L7
+    rest_WW = w_lep0 + w_lep1 + misspart
+    beta_from_miss_reverse = rest_WW.boostvec
+    beta_from_miss = beta_from_miss_reverse.negative()
+    w_lep0_boosted = w_lep0.boost(beta_from_miss)
+    w_lep1_boosted = w_lep1.boost(beta_from_miss)
+    misspart_boosted = misspart.boost(beta_from_miss)
+
+    # Get the mt2 variable, use the mt2 package: https://pypi.org/project/mt2/
+    mt2_var = mt2(
+        w_lep0.mass, w_lep0_boosted.px, w_lep0_boosted.py,
+        w_lep1.mass, w_lep1_boosted.px, w_lep1_boosted.py,
+        misspart_boosted.px, misspart_boosted.py,
+        np.zeros_like(met.pt), np.zeros_like(met.pt),
+    )
+
+    return mt2_var

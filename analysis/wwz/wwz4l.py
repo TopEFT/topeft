@@ -15,9 +15,6 @@ from topcoffea.modules.objects import *
 from topcoffea.modules.selection import *
 from topcoffea.modules.paths import topcoffea_path
 
-from coffea.nanoevents.methods import vector
-from mt2 import mt2
-
 
 class AnalysisProcessor(processor.ProcessorABC):
 
@@ -241,8 +238,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Selecting jets and cleaning them
             # NOTE: The jet id cut is commented for now in objects.py for the sync
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
-            cleanedJets["isGood"] = is_tight_jet_wwz(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=20.)
-            goodJets = cleanedJets[cleanedJets.isGood]
+            cleanedJets["is_good"] = is_tight_jet_wwz(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=20.)
+            goodJets = cleanedJets[cleanedJets.is_good]
 
             # Count jets
             njets = ak.num(goodJets)
@@ -284,7 +281,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Put njets and l_fo_conept_sorted into events
             events["njets"] = njets
-            events["l_wwz_t"] = l_wwz_t # FOR WWZ
+            events["l_wwz_t"] = l_wwz_t
 
             add4lMaskAndSFs_wwz(events, year, isData)
 
@@ -325,39 +322,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             of_3 = ak.fill_none(ak.any((w_candidates_mll > 60.0) & (w_candidates_mll < 100.0),axis=1),False)
             of_4 = ak.fill_none(ak.any((w_candidates_mll > 100.0),axis=1),False)
 
-            ### The mt2 stuff ###
-            # Construct misspart vector, as implimented in c++: https://github.com/sgnoohc/mt2example/blob/main/main.cc#L7 (but pass 0 not pi/2 for met eta)
-            nevents = len(np.zeros_like(met))
-            misspart = ak.zip(
-                {
-                    "pt": met.pt,
-                    "eta": 0,
-                    "phi": met.phi,
-                    "mass": np.full(nevents, 0),
-                },
-                with_name="PtEtaPhiMLorentzVector",
-                behavior=vector.behavior,
-            )
-            # Do the boosts, as implimented in c++: https://github.com/sgnoohc/mt2example/blob/main/main.cc#L7
+            # Mask for mt2 cut
             w_lep0 = leps_not_z_candidate_ptordered[:,0:1]
             w_lep1 = leps_not_z_candidate_ptordered[:,1:2]
-            rest_WW = w_lep0 + w_lep1 + misspart
-            beta_from_miss_reverse = rest_WW.boostvec
-            beta_from_miss = beta_from_miss_reverse.negative()
-            w_lep0_boosted = w_lep0.boost(beta_from_miss)
-            w_lep1_boosted = w_lep1.boost(beta_from_miss)
-            misspart_boosted = misspart.boost(beta_from_miss)
-
-
-            # Get the mt2 variable, use the mt2 package: https://pypi.org/project/mt2/
-            mt2_var = mt2(
-                w_lep0.mass, w_lep0_boosted.px, w_lep0_boosted.py,
-                w_lep1.mass, w_lep1_boosted.px, w_lep1_boosted.py,
-                misspart_boosted.px, misspart_boosted.py,
-                np.zeros_like(events['event']), np.zeros_like(events['event']),
-            )
-            # Mask for mt2 cut
-            mt2_mask = ak.fill_none(ak.any((mt2_var>25.0),axis=1),False)
+            mt2_val = get_mt2(w_lep0,w_lep1,met)
+            mt2_mask = ak.fill_none(ak.any((mt2_val>25.0),axis=1),False)
 
 
 
