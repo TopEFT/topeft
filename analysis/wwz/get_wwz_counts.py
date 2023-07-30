@@ -52,7 +52,7 @@ def main():
     # Print the counts
     print("\nCounts:")
     for proc in counts_dict.keys():
-        for cat,val in counts_dict[proc].items(): print(f"  {cat}:{val[0]}")
+        for cat,val in counts_dict[proc].items(): print(f"  {cat}: {val[0]}")
 
     # Dump counts dict to json
     if "json" not in args.output_name: output_name = args.output_name + ".json"

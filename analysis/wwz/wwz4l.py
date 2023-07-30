@@ -18,32 +18,6 @@ from topcoffea.modules.paths import topcoffea_path
 from coffea.nanoevents.methods import vector
 from mt2 import mt2
 
-# Takes strings as inputs, constructs a string for the full channel name
-# Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
-    # chan_str should look something like "3l_p_offZ_1b", NOTE: This function assumes nlep comes first
-    # njet_str should look something like "atleast_5j",   NOTE: This function assumes njets comes last
-    # flav_str should look something like "emm"
-def construct_cat_name(chan_str,njet_str=None,flav_str=None):
-
-    # Get the component strings
-    nlep_str = chan_str.split("_")[0] # Assumes n leps comes first in the str
-    chan_str = "_".join(chan_str.split("_")[1:]) # The rest of the channel name is everything that comes after nlep
-    if chan_str == "": chan_str = None # So that we properly skip this in the for loop below
-    if flav_str is not None:
-        flav_str = flav_str
-    if njet_str is not None:
-        njet_str = njet_str[-2:] # Assumes number of n jets comes at the end of the string
-        if "j" not in njet_str:
-            # The njet string should really have a "j" in it
-            raise Exception(f"Something when wrong while trying to consturct channel name, is \"{njet_str}\" an njet string?")
-
-    # Put the component strings into the channel name
-    ret_str = nlep_str
-    for component in [flav_str,chan_str,njet_str]:
-        if component is None: continue
-        ret_str = "_".join([ret_str,component])
-    return ret_str
-
 
 class AnalysisProcessor(processor.ProcessorABC):
 
@@ -352,12 +326,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             of_4 = ak.fill_none(ak.any((w_candidates_mll > 100.0),axis=1),False)
 
             ### The mt2 stuff ###
-            # Construct misspart vector, as implimented in c++: https://github.com/sgnoohc/mt2example/blob/main/main.cc#L7
+            # Construct misspart vector, as implimented in c++: https://github.com/sgnoohc/mt2example/blob/main/main.cc#L7 (but pass 0 not pi/2 for met eta)
             nevents = len(np.zeros_like(met))
             misspart = ak.zip(
                 {
                     "pt": met.pt,
-                    #"eta": np.pi / 2,
                     "eta": 0,
                     "phi": met.phi,
                     "mass": np.full(nevents, 0),
@@ -375,64 +348,17 @@ class AnalysisProcessor(processor.ProcessorABC):
             w_lep1_boosted = w_lep1.boost(beta_from_miss)
             misspart_boosted = misspart.boost(beta_from_miss)
 
-            #print("\nRest W")
-            #for i,beta in enumerate(rest_WW):
-            #    if beta is not None: print(i,rest_WW.x[i],rest_WW.y[i],rest_WW.z[i])
-
-            #print("\nbeta_from_miss")
-            #for i,beta in enumerate(beta_from_miss):
-            #    if beta is not None: print(i,beta.x,beta.y,beta.z)
-
-            #print("\n\nHERE!!!!!!",len(w_lep0_boosted.mass))
-            #for i,x in enumerate(w_lep0_boosted.mass):
-            #    print("")
-            #    print(i,"m1"  ,w_lep0_boosted.mass[i],w_lep0.mass[i])
-            #    print(i,"x1"  ,w_lep0_boosted.px[i],w_lep0.px[i])
-            #    print(i,"y1"  ,w_lep0_boosted.py[i],w_lep0.py[i])
-            #    print(i,"pt1" ,w_lep0_boosted.pt[i],w_lep0.pt[i])
-            #    print(i,"eta1",w_lep0_boosted.eta[i],w_lep0.eta[i])
-
-            #    print(i,"m2"  ,w_lep1_boosted.mass[i],w_lep1.mass[i])
-            #    print(i,"x2"  ,w_lep1_boosted.px[i],w_lep1.px[i])
-            #    print(i,"y2"  ,w_lep1_boosted.py[i],w_lep1.py[i])
-            #    print(i,"pt2" ,w_lep1_boosted.pt[i],w_lep1.pt[i])
-            #    print(i,"eta2",w_lep1_boosted.eta[i],w_lep1.eta[i])
-
-            #    print(i,"metx",misspart_boosted.px[i],misspart.px[i])
-            #    print(i,"mety",misspart_boosted.py[i],misspart.py[i])
-
-            #print("\n\nHERE!!!!!!",len(w_lep0_boosted.mass))
-            #for i,x in enumerate(w_lep0_boosted.mass):
-            #    print("\n",i)
-            #    print("l1pt    ",w_lep0.pt[i])
-            #    print("l2pt    ",w_lep1.pt[i])
-            #    print("l1eta   ",w_lep0.eta[i])
-            #    print("l2eta   ",w_lep1.eta[i])
-            #    print("l1phi   ",w_lep0.phi[i])
-            #    print("l2phi   ",w_lep1.phi[i])
-            #    print("l1energy",w_lep0.energy[i])
-            #    print("l2energy",w_lep1.energy[i])
-            #    print("met     ",met.pt[i])
-            #    print("metphi  ",met.phi[i])
 
             # Get the mt2 variable, use the mt2 package: https://pypi.org/project/mt2/
             mt2_var = mt2(
                 w_lep0.mass, w_lep0_boosted.px, w_lep0_boosted.py,
                 w_lep1.mass, w_lep1_boosted.px, w_lep1_boosted.py,
-                #w_lep0_boosted.mass, w_lep0_boosted.px, w_lep0_boosted.py,
-                #w_lep1_boosted.mass, w_lep1_boosted.px, w_lep1_boosted.py,
-                #np.zeros_like(events['event']), w_lep0_boosted.px, w_lep0_boosted.py,
-                #np.zeros_like(events['event']), w_lep1_boosted.px, w_lep1_boosted.py,
                 misspart_boosted.px, misspart_boosted.py,
                 np.zeros_like(events['event']), np.zeros_like(events['event']),
             )
             # Mask for mt2 cut
             mt2_mask = ak.fill_none(ak.any((mt2_var>25.0),axis=1),False)
 
-            #for i,x in enumerate(mt2_var):
-            #    print(i,"mt2",mt2_var[i])
-            #print("this")
-            #exit()
 
 
             ######### Store boolean masks with PackedSelection ##########
@@ -475,6 +401,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sr_cat_dict = {
                 "lep_chan_lst" : ["4l_wwz_sf_A","4l_wwz_sf_B","4l_wwz_sf_C","4l_wwz_of_1","4l_wwz_of_2","4l_wwz_of_3","4l_wwz_of_4","all_events","4l_presel"],
             }
+
 
 
             ######### Fill histos #########
