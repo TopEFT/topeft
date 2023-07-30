@@ -3,7 +3,7 @@ import awkward as ak
 from mt2 import mt2
 from coffea.nanoevents.methods import vector
 
-import topcoffea.modules.selection as sel
+import topcoffea.modules.selection as selbase
 from topcoffea.modules.GetValuesFromJsons import get_param
 
 
@@ -22,7 +22,7 @@ def add4lmask_wwz(events, year, isData):
     nlep_4 = (ak.num(leps) == 4)
 
     # Check if the leading lep associated with Z has pt>25
-    on_z = ak.fill_none(sel.get_Z_peak_mask(leps_padded[:,0:4],pt_window=10.0),False)
+    on_z = ak.fill_none(selbase.get_Z_peak_mask(leps_padded[:,0:4],pt_window=10.0,zmass=91.1876),False)
 
     # Remove low mass resonances
     cleanup = (events.min_mll_afos > 12)

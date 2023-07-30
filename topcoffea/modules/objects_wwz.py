@@ -9,6 +9,12 @@ def is_tight_jet_wwz(pt, eta, jet_id, jetPtCut=25.0):
     mask = ((pt>jetPtCut) & (abs(eta)<get_param("eta_j_cut")))
     return mask
 
+# Clean collection b (e.g. jets) with collection a (e.g. leps)
+def get_cleaned_collection(obj_collection_a,obj_collection_b,drcut=0.4):
+    obj_b_nearest_to_any_in_a , dr = obj_collection_b.nearest(obj_collection_a,return_metric=True)
+    mask = ak.fill_none(dr>drcut,True)
+    return obj_collection_b[mask]
+
 ######### WWZ 4l analysis object selection #########
 
 # WWZ preselection for electrons

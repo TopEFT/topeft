@@ -8,7 +8,6 @@ import numpy as np
 import awkward as ak
 
 from topcoffea.modules.GetValuesFromJsons import get_param
-from topcoffea.modules.paths import topcoffea_path
 
 ### These functions have been synchronized with ttH ###
 
@@ -128,9 +127,3 @@ def isClean(obj_A, obj_B, drmin=0.4):
     objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
     mask = ak.fill_none(objB_DR > drmin, True)
     return (mask)
-
-# Clean collection b (e.g. jets) with collection a (e.g. leps)
-def get_cleaned_collection(obj_collection_a,obj_collection_b,drcut=0.4):
-    obj_b_nearest_to_any_in_a , dr = obj_collection_b.nearest(obj_collection_a,return_metric=True)
-    mask = ak.fill_none(dr>drcut,True)
-    return obj_collection_b[mask]

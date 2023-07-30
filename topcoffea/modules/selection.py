@@ -10,7 +10,6 @@
 import numpy as np
 import awkward as ak
 
-from topcoffea.modules.GetValuesFromJsons import get_param
 from topcoffea.modules.corrections import fakeRateWeight2l, fakeRateWeight3l
 
 
@@ -412,10 +411,9 @@ def addLepCatMasks(events):
 
 # Returns a mask for events with a same flavor opposite (same) sign pair close to the Z
 # Mask will be True if any combination of 2 leptons from within the given collection satisfies the requirement
-def get_Z_peak_mask(lep_collection,pt_window,flavor="os"):
+def get_Z_peak_mask(lep_collection,pt_window,flavor="os",zmass=91.2):
     ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
-    #zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<pt_window)
-    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.1876)<pt_window)
+    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - zmass)<pt_window)
     if flavor == "os":
         sf_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
     elif flavor == "ss":
@@ -444,33 +442,3 @@ def get_Z_pt(lep_collection,pt_window):
     pt_of_sfosz = pair_pt_with_sfosz_mask[zpeak_idx]
 
     return ak.flatten(pt_of_sfosz)
-
-################### WWZ stuff ###################
-
-# Takes as input the lep collection
-# Finds SFOS pair that is closest to the Z peak
-# Returns object level mask with "True" for the leptons that are part of the Z candidate and False for others
-def get_z_candidate_mask(lep_collection):
-
-    # Attach the local index to the lepton objects
-    lep_collection['idx'] = ak.local_index(lep_collection, axis=1)
-
-    # Make all pairs of leptons
-    ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
-    ll_pairs_idx = ak.argcombinations(lep_collection, 2, fields=["l0","l1"])
-
-    # Check each pair to see how far it is from the Z
-    dist_from_z_all_pairs = abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)
-
-    # Mask out the pairs that are not SFOS (so that we don't include them when finding the one that's closest to Z)
-    # And then of the SFOS pairs, get the index of the one that's cosest to the Z
-    sfos_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
-    dist_from_z_sfos_pairs = ak.mask(dist_from_z_all_pairs,sfos_mask)
-    sfos_pair_closest_to_z_idx = ak.argmin(dist_from_z_sfos_pairs,axis=-1,keepdims=True)
-
-    # Construct a mask (of the shape of the original lep array) corresponding to the leps that are part of the Z candidate
-    mask = (lep_collection.idx == ak.flatten(ll_pairs_idx.l0[sfos_pair_closest_to_z_idx]))
-    mask = (mask | (lep_collection.idx == ak.flatten(ll_pairs_idx.l1[sfos_pair_closest_to_z_idx])))
-    mask = ak.fill_none(mask, False)
-
-    return mask

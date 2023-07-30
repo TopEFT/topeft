@@ -235,7 +235,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             #cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
             # Clean with dr for now
-            cleanedJets = objbase.get_cleaned_collection(l_wwz_t,jets)
+            cleanedJets = objwwz.get_cleaned_collection(l_wwz_t,jets)
 
             # Selecting jets and cleaning them
             # NOTE: The jet id cut is commented for now in objects.py for the sync
