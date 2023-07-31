@@ -7,6 +7,79 @@ import topcoffea.modules.selection as selbase
 from topcoffea.modules.GetValuesFromJsons import get_param
 
 
+# The datasets we are using, and the triggers in them
+dataset_dict = {
+
+    "2016" : {
+        "DoubleMuon" : [
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ",
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL",
+            "Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL",
+            "Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL_DZ",
+        ],
+        "DoubleEG" : [
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+        ],
+        "MuonEG" : [
+            "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL",
+            "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu23_TrkIsoVVL_Ele8_CaloIdL_TrackIdL_IsoVL",
+            "Mu23_TrkIsoVVL_Ele8_CaloIdL_TrackIdL_IsoVL_DZ",
+        ]
+    },
+
+    "2017" : {
+        "DoubleMuon" : [
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass8",
+        ],
+        "DoubleEG" : [
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
+        ],
+        "MuonEG" : [
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+        ]
+    },
+
+    "2018" : {
+        "EGamma" : [
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
+        ],
+        "DoubleMuon" : [
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
+        ],
+        "MuonEG" : [
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+        ]
+    }
+
+}
+
+
+# Hard coded dictionary for figuring out overlap...
+#   - No unique way to do this
+#   - Note: In order for this to work properly, you should be processing all of the datastes to be used in the analysis
+#   - Otherwise, you may be removing events that show up in other datasets you're not using
+exclude_dict = {
+    "2016": {
+        "DoubleMuon"     : [],
+        "DoubleEG"       : dataset_dict["2016"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2016"]["DoubleMuon"] + dataset_dict["2016"]["DoubleEG"],
+    },
+    "2017": {
+        "DoubleMuon"     : [],
+        "DoubleEG"       : dataset_dict["2017"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2017"]["DoubleMuon"] + dataset_dict["2017"]["DoubleEG"],
+    },
+    "2018": {
+        "DoubleMuon"     : [],
+        "EGamma"         : dataset_dict["2018"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2018"]["DoubleMuon"] + dataset_dict["2018"]["EGamma"],
+    },
+}
+
+
 # 4l selection # SYNC
 def add4lmask_wwz(events, year, isData):
 
