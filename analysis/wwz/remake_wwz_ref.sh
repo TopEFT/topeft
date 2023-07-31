@@ -13,6 +13,10 @@ time python run_wwz4l.py ../../topcoffea/json/test_samples/UL17_WWZJetsTo4L2Nu_f
 printf "\nMaking the yields JSON file...\n"
 python get_wwz_counts.py -f histos/new_ref_histos.pkl.gz -n new_ref_yields
 
+# Compare the JSON file of the yields
+printf "\nCompare the new yields JSON file to old ref...\n"
+python comp_json_yields.py new_ref_yields.json ref_for_ci/counts_wwz_ref.json -t1 "New yields" -t2 "Old ref yields"
+
 # Replace the reference yields with the new reference yields
 printf "\nReplacing ref yields JSON with new file...\n"
 mv new_ref_yields.json ref_for_ci/counts_wwz_ref.json
