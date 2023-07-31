@@ -56,6 +56,64 @@ dataset_dict = {
 
 }
 
+trgs_for_matching = {
+
+    "2016" : {
+        "m_m" : {
+            "trg_lst" : dataset_dict["2016"]["DoubleMuon"],
+            "offline_thresholds" : [20.0,10.0],
+        },
+        "e_e" : {
+            "trg_lst" : dataset_dict["2016"]["DoubleEG"],
+            "offline_thresholds" : [25.0,15.0],
+        },
+        "m_e" : {
+            "trg_lst" : ["Mu23_TrkIsoVVL_Ele8_CaloIdL_TrackIdL_IsoVL","Mu23_TrkIsoVVL_Ele8_CaloIdL_TrackIdL_IsoVL_DZ"],
+            "offline_thresholds" : [25,10],
+        },
+        "e_m" : {
+            "trg_lst" : ["Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL","Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ"],
+            "offline_thresholds" : [25.0,10.0],
+        },
+    },
+    "2017" : {
+        "m_m" : {
+            "trg_lst" : dataset_dict["2017"]["DoubleMuon"],
+            "offline_thresholds" : [20.0,10.0],
+        },
+        "e_e" : {
+            "trg_lst" : dataset_dict["2017"]["DoubleEG"],
+            "offline_thresholds" : [25.0,15.0],
+        },
+        "m_e" : {
+            "trg_lst" : ["Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ"],
+            "offline_thresholds" : [25.0,15.0],
+        },
+        "e_m" : {
+            "trg_lst" : ["Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ"],
+            "offline_thresholds" : [25.0,10.0],
+        },
+    },
+    "2018" : {
+        "m_m" : {
+            "trg_lst" : dataset_dict["2018"]["DoubleMuon"],
+            "offline_thresholds" : [20.0,10.0],
+        },
+        "e_e" : {
+            "trg_lst" : dataset_dict["2018"]["EGamma"],
+            "offline_thresholds" : [25.0,15.0],
+        },
+        "m_e" : {
+            "trg_lst" : ["Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ"],
+            "offline_thresholds" : [25.0,15.0],
+        },
+        "e_m" : {
+            "trg_lst" : ["Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ"],
+            "offline_thresholds" : [25.0,10.0],
+        },
+    }
+}
+
 
 # Hard coded dictionary for figuring out overlap...
 #   - No unique way to do this
@@ -78,6 +136,18 @@ exclude_dict = {
         "MuonEG"         : dataset_dict["2018"]["DoubleMuon"] + dataset_dict["2018"]["EGamma"],
     },
 }
+
+# Apply trigger matching requirements to make sure pt is above online thresholds
+def trg_matching(events,year):
+
+    for l_l in trgs_for_matching[year]:
+        trg_lst = trgs_for_matching[year][l_l]["trg_lst"]
+        offline_thresholds = trgs_for_matching[year][l_l]["offline_thresholds"]
+
+        trg_passes = selbase.passesTrgInLst(events,trg_lst)
+        print(l_l,trg_lst,offline_thresholds,trg_passes)
+
+
 
 
 # 4l selection # SYNC
