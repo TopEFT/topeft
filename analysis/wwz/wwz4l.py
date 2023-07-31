@@ -12,6 +12,7 @@ from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.GetValuesFromJsons import get_param, get_lumi
 from topcoffea.modules.paths import topcoffea_path
+import topcoffea.modules.objects as objbase
 import topcoffea.modules.objects_wwz as objwwz
 import topcoffea.modules.selection_wwz as selwwz
 import topcoffea.modules.selection as selbase
@@ -239,7 +240,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Selecting jets and cleaning them
             # NOTE: The jet id cut is commented for now in objects.py for the sync
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
-            cleanedJets["is_good"] = objwwz.is_tight_jet_wwz(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=20.)
+            cleanedJets["is_good"] = objbase.isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=20.)
             goodJets = cleanedJets[cleanedJets.is_good]
 
             # Count jets
