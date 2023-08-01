@@ -4,7 +4,6 @@
 import json
 import subprocess
 import os
-from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.samples import loadxsecdic
 from topcoffea.modules.combine_json_ext import combine_json_ext
 from topcoffea.modules.combine_json_batch import combine_json_batch
