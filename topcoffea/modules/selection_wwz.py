@@ -137,17 +137,40 @@ exclude_dict = {
     },
 }
 
+
 # Apply trigger matching requirements to make sure pt is above online thresholds
 def trg_matching(events,year):
 
+    # Initialize return array to be True array with same shape as events
+    ret_arr = ak.ones_like(np.array(events.event), dtype=bool)
+
+    # Get the leptons, sort and pad
+    el = events.l_wwz_t[abs(events.l_wwz_t.pdgId)==11]
+    el = ak.pad_none(el[ak.argsort(el.pt,axis=-1,ascending=False)],2)
+    mu = events.l_wwz_t[abs(events.l_wwz_t.pdgId)==13]
+    mu = ak.pad_none(mu[ak.argsort(mu.pt,axis=-1,ascending=False)],2)
+
+    # Loop over offline cuts, make sure triggers pass the offline cuts for the associated triggers
     for l_l in trgs_for_matching[year]:
-        trg_lst = trgs_for_matching[year][l_l]["trg_lst"]
+
+        # Check if lep pt passes the offline cuts
         offline_thresholds = trgs_for_matching[year][l_l]["offline_thresholds"]
+        if   l_l == "m_m": offline_cut = ak.fill_none(((mu[:,0].pt > offline_thresholds[0]) & (mu[:,1].pt > offline_thresholds[1])),False)
+        elif l_l == "e_e": offline_cut = ak.fill_none(((el[:,0].pt > offline_thresholds[0]) & (el[:,1].pt > offline_thresholds[1])),False)
+        elif l_l == "m_e": offline_cut = ak.fill_none(((mu[:,0].pt > offline_thresholds[0]) & (el[:,0].pt > offline_thresholds[1])),False)
+        elif l_l == "e_m": offline_cut = ak.fill_none(((el[:,0].pt > offline_thresholds[0]) & (mu[:,0].pt > offline_thresholds[1])),False)
+        else: raise Exception("Unknown offline cut.")
 
+        # Check if trigger passes the associated triggers
+        trg_lst = trgs_for_matching[year][l_l]["trg_lst"]
         trg_passes = selbase.passesTrgInLst(events,trg_lst)
-        print(l_l,trg_lst,offline_thresholds,trg_passes)
 
+        # Build the return mask
+        # It should only false in the case where trg_passes but offline_cut fails
+        true_arr = ak.ones_like(np.array(events.event), dtype=bool) # True array with same shape as events
+        ret_arr = ret_arr & ak.where(trg_passes,offline_cut,true_arr)
 
+    return ret_arr
 
 
 # 4l selection # SYNC

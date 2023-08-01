@@ -292,6 +292,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Pass trigger mask
             pass_trg = selbase.trgPassNoOverlap(events,isData,dataset,str(year),dataset_dict=selwwz.dataset_dict,exclude_dict=selwwz.exclude_dict)
+            print("matching:",selwwz.trg_matching(events,year))
+            print("matching:",selwwz.trg_matching(events,year))
+            print("matching:",selwwz.trg_matching(events,year))
+            print("matching:",selwwz.trg_matching(events,year))
+            pass_trg = (pass_trg & selwwz.trg_matching(events,year))
 
             # b jet masks
             bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
