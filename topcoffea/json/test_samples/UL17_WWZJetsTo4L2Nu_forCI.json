@@ -1,5 +1,5 @@
 {
-  "xsec": 0.2151,
+  "xsec": 0.0005972,
   "year": "2017",
   "treeName": "Events",
   "histAxisName": "UL17_WWZJetsTo4L2Nu",
@@ -8,18 +8,8 @@
   "files": [
     "output_1.root"
   ],
-  "nEvents": 7993714,
-  "nGenEvents": 40553247,
-  "nSumOfWeights": 575.3735616864701,
-  "isData": false,
-  "nSumOfWeights_ISRUp": 551.6043364015839,
-  "nSumOfWeights_ISRDown": 595.296014965334,
-  "nSumOfWeights_FSRUp": 575.0603156871065,
-  "nSumOfWeights_FSRDown": 576.5027201552521,
-  "nSumOfWeights_renormUp": 490.3073273065021,
-  "nSumOfWeights_renormDown": 687.0718575833407,
-  "nSumOfWeights_factUp": 533.2206309224223,
-  "nSumOfWeights_factDown": 625.4158625663422,
-  "nSumOfWeights_renormfactUp": 454.65945259538086,
-  "nSumOfWeights_renormfactDown": 747.2810760952543
+  "nEvents": 54868,
+  "nGenEvents": 109760,
+  "nSumOfWeights": 227.15914198199997,
+  "isData": false
 }
