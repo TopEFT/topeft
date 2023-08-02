@@ -64,7 +64,7 @@ def test_get_files():
         ignore_files=["lumi\\.json","params\\.json"],
         recursive=True,
         # Should only recurse into "sync_samples" and "test_samples"
-        ignore_dirs=["background_samples","data_samples","signal_samples"],
+        ignore_dirs=["background_samples","data_samples","signal_samples","wwz_analysis_samples"],
         verbose=True
     )
 
