@@ -42,7 +42,7 @@ def test_get_files():
         match_files=[".*\\.json"],
         recursive=True,
         # Should only recurse into "sync_samples" and "test_samples"
-        ignore_dirs=["background_samples","data_samples","signal_samples"],
+        ignore_dirs=["background_samples","data_samples","signal_samples","wwz_analysis_samples"],
         verbose=True
     )
 
