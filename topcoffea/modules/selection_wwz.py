@@ -142,7 +142,7 @@ exclude_dict = {
 def trg_matching(events,year):
 
     # Initialize return array to be True array with same shape as events
-    ret_arr = ak.ones_like(np.array(events.event), dtype=bool)
+    ret_arr = ak.zeros_like(np.array(events.event), dtype=bool)
 
     # Get the leptons, sort and pad
     el = events.l_wwz_t[abs(events.l_wwz_t.pdgId)==11]
@@ -152,6 +152,7 @@ def trg_matching(events,year):
 
     # Loop over offline cuts, make sure triggers pass the offline cuts for the associated triggers
     for l_l in trgs_for_matching[year]:
+
 
         # Check if lep pt passes the offline cuts
         offline_thresholds = trgs_for_matching[year][l_l]["offline_thresholds"]
@@ -166,9 +167,10 @@ def trg_matching(events,year):
         trg_passes = selbase.passesTrgInLst(events,trg_lst)
 
         # Build the return mask
-        # It should only false in the case where trg_passes but offline_cut fails
-        true_arr = ak.ones_like(np.array(events.event), dtype=bool) # True array with same shape as events
-        ret_arr = ret_arr & ak.where(trg_passes,offline_cut,true_arr)
+        # The return mask started from an array of False
+        # The way an event becomes True is if it passes a trigger AND passes the offline pt cuts associated with that trg
+        false_arr = ak.zeros_like(np.array(events.event), dtype=bool) # False array with same shape as events
+        ret_arr = ret_arr | ak.where(trg_passes,offline_cut,false_arr)
 
     return ret_arr
 
