@@ -7,6 +7,174 @@ import topcoffea.modules.selection as selbase
 from topcoffea.modules.GetValuesFromJsons import get_param
 
 
+# The datasets we are using, and the triggers in them
+dataset_dict = {
+
+    "2016" : {
+        "DoubleMuon" : [
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ",
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL",
+            "Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL",
+            "Mu17_TrkIsoVVL_TkMu8_TrkIsoVVL_DZ",
+        ],
+        "DoubleEG" : [
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+        ],
+        "MuonEG" : [
+            "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL",
+            "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu23_TrkIsoVVL_Ele8_CaloIdL_TrackIdL_IsoVL",
+            "Mu23_TrkIsoVVL_Ele8_CaloIdL_TrackIdL_IsoVL_DZ",
+        ]
+    },
+
+    "2017" : {
+        "DoubleMuon" : [
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass8",
+        ],
+        "DoubleEG" : [
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
+        ],
+        "MuonEG" : [
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+        ]
+    },
+
+    "2018" : {
+        "EGamma" : [
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
+        ],
+        "DoubleMuon" : [
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
+        ],
+        "MuonEG" : [
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+        ]
+    }
+
+}
+
+trgs_for_matching = {
+
+    "2016" : {
+        "m_m" : {
+            "trg_lst" : dataset_dict["2016"]["DoubleMuon"],
+            "offline_thresholds" : [20.0,10.0],
+        },
+        "e_e" : {
+            "trg_lst" : dataset_dict["2016"]["DoubleEG"],
+            "offline_thresholds" : [25.0,15.0],
+        },
+        "m_e" : {
+            "trg_lst" : ["Mu23_TrkIsoVVL_Ele8_CaloIdL_TrackIdL_IsoVL","Mu23_TrkIsoVVL_Ele8_CaloIdL_TrackIdL_IsoVL_DZ"],
+            "offline_thresholds" : [25,10],
+        },
+        "e_m" : {
+            "trg_lst" : ["Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL","Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ"],
+            "offline_thresholds" : [25.0,10.0],
+        },
+    },
+    "2017" : {
+        "m_m" : {
+            "trg_lst" : dataset_dict["2017"]["DoubleMuon"],
+            "offline_thresholds" : [20.0,10.0],
+        },
+        "e_e" : {
+            "trg_lst" : dataset_dict["2017"]["DoubleEG"],
+            "offline_thresholds" : [25.0,15.0],
+        },
+        "m_e" : {
+            "trg_lst" : ["Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ"],
+            "offline_thresholds" : [25.0,15.0],
+        },
+        "e_m" : {
+            "trg_lst" : ["Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ"],
+            "offline_thresholds" : [25.0,10.0],
+        },
+    },
+    "2018" : {
+        "m_m" : {
+            "trg_lst" : dataset_dict["2018"]["DoubleMuon"],
+            "offline_thresholds" : [20.0,10.0],
+        },
+        "e_e" : {
+            "trg_lst" : dataset_dict["2018"]["EGamma"],
+            "offline_thresholds" : [25.0,15.0],
+        },
+        "m_e" : {
+            "trg_lst" : ["Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ"],
+            "offline_thresholds" : [25.0,15.0],
+        },
+        "e_m" : {
+            "trg_lst" : ["Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ"],
+            "offline_thresholds" : [25.0,10.0],
+        },
+    }
+}
+
+
+# Hard coded dictionary for figuring out overlap...
+#   - No unique way to do this
+#   - Note: In order for this to work properly, you should be processing all of the datastes to be used in the analysis
+#   - Otherwise, you may be removing events that show up in other datasets you're not using
+exclude_dict = {
+    "2016": {
+        "DoubleMuon"     : [],
+        "DoubleEG"       : dataset_dict["2016"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2016"]["DoubleMuon"] + dataset_dict["2016"]["DoubleEG"],
+    },
+    "2017": {
+        "DoubleMuon"     : [],
+        "DoubleEG"       : dataset_dict["2017"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2017"]["DoubleMuon"] + dataset_dict["2017"]["DoubleEG"],
+    },
+    "2018": {
+        "DoubleMuon"     : [],
+        "EGamma"         : dataset_dict["2018"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict["2018"]["DoubleMuon"] + dataset_dict["2018"]["EGamma"],
+    },
+}
+
+
+# Apply trigger matching requirements to make sure pt is above online thresholds
+def trg_matching(events,year):
+
+    # Initialize return array to be True array with same shape as events
+    ret_arr = ak.zeros_like(np.array(events.event), dtype=bool)
+
+    # Get the leptons, sort and pad
+    el = events.l_wwz_t[abs(events.l_wwz_t.pdgId)==11]
+    el = ak.pad_none(el[ak.argsort(el.pt,axis=-1,ascending=False)],2)
+    mu = events.l_wwz_t[abs(events.l_wwz_t.pdgId)==13]
+    mu = ak.pad_none(mu[ak.argsort(mu.pt,axis=-1,ascending=False)],2)
+
+    # Loop over offline cuts, make sure triggers pass the offline cuts for the associated triggers
+    for l_l in trgs_for_matching[year]:
+
+
+        # Check if lep pt passes the offline cuts
+        offline_thresholds = trgs_for_matching[year][l_l]["offline_thresholds"]
+        if   l_l == "m_m": offline_cut = ak.fill_none(((mu[:,0].pt > offline_thresholds[0]) & (mu[:,1].pt > offline_thresholds[1])),False)
+        elif l_l == "e_e": offline_cut = ak.fill_none(((el[:,0].pt > offline_thresholds[0]) & (el[:,1].pt > offline_thresholds[1])),False)
+        elif l_l == "m_e": offline_cut = ak.fill_none(((mu[:,0].pt > offline_thresholds[0]) & (el[:,0].pt > offline_thresholds[1])),False)
+        elif l_l == "e_m": offline_cut = ak.fill_none(((el[:,0].pt > offline_thresholds[0]) & (mu[:,0].pt > offline_thresholds[1])),False)
+        else: raise Exception("Unknown offline cut.")
+
+        # Check if trigger passes the associated triggers
+        trg_lst = trgs_for_matching[year][l_l]["trg_lst"]
+        trg_passes = selbase.passesTrgInLst(events,trg_lst)
+
+        # Build the return mask
+        # The return mask started from an array of False
+        # The way an event becomes True is if it passes a trigger AND passes the offline pt cuts associated with that trg
+        false_arr = ak.zeros_like(np.array(events.event), dtype=bool) # False array with same shape as events
+        ret_arr = ret_arr | ak.where(trg_passes,offline_cut,false_arr)
+
+    return ret_arr
+
+
 # 4l selection # SYNC
 def add4lmask_wwz(events, year, isData):
 

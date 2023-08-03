@@ -291,7 +291,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             ######### Masks we need for the selection ##########
 
             # Pass trigger mask
-            pass_trg = selbase.trgPassNoOverlap(events,isData,dataset,str(year))
+            pass_trg = selbase.trgPassNoOverlap(events,isData,dataset,str(year),dataset_dict=selwwz.dataset_dict,exclude_dict=selwwz.exclude_dict)
+            pass_trg = (pass_trg & selwwz.trg_matching(events,year))
 
             # b jet masks
             bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
@@ -351,20 +352,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             zeroj = (njets==0)
 
             # For WWZ selection
-            #selections.add("4l_wwz_sf_A", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
-            #selections.add("4l_wwz_sf_B", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
-            #selections.add("4l_wwz_sf_C", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
-            #selections.add("4l_wwz_of_1", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_1 & mt2_mask))
-            #selections.add("4l_wwz_of_2", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_2 & mt2_mask))
-            #selections.add("4l_wwz_of_3", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_3 & mt2_mask))
-            #selections.add("4l_wwz_of_4", (events.is4lWWZ & bmask_exactly0loose & pass_trg & events.wwz_presel_of & of_4))
-            selections.add("4l_wwz_sf_A", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
-            selections.add("4l_wwz_sf_B", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
-            selections.add("4l_wwz_sf_C", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
-            selections.add("4l_wwz_of_1", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_1 & mt2_mask))
-            selections.add("4l_wwz_of_2", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_2 & mt2_mask))
-            selections.add("4l_wwz_of_3", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_3 & mt2_mask))
-            selections.add("4l_wwz_of_4", (events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_4))
+            selections.add("4l_wwz_sf_A", (pass_trg & events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_A))
+            selections.add("4l_wwz_sf_B", (pass_trg & events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_B))
+            selections.add("4l_wwz_sf_C", (pass_trg & events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_sf & w_candidates_mll_far_from_z & sf_C))
+            selections.add("4l_wwz_of_1", (pass_trg & events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_1 & mt2_mask))
+            selections.add("4l_wwz_of_2", (pass_trg & events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_2 & mt2_mask))
+            selections.add("4l_wwz_of_3", (pass_trg & events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_3 & mt2_mask))
+            selections.add("4l_wwz_of_4", (pass_trg & events.is4lWWZ & bmask_exactly0loose & events.wwz_presel_of & of_4))
 
             selections.add("all_events", (events.is4lWWZ | (~events.is4lWWZ))) # All events.. this logic is a bit roundabout to just get an array of True
             selections.add("4l_presel", (events.is4lWWZ)) # This matches the VVV looper selection (object selection and event selection)
