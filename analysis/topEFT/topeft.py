@@ -528,14 +528,14 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
             # 3l selection
-            selections.add("3l_p_offZ_1b_low", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_p_offZ_1b_high", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_m_offZ_1b_low", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_m_offZ_1b_high", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_p_offZ_2b_low", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_p_offZ_2b_high", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly2med & pass_trg))
-            selections.add("3l_m_offZ_2b_low", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_m_offZ_2b_high", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly2med & pass_trg))
+            selections.add("3l_p_offZ_low_1b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_p_offZ_high_1b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_m_offZ_low_1b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_m_offZ_high_1b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_p_offZ_low_2b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
+            selections.add("3l_p_offZ_high_2b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly2med & pass_trg))
+            selections.add("3l_m_offZ_low_2b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
+            selections.add("3l_m_offZ_high_2b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly2med & pass_trg))
             selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_OnZ_mask & bmask_exactly1med & pass_trg))
             selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_OnZ_mask & bmask_atleast2med & pass_trg))
             selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
@@ -672,28 +672,28 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "3l" : {
                     "exactly_2j" : {
                         "lep_chan_lst" : [
-                            "3l_p_offZ_1b_low" ,"3l_p_offZ_1b_high" , "3l_m_offZ_1b_low" , "3l_m_offZ_1b_high" , "3l_p_offZ_2b_low" ,"3l_p_offZ_2b_high" , "3l_m_offZ_2b_low" , "3l_m_offZ_2b_high" , "3l_onZ_1b" , "3l_onZ_2b",
+                            "3l_p_offZ_low_1b" ,"3l_p_offZ_high_1b" , "3l_m_offZ_low_1b" , "3l_m_offZ_high_1b" , "3l_p_offZ_low_2b" ,"3l_p_offZ_high_2b" , "3l_m_offZ_low_2b" , "3l_m_offZ_high_2b" , "3l_onZ_1b" , "3l_onZ_2b",
                         ],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l", "isAR_3l"],
                     },
                     "exactly_3j" : {
                         "lep_chan_lst" : [
-                            "3l_p_offZ_1b_low" ,"3l_p_offZ_1b_high" , "3l_m_offZ_1b_low" , "3l_m_offZ_1b_high" , "3l_p_offZ_2b_low" ,"3l_p_offZ_2b_high" , "3l_m_offZ_2b_low" , "3l_m_offZ_2b_high" , "3l_onZ_1b" , "3l_onZ_2b",
+                            "3l_p_offZ_low_1b" ,"3l_p_offZ_high_1b" , "3l_m_offZ_low_1b" , "3l_m_offZ_high_1b" , "3l_p_offZ_low_2b" ,"3l_p_offZ_high_2b" , "3l_m_offZ_low_2b" , "3l_m_offZ_high_2b" , "3l_onZ_1b" , "3l_onZ_2b",
                         ],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l", "isAR_3l"],
                     },
                     "exactly_4j" : {
                         "lep_chan_lst" : [
-                            "3l_p_offZ_1b_low" ,"3l_p_offZ_1b_high" , "3l_m_offZ_1b_low" , "3l_m_offZ_1b_high" , "3l_p_offZ_2b_low" ,"3l_p_offZ_2b_high" , "3l_m_offZ_2b_low" , "3l_m_offZ_2b_high" , "3l_onZ_1b" , "3l_onZ_2b",
+                            "3l_p_offZ_low_1b" ,"3l_p_offZ_high_1b" , "3l_m_offZ_low_1b" , "3l_m_offZ_high_1b" , "3l_p_offZ_low_2b" ,"3l_p_offZ_high_2b" , "3l_m_offZ_low_2b" , "3l_m_offZ_high_2b" , "3l_onZ_1b" , "3l_onZ_2b",
                         ],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l", "isAR_3l"],
                     },
                     "atleast_5j" : {
                         "lep_chan_lst" : [
-                            "3l_p_offZ_1b_low" ,"3l_p_offZ_1b_high" , "3l_m_offZ_1b_low" , "3l_m_offZ_1b_high" , "3l_p_offZ_2b_low" ,"3l_p_offZ_2b_high" , "3l_m_offZ_2b_low" , "3l_m_offZ_2b_high" , "3l_onZ_1b" , "3l_onZ_2b",
+                            "3l_p_offZ_low_1b" ,"3l_p_offZ_high_1b" , "3l_m_offZ_low_1b" , "3l_m_offZ_high_1b" , "3l_p_offZ_low_2b" ,"3l_p_offZ_high_2b" , "3l_m_offZ_low_2b" , "3l_m_offZ_high_2b" , "3l_onZ_1b" , "3l_onZ_2b",
                         ],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l", "isAR_3l"],
