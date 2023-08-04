@@ -383,6 +383,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Make the cuts mask
                     cuts_lst = [sr_cat]
+                    if isData: cuts_lst.append("is_good_lumi") # Apply golden json requirements if this is data
                     all_cuts_mask = selections.all(*cuts_lst)
 
                     # Fill the histos
