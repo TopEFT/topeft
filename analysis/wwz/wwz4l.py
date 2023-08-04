@@ -362,8 +362,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over the hists we want to fill
             for dense_axis_name, dense_axis_vals in dense_variables_dict.items():
-                print("\ndense_axis_name,vals",dense_axis_name)
-                print("dense_axis_name,vals",dense_axis_vals)
+                #print("\ndense_axis_name,vals",dense_axis_name)
+                #print("dense_axis_name,vals",dense_axis_vals)
 
                 # Create the hist for this dense axis variable
                 hout[dense_axis_name] = hist.Hist(
