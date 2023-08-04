@@ -8,8 +8,9 @@ import logging
 import glob
 import os
 import re
-import string
 from pathlib import Path
+
+from typing import Dict, List, Optional
 
 import coffea
 
@@ -24,47 +25,47 @@ py_version = "{}.{}.{}".format(
 
 coffea_version = coffea.__version__
 
-
-# Define packages to install from different conda channels.
-# This is defines as string so that we can easily checksum the contents.
-packages_json_template = string.Template('''
-{
+default_modules = {
     "conda": {
-        "channels": [
-            "conda-forge"
-        ],
+        "channels": ["conda-forge"],
         "packages": [
-            "python=$py_version",
+            f"python={py_version}",
             "pip",
             "conda",
             "conda-pack",
             "dill",
-            "xrootd"
-        ]
+            "xrootd",
+        ],
     },
-    "pip": [
-        "coffea==$coffea_version",
-        "topcoffea"
-        ]
-}''')
+    "pip": [f"coffea=={coffea_version}", "topcoffea"],
+}
 
-pip_local_to_watch = { "topcoffea": ["topcoffea", "setup.py"] }
+pip_local_to_watch = {"topcoffea": ["topcoffea", "setup.py"]}
 
-packages_json = packages_json_template.substitute(py_version=py_version,coffea_version=coffea_version)
 
-def _check_current_env():
-    spec = json.loads(packages_json)
+def _check_current_env(spec: Dict):
     with tempfile.NamedTemporaryFile() as f:
         # export current conda enviornment
         subprocess.check_call(['conda', 'env', 'export', '--json'], stdout=f)
-        spec_file = open(f.name,  'r')
+        spec_file = open(f.name, "r")
         current_spec = json.load(spec_file)
         if 'dependencies' in current_spec:
             # get current conda packages
-            conda_deps = {re.sub("[!~=<>].*$", "", x):x  for x in current_spec['dependencies'] if not isinstance(x, dict)}
+            conda_deps = {
+                re.sub("[!~=<>].*$", "", x): x
+                for x in current_spec["dependencies"]
+                if not isinstance(x, dict)
+            }
             # get current pip packages
-            pip_deps = {re.sub("[!~=<>].*$", "", y):y for y in  [x for x in current_spec['dependencies'] if isinstance(x, dict) and 'pip' in x for x in x['pip']]}
-
+            pip_deps = {
+                re.sub("[!~=<>].*$", "", y): y
+                for y in [
+                    x
+                    for x in current_spec["dependencies"]
+                    if isinstance(x, dict) and "pip" in x
+                    for x in x["pip"]
+                ]
+            }
 
             # replace any conda packages
             for i in range(len(spec['conda']['packages'])):
@@ -81,10 +82,10 @@ def _check_current_env():
                 if not re.search("[!~=<>].*$", package):
                     if package in pip_deps:
                         spec['pip'][i] = pip_deps[package]
-
     return spec
 
-def _create_env(env_name, force=False):
+
+def _create_env(env_name: str, spec: Dict, force: bool = False):
     if force:
         logger.info("Forcing rebuilding of {}".format(env_name))
         Path(env_name).unlink(missing_ok=True)
@@ -94,7 +95,7 @@ def _create_env(env_name, force=False):
 
     with tempfile.NamedTemporaryFile() as f:
         logger.info("Checking current conda environment")
-        spec = _check_current_env()
+        spec = _check_current_env(spec)
         packages_json = json.dumps(spec)
         logger.info("base env specification:{}".format(packages_json))
         f.write(packages_json.encode())
@@ -144,7 +145,9 @@ def _commits_local_pip(paths):
                 changed = subprocess.check_output(cmd, cwd=path).decode().rstrip()
 
             if changed:
-                logger.warning("Found unstaged changes in {}:\n{}".format(path,changed))
+                logger.warning(
+                    "Found unstaged changes in {}:\n{}".format(path, changed)
+                )
                 commits[pkg] = 'HEAD'
             else:
                 commits[pkg] = commit
@@ -171,16 +174,28 @@ def _compute_commit(paths, commits):
 def _clean_cache(cache_size, *current_files):
     envs = sorted(glob.glob(os.path.join(env_dir_cache, 'env_*.tar.gz')), key=lambda f: -os.stat(f).st_mtime)
     for f in envs[cache_size:]:
-        if not f in current_files:
+        if f not in current_files:
             logger.info("Trimming cached environment file {}".format(f))
             os.remove(f)
 
 
-def get_environment(force=False, unstaged='rebuild', cache_size=3):
+def get_environment(
+    extra_conda: Optional[List[str]] = None,
+    extra_pip: Optional[List[str]] = None,
+    force: bool = False,
+    unstaged: str = "rebuild",
+    cache_size: int = 3,
+):
     # ensure cache directory exists
     Path(env_dir_cache).mkdir(parents=True, exist_ok=True)
 
-    packages_hash = hashlib.sha256(packages_json.encode()).hexdigest()[0:8]
+    spec = dict(default_modules)
+    if extra_conda:
+        spec["conda"]["packages"].extend(extra_conda)
+    if extra_pip:
+        spec["pip"].extend(extra_pip)
+
+    packages_hash = hashlib.sha256(json.dumps(spec).encode()).hexdigest()[0:8]
     pip_paths = _find_local_pip()
     pip_commits = _commits_local_pip(pip_paths)
     pip_check = _compute_commit(pip_paths, pip_commits)
@@ -196,13 +211,12 @@ def get_environment(force=False, unstaged='rebuild', cache_size=3):
             force = True
             logger.warning("Rebuilding environment because unstaged changes in {}".format(', '.join([Path(p).name for p in changed])))
 
-    return _create_env(env_name, force)
-
+    return _create_env(env_name, spec, force)
 
 
 class UnstagedChanges(Exception):
     pass
 
+
 if __name__ == '__main__':
     print(get_environment())
-
