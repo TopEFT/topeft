@@ -151,7 +151,7 @@ class BaseHTMLTag:
             ### Alternate attribute reading
             for tag_opt in self.tag_attributes.keys():
                 string += " "
-                if type(self.tag_attributes[tag_opt]) is int:
+                if isinstance(self.tag_attributes[tag_opt], int):
                     string += tag_opt + "=%d" % self.tag_attributes[tag_opt]
                 else:
                     string += tag_opt + "=\"%s\"" % self.tag_attributes[tag_opt]
@@ -159,7 +159,7 @@ class BaseHTMLTag:
             ### Assumes tag attributes are stored in a list of tuples
             for tag_opt in self.tag_attributes:
                 string += " "
-                if type(tag_opt[1]) is int:
+                if isinstance(tag_opt[1], int):
                     string += tag_opt[0] + "=%d" % tag_opt[1]
                 else:
                     string += tag_opt[0] + "=\"%s\"" % tag_opt[1]
@@ -509,7 +509,7 @@ class MetaTag(BaseHTMLTag):
             ### Alternate attribute reading
             for tag_opt in self.tag_attributes.keys():
                 string += " "
-                if type(self.tag_attributes[tag_opt]) is int:
+                if isinstance(self.tag_attributes[tag_opt], int):
                     string += tag_opt + "=%d" % self.tag_attributes[tag_opt]
                 else:
                     string += tag_opt + "=\"%s\"" % self.tag_attributes[tag_opt]
@@ -517,7 +517,7 @@ class MetaTag(BaseHTMLTag):
             ### Assumes tag attributes are stored in a list of tuples
             for tag_opt in self.tag_attributes:
                 string += " "
-                if type(tag_opt[1]) is int:
+                if isinstance(tag_opt[1], int):
                     string += tag_opt[0] + "=%d" % tag_opt[1]
                 else:
                     string += tag_opt[0] + "=\"%s\"" % tag_opt[1]

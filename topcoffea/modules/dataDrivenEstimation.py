@@ -11,7 +11,7 @@ import gzip
 class DataDrivenProducer:
     def __init__(self, inputHist, outputName):
         yt=YieldTools()
-        if type(inputHist) == str and inputHist.endswith('.pkl.gz'): # we are plugging a pickle file
+        if isinstance(inputHist, str) and inputHist.endswith('.pkl.gz'): # we are plugging a pickle file
             self.inhist=utils.get_hist_from_pkl(inputHist)
         else: # we already have the histogram
             self.inhist=inputHist
