@@ -17,7 +17,7 @@ def get_counts(histos_dict):
     out_dict[wwz_sync_sample] = {}
 
     # Get object multiplicity counts (nleps, njets, nbtags)
-    ojb_lst = ["nleps","njets","nbtagsl"]
+    ojb_lst = ["nleps_counts","njets_counts","nbtagsl_counts"]
     for obj in ojb_lst:
         nobjs_hist = histos_dict[obj][{"category":"all_events","process":wwz_sync_sample}].values(flow=True)
         tot_objs = 0
@@ -27,11 +27,17 @@ def get_counts(histos_dict):
         #print("\ntotobj",obj,tot_objs)
 
     # Look at the event counts in one histo (e.g. njets)
+    dense_axis = "njets_counts"
+    for cat_name in histos_dict[dense_axis].axes["category"]:
+        val = sum(histos_dict[dense_axis][{"category":cat_name,"process":wwz_sync_sample}].values(flow=True))
+        out_dict[wwz_sync_sample][cat_name+"_counts"] = (val,None) # Save err as None
+
+    # Look at the yields in one histo (e.g. njets)
     dense_axis = "njets"
     for cat_name in histos_dict[dense_axis].axes["category"]:
         val = sum(histos_dict[dense_axis][{"category":cat_name,"process":wwz_sync_sample}].values(flow=True))
         out_dict[wwz_sync_sample][cat_name] = (val,None) # Save err as None
-        #print(dense_axis,cat_name,val)
+
 
     return out_dict
 
