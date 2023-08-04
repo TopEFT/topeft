@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import copy
 import coffea
 import numpy as np
 import awkward as ak
@@ -26,39 +25,24 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
 
-        # Create the histograms
-        self._dense_hists_dict = {
-            "njets"   :
-                hist.Hist(
-                    hist.axis.StrCategory([], growth=True, name="process", label="process"),
-                    axis.Regular(20, 0, 20, name="njets",   label="Jet multiplicity"),
-                    storage="weight",
-                    name="Counts"
-                ),
-            "nleps"   :
-                hist.Hist(
-                    hist.axis.StrCategory([], growth=True, name="process", label="process"),
-                    axis.Regular(20, 0, 20, name="nleps",   label="Lep multiplicity"),
-                    storage="weight",
-                    name="Counts"
-                ),
-            "nbtagsl"   :
-                hist.Hist(
-                    hist.axis.StrCategory([], growth=True, name="process", label="process"),
-                    axis.Regular(20, 0, 20, name="nbtagsl",   label="Loose btag multiplicity"),
-                    storage="weight",
-                    name="Counts"
-                ),
+        # Create the dense axes for the histograms
+        self._dense_axes_dict = {
+            "njets"   : axis.Regular(20, 0, 20, name="njets",   label="Jet multiplicity"),
+            "nleps"   : axis.Regular(20, 0, 20, name="nleps",   label="Lep multiplicity"),
+            "nbtagsl" : axis.Regular(20, 0, 20, name="nbtagsl", label="Loose btag multiplicity"),
+            "njets_counts"   : axis.Regular(20, 0, 20, name="njets_counts",   label="Jet multiplicity counts"),
+            "nleps_counts"   : axis.Regular(20, 0, 20, name="nleps_counts",   label="Lep multiplicity counts"),
+            "nbtagsl_counts" : axis.Regular(20, 0, 20, name="nbtagsl_counts", label="Loose btag multiplicity counts"),
         }
 
         # Set the list of hists to fill
         if hist_lst is None:
             # If the hist list is none, assume we want to fill all hists
-            self._hist_lst = list(self._dense_hists_dict.keys())
+            self._hist_lst = list(self._dense_axes_dict.keys())
         else:
             # Otherwise, just fill the specified subset of hists
             for hist_to_include in hist_lst:
-                if hist_to_include not in self._dense_hists_dict.keys():
+                if hist_to_include not in self._dense_axes_dict.keys():
                     raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
             self._hist_lst = hist_lst # Which hists to fill
 
@@ -335,14 +319,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Store boolean masks with PackedSelection ##########
 
-            #hout = self.accumulator.identity()
-            dense_hists_dict = self._dense_hists_dict
-
-            hout = {
-                "njets" : {},
-                "nleps" : {},
-                "nbtagsl" : {},
-            }
 
             selections = PackedSelection(dtype='uint64')
 
@@ -371,28 +347,43 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Fill histos #########
 
-            dense_axes_dict = {
+            hout = {}
+
+            dense_variables_dict = {
                 #"met" : met.pt,
                 "nleps" : nleps,
                 "njets" : njets,
                 "nbtagsl" : nbtagsl,
+                "nleps_counts" : nleps,
+                "njets_counts" : njets,
+                "nbtagsl_counts" : nbtagsl,
             }
 
-            weights = weights_obj_base.partial_weight(include=["norm"])
-            weights = events.nom
 
             # Loop over the hists we want to fill
-            for dense_axis_name, dense_axis_vals in dense_axes_dict.items():
+            for dense_axis_name, dense_axis_vals in dense_variables_dict.items():
                 #print("\ndense_axis_name,vals",dense_axis_name)
                 #print("dense_axis_name,vals",dense_axis_vals)
 
-                for sr_cat in sr_cat_dict["lep_chan_lst"]:
+                # Create the hist for this dense axis variable
+                hout[dense_axis_name] = hist.Hist(
+                    hist.axis.StrCategory([], growth=True, name="process", label="process"),
+                    hist.axis.StrCategory([], growth=True, name="category", label="category"),
+                    self._dense_axes_dict[dense_axis_name],
+                    storage="weight", # Keeps track of sumw2
+                    name="Counts",
+                )
 
-                    hout[dense_axis_name][sr_cat] = {}
-                    hout[dense_axis_name][sr_cat][histAxisName] = copy.deepcopy(dense_hists_dict[dense_axis_name])
+                # Decide if we are filling this hist with weight or raw event counts
+                if dense_axis_name.endswith("_counts"): weights = events.nom
+                else: weights = weights_obj_base.partial_weight(include=["norm"])
+
+                # Loop over categories
+                for sr_cat in sr_cat_dict["lep_chan_lst"]:
 
                     # Make the cuts mask
                     cuts_lst = [sr_cat]
+                    if isData: cuts_lst.append("is_good_lumi") # Apply golden json requirements if this is data
                     all_cuts_mask = selections.all(*cuts_lst)
 
                     # Fill the histos
@@ -400,9 +391,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                         dense_axis_name : dense_axis_vals[all_cuts_mask],
                         "weight"        : weights[all_cuts_mask],
                         "process"       : histAxisName,
+                        "category"      : sr_cat,
                         #"systematic"    : "nominal",
                     }
-                    hout[dense_axis_name][sr_cat][histAxisName].fill(**axes_fill_info_dict)
+                    hout[dense_axis_name].fill(**axes_fill_info_dict)
 
         return hout
 
