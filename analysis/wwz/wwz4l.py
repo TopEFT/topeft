@@ -31,23 +31,26 @@ class AnalysisProcessor(processor.ProcessorABC):
             "njets"   :
                 hist.Hist(
                     hist.axis.StrCategory([], growth=True, name="process", label="process"),
+                    hist.axis.StrCategory([], growth=True, name="category", label="category"),
                     axis.Regular(20, 0, 20, name="njets",   label="Jet multiplicity"),
-                    storage="weight",
-                    name="Counts"
+                    storage="weight", # Keeps track of sumw2
+                    name="Counts",
                 ),
             "nleps"   :
                 hist.Hist(
                     hist.axis.StrCategory([], growth=True, name="process", label="process"),
+                    hist.axis.StrCategory([], growth=True, name="category", label="category"),
                     axis.Regular(20, 0, 20, name="nleps",   label="Lep multiplicity"),
-                    storage="weight",
-                    name="Counts"
+                    storage="weight", # Keeps track of sumw2
+                    name="Counts",
                 ),
             "nbtagsl"   :
                 hist.Hist(
                     hist.axis.StrCategory([], growth=True, name="process", label="process"),
+                    hist.axis.StrCategory([], growth=True, name="category", label="category"),
                     axis.Regular(20, 0, 20, name="nbtagsl",   label="Loose btag multiplicity"),
-                    storage="weight",
-                    name="Counts"
+                    storage="weight", # Keeps track of sumw2
+                    name="Counts",
                 ),
         }
 
@@ -335,14 +338,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Store boolean masks with PackedSelection ##########
 
-            #hout = self.accumulator.identity()
-            dense_hists_dict = self._dense_hists_dict
-
-            hout = {
-                "njets" : {},
-                "nleps" : {},
-                "nbtagsl" : {},
-            }
 
             selections = PackedSelection(dtype='uint64')
 
@@ -371,7 +366,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Fill histos #########
 
-            dense_axes_dict = {
+            hout = self._dense_hists_dict
+
+            dense_variables_dict = {
                 #"met" : met.pt,
                 "nleps" : nleps,
                 "njets" : njets,
@@ -382,14 +379,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights = events.nom
 
             # Loop over the hists we want to fill
-            for dense_axis_name, dense_axis_vals in dense_axes_dict.items():
+            for dense_axis_name, dense_axis_vals in dense_variables_dict.items():
                 #print("\ndense_axis_name,vals",dense_axis_name)
                 #print("dense_axis_name,vals",dense_axis_vals)
 
                 for sr_cat in sr_cat_dict["lep_chan_lst"]:
-
-                    hout[dense_axis_name][sr_cat] = {}
-                    hout[dense_axis_name][sr_cat][histAxisName] = copy.deepcopy(dense_hists_dict[dense_axis_name])
 
                     # Make the cuts mask
                     cuts_lst = [sr_cat]
@@ -400,9 +394,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                         dense_axis_name : dense_axis_vals[all_cuts_mask],
                         "weight"        : weights[all_cuts_mask],
                         "process"       : histAxisName,
+                        "category"      : sr_cat,
                         #"systematic"    : "nominal",
                     }
-                    hout[dense_axis_name][sr_cat][histAxisName].fill(**axes_fill_info_dict)
+                    hout[dense_axis_name].fill(**axes_fill_info_dict)
 
         return hout
 
