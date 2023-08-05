@@ -333,7 +333,7 @@ class YieldTools():
     def get_hist_list(self,path,allow_empty=True):
 
         # Get the dict
-        if type(path) is str: hin_dict = utils.get_hist_from_pkl(path,allow_empty)
+        if isinstance(path, str): hin_dict = utils.get_hist_from_pkl(path,allow_empty)
         else: hin_dict = path
 
         # Get list of keys
@@ -810,7 +810,7 @@ class YieldTools():
     def print_hist_info(self,path,h_name="njets",verbose=False):
 
         # Get the dict
-        if type(path) is str: hin_dict = utils.get_hist_from_pkl(path)
+        if isinstance(path, str): hin_dict = utils.get_hist_from_pkl(path)
         else: hin_dict = path
 
         # Print info about all keys
