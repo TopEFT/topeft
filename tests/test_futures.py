@@ -18,7 +18,7 @@ def test_topcoffea():
     ]
 
     # Run TopCoffea
-    subprocess.run(args)
+    subprocess.run(args, check=True)
 
     assert (exists('analysis/topEFT/histos/output_check_yields.pkl.gz'))
 
@@ -46,6 +46,6 @@ def test_datacardmaker():
     ]
 
     # Run datacard maker
-    subprocess.run(args)
+    subprocess.run(args, check=True)
 
     assert (comp_datacard('histos/ttx_multileptons-2lss_p_4j_lj0pt.txt','analysis/topEFT/test/ttx_multileptons-2lss_p_4j_lj0pt.txt'))
