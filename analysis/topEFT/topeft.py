@@ -224,7 +224,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Check to see if the ordering of WCs for this sample matches what want
             if self._samples[dataset]["WCnames"] != self._wc_names_lst:
                 eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
-        eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
         # Initialize the out object
         hout = self.accumulator.identity()
 
@@ -889,7 +888,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Weights and eft coeffs
                                         weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
-                                        eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
 
                                         # Fill the histos
@@ -901,7 +899,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             "systematic"    : wgt_fluct,
                                             "weight"        : weights_flat,
                                             "eft_coeff"     : eft_coeffs_cut,
-                                            "eft_err_coeff" : eft_w2_coeffs_cut,
                                         }
 
                                         # Skip histos that are not defined (or not relevant) to given categories
