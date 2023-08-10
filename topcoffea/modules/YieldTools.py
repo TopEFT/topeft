@@ -1,8 +1,7 @@
 import numpy as np
 import copy
 import coffea
-from coffea import hist
-from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.utils as utils
 
 class YieldTools():
@@ -324,7 +323,7 @@ class YieldTools():
     # Takes a hist, and retruns a list of the axis names
     def get_axis_list(self,histo):
         axis_lst = []
-        for axis in histo.axes():
+        for axis in histo.axes:
             axis_lst.append(axis.name)
         return axis_lst
 
@@ -344,7 +343,7 @@ class YieldTools():
     def get_cat_lables(self,hin_dict,axis,h_name=None):
 
         # If the hin is not a histo, then get one of the histos from inside of it
-        if not isinstance(hin_dict,HistEFT):
+        if not isinstance(hin_dict, HistEFT):
 
             # If no hist specified, just choose the first one
             if h_name is None:
@@ -364,12 +363,7 @@ class YieldTools():
             elif isinstance(hin_dict,dict):
                 hin_dict = hin_dict[h_name]
 
-        # Note: Use h.identifiers('axis') here, not axis.identifiers() (since according to Nick Smith "the axis may hold identifiers longer than the hist that uses it (hists can share axes)", but h.identifiers('axis') will get the ones actually contained in the histogram)
-        cats_lst = []
-        for identifier in hin_dict.identifiers(axis):
-            cats_lst.append(identifier.name)
-
-        return cats_lst
+        return list(hin_dict.axes[axis])
 
 
     # Remove the njet component of a category name, returns a new str
@@ -821,9 +815,9 @@ class YieldTools():
 
         # Print info about axes for one key
         print(f"\nPrinting info for key \"{h_name}\":")
-        for i in range(len(hin_dict[h_name].axes())):
-            print(f"\n    {i} Aaxis name:",hin_dict[h_name].axes()[i].name)
-            for cat in hin_dict[h_name].axes()[i].identifiers():
+        for i, axis in enumerate(hin_dict[h_name].axes):
+            print(f"\n    {i} Axis name:", axis.name)
+            for cat in axis:
                 print(f"\t{cat}")
 
 
