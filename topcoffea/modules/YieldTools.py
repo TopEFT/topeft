@@ -545,38 +545,35 @@ class YieldTools():
 
     # Sum all the values of a hist
     #    - The hist you pass should have two axes (all other should already be integrated out)
-    #    - The two axes should be the samples axis, and the dense axis (e.g. ht)
-    #    - You pass a process name, and we select just that category from the sample axis
-    def get_yield(self,h,proc,overflow_str="none"):
-        h_vals = h[proc].values(sumw2=True,overflow=overflow_str)
-        if len(h_vals) != 0: # I.e. dict is not empty, this process exists in this dict
-            for i,(k,v) in enumerate(h_vals.items()):
+    #    - The two axes should be the processes axis, and the dense axis (e.g. ht)
+    #    - You pass a process name, and we select just that category from the process axis
+    def get_yield(self, h, proc, rwgt_pt):
+        try:
+            # I.e. dict is not empty, this process exists in this dict
+            h_vals = h[{"process": proc}].eval(values=rwgt_pt)
+            for i, (k, v) in enumerate(h_vals.items()):
                 v_sum = v[0].sum()
                 e_sum = v[1].sum()
-                if i > 0: raise Exception("Why is i greater than 0? The hist is not what this function is expecting. Exiting...")
-        else:
+                if i > 0:
+                    raise Exception(
+                        "Why is i greater than 0? The hist is not what this function is expecting. Exiting..."
+                    )
+        except KeyError:
             v_sum = 0.0
             e_sum = 0.0
         e_sum = np.sqrt(e_sum)
-        return [v_sum,e_sum]
-
+        return [v_sum, e_sum]
 
     # Integrates out categories, normalizes, then calls get_yield()
-    def get_normalized_yield(self,hin_dict,proc,cat_dict,overflow_str,rwgt_pt=None,h_name="ht"):
-
+    def get_normalized_yield(
+        self, hin_dict, proc, cat_dict, rwgt_pt, h_name="ht"
+    ):
         # Integrate out cateogries
         h = hin_dict[h_name]
         h = self.integrate_out_cats(h,cat_dict)
         h = h.integrate("systematic","nominal") # For now anyway...
 
-        # Reweight the hist
-        if rwgt_pt is not None:
-            hist.set_wilson_coefficients(**rwgt_pt)
-        else:
-            h.set_sm()
-
-        return self.get_yield(h,proc,overflow_str)
-
+        return self.get_yield(h, proc, rwgt_pt)
 
     # This function:
     #   - Takes as input a hist dict (i.e. what the processor outptus)
@@ -617,10 +614,14 @@ class YieldTools():
             if proc_name_short not in yld_dict:
                 yld_dict[proc_name_short] = {}
                 for cat,cuts_dict in cat_dict.items():
-                    yld_dict[proc_name_short][cat] = self.get_normalized_yield(hin_dict,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
+                    yld_dict[proc_name_short][cat] = self.get_normalized_yield(
+                        hin_dict, proc, cuts_dict, h_name=hist_to_use, rwgt_pt={},
+                    )  # Important to keep overflow
             else:
                 for cat,cuts_dict in cat_dict.items():
-                    yld_dict[proc_name_short][cat][0] += self.get_normalized_yield(hin_dict,proc,cuts_dict,overflow_str="over",h_name=hist_to_use)[0] # Important to keep overflow
+                    yld_dict[proc_name_short][cat][0] += self.get_normalized_yield(
+                        hin_dict, proc, cuts_dict, h_name=hist_to_use, rwgt_pt={},
+                    )  # Important to keep overflow
                     yld_dict[proc_name_short][cat][1] = None # Ok, let's just forget the sumw2...
 
         # If the file is split by lepton flav, but we don't want that, sum over lep flavors:
