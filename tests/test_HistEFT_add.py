@@ -173,6 +173,17 @@ def test_group():
     )
 
 
+def test_union():
+    ab = a_w + b_w
+    abu = a_w.union(b_w, "type")
+
+    for sk in ab.sparse_keys():
+        assert np.all(np.abs(ab[sk].view(flow=True)) - abu[sk].view(flow=True) < 1e-10)
+
+    for sk in abu.sparse_keys():
+        assert np.all(np.abs(ab[sk].view(flow=True)) - abu[sk].view(flow=True) < 1e-10)
+
+
 def test_add_ab_weights():
     ab = a_w + b_w
     assert np.all(
