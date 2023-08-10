@@ -815,19 +815,17 @@ class DatacardMaker():
                         "rate": -1
                     }
                     # There should be only 1 sparse axis at this point, the systematics axis
-                    for sp_key,arr in v.items():
+                    for sp_key, arr in v.items():
                         if crop_negative_bins:
-                            negative_bin_mask = np.where( arr[0] < 0) # see where bins are negative
-                            arr[0][negative_bin_mask] = np.zeros_like( arr[0][negative_bin_mask] )  # set those to zero
-                            if arr[1] is not None:
-                                arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative
+                            negative_bin_mask = np.where( arr < 0) # see where bins are negative
+                            arr[negative_bin_mask] = np.zeros_like( arr[negative_bin_mask] )  # set those to zero
 
                         syst = sp_key[0]
 
-                        sum_arr = sum(arr[0])
+                        sum_arr = sum(arr)
                         if syst == "nominal" and base == "sm":
                             if self.verbose:
-                                print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr[0]}")
+                                print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr}")
                             if not self.use_real_data:
                                 # Create asimov dataset
                                 data_obs += arr
@@ -872,8 +870,7 @@ class DatacardMaker():
                                 all_shapes.add(syst_base)
                                 text_card_info[proc_name]["shapes"].add(syst_base)
                             syst_width = max(len(syst),syst_width)
-                        zero_out_sumw2 = p != "fakes" # Zero out sumw2 for all proc but fakes, so that we only do auto stats for fakes
-                        f[hist_name] = to_hist(arr,hist_name,zero_wgts=zero_out_sumw2)
+                        f[hist_name] = to_hist(arr, hist_name)
 
                         num_h += 1
                     if km_dist == "njets":
