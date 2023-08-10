@@ -694,7 +694,7 @@ class DatacardMaker():
             it is excluded for that process and won't be included in the EFT decomposition
         """
         tic = time.time()
-        h = self.hists[km_dist].integrate("systematic",["nominal"])
+        h = self.hists[km_dist].integrate("systematic")
         if ch_lst:
             # Only select from a subset of channels
             if self.verbose:
@@ -730,7 +730,7 @@ class DatacardMaker():
         for p in procs:
             if not self.is_signal(p):
                 continue
-            p_hist = h.integrate("process", [p])
+            p_hist = h.integrate("process", p)
             for wc,idx_arr in wc_to_terms.items():
                 if len(self.coeffs) and not wc in self.coeffs:
                     continue
@@ -781,7 +781,7 @@ class DatacardMaker():
         outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="root")
 
         h = self.hists[km_dist]
-        ch_hist = h.integrate("channel", [ch])
+        ch_hist = h.integrate("channel", ch)
         data_obs = np.zeros((ch_hist.dense_axis.size,))
 
         print(f"Generating root file: {outf_root_name}")
@@ -792,7 +792,7 @@ class DatacardMaker():
         outf_root_name = os.path.join(self.out_dir,outf_root_name)
         with uproot.recreate(outf_root_name) as f:
             for p,wcs in selected_wcs.items():
-                proc_hist = ch_hist.integrate("process", [p])
+                proc_hist = ch_hist.integrate("process", p)
                 if self.verbose:
                     print(f"Decomposing {ch}-{p}")
                 decomposed_templates = self.decompose(proc_hist,wcs)
