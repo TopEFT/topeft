@@ -36,18 +36,18 @@ class DataDrivenProducer:
                 continue
 
             # First we are gonna scale all MC processes in  by the luminosity
-            name_regex='(?P<sample>.*)UL(?P<year>.*)'
+            name_regex='(?P<process>.*)UL(?P<year>.*)'
             pattern=re.compile(name_regex)
 
             scale_dict={}
-            for sample in histo.identifiers('sample'):
-                match = pattern.search(sample.name)
-                sampleName=match.group('sample')
+            for process in histo.axes["process"]:
+                match = pattern.search(process)
+                sampleName=match.group('process')
                 year=match.group('year')
                 if not match:
-                    raise RuntimeError(f"Sample {sample} does not match the naming convention.")
+                    raise RuntimeError(f"Sample {process} does not match the naming convention.")
                 if year not in ['16APV','16','17','18']:
-                    raise RuntimeError(f"Sample {sample} does not match the naming convention, year \"{year}\" is unknown.")
+                    raise RuntimeError(f"Sample {process} does not match the naming convention, year \"{year}\" is unknown.")
 
             # do these lines do anything? scale_dict is empty, and pre and postscale are never used.
             # prescale = histo.eval(values=None).copy()
@@ -69,15 +69,19 @@ class DataDrivenProducer:
                 else:
                     if "isAR_2lSS_OS"==ident.name:
                         # we are in the flips application region and theres no "prompt" subtraction, so we just have to rename data to flips, put it in the right axis and we are done
-                        newNameDictData=defaultdict(list)
-                        for sample in hAR.identifiers('sample'):
-                            match = pattern.search(sample.name)
-                            sampleName=match.group('sample')
-                            year=match.group('year')
-                            nonPromptName='flipsUL%s'%year
-                            if self.dataName==sampleName:
-                                newNameDictData[nonPromptName].append(sample.name)
-                        hFlips=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
+                        newNameDictData = defaultdict(list)
+                        for process in hAR.axes["process"]:
+                            match = pattern.search(process)
+                            sampleName = match.group("process")
+                            year = match.group("year")
+                            nonPromptName = "flipsUL%s" % year
+                            if self.dataName == sampleName:
+                                newNameDictData[nonPromptName].append(process)
+                        hFlips = hAR.group(
+                            "process",
+                            hist.StrCategory([], name="process", growth=True),
+                            newNameDictData,
+                        )
 
                         # remove any up/down FF variations from the flip histo since we don't use that info
                         syst_var_idet_rm_lst = []
@@ -96,23 +100,35 @@ class DataDrivenProducer:
 
                     else:
                         # if we are in the nonprompt application region, we also integrate the application region axis
-                        # and construct the new sample 'nonprompt'
+                        # and construct the new process 'nonprompt'
                         # we look at data only, and rename it to fakes
-                        newNameDictData=defaultdict(list); newNameDictNoData=defaultdict(list)
-                        for sample in hAR.identifiers('sample'):
-                            match = pattern.search(sample.name)
-                            sampleName=match.group('sample')
-                            year=match.group('year')
-                            nonPromptName='nonpromptUL%s'%year
-                            if self.dataName==sampleName:
-                                newNameDictData[nonPromptName].append(sample.name)
+                        newNameDictData = defaultdict(list)
+                        newNameDictNoData = defaultdict(list)
+                        for process in hAR.axes["process"]:
+                            match = pattern.search(process)
+                            sampleName = match.group("process")
+                            year = match.group("year")
+                            nonPromptName = "nonpromptUL%s" % year
+                            if self.dataName == sampleName:
+                                newNameDictData[nonPromptName].append(process)
                             elif sampleName in self.promptSubtractionSamples:
-                                newNameDictNoData[nonPromptName].append(sample.name)
+                                newNameDictNoData[nonPromptName].append(process)
                             else:
-                                print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
-                        hFakes=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
-                        # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
-                        hPromptSub=hAR.group('sample', hist.Cat('sample','sample'), newNameDictNoData )
+                                print(
+                                    f"We won't consider {sampleName} for the prompt subtraction in the appl. region"
+                                )
+                        hFakes = hAR.group(
+                            "process",
+                            "process",
+                            newNameDictData,
+                        )
+                        # now we take all the stuff that is not data in the AR to make the prompt
+                        # subtraction and assign them to nonprompt.
+                        hPromptSub = hAR.group(
+                            "process",
+                            "process",
+                            newNameDictNoData,
+                        )
 
                         # remove the up/down variations (if any) from the prompt subtraction histo
                         # but keep FFUp and FFDown, as these are the nonprompt up and down variations
