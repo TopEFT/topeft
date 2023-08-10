@@ -8,8 +8,9 @@ import gzip
 import os
 
 import numpy as np
-from coffea import hist, processor
+from coffea import processor
 from coffea.nanoevents import NanoAODSchema
+import hist
 
 import topeft
 import topcoffea.modules.utils as utils
@@ -331,8 +332,8 @@ if __name__ == '__main__':
     if executor == "work_queue":
         print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
 
-    nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
+    nbins = sum(sum(arr.size for arr in h.view()) for h in output.values() if isinstance(h, hist.BaseHist))
+    nfilled = sum(sum(np.sum(arr > 0) for arr in h.view()) for h in output.values() if isinstance(h, hist.BaseHist))
     print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
     if executor == "futures":
