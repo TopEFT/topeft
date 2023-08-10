@@ -1,5 +1,5 @@
 import argparse
-from coffea import hist
+import hist
 from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.modules.GetValuesFromJsons import get_param
 import topcoffea.modules.utils as utils
@@ -30,7 +30,7 @@ class DataDrivenProducer:
 
         for key,histo in self.inhist.items():
 
-            if not len(histo.values()): # histo is empty, so we just integrate over appl and keep an empty histo
+            if histo.empty():  # histo is empty, so we just integrate over appl and keep an empty histo
                 print(f'[W]: Histogram {key} is empty, returning an empty histo')
                 self.outHist[key]=histo.integrate('appl')
                 continue
@@ -56,18 +56,18 @@ class DataDrivenProducer:
 
             # now for each year we actually perform the subtraction and integrate out the application regions
             newhist=None
-            for ident in histo.identifiers('appl'):
-                hAR=histo.integrate('appl', ident)
+            for ident in histo.axes["appl"]:
+                hAR = histo.integrate("appl", ident)
 
-                if 'isAR' not in ident.name:
+                if 'isAR' not in ident:
                     # if we are in the signal region, we just take the
                     # whole histogram integrating out the application region axis
-                    if newhist==None:
-                        newhist=hAR
+                    if newhist is None:
+                        newhist = hAR
                     else:
-                        newhist.add(hAR)
+                        newhist = newhist.union(hAR, "process")
                 else:
-                    if "isAR_2lSS_OS"==ident.name:
+                    if "isAR_2lSS_OS" == ident:
                         # we are in the flips application region and theres no "prompt" subtraction, so we just have to rename data to flips, put it in the right axis and we are done
                         newNameDictData = defaultdict(list)
                         for process in hAR.axes["process"]:
@@ -85,19 +85,16 @@ class DataDrivenProducer:
 
                         # remove any up/down FF variations from the flip histo since we don't use that info
                         syst_var_idet_rm_lst = []
-                        syst_var_idet_lst = hFlips.identifiers("systematic")
-                        for syst_var_idet in syst_var_idet_lst:
-                            if (syst_var_idet.name != "nominal"):
+                        for syst_var_idet in hFlips.axes["systematic"]:
+                            if (syst_var_idet != "nominal"):
                                 syst_var_idet_rm_lst.append(syst_var_idet)
-                        hFlips = hFlips.remove(syst_var_idet_rm_lst,"systematic")
+                        hFlips = hFlips.remove("systematic", syst_var_idet_rm_lst)
 
                         # now adding them to the list of processes:
-                        if newhist==None:
-                            newhist=hFlips
+                        if newhist is None:
+                            newhist = hFlips
                         else:
-                            newhist.add( hFlips )
-
-
+                            newhist += hFlips
                     else:
                         # if we are in the nonprompt application region, we also integrate the application region axis
                         # and construct the new process 'nonprompt'
@@ -133,30 +130,29 @@ class DataDrivenProducer:
                         # remove the up/down variations (if any) from the prompt subtraction histo
                         # but keep FFUp and FFDown, as these are the nonprompt up and down variations
                         syst_var_idet_rm_lst = []
-                        syst_var_idet_lst = hPromptSub.identifiers("systematic")
-                        for syst_var_idet in syst_var_idet_lst:
-                            if (syst_var_idet.name != "nominal") and (not syst_var_idet.name.startswith("FF")):
+                        for syst_var_idet in hPromptSub.axes["systematic"]:
+                            if (syst_var_idet != "nominal") and (not syst_var_idet.startswith("FF")):
                                 syst_var_idet_rm_lst.append(syst_var_idet)
-                        hPromptSub = hPromptSub.remove(syst_var_idet_rm_lst,"systematic")
-                        hPromptSub = hPromptSub.copy_sm()
+                        hPromptSub = hPromptSub.remove(
+                            "systematic", syst_var_idet_rm_lst
+                        )
 
                         # now we actually make the subtraction
                         hPromptSub.scale(-1)
-                        hFakes.add(hPromptSub)
-                        # now adding them to the list of processes:
-                        if newhist==None:
-                            newhist=hFakes
-                        else:
-                            newhist.add(hFakes)
+                        hFakes += hPromptSub
 
-            self.outHist[key]=newhist
+                        # now adding them to the list of processes:
+                        if newhist is None:
+                            newhist = hFakes
+                        else:
+                            newhist = newhist.union(hFakes, "process")
+            self.outHist[key] = newhist
 
     def dumpToPickle(self):
         if not self.outputName.endswith(".pkl.gz"):
             self.outputName = self.outputName + ".pkl.gz"
         with gzip.open(self.outputName, "wb") as fout:
             cloudpickle.dump(self.outHist, fout)
-
 
     def getDataDrivenHistogram(self):
         return self.outHist
