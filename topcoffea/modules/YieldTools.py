@@ -20,7 +20,7 @@ class YieldTools():
 
         self.DATA_MC_COLUMN_ORDER = ["tWZ", "VV", "VVV", "flips", "fakes", "conv", "bkg", "ttlnu", "ttll", "ttH", "tllq", "tHq", "tttt", "sig", "pred", "data", "pdiff"]
 
-        # A dictionary mapping names of samples in the samples axis to a short version of the name
+        # A dictionary mapping names of processes in the processes axis to a short version of the name
         self.PROC_MAP = {
 
             "ttlnu" : ["ttW_centralUL16APV"    ,"ttW_centralUL16"    ,"ttW_centralUL17" ,"ttW_centralUL18" , "ttlnuJet_privateUL18" , "ttlnuJet_privateUL17" , "ttlnuJet_privateUL16" , "ttlnuJet_privateUL16APV"],
@@ -217,7 +217,7 @@ class YieldTools():
     ######### Functions for getting process names from PROC_MAP #########
 
     # What this function does:
-    #   - Takes a full process name (i.e. the name of the category on the samples axis)
+    #   - Takes a full process name (i.e. the name of the category on the processes axis)
     #   - Then loops through PROC_MAP and returns the short (i.e. standard) version of the process name
     def get_short_name(self,long_name):
         ret_name = None
@@ -228,7 +228,7 @@ class YieldTools():
         return ret_name
 
     # What this function does:
-    #   - Takes a list of full process names (i.e. all of the categories on samples axis) and a key from PROC_MAP
+    #   - Takes a list of full process names (i.e. all of the categories on processes axis) and a key from PROC_MAP
     #   - Returns the long (i.e. the name of the category in the smples axis) corresponding to the short name
     def get_long_name(self,long_name_lst_in,short_name_in):
         ret_name = None
@@ -609,12 +609,12 @@ class YieldTools():
 
         # Find the yields
         yld_dict = {}
-        proc_lst = self.get_cat_lables(hin_dict,"sample")
+        proc_lst = self.get_cat_lables(hin_dict, "process")
         #if "flipsUL17" not in proc_lst: proc_lst = proc_lst + ["flipsUL16","flipsUL16APV","flipsUL17","flipsUL18"] # Very bad workaround for _many_ reasons.. leaving it in since it's useful for getting yields of the full pkl file (but we don't need it for e.g. the CI, so leave it commented), note this entire class is a mess and should be totally rewritten before the next analysis
         print("proc_lst",proc_lst)
         for proc in proc_lst:
             p = self.get_short_name(proc)
-            print("Name:",p,proc) # Print what name the sample has been matched to
+            print("Name:", p, proc) # Print what name the process has been matched to
 
         for proc in proc_lst:
             if year is not None:
