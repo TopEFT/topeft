@@ -127,7 +127,7 @@ class MissingParton(RateSystematic):
 
 class DatacardMaker():
     # TODO:
-    #   We are abusing the grouping mechanism to also handle renaming samples, but might want to
+    #   We are abusing the grouping mechanism to also handle renaming processs, but might want to
     #   separate into two distinct actions to make things easier to follow for the reader
     # Note:
     #   Care must be taken with regards to the underscores, due to 'nonprompt', 'data', and 'flips'
@@ -287,11 +287,11 @@ class DatacardMaker():
     @classmethod
     def get_processes_by_years(cls,h):
         """
-            Reads the 'sample' sparse axis of a histogram and returns a dictionary that maps stripped
+            Reads the 'process' sparse axis of a histogram and returns a dictionary that maps stripped
             process names to the list of sparse axis categories it came from.
         """
         r = {}
-        for x in h.identifiers("sample"):
+        for x in h.axes["process"]:
             p = cls.get_process(x.name)
             if p not in r:
                 r[p] = []
@@ -327,7 +327,7 @@ class DatacardMaker():
             "ST_antitop_t-channel", "ST_top_s-channel", "ST_top_t-channel", "tbarW", "tW",
             "TTJets",
             "WJetsToLNu",
-            "TTGJets",  # This is the old low stats convs sample, new one should be TTGamma
+            "TTGJets",  # This is the old low stats convs process, new one should be TTGamma
 
             # "TTGamma",
             # "WWTo2L2Nu","ZZTo4L",#"WZTo3LNu",
@@ -436,10 +436,10 @@ class DatacardMaker():
             if len(h.values()) == 0: continue
             if self.var_lst and not km_dist in self.var_lst: continue
             print(f"Loading: {km_dist}")
-            # Remove samples that we don't include in the datacard
+            # Remove processes that we don't include in the datacard
             to_remove = []
-            for x in h.identifiers("sample"):
-                p = self.get_process(x.name)
+            for x in h.axes["process"]:
+                p = self.get_process(x)
                 if p in self.ignore:
                     if self.verbose: print(f"Skipping (ignored): {x.name}")
                     to_remove.append(x.name)
@@ -450,7 +450,7 @@ class DatacardMaker():
                         if self.verbose: print(f"Skipping (year): {x.name}")
                         to_remove.append(x.name)
                         continue
-            h = h.remove("sample", to_remove)
+            h = h.remove("process", to_remove)
 
             if not self.do_nuisance:
                 # Remove all shape systematics
@@ -474,15 +474,17 @@ class DatacardMaker():
                 edge_arr = self.BINNING[km_dist] + [h.axis(km_dist).edges()[-1]]
                 h = h.rebin(km_dist,Bin(km_dist,h.axis(km_dist).label,edge_arr))
             else:
-                # TODO: Still need to handle this case properly
+                # TODO: Still need to handle njets case properly
                 pass
 
-            # Remove 'central', 'private', '_4F' text from sample names
+            # Remove 'central', 'private', '_4F' text from process names
             grp_map = {}
-            for x in h.identifiers("sample"):
-                new_name = x.name.replace("private","").replace("central","").replace("_4F","")
-                grp_map[new_name] = x.name
-            h = h.group("sample",Cat("sample","sample"),grp_map)
+            for x in h.axes["process"]:
+                new_name = (
+                    x.replace("private", "").replace("central", "").replace("_4F", "")
+                )
+                grp_map[new_name] = x
+            h = h.group("process", "process", grp_map)
 
             h = self.group_processes(h)
             h = self.correlate_years(h)
@@ -495,8 +497,8 @@ class DatacardMaker():
     def channels(self,km_dist):
         return [x.name for x in self.hists[km_dist].identifiers("channel")]
 
-    def processes(self,km_dist):
-        return [x.name for x in self.hists[km_dist].identifiers("sample")]
+    def processes(self, km_dist):
+        return list(self.hists[km_dist].axes["process"])
 
     # TODO: Can be a static member function
     def load_systematics(self,rs_fpath,mp_fpath):
@@ -585,12 +587,12 @@ class DatacardMaker():
     # TODO: Can be a static member function
     def group_processes(self,h):
         """
-            Groups together certain processes from the 'sample' axis. We also abuse this method to
-            rename specific sample categories. Both of which are determined by the GROUP static data
+            Groups together certain processes from the 'process' axis. We also abuse this method to
+            rename specific process categories. Both of which are determined by the GROUP static data
             member.
         """
         # TODO: This needs work to be less convoluted...
-        all_procs = set(x.name for x in h.identifiers("sample"))
+        all_procs = set(x for x in h.axes["process"])
         grp_map = {}
         for grp_name,to_grp in self.GROUP.items():
             for yr in self.YEARS:
@@ -601,14 +603,14 @@ class DatacardMaker():
                     if old_name in all_procs:
                         lst.append(old_name)
                         all_procs.remove(old_name)
-                # Note: Some samples only exist in certain channels (e.g. flips), so we need to
+                # Note: Some processes only exist in certain channels (e.g. flips), so we need to
                 #   skip them when they don't appear in the identifiers list
                 if len(lst):
                     grp_map[new_name] = lst
         # Include back in everything that wasn't specified by the initial groupings
         for x in all_procs:
             grp_map[x] = [x]
-        h = h.group("sample",Cat("sample","sample"),grp_map)
+        h = h.group("process", "process", grp_map)
         return h
 
     # TODO: Can be a static member function
@@ -620,20 +622,20 @@ class DatacardMaker():
         if not self.do_nuisance:
             # Only sum over the years, don't mess with nuisance stuff
             grp_map = {}
-            for x in h.identifiers("sample"):
-                p = self.get_process(x.name)
+            for x in h.axes["process"]:
+                p = self.get_process(x)
                 if p not in grp_map:
                     grp_map[p] = []
-                grp_map[p].append(x.name)
-            h = h.group("sample",Cat("sample","sample"),grp_map)
+                grp_map[p].append(x)
+            h = h.group("process", "process", grp_map)
             return h
         # This requires some fancy footwork to make work
         print("Correlating years")
 
         # Need to figure out which years are actually present in the histogram
         unique_proc_years = set()
-        for x in h.identifiers("sample"):
-            yr = self.get_year(x.name)
+        for x in h.axes["process"]:
+            yr = self.get_year(x)
             unique_proc_years.add(yr)
 
         # New approach
@@ -695,15 +697,15 @@ class DatacardMaker():
                 print(f"{sp_tup} -- {corr_str}")
 
         # Finally sum over years, since the per-year systematics only appear in a corresponding
-        #   "sample year", the grouping for those systematics just adds itself with nothing from
-        #   the other sample years
+        #   "process year", the grouping for those systematics just adds itself with nothing from
+        #   the other process years
         grp_map = {}
-        for x in h.identifiers("sample"):
-            p = self.get_process(x.name)
+        for x in h.axes["process"]:
+            p = self.get_process(x)
             if p not in grp_map:
                 grp_map[p] = []
-            grp_map[p].append(x.name)
-        h = h.group("sample",Cat("sample","sample"),grp_map)
+            grp_map[p].append(x)
+        h = h.group("process", "process", grp_map)
 
         # Remove the categories which were already correlated together so as to not double count
         if already_correlated:
@@ -728,7 +730,7 @@ class DatacardMaker():
                 print(f"Selecting WCs from subset of channels: {ch_lst}")
             h = h.prune("channel", ch_lst)
 
-        procs = [x.name for x in h.identifiers("sample")]
+        procs = [x for x in h.axes["process"]]
         selected_wcs = {p: set() for p in procs}
 
         wcs = ["sm"] + h._wcnames
@@ -757,7 +759,7 @@ class DatacardMaker():
         for p in procs:
             if not self.is_signal(p):
                 continue
-            p_hist = h.integrate("sample",[p])
+            p_hist = h.integrate("process", [p])
             for wc,idx_arr in wc_to_terms.items():
                 if len(self.coeffs) and not wc in self.coeffs:
                     continue
@@ -819,7 +821,7 @@ class DatacardMaker():
         outf_root_name = os.path.join(self.out_dir,outf_root_name)
         with uproot.recreate(outf_root_name) as f:
             for p,wcs in selected_wcs.items():
-                proc_hist = ch_hist.integrate("sample",[p])
+                proc_hist = ch_hist.integrate("process", [p])
                 if self.verbose:
                     print(f"Decomposing {ch}-{p}")
                 decomposed_templates = self.decompose(proc_hist,wcs)
