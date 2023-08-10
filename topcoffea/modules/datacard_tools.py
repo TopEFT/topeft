@@ -622,19 +622,10 @@ class DatacardMaker():
             yr = self.get_year(x)
             unique_proc_years.add(yr)
 
-        # New approach
-        proc_idx = -1
-        syst_idx = -1
-        for i,sp_field in enumerate(h.fields[:-1]):
-            if sp_field == "systematic":
-                syst_idx = i
-            elif sp_field == "sample":
-                proc_idx = i
-
         already_correlated = set()  # Keeps track of which systematics have already been correlated
-        for sp_key in h._sumw.keys():
-            proc = sp_key[proc_idx].name
-            syst = sp_key[syst_idx].name
+        for sp_key in h.sparse_keys():
+            proc = sp_key["process"]
+            syst = sp_key["systematic"]
             proc_year = self.get_year(proc)
             syst_year = self.get_year(syst)
             if syst_year is None:
@@ -664,20 +655,16 @@ class DatacardMaker():
                 proc_key = proc.replace(proc_year,p_yr)
 
                 # Construct the sparse key
-                corr_key = [x for x in sp_key]
-                corr_key[proc_idx] = StringBin(proc_key)
-                corr_key[syst_idx] = StringBin(syst_key)
-                corr_key = tuple(corr_key)
+                corr_key = dict(sp_key)
+                corr_key["process"] = proc_key
+                corr_key["systematic"] = syst_key
                 corr_keys.append(corr_key)
 
-            corr_str = []
             for k in corr_keys:
-                s = tuple([x.name for x in k])
-                corr_str.append(str(s))
-                h._sumw[sp_key] += h._sumw[k]
-            corr_str = " + ".join(corr_str)
-            sp_tup = tuple([x.name for x in sp_key])
+                h[sp_key] += h[k]
             if self.verbose:
+                corr_str = " + ".join([str(tuple(k.values())) for k in corr_keys])
+                sp_tup = tuple(sp_key.values())
                 print(f"{sp_tup} -- {corr_str}")
 
         # Finally sum over years, since the per-year systematics only appear in a corresponding
@@ -751,9 +738,9 @@ class DatacardMaker():
                     continue
                 if wc == "ctlTi" and p == "tttt":
                     continue
-                for (ch,),arr in p_hist._sumw.items():
-                    # Ignore nanflow,underflow, and overflow bins
-                    sl_arr = arr[2:-1]
+                for sparse_key in p_hist.sparse_keys():
+                    # Drop underflow
+                    sl_arr = p_hist[sparse_key].values(flow=True)[..., 1:, :]
                     # Here we replace any SM terms that are too small with a large dummy value
                     sm_norm = np.where(sl_arr[:,0] < 1e-5,999,sl_arr[:,0])
                     # Normalize each sub-array by corresponding SM term
@@ -1068,11 +1055,13 @@ class DatacardMaker():
 
             r[lin_name] = tmp_lin_1
             r[quad_name] = {}
-            for sparse_key in h._sumw.keys():
-                tup = tuple(x.name for x in sparse_key)
-                r[quad_name][tup]=[]
+            for sp_key in h.sparse_keys():
+                tup = tuple(sp_key.values())
+                r[quad_name][tup] = np.zeros((2,))
                 for i in range(2):
-                    r[quad_name][tup].append( 0.5*(tmp_lin_2[tup][i] - 2*tmp_lin_1[tup][i] + sm[tup][i]) )
+                    r[quad_name][tup][i] = 0.5 * (
+                        tmp_lin_2[tup][i] - 2 * tmp_lin_1[tup][i] + sm[tup][i]
+                    )
 
             for n2,wc2 in enumerate(wcs):
                 if n1 >= n2: continue
