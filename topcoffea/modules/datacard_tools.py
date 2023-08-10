@@ -781,8 +781,8 @@ class DatacardMaker():
         outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="root")
 
         h = self.hists[km_dist]
-        ch_hist = h.integrate("channel",[ch])
-        data_obs = np.zeros((2,ch_hist._dense_shape[0] - 1)) # '_dense_shape' includes the nanflow bin
+        ch_hist = h.integrate("channel", [ch])
+        data_obs = np.zeros((ch_hist.dense_axis.size,))
 
         print(f"Generating root file: {outf_root_name}")
         tic = time.time()
@@ -803,7 +803,7 @@ class DatacardMaker():
                     if self.use_real_data:
                         if len(data_sm) != 1:
                             raise RuntimeError("obs data has unexpected number of sparse bins")
-                        elif sum(data_obs[0]) != 0:
+                        elif sum(data_obs) != 0:
                             raise RuntimeError("filling obs data more than once!")
                         for sp_key,arr in data_sm.items():
                             data_obs += arr
@@ -903,7 +903,7 @@ class DatacardMaker():
             f.write(f"shapes *        * {os.path.split(outf_root_name)[1]} $PROCESS $PROCESS_$SYSTEMATIC\n")
             f.write(line_break)
             f.write(f"bin         {bin_str}\n")
-            f.write(f"observation {sum(data_obs[0]):.{PRECISION}f}\n")
+            f.write(f"observation {sum(data_obs):.{PRECISION}f}\n")
             f.write(line_break)
             f.write(line_break)
 
