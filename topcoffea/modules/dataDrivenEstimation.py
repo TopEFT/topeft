@@ -49,9 +49,10 @@ class DataDrivenProducer:
                 if year not in ['16APV','16','17','18']:
                     raise RuntimeError(f"Sample {sample} does not match the naming convention, year \"{year}\" is unknown.")
 
-            prescale=histo.values().copy()
-            histo.scale( scale_dict, axis=('sample',))
-            postscale=histo.values()
+            # do these lines do anything? scale_dict is empty, and pre and postscale are never used.
+            # prescale = histo.eval(values=None).copy()
+            # histo.scale(scale_dict, axis=("process",))
+            # postscale = histo.eval(values=None)
 
             # now for each year we actually perform the subtraction and integrate out the application regions
             newhist=None
