@@ -160,7 +160,7 @@ def dump_to_pkl(out_name,out_file):
 def get_hist_from_pkl(path_to_pkl,allow_empty=True):
     h = pickle.load( gzip.open(path_to_pkl) )
     if not allow_empty:
-        h = {k:v for k,v in h.items() if v.values() != {}}
+        h = {k:v for k,v in h.items() if v.eval({}) != {}}
     return h
 
 # Check if the contents of two dictionaries of lists agree
