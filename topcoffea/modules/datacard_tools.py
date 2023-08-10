@@ -420,7 +420,8 @@ class DatacardMaker():
         print(f"Pkl Open Time: {dt:.2f} s")
 
         for km_dist,h in self.hists.items():
-            if len(h.values()) == 0: continue
+            if h.empty():
+                continue
             if self.var_lst and not km_dist in self.var_lst: continue
             print(f"Loading: {km_dist}")
             # Remove processes that we don't include in the datacard
@@ -428,14 +429,14 @@ class DatacardMaker():
             for x in h.axes["process"]:
                 p = self.get_process(x)
                 if p in self.ignore:
-                    if self.verbose: print(f"Skipping (ignored): {x.name}")
-                    to_remove.append(x.name)
+                    if self.verbose: print(f"Skipping (ignored): {x}")
+                    to_remove.append(x)
                     continue
                 if self.year_lst:
-                    yr = self.get_year(x.name)
+                    yr = self.get_year(x)
                     if not yr in self.year_lst:
-                        if self.verbose: print(f"Skipping (year): {x.name}")
-                        to_remove.append(x.name)
+                        if self.verbose: print(f"Skipping (year): {x}")
+                        to_remove.append(x)
                         continue
             h = h.remove("process", to_remove)
 
@@ -457,9 +458,9 @@ class DatacardMaker():
                     print(f"Removing systematic: {x}")
                 h = h.remove(list(to_drop),"systematic")
 
-            if km_dist != "njets":
-                edge_arr = self.BINNING[km_dist] + [h.axis(km_dist).edges()[-1]]
-                h = h.rebin(km_dist,Bin(km_dist,h.axis(km_dist).label,edge_arr))
+            if h.should_rebin() and km_dist != "njets":
+                edge_arr = self.BINNING[km_dist] + [list(h.axes[km_dist])[-1]]
+                h = h.rebin(km_dist, hist.axis.Variable(edge_arr, km_dist, h.axes[km_dist].label))
             else:
                 # TODO: Still need to handle njets case properly
                 pass
@@ -476,13 +477,13 @@ class DatacardMaker():
             h = self.group_processes(h)
             h = self.correlate_years(h)
 
-            num_systs = len(h.identifiers("systematic"))
+            num_systs = h.axes["systematic"].size
             print(f"Num. Systematics: {num_systs}")
 
             self.hists[km_dist] = h
 
-    def channels(self,km_dist):
-        return [x.name for x in self.hists[km_dist].identifiers("channel")]
+    def channels(self, km_dist):
+        return list(self.hists[km_dist].axes["channel"])
 
     def processes(self, km_dist):
         return list(self.hists[km_dist].axes["process"])
@@ -720,7 +721,7 @@ class DatacardMaker():
         procs = [x for x in h.axes["process"]]
         selected_wcs = {p: set() for p in procs}
 
-        wcs = ["sm"] + h._wcnames
+        wcs = ["sm"] + h.wc_names()
 
         # This maps a WC to a list whose elements are the indices of the coefficient array of the
         #   HistEFT that involve that particular WC
@@ -776,7 +777,7 @@ class DatacardMaker():
         if not km_dist in self.hists:
             print(f"[ERROR] Unknown kinematic distribution: {km_dist}")
             return None
-        elif StringBin(ch) not in self.hists[km_dist].identifiers("channel"):
+        elif ch not in self.hists[km_dist].axes["channel"]:
             print(f"[ERROR] Unknown channel {ch}")
             return None
 
@@ -1055,17 +1056,14 @@ class DatacardMaker():
             quad piece:  0.5*[set(c1=2.0) - 2*set(c1=1.0) + set(sm)]
         """
         tic = time.time()
-        h.set_sm()
-        sm = h.values(sumw2=True, overflow='all')
+        sm = h.eval({})
         # Note: The keys of this dictionary are a pretty contrived, but are useful later on
         r = {}
         r["sm"] = sm
         terms = 1
-        for n1,wc1 in enumerate(wcs):
-            h.set_wilson_coefficients(**{wc1: 1.0})
-            tmp_lin_1 = h.values(overflow='all', sumw2=True)
-            h.set_wilson_coefficients(**{wc1: 2.0})
-            tmp_lin_2 = h.values(overflow='all',sumw2=True)
+        for n1, wc1 in enumerate(wcs):
+            tmp_lin_1 = h.eval({wc1: 1.0})
+            tmp_lin_2 = h.eval({wc1: 2.0})
 
             lin_name = f"lin_{wc1}"
             quad_name = f"quad_{wc1}"
@@ -1083,8 +1081,7 @@ class DatacardMaker():
             for n2,wc2 in enumerate(wcs):
                 if n1 >= n2: continue
                 mixed_name = f"quad_mixed_{wc1}_{wc2}"
-                h.set_wilson_coefficients(**{wc1:1.0,wc2:1.0})
-                r[mixed_name] = h.values(overflow='all',sumw2=True)
+                r[mixed_name] = h.eval({wc1: 1.0, wc2: 1.0})
                 terms += 1
 
         toc = time.time()
