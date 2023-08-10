@@ -16,30 +16,26 @@ from topcoffea.modules.topeft_axes import info as axes_info
 PRECISION = 6   # Decimal point precision in the text datacard output
 
 
-def to_hist(arr,name,zero_wgts=False):
+def to_hist(arr, name):
     """
         Converts a numpy array into a hist.Hist object suitable for being written to a root file by
-        uproot. If 'zero_wgts' is true, then the resulting histogram will be created with bin errors
-        set to 0 (instead of left unset)
+        uproot.
     """
     # NOTE:
     #   If we don't instantiate a new np.array here, then clipped will store a reference to the
     #   sub-array arr and when we modify clipped, it will propagate back to arr as well!
-    clipped=[]
-    for i in range(2): # first entry is sum(weight), second entry is sum(weight^2)
-        if arr[i] is not None:
-            clipped.append( np.array(arr[i][1:-1]))     # Strip off the under/overflow bins
-            clipped[i][-1] += arr[i][-1]  # Add the overflow bin to the right most bin content
-        else:
-            clipped[i]=None
-
-
-    nbins = len(clipped[0])
-    h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name),storage=bh.storage.Weight())
-    if zero_wgts:
-        h[...] = np.stack([clipped[0],np.zeros_like(clipped[0])],axis=-1) # Set the bin errors all to 0
+    if arr is None:
+        clipped = []
     else:
-        h[...] = np.stack([clipped[0], clipped[1]],axis=-1)
+        clipped = np.array(arr[1:])  # drop underflow
+
+    nbins = len(clipped)
+    h = hist.Hist(
+        hist.axis.Regular(nbins, 0, nbins, name=name), storage=bh.storage.Double()
+    )
+
+    h.fill(clipped)
+
     return h
 
 class RateSystematic():
