@@ -21,21 +21,19 @@ def calc_eft_weights(q_coeffs, wc_values):
     """
 
     # Prepend "1" to the start of the WC array to account for constant and linear terms
-    wcs = np.hstack((np.ones(1),wc_values))
+    wcs = np.hstack((np.ones(1), wc_values))
 
     # Initialize the array that will return the coefficients.  It
     # should be the same shape as q_coeffs except missing the last
-    # dimension
-    out = np.zeros_like(q_coeffs[...,0])
+    # dimension.
+    out = np.zeros_like(q_coeffs[..., 0].view(flow=True))
 
     # Now loop over the terms and multiply them out
     index = 0
     for i in range(len(wcs)):
-        for j in range(i+1):
-            out += q_coeffs[...,index]*wcs[i]*wcs[j]
-            index+=1
-
-    # Done, return the result
+        for j in range(i + 1):
+            out += q_coeffs[..., index].view(flow=True) * wcs[i] * wcs[j]
+            index += 1
     return out
 
 @numba.njit
