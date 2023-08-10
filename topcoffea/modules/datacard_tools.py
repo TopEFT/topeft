@@ -13,6 +13,7 @@ from coffea.hist import StringBin, Cat, Bin
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.utils import regex_match
+from topcoffea.modules.topeft_axes import info as axes_info
 
 PRECISION = 6   # Decimal point precision in the text datacard output
 
