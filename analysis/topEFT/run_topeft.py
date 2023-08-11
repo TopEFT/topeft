@@ -334,7 +334,7 @@ if __name__ == '__main__':
 
     nbins = sum(sum(arr.size for arr in h.view()) for h in output.values() if isinstance(h, hist.BaseHist))
     nfilled = sum(sum(np.sum(arr > 0) for arr in h.view()) for h in output.values() if isinstance(h, hist.BaseHist))
-    print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
+    print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/max(1, nbins),))
 
     if executor == "futures":
         print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
