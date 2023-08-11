@@ -94,7 +94,7 @@ class DataDrivenProducer:
                         if newhist is None:
                             newhist = hFlips
                         else:
-                            newhist += hFlips
+                            newhist = newhist.union(hFlips, "process")
                     else:
                         # if we are in the nonprompt application region, we also integrate the application region axis
                         # and construct the new process 'nonprompt'
@@ -139,7 +139,7 @@ class DataDrivenProducer:
 
                         # now we actually make the subtraction
                         hPromptSub.scale(-1)
-                        hFakes += hPromptSub
+                        hFakes = hFakes.union(hPromptSub, "process")
 
                         # now adding them to the list of processes:
                         if newhist is None:
