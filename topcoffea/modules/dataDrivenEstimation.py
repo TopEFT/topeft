@@ -79,7 +79,7 @@ class DataDrivenProducer:
                                 newNameDictData[nonPromptName].append(process)
                         hFlips = hAR.group(
                             "process",
-                            hist.StrCategory([], name="process", growth=True),
+                            "process",
                             newNameDictData,
                         )
 
