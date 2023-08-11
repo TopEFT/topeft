@@ -206,18 +206,24 @@ class HistEFT(hist.NamedHist, family=_family):
         Insert data into the histogram using names and indices, return
         a HistEFT object.
 
-        arg:       [ e0, e1 ]         each entry is the value for one event.
-        weight:    [ w0, w1 ]         weight per event
-        eft_coeff: [[c00, c01, c02]   each row is the coefficient values for one event,
-                    [c10, c11, c12]]  cij is the value of jth coefficient for the ith event.
-                                      ei, wi, and ci* go together.
+        arg:       [ e0, e1, ... ]         each entry is the value for one event.
+        weight:    [ w0, w1, ... ]         weight per event
+        eft_coeff: [[c00, c01, c02, ...]   each row is the coefficient values for one event,
+                    [c10, c11, c12, ...]
+                    ...                 ]  cij is the value of jth coefficient for the ith event.
+                                           ei, wi, and ci* go together.
+
+        If eft_coeff is not given, then it is assumed to be [[1, 0, 0, ...], [1, 0, 0, ...], ...]
         """
 
         n_events = len(values[self.dense_axis.name])
 
-        if self._quad_count < 2 and not eft_coeff:
-            # if just doing sm and not given eft_coeff 'weights', assume they are one.
-            eft_coeff = np.broadcast_to(1, (n_events, 1))
+        if eft_coeff is None:
+            # if eft_coeff not given, assume values only for sm
+            eft_coeff = np.broadcast_to(
+                np.concatenate((np.ones((1,)), np.zeros((self._quad_count - 1,)))),
+                (n_events, self._quad_count),
+            )
 
         eft_coeff = np.asarray(eft_coeff)
         values_b = {}
