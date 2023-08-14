@@ -289,6 +289,16 @@ class HistEFT(hist.NamedHist, family=_family):
             out[tuple(sparse_key.values())] = efth.calc_eft_weights(
                 self[sparse_key], values
             )
+
+        import traceback
+        with open("/tmp/new_hist.txt", "a") as f:
+            traceback.print_stack(limit=10, file=f)
+            f.write(str(values))
+            f.write("\n")
+            for k in sorted(out.keys()):
+                f.write(str(k))
+                f.write(str(out[k]))
+                f.write("\n")
         return out
 
     def as_hist(self, values):

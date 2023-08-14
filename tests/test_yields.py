@@ -14,7 +14,7 @@ def test_make_yields_after_processor():
     ]
 
     # Produce json
-    subprocess.run(args)
+    subprocess.run(args, check=True)
     assert (exists('analysis/topEFT/output_check_yields.json'))
 
 def test_compare_yields_after_processor():
@@ -30,5 +30,5 @@ def test_compare_yields_after_processor():
     ]
 
     # Run comparison
-    out = subprocess.run(args, stdout=True)
+    out = subprocess.run(args, check=True, stdout=True)
     assert (out.returncode == 0) # Returns 0 if all pass

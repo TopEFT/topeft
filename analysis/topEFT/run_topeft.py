@@ -258,6 +258,8 @@ if __name__ == '__main__':
             'environment_file': remote_environment.get_environment(),
             'extra_input_files': ["topeft.py"],
 
+            'filepath': f'/project01/ndcms/{os.environ["USER"]}',
+
             'retries': 5,
 
             # use mid-range compression for chunks results. 9 is the default for work

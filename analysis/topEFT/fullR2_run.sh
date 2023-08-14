@@ -4,7 +4,13 @@
 OUT_NAME="example_name"
 
 # Build the run command for filling SR histos
-CFGS="../../topcoffea/cfg/mc_signal_samples_NDSkim.cfg,../../topcoffea/cfg/mc_background_samples_NDSkim.cfg,../../topcoffea/cfg/data_samples_NDSkim.cfg"
+# CFGS="../../topcoffea/cfg/mc_signal_samples_NDSkim.cfg,../../topcoffea/cfg/mc_background_samples_NDSkim.cfg,../../topcoffea/cfg/data_samples_NDSkim.cfg"
+CFGS="cfg_vast_ndcms/onefile.cfg"
+CFGS="cfg_vast_ndcms/d2018.cfg"
+CFGS="cfg_vast_ndcms/50files.cfg"
+CFGS="cfg_vast_ndcms/25bfiles.cfg"
+CFGS="cfg_vast_ndcms/25files.cfg"
+
 OPTIONS="--hist-list ana --skip-cr --do-systs -s 50000 --do-np -o $OUT_NAME" # For analysis
 
 # Build the run command for filling CR histos

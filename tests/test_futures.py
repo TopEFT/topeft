@@ -14,7 +14,9 @@ def test_topcoffea():
         "-o",
         "output_check_yields",
         "-p",
-        "analysis/topEFT/histos/"
+        "analysis/topEFT/histos/",
+        "--prefix",
+        "http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/",
     ]
 
     # Run TopCoffea

@@ -26,6 +26,8 @@ class HistEFT(coffea.hist.Hist):
 
     def __init__(self, label, wcnames, *axes, **kwargs):
         """ Initialize """
+        raise ValueError("No")
+
         if isinstance(wcnames, str) and ',' in wcnames: wcnames = wcnames.replace(' ', '').split(',')
         n = len(wcnames) if isinstance(wcnames, list) else wcnames
         self._wcnames = wcnames
