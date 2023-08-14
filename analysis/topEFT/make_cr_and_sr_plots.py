@@ -6,8 +6,7 @@ import argparse
 import matplotlib.pyplot as plt
 from cycler import cycler
 
-from coffea import hist
-#from topcoffea.modules.HistEFT import HistEFT
+import hist
 
 from topcoffea.modules.YieldTools import YieldTools
 import topcoffea.modules.GetValuesFromJsons as getj
@@ -182,9 +181,7 @@ def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
                 bin_map[bin_name] = bin_name
 
     # Remap the bins
-    old_ax = histo.axis(axis_name)
-    new_ax = hist.Cat(old_ax.name,old_ax.label)
-    new_histo = histo.group(old_ax,new_ax,bin_map,overflow="over")
+    new_histo = histo.group(axis_name, axis_name, bin_map)
 
     return new_histo
 
@@ -478,8 +475,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,
         h_data.scale(1.0/sum_data)
 
     # Plot the MC
-    hist.plot1d(
-        h_mc,
+    h_mc.plot1d(
         ax=ax,
         stack=True,
         line_opts=None,
@@ -489,8 +485,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,
     )
 
     # Plot the data
-    hist.plot1d(
-        h_data,
+    h_data.plot1d(
         ax=ax,
         error_opts = DATA_ERR_OPS,
         stack=False,
@@ -535,8 +530,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,
 def make_single_fig(histo,unit_norm_bool):
     #print("\nPlotting values:",histo.values())
     fig, ax = plt.subplots(1, 1, figsize=(7,7))
-    hist.plot1d(
-        histo,
+    histo.plot1d(
         stack=False,
         density=unit_norm_bool,
         clear=False,
@@ -560,8 +554,7 @@ def make_single_fig_with_ratio(histo,axis_name,cat_ref,err_p=None,err_m=None,err
     fig.subplots_adjust(hspace=.07)
 
     # Make the main plot
-    hist.plot1d(
-        histo,
+    histo.plot1d(
         ax=ax,
         stack=False,
         clear=False,
