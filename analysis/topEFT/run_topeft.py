@@ -263,7 +263,7 @@ if __name__ == '__main__':
             # use mid-range compression for chunks results. 9 is the default for work
             # queue in coffea. Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
-            'compression': 9,
+            'compression': 4,
 
             # automatically find an adequate resource allocation for tasks.
             # tasks are first tried using the maximum resources seen of previously ran
