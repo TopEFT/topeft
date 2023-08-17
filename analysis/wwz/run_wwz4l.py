@@ -253,8 +253,7 @@ if __name__ == '__main__':
             'stats_log': 'stats.log',
             'tasks_accum_log': 'tasks.log',
 
-            #'environment_file': remote_environment.get_environment(),
-            'environment_file': remote_environment.get_environment(unstaged='ignore'),
+            'environment_file': remote_environment.get_environment(extra_pip=["mt2","xgboost"]),
             'extra_input_files': ["wwz4l.py"],
 
             'retries': 5,

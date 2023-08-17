@@ -141,6 +141,9 @@ exclude_dict = {
 # Apply trigger matching requirements to make sure pt is above online thresholds
 def trg_matching(events,year):
 
+    # The trigger for 2016 and 2016APV are the same
+    if year == "2016APV": year = "2016"
+
     # Initialize return array to be True array with same shape as events
     ret_arr = ak.zeros_like(np.array(events.event), dtype=bool)
 
@@ -152,7 +155,6 @@ def trg_matching(events,year):
 
     # Loop over offline cuts, make sure triggers pass the offline cuts for the associated triggers
     for l_l in trgs_for_matching[year]:
-
 
         # Check if lep pt passes the offline cuts
         offline_thresholds = trgs_for_matching[year][l_l]["offline_thresholds"]
