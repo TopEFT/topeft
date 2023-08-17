@@ -1,5 +1,4 @@
 import argparse
-import json
 import pickle
 import gzip
 
@@ -9,9 +8,23 @@ import gzip
 
 sample_dict = {
     "WWZ" : ["UL16APV_WWZJetsTo4L2Nu","UL16_WWZJetsTo4L2Nu","UL17_WWZJetsTo4L2Nu","UL18_WWZJetsTo4L2Nu"],
-    "ZH"  : ["UL16APV_GluGluZH","UL16_GluGluZH","UL17_GluGluZH","UL18_GluGluZH"],
-    "ZZ"  : ["UL16APV_ZZTo4l","UL16_ZZTo4l","UL17_ZZTo4l","UL18_ZZTo4l"],
+    #"ZH"  : ["UL16APV_GluGluZH","UL16_GluGluZH","UL17_GluGluZH","UL18_GluGluZH"],
+    "qqZZ"  : ["UL16APV_ZZTo4l","UL16_ZZTo4l","UL17_ZZTo4l","UL18_ZZTo4l"],
+    "ggZZ"  : [
+        "UL16APV_ggToZZTo2e2mu","UL16APV_ggToZZTo2e2tau","UL16APV_ggToZZTo2mu2tau","UL16APV_ggToZZTo4e","UL16APV_ggToZZTo4mu","UL16APV_ggToZZTo4tau",
+        "UL16_ggToZZTo2e2mu","UL16_ggToZZTo2e2tau","UL16_ggToZZTo2mu2tau","UL16_ggToZZTo4e","UL16_ggToZZTo4mu","UL16_ggToZZTo4tau",
+        "UL17_ggToZZTo2e2mu","UL17_ggToZZTo2e2tau","UL17_ggToZZTo2mu2tau","UL17_ggToZZTo4e","UL17_ggToZZTo4mu","UL17_ggToZZTo4tau",
+        "UL18_ggToZZTo2e2mu","UL18_ggToZZTo2e2tau","UL18_ggToZZTo2mu2tau","UL18_ggToZZTo4e","UL18_ggToZZTo4mu","UL18_ggToZZTo4tau",
+    ],
+    "ZZ"  : [
+        "UL16APV_ZZTo4l","UL16_ZZTo4l","UL17_ZZTo4l","UL18_ZZTo4l",
+        "UL16APV_ggToZZTo2e2mu","UL16APV_ggToZZTo2e2tau","UL16APV_ggToZZTo2mu2tau","UL16APV_ggToZZTo4e","UL16APV_ggToZZTo4mu","UL16APV_ggToZZTo4tau",
+        "UL16_ggToZZTo2e2mu","UL16_ggToZZTo2e2tau","UL16_ggToZZTo2mu2tau","UL16_ggToZZTo4e","UL16_ggToZZTo4mu","UL16_ggToZZTo4tau",
+        "UL17_ggToZZTo2e2mu","UL17_ggToZZTo2e2tau","UL17_ggToZZTo2mu2tau","UL17_ggToZZTo4e","UL17_ggToZZTo4mu","UL17_ggToZZTo4tau",
+        "UL18_ggToZZTo2e2mu","UL18_ggToZZTo2e2tau","UL18_ggToZZTo2mu2tau","UL18_ggToZZTo4e","UL18_ggToZZTo4mu","UL18_ggToZZTo4tau",
+    ]
 }
+
 
 # Get the yields in the SR
 def get_yields(histos_dict):
