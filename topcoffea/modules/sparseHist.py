@@ -3,6 +3,8 @@
 import hist
 import boost_histogram as bh
 
+import awkward as ak
+
 from itertools import chain, product, repeat
 
 from typing import Any, List, Mapping, Union, Sequence
@@ -39,23 +41,37 @@ class SparseHist(hist.Hist, family=hist):
         nocats = {axis.name: axes[axis.name] for axis in self._dense_axes}
         return (cats, nocats)
 
-    def categories_to_index(self, bins: Union[Sequence, Mapping], collapsed=None):
+    def _cats_as_dict(self, values):
+        return dict(zip(self._cat_names, values))
+
+    def categories_to_index(self, bins: Union[Sequence, Mapping], collapsed=None, as_dict=False):
         if collapsed is None:
             collapsed = repeat(False)
-        return tuple(axis.index(bin) for axis, bin, mask in zip(self.categorical_axes, bins, collapsed) if not mask)
+        t = tuple(axis.index(bin) for axis, bin, mask in zip(self.categorical_axes, bins, collapsed) if not mask)
+        if as_dict:
+            return self._cats_as_dict(t)
+        else:
+            return t
 
-    def index_to_categories(self, indices: Sequence, collapsed=None):
+    def index_to_categories(self, indices: Sequence, collapsed=None, as_dict=None):
         if collapsed is None:
-            collapsed = repeat(True)
-        return tuple(axis[index] for index, axis, mask in zip(indices, self.categorical_axes, collapsed) if not mask)
+            collapsed = repeat(False)
+        t = tuple(axis[index] for index, axis, mask in zip(indices, self.categorical_axes, collapsed) if not mask)
+        if as_dict:
+            return self._cats_as_dict(t)
+        else:
+            return t
 
     @property
     def categorical_axes(self):
         return hist.axis.NamedAxesTuple(self.axes[name] for name in self._cat_names)
 
-    @property
-    def categorical_keys(self):
-        return chain(*self.categorical_axes)
+    def categorical_keys(self, as_dict=False):
+        for indices in self._dense_hists:
+            key = self.index_to_categories(indices)
+            if as_dict:
+                key = self._cats_as_dict(key)
+            yield key
 
     def _fill_bookkeep(self, *args, **kwargs):
         super().fill(*args, **kwargs)
@@ -195,3 +211,25 @@ class SparseHist(hist.Hist, family=hist):
             return self._from_hists_no_dense(filtered, new_cats, collapsed)
         else:
             return self._from_hists(filtered, new_cats, collapsed)
+
+    def values(self, flow=False):
+        builder = ak.ArrayBuilder()
+
+        def rec(key, depth):
+            axis = list(self.categorical_axes)[-1 * depth]
+            for i in range(len(axis)):
+                next_key = (*key, i) if key else (i, )
+                if depth > 1:
+                    with builder.list():
+                        rec(next_key, depth - 1)
+                else:
+                    if next_key in self._dense_hists:
+                        builder.append(self._dense_hists[next_key].values())
+                    else:
+                        builder.append(None)
+        rec(None, len(self._cat_names))
+        return builder.snapshot()
+
+    def view(self, flow=False):
+        key = ", ".join([f"'{name}': ..." for name in self._cat_names])
+        raise ValueError(f"Only view of particular dense histograms is currently supported. Use h[{{{key}}}].view(flow=...) instead.")
