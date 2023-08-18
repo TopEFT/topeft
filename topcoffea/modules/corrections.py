@@ -221,10 +221,11 @@ def ApplyTES(events, Taus, isData):
   
   whereFlag = ((pt>20) & (pt<205) & (gen==5))
   tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
-  return(Taus.pt*tes)
+  return(Taus.pt*tes, Taus.mass*tes)
+  #return(Taus.pt*tes)
+
 
 def AttachTauSF(events, Taus, year):
-
   padded_Taus = ak.pad_none(Taus,1)
   padded_Taus = ak.with_name(padded_Taus, "TauCandidate")
   padded_Taus["sf_tau"] = 1.0
