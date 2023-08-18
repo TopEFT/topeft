@@ -1,7 +1,7 @@
 '''
  selection.py
 
- This script contains several functions that implement the some event selection. 
+ This script contains several functions that implement the some event selection.
  The functinos defined here can be used to define a selection, signal/control region, etc.
  The functions are called with (jagged)arrays as imputs plus some custom paramenters and return a boolean mask.
 
@@ -168,7 +168,7 @@ def passesTrgInLst(events,trg_name_lst):
 #   - Elements are false if they do not pass any of the triggers defined in dataset_dict
 #   - In the case of data, events are also false if they overlap with another dataset
 def trgPassNoOverlap(events,is_data,dataset,year):
-    
+
     # The trigger for 2016 and 2016APV are the same
     if year == "2016APV":
         year = "2016"

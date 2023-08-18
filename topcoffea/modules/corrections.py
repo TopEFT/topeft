@@ -207,7 +207,7 @@ def ApplyTES(events, Taus, isData):
 
     whereFlag = ((pt>20) & (pt<205) & (gen==5))
     tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
-    return(Taus.pt*tes, Taus.mass*tes)
+    return (Taus.pt*tes, Taus.mass*tes)
     #return(Taus.pt*tes)
 
 def AttachTauSF(events, Taus, year):
@@ -293,14 +293,14 @@ def AttachPerLeptonFR(leps, flavor, year):
         leps['fliprate'] = np.zeros_like(leps.pt)
 
 def fakeRateWeight1l(events, lep1):
-  for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown']:
-    fakefactor_2l =  (~lep1.isTightLep + (1)*(lep1.isTightLep)) # if all are tight the FF is 1 because events are in the SR
-    fakefactor_2l =  fakefactor_2l*(lep1.isTightLep + (~lep1.isTightLep)*getattr(lep1,'fakefactor%s'%syst))
-    events['fakefactor_1l%s'%syst]=fakefactor_2l
-  # Calculation of flip factor: flip_factor_2l = 1*(isSS) + (fliprate1 + fliprate2)*(isOS):
-  #     - For SS events = 1
-  #     - For OS events = (fliprate1 + fliprate2)
-  events['flipfactor_1l']=1*((lep1.charge)!=0) + (((lep1.fliprate))*((lep1.charge)==0))
+    for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown']:
+        fakefactor_2l =  (~lep1.isTightLep + (1)*(lep1.isTightLep)) # if all are tight the FF is 1 because events are in the SR
+        fakefactor_2l =  fakefactor_2l*(lep1.isTightLep + (~lep1.isTightLep)*getattr(lep1,'fakefactor%s'%syst))
+        events['fakefactor_1l%s'%syst]=fakefactor_2l
+    # Calculation of flip factor: flip_factor_2l = 1*(isSS) + (fliprate1 + fliprate2)*(isOS):
+    #     - For SS events = 1
+    #     - For OS events = (fliprate1 + fliprate2)
+    events['flipfactor_1l']=1*((lep1.charge)!=0) + (((lep1.fliprate))*((lep1.charge)==0))
 
 def fakeRateWeight2l(events, lep1, lep2):
     for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown']:
