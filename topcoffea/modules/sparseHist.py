@@ -299,9 +299,13 @@ class SparseHist(hist.Hist, family=hist):
         else:
             if self._cat_names != other._cat_names:
                 raise ValueError("Category names are different, or in different order, and therefore cannot be merged.")
-            for index, oh in other._dense_hists.items():
-                if index not in self._dense_hists:
-                    self._fill_bookkeep(*other.index_to_categories(index))
+            for index_oh, oh in other._dense_hists.items():
+                cats = other.index_to_categories(index_oh)
+                try:
+                    index = self.categories_to_index(cats)
+                except KeyError:
+                    self._fill_bookkeep(*cats)
+                    index = self.categories_to_index(cats)
                 getattr(self._dense_hists[index], op)(oh)
         return self
 
