@@ -1,3 +1,5 @@
+:warning: **NOTE**: The scripts in this directory have not been updated since the `topcoffea` refactoring (of August 2023), if they are needed in the future, likely some import statements will need to be updated.
+
 # Extreme Events Study
 
 The `extreme_events` processor is designed to search for top high-energy events from the multi-lepton data. The first part of the study is getting the actual data in the form of dataframes from the processor. The second part is getting the yields from the Monte Carlo data. There are two ways of getting the yields: summing up the bins of the output histogram from the `topeft` processor and summing up the columns of the output dataframe from the `extreme_events` processor. Since it is less likely to make a mistake with `topeft`, it is recommended as the first method to try.

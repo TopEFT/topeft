@@ -1,3 +1,5 @@
+:warning: The scripts in this directory have not been updated since the `topcoffea` refactoring (of August 2023), if they are needed in the future, likely some import statements will need to be updated.
+
 ## mc_validation
 
 This directory contains scripts from the validation studies of the FullR2 private UL MC generated for TOP-22-006 against central UL MC performed during the June 2022 MC validation studies (for TOP-22-006 pre approval checks).
