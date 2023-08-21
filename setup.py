@@ -3,7 +3,7 @@ import setuptools
 setuptools.setup(
     name='topeft',
     version='0.0.0',
-    description='Top quark analyses using the Coffea framework',
+    description='Analysis code for top quark EFT analyses',
     packages=setuptools.find_packages(),
     # Include data files (Note: "include_package_data=True" does not seem to work)
     package_data={
