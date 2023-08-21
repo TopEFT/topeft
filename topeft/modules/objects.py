@@ -31,10 +31,6 @@ def isVTightTau(idDeepTau2017v2p1VSjet):
 def isVVTightTau(idDeepTau2017v2p1VSjet):
     return (idDeepTau2017v2p1VSjet>>7 & 1)
 
-def isTightJet(pt, eta, jet_id, jetPtCut=25.0):
-    mask = ((pt>jetPtCut) & (abs(eta)<get_param("eta_j_cut")) & (jet_id>get_param("jet_id_cut")))
-    return mask
-
 def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
     return (hoe<(0.10-0.00*(abs(eta+deltaEtaSC)>1.479))) & (eInvMinusPInv>-0.04) & (sieie<(0.011+0.019*(abs(eta+deltaEtaSC)>1.479)))
 

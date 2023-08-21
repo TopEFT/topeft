@@ -17,6 +17,8 @@ from topcoffea.modules.HistEFT import HistEFT
 from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
 
+import topcoffea as tc
+
 
 # Takes strings as inputs, constructs a string for the full channel name
 # Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
@@ -348,7 +350,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # SYSTEMATICS
                 cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
                 met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
-            cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
+            cleanedJets["isGood"] = tc.modules.objects.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_param("eta_j_cut"), id_cut=get_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
 
             # Count jets
