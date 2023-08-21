@@ -190,7 +190,8 @@ class SparseHist(hist.Hist, family=hist):
             if isinstance(x, int):
                 return range(x, x + 1)
             elif isinstance(x, slice):
-                return range(x.start, x.stop, x.step)
+                step = x.step if isinstance(x.step, int) else 1
+                return range(x.start, x.stop, step)
             elif x == sum:
                 return range(len(self.axes[cat_name]))
             return x
@@ -257,6 +258,11 @@ class SparseHist(hist.Hist, family=hist):
             key = ", ".join([f"'{name}': ..." for name in self._cat_names])
             raise ValueError(f"If not a dict, only view of particular dense histograms is currently supported. Use h[{{{key}}}].view(flow=...) instead.")
         return {k: h.values(flow=flow) for k, h in self._dense_hists}
+
+    def integrate(self, name: str, value=None):
+        if value is None:
+            value = sum
+        return self[{name: value}]
 
     def remove(self, axis_name, bins):
         """Remove bins from a categorical axis

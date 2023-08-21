@@ -36,13 +36,16 @@ def test_simple_fill():
 
 def test_integrate():
     h = make_hist()
-    values = h.values()
+    r1 = h.integrate("channel", "ch0").values()
 
-    h.fill(process="ttH", channel="ch1", ptz=data_ptz)
+    h.fill(process="ttH", channel="ch1", ptz=data_ptz * 2)
 
-    h2 = h[{"channel": sum}]
+    r2 = h.integrate("channel", "ch0").values()
+    r3 = h.integrate("channel", "ch1").values()
 
-    assert ak.all(h2.values() == values[0, :] * 2)
+    assert ak.all(r1 == r2)
+    assert ak.any(r2 != r3)
+    assert ak.sum(h.values()) == ak.sum(r2 + r3)
 
 
 def test_slice():

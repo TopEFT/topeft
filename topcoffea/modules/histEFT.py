@@ -342,15 +342,6 @@ class HistEFT(SparseHist, family=_family):
             hnew[{new_name: join}] = joined.view(flow=True)
         return hnew
 
-    # convenience methods for compatibility methods for coffea.hist
-    def integrate(self, name: str, value: Union[Any, None] = None):
-        if isinstance(value, List):
-            raise ValueError("A list is no longer a valid argument for integrate.")
-
-        if value is None:
-            value = sum
-        return self[{name: value}]
-
     def scale(self, factor: float):
         self *= factor
         return self
