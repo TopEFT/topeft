@@ -7,7 +7,6 @@
 
 '''
 
-import numpy as np
 import awkward as ak
 
 from topcoffea.modules.corrections import fakeRateWeight1l, fakeRateWeight2l, fakeRateWeight3l
