@@ -23,6 +23,7 @@ setuptools.setup(
             "data/pileup/*.root",
             "data/MuonScale/*txt",
             "data/goldenJsons/*.txt",
+            "data/TauSF/*.json",
             "data/topmva/lepid_weights/*.bin",
         ],
     }

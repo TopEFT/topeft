@@ -244,7 +244,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau["isClean"] = isClean(tau, l_loose, drmin=0.3)
         tau["isGood"]  =  tau["isClean"] & tau["isPres"]
         tau = tau[tau.isGood] # use these to clean jets
-        tau["isTight"] = isTightTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+        tau["isTight"] = isVLooseTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
 
         # Compute pair invariant masses, for all flavors all signes
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
