@@ -1,0 +1,88 @@
+{
+    "UL17_WWZJetsTo4L2Nu": {
+        "nleps_counts": [
+            158395.0,
+            null
+        ],
+        "njets_counts": [
+            94133.0,
+            null
+        ],
+        "nbtagsl_counts": [
+            19064.0,
+            null
+        ],
+        "4l_wwz_sf_A_counts": [
+            929.0,
+            null
+        ],
+        "4l_wwz_sf_B_counts": [
+            713.0,
+            null
+        ],
+        "4l_wwz_sf_C_counts": [
+            207.0,
+            null
+        ],
+        "4l_wwz_of_1_counts": [
+            253.0,
+            null
+        ],
+        "4l_wwz_of_2_counts": [
+            314.0,
+            null
+        ],
+        "4l_wwz_of_3_counts": [
+            631.0,
+            null
+        ],
+        "4l_wwz_of_4_counts": [
+            2033.0,
+            null
+        ],
+        "all_events_counts": [
+            54868.0,
+            null
+        ],
+        "4l_presel_counts": [
+            9865.0,
+            null
+        ],
+        "4l_wwz_sf_A": [
+            0.7075932520092465,
+            null
+        ],
+        "4l_wwz_sf_B": [
+            0.5534297283156775,
+            null
+        ],
+        "4l_wwz_sf_C": [
+            0.15329743648180738,
+            null
+        ],
+        "4l_wwz_of_1": [
+            0.19486962264636531,
+            null
+        ],
+        "4l_wwz_of_2": [
+            0.25809398910496384,
+            null
+        ],
+        "4l_wwz_of_3": [
+            0.49626797233941033,
+            null
+        ],
+        "4l_wwz_of_4": [
+            1.6135204755119048,
+            null
+        ],
+        "all_events": [
+            42.997765715117566,
+            null
+        ],
+        "4l_presel": [
+            7.726364016125444,
+            null
+        ]
+    }
+}

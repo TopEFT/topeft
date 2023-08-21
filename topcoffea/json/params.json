@@ -104,5 +104,43 @@
 
     "pu_w" : 69200,
     "pu_w_up" : 72400,
-    "pu_w_down" : 66000
+    "pu_w_down" : 66000,
+
+
+
+
+    "btagcsv_wp_loose_UL16"     : 0.1918,
+    "btagcsv_wp_loose_UL16APV"  : 0.2027,
+    "btagcsv_wp_loose_UL17"     : 0.1355,
+    "btagcsv_wp_loose_UL18"     : 0.1208,
+    "btagcsv_wp_medium_UL16"    : 0.5847,
+    "btagcsv_wp_medium_UL16APV" : 0.6001,
+    "btagcsv_wp_medium_UL17"    : 0.4506,
+    "btagcsv_wp_medium_UL18"    : 0.4168,
+
+    "wwz_z_sip3d"  : 4.0,
+    "wwz_w_sip3d"  : 4.0,
+    "wwz_z_iso"    : 0.2,
+    "wwz_w_iso"    : 0.2,
+
+    "wwz_pres_e_pt"    : 10,
+    "wwz_pres_e_eta"   : 2.5,
+    "wwz_pres_e_dxy"   : 0.05,
+    "wwz_pres_e_dz"    : 0.1,
+    "wwz_pres_e_sip3d" : 8.0,
+    "wwz_pres_e_lostHits" : 1.0,
+    "wwz_pres_e_miniPFRelIso_all" : 0.4,
+    "wwz_pres_e_tightCharge" : 2.0,
+
+    "wwz_pres_m_pt"    : 10,
+    "wwz_pres_m_eta"   : 2.4,
+    "wwz_pres_m_dxy"   : 0.05,
+    "wwz_pres_m_dz"    : 0.1,
+    "wwz_pres_m_sip3d" : 8.0,
+    "wwz_pres_m_miniPFRelIso_all" : 0.4,
+
+    "topmva_wp_t_e" : 0.81,
+    "topmva_wp_t_m" : 0.64
+
+
 }

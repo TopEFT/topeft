@@ -14,7 +14,7 @@ from topcoffea.modules.corrections import fakeRateWeight1l, fakeRateWeight2l, fa
 
 
 # The datasets we are using, and the triggers in them
-dataset_dict = {
+dataset_dict_top22006 = {
 
     "2016" : {
         "SingleMuon" : [
@@ -121,26 +121,26 @@ dataset_dict = {
 #   - No unique way to do this
 #   - Note: In order for this to work properly, you should be processing all of the datastes to be used in the analysis
 #   - Otherwise, you may be removing events that show up in other datasets you're not using
-exclude_dict = {
+exclude_dict_top22006 = {
     "2016": {
         "DoubleMuon"     : [],
-        "DoubleEG"       : dataset_dict["2016"]["DoubleMuon"],
-        "MuonEG"         : dataset_dict["2016"]["DoubleMuon"] + dataset_dict["2016"]["DoubleEG"],
-        "SingleMuon"     : dataset_dict["2016"]["DoubleMuon"] + dataset_dict["2016"]["DoubleEG"] + dataset_dict["2016"]["MuonEG"],
-        "SingleElectron" : dataset_dict["2016"]["DoubleMuon"] + dataset_dict["2016"]["DoubleEG"] + dataset_dict["2016"]["MuonEG"] + dataset_dict["2016"]["SingleMuon"],
+        "DoubleEG"       : dataset_dict_top22006["2016"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict_top22006["2016"]["DoubleMuon"] + dataset_dict_top22006["2016"]["DoubleEG"],
+        "SingleMuon"     : dataset_dict_top22006["2016"]["DoubleMuon"] + dataset_dict_top22006["2016"]["DoubleEG"] + dataset_dict_top22006["2016"]["MuonEG"],
+        "SingleElectron" : dataset_dict_top22006["2016"]["DoubleMuon"] + dataset_dict_top22006["2016"]["DoubleEG"] + dataset_dict_top22006["2016"]["MuonEG"] + dataset_dict_top22006["2016"]["SingleMuon"],
     },
     "2017": {
         "DoubleMuon"     : [],
-        "DoubleEG"       : dataset_dict["2017"]["DoubleMuon"],
-        "MuonEG"         : dataset_dict["2017"]["DoubleMuon"] + dataset_dict["2017"]["DoubleEG"],
-        "SingleMuon"     : dataset_dict["2017"]["DoubleMuon"] + dataset_dict["2017"]["DoubleEG"] + dataset_dict["2017"]["MuonEG"],
-        "SingleElectron" : dataset_dict["2017"]["DoubleMuon"] + dataset_dict["2017"]["DoubleEG"] + dataset_dict["2017"]["MuonEG"] + dataset_dict["2017"]["SingleMuon"],
+        "DoubleEG"       : dataset_dict_top22006["2017"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict_top22006["2017"]["DoubleMuon"] + dataset_dict_top22006["2017"]["DoubleEG"],
+        "SingleMuon"     : dataset_dict_top22006["2017"]["DoubleMuon"] + dataset_dict_top22006["2017"]["DoubleEG"] + dataset_dict_top22006["2017"]["MuonEG"],
+        "SingleElectron" : dataset_dict_top22006["2017"]["DoubleMuon"] + dataset_dict_top22006["2017"]["DoubleEG"] + dataset_dict_top22006["2017"]["MuonEG"] + dataset_dict_top22006["2017"]["SingleMuon"],
     },
     "2018": {
         "DoubleMuon"     : [],
-        "EGamma"         : dataset_dict["2018"]["DoubleMuon"],
-        "MuonEG"         : dataset_dict["2018"]["DoubleMuon"] + dataset_dict["2018"]["EGamma"],
-        "SingleMuon"     : dataset_dict["2018"]["DoubleMuon"] + dataset_dict["2018"]["EGamma"] + dataset_dict["2018"]["MuonEG"],
+        "EGamma"         : dataset_dict_top22006["2018"]["DoubleMuon"],
+        "MuonEG"         : dataset_dict_top22006["2018"]["DoubleMuon"] + dataset_dict_top22006["2018"]["EGamma"],
+        "SingleMuon"     : dataset_dict_top22006["2018"]["DoubleMuon"] + dataset_dict_top22006["2018"]["EGamma"] + dataset_dict_top22006["2018"]["MuonEG"],
     },
 }
 
@@ -167,7 +167,7 @@ def passesTrgInLst(events,trg_name_lst):
 #   - Returns an array the len of events
 #   - Elements are false if they do not pass any of the triggers defined in dataset_dict
 #   - In the case of data, events are also false if they overlap with another dataset
-def trgPassNoOverlap(events,is_data,dataset,year):
+def trgPassNoOverlap(events,is_data,dataset,year,dataset_dict,exclude_dict):
 
     # The trigger for 2016 and 2016APV are the same
     if year == "2016APV":
@@ -476,9 +476,9 @@ def addLepCatMasks(events):
 
 # Returns a mask for events with a same flavor opposite (same) sign pair close to the Z
 # Mask will be True if any combination of 2 leptons from within the given collection satisfies the requirement
-def get_Z_peak_mask(lep_collection,pt_window,flavor="os"):
+def get_Z_peak_mask(lep_collection,pt_window,flavor="os",zmass=91.2):
     ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
-    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<pt_window)
+    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - zmass)<pt_window)
     if flavor == "os":
         sf_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
     elif flavor == "ss":
