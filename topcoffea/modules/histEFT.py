@@ -6,8 +6,9 @@ import numpy as np
 
 from itertools import product, chain
 
-from typing import Any, List, Mapping, Union
+from typing import Any, Dict, List, Mapping, Union
 
+from topcoffea.modules.sparseHist import SparseHist
 import topcoffea.modules.eft_helper as efth
 
 try:
@@ -21,7 +22,7 @@ except ImportError:
 _family = hist
 
 
-class HistEFT(hist.NamedHist, family=_family):
+class HistEFT(SparseHist, family=_family):
     """ Histogram specialized to hold Wilson Coefficients.
     Example:
     ```
@@ -105,6 +106,15 @@ class HistEFT(hist.NamedHist, family=_family):
         if kwargs["storage"] != "Double":
             raise ValueError("only 'Double' storage is supported")
 
+        if args[-1].name == "quadratic_term":
+            self._coeff_axis = args[-1]
+            args = args[:-1]
+        else:
+            # no axis for quadratic_term found, creating our own.
+            self._coeff_axis = hist.axis.Integer(
+                start=0, stop=self._quad_count, name="quadratic_term"
+            )
+
         self._dense_axis = args[-1]
         if not isinstance(
             self._dense_axis, (bh.axis.Regular, bh.axis.Variable, bh.axis.Integer)
@@ -117,13 +127,8 @@ class HistEFT(hist.NamedHist, family=_family):
                 f"No axis may have one of the following names: {','.join(reserved_names)}"
             )
 
-        self._coeff_axis = hist.axis.Integer(
-            start=0, stop=self._quad_count, name="quadratic_term"
-        )
+        print(args)
         super().__init__(*args, self._coeff_axis, **kwargs)
-
-        if len(list(self.sparse_axes)) != len(self.axes) - 2:
-            raise ValueError("exactly one dense axis should be specified.")
 
     def wc_names(self):
         return list(self._wc_names)
@@ -158,13 +163,6 @@ class HistEFT(hist.NamedHist, family=_family):
 
     def should_rebin(self):
         return self._needs_rebinning
-
-    @property
-    def sparse_axes(self):
-        return filter(
-            lambda axis: isinstance(axis, (bh.axis.StrCategory, bh.axis.IntCategory)),
-            self.axes,
-        )
 
     @property
     def dense_axis(self):
@@ -206,7 +204,8 @@ class HistEFT(hist.NamedHist, family=_family):
         Insert data into the histogram using names and indices, return
         a HistEFT object.
 
-        arg:       [ e0, e1, ... ]         each entry is the value for one event.
+        cat axes:  "s1"                    each categorical axis with one value to fill
+        dense axis:[ e0, e1, ... ]         each entry is the value for one event.
         weight:    [ w0, w1, ... ]         weight per event
         eft_coeff: [[c00, c01, c02, ...]   each row is the coefficient values for one event,
                     [c10, c11, c12, ...]
@@ -226,10 +225,9 @@ class HistEFT(hist.NamedHist, family=_family):
             )
 
         eft_coeff = np.asarray(eft_coeff)
-        values_b = {}
-        for n, a in values.items():
-            # turn into [e0, e0, ..., e1, e1, ..., e2, e2, ...]
-            values_b[n] = self._fill_flatten(a, n_events)
+
+        # turn into [e0, e0, ..., e1, e1, ..., e2, e2, ...]
+        values[self._dense_axis.name] = self._fill_flatten(values[self._dense_axis.name], n_events)
 
         # turn into: [c00, c01, c02, ..., c10, c11, c12, ...]
         eft_coeff = eft_coeff.ravel()
@@ -238,7 +236,7 @@ class HistEFT(hist.NamedHist, family=_family):
         # [ 0, 1, 2, ..., 0, 1, 2, ...]
         indices = self._fill_indices(n_events)
 
-        weight = values_b.pop("weight", None)
+        weight = values.pop("weight", None)
         if weight is not None:
             eft_coeff = eft_coeff * weight
 
@@ -246,19 +244,12 @@ class HistEFT(hist.NamedHist, family=_family):
         # [e0,      e0,      e0    ..., e1,     e1,     e1,     ...]
         # [ 0,      1,       2,    ..., 0,      1,      2,      ...]
         # [c00*w0, c01*w0, c02*w0, ..., c10*w1, c11*w1, c12*w1, ...]
-        super().fill(quadratic_term=indices, **values_b, weight=eft_coeff)
-
-    def sparse_keys(self):
-        # axis give iterators on the name of their buckets, so we simply feed them to the itertools product.
-        sparse_names = list(axis.name for axis in self.sparse_axes)
-        for val in product(*self.sparse_axes):
-            yield dict(zip(sparse_names, val))
+        super().fill(quadratic_term=indices, **values, weight=eft_coeff)
 
     def _wc_for_eval(self, values):
         """Set the WC values used to evaluate the bin contents of this histogram
         where the WCs are specified as keyword arguments.  Any WCs not listed are set to zero.
         """
-
         if not values:
             return np.zeros(self._wc_count)
 
@@ -285,20 +276,11 @@ class HistEFT(hist.NamedHist, family=_family):
 
         values = self._wc_for_eval(values)
         out = {}
-        for sparse_key in self.sparse_keys():
-            out[tuple(sparse_key.values())] = efth.calc_eft_weights(
+        for sparse_key in self.categorical_keys():
+            print(self[sparse_key])
+            out[sparse_key] = efth.calc_eft_weights(
                 self[sparse_key], values
             )
-
-        import traceback
-        with open("/tmp/new_hist.txt", "a") as f:
-            traceback.print_stack(limit=10, file=f)
-            f.write(str(values))
-            f.write("\n")
-            for k in sorted(out.keys()):
-                f.write(str(k))
-                f.write(str(out[k]))
-                f.write("\n")
         return out
 
     def as_hist(self, values):
@@ -317,21 +299,16 @@ class HistEFT(hist.NamedHist, family=_family):
             **self._init_args_base,
         )
 
-        sparse_names = list(axis.name for axis in self.sparse_axes)
+        sparse_names = list(axis.name for axis in self.categorical_axes())
         for sp_vals, arrs in evals.items():
             sp_key = dict(zip(sparse_names, sp_vals))
             nhist[sp_key] = arrs
         return nhist
 
-    def group(self: Self, old_name: str, new_name: str, groups: dict[str, list[str]]):
+    def group(self, old_name: str, new_name: str, groups: Dict[str, List[str]]):
         """ Generate a new HistEFT where bins of axis named old_name are merged
         according to the groups mapping. The axis of the resuling histogram is
         named new_name.
-
-        WARNING: Given restrictions on boost-histogram, it is sometimes not possible to use
-        arithmetic operations directly on the resulting histograms, as they differ
-        in the name and order of the bins. If you need to add histograms, resulting
-        from this mehtod, use HistEFT.union(...)
         """
         if old_name != new_name:
             for ax in self.axes:
@@ -350,7 +327,7 @@ class HistEFT(hist.NamedHist, family=_family):
             elif axis != self._coeff_axis:
                 new_axes.append(axis)
 
-        hnew = HistEFT(
+        hnew = type(self)(
             *new_axes,
             **self._init_args_base,
             **self._init_args_eft,
@@ -363,88 +340,6 @@ class HistEFT(hist.NamedHist, family=_family):
                 splits = [splits]
             joined = sum(self[{old_name: split}] for split in splits)
             hnew[{new_name: join}] = joined.view(flow=True)
-        return hnew
-
-    def remove(self, axis_name, bins):
-        """Remove bins from a sparse axis
-
-        Parameters
-        ----------
-            bins : iterable
-                A list of bin identifiers to remove
-            axis : str
-                Sparse axis name
-
-        Returns a *copy* of the histogram with specified bins removed, not an in-place operation
-        """
-        axis = self.axes[axis_name]
-        if not isinstance(axis, (bh.axis.StrCategory, bh.axis.IntCategory)):
-            raise NotImplementedError(
-                "HistEFT.remove() only supports removing items from a sparse axis."
-            )
-        bins = [axis.index(binid) for binid in bins]
-        keep = [binid for binid in axis if binid not in bins]
-        full_slice = tuple(slice(None) if ax != axis else keep for ax in self.axes)
-        return self[full_slice]
-
-    def prune(self, axis, to_keep):
-        """Convenience method to remove all categories except for a selected subset.
-        Returns a *copy* of the histogram with specified bins removed, not an in-place operation
-        """
-        to_remove = [x for x in self.axes[axis] if x not in to_keep]
-        return self.remove(axis, to_remove)
-
-    def union(self: Self, other: Self, axis_name: str):
-        """Creates a new histogram from the union with another histogram
-        adding slices from along axis_name.
-        It is like self + other, but allows bins in the axis with axis_name
-        across the input histograms to be distinct. The rest of the axes
-        are enforced to be compatible across histograms."""
-
-        s_axis = self.axes[axis_name]
-        o_axis = other.axes[axis_name]
-
-        n_axis = hist.axis.StrCategory(
-            chain(s_axis, o_axis), name=axis_name, label=s_axis.label, growth=True
-        )
-
-        new_axes = []
-        for axis in self.axes:
-            if axis == s_axis:
-                new_axes.append(n_axis)
-            elif axis != self._coeff_axis:
-                new_axes.append(axis)
-
-        if self.shape != other.shape:
-            ValueError(
-                "Cannot use union on these histograms as they have different dimensions."
-            )
-
-        for s, o in zip(self.axes, other.axes):
-            if s == s_axis:
-                continue
-            if s.name != o.name or list(s) != list(o):
-                ValueError(
-                    "Cannot use union on these histograms as axis are not mergable."
-                )
-
-        hnew = HistEFT(
-            *new_axes,
-            **self._init_args_base,
-            **self._init_args_eft,
-        )
-
-        s_bins = set(s_axis)
-        o_bins = set(o_axis)
-
-        for bin in s_bins.union(o_bins):
-            hs = []
-            if bin in s_bins:
-                hs.append(self[{axis_name: bin}].view(flow=True))
-            if bin in o_bins:
-                hs.append(other[{axis_name: bin}].view(flow=True))
-            hnew[{axis_name: bin}] = sum(hs)
-
         return hnew
 
     # convenience methods for compatibility methods for coffea.hist
@@ -461,7 +356,7 @@ class HistEFT(hist.NamedHist, family=_family):
         return self
 
     def empty(self):
-        return np.all(self.counts() == 0)
+        return np.all(self.values(flow=True) == 0)
 
     # compatibility methods for old coffea
     # all of these are deprecated
