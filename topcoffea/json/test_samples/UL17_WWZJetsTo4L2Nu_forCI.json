@@ -1,0 +1,15 @@
+{
+  "xsec": 0.002067,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "UL17_WWZJetsTo4L2Nu",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "output_1.root"
+  ],
+  "nEvents": 54868,
+  "nGenEvents": 109760,
+  "nSumOfWeights": 227.15914198199997,
+  "isData": false
+}
