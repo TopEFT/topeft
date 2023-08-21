@@ -10,13 +10,9 @@ data_ptz = np.arange(0, 600, 600 / nbins)
 
 def make_hist():
     h = SparseHist(
-        categorical_axes=[
             hist.axis.StrCategory([], name="process", growth=True),
             hist.axis.StrCategory([], name="channel", growth=True),
-        ],
-        dense_axes=[
             hist.axis.Regular(nbins, 0, 600, name="ptz"),
-        ],
     )
     h.fill(process="ttH", channel="ch0", ptz=data_ptz)
 

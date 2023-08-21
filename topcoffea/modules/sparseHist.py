@@ -11,8 +11,10 @@ from typing import Mapping, Union, Sequence
 
 
 class SparseHist(hist.Hist, family=hist):
-    def __init__(self, *, categorical_axes, dense_axes, **kwargs):
+    def __init__(self, *axes, **kwargs):
         self._init_args = dict(kwargs)
+
+        categorical_axes, dense_axes = self._check_args(axes)
 
         # actual "histogram". One histogram with one dense axis per combination of categorical bins.
         self._dense_hists: dict[tuple, hist.Hist] = {}
@@ -24,11 +26,24 @@ class SparseHist(hist.Hist, family=hist):
         super().__init__(*categorical_axes, storage="Double")
         self.axes = hist.axis.NamedAxesTuple(chain(super().axes, self._dense_axes))
 
-        if len(self._cat_names) < 1 or len(self._dense_axes) < 1:
-            raise ValueError("At least one categorical axis and one dense axis should be specified.")
+    def _check_args(self, axes):
+        on_cats = True
+        categorical_axes = []
+        dense_axes = []
 
-        if not all(map(lambda a: isinstance(a, (hist.axis.StrCategory, hist.axis.IntCategory)), self.categorical_axes)):
-            raise ValueError("Category axes should be of type hist.axis.StrCategory or hist.axis.IntCategory")
+        for axis in axes:
+            if isinstance(axis, (hist.axis.StrCategory, hist.axis.IntCategory)):
+                if not on_cats:
+                    ValueError("All categorical axes should be specified first.")
+                categorical_axes.append(axis)
+            else:
+                on_cats = False
+                dense_axes.append(axis)
+
+        if len(categorical_axes) < 1 or len(dense_axes) < 1:
+            raise ValueError("At least one categorical axis and at least one dense axis should be specified.")
+
+        return categorical_axes, dense_axes
 
     def __str__(self):
         return repr(self)
@@ -86,7 +101,6 @@ class SparseHist(hist.Hist, family=hist):
 
         # fill the bookkeeping first, so that the index of the key exists.
         h = self._fill_bookkeep(*list(cats.values()))
-
         return h.fill(weight=weight, sample=sample, threads=threads, **nocats)
 
     def _to_bin(self, cat_name, value, offset=0):
@@ -129,7 +143,8 @@ class SparseHist(hist.Hist, family=hist):
         elif isinstance(key, Sequence):
             if len(key) == len(self._cat_names):
                 # assume just the name of the categories
-                full_key = dict(zip((name for name in self._cat_names), key))
+                full_key = dict(zip(self._cat_names, key))
+                full_key.update({axis.name: slice(None) for axis in self._dense_axes})
             elif len(key) == len(self.axes):
                 # assume all axes specified, including dense axes
                 full_key = dict(zip((a.name for a in self.axes), key))
@@ -145,7 +160,8 @@ class SparseHist(hist.Hist, family=hist):
     def _from_hists(self, hists: dict, categorical_axes: list, collapsed: Union[None, Sequence] = None):
         dense_axes = list(hists.values())[0].axes
 
-        new_hist = type(self)(categorical_axes=categorical_axes, dense_axes=dense_axes, **self._init_args)
+        new_hist = type(self)(*categorical_axes, *dense_axes, **self._init_args)
+
         for index_key, dense_hist in hists.items():
             named_key = self.index_to_categories(index_key, collapsed)
             new_hist._fill_bookkeep(*named_key)
@@ -180,7 +196,6 @@ class SparseHist(hist.Hist, family=hist):
             return x
 
         cats, nocats = self._split_axes(full_key)
-
         filtered = {}
         for sparse_key in product(*(asseq(name, v) for name, v in cats.items())):
             if sparse_key in self._dense_hists:
@@ -213,7 +228,7 @@ class SparseHist(hist.Hist, family=hist):
         else:
             return self._from_hists(filtered, new_cats, collapsed)
 
-    def values(self, flow=False):
+    def _ak_rec_op(self, op_on_dense):
         builder = ak.ArrayBuilder()
 
         def rec(key, depth):
@@ -225,48 +240,23 @@ class SparseHist(hist.Hist, family=hist):
                         rec(next_key, depth - 1)
                 else:
                     if next_key in self._dense_hists:
-                        builder.append(self._dense_hists[next_key].values(flow=flow))
+                        builder.append(op_on_dense(self._dense_hists[next_key]))
                     else:
                         builder.append(None)
         rec(None, len(self._cat_names))
         return builder.snapshot()
+
+    def values(self, flow=False):
+        return self._ak_rec_op(lambda h: h.values(flow=flow))
+
+    def counts(self, flow=False):
+        return self._ak_rec_op(lambda h: h.counts(flow=flow))
 
     def view(self, flow=False, as_dict=True):
         if not as_dict:
             key = ", ".join([f"'{name}': ..." for name in self._cat_names])
             raise ValueError(f"If not a dict, only view of particular dense histograms is currently supported. Use h[{{{key}}}].view(flow=...) instead.")
         return {k: h.values(flow=flow) for k, h in self._dense_hists}
-
-    def group(self,  old_name: str, new_name: str, groups: dict[str, list[str]], **hist_kwargs):
-        """ Generate a new HistEFT where bins of axis named old_name are merged
-        according to the groups mapping. The axis of the resuling histogram is
-        named new_name.
-        """
-        if old_name != new_name:
-            for ax in self.axes:
-                if new_name == ax.name:
-                    raise ValueError("Name of new axis is already in use")
-
-        old_axis = self.axes[old_name]
-        new_axis = type(old_axis)(
-            groups.keys(), name=new_name, label=old_axis.label, growth=True
-        )
-
-        new_axes = []
-        for axis in self.axes:
-            if axis.name == old_name:
-                new_axes.append(new_axis)
-            elif axis != self._coeff_axis:
-                new_axes.append(axis)
-
-        hnew = type(self)(*new_axes, **hist_kwargs)
-
-        for join, splits in groups.items():
-            if isinstance(splits, str):
-                splits = [splits]
-            joined = sum(self[{old_name: split}] for split in splits)
-            hnew[{new_name: join}] = joined.view(flow=True)
-        return hnew
 
     def remove(self, axis_name, bins):
         """Remove bins from a categorical axis
@@ -295,7 +285,6 @@ class SparseHist(hist.Hist, family=hist):
         """
         to_remove = [x for x in self.axes[axis] if x not in to_keep]
         return self.remove(axis, to_remove)
-
 
     def _ibinary_op(self, other, op: str):
         if not isinstance(other, SparseHist):
