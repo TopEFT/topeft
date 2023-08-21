@@ -11,10 +11,11 @@ from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.GetValuesFromJsons import get_param, get_lumi
 from topcoffea.modules.paths import topcoffea_path
-import topcoffea.modules.objects as objbase
+import topcoffea.modules.object_sel as objbase
+import topcoffea.modules.event_sel as selbase
+
 import topcoffea.modules.objects_wwz as objwwz
 import topcoffea.modules.selection_wwz as selwwz
-import topcoffea.modules.selection as selbase
 
 
 class AnalysisProcessor(processor.ProcessorABC):
@@ -275,7 +276,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             ######### Masks we need for the selection ##########
 
             # Pass trigger mask
-            pass_trg = selbase.trgPassNoOverlap(events,isData,dataset,str(year),dataset_dict=selwwz.dataset_dict,exclude_dict=selwwz.exclude_dict)
+            pass_trg = selbase.trg_pass_no_overlap(events,isData,dataset,str(year),dataset_dict=selwwz.dataset_dict,exclude_dict=selwwz.exclude_dict)
             pass_trg = (pass_trg & selwwz.trg_matching(events,year))
 
             # b jet masks

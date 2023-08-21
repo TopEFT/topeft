@@ -486,7 +486,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sfasz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
 
             # Pass trigger mask
-            pass_trg = trgPassNoOverlap(events,isData,dataset,str(year),dataset_dict_top22006,exclude_dict_top22006)
+            pass_trg = tc.modules.event_sel.trg_pass_no_overlap(events,isData,dataset,str(year),dataset_dict_top22006,exclude_dict_top22006)
 
             # b jet masks
             bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
