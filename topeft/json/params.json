@@ -21,17 +21,6 @@
     "dz_tau_cut" : 0.2,
     "sip3d_cut" : 8,
 
-    "mva_TTH_e_cut" : 0.90,
-    "mva_TTH_m_cut" : 0.85,
-
-    "btag_wp_loose_UL16"  : 0.0480,
-    "btag_wp_loose_UL16APV"  : 0.0508,
-    "btag_wp_loose_UL17"  : 0.0532,
-    "btag_wp_loose_UL18"  : 0.0490,
-    "btag_wp_medium_UL16"  : 0.2489,
-    "btag_wp_medium_UL16APV"  : 0.2598,
-    "btag_wp_medium_UL17" : 0.3040,
-    "btag_wp_medium_UL18" : 0.2783,
 
     "lo_xsec_samples": [
         "TTGamma_centralUL16APV",
@@ -102,21 +91,9 @@
         "UL18"    : 1.12
     },
 
-    "pu_w" : 69200,
-    "pu_w_up" : 72400,
-    "pu_w_down" : 66000,
 
 
 
-
-    "btagcsv_wp_loose_UL16"     : 0.1918,
-    "btagcsv_wp_loose_UL16APV"  : 0.2027,
-    "btagcsv_wp_loose_UL17"     : 0.1355,
-    "btagcsv_wp_loose_UL18"     : 0.1208,
-    "btagcsv_wp_medium_UL16"    : 0.5847,
-    "btagcsv_wp_medium_UL16APV" : 0.6001,
-    "btagcsv_wp_medium_UL17"    : 0.4506,
-    "btagcsv_wp_medium_UL18"    : 0.4168,
 
     "wwz_z_sip3d"  : 4.0,
     "wwz_w_sip3d"  : 4.0,
