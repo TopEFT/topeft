@@ -6,7 +6,7 @@
 
 import numpy as np
 import awkward as ak
-from topcoffea.modules.GetValuesFromJsons import get_param
+from topcoffea.modules.get_params_from_jsons import get_param
 
 ### These functions have been synchronized with ttH ###
 

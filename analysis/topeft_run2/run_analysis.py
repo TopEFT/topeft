@@ -11,11 +11,12 @@ import numpy as np
 from coffea import hist, processor
 from coffea.nanoevents import NanoAODSchema
 
-import topeft
 import topcoffea.modules.utils as utils
-from topcoffea.modules.dataDrivenEstimation import DataDrivenProducer
-from topcoffea.modules.get_renormfact_envelope import get_renormfact_envelope
 import topcoffea.modules.remote_environment as remote_environment
+
+from topeft.modules.dataDrivenEstimation import DataDrivenProducer
+from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
+import analysis_processor
 
 LST_OF_KNOWN_EXECUTORS = ["futures","work_queue"]
 
@@ -240,7 +241,7 @@ if __name__ == '__main__':
     else:
         print('No Wilson coefficients specified')
 
-    processor_instance = topeft.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
+    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
 
     if executor == "work_queue":
         executor_args = {
@@ -255,7 +256,7 @@ if __name__ == '__main__':
             'tasks_accum_log': 'tasks.log',
 
             'environment_file': remote_environment.get_environment(),
-            'extra_input_files': ["topeft.py"],
+            'extra_input_files': ["analysis_processor.py"],
 
             'retries': 5,
 

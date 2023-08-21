@@ -9,7 +9,7 @@
 
 import awkward as ak
 
-from topcoffea.modules.corrections import fakeRateWeight1l, fakeRateWeight2l, fakeRateWeight3l
+from topeft.modules.corrections import fakeRateWeight1l, fakeRateWeight2l, fakeRateWeight3l
 
 
 # The datasets we are using, and the triggers in them

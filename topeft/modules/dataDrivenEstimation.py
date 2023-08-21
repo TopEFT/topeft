@@ -1,7 +1,7 @@
 import argparse
 from coffea import hist
-from topcoffea.modules.YieldTools import YieldTools
-from topcoffea.modules.GetValuesFromJsons import get_param
+from topeft.modules.YieldTools import YieldTools
+from topcoffea.modules.get_params_from_jsons import get_param
 import topcoffea.modules.utils as utils
 import cloudpickle
 from collections import defaultdict
