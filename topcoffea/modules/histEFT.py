@@ -238,6 +238,7 @@ class HistEFT(SparseHist, family=_family):
 
         weight = values.pop("weight", None)
         if weight is not None:
+            weight = self._fill_flatten(weight, n_events)
             eft_coeff = eft_coeff * weight
 
         # fills:

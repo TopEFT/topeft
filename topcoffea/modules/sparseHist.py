@@ -257,7 +257,7 @@ class SparseHist(hist.Hist, family=hist):
         if not as_dict:
             key = ", ".join([f"'{name}': ..." for name in self._cat_names])
             raise ValueError(f"If not a dict, only view of particular dense histograms is currently supported. Use h[{{{key}}}].view(flow=...) instead.")
-        return {k: h.values(flow=flow) for k, h in self._dense_hists}
+        return {self.index_to_categories(k): h.view(flow=flow) for k, h in self._dense_hists.items()}
 
     def integrate(self, name: str, value=None):
         if value is None:
