@@ -19,7 +19,7 @@ class DataDrivenProducer:
         self.verbose=False
         self.dataName='data'
         self.outHist=None
-        self.promptSubtractionSamples=get_param('prompt_subtraction_samples')
+        self.promptSubtractionSamples=get_te_param('prompt_subtraction_samples')
         self.DDFakes()
 
     def DDFakes(self):
