@@ -55,7 +55,7 @@ class HistEFT(SparseHist, family=_family):
         ],
     )
 
-    # eval at 0, returns a dictionary from categorical axes bins to array, same as justsm,
+    # eval at 0, returns a dictionary from categorical axes bins to array, same as just sm,
     # {('ttH',): array([-100. ,   3.6,    1.4,    1.5,  600. ])}
     h.eval({})
     h.eval({"ctG": 0})     # same thing
@@ -300,9 +300,9 @@ class HistEFT(SparseHist, family=_family):
             **self._init_args_base,
         )
 
-        sparse_names = list(axis.name for axis in self.categorical_axes())
-        for sp_vals, arrs in evals.items():
-            sp_key = dict(zip(sparse_names, sp_vals))
+        sparse_names = self.categorical_axes.name
+        for sp_val, arrs in evals.items():
+            sp_key = dict(zip(sparse_names, sp_val))
             nhist[sp_key] = arrs
         return nhist
 

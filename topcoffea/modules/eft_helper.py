@@ -29,10 +29,11 @@ def calc_eft_weights(q_coeffs, wc_values):
     out = np.zeros_like(q_coeffs[..., 0])
 
     # Now loop over the terms and multiply them out
-    index = 0
+    index = 1  # start at second column, as first is 0s from boost_histogram underflow (real underflow is row 0)
     for i in range(len(wcs)):
         for j in range(i + 1):
             out += q_coeffs[..., index] * wcs[i] * wcs[j]
+            print(out, q_coeffs[..., index], wcs[i], wcs[j])
             index += 1
     return out
 
