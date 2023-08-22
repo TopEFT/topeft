@@ -78,6 +78,11 @@ jobs:
           conda config --add channels conda-forge
           conda env create -f environment.yml -n coffea-env
 
+      - name: Checkout topcoffea
+        uses: actions/checkout@master
+        with:
+          TopEFT/topcoffea
+
       - name: Conda list
         run: |
           conda list -n coffea-env
