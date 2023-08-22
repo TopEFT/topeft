@@ -106,10 +106,13 @@ def test_ac_deepcopy():
 
 
 def test_group():
-    c_w = a_w.group("type", "all", {"all": ["eft", "non-eft"]})
+    c_w = a_w + b_w
+    g_w = c_w.group("type", {"all": ["eft", "non-eft"]})
+
+    print(g_w._dense_hists)
     assert (
-        c_w.integrate("all").view(as_dict=True)[()].sum()
-        == a_w.integrate("type").view(as_dict=True)[()].sum()
+        g_w.integrate("type").view(as_dict=True)[()].sum()
+        == c_w.integrate("type").view(as_dict=True)[()].sum()
     )
 
 

@@ -306,43 +306,6 @@ class HistEFT(SparseHist, family=_family):
             nhist[sp_key] = arrs
         return nhist
 
-    def group(self, old_name: str, new_name: str, groups: Dict[str, List[str]]):
-        """ Generate a new HistEFT where bins of axis named old_name are merged
-        according to the groups mapping. The axis of the resuling histogram is
-        named new_name.
-        """
-        if old_name != new_name:
-            for ax in self.axes:
-                if new_name == ax.name:
-                    raise ValueError("Name of new axis is already in use")
-
-        old_axis = self.axes[old_name]
-        new_axis = hist.axis.StrCategory(
-            groups.keys(), name=new_name, label=old_axis.label, growth=True
-        )
-
-        new_axes = []
-        for axis in self.axes:
-            if axis.name == old_name:
-                new_axes.append(new_axis)
-            elif axis != self._coeff_axis:
-                new_axes.append(axis)
-
-        hnew = type(self)(
-            *new_axes,
-            **self._init_args_base,
-            **self._init_args_eft,
-        )
-
-        hnew._coeff_axis.label = self._coeff_axis.label
-
-        for join, splits in groups.items():
-            if isinstance(splits, str):
-                splits = [splits]
-            joined = sum(self[{old_name: split}] for split in splits)
-            hnew[{new_name: join}] = joined.view(flow=True)
-        return hnew
-
     def scale(self, factor: float):
         self *= factor
         return self

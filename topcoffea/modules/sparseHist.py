@@ -162,34 +162,39 @@ class SparseHist(hist.Hist, family=hist):
             return tuple(self._to_bin(cat_name, v, offset) for v in value)
         raise ValueError(f"Invalid index specification: {cat_name}: {value}")
 
-    def _make_full_key(self, key):
+    def _make_index_key(self, key):
         if isinstance(key, Mapping):
-            full_key = {
+            index_key = {
                 axis.name: slice(None) for axis in self.axes
             }
-            full_key.update(key)
+            index_key.update(key)
         elif isinstance(key, Sequence):
             if len(key) == len(self.categorical_axes):
                 # assume just the name of the categories
-                full_key = dict(zip(self.categorical_axes.name, key))
-                full_key.update({axis.name: slice(None) for axis in self._dense_axes})
+                index_key = dict(zip(self.categorical_axes.name, key))
+                index_key.update({axis.name: slice(None) for axis in self._dense_axes})
             elif len(key) == len(self.axes):
                 # assume all axes specified, including dense axes
-                full_key = dict(zip((a.name for a in self.axes), key))
+                index_key = dict(zip((a.name for a in self.axes), key))
             else:
                 raise ValueError("Incorrect dimensions were specified.")
         else:
             raise ValueError("Index should be a mapping or a tuple.")
 
         for a in self.categorical_axes:
-            full_key[a.name] = self._to_bin(a.name, full_key[a.name])
-        return full_key
+            index_key[a.name] = self._to_bin(a.name, index_key[a.name])
+        return index_key
 
     def _from_hists(self, hists: dict, categorical_axes: list, collapsed: Union[None, Sequence] = None):
+        """Construct a sparse hist from a dictionary of dense histograms.
+        hists: a dictionary of dense histograms.
+        categorical_axes: axes to use for the new histogram.
+        collapsed: mask that indicates which sparse keys disappear from the indices of hists.
+                  (I.e., the new categorical_axes correspond to False values in collapsed.
+        """
         dense_axes = list(hists.values())[0].axes
 
         new_hist = self.from_categorical_axes_like(*categorical_axes)
-
         for index_key, dense_hist in hists.items():
             named_key = self.index_to_categories(index_key, collapsed)
             new_hist._fill_bookkeep(*named_key)
@@ -199,20 +204,15 @@ class SparseHist(hist.Hist, family=hist):
             new_hist._dense_hists[index_key] += dense_hist
         return new_hist
 
-    def _from_sum_all(self, hists: dict):
-        new_hist = self.from_categorical_axes_like()
-        for dense_hist in hists.values():
-            new_hist += dense_hist
-        return new_hist
-
     def _from_hists_no_dense(self, hists: dict, categorical_axes: list, collapsed: Union[None, Sequence] = None):
+        """Construct a hist.Hist from a dictionary of histograms where all the dense axes have collapsed. """
         new_hist = hist.Hist(*categorical_axes, **self._init_args)
         for index_key, weight in hists.items():
             named_key = self.index_to_categories(index_key, collapsed)
             new_hist.fill(*named_key, weight=weight)
         return new_hist
 
-    def _filter_dense(self, full_key):
+    def _filter_dense(self, index_key):
         def asseq(cat_name, x):
             if isinstance(x, int):
                 return range(x, x + 1)
@@ -223,33 +223,34 @@ class SparseHist(hist.Hist, family=hist):
                 return range(len(self.axes[cat_name]))
             return x
 
-        cats, nocats = self._split_axes(full_key)
+        cats, nocats = self._split_axes(index_key)
         filtered = {}
         for sparse_key in product(*(asseq(name, v) for name, v in cats.items())):
             if sparse_key in self._dense_hists:
                 filtered[sparse_key] = self._dense_hists[sparse_key][tuple(nocats.values())]
-
-        if len(filtered) == 0:
-            raise KeyError("No bins found")
         return filtered
 
     def __getitem__(self, key):
-        full_key = self._make_full_key(key)
-        filtered = self._filter_dense(full_key)
+        index_key = self._make_index_key(key)
+        filtered = self._filter_dense(index_key)
 
-        collapsed = [full_key[name] is sum or isinstance(full_key[name], int) for name in self.categorical_axes.name]
+        if len(filtered) == 0:
+            raise KeyError("No bins found")
+
+        collapsed = [index_key[name] is sum or isinstance(index_key[name], int) for name in self.categorical_axes.name]
         new_cats = [
             type(axis)([], growth=True, name=axis.name, label=axis.label)
             for axis, mask in zip(self.categorical_axes, collapsed) if not mask
         ]
 
         first = list(filtered.values())[0]
-        if len(new_cats) == 0 and not isinstance(first, hist.Hist):
-            # collapsed to singe value
-            return first
         if not isinstance(first, hist.Hist):
-            # there was only one dense axis, and it collapse into one value
-            return self._from_hists_no_dense(filtered, new_cats, collapsed)
+            if len(new_cats) == 0:
+                # whole histogram collapsed to singe value
+                return first
+            else:
+                # dense axes have collapsed to a single value
+                return self._from_hists_no_dense(filtered, new_cats, collapsed)
         else:
             return self._from_hists(filtered, new_cats, collapsed)
 
@@ -294,6 +295,36 @@ class SparseHist(hist.Hist, family=hist):
         if value is None:
             value = sum
         return self[{name: value}]
+
+    def group(self, axis_name: str, groups: dict[str, list[str]]):
+        """ Generate a new SparseHist where bins of axis are merged
+        according to the groups mapping.
+        """
+        old_axis = self.axes[axis_name]
+        new_axis = hist.axis.StrCategory(
+            groups.keys(), name=axis_name, label=old_axis.label, growth=True
+        )
+
+        cat_axes = []
+        for axis in self.categorical_axes:
+            if axis.name == axis_name:
+                cat_axes.append(new_axis)
+            else:
+                cat_axes.append(axis)
+
+        hnew = self.from_categorical_axes_like(*cat_axes)
+        for target, sources in groups.items():
+            old_key = self._make_index_key({axis_name: sources})
+            filtered = self._filter_dense(old_key)
+
+            for old_index, dense in filtered.items():
+                new_key = self.index_to_categories(old_index, as_dict=True)
+                new_key[axis_name] = target
+                new_index = hnew.categories_to_index(new_key.values())
+
+                hnew._fill_bookkeep(*new_key.values())
+                hnew._dense_hists[new_index] += dense
+        return hnew
 
     def remove(self, axis_name, bins):
         """Remove bins from a categorical axis
