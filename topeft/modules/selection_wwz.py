@@ -4,7 +4,7 @@ from mt2 import mt2
 from coffea.nanoevents.methods import vector
 
 from topeft.modules.get_param_from_jsons import get_te_param
-import topcoffea.modules.event_sel as selbase
+import topcoffea.modules.event_selection as tc_es
 
 
 # The datasets we are using, and the triggers in them
@@ -166,7 +166,7 @@ def trg_matching(events,year):
 
         # Check if trigger passes the associated triggers
         trg_lst = trgs_for_matching[year][l_l]["trg_lst"]
-        trg_passes = selbase.passes_trg_inlst(events,trg_lst)
+        trg_passes = tc_es.passes_trg_inlst(events,trg_lst)
 
         # Build the return mask
         # The return mask started from an array of False
@@ -192,7 +192,7 @@ def add4lmask_wwz(events, year, isData):
     nlep_4 = (ak.num(leps) == 4)
 
     # Check if the leading lep associated with Z has pt>25
-    on_z = ak.fill_none(selbase.get_Z_peak_mask(leps_padded[:,0:4],pt_window=10.0,zmass=91.1876),False)
+    on_z = ak.fill_none(tc_es.get_Z_peak_mask(leps_padded[:,0:4],pt_window=10.0,zmass=91.1876),False)
 
     # Remove low mass resonances
     cleanup = (events.min_mll_afos > 12)

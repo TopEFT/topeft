@@ -9,14 +9,17 @@ from hist import axis
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
-from topcoffea.modules.get_param_from_jsons import get_tc_param, get_lumi
 from topcoffea.modules.paths import topcoffea_path
-import topcoffea.modules.object_sel as objbase
-import topcoffea.modules.event_sel as selbase
+import topcoffea.modules.event_selection as es_tc
+import topcoffea.modules.object_selection as os_tc
 
-import topeft.modules.objects_wwz as objwwz
-import topeft.modules.selection_wwz as selwwz
-from topeft.modules.get_param_from_jsons import get_te_param
+from topeft.modules.paths import topeft_path as ewkcoffea_path
+import topeft.modules.selection_wwz as es_ec
+import topeft.modules.objects_wwz as os_ec
+
+from topcoffea.modules.get_param_from_jsons import GetParam
+get_tc_param = GetParam(topcoffea_path("params/params.json"))
+get_ec_param = GetParam(ewkcoffea_path("params/params.json"))
 
 
 class AnalysisProcessor(processor.ProcessorABC):
@@ -132,13 +135,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Lepton selection ####################
 
         # Do the object selection for the WWZ eleectrons
-        ele_presl_mask = objwwz.is_presel_wwz_ele(ele,tight=True)
-        ele["topmva"] = objwwz.get_topmva_score_ele(events, year)
+        ele_presl_mask = os_ec.is_presel_wwz_ele(ele,tight=True)
+        ele["topmva"] = os_ec.get_topmva_score_ele(events, year)
         ele["is_tight_lep_for_wwz"] = ((ele.topmva > get_tc_param("topmva_wp_t_e")) & ele_presl_mask)
 
         # Do the object selection for the WWZ muons
-        mu_presl_mask = objwwz.is_presel_wwz_mu(mu)
-        mu["topmva"] = objwwz.get_topmva_score_mu(events, year)
+        mu_presl_mask = os_ec.is_presel_wwz_mu(mu)
+        mu["topmva"] = os_ec.get_topmva_score_mu(events, year)
         mu["is_tight_lep_for_wwz"] = ((mu.topmva > get_tc_param("topmva_wp_t_m")) & mu_presl_mask)
 
         # Get tight leptons for WWZ selection
@@ -176,7 +179,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
-            lumi = 1000.0*get_lumi(year)
+            lumi = 1000.0*get_tc_param(f"lumi_{year}")
             weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
 
         # We do not have systematics yet
@@ -196,12 +199,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             #cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
             # Clean with dr for now
-            cleanedJets = objwwz.get_cleaned_collection(l_wwz_t,jets)
+            cleanedJets = os_ec.get_cleaned_collection(l_wwz_t,jets)
 
             # Selecting jets and cleaning them
             # NOTE: The jet id cut is commented for now in objects.py for the sync
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
-            cleanedJets["is_good"] = objbase.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=20., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
+            cleanedJets["is_good"] = os_tc.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=20., eta_cut=get_ec_param("eta_j_cut"), id_cut=get_ec_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.is_good]
 
             # Count jets
@@ -246,14 +249,14 @@ class AnalysisProcessor(processor.ProcessorABC):
             events["njets"] = njets
             events["l_wwz_t"] = l_wwz_t
 
-            selwwz.add4lmask_wwz(events, year, isData)
+            es_ec.add4lmask_wwz(events, year, isData)
 
 
             ######### Masks we need for the selection ##########
 
             # Pass trigger mask
-            pass_trg = selbase.trg_pass_no_overlap(events,isData,dataset,str(year),dataset_dict=selwwz.dataset_dict,exclude_dict=selwwz.exclude_dict)
-            pass_trg = (pass_trg & selwwz.trg_matching(events,year))
+            pass_trg = es_tc.trg_pass_no_overlap(events,isData,dataset,str(year),dataset_dict=es_ec.dataset_dict,exclude_dict=es_ec.exclude_dict)
+            pass_trg = (pass_trg & es_ec.trg_matching(events,year))
 
             # b jet masks
             bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
@@ -269,8 +272,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             ######### WWZ event selection stuff #########
 
             # Get some preliminary things we'll need
-            selwwz.attach_wwz_preselection_mask(events,l_wwz_t_padded[:,0:4])                                              # Attach preselection sf and of flags to the events
-            leps_from_z_candidate_ptordered, leps_not_z_candidate_ptordered = selwwz.get_wwz_candidates(l_wwz_t_padded[:,0:4]) # Get a hold of the leptons from the Z and from the W
+            es_ec.attach_wwz_preselection_mask(events,l_wwz_t_padded[:,0:4])                                              # Attach preselection sf and of flags to the events
+            leps_from_z_candidate_ptordered, leps_not_z_candidate_ptordered = es_ec.get_wwz_candidates(l_wwz_t_padded[:,0:4]) # Get a hold of the leptons from the Z and from the W
             w_candidates_mll = (leps_not_z_candidate_ptordered[:,0:1]+leps_not_z_candidate_ptordered[:,1:2]).mass       # Will need to know mass of the leps from the W
 
             # Make masks for the SF regions
@@ -289,7 +292,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Mask for mt2 cut
             w_lep0 = leps_not_z_candidate_ptordered[:,0:1]
             w_lep1 = leps_not_z_candidate_ptordered[:,1:2]
-            mt2_val = selwwz.get_mt2(w_lep0,w_lep1,met)
+            mt2_val = es_ec.get_mt2(w_lep0,w_lep1,met)
             mt2_mask = ak.fill_none(ak.any((mt2_val>25.0),axis=1),False)
 
 
