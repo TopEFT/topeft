@@ -84,7 +84,7 @@ jobs:
           repository: TopEFT/topcoffea
 
       - name: Install topcoffea
-        run:
+        run: |
           echo "THE PWD"
           pwd
           echo "THE LS"
