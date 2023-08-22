@@ -26,13 +26,13 @@ def calc_eft_weights(q_coeffs, wc_values):
     # Initialize the array that will return the coefficients.  It
     # should be the same shape as q_coeffs except missing the last
     # dimension.
-    out = np.zeros_like(q_coeffs[..., 0].view(flow=True))
+    out = np.zeros_like(q_coeffs[..., 0])
 
     # Now loop over the terms and multiply them out
     index = 0
     for i in range(len(wcs)):
         for j in range(i + 1):
-            out += q_coeffs[..., index].view(flow=True) * wcs[i] * wcs[j]
+            out += q_coeffs[..., index] * wcs[i] * wcs[j]
             index += 1
     return out
 

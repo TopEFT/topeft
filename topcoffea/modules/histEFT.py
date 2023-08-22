@@ -127,8 +127,10 @@ class HistEFT(SparseHist, family=_family):
                 f"No axis may have one of the following names: {','.join(reserved_names)}"
             )
 
-        print(args)
         super().__init__(*args, self._coeff_axis, **kwargs)
+
+    def from_categorical_axes_like(self, *axes):
+        return type(self)(*axes, self._dense_axis, **self._init_args_base, **self._init_args_eft)
 
     def wc_names(self):
         return list(self._wc_names)
@@ -276,12 +278,10 @@ class HistEFT(SparseHist, family=_family):
         """
 
         values = self._wc_for_eval(values)
+
         out = {}
-        for sparse_key in self.categorical_keys():
-            print(self[sparse_key])
-            out[sparse_key] = efth.calc_eft_weights(
-                self[sparse_key], values
-            )
+        for sparse_key, hvs in self.view(flow=True, as_dict=True).items():
+            out[sparse_key] = efth.calc_eft_weights(hvs, values)
         return out
 
     def as_hist(self, values):
