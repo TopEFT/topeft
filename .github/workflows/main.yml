@@ -74,6 +74,9 @@ jobs:
 
       - name: Install dependencies
         run: |
+          echo "HERE!!!!"
+          pwd
+          ls
           conda config --set channel_priority strict
           conda config --add channels conda-forge
           conda env create -f environment.yml -n coffea-env
@@ -101,10 +104,18 @@ jobs:
       - name: Install pip packages
         run: |
           pwd
+          ls
+          echo "CD .."
+          cd ..
+          pwd
+          ls
           conda run -n coffea-env pip install -e .
           conda run -n coffea-env pip install xgboost
           conda run -n coffea-env pip install mt2
           conda list -n coffea-env
+          echo "END.."
+          pwd
+          ls
 
       - name: Download root files
         run: |
