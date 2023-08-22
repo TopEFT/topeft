@@ -9,17 +9,21 @@ from coffea.util import load
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
-from topcoffea.modules.get_param_from_jsons import get_tc_param, get_lumi
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.get_param_from_jsons import GetParam
 import topcoffea.modules.eft_helper as efth
-from topcoffea.modules.object_sel import is_tight_jet
-from topcoffea.modules.event_sel import trg_pass_no_overlap, get_Z_peak_mask
+import topcoffea.modules.event_selection as tc_es
+import topcoffea.modules.object_selection as tc_os
 
-from topeft.modules.get_param_from_jsons import get_te_param
-from topeft.modules.objects import *
+import topeft.modules.event_selection as te_es
+from topeft.modules.object_selection import *
 from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
-from topeft.modules.selection import *
+from topeft.modules.event_selection import *
+
+get_tc_param = GetParam(topcoffea_path("params/params.json"))
+get_te_param = GetParam(topeft_path("params/params.json"))
+
 
 
 # Takes strings as inputs, constructs a string for the full channel name
@@ -298,7 +302,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
-            lumi = 1000.0*get_lumi(year)
+            lumi = 1000.0*get_tc_param(f"lumi_{year}")
             weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
 
             # Attach PS weights (ISR/FSR) and scale weights (renormalization/factorization) and PDF weights
@@ -352,7 +356,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # SYSTEMATICS
                 cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
                 met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
-            cleanedJets["isGood"] = is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
+            cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
 
             # Count jets
@@ -483,12 +487,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             ######### Masks we need for the selection ##########
 
             # Get mask for events that have two sf os leps close to z peak
-            sfosz_3l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
-            sfosz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
-            sfasz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
+            sfosz_3l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
+            sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
+            sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
 
             # Pass trigger mask
-            pass_trg = trg_pass_no_overlap(events,isData,dataset,str(year),dataset_dict_top22006,exclude_dict_top22006)
+            pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),dataset_dict_top22006,exclude_dict_top22006)
 
             # b jet masks
             bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
