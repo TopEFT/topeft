@@ -81,7 +81,7 @@ jobs:
       - name: Checkout topcoffea
         uses: actions/checkout@master
         with:
-          TopEFT/topcoffea
+          repository: TopEFT/topcoffea
 
       - name: Conda list
         run: |
