@@ -82,6 +82,8 @@ jobs:
         uses: actions/checkout@master
         with:
           repository: TopEFT/topcoffea
+        run:
+          conda run -n coffea-env pip install -e .
 
       - name: Conda list
         run: |
