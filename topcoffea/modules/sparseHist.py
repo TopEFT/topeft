@@ -255,8 +255,10 @@ class SparseHist(hist.Hist, family=hist):
             return self._from_hists(filtered, new_cats, collapsed)
 
     def _ak_rec_op(self, op_on_dense):
-        builder = ak.ArrayBuilder()
+        if len(self.categorical_axes) == 0:
+            return op_on_dense(self._dense_hists[()])
 
+        builder = ak.ArrayBuilder()
         def rec(key, depth):
             axis = list(self.categorical_axes)[-1 * depth]
             for i in range(len(axis)):

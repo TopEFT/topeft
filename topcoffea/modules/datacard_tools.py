@@ -623,7 +623,7 @@ class DatacardMaker():
             unique_proc_years.add(yr)
 
         already_correlated = set()  # Keeps track of which systematics have already been correlated
-        for sp_key in h.sparse_keys():
+        for sp_key in h.categorical_keys(as_dict=True):
             proc = sp_key["process"]
             syst = sp_key["systematic"]
             proc_year = self.get_year(proc)
@@ -738,7 +738,7 @@ class DatacardMaker():
                     continue
                 if wc == "ctlTi" and p == "tttt":
                     continue
-                for sparse_key in p_hist.sparse_keys():
+                for sparse_key in p_hist.categorical_keys():
                     # Drop underflow
                     sl_arr = p_hist[sparse_key].values(flow=True)[..., 1:, :]
                     # Here we replace any SM terms that are too small with a large dummy value
@@ -782,7 +782,7 @@ class DatacardMaker():
 
         h = self.hists[km_dist]
         ch_hist = h.integrate("channel", ch)
-        data_obs = np.zeros((ch_hist.dense_axis.size,))
+        data_obs = np.zeros((ch_hist.dense_axis.extent,))
 
         print(f"Generating root file: {outf_root_name}")
         tic = time.time()
@@ -1052,8 +1052,7 @@ class DatacardMaker():
 
             r[lin_name] = tmp_lin_1
             r[quad_name] = {}
-            for sp_key in h.sparse_keys():
-                tup = tuple(sp_key.values())
+            for tup in h.categorical_keys():
                 r[quad_name][tup] = np.zeros((2,))
                 for i in range(2):
                     r[quad_name][tup][i] = 0.5 * (
