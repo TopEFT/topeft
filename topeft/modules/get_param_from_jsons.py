@@ -1,11 +1,20 @@
 import json
-from topcoffea.modules.paths import topcoffea_path
+from topeft.modules.paths import topeft_path
+
+# Retrun the param value from params.json for a given param name
+def get_te_param(param_name):
+    param_json = topeft_path("params/params.json")
+    with open(param_json) as f_params:
+        params = json.load(f_params)
+        param_val = params[param_name]
+    return param_val
+
 
 # Get the systematic value from the rate_systs json
 #   - If literal is True, return the literal string, e.g. "0.88/1.13"
 #   - If literal is False, return a pair of floats e.g. [0.88,1.13] for down and up
 def get_syst(syst_name,proc_name=None,literal=False):
-    syst_json = topcoffea_path("json/rate_systs.json")
+    syst_json = topeft_path("json/rate_systs.json")
     with open(syst_json) as f_systs:
         rate_systs_dict = json.load(f_systs)["rate_uncertainties"]
 
@@ -40,7 +49,7 @@ def get_syst(syst_name,proc_name=None,literal=False):
 
 # Just jet the list of rate syst keys included in the rate rate syst json
 def get_syst_lst():
-    syst_json = topcoffea_path("json/rate_systs.json")
+    syst_json = topeft_path("json/rate_systs.json")
     with open(syst_json) as f_systs:
         rate_systs_dict = json.load(f_systs)["rate_uncertainties"]
         rate_syst_lst = list(rate_systs_dict.keys())
@@ -49,7 +58,7 @@ def get_syst_lst():
 
 # Get the correlation group a process belongs to for a given systematic type (pdf or qcd)
 def get_correlation_tag(syst_type,proc_name):
-    syst_json = topcoffea_path("json/rate_systs.json")
+    syst_json = topeft_path("json/rate_systs.json")
     with open(syst_json) as f_systs:
         corr_dict = json.load(f_systs)["correlations"]
         if proc_name in corr_dict.keys():
@@ -60,7 +69,7 @@ def get_correlation_tag(syst_type,proc_name):
 
 # Get the dict of jet-dependent scaling factors
 def get_jet_dependent_syst_dict(process="Diboson"):
-    syst_json = topcoffea_path("json/rate_systs.json")
+    syst_json = topeft_path("json/rate_systs.json")
     with open(syst_json) as f_systs:
         diboson_njets_dict = json.load(f_systs)["diboson_njets"]
         return (diboson_njets_dict[process])

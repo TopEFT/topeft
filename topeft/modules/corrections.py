@@ -14,8 +14,10 @@ import gzip
 import pickle
 from coffea.jetmet_tools import JECStack, CorrectedJetsFactory, CorrectedMETFactory
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
-from topcoffea.modules.get_params_from_jsons import get_param
 from coffea.lookup_tools import txt_converters, rochester_lookup
+
+from topcoffea.modules.get_param_from_jsons import get_tc_param
+from topeft.modules.get_param_from_jsons import get_te_param
 
 basepathFromTTH = 'data/fromTTH/'
 
@@ -258,12 +260,12 @@ def AttachPerLeptonFR(leps, flavor, year):
     elif year == "2017": flip_year_name = "UL17"
     elif year == "2018": flip_year_name = "UL18"
     else: raise Exception(f"Not a known year: {year}")
-    with gzip.open(topcoffea_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
+    with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
         flip_hist = pickle.load(fin)
         flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
 
     # Get the fliprate scaling factor for the given year
-    chargeflip_sf = get_param("chargeflip_sf_dict")[flip_year_name]
+    chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
 
     # For FR filepath naming conventions
     if '2016' in year:
@@ -408,7 +410,7 @@ def AttachElectronSF(electrons, year):
 def GetMCeffFunc(year, wp='medium', flav='b'):
     if year not in ['2016','2016APV','2017','2018']:
         raise Exception(f"Error: Unknown year \"{year}\".")
-    pathToBtagMCeff = topcoffea_path('data/btagSF/UL/btagMCeff_%s.pkl.gz'%year)
+    pathToBtagMCeff = topeft_path('data/btagSF/UL/btagMCeff_%s.pkl.gz'%year)
     hists = {}
     with gzip.open(pathToBtagMCeff) as fin:
         hin = pickle.load(fin)
@@ -447,17 +449,17 @@ def GetBtagEff(jets, year, wp='medium'):
     return GetMCeffFunc(year,wp)(jets.pt, np.abs(jets.eta), jets.hadronFlavour)
 
 def GetBTagSF(jets, year, wp='MEDIUM', syst='central'):
-    if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),wp)
-    elif year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp)
-    elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL17_v3.csv"),wp)
-    elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL18_v2.csv"),wp)
+    if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topeft_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),wp)
+    elif year == '2016APV': SFevaluatorBtag = BTagScaleFactor(topeft_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp)
+    elif year == '2017': SFevaluatorBtag = BTagScaleFactor(topeft_path("data/btagSF/UL/wp_deepJet_106XUL17_v3.csv"),wp)
+    elif year == '2018': SFevaluatorBtag = BTagScaleFactor(topeft_path("data/btagSF/UL/wp_deepJet_106XUL18_v2.csv"),wp)
     else: raise Exception(f"Error: Unknown year \"{year}\".")
 
     pt = jets.pt
     SF = SFevaluatorBtag.eval('central',jets.hadronFlavour,np.abs(jets.eta),jets.pt)
 
     # Workaround: For UL16, use the SFs from the UL16APV for light flavor jets
-    SFevaluatorBtag_UL16APV = BTagScaleFactor(topcoffea_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp)
+    SFevaluatorBtag_UL16APV = BTagScaleFactor(topeft_path("data/btagSF/UL/wp_deepJet_106XUL16preVFP_v2.csv"),wp)
     if year == "2016":
         had_flavor = jets.hadronFlavour
         SF_UL16APV = SFevaluatorBtag_UL16APV.eval('central',jets.hadronFlavour,np.abs(jets.eta),jets.pt)
@@ -546,11 +548,11 @@ def GetDataPUname(year, var=0):
     if year == '2016APV': year = '2016-preVFP'
     if year == '2016': year = "2016-postVFP"
     if var == 'nominal':
-        ppxsec = get_param("pu_w")
+        ppxsec = get_tc_param("pu_w")
     elif var == 'up':
-        ppxsec = get_param("pu_w_up")
+        ppxsec = get_tc_param("pu_w_up")
     elif var == 'down':
-        ppxsec = get_param("pu_w_down")
+        ppxsec = get_tc_param("pu_w_down")
     year = str(year)
     return 'PileupHistogram-goldenJSON-13tev-%s-%sub-99bins.root' % ((year), str(ppxsec))
 
@@ -898,7 +900,7 @@ def GetRatioAssymetricUncertainties(num, numDo, numUp, den, denDo, denUp):
 ######  Scale Factors
 
 def LoadTriggerSF(year, ch='2l', flav='em'):
-    pathToTriggerSF = topcoffea_path('data/triggerSF/triggerSF_%s.pkl.gz' % year)
+    pathToTriggerSF = topeft_path('data/triggerSF/triggerSF_%s.pkl.gz' % year)
     with gzip.open(pathToTriggerSF) as fin:
         hin = pickle.load(fin)
     if ch == '2l':

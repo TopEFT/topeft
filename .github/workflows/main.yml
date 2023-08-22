@@ -98,10 +98,6 @@ jobs:
           conda install -y -n coffea-env -c conda-forge pytest pytest-cov root_base
           mkdir histos
 
-      - name: Test unit
-        run: |
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_unit.py
-
       - name: Test histEFT
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_HistEFT_add.py

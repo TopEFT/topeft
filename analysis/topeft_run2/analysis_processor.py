@@ -10,11 +10,14 @@ from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
 import topcoffea as tc
-from topcoffea.modules.get_params_from_jsons import get_param, get_lumi
+from topcoffea.modules.get_param_from_jsons import get_tc_param, get_lumi
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
+from topcoffea.modules.object_sel import is_tight_jet
+from topcoffea.modules.event_sel import trg_pass_no_overlap
 
+from topeft.modules.get_param_from_jsons import get_te_param
 from topeft.modules.objects import *
 from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
 from topeft.modules.selection import *
@@ -121,7 +124,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
-            if histAxisName in get_param("lo_xsec_samples"):
+            if histAxisName in get_te_param("lo_xsec_samples"):
                 # We have a LO xsec for these samples, so for these systs we will have e.g. xsec_LO*(N_pass_up/N_gen_nom)
                 # Thus these systs will cover the cross section uncty and the acceptance and effeciency and shape
                 # So no NLO rate uncty for xsec should be applied in the text data card
@@ -169,9 +172,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         sampleType = "prompt"
         if isData:
             sampleType = "data"
-        elif histAxisName in get_param("conv_samples"):
+        elif histAxisName in get_te_param("conv_samples"):
             sampleType = "conversions"
-        elif histAxisName in get_param("prompt_and_conv_samples"):
+        elif histAxisName in get_te_param("prompt_and_conv_samples"):
             # Just DY (since we care about prompt DY for Z CR, and conv DY for 3l CR)
             sampleType = "prompt_and_conversions"
 
@@ -350,7 +353,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # SYSTEMATICS
                 cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
                 met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
-            cleanedJets["isGood"] = tc.modules.objects.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_param("eta_j_cut"), id_cut=get_param("jet_id_cut"))
+            cleanedJets["isGood"] = is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
 
             # Count jets
@@ -360,13 +363,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loose DeepJet WP
             if year == "2017":
-                btagwpl = get_param("btag_wp_loose_UL17")
+                btagwpl = get_tc_param("btag_wp_loose_UL17")
             elif year == "2018":
-                btagwpl = get_param("btag_wp_loose_UL18")
+                btagwpl = get_tc_param("btag_wp_loose_UL18")
             elif year=="2016":
-                btagwpl = get_param("btag_wp_loose_UL16")
+                btagwpl = get_tc_param("btag_wp_loose_UL16")
             elif year=="2016APV":
-                btagwpl = get_param("btag_wp_loose_UL16APV")
+                btagwpl = get_tc_param("btag_wp_loose_UL16APV")
             else:
                 raise ValueError(f"Error: Unknown year \"{year}\".")
             isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
@@ -375,13 +378,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Medium DeepJet WP
             if year == "2017":
-                btagwpm = get_param("btag_wp_medium_UL17")
+                btagwpm = get_tc_param("btag_wp_medium_UL17")
             elif year == "2018":
-                btagwpm = get_param("btag_wp_medium_UL18")
+                btagwpm = get_tc_param("btag_wp_medium_UL18")
             elif year=="2016":
-                btagwpm = get_param("btag_wp_medium_UL16")
+                btagwpm = get_tc_param("btag_wp_medium_UL16")
             elif year=="2016APV":
-                btagwpm = get_param("btag_wp_medium_UL16APV")
+                btagwpm = get_tc_param("btag_wp_medium_UL16APV")
             else:
                 raise ValueError(f"Error: Unknown year \"{year}\".")
             isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
@@ -486,7 +489,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sfasz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
 
             # Pass trigger mask
-            pass_trg = tc.modules.event_sel.trg_pass_no_overlap(events,isData,dataset,str(year),dataset_dict_top22006,exclude_dict_top22006)
+            pass_trg = trg_pass_no_overlap(events,isData,dataset,str(year),dataset_dict_top22006,exclude_dict_top22006)
 
             # b jet masks
             bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
