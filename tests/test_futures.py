@@ -10,7 +10,7 @@ def test_topcoffea():
         "analysis/topEFT/run_topeft.py",
         "-x",
         "futures",
-        "topcoffea/json/test_samples/UL17_private_ttH_for_CI.json",
+        "input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json",
         "-o",
         "output_check_yields",
         "-p",
@@ -20,11 +20,11 @@ def test_topcoffea():
     # Run TopCoffea
     subprocess.run(args, check=True)
 
-    assert (exists('analysis/topEFT/histos/output_check_yields.pkl.gz'))
+    assert (exists('analysis/topeft_run2/histos/output_check_yields.pkl.gz'))
 
 
 def test_nonprompt():
-    a=dataDrivenEstimation.DataDrivenProducer('analysis/topEFT/histos/output_check_yields.pkl.gz', 'analysis/topEFT/histos/output_check_yields_nonprompt')
+    a=dataDrivenEstimation.DataDrivenProducer('analysis/topeft_run2/histos/output_check_yields.pkl.gz', 'analysis/topeft_run2/histos/output_check_yields_nonprompt')
     a.dumpToPickle() # Do we want to write this file when testing in CI? Maybe if we ever save the CI artifacts
 
     assert (exists('analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz'))
@@ -33,8 +33,8 @@ def test_datacardmaker():
     args = [
         "time",
         "python",
-        "analysis/topEFT/make_cards.py",
-        "analysis/topEFT/histos/output_check_yields_nonprompt.pkl.gz",
+        "analysis/topeft_run2/make_cards.py",
+        "analysis/topeft_run2/histos/output_check_yields_nonprompt.pkl.gz",
         "-d",
         "histos",
         "--var-lst",

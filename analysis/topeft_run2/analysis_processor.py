@@ -15,7 +15,7 @@ from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 from topcoffea.modules.object_sel import is_tight_jet
-from topcoffea.modules.event_sel import trg_pass_no_overlap
+from topcoffea.modules.event_sel import trg_pass_no_overlap, get_Z_peak_mask
 
 from topeft.modules.get_param_from_jsons import get_te_param
 from topeft.modules.objects import *

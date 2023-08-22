@@ -8,7 +8,7 @@ def test_topcoffea():
         "analysis/wwz/run_wwz4l.py",
         "-x",
         "futures",
-        "topcoffea/json/test_samples/UL17_WWZJetsTo4L2Nu_forCI.json",
+        "input_samples/sample_jsons/test_samples/UL17_WWZJetsTo4L2Nu_forCI.json",
         "-o",
         "output_check_yields",
         "-p",

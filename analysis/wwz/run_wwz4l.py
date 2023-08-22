@@ -9,7 +9,6 @@ import os
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
-import topcoffea.modules.utils as utils
 import topcoffea.modules.remote_environment as remote_environment
 
 import wwz4l

@@ -7,7 +7,7 @@ wget -nc http://uaf-10.t2.ucsd.edu/~kmohrman/for_ci/for_wwz/WWZJetsTo4L2Nu_4F_Tu
 
 # Run the processor
 printf "\nRunning the processor...\n"
-time python run_wwz4l.py ../../topcoffea/json/test_samples/UL17_WWZJetsTo4L2Nu_forCI.json -x futures -o new_ref_histos
+time python run_wwz4l.py ../../input_samples/sample_jsons/test_samples/UL17_WWZJetsTo4L2Nu_forCI.json -x futures -o new_ref_histos
 
 # Make the JSON file of the yields
 printf "\nMaking the yields JSON file...\n"
