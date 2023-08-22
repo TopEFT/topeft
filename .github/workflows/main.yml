@@ -85,9 +85,14 @@ jobs:
 
       - name: Install topcoffea
         run:
+          echo "THE PWD"
           pwd
+          echo "THE LS"
+          ls
+          echo "THE INSTALL"
           conda run -n coffea-env pip install -e .
           conda list -n coffea-env
+          echo "END"
 
       - name: Conda list
         run: |
