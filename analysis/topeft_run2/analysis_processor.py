@@ -9,7 +9,6 @@ from coffea.util import load
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
-import topcoffea as tc
 from topcoffea.modules.get_param_from_jsons import get_tc_param, get_lumi
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.HistEFT import HistEFT
