@@ -253,7 +253,7 @@ class HistEFT(SparseHist, family=_family):
         """Set the WC values used to evaluate the bin contents of this histogram
         where the WCs are specified as keyword arguments.  Any WCs not listed are set to zero.
         """
-        if not values:
+        if values is None:
             return np.zeros(self._wc_count)
 
         result = values

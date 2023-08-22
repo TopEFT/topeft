@@ -79,19 +79,17 @@ def test_scale_a_weights():
     assert np.all(
         np.abs(a_w.integrate("type", "eft").view(as_dict=True)[()][0] - weight_val * sums) < 1e-10
     )
+
     integral = a_w.integrate("type", "eft").view(as_dict=True)[()].sum()
-    a_w.set_wilson_coeff_from_array(np.ones(a_w._nwc))
-    assert a_w.integrate("type", "eft").view(as_dict=True)[()].sum() != integral
-    assert np.all(
-        np.abs(a_w.integrate("type", "eft").view(as_dict=True)[()][0] - weight_val * sums) < 1e-10
-    )
-    ones = dict(zip(wc_names_lst, np.ones(a_w._nwc)))
-    a_w.set_wilson_coefficients(**ones)
-    assert (
-        a_w.integrate("type", "eft").view(as_dict=True)[()].sum() != integral
-    )  # FIXME we should compute the actual values
-    a_w.set_sm()
-    assert a_w.integrate("type", "eft").view(as_dict=True)[()].sum() == integral
+
+    assert a_w.integrate("type", "eft").eval({})[()].sum() != integral
+
+    ones = np.ones(wc_count)
+    assert np.abs(a_w.integrate("type", "eft").eval(ones)[()].sum() - integral) < 1e-10
+
+    ones = dict(zip(wc_names_lst, np.ones(wc_count)))
+    assert np.abs(a_w.integrate("type", "eft").eval(ones)[()].sum() - integral) < 1e-10
+
 
 
 def test_ac_deepcopy():
@@ -108,69 +106,72 @@ def test_ac_deepcopy():
 
 
 def test_group():
-    c_w = a_w.group("type", hist.Cat("all", "all"), {"all": ["eft", "non-eft"]})
+    c_w = a_w.group("type", "all", {"all": ["eft", "non-eft"]})
     assert (
         c_w.integrate("all").view(as_dict=True)[()].sum()
         == a_w.integrate("type").view(as_dict=True)[()].sum()
     )
 
 
-def test_add_ab_noerrors():
+def test_add_ab():
     ab = a + b
+
     assert np.all(ab.integrate("type", "eft").view(as_dict=True)[()][0] == sums)
-    assert ab.integrate("type", "non-eft").view(as_dict=True)[()][0] == nevts
+    assert ab.integrate("type", "non-eft").view(as_dict=True)[()][0][0] == nevts
 
 
-def test_add_ba_noerrors():
+def test_add_ba():
     ba = b + a
     assert np.all(ba.integrate("type", "eft").view(as_dict=True)[()][0] == sums)
-    assert ba.integrate("type", "non-eft").view(as_dict=True)[()][0] == nevts
+    assert ba.integrate("type", "non-eft").view(as_dict=True)[()][0][0] == nevts
 
 
-def test_add_aba_noerrors():
+def test_add_aba():
     ab = a + b
     aba = ab + a
     assert np.all(aba.integrate("type", "eft").view(as_dict=True)[()][0] == 2 * sums)
-    assert aba.integrate("type", "non-eft").view(as_dict=True)[()][0] == nevts
+    assert aba.integrate("type", "non-eft").view(as_dict=True)[()][0][0] == nevts
 
 
-def test_add_baa_noerrors():
+def test_add_baa():
     ba = b + a
     baa = ba + a
     assert np.all(baa.integrate("type", "eft").view(as_dict=True)[()][0] == 2 * sums)
-    assert baa.integrate("type", "non-eft").view(as_dict=True)[()][0] == nevts
+    assert baa.integrate("type", "non-eft").view(as_dict=True)[()][0][0] == nevts
 
 
-def test_add_abb_noerrors():
+def test_add_abb():
     ab = a + b
     abb = ab + b
     assert np.all(abb.integrate("type", "eft").view(as_dict=True)[()][0] == sums)
-    assert abb.integrate("type", "non-eft").view(as_dict=True)[()][0] == 2 * nevts
+    assert abb.integrate("type", "non-eft").view(as_dict=True)[()][0][0] == 2 * nevts
 
 
-def test_add_bab_noerrors():
+def test_add_bab():
     ba = b + a
     bab = ba + b
     assert np.all(bab.integrate("type", "eft").view(as_dict=True)[()][0] == sums)
+    assert bab.integrate("type", "non-eft").view(as_dict=True)[()][0][0] == 2 * nevts
 
 
 def test_add_ab_weights():
     ab = a_w + b_w
     assert np.all(
-        np.abs(ab.integrate("type", "eft").view(as_dict=True)[()][0] - weight_val * sums) < 1e-10
+        np.abs(ab.integrate("type", "eft").view(flow=False)[()][0] - weight_val * sums) < 1e-10
     )
-    assert (
-        abs(ab.integrate("type", "non-eft").view(as_dict=True)[()][0] - nevts * weight_val) < 1e-10
+
+    assert np.all(
+        np.abs(ab.integrate("type", "non-eft").view(flow=False)[()][0][0] - weight_val * nevts) < 1e-10
     )
 
 
 def test_add_ba_weights():
     ba = b_w + a_w
     assert np.all(
-        np.abs(ba.integrate("type", "eft").view(as_dict=True)[()][0] - weight_val * sums) < 1e-10
+        np.abs(ba.integrate("type", "eft").view(flow=False)[()][0] - weight_val * sums) < 1e-10
     )
-    assert (
-        abs(ba.integrate("type", "non-eft").view(as_dict=True)[()][0] - nevts * weight_val) < 1e-10
+    assert np.all(
+        np.abs(ba.integrate("type", "non-eft").view(flow=False)[()][0][0] - weight_val * nevts) < 1e-10
     )
 
 
@@ -178,11 +179,10 @@ def test_add_aba_weights():
     ab = a_w + b_w
     aba = ab + a_w
     assert np.all(
-        np.abs(aba.integrate("type", "eft").view(as_dict=True)[()][0] - 2 * weight_val * sums)
-        < 1e-10
+        np.abs(aba.integrate("type", "eft").view(flow=False)[()][0] - 2 * weight_val * sums) < 1e-10
     )
-    assert (
-        abs(aba.integrate("type", "non-eft").view(as_dict=True)[()][0] - nevts * weight_val) < 1e-10
+    assert np.all(
+        np.abs(aba.integrate("type", "non-eft").view(flow=False)[()][0][0] - weight_val * nevts) < 1e-10
     )
 
 
@@ -190,11 +190,10 @@ def test_add_baa_weights():
     ba = b_w + a_w
     baa = ba + a_w
     assert np.all(
-        np.abs(baa.integrate("type", "eft").view(as_dict=True)[()][0] - 2 * weight_val * sums)
-        < 1e-10
+        np.abs(baa.integrate("type", "eft").view(flow=False)[()][0] - 2 * weight_val * sums) < 1e-10
     )
-    assert (
-        abs(baa.integrate("type", "non-eft").view(as_dict=True)[()][0] - nevts * weight_val) < 1e-10
+    assert np.all(
+        np.abs(baa.integrate("type", "non-eft").view(flow=False)[()][0][0] - weight_val * nevts) < 1e-10
     )
 
 
@@ -202,11 +201,10 @@ def test_add_abb_weights():
     ab = a_w + b_w
     abb = ab + b_w
     assert np.all(
-        np.abs(abb.integrate("type", "eft").view(as_dict=True)[()][0] - weight_val * sums) < 1e-10
+        np.abs(abb.integrate("type", "eft").view(flow=False)[()][0] - weight_val * sums) < 1e-10
     )
-    assert (
-        abs(abb.integrate("type", "non-eft").view(as_dict=True)[()][0] - 2 * nevts * weight_val)
-        < 1e-10
+    assert np.all(
+        np.abs(abb.integrate("type", "non-eft").view(flow=False)[()][0][0] - 2 * weight_val * nevts) < 1e-10
     )
 
 
@@ -214,11 +212,11 @@ def test_add_bab_weights():
     ba = b_w + a_w
     bab = ba + b_w
     assert np.all(
-        np.abs(bab.integrate("type", "eft").view(as_dict=True)[()][0] - weight_val * sums) < 1e-10
+        np.abs(bab.integrate("type", "eft").view(flow=False)[()][0] - weight_val * sums) < 1e-10
     )
-    assert (
-        abs(bab.integrate("type", "non-eft").view(as_dict=True)[()][0] - 2 * nevts * weight_val)
-        < 1e-10
+
+    assert np.all(
+        np.abs(bab.integrate("type", "non-eft").view(flow=False)[()][0][0] - 2 * weight_val * nevts) < 1e-10
     )
 
 

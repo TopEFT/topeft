@@ -33,7 +33,6 @@ def calc_eft_weights(q_coeffs, wc_values):
     for i in range(len(wcs)):
         for j in range(i + 1):
             out += q_coeffs[..., index] * wcs[i] * wcs[j]
-            print(out, q_coeffs[..., index], wcs[i], wcs[j])
             index += 1
     return out
 
