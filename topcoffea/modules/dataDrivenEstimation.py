@@ -65,7 +65,7 @@ class DataDrivenProducer:
                     if newhist is None:
                         newhist = hAR
                     else:
-                        newhist = newhist.union(hAR, "process")
+                        newhist += hAR
                 else:
                     if "isAR_2lSS_OS" == ident:
                         # we are in the flips application region and theres no "prompt" subtraction, so we just have to rename data to flips, put it in the right axis and we are done
@@ -78,7 +78,6 @@ class DataDrivenProducer:
                             if self.dataName == sampleName:
                                 newNameDictData[nonPromptName].append(process)
                         hFlips = hAR.group(
-                            "process",
                             "process",
                             newNameDictData,
                         )
@@ -94,7 +93,7 @@ class DataDrivenProducer:
                         if newhist is None:
                             newhist = hFlips
                         else:
-                            newhist = newhist.union(hFlips, "process")
+                            newhist += hFlips
                     else:
                         # if we are in the nonprompt application region, we also integrate the application region axis
                         # and construct the new process 'nonprompt'
@@ -116,13 +115,11 @@ class DataDrivenProducer:
                                 )
                         hFakes = hAR.group(
                             "process",
-                            "process",
                             newNameDictData,
                         )
                         # now we take all the stuff that is not data in the AR to make the prompt
                         # subtraction and assign them to nonprompt.
                         hPromptSub = hAR.group(
-                            "process",
                             "process",
                             newNameDictNoData,
                         )
@@ -139,13 +136,13 @@ class DataDrivenProducer:
 
                         # now we actually make the subtraction
                         hPromptSub.scale(-1)
-                        hFakes = hFakes.union(hPromptSub, "process")
+                        hFakes += hPromptSub
 
                         # now adding them to the list of processes:
                         if newhist is None:
                             newhist = hFakes
                         else:
-                            newhist = newhist.union(hFakes, "process")
+                            newhist += hFakes
             self.outHist[key] = newhist
 
     def dumpToPickle(self):

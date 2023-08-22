@@ -334,8 +334,8 @@ if __name__ == '__main__':
     if executor == "work_queue":
         print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
 
-    nbins = sum(sum(arr.size for arr in h.view()) for h in output.values() if isinstance(h, hist.BaseHist))
-    nfilled = sum(sum(np.sum(arr > 0) for arr in h.view()) for h in output.values() if isinstance(h, hist.BaseHist))
+    nbins = sum(sum(arr.size for arr in h.view().values()) for h in output.values() if isinstance(h, hist.BaseHist))
+    nfilled = sum(sum(np.sum(arr > 0) for arr in h.view().values()) for h in output.values() if isinstance(h, hist.BaseHist))
     print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/max(1, nbins),))
 
     if executor == "futures":

@@ -306,16 +306,19 @@ class HistEFT(SparseHist, family=_family):
             nhist[sp_key] = arrs
         return nhist
 
-    def scale(self, factor: float):
-        self *= factor
-        return self
+    def __reduce__(self):
+        return (
+            type(self)._read_from_reduce,
+            (
+                list(self.categorical_axes),
+                [self.dense_axis],
+                [self._init_args_base, self._init_args_eft],
+                self._dense_hists,
+            ),
+        )
 
-    def empty(self):
-        return np.all(self.values(flow=True) == 0)
-
-    # compatibility methods for old coffea
-    # all of these are deprecated
-    def identity(self):
-        h = self.copy(deep=False)
-        h.reset()
-        return h
+    @classmethod
+    def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
+        kwargs, eft = init_args
+        kwargs.update(eft)
+        return super()._read_from_reduce(cat_axes, dense_axes, kwargs, dense_hists)

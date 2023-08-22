@@ -468,7 +468,7 @@ class DatacardMaker():
                     x.replace("private", "").replace("central", "").replace("_4F", "")
                 )
                 grp_map[new_name] = x
-            h = h.group("process", "process", grp_map)
+            h = h.group("process", grp_map)
 
             h = self.group_processes(h)
             h = self.correlate_years(h)
@@ -594,7 +594,7 @@ class DatacardMaker():
         # Include back in everything that wasn't specified by the initial groupings
         for x in all_procs:
             grp_map[x] = [x]
-        h = h.group("process", "process", grp_map)
+        h = h.group("process", grp_map)
         return h
 
     # TODO: Can be a static member function
@@ -611,7 +611,7 @@ class DatacardMaker():
                 if p not in grp_map:
                     grp_map[p] = []
                 grp_map[p].append(x)
-            h = h.group("process", "process", grp_map)
+            h = h.group("process", grp_map)
             return h
         # This requires some fancy footwork to make work
         print("Correlating years")
@@ -676,7 +676,7 @@ class DatacardMaker():
             if p not in grp_map:
                 grp_map[p] = []
             grp_map[p].append(x)
-        h = h.group("process", "process", grp_map)
+        h = h.group("process", grp_map)
 
         # Remove the categories which were already correlated together so as to not double count
         if already_correlated:

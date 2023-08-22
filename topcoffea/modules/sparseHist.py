@@ -4,6 +4,7 @@ import hist
 import boost_histogram as bh
 
 import awkward as ak
+import numpy as np
 
 from itertools import chain, product, repeat
 
@@ -12,7 +13,6 @@ from typing import Mapping, Union, Sequence
 
 class SparseHist(hist.Hist, family=hist):
     """ Histogram specialized for sparse categorical data."""
-
 
     def __init__(self, *axes, **kwargs):
         """ Arguments:
@@ -24,16 +24,16 @@ class SparseHist(hist.Hist, family=hist):
 
         categorical_axes, dense_axes = self._check_args(axes)
 
-        # actual "histogram". One histogram with one dense axis per combination of categorical bins.
         self._dense_hists: dict[tuple, hist.Hist] = {}
 
-        # we use self to keep track of the bins in the categorical axes.
+       # we use self to keep track of the bins in the categorical axes.
         super().__init__(*categorical_axes, storage="Double")
 
         self._categorical_axes = super().axes
         self._dense_axes = hist.axis.NamedAxesTuple(dense_axes)
 
         self.axes = hist.axis.NamedAxesTuple(chain(super().axes, dense_axes))
+
 
     def _check_args(self, axes):
         on_cats = True
@@ -354,6 +354,16 @@ class SparseHist(hist.Hist, family=hist):
         to_remove = [x for x in self.axes[axis] if x not in to_keep]
         return self.remove(axis, to_remove)
 
+    def scale(self, factor: float):
+        self *= factor
+        return self
+
+    def empty(self):
+        for h in self._dense_hists.values():
+            if np.any(h.view(flow=True) != 0):
+                return False
+        return True
+
     def _ibinary_op(self, other, op: str):
         if not isinstance(other, SparseHist):
             for h in self._dense_hists.values():
@@ -363,11 +373,8 @@ class SparseHist(hist.Hist, family=hist):
                 raise ValueError("Category names are different, or in different order, and therefore cannot be merged.")
             for index_oh, oh in other._dense_hists.items():
                 cats = other.index_to_categories(index_oh)
-                try:
-                    index = self.categories_to_index(cats)
-                except KeyError:
-                    self._fill_bookkeep(*cats)
-                    index = self.categories_to_index(cats)
+                self._fill_bookkeep(*cats)
+                index = self.categories_to_index(cats)
                 getattr(self._dense_hists[index], op)(oh)
         return self
 
@@ -375,6 +382,17 @@ class SparseHist(hist.Hist, family=hist):
         h = self.copy()
         op = op.replace("__", "__i", 1)
         return h._ibinary_op(other, op)
+
+    def __reduce__(self):
+        return (type(self)._read_from_reduce, (list(self.categorical_axes), list(self.dense_axes), self._init_args, self._dense_hists))
+
+    @classmethod
+    def _read_from_reduce(cls, cat_axes, dense_axes, init_args, dense_hists):
+        hnew = cls(*cat_axes, *dense_axes, **init_args)
+        for k, h in dense_hists.items():
+            hnew._fill_bookkeep(*hnew.index_to_categories(k))
+            hnew._dense_hists[k] = h
+        return hnew
 
     def __iadd__(self, other):
         return self._ibinary_op(other, "__iadd__")
@@ -414,3 +432,10 @@ class SparseHist(hist.Hist, family=hist):
 
     def __truediv__(self, other):
         return self._binary_op(other, "__truediv__")
+
+    # compatibility methods for old coffea
+    # all of these are deprecated
+    def identity(self):
+        h = self.copy(deep=False)
+        h.reset()
+        return h
