@@ -3,8 +3,8 @@ import awkward as ak
 from mt2 import mt2
 from coffea.nanoevents.methods import vector
 
-import topcoffea.modules.selection as selbase
-from topcoffea.modules.GetValuesFromJsons import get_param
+from topeft.modules.get_param_from_jsons import get_te_param
+import topcoffea.modules.event_sel as selbase
 
 
 # The datasets we are using, and the triggers in them
@@ -166,7 +166,7 @@ def trg_matching(events,year):
 
         # Check if trigger passes the associated triggers
         trg_lst = trgs_for_matching[year][l_l]["trg_lst"]
-        trg_passes = selbase.passesTrgInLst(events,trg_lst)
+        trg_passes = selbase.passes_trg_inlst(events,trg_lst)
 
         # Build the return mask
         # The return mask started from an array of False
@@ -271,10 +271,10 @@ def attach_wwz_preselection_mask(events,lep_collection):
     # Build an event level mask to check the iso and sip3d for leps from Z and W
     leps_z_e = leps_z_candidate_ptordered[abs(leps_z_candidate_ptordered.pdgId)==11] # Just the electrons
     leps_w_e = leps_w_candidate_ptordered[abs(leps_w_candidate_ptordered.pdgId)==11] # Just the electrons
-    iso_mask_z_e = ak.fill_none(ak.all((leps_z_e.pfRelIso03_all < get_param("wwz_z_iso")),axis=1),False) # This requirement is just on the electrons
-    iso_mask_w_e = ak.fill_none(ak.all((leps_w_e.pfRelIso03_all < get_param("wwz_w_iso")),axis=1),False) # This requirement is just on the electrons
-    id_mask_z = ak.fill_none(ak.all((leps_z_candidate_ptordered.sip3d < get_param("wwz_z_sip3d")),axis=1),False)
-    id_mask_w = ak.fill_none(ak.all((leps_w_candidate_ptordered.sip3d < get_param("wwz_w_sip3d")),axis=1),False)
+    iso_mask_z_e = ak.fill_none(ak.all((leps_z_e.pfRelIso03_all < get_te_param("wwz_z_iso")),axis=1),False) # This requirement is just on the electrons
+    iso_mask_w_e = ak.fill_none(ak.all((leps_w_e.pfRelIso03_all < get_te_param("wwz_w_iso")),axis=1),False) # This requirement is just on the electrons
+    id_mask_z = ak.fill_none(ak.all((leps_z_candidate_ptordered.sip3d < get_te_param("wwz_z_sip3d")),axis=1),False)
+    id_mask_w = ak.fill_none(ak.all((leps_w_candidate_ptordered.sip3d < get_te_param("wwz_w_sip3d")),axis=1),False)
     id_iso_mask = (id_mask_z & id_mask_w & iso_mask_z_e & iso_mask_w_e)
 
     # The final preselection mask

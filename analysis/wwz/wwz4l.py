@@ -9,13 +9,14 @@ from hist import axis
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
-from topcoffea.modules.GetValuesFromJsons import get_param, get_lumi
+from topcoffea.modules.get_param_from_jsons import get_tc_param, get_lumi
 from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.object_sel as objbase
 import topcoffea.modules.event_sel as selbase
 
-import topcoffea.modules.objects_wwz as objwwz
-import topcoffea.modules.selection_wwz as selwwz
+import topeft.modules.objects_wwz as objwwz
+import topeft.modules.selection_wwz as selwwz
+from topeft.modules.get_param_from_jsons import get_te_param
 
 
 class AnalysisProcessor(processor.ProcessorABC):
@@ -76,34 +77,19 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
-            if histAxisName in get_param("lo_xsec_samples"):
-                # We have a LO xsec for these samples, so for these systs we will have e.g. xsec_LO*(N_pass_up/N_gen_nom)
-                # Thus these systs will cover the cross section uncty and the acceptance and effeciency and shape
-                # So no NLO rate uncty for xsec should be applied in the text data card
-                sow_ISRUp          = self._samples[dataset]["nSumOfWeights"]
-                sow_ISRDown        = self._samples[dataset]["nSumOfWeights"]
-                sow_FSRUp          = self._samples[dataset]["nSumOfWeights"]
-                sow_FSRDown        = self._samples[dataset]["nSumOfWeights"]
-                sow_renormUp       = self._samples[dataset]["nSumOfWeights"]
-                sow_renormDown     = self._samples[dataset]["nSumOfWeights"]
-                sow_factUp         = self._samples[dataset]["nSumOfWeights"]
-                sow_factDown       = self._samples[dataset]["nSumOfWeights"]
-                sow_renormfactUp   = self._samples[dataset]["nSumOfWeights"]
-                sow_renormfactDown = self._samples[dataset]["nSumOfWeights"]
-            else:
-                # Otherwise we have an NLO xsec, so for these systs we will have e.g. xsec_NLO*(N_pass_up/N_gen_up)
-                # Thus these systs should only affect acceptance and effeciency and shape
-                # The uncty on xsec comes from NLO and is applied as a rate uncty in the text datacard
-                sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"          ]
-                sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"        ]
-                sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"          ]
-                sow_FSRDown        = self._samples[dataset]["nSumOfWeights_FSRDown"        ]
-                sow_renormUp       = self._samples[dataset]["nSumOfWeights_renormUp"       ]
-                sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"     ]
-                sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"         ]
-                sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"       ]
-                sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"   ]
-                sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown" ]
+            # Otherwise we have an NLO xsec, so for these systs we will have e.g. xsec_NLO*(N_pass_up/N_gen_up)
+            # Thus these systs should only affect acceptance and effeciency and shape
+            # The uncty on xsec comes from NLO and is applied as a rate uncty in the text datacard
+            sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"          ]
+            sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"        ]
+            sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"          ]
+            sow_FSRDown        = self._samples[dataset]["nSumOfWeights_FSRDown"        ]
+            sow_renormUp       = self._samples[dataset]["nSumOfWeights_renormUp"       ]
+            sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"     ]
+            sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"         ]
+            sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"       ]
+            sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"   ]
+            sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown" ]
         else:
             sow_ISRUp          = -1
             sow_ISRDown        = -1
@@ -119,16 +105,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets:
             if d in dataset: dataset = dataset.split('_')[0]
-
-        # Set the sampleType (used for MC matching requirement)
-        sampleType = "prompt"
-        if isData:
-            sampleType = "data"
-        elif histAxisName in get_param("conv_samples"):
-            sampleType = "conversions"
-        elif histAxisName in get_param("prompt_and_conv_samples"):
-            # Just DY (since we care about prompt DY for Z CR, and conv DY for 3l CR)
-            sampleType = "prompt_and_conversions"
 
         # Initialize objects
         met  = events.MET
@@ -158,12 +134,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Do the object selection for the WWZ eleectrons
         ele_presl_mask = objwwz.is_presel_wwz_ele(ele,tight=True)
         ele["topmva"] = objwwz.get_topmva_score_ele(events, year)
-        ele["is_tight_lep_for_wwz"] = ((ele.topmva > get_param("topmva_wp_t_e")) & ele_presl_mask)
+        ele["is_tight_lep_for_wwz"] = ((ele.topmva > get_tc_param("topmva_wp_t_e")) & ele_presl_mask)
 
         # Do the object selection for the WWZ muons
         mu_presl_mask = objwwz.is_presel_wwz_mu(mu)
         mu["topmva"] = objwwz.get_topmva_score_mu(events, year)
-        mu["is_tight_lep_for_wwz"] = ((mu.topmva > get_param("topmva_wp_t_m")) & mu_presl_mask)
+        mu["is_tight_lep_for_wwz"] = ((mu.topmva > get_tc_param("topmva_wp_t_m")) & mu_presl_mask)
 
         # Get tight leptons for WWZ selection
         ele_wwz_t = ele[ele.is_tight_lep_for_wwz]
@@ -225,7 +201,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Selecting jets and cleaning them
             # NOTE: The jet id cut is commented for now in objects.py for the sync
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
-            cleanedJets["is_good"] = objbase.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=20., eta_cut=get_param("eta_j_cut"), id_cut=get_param("jet_id_cut"))
+            cleanedJets["is_good"] = objbase.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=20., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.is_good]
 
             # Count jets
@@ -238,17 +214,17 @@ class AnalysisProcessor(processor.ProcessorABC):
             #btagger = "btag" # For deep flavor WPs
             btagger = "btagcsv" # For deep CSV WPs
             if year == "2017":
-                btagwpl = get_param(f"{btagger}_wp_loose_UL17")
-                btagwpm = get_param(f"{btagger}_wp_medium_UL17")
+                btagwpl = get_tc_param(f"{btagger}_wp_loose_UL17")
+                btagwpm = get_tc_param(f"{btagger}_wp_medium_UL17")
             elif year == "2018":
-                btagwpl = get_param(f"{btagger}_wp_loose_UL18")
-                btagwpm = get_param(f"{btagger}_wp_medium_UL18")
+                btagwpl = get_tc_param(f"{btagger}_wp_loose_UL18")
+                btagwpm = get_tc_param(f"{btagger}_wp_medium_UL18")
             elif year=="2016":
-                btagwpl = get_param(f"{btagger}_wp_loose_UL16")
-                btagwpm = get_param(f"{btagger}_wp_medium_UL16")
+                btagwpl = get_tc_param(f"{btagger}_wp_loose_UL16")
+                btagwpm = get_tc_param(f"{btagger}_wp_medium_UL16")
             elif year=="2016APV":
-                btagwpl = get_param(f"{btagger}_wp_loose_UL16APV")
-                btagwpm = get_param(f"{btagger}_wp_medium_UL16APV")
+                btagwpl = get_tc_param(f"{btagger}_wp_loose_UL16APV")
+                btagwpm = get_tc_param(f"{btagger}_wp_medium_UL16APV")
             else:
                 raise ValueError(f"Error: Unknown year \"{year}\".")
 

@@ -2,7 +2,7 @@ import numpy as np
 import awkward as ak
 import xgboost as xgb
 from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.GetValuesFromJsons import get_param
+from topeft.modules.get_param_from_jsons import get_te_param
 
 # Clean collection b (e.g. jets) with collection a (e.g. leps)
 def get_cleaned_collection(obj_collection_a,obj_collection_b,drcut=0.4):
@@ -15,27 +15,27 @@ def get_cleaned_collection(obj_collection_a,obj_collection_b,drcut=0.4):
 # WWZ preselection for electrons
 def is_presel_wwz_ele(ele,tight):
     mask = (
-        (ele.pt               >  get_param("wwz_pres_e_pt")) &
-        (abs(ele.eta)         <  get_param("wwz_pres_e_eta")) &
-        (abs(ele.dxy)         <  get_param("wwz_pres_e_dxy")) &
-        (abs(ele.dz)          <  get_param("wwz_pres_e_dz")) &
-        (abs(ele.sip3d)       <  get_param("wwz_pres_e_sip3d")) &
-        (ele.miniPFRelIso_all <  get_param("wwz_pres_e_miniPFRelIso_all")) &
-        (ele.lostHits         <= get_param("wwz_pres_e_lostHits"))
+        (ele.pt               >  get_te_param("wwz_pres_e_pt")) &
+        (abs(ele.eta)         <  get_te_param("wwz_pres_e_eta")) &
+        (abs(ele.dxy)         <  get_te_param("wwz_pres_e_dxy")) &
+        (abs(ele.dz)          <  get_te_param("wwz_pres_e_dz")) &
+        (abs(ele.sip3d)       <  get_te_param("wwz_pres_e_sip3d")) &
+        (ele.miniPFRelIso_all <  get_te_param("wwz_pres_e_miniPFRelIso_all")) &
+        (ele.lostHits         <= get_te_param("wwz_pres_e_lostHits"))
     )
-    if tight: mask = (mask & ele.convVeto & (ele.tightCharge == get_param("wwz_pres_e_tightCharge")))
+    if tight: mask = (mask & ele.convVeto & (ele.tightCharge == get_te_param("wwz_pres_e_tightCharge")))
     return mask
 
 
 # WWZ preselection for muons
 def is_presel_wwz_mu(mu):
     mask = (
-        (mu.pt               >  get_param("wwz_pres_m_pt")) &
-        (abs(mu.eta)         <  get_param("wwz_pres_m_eta")) &
-        (abs(mu.dxy)         <  get_param("wwz_pres_m_dxy")) &
-        (abs(mu.dz)          <  get_param("wwz_pres_m_dz")) &
-        (abs(mu.sip3d)       <  get_param("wwz_pres_m_sip3d")) &
-        (mu.miniPFRelIso_all <  get_param("wwz_pres_m_miniPFRelIso_all")) &
+        (mu.pt               >  get_te_param("wwz_pres_m_pt")) &
+        (abs(mu.eta)         <  get_te_param("wwz_pres_m_eta")) &
+        (abs(mu.dxy)         <  get_te_param("wwz_pres_m_dxy")) &
+        (abs(mu.dz)          <  get_te_param("wwz_pres_m_dz")) &
+        (abs(mu.sip3d)       <  get_te_param("wwz_pres_m_sip3d")) &
+        (mu.miniPFRelIso_all <  get_te_param("wwz_pres_m_miniPFRelIso_all")) &
         (mu.mediumId)
     )
     return mask
