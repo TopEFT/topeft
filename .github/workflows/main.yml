@@ -81,6 +81,16 @@ jobs:
           conda config --add channels conda-forge
           conda env create -f environment.yml -n coffea-env
 
+      - name: Make a dir for topcoffea
+        run: |
+          pwd
+          ls
+          mkdir dir_for_topcoffea
+          cd dir_for_topcoffea
+          echo "After !!"
+          pwd
+          ls
+
       - name: Checkout topcoffea
         uses: actions/checkout@master
         with:
@@ -95,7 +105,11 @@ jobs:
           echo "THE INSTALL"
           conda run -n coffea-env pip install -e .
           conda list -n coffea-env
-          echo "END"
+          echo "Go back to topeft"
+          cd ..
+          pwd
+          ls
+          echo "End"
 
       - name: Conda list
         run: |
@@ -103,10 +117,6 @@ jobs:
 
       - name: Install pip packages
         run: |
-          pwd
-          ls
-          echo "CD .."
-          cd ..
           pwd
           ls
           conda run -n coffea-env pip install -e .
