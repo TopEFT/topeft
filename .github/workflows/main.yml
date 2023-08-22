@@ -95,14 +95,14 @@ jobs:
           echo "Should now be in topcoffea"
           pwd
           ls
-          pip install -e .
+          conda run -n coffea-env pip install -e .
           cd ../..
           echo "Going back to top level"
           pwd
           ls
           conda list -n coffea-env
           echo "Now install topeft"
-          pip install -e .
+          conda run -n coffea-env pip install -e .
           pwd
           ls
           conda list -n coffea-env
