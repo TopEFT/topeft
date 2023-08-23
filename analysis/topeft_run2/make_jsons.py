@@ -7,6 +7,9 @@ from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.samples import loadxsecdic
 import topcoffea.modules.sample_lst_jsons_tools as sjt
 
+from topeft.modules.combine_json_ext import combine_json_ext
+from topeft.modules.combine_json_batch import combine_json_batch
+
 ########### The XSs from xsec.cfg ###########
 XSECDIC = loadxsecdic("../../topcoffea/cfg/xsec.cfg",True)
 
@@ -1640,6 +1643,53 @@ test_dict = {
     }
 }
 
+
+
+# Convenience function for running sample_lst_jsons_tools make_json() on all entries in a dictionary of samples, and moving the results to out_dir
+def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False):
+    failed = []
+    for sample_name,sample_info in sorted(samples_dict.items()):
+        print(f"\n\nMaking JSON for {sample_name}...")
+        path = sample_info["path"]
+        if not on_das and "path_local" in sample_info:
+            # The bkg samples are now at ND, but we wanted to leave the dataset names in the dictionaries as well (in case we want to access remotely)
+            # So for these samples we have a "path" (i.e. dataset name to be used when on_das=True), as well as a "local_path" for acessing locally
+            # Note, it would probably make more sense to call "path" something like "path_das" (and "path_local" just "path"), but did not want to change the existing names..
+            path = sample_info["path_local"]
+        hist_axis_name = sample_info["histAxisName"]
+        xsec_name = sample_info["xsecName"]
+        sjt.make_json(
+            sample_dir = path,
+            sample_name = sample_name,
+            prefix = prefix,
+            sample_yr = year,
+            xsec_name = xsec_name,
+            hist_axis_name = hist_axis_name,
+            on_das = on_das,
+        )
+        out_name = sample_name+".json"
+        if not os.path.exists(out_name):
+            failed.append(sample_name)
+
+        subprocess.run(["mv",out_name,out_dir])
+        if '_ext' in out_name:
+            combine_json_ext(out_dir+'/'+out_name) # Merge with non-ext version
+            os.remove(out_dir+'/'+out_name) # Remove (now) outdated ext version
+        # Only run if more than one file exists (differentiates between `*_b2.json` and `*_b2_atPSI.json`
+        r = re.compile(re.sub(r'_b[1-9]', '_b[1-9]', out_name))
+        matches = [b for b in str(subprocess.check_output(["ls",'.'], shell=True)).split('\\n') if bool(r.match(b))]
+        if re.search('_b[2-9]', out_name) and len(matches)>1:
+            combine_json_batch(out_dir+'/'+out_name) # Merge batches
+            os.remove(out_dir+'/'+out_name) # Remove (now) outdated batch version
+
+        print("sample name:",sample_name)
+        print("\tpath:",path,"\n\thistAxisName:",hist_axis_name,"\n\txsecName",xsec_name,"\n\tout name:",out_name,"\n\tout dir:",out_dir)
+    if len(failed):
+        print("Failed:")
+        for l in failed:
+            print(f"\t{l}")
+    else:
+        print("Failed: None")
 
 
 
