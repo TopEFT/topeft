@@ -2,13 +2,11 @@ import argparse
 import json
 import sys
 
-from topcoffea.modules.YieldTools import YieldTools
+import topcoffea.modules.YieldTools as yt
 
 # This script takes two json files of yields, and prints out information about how they compare
 
 def main():
-
-    yt = YieldTools()
 
     # Set up the command line parser
     parser = argparse.ArgumentParser()
