@@ -2,7 +2,9 @@ import argparse
 import json
 import sys
 
-import topcoffea.modules.YieldTools as yt
+from topcoffea.modules.yield_tools import YieldTools
+
+yt = YieldTools()
 
 # This script takes two json files of yields, and prints out information about how they compare
 

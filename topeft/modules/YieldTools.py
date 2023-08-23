@@ -239,42 +239,6 @@ class YieldTools():
         return ret_name
 
 
-    ######### General functions #########
-
-    # Get percent difference
-    def get_pdiff(self,a,b,in_percent=False):
-        #p = (float(a)-float(b))/((float(a)+float(b))/2)
-        if ((a is None) or (b is None)):
-            p = None
-        elif b == 0:
-            p = None
-        else:
-            p = (float(a)-float(b))/float(b)
-            if in_percent:
-                p = p*100.0
-        return p
-
-    # Takes two dictionaries, returns the list of lists [common keys, keys unique to d1, keys unique to d2]
-    def get_common_keys(self,dict1,dict2):
-
-        common_lst = []
-        unique_1_lst = []
-        unique_2_lst = []
-
-        # Find common keys, and keys unique to d1
-        for k1 in dict1.keys():
-            if k1 in dict2.keys():
-                common_lst.append(k1)
-            else:
-                unique_1_lst.append(k1)
-
-        # Find keys unique to d2
-        for k2 in dict2.keys():
-            if k2 not in common_lst:
-                unique_2_lst.append(k2)
-
-        return [common_lst,unique_1_lst,unique_2_lst]
-
     # For a nested dict {k:{subk:v}} reorganizes to be {subk:{k:v}}
     def swap_keys_subkeys(self,in_dict):
         out_dict = {}
@@ -286,35 +250,6 @@ class YieldTools():
                 else:
                     out_dict[subk][k] = in_dict[k][subk]
         return out_dict
-
-    # Get a subset of the elements from a list of strings given a whitelist and/or blacklist of substrings
-    def filter_lst_of_strs(self,in_lst,substr_whitelist=[],substr_blacklist=[]):
-
-        # Check all elements are strings
-        if not (all(isinstance(x,str) for x in in_lst) and all(isinstance(x,str) for x in substr_whitelist) and all(isinstance(x,str) for x in substr_blacklist)):
-            raise Exception("Error: This function only filters lists of strings, one of the elements in one of the input lists is not a str.")
-        for elem in substr_whitelist:
-            if elem in substr_blacklist:
-                raise Exception(f"Error: Cannot whitelist and blacklist the same element (\"{elem}\").")
-
-        # Append to the return list
-        out_lst = []
-        for element in in_lst:
-            blacklisted = False
-            whitelisted = True
-            for substr in substr_blacklist:
-                if substr in element:
-                    # If any of the substrings are in the element, blacklist it
-                    blacklisted = True
-            for substr in substr_whitelist:
-                if substr not in element:
-                    # If any of the substrings are NOT in the element, do not whitelist it
-                    whitelisted = False
-            if whitelisted and not blacklisted:
-                out_lst.append(element)
-
-        return out_lst
-
 
     # Get the per lepton e/m factor from e.g. eee and mmm yields
     def get_em_factor(self,e_val,m_val,nlep):
