@@ -72,41 +72,21 @@ jobs:
         run: |
           echo $CONDA/bin >> $GITHUB_PATH 
 
-      - name: Install dependencies
+      - name: Create conda env and install dependencies
         run: |
-          echo "HERE!!!!"
-          pwd
-          ls
           conda config --set channel_priority strict
           conda config --add channels conda-forge
           conda env create -f environment.yml -n coffea-env
+          conda list -n coffea-env
 
-      - name: Make a dir for topcoffea
+      - name: Install local pip packages
         run: |
-          pwd
-          ls
           mkdir dir_for_topcoffea
-          cd dir_for_topcoffea
-          echo "After !!"
-          pwd
-          ls
           git clone https://github.com/TopEFT/topcoffea.git
           cd topcoffea
-          echo "Should now be in topcoffea"
-          pwd
-          ls
           conda run -n coffea-env pip install -e .
           cd ../..
-          echo "Going back to top level"
-          pwd
-          ls
-          conda list -n coffea-env
-          echo "Now install topeft"
           conda run -n coffea-env pip install -e .
-          pwd
-          ls
-          conda list -n coffea-env
-          echo "Done"
 
       - name: Conda list
         run: |
@@ -114,14 +94,9 @@ jobs:
 
       - name: Install pip packages
         run: |
-          pwd
-          ls
           conda run -n coffea-env pip install xgboost
           conda run -n coffea-env pip install mt2
           conda list -n coffea-env
-          echo "END.."
-          pwd
-          ls
 
       - name: Download root files
         run: |
