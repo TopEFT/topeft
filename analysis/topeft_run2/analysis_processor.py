@@ -11,7 +11,6 @@ from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.HistEFT import HistEFT
-from topcoffea.modules.get_param_from_jsons import GetParam
 import topcoffea.modules.eft_helper as efth
 import topcoffea.modules.event_selection as tc_es
 import topcoffea.modules.object_selection as tc_os
@@ -21,6 +20,7 @@ from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEf
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 
+from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 
