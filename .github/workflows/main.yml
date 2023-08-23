@@ -82,6 +82,7 @@ jobs:
       - name: Install local pip packages
         run: |
           mkdir dir_for_topcoffea
+          cd dir_for_topcoffea
           git clone https://github.com/TopEFT/topcoffea.git
           cd topcoffea
           conda run -n coffea-env pip install -e .
