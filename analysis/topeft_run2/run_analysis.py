@@ -256,7 +256,6 @@ if __name__ == '__main__':
             'tasks_accum_log': 'tasks.log',
 
             'environment_file': remote_environment.get_environment(
-                extra_pip = ["topeft"],
                 extra_pip_local = {"topeft": ["topeft", "setup.py"]},
             ),
             'extra_input_files': ["analysis_processor.py"],
