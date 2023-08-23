@@ -255,7 +255,7 @@ if __name__ == '__main__':
             'stats_log': 'stats.log',
             'tasks_accum_log': 'tasks.log',
 
-            'environment_file': remote_environment.get_environment(),
+            'environment_file': remote_environment.get_environment(extra_pip=["topeft"]),
             'extra_input_files': ["analysis_processor.py"],
 
             'retries': 5,
