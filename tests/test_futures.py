@@ -7,7 +7,7 @@ def test_topcoffea():
     args = [
         "time",
         "python",
-        "analysis/topeft_run2/run_topeft.py",
+        "analysis/topeft_run2/run_analysis.py",
         "-x",
         "futures",
         "input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json",
