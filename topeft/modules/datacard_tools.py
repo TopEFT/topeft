@@ -11,8 +11,8 @@ import time
 
 from coffea.hist import StringBin, Cat, Bin
 
-from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.utils import regex_match
+from topeft.modules.paths import topeft_path
 
 PRECISION = 6   # Decimal point precision in the text datacard output
 
@@ -320,7 +320,7 @@ class DatacardMaker():
                 if not yr in self.YEARS:
                     raise ValueError(f"Invalid year choice '{yr}', should be empty if running over all years or one of: {self.YEARS}")
 
-        rate_syst_path = kwargs.pop("rate_systs_path","json/rate_systs.json")
+        rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs.json")
         miss_part_path = kwargs.pop("missing_parton_path","data/missing_parton/missing_parton.root")
 
         # TODO: Need to find a better name for this variable
@@ -512,7 +512,7 @@ class DatacardMaker():
         rate_systs = {}
         if not self.do_nuisance:
             return rate_systs
-        fpath = topcoffea_path(rs_fpath)
+        fpath = topeft_path(rs_fpath)
         print(f"Opening: {fpath}")
         with open(fpath) as f:
             rates_json = json.load(f)
@@ -572,7 +572,7 @@ class DatacardMaker():
         syst_name = "missing_parton"
         new_syst = RateSystematic(syst_name)
 
-        fpath = topcoffea_path(mp_fpath)
+        fpath = topeft_path(mp_fpath)
         print(f"Opening: {fpath}")
         with uproot.open(fpath) as f:
             d = {}
@@ -1112,7 +1112,7 @@ class DatacardMaker():
         return r
 
 if __name__ == '__main__':
-    fpath = topcoffea_path("../analysis/topEFT/histos/may18_fullRun2_withSys_anatest08_np.pkl.gz")
+    fpath = topeft_path("../analysis/topEFT/histos/may18_fullRun2_withSys_anatest08_np.pkl.gz")
 
     tic = time.time()
     dc = DatacardMaker(fpath)

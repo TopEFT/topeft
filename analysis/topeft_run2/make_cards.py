@@ -150,9 +150,8 @@ def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
 def main():
     parser = argparse.ArgumentParser(description="You can select which file to run over")
     parser.add_argument("pkl_file",nargs="?",help="Pickle file with histograms to run over")
-    parser.add_argument("--lumi-json","-l",default="json/lumi.json",help="Lumi json file, path relative to topcoffea_path()")
-    parser.add_argument("--rate-syst-json","-s",default="json/rate_systs.json",help="Rate related systematics json file, path relative to topcoffea_path()")
-    parser.add_argument("--miss-parton-file","-m",default="data/missing_parton/missing_parton.root",help="File for missing parton systematic, path relative to topcoffea_path()")
+    parser.add_argument("--rate-syst-json","-s",default="params/rate_systs.json",help="Rate related systematics json file, path relative to topeft_path()")
+    parser.add_argument("--miss-parton-file","-m",default="data/missing_parton/missing_parton.root",help="File for missing parton systematic, path relative to topeft_path()")
     parser.add_argument("--selected-wcs-ref",default="test/selectedWCs.json",help="Reference file for selected wcs")
     parser.add_argument("--out-dir","-d",default=".",help="Output directory to write root and text datacard files to")
     parser.add_argument("--var-lst",default=[],action="extend",nargs="+",help="Specify a list of variables to make cards for.")
@@ -174,7 +173,6 @@ def main():
 
     args = parser.parse_args()
     pkl_file   = args.pkl_file
-    lumi_json  = args.lumi_json
     rs_json    = args.rate_syst_json
     mp_file    = args.miss_parton_file
     out_dir    = args.out_dir
@@ -201,7 +199,6 @@ def main():
 
     kwargs = {
         "wcs": wcs,
-        "lumi_json_path": lumi_json,
         "rate_syst_path": rs_json,
         "missing_parton_path": mp_file,
         "out_dir": out_dir,

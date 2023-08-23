@@ -1,7 +1,8 @@
 import argparse
 import json
 import datetime
-from topcoffea.modules.YieldTools import YieldTools
+from topcoffea.modules.yield_tools import YieldTools
+from topeft.modules.YieldTools import YieldTools as YieldToolsOLD
 import topcoffea.modules.MakeLatexTable as mlt
 import topcoffea.modules.utils as utils
 
@@ -12,6 +13,7 @@ import topcoffea.modules.utils as utils
 def main():
 
     yt = YieldTools()
+    ytOLD = YieldToolsOLD()
 
     timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
 
@@ -28,18 +30,18 @@ def main():
 
     # Get the histograms, check if split into lep flavors
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
-    if not yt.is_split_by_lepflav(hin_dict) and args.by_lep_flavor:
+    if not ytOLD.is_split_by_lepflav(hin_dict) and args.by_lep_flavor:
         raise Exception("Cannot specify --by-lep-flavor option, the yields file is not split by lepton flavor")
 
     # Put the yields into a dict
-    yld_dict = yt.get_yld_dict(hin_dict,args.year,njets=args.by_njets,lepflav=args.by_lep_flavor)
+    yld_dict = ytOLD.get_yld_dict(hin_dict,args.year,njets=args.by_njets,lepflav=args.by_lep_flavor)
 
     # Print info about the file
     if not args.quiet:
-        yt.print_hist_info(args.pkl_file_path)
+        ytOLD.print_hist_info(args.pkl_file_path)
         yt.print_yld_dicts(yld_dict,args.tag)
         if not args.by_lep_flavor and not args.by_njets:
-            mlt.print_latex_yield_table(yld_dict,key_order=yt.PROC_MAP.keys(),subkey_order=yt.CAT_LST,tag=args.tag,print_begin_info=True,print_end_info=True)
+            mlt.print_latex_yield_table(yld_dict,key_order=ytOLD.PROC_MAP.keys(),subkey_order=ytOLD.CAT_LST,tag=args.tag,print_begin_info=True,print_end_info=True)
         else:
             mlt.print_latex_yield_table(yld_dict,tag=args.tag,print_begin_info=True,print_end_info=True,column_variable="keys")
 
