@@ -234,14 +234,14 @@ class SparseHist(hist.Hist, family=hist):
         index_key = self._make_index_key(key)
         filtered = self._filter_dense(index_key)
 
-        if len(filtered) == 0:
-            raise KeyError("No bins found")
-
         collapsed = [index_key[name] is sum or isinstance(index_key[name], int) for name in self.categorical_axes.name]
         new_cats = [
             type(axis)([], growth=True, name=axis.name, label=axis.label)
             for axis, mask in zip(self.categorical_axes, collapsed) if not mask
         ]
+
+        if len(filtered) == 0:
+            return self.from_categorical_axes_like(*new_cats)
 
         first = list(filtered.values())[0]
         if not isinstance(first, hist.Hist):
