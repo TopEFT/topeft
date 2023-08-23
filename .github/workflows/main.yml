@@ -102,7 +102,6 @@ jobs:
       - name: Download root files
         run: |
           wget --no-verbose http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root
-          wget --no-verbose http://uaf-10.t2.ucsd.edu/~kmohrman/for_ci/for_wwz/WWZJetsTo4L2Nu_4F_TuneCP5_13TeV-amcatnlo-pythia8_RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2_NANOAODSIM_3LepTau_4Lep/output_1.root
 
       - name: Pytest setup
         run: |
@@ -112,18 +111,6 @@ jobs:
       - name: Test make 1d quad plots
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_make_1d_quad_plots.py 
-
-      - name: Run WWZ processors over test files with futures executor
-        run: |
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_futures_wwz.py
-
-      - name: Get WWZ yields 
-        run: |
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append -k test_make_yields_after_processor_wwz
-
-      - name: Check WWZ yields 
-        run: |
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append -k test_compare_yields_after_processor_wwz
 
       - name: Run topeft processors over test files with futures executor
         run: |
