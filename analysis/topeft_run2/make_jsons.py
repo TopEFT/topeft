@@ -3,6 +3,7 @@
 #   - If the private NAOD has to be remade, the version numbers should be updated in the dictionaries here, then just rerun the script to remake the jsons
 
 import os
+import subprocess
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.samples import loadxsecdic
 import topcoffea.modules.sample_lst_jsons_tools as sjt
@@ -1697,90 +1698,90 @@ def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False
 def main():
 
     # Specify some output dirs
-    out_dir_test_private_UL     = os.path.join(topcoffea_path("json"),"signal_samples/test_UL/")
-    out_dir_private_UL          = os.path.join(topcoffea_path("json"),"signal_samples/private_UL/")
-    out_dir_private_UL_subset_local = os.path.join(topcoffea_path("json"),"signal_samples/subsets_of_private_UL_for_debugging/private_UL17_b1b4_at_NDscratch365/")
-    out_dir_private_UL_subset_unl = os.path.join(topcoffea_path("json"),"signal_samples/subsets_of_private_UL_for_debugging/private_UL17_b1b4_at_NDscratch365/")
-    out_dir_top19001_local = os.path.join(topcoffea_path("json"),"signal_samples/private_top19001_local")
-    out_dir_central_UL     = os.path.join(topcoffea_path("json"),"signal_samples/central_UL/")
-    out_dir_central_bkg_UL = os.path.join(topcoffea_path("json"),"background_samples/central_UL/")
-    out_dir_central_2017   = os.path.join(topcoffea_path("json"),"signal_samples/central_2017/")
-    out_dir_central_sync   = os.path.join(topcoffea_path("json"),"sync_samples/")
+    out_dir_test_private_UL     = os.path.join(topeft_path("json"),"signal_samples/test_UL/")
+    out_dir_private_UL          = os.path.join(topeft_path("json"),"signal_samples/private_UL/")
+    out_dir_private_UL_subset_local = os.path.join(topeft_path("json"),"signal_samples/subsets_of_private_UL_for_debugging/private_UL17_b1b4_at_NDscratch365/")
+    out_dir_private_UL_subset_unl = os.path.join(topeft_path("json"),"signal_samples/subsets_of_private_UL_for_debugging/private_UL17_b1b4_at_NDscratch365/")
+    out_dir_top19001_local = os.path.join(topeft_path("json"),"signal_samples/private_top19001_local")
+    out_dir_central_UL     = os.path.join(topeft_path("json"),"signal_samples/central_UL/")
+    out_dir_central_bkg_UL = os.path.join(topeft_path("json"),"background_samples/central_UL/")
+    out_dir_central_2017   = os.path.join(topeft_path("json"),"signal_samples/central_2017/")
+    out_dir_central_sync   = os.path.join(topeft_path("json"),"sync_samples/")
 
-    out_dir_data_2016 = os.path.join(topcoffea_path("json"),"data_samples/2016/")
-    out_dir_data_2017 = os.path.join(topcoffea_path("json"),"data_samples/2017/")
-    out_dir_data_2018 = os.path.join(topcoffea_path("json"),"data_samples/2018/")
+    out_dir_data_2016 = os.path.join(topeft_path("json"),"data_samples/2016/")
+    out_dir_data_2017 = os.path.join(topeft_path("json"),"data_samples/2017/")
+    out_dir_data_2018 = os.path.join(topeft_path("json"),"data_samples/2018/")
 
     ######### Make/remake JSONs #########
 
     # Private UL samples
-    #sjt.make_jsons_for_dict_of_samples(test_private_UL17_dict,"/hadoop","2017",out_dir_test_private_UL)
-    #sjt.make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
-    #sjt.make_jsons_for_dict_of_samples(private_UL18_dict,"/hadoop","2018",out_dir_private_UL)
-    #sjt.make_jsons_for_dict_of_samples(private_UL16_dict,"/hadoop","2016",out_dir_private_UL)
-    #sjt.make_jsons_for_dict_of_samples(private_UL16APV_dict,"/hadoop","2016APV",out_dir_private_UL) # Not sure what we need here for the year, can remake the JSONs later to update when we have SFs etc set up for 2016 stuff (right now I think it's mostly just 18)
+    #make_jsons_for_dict_of_samples(test_private_UL17_dict,"/hadoop","2017",out_dir_test_private_UL)
+    #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
+    #make_jsons_for_dict_of_samples(private_UL18_dict,"/hadoop","2018",out_dir_private_UL)
+    #make_jsons_for_dict_of_samples(private_UL16_dict,"/hadoop","2016",out_dir_private_UL)
+    #make_jsons_for_dict_of_samples(private_UL16APV_dict,"/hadoop","2016APV",out_dir_private_UL) # Not sure what we need here for the year, can remake the JSONs later to update when we have SFs etc set up for 2016 stuff (right now I think it's mostly just 18)
 
     # Subsets of files for small debugging tests local files (scratch365 at ND)
-    #sjt.make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
-    #sjt.make_jsons_for_dict_of_samples(private_UL17_dict_b1b4_local,"","2017",out_dir_private_UL_subset_local)
+    #make_jsons_for_dict_of_samples(private_2017_dict,"","2017",out_dir_top19001_local)
+    #make_jsons_for_dict_of_samples(private_UL17_dict_b1b4_local,"","2017",out_dir_private_UL_subset_local)
 
     # Central signal samples
-    #sjt.make_jsons_for_dict_of_samples(central_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_2016,on_das=True)
-    #sjt.make_jsons_for_dict_of_samples(central_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_2016APV,on_das=True)
-    #sjt.make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
-    #sjt.make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
-    #sjt.make_jsons_for_dict_of_samples(central_2017_dict,"/hadoop","2017",out_dir_central_2017,on_das=False) # ttH, ttW, ttZ, and tZq are at ND
-    #sjt.make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
-    #sjt.make_jsons_for_dict_of_samples(central_UL16_dict,    "/hadoop","2016",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
-    #sjt.make_jsons_for_dict_of_samples(central_UL16APV_dict, "/hadoop","2016APV", out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
-    #sjt.make_jsons_for_dict_of_samples(central_UL17_dict,    "/hadoop","2017",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
-    #sjt.make_jsons_for_dict_of_samples(central_UL18_dict,    "/hadoop","2018",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
+    #make_jsons_for_dict_of_samples(central_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_central_2016,on_das=True)
+    #make_jsons_for_dict_of_samples(central_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_central_2016APV,on_das=True)
+    #make_jsons_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
+    #make_jsons_for_dict_of_samples(central_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_2017,on_das=True)
+    #make_jsons_for_dict_of_samples(central_2017_dict,"/hadoop","2017",out_dir_central_2017,on_das=False) # ttH, ttW, ttZ, and tZq are at ND
+    #make_jsons_for_dict_of_samples(sync_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_central_sync)
+    #make_jsons_for_dict_of_samples(central_UL16_dict,    "/hadoop","2016",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
+    #make_jsons_for_dict_of_samples(central_UL16APV_dict, "/hadoop","2016APV", out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
+    #make_jsons_for_dict_of_samples(central_UL17_dict,    "/hadoop","2017",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
+    #make_jsons_for_dict_of_samples(central_UL18_dict,    "/hadoop","2018",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
 
     # Central background samples
     # Note: Some of the bkg dicts have both a "path" and a "path_local" (these are samples that generated JSONs for after moving the samples to ND),
     #       while the others only have a "path" (i.e. dataset name), these were the ones we produced JSONs for prior to moving the samples to ND, but
     #       these should also be located at ND, so if the samples need to be remade, you can add a "local_path" with the path starting with /store
-    sjt.make_jsons_for_dict_of_samples(central_UL17_bkg_dict,   "/hadoop","2017",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
-    sjt.make_jsons_for_dict_of_samples(central_UL18_bkg_dict,   "/hadoop","2018",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
-    sjt.make_jsons_for_dict_of_samples(central_UL16_bkg_dict,   "/hadoop","2016",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
-    sjt.make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"/hadoop","2016APV",out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
+    make_jsons_for_dict_of_samples(central_UL17_bkg_dict,   "/hadoop","2017",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
+    make_jsons_for_dict_of_samples(central_UL18_bkg_dict,   "/hadoop","2018",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
+    make_jsons_for_dict_of_samples(central_UL16_bkg_dict,   "/hadoop","2016",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
+    make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"/hadoop","2016APV",out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
 
     # Data samples
-    #sjt.make_jsons_for_dict_of_samples(data_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_data_2016,on_das=True)
-    #sjt.make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
-    #sjt.make_jsons_for_dict_of_samples(data_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_data_2017,on_das=True)
-    #sjt.make_jsons_for_dict_of_samples(data_2018_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_data_2018,on_das=True)
+    #make_jsons_for_dict_of_samples(data_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_data_2016,on_das=True)
+    #make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
+    #make_jsons_for_dict_of_samples(data_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_data_2017,on_das=True)
+    #make_jsons_for_dict_of_samples(data_2018_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_data_2018,on_das=True)
 
     # Testing finding list of files with xrdfs ls
-    #sjt.make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
+    #make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
 
 
     ######### Just replace xsec in JSON with whatever is in xsec.cfg #########
 
-    #sjt.replace_xsec_for_dict_of_samples(test_private_UL17_dict,out_dir_test_private_UL)
-    #sjt.replace_xsec_for_dict_of_samples(private_UL17_dict,out_dir_private_UL)
-    #sjt.replace_xsec_for_dict_of_samples(private_UL18_dict,out_dir_private_UL)
-    #sjt.replace_xsec_for_dict_of_samples(private_UL16_dict,out_dir_private_UL)
-    #sjt.replace_xsec_for_dict_of_samples(private_UL16APV_dict,out_dir_private_UL)
+    #replace_xsec_for_dict_of_samples(test_private_UL17_dict,out_dir_test_private_UL)
+    #replace_xsec_for_dict_of_samples(private_UL17_dict,out_dir_private_UL)
+    #replace_xsec_for_dict_of_samples(private_UL18_dict,out_dir_private_UL)
+    #replace_xsec_for_dict_of_samples(private_UL16_dict,out_dir_private_UL)
+    #replace_xsec_for_dict_of_samples(private_UL16APV_dict,out_dir_private_UL)
 
-    #sjt.replace_xsec_for_dict_of_samples(private_2017_dict,out_dir_top19001_local)
-    #sjt.replace_xsec_for_dict_of_samples(private_UL17_dict_b1b4_local,out_dir_private_UL_subset_local)
+    #replace_xsec_for_dict_of_samples(private_2017_dict,out_dir_top19001_local)
+    #replace_xsec_for_dict_of_samples(private_UL17_dict_b1b4_local,out_dir_private_UL_subset_local)
 
-    ##sjt.replace_xsec_for_dict_of_samples(central_2016_dict,out_dir_central_2016)
-    ##sjt.replace_xsec_for_dict_of_samples(central_2016APV_dict,out_dir_central_2016APV)
-    #sjt.replace_xsec_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,out_dir_central_2017)
-    #sjt.replace_xsec_for_dict_of_samples(central_2017_dict,out_dir_central_2017)
-    #sjt.replace_xsec_for_dict_of_samples(central_2017_dict,out_dir_central_2017)
-    #sjt.replace_xsec_for_dict_of_samples(sync_dict,out_dir_central_sync)
-    #sjt.replace_xsec_for_dict_of_samples(central_UL16_dict,out_dir_central_UL)
-    #sjt.replace_xsec_for_dict_of_samples(central_UL16APV_dict,out_dir_central_UL)
-    #sjt.replace_xsec_for_dict_of_samples(central_UL17_dict,out_dir_central_UL)
-    #sjt.replace_xsec_for_dict_of_samples(central_UL18_dict,out_dir_central_UL)
+    ##replace_xsec_for_dict_of_samples(central_2016_dict,out_dir_central_2016)
+    ##replace_xsec_for_dict_of_samples(central_2016APV_dict,out_dir_central_2016APV)
+    #replace_xsec_for_dict_of_samples(central_2017_correctnPartonsInBorn_dict,out_dir_central_2017)
+    #replace_xsec_for_dict_of_samples(central_2017_dict,out_dir_central_2017)
+    #replace_xsec_for_dict_of_samples(central_2017_dict,out_dir_central_2017)
+    #replace_xsec_for_dict_of_samples(sync_dict,out_dir_central_sync)
+    #replace_xsec_for_dict_of_samples(central_UL16_dict,out_dir_central_UL)
+    #replace_xsec_for_dict_of_samples(central_UL16APV_dict,out_dir_central_UL)
+    #replace_xsec_for_dict_of_samples(central_UL17_dict,out_dir_central_UL)
+    #replace_xsec_for_dict_of_samples(central_UL18_dict,out_dir_central_UL)
 
-    #sjt.replace_xsec_for_dict_of_samples(central_UL17_bkg_dict,out_dir_central_bkg_UL)
-    #sjt.replace_xsec_for_dict_of_samples(central_UL18_bkg_dict,out_dir_central_bkg_UL)
-    #sjt.replace_xsec_for_dict_of_samples(central_UL16_bkg_dict,out_dir_central_bkg_UL)
-    #sjt.replace_xsec_for_dict_of_samples(central_UL16APV_bkg_dict,out_dir_central_bkg_UL)
+    #replace_xsec_for_dict_of_samples(central_UL17_bkg_dict,out_dir_central_bkg_UL)
+    #replace_xsec_for_dict_of_samples(central_UL18_bkg_dict,out_dir_central_bkg_UL)
+    #replace_xsec_for_dict_of_samples(central_UL16_bkg_dict,out_dir_central_bkg_UL)
+    #replace_xsec_for_dict_of_samples(central_UL16APV_bkg_dict,out_dir_central_bkg_UL)
 
 
 if __name__ == "__main__":
