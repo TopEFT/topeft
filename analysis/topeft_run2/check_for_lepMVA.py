@@ -4,7 +4,8 @@ import json
 from coffea.nanoevents import NanoEventsFactory
 
 from topcoffea.modules.utils import regex_match
-from topcoffea.modules.paths import topcoffea_path
+
+CFG_PATH = "../../input_samples/cfgs/"
 
 pjoin = os.path.join
 
@@ -35,7 +36,7 @@ def main():
     ]
 
     for cfg_name in cfgs_to_check:
-        cfg_fpath = topcoffea_path(f"cfg/{cfg_name}")
+        cfg_fpath = pjoin(CFG_PATH,cfg_name)
         print(f"cfg path: {cfg_fpath}")
         cfg = read_cfg(cfg_fpath)
         njsns = len(cfg["jsons"])

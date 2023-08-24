@@ -9,10 +9,15 @@ from cycler import cycler
 from coffea import hist
 #from topcoffea.modules.HistEFT import HistEFT
 
-from topcoffea.modules.YieldTools import YieldTools
-import topcoffea.modules.GetValuesFromJsons as getj
+from topeft.modules.YieldTools import YieldTools as YieldToolsOLD
 from topcoffea.scripts.make_html import make_html
 import topcoffea.modules.utils as utils
+
+from topcoffea.modules.paths import topcoffea_path
+import topeft.modules.get_rate_systs as grs
+from topcoffea.modules.get_param_from_jsons import GetParam
+get_tc_param = GetParam(topcoffea_path("params/params.json"))
+
 
 # This script takes an input pkl file that should have both data and background MC included.
 # Use the -y option to specify a year, if no year is specified, all years will be included.
@@ -144,7 +149,7 @@ WCPT_EXAMPLE = {
 # This list keeps track of those, so we can handle them when extracting the numbers from the rate syst json
 PROC_WITHOUT_PDF_RATE_SYST = ["tttt","ttll","ttlnu","Triboson","tWZ","convs"]
 
-yt = YieldTools()
+ytOLD = YieldToolsOLD()
 
 
 ######### Utility functions #########
