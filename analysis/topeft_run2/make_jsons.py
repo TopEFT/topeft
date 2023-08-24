@@ -3,16 +3,14 @@
 #   - If the private NAOD has to be remade, the version numbers should be updated in the dictionaries here, then just rerun the script to remake the jsons
 
 import os
+import re
 import subprocess
-from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.samples import loadxsecdic
-import topcoffea.modules.sample_lst_jsons_tools as sjt
 
+from topcoffea.modules.paths import topcoffea_path
+import topcoffea.modules.sample_lst_jsons_tools as sjt
 from topeft.modules.combine_json_ext import combine_json_ext
 from topeft.modules.combine_json_batch import combine_json_batch
 
-########### The XSs from xsec.cfg ###########
-XSECDIC = loadxsecdic("../../topcoffea/cfg/xsec.cfg",True)
 
 ########### Private UL signal samples ###########
 
@@ -1698,19 +1696,20 @@ def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False
 def main():
 
     # Specify some output dirs
-    out_dir_test_private_UL     = os.path.join(topeft_path("json"),"signal_samples/test_UL/")
-    out_dir_private_UL          = os.path.join(topeft_path("json"),"signal_samples/private_UL/")
-    out_dir_private_UL_subset_local = os.path.join(topeft_path("json"),"signal_samples/subsets_of_private_UL_for_debugging/private_UL17_b1b4_at_NDscratch365/")
-    out_dir_private_UL_subset_unl = os.path.join(topeft_path("json"),"signal_samples/subsets_of_private_UL_for_debugging/private_UL17_b1b4_at_NDscratch365/")
-    out_dir_top19001_local = os.path.join(topeft_path("json"),"signal_samples/private_top19001_local")
-    out_dir_central_UL     = os.path.join(topeft_path("json"),"signal_samples/central_UL/")
-    out_dir_central_bkg_UL = os.path.join(topeft_path("json"),"background_samples/central_UL/")
-    out_dir_central_2017   = os.path.join(topeft_path("json"),"signal_samples/central_2017/")
-    out_dir_central_sync   = os.path.join(topeft_path("json"),"sync_samples/")
+    jsons_path = "../../input_samples/sample_jsons/"
+    out_dir_test_private_UL     = os.path.join(jsons_path,"signal_samples/test_UL/")
+    out_dir_private_UL          = os.path.join(jsons_path,"signal_samples/private_UL/")
+    out_dir_private_UL_subset_local = os.path.join(jsons_path,"signal_samples/subsets_of_private_UL_for_debugging/private_UL17_b1b4_at_NDscratch365/")
+    out_dir_private_UL_subset_unl = os.path.join(jsons_path,"signal_samples/subsets_of_private_UL_for_debugging/private_UL17_b1b4_at_NDscratch365/")
+    out_dir_top19001_local = os.path.join(jsons_path,"signal_samples/private_top19001_local")
+    out_dir_central_UL     = os.path.join(jsons_path,"signal_samples/central_UL/")
+    out_dir_central_bkg_UL = os.path.join(jsons_path,"background_samples/central_UL/")
+    out_dir_central_2017   = os.path.join(jsons_path,"signal_samples/central_2017/")
+    out_dir_central_sync   = os.path.join(jsons_path,"sync_samples/")
 
-    out_dir_data_2016 = os.path.join(topeft_path("json"),"data_samples/2016/")
-    out_dir_data_2017 = os.path.join(topeft_path("json"),"data_samples/2017/")
-    out_dir_data_2018 = os.path.join(topeft_path("json"),"data_samples/2018/")
+    out_dir_data_2016 = os.path.join(jsons_path,"data_samples/2016/")
+    out_dir_data_2017 = os.path.join(jsons_path,"data_samples/2017/")
+    out_dir_data_2018 = os.path.join(jsons_path,"data_samples/2018/")
 
     ######### Make/remake JSONs #########
 
