@@ -1,7 +1,7 @@
 import argparse
 import json
 import datetime
-from topeft.modules.YieldTools import YieldTools as YieldTools
+from topeft.modules.yield_tools import YieldTools
 import topcoffea.modules.MakeLatexTable as mlt
 from topcoffea.modules import utils
 

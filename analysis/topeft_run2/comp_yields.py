@@ -4,7 +4,7 @@ import sys
 
 import topcoffea.modules.MakeLatexTable as mlt
 from topcoffea.modules import utils
-from topeft.modules.YieldTools import YieldTools
+from topeft.modules.yield_tools import YieldTools
 
 # This script takes two json files of yields, and prints out information about how they compare
 #   - The second file is optional, will default to the reference yield file

@@ -4,7 +4,7 @@ import argparse
 from coffea.hist import StringBin
 
 import topcoffea.modules.utils as utils
-from topeft.modules.YieldTools import YieldTools
+from topeft.modules.yield_tools import YieldTools
 yt = YieldTools()
 
 

@@ -1,16 +1,17 @@
 import argparse
 from coffea import hist
-from topeft.modules.YieldTools import YieldTools
-from topeft.modules.get_param_from_jsons import get_te_param
 import topcoffea.modules.utils as utils
 import cloudpickle
 from collections import defaultdict
 import re
 import gzip
 
+from topeft.modules.paths import topeft_path
+from topcoffea.modules.get_param_from_jsons import GetParam
+get_te_param = GetParam(topeft_path("params/params.json"))
+
 class DataDrivenProducer:
     def __init__(self, inputHist, outputName):
-        yt=YieldTools()
         if isinstance(inputHist, str) and inputHist.endswith('.pkl.gz'): # we are plugging a pickle file
             self.inhist=utils.get_hist_from_pkl(inputHist)
         else: # we already have the histogram
@@ -146,8 +147,6 @@ class DataDrivenProducer:
 
 
 if __name__ == "__main__":
-
-    yt = YieldTools()
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
