@@ -3,8 +3,8 @@ import json
 import sys
 
 import topcoffea.modules.MakeLatexTable as mlt
-from topcoffea.modules.yield_tools import YieldTools
-from topeft.modules.YieldTools import YieldTools as YieldToolsOLD
+from topcoffea.modules import utils
+from topeft.modules.YieldTools import YieldTools
 
 # This script takes two json files of yields, and prints out information about how they compare
 #   - The second file is optional, will default to the reference yield file
@@ -14,7 +14,6 @@ from topeft.modules.YieldTools import YieldTools as YieldToolsOLD
 def main():
 
     yt = YieldTools()
-    ytOLD = YieldToolsOLD()
 
     # Set up the command line parser
     parser = argparse.ArgumentParser()
@@ -28,14 +27,14 @@ def main():
 
     # Load the jsons
     if args.yields_file_1 == "TOP-19-001":
-        yld_dict_1 = ytOLD.TOP19001_YLDS
+        yld_dict_1 = yt.TOP19001_YLDS
     else:
         with open(args.yields_file_1,"r") as f1:
             data_1 = f1.read()
         yld_dict_1 = json.loads(data_1)
 
     if args.yields_file_2 == "TOP-19-001":
-        yld_dict_2 = ytOLD.TOP19001_YLDS
+        yld_dict_2 = yt.TOP19001_YLDS
     else:
         with open(args.yields_file_2,"r") as f2:
             data_2 = f2.read()
@@ -43,31 +42,31 @@ def main():
 
     # Choose the category list to use
     # Note, we assume that both yld dictionaries should have the same categories
-    cat_lst = ytOLD.CAT_LST
+    cat_lst = yt.CAT_LST
     if (args.yields_file_1 == "TOP-19-001") or (args.yields_file_2 == "TOP-19-001"):
-        cat_lst = ytOLD.CAT_LST_TOP19001
+        cat_lst = yt.CAT_LST_TOP19001
 
     # Get the difference between the yields
-    pdiff_dict = yt.get_diff_between_nested_dicts(yld_dict_1,yld_dict_2,difftype="percent_diff")
-    diff_dict  = yt.get_diff_between_nested_dicts(yld_dict_1,yld_dict_2,difftype="absolute_diff")
+    pdiff_dict = utils.get_diff_between_nested_dicts(yld_dict_1,yld_dict_2,difftype="percent_diff")
+    diff_dict  = utils.get_diff_between_nested_dicts(yld_dict_1,yld_dict_2,difftype="absolute_diff")
 
     # Print the yields
     if not args.quiet:
 
-        yt.print_yld_dicts(yld_dict_1,args.tag1)
-        yt.print_yld_dicts(yld_dict_2,args.tag2)
-        yt.print_yld_dicts(pdiff_dict,f"Percent diff between {args.tag1} and {args.tag2}")
-        yt.print_yld_dicts(diff_dict,f"Diff between {args.tag1} and {args.tag2}")
+        utils.print_yld_dicts(yld_dict_1,args.tag1)
+        utils.print_yld_dicts(yld_dict_2,args.tag2)
+        utils.print_yld_dicts(pdiff_dict,f"Percent diff between {args.tag1} and {args.tag2}")
+        utils.print_yld_dicts(diff_dict,f"Diff between {args.tag1} and {args.tag2}")
 
         mlt.print_begin()
-        mlt.print_latex_yield_table(yld_dict_1,key_order=ytOLD.PROC_MAP.keys(),subkey_order=cat_lst,tag=args.tag1)
-        mlt.print_latex_yield_table(yld_dict_2,key_order=ytOLD.PROC_MAP.keys(),subkey_order=cat_lst,tag=args.tag2)
-        mlt.print_latex_yield_table(pdiff_dict,key_order=ytOLD.PROC_MAP.keys(),subkey_order=cat_lst,tag=f"Percent diff between {args.tag1} and {args.tag2}")
-        mlt.print_latex_yield_table(diff_dict, key_order=ytOLD.PROC_MAP.keys(),subkey_order=cat_lst,tag=f"Diff between {args.tag1} and {args.tag2}")
+        mlt.print_latex_yield_table(yld_dict_1,key_order=yt.PROC_MAP.keys(),subkey_order=cat_lst,tag=args.tag1)
+        mlt.print_latex_yield_table(yld_dict_2,key_order=yt.PROC_MAP.keys(),subkey_order=cat_lst,tag=args.tag2)
+        mlt.print_latex_yield_table(pdiff_dict,key_order=yt.PROC_MAP.keys(),subkey_order=cat_lst,tag=f"Percent diff between {args.tag1} and {args.tag2}")
+        mlt.print_latex_yield_table(diff_dict, key_order=yt.PROC_MAP.keys(),subkey_order=cat_lst,tag=f"Diff between {args.tag1} and {args.tag2}")
         mlt.print_end()
 
     # Raise errors if yields are too different
-    yields_agree_bool = yt.print_yld_dicts(pdiff_dict,f"Percent diff between {args.tag1} and {args.tag2}",tolerance=args.tolerance)
+    yields_agree_bool = utils.print_yld_dicts(pdiff_dict,f"Percent diff between {args.tag1} and {args.tag2}",tolerance=args.tolerance)
     if not yields_agree_bool:
         sys.exit(1)
 
