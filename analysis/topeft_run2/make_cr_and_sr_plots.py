@@ -9,9 +9,9 @@ from cycler import cycler
 from coffea import hist
 #from topcoffea.modules.HistEFT import HistEFT
 
-from topeft.modules.YieldTools import YieldTools as YieldToolsOLD
 from topcoffea.scripts.make_html import make_html
 import topcoffea.modules.utils as utils
+from topeft.modules.yield_tools import YieldTools
 
 from topcoffea.modules.paths import topcoffea_path
 import topeft.modules.get_rate_systs as grs
@@ -149,7 +149,7 @@ WCPT_EXAMPLE = {
 # This list keeps track of those, so we can handle them when extracting the numbers from the rate syst json
 PROC_WITHOUT_PDF_RATE_SYST = ["tttt","ttll","ttlnu","Triboson","tWZ","convs"]
 
-ytOLD = YieldToolsOLD()
+yt = YieldTools()
 
 
 ######### Utility functions #########
@@ -228,7 +228,7 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
                 # Would be better to handle this in a more general way
                 corr_tag = None
             else:
-                corr_tag = getj.get_correlation_tag(uncertainty_name,proc_name_in_json)
+                corr_tag = grs.get_correlation_tag(uncertainty_name,proc_name_in_json)
     return corr_tag
 
 # This function gets all of the the rate systematics from the json file
@@ -240,11 +240,11 @@ def get_rate_systs(sample_name,sample_group_map):
     scale_name_for_json = get_scale_name(sample_name,sample_group_map)
 
     # Get the lumi uncty for this sample (same for all samles)
-    lumi_uncty = getj.get_syst("lumi")
+    lumi_uncty = grs.get_syst("lumi")
 
     # Get the flip uncty from the json (if there is not an uncertainty for this sample, return 1 since the uncertainties are multiplicative)
     if sample_name in sample_group_map["Flips"]:
-        flip_uncty = getj.get_syst("charge_flips","charge_flips_sm")
+        flip_uncty = grs.get_syst("charge_flips","charge_flips_sm")
     else:
         flip_uncty = [1.0,1,0]
 
@@ -255,14 +255,14 @@ def get_rate_systs(sample_name,sample_group_map):
             # NOTE Someday should fix this, it's a really hardcoded and brittle and bad workaround
             pdf_uncty = [1.0,1,0]
         else:
-            pdf_uncty = getj.get_syst("pdf_scale",scale_name_for_json)
+            pdf_uncty = grs.get_syst("pdf_scale",scale_name_for_json)
         if scale_name_for_json == "convs":
             # Special case for conversions, since we estimate these from a LO sample, so we don't have an NLO uncty here
             # Would be better to handle this in a more general way
             qcd_uncty = [1.0,1,0]
         else:
             # In all other cases, use the qcd scale uncty that we have for the process
-            qcd_uncty = getj.get_syst("qcd_scale",scale_name_for_json)
+            qcd_uncty = grs.get_syst("qcd_scale",scale_name_for_json)
     else:
         pdf_uncty = [1.0,1,0]
         qcd_uncty = [1.0,1,0]
@@ -276,7 +276,7 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
 
     # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
     rate_syst_arr_dict = {}
-    for rate_sys_type in getj.get_syst_lst():
+    for rate_sys_type in grs.get_syst_lst():
         rate_syst_arr_dict[rate_sys_type] = {}
         for sample_name in yt.get_cat_lables(base_histo,"sample"):
 
@@ -415,7 +415,7 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 
     # Get the list of njets vals for which we have SFs
     sf_int_lst = []
-    diboson_njets_dict = getj.get_jet_dependent_syst_dict()
+    diboson_njets_dict = grs.get_jet_dependent_syst_dict()
     sf_str_lst = list(diboson_njets_dict.keys())
     for s in sf_str_lst: sf_int_lst.append(int(s))
     min_njets = min(sf_int_lst) # The lowest njets bin we have a SF for
@@ -623,7 +623,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
 
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
     all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name=yt.get_hist_list(dict_of_hists)[0])
-    sig_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
+    sig_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
     samples_to_rm_from_sig_hist = []
     for sample_name in all_samples:
@@ -765,8 +765,8 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name="lj0pt")
-    mc_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+    mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
+    data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
     for sample_name in all_samples:
         if sample_name not in mc_sample_lst:
             samples_to_rm_from_mc_hist.append(sample_name)
@@ -892,7 +892,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
     all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name=yt.get_hist_list(dict_of_hists)[0])
-    sig_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
+    sig_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
     samples_to_rm_from_sig_hist = []
     for sample_name in all_samples:
@@ -1006,8 +1006,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists,"sample")
-    mc_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+    mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
+    data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
     for sample_name in all_samples:
         if sample_name not in mc_sample_lst:
             samples_to_rm_from_mc_hist.append(sample_name)
