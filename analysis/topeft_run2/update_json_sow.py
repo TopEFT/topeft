@@ -1,10 +1,10 @@
 import os
 import argparse
 
-from topcoffea.modules.YieldTools import YieldTools
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.utils import regex_match, load_sample_json_file, get_files, get_hist_from_pkl
 from topcoffea.modules.update_json import update_json
+from topeft.modules.yield_tools import YieldTools
 
 pjoin = os.path.join
 
@@ -91,7 +91,7 @@ def main():
     dry_run      = args.dry_run
     verbose      = args.verbose
 
-    tools = YieldTools()
+    yt  = YieldTools()
 
     ignore_dirs.extend(['subsets_of_private_UL_.*','private_UL_backup'])    # These sub-directories have duplicated JSON names with those from private_UL
     match_files.extend(['.*\\.json'])                   # Make sure to always only find .json files
@@ -130,7 +130,7 @@ def main():
                 # Get value from sow hist
                 hist_name = wgt_name_dict[wgt_var]['hist_name']
                 jsn_key_name = wgt_name_dict[wgt_var]['jsn_key_name']
-                new_sow,err = tools.get_yield(h[hist_name],sname)
+                new_sow,err = yt.get_yield(h[hist_name],sname)
 
                 # If key already in dict, check if new number looks different than old
                 if jsn_key_name in jsn:
