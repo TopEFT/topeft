@@ -10,8 +10,7 @@ import uproot
 import mplhep as hep
 import math
 import json
-from topcoffea.modules.comp_datacard import strip
-#from coffea import hist
+from topeft.modules.comp_datacard import strip
 import re
 
 files = ['2lss_m_2b',  '2lss_p_2b',  '2lss_4t_m_2b', '2lss_4t_p_2b', '3l1b_m',  '3l1b_p',  '3l2b_m',  '3l2b_p',  '3l_sfz_1b',  '3l_sfz_2b',  '4l_2b']

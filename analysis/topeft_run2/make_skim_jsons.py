@@ -1,7 +1,6 @@
 import os
 import argparse
 
-from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.update_json import update_json
 from topcoffea.modules.utils import get_files
 
@@ -22,7 +21,7 @@ def main():
     parser = argparse.ArgumentParser(description='Utility script for creating/updating JSON files for skimmed data')
     parser.add_argument('src_dirs',       nargs='*', default=[], metavar='SRC_DIR', help='Path(s) to toplevel directory that contains the lobster skims we want to match to, can also be specified with the "--file" option instead')
     parser.add_argument('--file','-f',    nargs='?', metavar='FILE', help='Text file with paths to the src directories that contain the lobster skims')
-    parser.add_argument('--json-dir',     nargs='?', default=topcoffea_path("json"), metavar='DIR', help='Path to the directory with JSON files you want to update. Will recurse down into all sub-directories looking for any .json files along the way')
+    parser.add_argument('--json-dir',     nargs='?', default="../../input_samples/sample_jsons/", metavar='DIR', help='Path to the directory with JSON files you want to update. Will recurse down into all sub-directories looking for any .json files along the way')
     parser.add_argument('--output-dir',   nargs='?', default='', metavar='DIR', help='Path to an output directory to save the generated json skim files, if not specified will save to the same directory that the template json is located')
     parser.add_argument('--skim-postfix', default='_NDSkim',metavar='NAME', help='Postfix string to differentiate the skim json from the original, defaults to "_NDSkim"')
     parser.add_argument('--ignore-dirs',  nargs='*', default=[], metavar='PATTERN')

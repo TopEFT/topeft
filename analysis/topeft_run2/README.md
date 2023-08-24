@@ -44,6 +44,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - This script compares two sets of datacards (central NLO and private LO) and computes the necessary uncertainty to bring them into agreement (after account for all included systematics).
     - Datacards should be copied to `histos/central_sm` and `histos/private_sm` respectively.
     - Example usage: `python analysis/topEFT/missing_parton.py --output-path ~/www/coffea/master/1D/ --years 2017`
+    - :warning: The part of this script that gets the lumi has not been updated since the `topcoffea` refactoring. 
 
 
 ### Run scripts and processors
