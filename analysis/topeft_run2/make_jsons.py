@@ -6,7 +6,6 @@ import os
 import re
 import subprocess
 
-from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.sample_lst_jsons_tools as sjt
 from topeft.modules.combine_json_ext import combine_json_ext
 from topeft.modules.combine_json_batch import combine_json_batch
