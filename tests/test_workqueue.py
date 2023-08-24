@@ -16,7 +16,7 @@ def test_topcoffea_wq():
         "time",
         "python",
         "run_analysis.py",
-        "input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json",
+        "../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json",
         "-o",
         "output_check_yields_wq",
         "-p",
