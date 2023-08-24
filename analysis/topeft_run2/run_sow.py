@@ -101,7 +101,7 @@ if executor == "work_queue":
         'tasks_accum_log': 'tasks.log',
 
         'environment_file': remote_environment.get_environment(
-                extra_pip_local = {"topeft": ["topeft", "setup.py"]},
+            extra_pip_local = {"topeft": ["topeft", "setup.py"]},
         ),
         'extra_input_files': ["sow_processor.py"],
 
