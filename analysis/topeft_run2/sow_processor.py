@@ -6,7 +6,7 @@ from coffea import hist, processor
 
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
-import topcoffea.modules.corrections as corrections
+import topeft.modules.corrections as corrections
 
 
 
