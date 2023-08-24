@@ -36,7 +36,7 @@
 
 
 import os
-import topcoffea.modules.QuadFitTools as qft
+import topcoffea.modules.quad_fit_tools as qft
 from topcoffea.scripts.make_html import make_html
 
 # Load the input dict (with all of the values from the template histos)

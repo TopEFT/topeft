@@ -3,12 +3,12 @@ import argparse
 import datetime
 from coffea.nanoevents import NanoEventsFactory
 
-import topcoffea.modules.fileReader as fr
-import topcoffea.modules.QuadFitTools as qft
+import topcoffea.modules.quad_fit_tools as qft
+from topcoffea.modules import utils
 from topcoffea.scripts.make_html import make_html
 
 # This is more or less a placeholder script
-#   - It shows  an example of how we might want to access the quadratic fit information using topcoffea.modules.QuadFitTools
+#   - It shows  an example of how we might want to access the quadratic fit information using topcoffea.modules.quad_fit_tools
 #   - Currently the script doesn't do much (just processes a single ttH file, prints where fits cross a threshold, and makes 1d quadratic plots)
 #   - So this is probably not all that useful right now, but might give us a place to build from in the future
 #   - Example usage: python make_1d_quad_plots.py -o ~/www/some/dir/in/your/web/area
@@ -37,7 +37,7 @@ def main():
 
     # Get the events object and wc names from the input file
     events = NanoEventsFactory.from_root(in_file).events()
-    wc_names_lst = fr.GetListOfWCs(in_file)
+    wc_names_lst = utils.get_list_of_wc_names(in_file)
 
     # Get the wc fit dict
     wc_fit_arr = qft.get_summed_quad_fit_arr(events)
