@@ -2,27 +2,27 @@ import subprocess
 from os.path import exists
 
 def test_make_yields_after_processor():
-    assert (exists('analysis/topEFT/histos/output_check_yields.pkl.gz')) # Make sure the input pkl file exists
+    assert (exists('analysis/topeft_run2/histos/output_check_yields.pkl.gz')) # Make sure the input pkl file exists
 
     args = [
         "python",
-        "analysis/topEFT/get_yield_json.py",
+        "analysis/topeft_run2/get_yield_json.py",
         "-f",
-        "analysis/topEFT/histos/output_check_yields.pkl.gz",
+        "analysis/topeft_run2/histos/output_check_yields.pkl.gz",
         "-n",
-        "analysis/topEFT/output_check_yields"
+        "analysis/topeft_run2/output_check_yields"
     ]
 
     # Produce json
     subprocess.run(args)
-    assert (exists('analysis/topEFT/output_check_yields.json'))
+    assert (exists('analysis/topeft_run2/output_check_yields.json'))
 
 def test_compare_yields_after_processor():
     args = [
         "python",
-        "analysis/topEFT/comp_yields.py",
-        "analysis/topEFT/output_check_yields.json",
-        "analysis/topEFT/test/UL17_private_ttH_for_CI_yields.json",
+        "analysis/topeft_run2/comp_yields.py",
+        "analysis/topeft_run2/output_check_yields.json",
+        "analysis/topeft_run2/test/UL17_private_ttH_for_CI_yields.json",
         "-t1",
         "New yields",
         "-t2",

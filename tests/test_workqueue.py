@@ -15,12 +15,12 @@ def test_topcoffea_wq():
     args = [
         "time",
         "python",
-        "run_topeft.py",
-        "../../topcoffea/json/test_samples/UL17_private_ttH_for_CI.json",
+        "run_analysis.py",
+        "../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json",
         "-o",
         "output_check_yields_wq",
         "-p",
-        "../../analysis/topEFT/histos/",
+        "../../analysis/topeft_run2/histos/",
         "--prefix",
         "http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/",
         "--port",
@@ -33,6 +33,6 @@ def test_topcoffea_wq():
 
     # Run TopCoffea
     with factory:
-        subprocess.run(args, cwd="analysis/topEFT", timeout=400)
+        subprocess.run(args, cwd="analysis/topeft_run2", timeout=400)
 
-    assert (exists('analysis/topEFT/histos/output_check_yields_wq.pkl.gz'))
+    assert (exists('analysis/topeft_run2/histos/output_check_yields_wq.pkl.gz'))
