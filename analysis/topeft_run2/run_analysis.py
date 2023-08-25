@@ -8,8 +8,9 @@ import gzip
 import os
 
 import numpy as np
-from coffea import hist, processor
+from coffea import processor
 from coffea.nanoevents import NanoAODSchema
+import hist
 
 import topcoffea.modules.utils as utils
 import topcoffea.modules.remote_environment as remote_environment
@@ -271,7 +272,7 @@ if __name__ == '__main__':
             # use mid-range compression for chunks results. 9 is the default for work
             # queue in coffea. Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
-            'compression': 9,
+            'compression': 4,
 
             # automatically find an adequate resource allocation for tasks.
             # tasks are first tried using the maximum resources seen of previously ran
@@ -340,9 +341,9 @@ if __name__ == '__main__':
     if executor == "work_queue":
         print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
 
-    nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
+    nbins = sum(sum(arr.size for arr in h.view().values()) for h in output.values() if isinstance(h, hist.BaseHist))
+    nfilled = sum(sum(np.sum(arr > 0) for arr in h.view().values()) for h in output.values() if isinstance(h, hist.BaseHist))
+    print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/max(1, nbins),))
 
     if executor == "futures":
         print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
