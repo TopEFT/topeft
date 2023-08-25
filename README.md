@@ -56,7 +56,7 @@ To make use of distributed resources, the `work queue` executor can be used. To 
 conda activate coffea-env
 condor_submit_workers -M ${USER}-workqueue-coffea -t 900 --cores 12 --memory 48000 --disk 100000 10
 ```
-The workers will terminate themselves after 15 minutes of inactivity.
+The workers will terminate themselves after 15 minutes of inactivity. More details on the work queue executor can be found [here](https://github.com/TopEFT/topeft/blob/master/README_WORKQUEUE.md).
 
 
 ## How to contribute
