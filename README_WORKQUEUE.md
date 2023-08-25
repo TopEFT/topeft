@@ -1,8 +1,8 @@
 # Running Topcoffea with Work Queue
 
-The script `work_queue_run.py` sets up topcoffea to run as a Work Queue
+The script [run_analysis.py](https://github.com/TopEFT/topeft/blob/refactoring/analysis/topeft_run2/run_analysis.py) sets up topcoffea to run as a Work Queue
 application. Work Queue itself is a framework for building large scale
-applications. With Work Queue, `work_queue_run.py` serves as a manager that
+applications. With Work Queue, `run_analysis.py` serves as a manager that
 waits for worker processes to connect, and dispatches to them work to complete.
 
 When using Work Queue, it is your responsibility to launch the worker processes
@@ -12,7 +12,7 @@ it can easily be sent to the remote workers. We will cover these two points
 below.
 
 
-## Obtaining topcoffea
+## Obtaining topeft and topcoffea
 
 We highly recommend setting up topcoffea as git repository. This allows
 topcoffea to automatically detect changes that need to be included in the
@@ -26,7 +26,7 @@ cd topcoffea
 
 ## Setting up python
 
-The recommended way to set up `topcoffea` with Work Queue is using the `conda`
+The recommended way to set up `topeft` and `topcoffea` with Work Queue is using the `conda`
 python package manager. If you do not have `miniconda` (recommended, as it
 installs much faster), or `anaconda` installed, you must run the following
 steps on a terminal:
@@ -41,7 +41,7 @@ environment for topcoffea:
 
 ```sh
 # you may choose other python version, e.g. 3.8
-conda create --name topcoffea-env -c conda-forge --strict-channel-priority python=3.9 coffea xrootd ndcctools dill conda conda-pack
+conda env create -f environment.yml
 conda activate topcoffea-env
 
 # install topcoffea via pip. We install it in editable mode to ease the test of
@@ -52,6 +52,7 @@ pip install -e .
 # cd /path/to/my/module
 # pip install -e .
 ```
+The same steps can be followed for `topeft` (i.e. clone the repo, `cd` into it, and then install the package via `pip install -e .`). 
 
 ---
 **NOTE**
@@ -79,19 +80,19 @@ rebuild the environment accordingly.
 
 ## Executing the topcoffea application
 
-The script `work_queue_run.py` expects a configuration file that describes
+The script `run_analysis.py` expects a configuration file that describes
 which files of events to process. One small configuration to test is:
 
 
 ```sh
 conda activate topcoffea-env
-cd analysis/topEFT
+cd analysis/topeft_run2
 
 ## optional: initialize your proxy credentials to access the needed xrootd files.
 ## It is not needed if the .cfg file is using root files from local paths.
 # voms-proxy-init2
 
-python work_queue_run.py --chunksize 128000 ../../topcoffea/cfg/data_samples_NDSkim.cfg
+python run_analysis.py --chunksize 128000 ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
 ```
 
 The first time you run `work_queue_run.py` it will spend a handful of minutes
