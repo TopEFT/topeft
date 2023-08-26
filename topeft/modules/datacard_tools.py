@@ -9,10 +9,9 @@ import re
 import json
 import time
 
-from coffea.hist import StringBin, Cat, Bin
-
 from topcoffea.modules.utils import regex_match
 from topeft.modules.paths import topeft_path
+from topeft.modules.axes import info as axes_info
 
 PRECISION = 6   # Decimal point precision in the text datacard output
 
@@ -165,23 +164,10 @@ class DatacardMaker():
     }
 
     # Controls how we rebin the dense axis of the corresponding distribution
-    BINNING = {
-        # TODO: njets re-binning still not correctly implemented
-        "njets": {
-            "2l": [4,5,6,7],
-            "3l": [2,3,4,5],
-            "4l": [2,3,4],
-        },
-
-        "ptbl":    [0,100,200,400],
-        "ht":      [0,300,500,800],
-        "ljptsum": [0,400,600,1000],
-        "ptz":     [0,200,300,400,500],
-        "o0pt":    [0,100,200,400],
-        "bl0pt":   [0,100,200,400],
-        "l0pt":    [0,50,100,200],
-        "lj0pt":   [0,150,250,500]
-    }
+    BINNING = {}
+    for name, value in axes_info.items():
+        if "variable" in value:
+            BINNING[name] = value["variable"]
 
     YEARS = ["UL16","UL16APV","UL17","UL18"]
 
@@ -475,11 +461,11 @@ class DatacardMaker():
                     print(f"Removing systematic: {x}")
                 h = h.remove(list(to_drop),"systematic")
 
-            if km_dist != "njets":
-                edge_arr = self.BINNING[km_dist] + [h.axis(km_dist).edges()[-1]]
-                h = h.rebin(km_dist,Bin(km_dist,h.axis(km_dist).label,edge_arr))
+            if h.should_rebin() and km_dist != "njets":
+                edge_arr = self.BINNING[km_dist] + [list(h.axes[km_dist].edges())[-1]]
+                h = h.rebin(km_dist, hist.axis.Variable(edge_arr, km_dist, h.axes[km_dist].label))
             else:
-                # TODO: Still need to handle this case properly
+                # TODO: Still need to handle njets case properly
                 pass
 
             # Remove 'central', 'private', '_4F' text from sample names
