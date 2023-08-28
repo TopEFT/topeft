@@ -14,6 +14,8 @@ from collections import defaultdict
 from topcoffea.modules.utils import regex_match
 from topeft.modules.paths import topeft_path
 from topeft.modules.axes import info as axes_info
+from topeft.modules.compatibility import add_sumw2_stub
+
 
 PRECISION = 6   # Decimal point precision in the text datacard output
 
@@ -42,6 +44,7 @@ def to_hist(arr,name,zero_wgts=False):
     else:
         h[...] = np.stack([clipped[0], clipped[1]],axis=-1)
     return h
+
 
 class RateSystematic():
     def __init__(self,name,**kwargs):
@@ -708,7 +711,7 @@ class DatacardMaker():
         procs = list(h.axes["process"])
         selected_wcs = {p: set() for p in procs}
 
-        wcs = ["sm"] + h._wcnames
+        wcs = ["sm"] + h.wc_names
 
         # This maps a WC to a list whose elements are the indices of the coefficient array of the
         #   HistEFT that involve that particular WC
@@ -742,9 +745,9 @@ class DatacardMaker():
                     continue
                 if wc == "ctlTi" and p == "tttt":
                     continue
-                for (ch,),arr in p_hist._sumw.items():
-                    # Ignore nanflow,underflow, and overflow bins
-                    sl_arr = arr[2:-1]
+                for sp_key, arr in p_hist.view(as_dict=True, flow=True).items():
+                    # Ignore underflow, and overflow bins
+                    sl_arr = arr[1:-1]
                     # Here we replace any SM terms that are too small with a large dummy value
                     sm_norm = np.where(sl_arr[:,0] < 1e-5,999,sl_arr[:,0])
                     # Normalize each sub-array by corresponding SM term
@@ -764,7 +767,7 @@ class DatacardMaker():
         if not km_dist in self.hists:
             print(f"[ERROR] Unknown kinematic distribution: {km_dist}")
             return None
-        elif StringBin(ch) not in self.hists[km_dist].axes["channel"]:
+        elif ch not in self.hists[km_dist].axes["channel"]:
             print(f"[ERROR] Unknown channel {ch}")
             return None
 
@@ -786,7 +789,7 @@ class DatacardMaker():
 
         h = self.hists[km_dist]
         ch_hist = h.integrate("channel",[ch])
-        data_obs = np.zeros((2,ch_hist._dense_shape[0] - 1)) # '_dense_shape' includes the nanflow bin
+        data_obs = np.zeros((2, ch_hist.dense_axis.extent))
 
         print(f"Generating root file: {outf_root_name}")
         tic = time.time()
@@ -1043,17 +1046,20 @@ class DatacardMaker():
             quad piece:  0.5*[set(c1=2.0) - 2*set(c1=1.0) + set(sm)]
         """
         tic = time.time()
-        h.set_sm()
-        sm = h.values(sumw2=True, overflow='all')
+
+        sm = h.eval({})
+        sm = add_sumw2_stub(sm)
+
         # Note: The keys of this dictionary are a pretty contrived, but are useful later on
         r = {}
         r["sm"] = sm
         terms = 1
-        for n1,wc1 in enumerate(wcs):
-            h.set_wilson_coefficients(**{wc1: 1.0})
-            tmp_lin_1 = h.values(overflow='all', sumw2=True)
-            h.set_wilson_coefficients(**{wc1: 2.0})
-            tmp_lin_2 = h.values(overflow='all',sumw2=True)
+        for n1, wc1 in enumerate(wcs):
+            tmp_lin_1 = h.eval({wc1: 1.0})
+            tmp_lin_2 = h.eval({wc1: 2.0})
+
+            tmp_lin_1 = add_sumw2_stub(tmp_lin_1)
+            tmp_lin_2 = add_sumw2_stub(tmp_lin_2)
 
             lin_name = f"lin_{wc1}"
             quad_name = f"quad_{wc1}"
@@ -1062,17 +1068,25 @@ class DatacardMaker():
 
             r[lin_name] = tmp_lin_1
             r[quad_name] = {}
-            for sparse_key in h._sumw.keys():
-                tup = tuple(sparse_key)
-                r[quad_name][tup]=[]
+            for sp_key in h.categorical_keys:
+                r[quad_name][sp_key] = []
                 for i in range(2):
-                    r[quad_name][tup].append( 0.5*(tmp_lin_2[tup][i] - 2*tmp_lin_1[tup][i] + sm[tup][i]) )
+                    r[quad_name][sp_key].append(
+                        0.5
+                        * (
+                            tmp_lin_2[sp_key][i]
+                            - 2 * tmp_lin_1[sp_key][i]
+                            + sm[sp_key][i]
+                        )
+                    )
 
-            for n2,wc2 in enumerate(wcs):
-                if n1 >= n2: continue
+            for n2, wc2 in enumerate(wcs):
+                if n1 >= n2:
+                    continue
                 mixed_name = f"quad_mixed_{wc1}_{wc2}"
-                h.set_wilson_coefficients(**{wc1:1.0,wc2:1.0})
-                r[mixed_name] = h.values(overflow='all',sumw2=True)
+                mixed = h.eval({wc1: 1.0, wc2: 1.0})
+                mixed = add_sumw2_stub(mixed)
+                r[mixed_name] = mixed
                 terms += 1
 
         toc = time.time()
