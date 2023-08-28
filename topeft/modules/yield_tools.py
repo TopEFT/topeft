@@ -2,8 +2,9 @@ import numpy as np
 import copy
 import coffea
 from coffea import hist
-from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.utils as utils
+from topeft.modules.compatibility import add_sumw2_stub
 
 class YieldTools():
 
@@ -20,7 +21,7 @@ class YieldTools():
 
         self.DATA_MC_COLUMN_ORDER = ["tWZ", "VV", "VVV", "flips", "fakes", "conv", "bkg", "ttlnu", "ttll", "ttH", "tllq", "tHq", "tttt", "sig", "pred", "data", "pdiff"]
 
-        # A dictionary mapping names of samples in the samples axis to a short version of the name
+        # A dictionary mapping names of processes in the processes axis to a short version of the name
         self.PROC_MAP = {
 
             "ttlnu" : ["ttW_centralUL16APV"    ,"ttW_centralUL16"    ,"ttW_centralUL17" ,"ttW_centralUL18" , "ttlnuJet_privateUL18" , "ttlnuJet_privateUL17" , "ttlnuJet_privateUL16" , "ttlnuJet_privateUL16APV"],
@@ -218,7 +219,7 @@ class YieldTools():
     ######### Functions for getting process names from PROC_MAP #########
 
     # What this function does:
-    #   - Takes a full process name (i.e. the name of the category on the samples axis)
+    #   - Takes a full process name (i.e. the name of the category on the processes axis)
     #   - Then loops through PROC_MAP and returns the short (i.e. standard) version of the process name
     def get_short_name(self,long_name):
         ret_name = None
@@ -229,7 +230,7 @@ class YieldTools():
         return ret_name
 
     # What this function does:
-    #   - Takes a list of full process names (i.e. all of the categories on samples axis) and a key from PROC_MAP
+    #   - Takes a list of full process names (i.e. all of the categories on processes axis) and a key from PROC_MAP
     #   - Returns the long (i.e. the name of the category in the smples axis) corresponding to the short name
     def get_long_name(self,long_name_lst_in,short_name_in):
         ret_name = None
@@ -258,14 +259,9 @@ class YieldTools():
     def get_em_factor(self,e_val,m_val,nlep):
         return (e_val/m_val)**(1.0/nlep)
 
-
     # Takes a hist, and retruns a list of the axis names
-    def get_axis_list(self,histo):
-        axis_lst = []
-        for axis in histo.axes():
-            axis_lst.append(axis.name)
-        return axis_lst
-
+    def get_axis_list(self, histo):
+        return list(histo.axes.name)
 
     # Find the list of hists in a pkl file
     def get_hist_list(self,path,allow_empty=True):
@@ -302,13 +298,7 @@ class YieldTools():
             elif isinstance(hin_dict,dict):
                 hin_dict = hin_dict[h_name]
 
-        # Note: Use h.identifiers('axis') here, not axis.identifiers() (since according to Nick Smith "the axis may hold identifiers longer than the hist that uses it (hists can share axes)", but h.identifiers('axis') will get the ones actually contained in the histogram)
-        cats_lst = []
-        for identifier in hin_dict.identifiers(axis):
-            cats_lst.append(identifier.name)
-
-        return cats_lst
-
+        return list(hin_dict.axes[axis])
 
     # Remove the njet component of a category name, returns a new str
     def get_str_without_njet(self,in_str):
@@ -432,37 +422,39 @@ class YieldTools():
 
     # Sum all the values of a hist
     #    - The hist you pass should have two axes (all other should already be integrated out)
-    #    - The two axes should be the samples axis, and the dense axis (e.g. ht)
-    #    - You pass a process name, and we select just that category from the sample axis
-    def get_yield(self,h,proc,overflow_str="none"):
-        h_vals = h[proc].values(sumw2=True,overflow=overflow_str)
-        if len(h_vals) != 0: # I.e. dict is not empty, this process exists in this dict
-            for i,(k,v) in enumerate(h_vals.items()):
+    #    - The two axes should be the processes axis, and the dense axis (e.g. ht)
+    #    - You pass a process name, and we select just that category from the process axis
+    def get_yield(self, h, proc, rwgt_pt):
+        h_vals = h[proc].eval(rwgt_pt)
+        h_vals = add_sumw2_stub(h_vals)
+        if len(h_vals) != 0:  # I.e. dict is not empty, this process exists in this dict
+            for i, (k, v) in enumerate(h_vals.items()):
                 v_sum = v[0].sum()
                 e_sum = v[1].sum()
-                if i > 0: raise Exception("Why is i greater than 0? The hist is not what this function is expecting. Exiting...")
+                if i > 0:
+                    raise Exception(
+                        "Why is i greater than 0? The hist is not what this function is expecting. Exiting..."
+                    )
         else:
             v_sum = 0.0
             e_sum = 0.0
         e_sum = np.sqrt(e_sum)
-        return [v_sum,e_sum]
-
+        return [v_sum, e_sum]
 
     # Integrates out categories, normalizes, then calls get_yield()
-    def get_normalized_yield(self,hin_dict,proc,cat_dict,overflow_str,rwgt_pt=None,h_name="ht"):
-
+    def get_normalized_yield(
+        self, hin_dict, proc, cat_dict, rwgt_pt=None, h_name="ht"
+    ):
         # Integrate out cateogries
         h = hin_dict[h_name]
         h = self.integrate_out_cats(h,cat_dict)
         h = h.integrate("systematic","nominal") # For now anyway...
 
         # Reweight the hist
-        if rwgt_pt is not None:
-            hist.set_wilson_coefficients(**rwgt_pt)
-        else:
-            h.set_sm()
+        if rwgt_pt is None:
+            rwgt_pt = {}
 
-        return self.get_yield(h,proc,overflow_str)
+        return self.get_yield(h, proc, rwgt_pt)
 
 
     # This function:
@@ -490,12 +482,12 @@ class YieldTools():
 
         # Find the yields
         yld_dict = {}
-        proc_lst = self.get_cat_lables(hin_dict,"sample")
+        proc_lst = self.get_cat_lables(hin_dict,"process")
         #if "flipsUL17" not in proc_lst: proc_lst = proc_lst + ["flipsUL16","flipsUL16APV","flipsUL17","flipsUL18"] # Very bad workaround for _many_ reasons.. leaving it in since it's useful for getting yields of the full pkl file (but we don't need it for e.g. the CI, so leave it commented), note this entire class is a mess and should be totally rewritten before the next analysis
         print("proc_lst",proc_lst)
         for proc in proc_lst:
             p = self.get_short_name(proc)
-            print("Name:",p,proc) # Print what name the sample has been matched to
+            print("Name:",p,proc) # Print what name the process has been matched to
 
         for proc in proc_lst:
             if year is not None:
@@ -504,10 +496,19 @@ class YieldTools():
             if proc_name_short not in yld_dict:
                 yld_dict[proc_name_short] = {}
                 for cat,cuts_dict in cat_dict.items():
-                    yld_dict[proc_name_short][cat] = self.get_normalized_yield(hin_dict,proc,cuts_dict,overflow_str="over",h_name=hist_to_use) # Important to keep overflow
+                    yld_dict[proc_name_short][cat] = self.get_normalized_yield(
+                        hin_dict, proc, cuts_dict, h_name=hist_to_use
+                    )
             else:
                 for cat,cuts_dict in cat_dict.items():
-                    yld_dict[proc_name_short][cat][0] += self.get_normalized_yield(hin_dict,proc,cuts_dict,overflow_str="over",h_name=hist_to_use)[0] # Important to keep overflow
+                    yld_dict[proc_name_short][cat][0] += self.get_normalized_yield(
+                        hin_dict,
+                        proc,
+                        cuts_dict,
+                        h_name=hist_to_use,
+                    )[
+                        0
+                    ]
                     yld_dict[proc_name_short][cat][1] = None # Ok, let's just forget the sumw2...
 
         # If the file is split by lepton flav, but we don't want that, sum over lep flavors:
@@ -702,9 +703,9 @@ class YieldTools():
 
         # Print info about axes for one key
         print(f"\nPrinting info for key \"{h_name}\":")
-        for i in range(len(hin_dict[h_name].axes())):
-            print(f"\n    {i} Aaxis name:",hin_dict[h_name].axes()[i].name)
-            for cat in hin_dict[h_name].axes()[i].identifiers():
+        for i, axis in enumerate(hin_dict[h_name].axes):
+            print(f"\n    {i} Axis name:", axis.name)
+            for cat in axis:
                 print(f"\t{cat}")
 
 
