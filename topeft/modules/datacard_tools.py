@@ -26,14 +26,12 @@ def to_hist(arr,name,zero_wgts=False):
     # NOTE:
     #   If we don't instantiate a new np.array here, then clipped will store a reference to the
     #   sub-array arr and when we modify clipped, it will propagate back to arr as well!
-    clipped=[]
-    for i in range(2): # first entry is sum(weight), second entry is sum(weight^2)
+    clipped = []
+    for i in range(2):  # first entry is sum(weight), second entry is sum(weight^2)
         if arr[i] is not None:
-            clipped.append( np.array(arr[i][1:-1]))     # Strip off the under/overflow bins
-            clipped[i][-1] += arr[i][-1]  # Add the overflow bin to the right most bin content
+            clipped.append(np.array(arr[i][1:]))  # Strip off the underoverflow bin
         else:
-            clipped[i]=None
-
+            clipped[i] = None
 
     nbins = len(clipped[0])
     h = hist.Hist(hist.axis.Regular(nbins,0,nbins,name=name),storage=bh.storage.Weight())
