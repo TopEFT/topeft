@@ -16,11 +16,6 @@ from topeft.modules.paths import topeft_path
 
 PRECISION = 6   # Decimal point precision in the text datacard output
 
-def prune_axis(h,axis,to_keep):
-    """ Convenience method to remove all categories except for a selected subset."""
-    to_remove = [x.name for x in h.identifiers(axis) if x.name not in to_keep]
-    return h.remove(to_remove,axis)
-
 def to_hist(arr,name,zero_wgts=False):
     """
         Converts a numpy array into a hist.Hist object suitable for being written to a root file by
@@ -462,7 +457,7 @@ class DatacardMaker():
 
             if not self.do_nuisance:
                 # Remove all shape systematics
-                h = prune_axis(h,"systematic",["nominal"])
+                h.prune("systematic", ["nominal"])
 
             if self.drop_syst:
                 to_drop = set()
@@ -735,7 +730,7 @@ class DatacardMaker():
             # Only select from a subset of channels
             if self.verbose:
                 print(f"Selecting WCs from subset of channels: {ch_lst}")
-            h = prune_axis(h,"channel",ch_lst)
+            h.prune("channel", ch_lst)
 
         procs = [x.name for x in h.identifiers("process")]
         selected_wcs = {p: set() for p in procs}
