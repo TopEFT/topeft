@@ -440,7 +440,7 @@ class DatacardMaker():
                             print(f"Skipping (year): {x}")
                         to_remove.append(x)
                         continue
-            h = h.remove(to_remove,"process")
+            h = h.remove("process", to_remove)
 
             if not self.do_nuisance:
                 # Remove all shape systematics
@@ -458,7 +458,7 @@ class DatacardMaker():
                         to_drop.add(f"{syst}Down")
                 for x in to_drop:
                     print(f"Removing systematic: {x}")
-                h = h.remove(list(to_drop),"systematic")
+                h = h.remove("systematic", list(to_drop))
 
             if h.should_rebin() and km_dist != "njets":
                 edge_arr = self.BINNING[km_dist] + [list(h.axes[km_dist].edges())[-1]]
@@ -697,7 +697,7 @@ class DatacardMaker():
         if already_correlated:
             for k in already_correlated:
                 if self.verbose: print(f"Removing: {k}")
-            h = h.remove(list(already_correlated),"systematic")
+            h = h.remove("systematic", list(already_correlated))
 
         return h
 
