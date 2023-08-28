@@ -417,7 +417,7 @@ class DatacardMaker():
         print(f"Pkl Open Time: {dt:.2f} s")
 
         for km_dist, h in self.hists.items():
-            if len(h.values()) == 0:
+            if h.empty():
                 continue
             if self.var_lst and km_dist not in self.var_lst:
                 continue
