@@ -9,6 +9,8 @@ import re
 import json
 import time
 
+from collections import defaultdict
+
 from topcoffea.modules.utils import regex_match
 from topeft.modules.paths import topeft_path
 from topeft.modules.axes import info as axes_info
@@ -276,12 +278,10 @@ class DatacardMaker():
             Reads the 'process' sparse axis of a histogram and returns a dictionary that maps stripped
             process names to the list of sparse axis categories it came from.
         """
-        r = {}
-        for x in h.identifiers("process"):
-            p = cls.get_process(x.name)
-            if p not in r:
-                r[p] = []
-            r[p].append(x.name)
+        r = defaultdict(lambda: [])
+        for x in h.axes["process"]:
+            p = cls.get_process(x)
+            r[p].append(cls.get_process(x))
         return r
 
     def __init__(self,pkl_path,**kwargs):
@@ -418,23 +418,27 @@ class DatacardMaker():
         dt = time.time() - tic
         print(f"Pkl Open Time: {dt:.2f} s")
 
-        for km_dist,h in self.hists.items():
-            if len(h.values()) == 0: continue
-            if self.var_lst and not km_dist in self.var_lst: continue
+        for km_dist, h in self.hists.items():
+            if len(h.values()) == 0:
+                continue
+            if self.var_lst and km_dist not in self.var_lst:
+                continue
             print(f"Loading: {km_dist}")
             # Remove processes that we don't include in the datacard
             to_remove = []
-            for x in h.identifiers("process"):
-                p = self.get_process(x.name)
+            for x in h.axes["process"]:
+                p = self.get_process(x)
                 if p in self.ignore:
-                    if self.verbose: print(f"Skipping (ignored): {x.name}")
-                    to_remove.append(x.name)
+                    if self.verbose:
+                        print(f"Skipping (ignored): {x}")
+                    to_remove.append(x)
                     continue
                 if self.year_lst:
-                    yr = self.get_year(x.name)
-                    if not yr in self.year_lst:
-                        if self.verbose: print(f"Skipping (year): {x.name}")
-                        to_remove.append(x.name)
+                    yr = self.get_year(x)
+                    if yr not in self.year_lst:
+                        if self.verbose:
+                            print(f"Skipping (year): {x}")
+                        to_remove.append(x)
                         continue
             h = h.remove(to_remove,"process")
 
@@ -465,24 +469,26 @@ class DatacardMaker():
 
             # Remove 'central', 'private', '_4F' text from process names
             grp_map = {}
-            for x in h.identifiers("process"):
-                new_name = x.name.replace("private","").replace("central","").replace("_4F","")
-                grp_map[new_name] = x.name
+            for x in h.axes["process"]:
+                new_name = (
+                    x.replace("private", "").replace("central", "").replace("_4F", "")
+                )
+                grp_map[new_name] = x
             h = h.group("process", grp_map)
 
             h = self.group_processes(h)
             h = self.correlate_years(h)
 
-            num_systs = len(h.identifiers("systematic"))
+            num_systs = len(h.axes["systematic"])
             print(f"Num. Systematics: {num_systs}")
 
             self.hists[km_dist] = h
 
-    def channels(self,km_dist):
-        return [x.name for x in self.hists[km_dist].identifiers("channel")]
+    def channels(self, km_dist):
+        return list(self.hists[km_dist].axes["channel"])
 
-    def processes(self,km_dist):
-        return [x.name for x in self.hists[km_dist].identifiers("process")]
+    def processes(self, km_dist):
+        return list(self.hists[km_dist].axes["process"])
 
     # TODO: Can be a static member function
     def load_systematics(self,rs_fpath,mp_fpath):
@@ -576,7 +582,7 @@ class DatacardMaker():
             member.
         """
         # TODO: This needs work to be less convoluted...
-        all_procs = set(x.name for x in h.identifiers("process"))
+        all_procs = set(h.axes["process"])
         grp_map = {}
         for grp_name,to_grp in self.GROUP.items():
             for yr in self.YEARS:
@@ -605,12 +611,10 @@ class DatacardMaker():
         """
         if not self.do_nuisance:
             # Only sum over the years, don't mess with nuisance stuff
-            grp_map = {}
-            for x in h.identifiers("process"):
-                p = self.get_process(x.name)
-                if p not in grp_map:
-                    grp_map[p] = []
-                grp_map[p].append(x.name)
+            grp_map = defaultdict(lambda: [])
+            for x in h.axes["process"]:
+                p = self.get_process(x)
+                grp_map[p].append(x)
             h = h.group("process", grp_map)
             return h
         # This requires some fancy footwork to make work
@@ -618,8 +622,8 @@ class DatacardMaker():
 
         # Need to figure out which years are actually present in the histogram
         unique_proc_years = set()
-        for x in h.identifiers("process"):
-            yr = self.get_year(x.name)
+        for x in h.axes["process"]:
+            yr = self.get_year(x)
             unique_proc_years.add(yr)
 
         # New approach
@@ -633,8 +637,8 @@ class DatacardMaker():
 
         already_correlated = set()  # Keeps track of which systematics have already been correlated
         for sp_key in h._sumw.keys():
-            proc = sp_key[proc_idx].name
-            syst = sp_key[syst_idx].name
+            proc = sp_key[proc_idx]
+            syst = sp_key[syst_idx]
             proc_year = self.get_year(proc)
             syst_year = self.get_year(syst)
             if syst_year is None:
@@ -672,23 +676,21 @@ class DatacardMaker():
 
             corr_str = []
             for k in corr_keys:
-                s = tuple([x.name for x in k])
+                s = tuple(k)
                 corr_str.append(str(s))
                 h._sumw[sp_key] += h._sumw[k]
             corr_str = " + ".join(corr_str)
-            sp_tup = tuple([x.name for x in sp_key])
+            sp_tup = tuple(sp_key)
             if self.verbose:
                 print(f"{sp_tup} -- {corr_str}")
 
         # Finally sum over years, since the per-year systematics only appear in a corresponding
         #   "process year", the grouping for those systematics just adds itself with nothing from
         #   the other process years
-        grp_map = {}
-        for x in h.identifiers("process"):
-            p = self.get_process(x.name)
-            if p not in grp_map:
-                grp_map[p] = []
-            grp_map[p].append(x.name)
+        grp_map = defaultdict(lambda: [])
+        for x in h.axes["process"]:
+            p = self.get_process(x)
+            grp_map[p].append(x)
         h = h.group("process", grp_map)
 
         # Remove the categories which were already correlated together so as to not double count
@@ -714,7 +716,7 @@ class DatacardMaker():
                 print(f"Selecting WCs from subset of channels: {ch_lst}")
             h.prune("channel", ch_lst)
 
-        procs = [x.name for x in h.identifiers("process")]
+        procs = list(h.axes["process"])
         selected_wcs = {p: set() for p in procs}
 
         wcs = ["sm"] + h._wcnames
@@ -773,7 +775,7 @@ class DatacardMaker():
         if not km_dist in self.hists:
             print(f"[ERROR] Unknown kinematic distribution: {km_dist}")
             return None
-        elif StringBin(ch) not in self.hists[km_dist].identifiers("channel"):
+        elif StringBin(ch) not in self.hists[km_dist].axes["channel"]:
             print(f"[ERROR] Unknown channel {ch}")
             return None
 
@@ -1090,7 +1092,7 @@ class DatacardMaker():
             r[lin_name] = tmp_lin_1
             r[quad_name] = {}
             for sparse_key in h._sumw.keys():
-                tup = tuple(x.name for x in sparse_key)
+                tup = tuple(sparse_key)
                 r[quad_name][tup]=[]
                 for i in range(2):
                     r[quad_name][tup].append( 0.5*(tmp_lin_2[tup][i] - 2*tmp_lin_1[tup][i] + sm[tup][i]) )
