@@ -62,7 +62,7 @@ def get_renormfact_envelope(dict_of_hists):
                 # Get the nominal arr
                 # Use sumw not values() since it's way faster
                 key_tup_nom = (process_name, cat_name, "nominal")
-                dense_arr_nom = histo._sumw[key_tup_nom]
+                dense_arr_nom = histo.view(as_dict=True, flow=True)[key_tup_nom]
                 if dense_arr_nom.ndim == 2:
                     # If this is an EFT bin, just take SM part
                     dense_arr_nom = dense_arr_nom[:,0]
@@ -71,7 +71,7 @@ def get_renormfact_envelope(dict_of_hists):
                 diff_wrt_nom_arr_lst = []
                 for rf_variation in RENORMFACT_VAR_LST:
                     key_tup = (process_name, cat_name, rf_variation)
-                    dense_arr_var = histo._sumw[key_tup]
+                    dense_arr_var = histo.view(as_dict=True, flow=True)[key_tup]
                     if dense_arr_var.ndim == 2:
                         # If this is an EFT bin, just take SM part
                         dense_arr_var = dense_arr_var[:,0]
@@ -98,8 +98,8 @@ def get_renormfact_envelope(dict_of_hists):
                     key_tup_extreme_up = (process_name, cat_name, rf_vars_extreme_max[bin_idx])
                     key_tup_extreme_do = (process_name, cat_name, rf_vars_extreme_min[bin_idx])
                     # Append the sum2 for each bin to the list
-                    extreme_sumw_up_lst.append(histo._sumw[key_tup_extreme_up][bin_idx])
-                    extreme_sumw_do_lst.append(histo._sumw[key_tup_extreme_do][bin_idx])
+                    extreme_sumw_up_lst.append(histo.view(as_dict=True, flow=True)[key_tup_extreme_up][bin_idx])
+                    extreme_sumw_do_lst.append(histo.view(as_dict=True, flow=True)[key_tup_extreme_do][bin_idx])
                     # Also might as well get the sumw2 for the bin (though we don't really use this right now)
                     extreme_sumw2_up = histo._sumw2[key_tup_extreme_up]
                     extreme_sumw2_do = histo._sumw2[key_tup_extreme_do]
@@ -116,8 +116,8 @@ def get_renormfact_envelope(dict_of_hists):
                 # So what we'll be left with is a renormfact category, whose values are now the evelope of the renorm, fact, and renormfact systeamtics
                 key_tup_rf_env_up = (process_name, cat_name, "renormfactUp")
                 key_tup_rf_env_do = (process_name, cat_name, "renormfactDown")
-                histo._sumw[key_tup_rf_env_up] = np.array(extreme_sumw_up_lst)
-                histo._sumw[key_tup_rf_env_do] = np.array(extreme_sumw_do_lst)
+                histo.view(as_dict=True, flow=True)[key_tup_rf_env_up] = np.array(extreme_sumw_up_lst)
+                histo.view(as_dict=True, flow=True)[key_tup_rf_env_do] = np.array(extreme_sumw_do_lst)
                 if all_sumw2_exists:
                     histo._sumw2[key_tup_rf_env_up] = np.array(extreme_sumw2_up_lst)
                     histo._sumw2[key_tup_rf_env_do] = np.array(extreme_sumw2_do_lst)
