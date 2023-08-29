@@ -12,22 +12,20 @@ Running `pytest --cov --cov-report html` will generate an html directory that ca
 By default, pytest only prints failure messages. The flags `-rP` will print all messages (`-r` is for better formatting, and `-P` is for printing messages from tests which passed).
 
 ## Contents of the `tests` folder
-### `tests/test_HistEFT_add.py`
- Various HistEFT tests
-### `tests/test_unit.py`
-Unit tests for HistEFT (ported from the C++/ROOT version of TH1ET)
 ### `tests/test_make_1d_quad_plots.py`
 Test the quadratic fit plotting script
-### `tests/test_topcoffea.py`
-`test_topcoffea()` runs topcoffea over `ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root` (run `wget http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194.root` to download this file.)
-`test_nonprompt()` runs the output from `test_topcoffea()` through `topcoffea/modules/dataDrivenEstimation.py`
-`test_make_yields()` runs the output from `test_topcoffea()` through `analysis/topEFT/get_yield_json.py` to produce the json file for comparison
-`test_compare_yields()`  runs the output from `test_make_yields()` through `analysis/topEFT/comp_yields.py` to check the output yields match the reference file
-`test_datacard()` runs the output from `test_topcoffea()` through the datacard maker for a few test cases, and compares the resulting datacards to the reference files
- - This test requires ROOT, install with `conda install root_base -c conda-forge`
+### `tests/test_futures.py`
+The `test_futures` runs the analysis processor over a given file, `test_nonprompt()` runs the output from `test_topcoffea()` through `topcoffea/modules/dataDrivenEstimation.py`, `test_datacardmaker()` creates a test datacard. 
+### `test_work_queue()`
+Runs the main processor with the work queue executor. 
+### `test_yields()`
+Checks the yields from the output pkl file from the processor against ref yields. 
+
 
 Any of these test can be run individually by running e.g.
 ```python
 python -i tests/test_topcoffea.py 
 test_topcoffea()
 ```
+ If a test requires ROOT, install with `conda install root_base -c conda-forge`
+

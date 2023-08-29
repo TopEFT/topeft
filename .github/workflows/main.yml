@@ -15,11 +15,10 @@ jobs:
       - name: Check out source repository
         uses: actions/checkout@v3
       - name: Set up Python environment
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
       - name: flake8 Lint
         uses: py-actions/flake8@v2
         with:
-          exclude: "./topcoffea/modules/fileReader.py,./topcoffea/modules/samples.py,./topcoffea/modules/createJSON.py,./topcoffea/modules/WCFit.py,./topcoffea/modules/WCPoint.py"
           ignore: "E116,E201,E202,E203,E211,E221,E222,E226,E225,E227,E228,E231,E241,E251,E261,E262,E265,E266,E271,E272,E301,E302,E303,E305,E402,F403,F405,E501,W504,E701,E702,E711,E713,E714,E722,E731,E741,F841,W391,W605"
           # E116 unexpected indentation (comment)
           # E201 whitespace after '('
@@ -72,19 +71,32 @@ jobs:
         run: |
           echo $CONDA/bin >> $GITHUB_PATH 
 
-      - name: Install dependencies
+      - name: Create conda env and install dependencies
         run: |
           conda config --set channel_priority strict
           conda config --add channels conda-forge
           conda env create -f environment.yml -n coffea-env
+          conda list -n coffea-env
+
+      - name: Install local pip packages
+        run: |
+          mkdir dir_for_topcoffea
+          cd dir_for_topcoffea
+          git clone https://github.com/TopEFT/topcoffea.git
+          cd topcoffea
+          conda run -n coffea-env pip install -e .
+          cd ../..
+          conda run -n coffea-env pip install -e .
 
       - name: Conda list
         run: |
           conda list -n coffea-env
 
-      - name: Install topcoffea package
+      - name: Install pip packages
         run: |
-          conda run -n coffea-env pip install -e .
+          conda run -n coffea-env pip install xgboost
+          conda run -n coffea-env pip install mt2
+          conda list -n coffea-env
 
       - name: Download root files
         run: |
@@ -95,39 +107,23 @@ jobs:
           conda install -y -n coffea-env -c conda-forge pytest pytest-cov root_base
           mkdir histos
 
-      - name: Test unit
-        run: |
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_unit.py
-
-      - name: Test histEFT
-        run: |
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_HistEFT_add.py
-
-      - name: Test utils
-        run: |
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_utils.py
-
-      - name: Test update json
-        run: |
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_update_json.py
-
       - name: Test make 1d quad plots
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_make_1d_quad_plots.py 
 
-      - name: Run processors over test files with futures executor
+      - name: Run topeft processors over test files with futures executor
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_futures.py
 
-      - name: Get yields 
+      - name: Get topeft yields 
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append -k test_make_yields_after_processor
 
-      - name: Compare yields
+      - name: Compare topeft yields
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append -k test_compare_yields_after_processor
 
-      - name: Run processors over test files with workqueue executor
+      - name: Run topeft processors over test files with workqueue executor
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_workqueue.py
 
