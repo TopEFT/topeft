@@ -367,6 +367,6 @@ if __name__ == '__main__':
         # Run the renorm fact envelope calculation
         if do_renormfact_envelope:
             print("\nDoing the renorm. fact. envelope calculation...")
-            dict_of_histos = utils.get_hist_from_pkl(out_pkl_file_name_np,allow_empty=False)
+            dict_of_histos = utils.get_hist_dict_non_empty(ddp.outHist)
             dict_of_histos_after_applying_envelope = get_renormfact_envelope(dict_of_histos)
             utils.dump_to_pkl(out_pkl_file_name_np,dict_of_histos_after_applying_envelope)
