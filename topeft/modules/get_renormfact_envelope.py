@@ -38,9 +38,9 @@ NO_RENORMFACT_LST = [
 # Get the most extreme renorm fact variations
 def get_renormfact_envelope(dict_of_hists):
 
-    sample_lst = yt.get_cat_lables(dict_of_hists,"sample")
+    sample_lst = yt.get_cat_lables(dict_of_hists,"process")
     cat_lst = yt.get_cat_lables(dict_of_hists,"channel")
-    print("\nAll samples:",sample_lst)
+    print("\nAll processes:",sample_lst)
     print("\nAll cats:",cat_lst)
     print("\nAll vars:",dict_of_hists.keys())
 
@@ -51,7 +51,7 @@ def get_renormfact_envelope(dict_of_hists):
 
         # Get the histo for this variable from the input dict
         histo = dict_of_hists[var_name]
-        sample_lst = yt.get_cat_lables(histo,"sample")
+        sample_lst = yt.get_cat_lables(histo,"process")
         cat_lst = yt.get_cat_lables(histo,"channel")
 
         # Loop over samples and channels and find the bins with the most extreme rf variations
