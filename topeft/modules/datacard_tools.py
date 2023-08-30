@@ -1070,11 +1070,8 @@ class DatacardMaker():
                 r[quad_name][sp_key] = []
                 for i in range(2):
                     r[quad_name][sp_key].append(
-                        0.5
-                        * (
-                            tmp_lin_2[sp_key][i]
-                            - 2 * tmp_lin_1[sp_key][i]
-                            + sm[sp_key][i]
+                        0.5 * (
+                            tmp_lin_2[sp_key][i] - 2 * tmp_lin_1[sp_key][i] + sm[sp_key][i]
                         )
                     )
 
@@ -1094,6 +1091,7 @@ class DatacardMaker():
             print(f"\tTotal terms: {terms}")
 
         return r
+
 
 if __name__ == '__main__':
     fpath = topeft_path("../analysis/topEFT/histos/may18_fullRun2_withSys_anatest08_np.pkl.gz")

@@ -1,5 +1,4 @@
 import argparse
-from coffea import hist
 import topcoffea.modules.utils as utils
 import cloudpickle
 from collections import defaultdict
