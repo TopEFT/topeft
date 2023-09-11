@@ -94,7 +94,7 @@ where `test_futures` is the file/test you would like to run (check the `tests` d
 
 ## To reproduce the most updated topeft analysis histograms and datacards (TOP-22-006 result instruction included)
 
-The [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5) was used to produce the results in the TOP-22-006 paper - So run the exact same steps as below but under this tag for TOP-22-006 results.
+The [v0.6 tag](https://github.com/TopEFT/topeft/tree/v0.6) was used to produce the results in the TOP-22-006 paper - So run the exact same steps as below but under tag v0.6 for TOP-22-006 results.
 
 1. Run the processor to obtain the histograms (from the skimmed naod files). Use the `fullR2_run.sh` script in the `analysis/topeft_run2` directory.
     ```
