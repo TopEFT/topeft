@@ -14,56 +14,7 @@ IGNORE_LINES = [
     "warnings.warn(message, FutureWarning)",
 ]
 
-# The list of ptz and lj0pt we choose to use in each category for TOP-22-006
-TOP22006_CATEGORIES = [
-
-    "ttx_multileptons-3l_onZ_1b_2j_ptz",
-    "ttx_multileptons-3l_onZ_1b_3j_ptz",
-    "ttx_multileptons-3l_onZ_1b_4j_ptz",
-    "ttx_multileptons-3l_onZ_1b_5j_ptz",
-    "ttx_multileptons-3l_onZ_2b_4j_ptz",
-    "ttx_multileptons-3l_onZ_2b_5j_ptz",
-
-    "ttx_multileptons-2lss_4t_m_4j_lj0pt",
-    "ttx_multileptons-2lss_4t_m_5j_lj0pt",
-    "ttx_multileptons-2lss_4t_m_6j_lj0pt",
-    "ttx_multileptons-2lss_4t_m_7j_lj0pt",
-    "ttx_multileptons-2lss_4t_p_4j_lj0pt",
-    "ttx_multileptons-2lss_4t_p_5j_lj0pt",
-    "ttx_multileptons-2lss_4t_p_6j_lj0pt",
-    "ttx_multileptons-2lss_4t_p_7j_lj0pt",
-    "ttx_multileptons-2lss_m_4j_lj0pt",
-    "ttx_multileptons-2lss_m_5j_lj0pt",
-    "ttx_multileptons-2lss_m_6j_lj0pt",
-    "ttx_multileptons-2lss_m_7j_lj0pt",
-    "ttx_multileptons-2lss_p_4j_lj0pt",
-    "ttx_multileptons-2lss_p_5j_lj0pt",
-    "ttx_multileptons-2lss_p_6j_lj0pt",
-    "ttx_multileptons-2lss_p_7j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_1b_2j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_1b_3j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_1b_4j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_1b_5j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_2b_2j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_2b_3j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_2b_4j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_2b_5j_lj0pt",
-    "ttx_multileptons-3l_onZ_2b_2j_lj0pt",
-    "ttx_multileptons-3l_onZ_2b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_1b_2j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_1b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_1b_4j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_1b_5j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_2b_2j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_2b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_2b_4j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_2b_5j_lj0pt",
-    "ttx_multileptons-4l_2j_lj0pt",
-    "ttx_multileptons-4l_3j_lj0pt",
-    "ttx_multileptons-4l_4j_lj0pt",
-]
-
-# The list of ptz and lj0pt we choose to use in each category for TOP-22-006
+# The list of ptz and lj0pt we choose to use in each category for topeft analysis
 TOPEFT_CATEGORIES = [
 
     "ttx_multileptons-3l_onZ_1b_2j_ptz",
@@ -204,18 +155,16 @@ def main():
 
     ####### Copy the TOP-22-006 relevant files to their own dir ######
 
-    # Grab the ptz-lj0pt cards we want for the analysis, copy into a dir
-    # If want to reproduce TOP22-006, replace TOPEFT_CATEGORIES with TOP22006_CATEGORIES, expected n_txt and n_root becomes 43: 
+    # Grab the ptz-lj0pt cards we want for the analysis, copy into a dir 
     n_txt = 0
     n_root = 0
-    EVENT_CATEGORIES = TOPEFT_CATEGORIES # replace with TOP22006_CATEGORIES for top22-006 result
     if args.set_up_top22006:
         ptzlj0pt_path = os.path.join(args.datacards_path,"ptz-lj0pt_withSys")
         os.mkdir(ptzlj0pt_path)
         print(f"\nCopying TOPEFT relevant files to {ptzlj0pt_path}...")
         for fname in datacard_files:
             file_name_strip_ext = os.path.splitext(fname)[0]
-            if file_name_strip_ext in EVENT_CATEGORIES:
+            if file_name_strip_ext in TOPEFT_CATEGORIES:
                 shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
                 if fname.endswith(".txt"): n_txt += 1
                 if fname.endswith(".root"): n_root += 1
@@ -223,8 +172,7 @@ def main():
         # Check that we got the expected number and print what we learn
         print(f"\tNumber of text templates copied: {n_txt}")
         print(f"\tNumber of root templates copied: {n_txt}")
-        #if ((n_txt != 43) or (n_root != 43)): # for top22-006 result
-        if ((n_txt != 59) or (n_root != 59)): # for topeft analysis
+        if ((n_txt != 59) or (n_root != 59)):
             raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
         print("Done.\n")
 
