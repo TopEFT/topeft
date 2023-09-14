@@ -189,6 +189,16 @@ extLepSF.add_weight_sets(["TauFake_2016 Tau_SF/eta_gen_value %s"%topcoffea_path(
 extLepSF.add_weight_sets(["TauFake_2017 Tau_SF/eta_gen_value %s"%topcoffea_path('data/TauSF/TauFakeUL2017.json')])
 extLepSF.add_weight_sets(["TauFake_2018 Tau_SF/eta_gen_value %s"%topcoffea_path('data/TauSF/TauFakeUL2018.json')])
 
+extLepSF.add_weight_sets(["TauSF_pt_2016APV TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauSF_pt_UL2016_preVFP.json')])
+extLepSF.add_weight_sets(["TauSF_pt_2016 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauSF_pt_UL2016_postVFP.json')])
+extLepSF.add_weight_sets(["TauSF_pt_2017 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauSF_pt_UL2017.json')])
+extLepSF.add_weight_sets(["TauSF_pt_2018 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauSF_pt_UL2018.json')])
+
+extLepSF.add_weight_sets(["TauSF_dm_2016APV TauSF/dm_value %s"%topcoffea_path('data/TauSF/TauSF_dm_UL2016_preVFP.json')])
+extLepSF.add_weight_sets(["TauSF_dm_2016 TauSF/dm_value %s"%topcoffea_path('data/TauSF/TauSF_dm_UL2016_postVFP.json')])
+extLepSF.add_weight_sets(["TauSF_dm_2017 TauSF/dm_value %s"%topcoffea_path('data/TauSF/TauSF_dm_UL2017.json')])
+extLepSF.add_weight_sets(["TauSF_dm_2018 TauSF/dm_value %s"%topcoffea_path('data/TauSF/TauSF_dm_UL2018.json')])
+
 # Fake rate
 for year in ['2016APV_2016', 2017, 2018]:
     for syst in ['','_up','_down','_be1','_be2','_pt1','_pt2']:
@@ -211,48 +221,38 @@ def ApplyTES(events, Taus, isData):
 
     whereFlag = ((pt>20) & (pt<205) & (gen==5))
     tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
-    return (Taus.pt*tes, Taus.mass*tes)
-    #return(Taus.pt*tes)
+    #return (Taus.pt*tes, Taus.mass*tes)
+    return(Taus.pt*tes)
 
 def AttachTauSF(events, Taus, year):
-    padded_Taus = ak.pad_none(Taus,1)
-    padded_Taus = ak.with_name(padded_Taus, "TauCandidate")
-    padded_Taus["sf_tau"] = 1.0
-    padded_Taus["sf_tau_up"] = 1.0
-    padded_Taus["sf_tau_down"] = 1.0
+  padded_Taus = ak.pad_none(Taus,1)
+  padded_Taus = ak.with_name(padded_Taus, "TauCandidate")
+  padded_Taus["sf_tau"] = 1.0
+  padded_Taus["sf_tau_up"] = 1.0
+  padded_Taus["sf_tau_down"] = 1.0
 
-    pt  = padded_Taus.pt
-    dm  = padded_Taus.decayMode
-    wp  = padded_Taus.idDeepTau2017v2p1VSjet
-    eta = padded_Taus.eta
-    gen = padded_Taus.genPartFlav
-    mass= padded_Taus.mass
+  pt  = padded_Taus.pt
+  dm  = padded_Taus.decayMode
+  wp  = padded_Taus.idDeepTau2017v2p1VSjet
+  eta = padded_Taus.eta
+  gen = padded_Taus.genPartFlav
+  mass= padded_Taus.mass
 
-    whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isLoose"]) & (~padded_Taus["isMedium"]))
-    real_sf_loose = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose'.format(year=year)](dm,pt), 1)
-    real_sf_loose_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose_up'.format(year=year)](dm,pt), 1)
-    real_sf_loose_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose_down'.format(year=year)](dm,pt), 1)
-    whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isMedium"]) & (~padded_Taus["isTight"]))
-    real_sf_medium = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium'.format(year=year)](dm,pt), 1)
-    real_sf_medium_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium_up'.format(year=year)](dm,pt), 1)
-    real_sf_medium_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium_down'.format(year=year)](dm,pt), 1)
-    whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isTight"]))
-    real_sf_tight = np.where(whereFlag, SFevaluator['TauSF_{year}_Tight'.format(year=year)](dm,pt), 1)
-    real_sf_tight_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Tight_up'.format(year=year)](dm,pt), 1)
-    real_sf_tight_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Tight_down'.format(year=year)](dm,pt), 1)
-    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=0) & (gen!=6))
-    if year == "2016APV":
-        year = "2016"
-    fake_sf = np.where(whereFlag, SFevaluator['TauFake_{year}'.format(year=year)](np.abs(eta),gen), 1)
-    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (~padded_Taus["isLoose"]) & (padded_Taus["isVLoose"]))
-    faker_sf = np.where(whereFlag, SFevaluator['TauFakeSF_{year}'.format(year=year)](pt), 1)
-    padded_Taus["sf_tau"] = real_sf_loose*real_sf_medium*real_sf_tight*fake_sf*faker_sf
-    padded_Taus["sf_tau_up"] = real_sf_loose_up*real_sf_medium_up*real_sf_tight_up
-    padded_Taus["sf_tau_down"] = real_sf_loose_down*real_sf_medium_down*real_sf_tight_down
+  whereFlag = ((pt>20) & (pt<1000) & (gen==5))
+  real_sf_pt = np.where(whereFlag, SFevaluator['TauSF_pt_{year}'.format(year=year)](pt), 1)
+  real_sf_dm = np.where(whereFlag, SFevaluator['TauSF_dm_{year}'.format(year=year)](dm), 1)
 
-    events["sf_2l_taus"] = padded_Taus.sf_tau[:,0]
-    events["sf_2l_taus_hi"] = padded_Taus.sf_tau_up[:,0]
-    events["sf_2l_taus_lo"] = padded_Taus.sf_tau_down[:,0]
+  whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=0) & (gen!=6))
+  if year == "2016APV":
+    year = "2016"
+  fake_sf = np.where(whereFlag, SFevaluator['TauFake_{year}'.format(year=year)](np.abs(eta),gen), 1)
+  whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (~padded_Taus["isLoose"]) & (padded_Taus["isVLoose"]))
+  faker_sf = np.where(whereFlag, SFevaluator['TauFakeSF_{year}'.format(year=year)](pt), 1)
+  padded_Taus["sf_tau"] = real_sf_pt*real_sf_dm*fake_sf*faker_sf
+
+  events["sf_2l_taus"] = padded_Taus.sf_tau[:,0]
+  events["sf_2l_taus_hi"] = padded_Taus.sf_tau_up[:,0]
+  events["sf_2l_taus_lo"] = padded_Taus.sf_tau_down[:,0]
 
 def AttachPerLeptonFR(leps, flavor, year):
     # Get the flip rates lookup object
