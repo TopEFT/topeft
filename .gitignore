@@ -14,10 +14,10 @@ __pycache__/*
 .DS_Store
 
 # User generated files from runnign code
-analysis/topEFT/wq-executor-tmp-*
-analysis/topEFT/wq-*.summary
-analysis/topEFT/envs
-analysis/topEFT/histos
+analysis/*/wq-executor-tmp-*
+analysis/*/wq-*.summary
+analysis/*/envs
+analysis/*/histos
 
 # Project files
 .ropeproject

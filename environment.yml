@@ -10,3 +10,4 @@ dependencies:
   - dill
   - xrootd
   - git
+  - pyyaml
