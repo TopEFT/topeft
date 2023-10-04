@@ -58,6 +58,7 @@ class YieldTools():
         }
 
         self.APPL_DICT = {
+            "1l"   : "isSR_1l",
             "2lss" : "isSR_2lSS",
             "2los" : "isSR_2lOS",
             "3l"   : "isSR_3l",
@@ -379,7 +380,9 @@ class YieldTools():
     def integrate_out_appl(self,histo,lep_cat):
         histo_integrated = copy.deepcopy(histo)
         if ("appl" in self.get_axis_list(histo)):
-            if "2lss" in lep_cat:
+            if "1l" in lep_cat:
+                sr_bin = self.APPL_DICT["1l"]
+            elif "2lss" in lep_cat:
                 sr_bin = self.APPL_DICT["2lss"]
             elif "2los" in lep_cat:
                 sr_bin = self.APPL_DICT["2los"]

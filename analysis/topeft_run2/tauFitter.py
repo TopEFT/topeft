@@ -3,6 +3,7 @@ import os
 import copy
 import datetime
 import argparse
+import math
 from cycler import cycler
 
 from coffea import hist
@@ -19,7 +20,7 @@ from scipy.optimize import curve_fit
 from  numpy.linalg import eig
 from scipy.odr import *
 
-from topcoffea.modules.YieldTools import YieldTools
+from topeft.modules.yield_tools import YieldTools
 import topcoffea.modules.utils as utils
 
 yt = YieldTools()
@@ -65,7 +66,7 @@ def SF_fit_alt(SF,SF_e,x):
     c0,c1,cov, = out.Output()
     return c0,c1,cov
 
-def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
+def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=True):
 
     bin_map = copy.deepcopy(bin_map) # Don't want to edit the original
 
@@ -97,8 +98,8 @@ def getPoints(dict_of_hists):
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists,"sample")
-    mc_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
-    data_sample_lst = yt.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+    mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
+    data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
     for sample_name in all_samples:
         if sample_name not in mc_sample_lst:
             samples_to_rm_from_mc_hist.append(sample_name)
@@ -113,30 +114,30 @@ def getPoints(dict_of_hists):
     for proc_name in all_samples:
         if "data" in proc_name:
             CR_GRP_MAP["Data"].append(proc_name)
-        elif "nonprompt" in proc_name:
-            CR_GRP_MAP["Nonprompt"].append(proc_name)
-        elif "flips" in proc_name:
-            CR_GRP_MAP["Flips"].append(proc_name)
-        elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name) or ("TTZToLL_M1to10" in proc_name):
-            CR_GRP_MAP["Signal"].append(proc_name)
-        elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name or "TWZToLL" in proc_name:
-            CR_GRP_MAP["Single top"].append(proc_name)
-        elif "DY" in proc_name:
-            CR_GRP_MAP["DY"].append(proc_name)
-        elif "TTG" in proc_name:
-            CR_GRP_MAP["Conv"].append(proc_name)
+        #elif "nonprompt" in proc_name:
+        #    CR_GRP_MAP["Nonprompt"].append(proc_name)
+        #elif "flips" in proc_name:
+        #    CR_GRP_MAP["Flips"].append(proc_name)
+        #elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name) or ("TTZToLL_M1to10" in proc_name):
+        #    CR_GRP_MAP["Signal"].append(proc_name)
+        #elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name or "TWZToLL" in proc_name:
+        #    CR_GRP_MAP["Single top"].append(proc_name)
+        #elif "DY" in proc_name:
+        #    CR_GRP_MAP["DY"].append(proc_name)
+        #elif "TTG" in proc_name:
+        #    CR_GRP_MAP["Conv"].append(proc_name)
         elif "TTTo" in proc_name:
             CR_GRP_MAP["Ttbar"].append(proc_name)
-        elif "ZGTo" in proc_name:
-            CR_GRP_MAP["ZGamma"].append(proc_name)
-        elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
-            CR_GRP_MAP["Triboson"].append(proc_name)
-        elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
-            CR_GRP_MAP["Diboson"].append(proc_name)
-        elif "WJets" in proc_name:
-            CR_GRP_MAP["Singleboson"].append(proc_name)
-        else:
-            raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+        #elif "ZGTo" in proc_name:
+        #    CR_GRP_MAP["ZGamma"].append(proc_name)
+        #elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
+        #    CR_GRP_MAP["Triboson"].append(proc_name)
+        #elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
+        #    CR_GRP_MAP["Diboson"].append(proc_name)
+        #elif "WJets" in proc_name:
+        #    CR_GRP_MAP["Singleboson"].append(proc_name)
+        #else:
+        #    raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
     var_name = "taupt"
     cr_cat_dict = CR_CHAN_DICT
@@ -161,48 +162,91 @@ def getPoints(dict_of_hists):
     mc_tight    = mc_tight.integrate("systematic","nominal")
     data_fake   = data_fake.integrate("systematic","nominal")
     data_tight  = data_tight.integrate("systematic","nominal")
+    #import inspect
+    #for item in inspect.getmembers(data_fake):
+    #    print(item)
+
+    for sample in mc_fake._sumw2:
+        mc_fake_e = mc_fake._sumw2[sample]
+        mc_tight_e = mc_fake._sumw2[sample]
 
     for sample in mc_fake.values():
         mc_fake_vals  = mc_fake.values()[sample]
         mc_tight_vals = mc_tight.values()[sample]
-        print(mc_fake.values()[sample])
-        print(mc_tight.values()[sample])
+        print("mc fake = ", mc_fake.values()[sample])
+        print("mc tight = ", mc_tight.values()[sample])
     for sample in data_fake.values():
-        print(data_fake.values()[sample])
-        print(data_tight.values()[sample])
+        print("data fake = ", data_fake.values()[sample])
+        print("data tight = ", data_tight.values()[sample])
         data_fake_vals  = data_fake.values()[sample]
         data_tight_vals = data_tight.values()[sample]
+        data_fake_e = []
+        data_tight_e = []
+        for item in data_fake_vals:
+            data_fake_e.append(math.sqrt(item*(1-(item/sum(data_fake_vals)))))
+        for item in data_tight_vals:
+            data_tight_e.append(math.sqrt(item*(1-(item/sum(data_tight_vals)))))
+        
 
-    mc_x = []
+    mc_x = [20, 30, 40, 50, 60, 80, 100]
     mc_y = []
     mc_e = []
-    x = 0
-    for index in range(2, len(mc_fake_vals)-12):
-        fake  = mc_fake_vals[index]
-        tight = mc_tight_vals[index]
-        mc_x.append(x)
+    x = 20
+    bin_div = [30, 40, 50, 60, 80, 100, 200]
+    fake = 0
+    tight = 0
+    f_err = 0
+    t_err = 0
+    for index in range(2, len(mc_fake_vals)):
+        fake  += mc_fake_vals[index]
+        tight += mc_tight_vals[index]
+        f_err += mc_fake_e[index]
+        t_err += mc_tight_e[index]
         x += 10
-        if fake != 0.0:
-            y = tight/fake
-        else:
-            y = 0
-        mc_y.append(y)
-        mc_e.append(1.02*y-y)
-    data_x = []
+        if x in bin_div:
+            if fake != 0.0:
+                y = tight/fake
+                y_err = t_err/fake + tight*f_err/(fake*fake)
+            else:
+                y = 0.0
+                y_err = 0.0
+            mc_y.append(y)
+            if (y+y_err)/y < 1.02:
+                mc_e.append(1.02*y-y)
+            else:
+                mc_e.append(y_err)
+            fake = 0.0
+            tight = 0.0
+            f_err = 0.0
+            t_err = 0.0
+    data_x = [20, 30, 40, 50, 60, 80, 100]
     data_y = []
     data_e = []
-    x = 0
-    for index in range(2, len(data_fake_vals)-12):
-        fake  = data_fake_vals[index]
-        tight = data_tight_vals[index]
-        data_x.append(x)
+    x = 20
+    fake = 0.0
+    tight = 0.0
+    for index in range(2, len(data_fake_vals)):
+        fake  += data_fake_vals[index]
+        tight += data_tight_vals[index]
+        f_err += data_fake_e[index]
+        t_err += data_tight_e[index]
         x += 10
-        if fake != 0.0:
-            y = tight/fake
-        else:
-            y = 0
-        data_y.append(y)
-        data_e.append(1.02*y-y)
+        if x in bin_div:
+            if fake != 0.0:
+                y = tight/fake
+                y_err =t_err/fake + tight*f_err/(fake*fake)
+            else:
+                y = 0.0
+                y_err =0.0
+            data_y.append(y)
+            if (y+y_err)/y < 1.02:
+                data_e.append(1.02*y-y)
+            else:
+                data_e.append(y_err)
+            fake = 0.0
+            tight = 0.0
+            f_err = 0.0
+            t_err = 0.0
     return np.array(mc_x), np.array(mc_y), np.array(mc_e), np.array(data_x), np.array(data_y), np.array(data_e)
 
 def main():
@@ -232,10 +276,10 @@ def main():
 
     # Get the histograms
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
-    x_data,y_data,yerr_data,x_mc,y_mc,yerr_mc = getPoints(hin_dict)
+    x_mc,y_mc,yerr_mc,x_data,y_data,yerr_data = getPoints(hin_dict)
 
-    print(y_data)
-    print(y_mc)
+    print("fr data = ", y_data)
+    print("fr mc = ", y_mc)
     SF = y_data/y_mc
     SF_e = yerr_data/y_mc + y_data*yerr_mc/(y_mc**2)
         

@@ -421,6 +421,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             events["l_fo_conept_sorted"] = l_fo_conept_sorted
 
             # The event selection
+            te_es.add1lMaskAndSFs(events, year, isData, sampleType)
             te_es.add2lMaskAndSFs(events, year, isData, sampleType)
             te_es.add3lMaskAndSFs(events, year, isData, sampleType)
             te_es.add4lMaskAndSFs(events, year, isData)
@@ -466,10 +467,16 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over categories and fill the dict
             weights_dict = {}
-            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ"]:
+            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "1l_1tau_CR"]:
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
+                if ch_name.startswith("1l"):
+                    weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
+                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
+                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
+                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
+                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
                 if ch_name.startswith("2l"):
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
                     weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
@@ -490,7 +497,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For MC only
                 if not isData:
-                    if ch_name.startswith("2l"):
+                    if ch_name.startswith("1l"):
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
+                        weights_dict[ch_name].add("lepSF_taus", events.sf_2l_taus, copy.deepcopy(events.sf_2l_taus_hi), copy.deepcopy(events.sf_2l_taus_lo))
+                    elif ch_name.startswith("2l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
                         weights_dict[ch_name].add("lepSF_taus", events.sf_2l_taus, copy.deepcopy(events.sf_2l_taus_hi), copy.deepcopy(events.sf_2l_taus_lo))
@@ -531,6 +542,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
             charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
+            chargelt_0 = ak.fill_none(((l0.charge+tau0.charge)==0),False)
             
             #tau mask                                                                                                                                                                                      
             tau_Fake_mask   = (ak.num(tau)>0)
@@ -571,10 +583,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
 
             # 2los selection
-            selections.add("2los_CRtt_Ftau", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg & tau_Fake_mask)) 
-            selections.add("2los_CRtt_Ttau", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg & tau_T_mask))
+            selections.add("2los_CRtt_Ftau", (events.is2l_nozeeveto & charge2l_0 & bmask_exactly2med & pass_trg & tau_Fake_mask)) 
+            selections.add("2los_CRtt_Ttau", (events.is2l_nozeeveto & charge2l_0 & bmask_exactly2med & pass_trg & tau_L_mask))
             selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg & no_tau_mask))
-            selections.add("2los_1tau_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg & tau_VL_mask))
+            selections.add("2los_1tau_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg & tau_L_mask))
+
+            selections.add("1l_1tau_CR", (events.is1l & bmask_atleast2med & chargelt_0 & tau_L_mask & pass_trg))
+            selections.add("1l_CR", (events.is1l & bmask_atleast2med & ~tau_L_mask & pass_trg))
 
             # 3l selection
             selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg & no_tau_mask))
@@ -591,6 +606,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
 
             # Lep flavor selection
+            selections.add("e",  events.is_e)
+            selections.add("m",  events.is_m)
             selections.add("ee",  events.is_ee)
             selections.add("em",  events.is_em)
             selections.add("mm",  events.is_mm)
@@ -616,6 +633,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("atmost_3j" , (njets<=3))
 
             # AR/SR categories
+            selections.add("isSR_1l",      (events.is1l_SR))
+
             selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1)
             selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1)
             selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
@@ -768,6 +787,18 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # This dictionary keeps track of which selections go with which CR categories
             cr_cat_dict = {
+                "1l_1tau_CR": {
+                    "exactly_2j": {
+                        "lep_chan_lst" : ["1l_1tau_CR", "1l_CR"],
+                        "lep_flav_lst" : ["e", "m"],
+                        "appl_lst"     : ["isSR_1l"] + (["isAR_2lSS_OS"] if isData else []),
+                     },
+                    "exactly_3j": {
+                        "lep_chan_lst" : ["1l_1tau_CR", "1l_CR"],
+                        "lep_flav_lst" : ["e", "m"],
+                        "appl_lst"     : ["isSR_1l"] + (["isAR_2lSS_OS"] if isData else []),
+                    },
+                },
                 "2l_CRflip" : {
                     "atmost_3j" : {
                         "lep_chan_lst" : ["2lss_CRflip"],
@@ -806,8 +837,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 },
                 "2los_CRtt" : {
                     "exactly_2j"   : {
-                        "lep_chan_lst" : ["2los_CRtt"],
-                        "lep_flav_lst" : ["em"],
+                        "lep_chan_lst" : ["2los_CRtt_Ftau", "2los_CRtt_Ttau"],
+                        "lep_flav_lst" : ["ee", "em", "mm"],
                         "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
                     },
                 },
@@ -951,6 +982,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
                                         if (("taupt" in dense_axis_name) and ("tau" not in ch_name)): continue
+                                        if (("1l" in ch_name) and (("l1" in dense_axis_name) or ("invmass" in dense_axis_name) or ("lj" in dense_axis_name))): continue
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
 
