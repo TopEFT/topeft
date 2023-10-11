@@ -253,7 +253,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
         tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
         tau["isGood"]  =  tau["isClean"] & tau["isPres"]
-        tau = tau[tau.isGood] # use these to clean jets
+        tau = tau[tau.isGood]
+        #tau["iseGood"] = te_os.iseTightTau(tau.idDeepTau2017v2p1VSe)
+        #tau["ismGood"] = te_os.ismTightTau(tau.idDeepTau2017v2p1VSmu)
+        #tau["isemGood"]= tau["iseGood"] & tau["ismGood"]
+        #tau = tau[tau.isemGood]
 
         tau["isVLoose"]  = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
         tau["isLoose"]   = te_os.isLooseTau(tau.idDeepTau2017v2p1VSjet)
@@ -590,6 +594,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             selections.add("1l_1tau_CR", (events.is1l & bmask_atleast2med & chargelt_0 & tau_L_mask & pass_trg))
             selections.add("1l_CR", (events.is1l & bmask_atleast2med & ~tau_L_mask & pass_trg))
+            selections.add("1l_1tau_onZ_CR", (events.is1l & bmask_exactly0med & pass_trg & tau_L_mask & chargelt_0))
 
             # 3l selection
             selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg & no_tau_mask))
