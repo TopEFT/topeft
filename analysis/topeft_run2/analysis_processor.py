@@ -250,7 +250,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Tau selection ####################
 
         tau["pt"]      = ApplyTES(year, tau, isData)
-        tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
+        tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
         tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
         tau["isGood"]  =  tau["isClean"] & tau["isPres"]
         tau = tau[tau.isGood]
@@ -471,7 +471,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over categories and fill the dict
             weights_dict = {}
-            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "1l_1tau_CR"]:
+            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "1l_1tau_CR", "1l_CRZ"]:
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
@@ -792,6 +792,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # This dictionary keeps track of which selections go with which CR categories
             cr_cat_dict = {
+                "1l_CRZ": {
+                    "exactly_0j": {
+                        "lep_chan_lst" : ["1l_1tau_onZ_CR"],
+                        "lep_flav_lst" : ["e", "m"],
+                        "appl_lst"     : ["isSR_1l"] + (["isAR_2lSS_OS"] if isData else []),
+                     },
+                },
                 "1l_1tau_CR": {
                     "exactly_2j": {
                         "lep_chan_lst" : ["1l_1tau_CR", "1l_CR"],
@@ -987,7 +994,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
                                         if (("taupt" in dense_axis_name) and ("tau" not in ch_name)): continue
-                                        if (("1l" in ch_name) and (("l1" in dense_axis_name) or ("invmass" in dense_axis_name) or ("lj" in dense_axis_name))): continue
+                                        if (("1l" in ch_name) and (("l1" in dense_axis_name) or ("invmass" in dense_axis_name) or ("lj" in dense_axis_name) or ("ptz" in dense_axis_name))): continue
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
 

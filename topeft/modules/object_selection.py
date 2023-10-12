@@ -15,8 +15,8 @@ get_te_param = GetParam(topeft_path("params/params.json"))
 
 ### These functions have been synchronized with ttH ###
 
-def isPresTau(pt, eta, dxy, dz, idDeepTau2017v2p1VSjet, minpt=20.0):
-    return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTau2017v2p1VSjet>>1 & 1 ==1)
+def isPresTau(pt, eta, dxy, dz, idDeepTau2017v2p1VSjet, idDeepTau2017v2p1VSe, idDeepTau2017v2p1VSmu, minpt=20.0):
+    return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTau2017v2p1VSjet>>1 & 1 ==1)&(idDeepTau2017v2p1VSe>>1 & 1 ==1)&(idDeepTau2017v2p1VSmu>>1 & 1 ==1)
 
 def isVLooseTau(idDeepTau2017v2p1VSjet):
     return (idDeepTau2017v2p1VSjet>>2 & 1)
@@ -35,6 +35,12 @@ def isVTightTau(idDeepTau2017v2p1VSjet):
 
 def isVVTightTau(idDeepTau2017v2p1VSjet):
     return (idDeepTau2017v2p1VSjet>>7 & 1)
+
+def iseTightTau(idDeepTau2017v2p1VSe):
+    return (idDeepTau2017v2p1VSe>>1 & 1)
+
+def ismTightTau(idDeepTau2017v2p1VSmu):
+    return (idDeepTau2017v2p1VSmu>>2 & 1)
 
 def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
     return (hoe<(0.10-0.00*(abs(eta+deltaEtaSC)>1.479))) & (eInvMinusPInv>-0.04) & (sieie<(0.011+0.019*(abs(eta+deltaEtaSC)>1.479)))
