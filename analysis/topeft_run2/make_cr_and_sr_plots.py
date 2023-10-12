@@ -32,34 +32,43 @@ FILL_OPS = {}
 
 # The channels that define the CR categories
 CR_CHAN_DICT = {
-    "cr_2los_Z" : [
-        "2los_ee_CRZ_0j",
-        "2los_mm_CRZ_0j",
+    "cr_1l_1tau" :[
+        "1l_1tau_CR_3j",
     ],
-    "cr_2los_tt" : [
-        "2los_em_CRtt_2j",
+    "cr_1l_0tau" :[
+        "1l_CR_3j",
     ],
-    "cr_2lss" : [
-        "2lss_ee_CR_1j",
-        "2lss_em_CR_1j",
-        "2lss_mm_CR_1j",
-        "2lss_ee_CR_2j",
-        "2lss_em_CR_2j",
-        "2lss_mm_CR_2j",
+    "cr_1l_1tau_onZ" :[
+        "1l_1tau_onZ_CR_0j",
     ],
-    "cr_2lss_flip" : [
-        "2lss_ee_CRflip_3j",
-    ],
-    "cr_3l" : [
-        "3l_eee_CR_0j",
-        "3l_eem_CR_0j",
-        "3l_emm_CR_0j",
-        "3l_mmm_CR_0j",
-        "3l_eee_CR_1j",
-        "3l_eem_CR_1j",
-        "3l_emm_CR_1j",
-        "3l_mmm_CR_1j",
-    ],
+    #"cr_2los_Z" : [
+    #    "2los_ee_CRZ_0j",
+    #    "2los_mm_CRZ_0j",
+    #],
+    #"cr_2los_tt" : [
+    #    "2los_em_CRtt_2j",
+    #],
+    #"cr_2lss" : [
+    #    "2lss_ee_CR_1j",
+    #    "2lss_em_CR_1j",
+    #    "2lss_mm_CR_1j",
+    #    "2lss_ee_CR_2j",
+    #    "2lss_em_CR_2j",
+    #    "2lss_mm_CR_2j",
+    #],
+    #"cr_2lss_flip" : [
+    #    "2lss_ee_CRflip_3j",
+    #],
+    #"cr_3l" : [
+    #    "3l_eee_CR_0j",
+    #    "3l_eem_CR_0j",
+    #    "3l_emm_CR_0j",
+    #    "3l_mmm_CR_0j",
+    #    "3l_eee_CR_1j",
+    #    "3l_eem_CR_1j",
+    #    "3l_emm_CR_1j",
+    #    "3l_mmm_CR_1j",
+    #],
 }
 
 
@@ -1027,7 +1036,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         elif "flips" in proc_name:
             CR_GRP_MAP["Flips"].append(proc_name)
         elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name) or ("TTZToLL_M1to10" in proc_name):
-            CR_GRP_MAP["Signal"].append(proc_name)
+        #    CR_GRP_MAP["Signal"].append(proc_name)
+            samples_to_rm_from_mc_hist.append(proc_name)
         elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name or "TWZToLL" in proc_name:
             CR_GRP_MAP["Single top"].append(proc_name)
         elif "DY" in proc_name:
@@ -1048,10 +1058,12 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
     # Loop over hists and make plots
-    skip_lst = [] # Skip these hists
+    skip_lst = ['ptbl', 'ptz', 'njets', 'nbtagsl', 'taupt', 'l1pt', 'l1eta', 'j0pt', 'b0pt', 'l0eta', 'j0eta', 'ht', 'ljptsum', 'o0pt', 'bl0pt', 'lj0pt', 'invmass', 'met']
     #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
+        for item in dict_of_hists[var_name].identifiers("channel"):
+            print(item)
         #if (var_name not in skip_wlst): continue
         if (var_name == "njets"):
             # We do not keep track of jets in the sparse axis for the njets hists
