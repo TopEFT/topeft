@@ -6,10 +6,18 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_C_UL2017/output_1401.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_C_UL2017/output_1723.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_C_UL2017/output_2484.root",
-    "/store/user/awightma/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_C_UL2017/output_2831.root"
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/MuonEG_C_UL2017/output_11938.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/MuonEG_C_UL2017/output_4096.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/MuonEG_C_UL2017/output_7241.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/MuonEG_C_UL2017/output_7281.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/MuonEG_C_UL2017/output_7297.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/MuonEG_C_UL2017/output_7317.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/MuonEG_C_UL2017/output_7357.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/MuonEG_C_UL2017/output_7393.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/MuonEG_C_UL2017/output_7407.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/MuonEG_C_UL2017/output_8306.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/MuonEG_C_UL2017/output_8350.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/MuonEG_C_UL2017/output_8444.root"
   ],
   "nEvents": 15595214,
   "nGenEvents": 15595214,

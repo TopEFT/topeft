@@ -6,8 +6,15 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_tbarW/output_3678.root",
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_tbarW/output_3721.root"
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/UL17_tbarW/output_4224.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/UL17_tbarW/output_4292.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/UL17_tbarW/output_6573.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/UL17_tbarW/output_7178.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/UL17_tbarW/output_7348.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/UL17_tbarW/output_7461.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/UL17_tbarW/output_7513.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/UL17_tbarW/output_7540.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/UL17_tbarW/output_7682.root"
   ],
   "nEvents": 5674000,
   "nGenEvents": 5674000,

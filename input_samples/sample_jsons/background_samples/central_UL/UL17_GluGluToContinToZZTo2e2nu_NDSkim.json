@@ -6,8 +6,8 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p9/missing_GluGluToContinToZZTo2e2nu/v1/UL17_GluGluToContinToZZTo2e2nu/output_44.root",
-    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p9/missing_GluGluToContinToZZTo2e2nu/v1/UL17_GluGluToContinToZZTo2e2nu/output_45.root"
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/UL17_GluGluToContinToZZTo2e2nu/output_5356.root",
+    "/store/user/jlawren6/skims/data/NAOD_ULv9_new-lepMVA/UL2018/Full/v2/UL17_GluGluToContinToZZTo2e2nu/output_5482.root"
   ],
   "nEvents": 497000,
   "nGenEvents": 497000,
