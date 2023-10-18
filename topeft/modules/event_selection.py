@@ -155,7 +155,6 @@ def add1lMaskAndSFs(events, year, isData, sampleType):
     # Filters and cleanups
     filter_flags = events.Flag
     filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & (((year == "2016")|(year == "2016APV")) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
-    cleanup = events.minMllAFAS > 12
     muTightCharge = ((abs(padded_FOs[:,0].pdgId)!=13) | (padded_FOs[:,0].tightCharge>=1))
 
     # IDs
@@ -164,8 +163,8 @@ def add1lMaskAndSFs(events, year, isData, sampleType):
     # 1l requirements:
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<2
     monlep = (ak.num(FOs)) >= 1
-    pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1))
-    mask = (monlep & exclusive & eleID1 & muTightCharge)
+    pt35 = (ak.any(FOs[:,0:1].conept > 35.0, axis=1))
+    mask = (monlep & exclusive & eleID1 & muTightCharge & pt35 & filters)
 
     # MC matching requirement (already passed for data)
     if sampleType == "data":
