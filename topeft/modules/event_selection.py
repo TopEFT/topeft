@@ -475,6 +475,15 @@ def addZllGammaMask(events):                    #this mask is relevant for 2los_
     Zllgamma_mask = abs( (padded_FOs[:,0]+padded_FOs[:,1]+tight_photons[:,0]).mass -91.2) > 15 #for tight_photons, note that we will require only 1 photon in the event later 
     events['mask_Zllgamma'] = ak.fill_none(Zllgamma_mask,False)
 
+def GenPhotonSelection(events):
+    genPhoton_pT_mask = events.genPhoton.pt>20
+    events['genPhoton_pT_mask'] = genPhoton_pT_mask
+    genPhoton_eta_mask = abs(events.genPhoton.eta) < 1.44
+    events['genPhoton_eta_mask'] = genPhoton_eta_mask
+    genPhoton_pT_eta_mask = (genPhoton_pT_mask & genPhoton_eta_mask)
+    genPhoton_pT_eta_mask = ak.fill_none(ak.pad_none(genPhoton_pT_eta_mask,1),False)
+    events['genPhoton_pT_eta_mask'] = genPhoton_pT_eta_mask
+
 #def addTightPhotonMask(events):
 #    tight_photon = ak.fill_none(ak.any(events.Photon.cutBased == 2, axis=1), False)           #tight photon mask
     
