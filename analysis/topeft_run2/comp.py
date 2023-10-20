@@ -8,14 +8,10 @@ import pickle
 from coffea.hist import Bin
 import gzip
 import numpy as np
-import matplotlib.pyplot as plt
 import argparse
-import mplhep as hep
 from topcoffea.modules.get_param_from_jsons import GetParam
 from topcoffea.modules.paths import topcoffea_path
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
-import numba
-from numba.typed import Dict
 
 BINNING = {
     "ptbl":    [0,100,200,400],
