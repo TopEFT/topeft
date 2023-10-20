@@ -5,9 +5,7 @@ example:
 -n tells it the first pkl file is using teh new histEFT based on scikithep hist
 '''
 import pickle
-import hist
-from topcoffea.modules.histEFT import HistEFT
-from coffea.hist import StringBin, Cat, Bin
+from coffea.hist import Bin
 import gzip
 import numpy as np
 import matplotlib.pyplot as plt
@@ -57,17 +55,17 @@ def comp(fin1, fin2, hists1, hists2, newHist):
                         if Hist and 'data' not in proc: h2.scale(lumi)
                         if newHist: v1 = np.sum(h1.integrate('process', proc).integrate('channel', chan).integrate('systematic', syst).eval({})[()])
                         else: v1 = np.sum(h1.integrate('sample', proc).integrate('channel', chan).integrate('systematic', syst).values()[()])
-                        v2 = h2.integrate('sample', proc).integrate('channel', chan).integrate('appl', appl).integrate('systematic', syst).values()[()]
+                        v2 = h2.integrate('sample', proc).integrate('channel', chan).integrate('systematic', syst).values()[()]
                         # Rebin old histogram to match new variable binning
                         if 'njets' in hname:
                             bins = BINNING[hname]
-                            v2 = h2.rebin(hname, Bin(hname, h2.axis(hname).label, bins)).integrate('sample', proc).integrate('channel', chan).integrate('appl', appl).integrate('systematic', syst).values()[()]
+                            v2 = h2.rebin(hname, Bin(hname, h2.axis(hname).label, bins)).integrate('sample', proc).integrate('channel', chan).integrate('systematic', syst).values()[()]
                         yields1[proc][chan][syst] = v1
                         yields2[proc][chan][syst] = v2
                         if np.any((np.nan_to_num(np.abs(v1 - v2)/v1, 0) > 1e-3) & ((v1-v2) != 0)):
                             d = [str(round(x*100, 2))+'%' for x in np.nan_to_num((v1-v2)/v1, 0)]
-                            print(f'Diff in {proc} {chan} {appl} {syst} greater than 1e-5\n{v1}\n{v2}\n{v1-v2}\n{d}\n\n!')
-    
+                            print(f'Diff in {proc} {chan} {syst} greater than 1e-5\n{v1}\n{v2}\n{v1-v2}\n{d}\n\n!')
+
     else:
         match = True
         for hname in hists2:
@@ -97,7 +95,7 @@ def comp(fin1, fin2, hists1, hists2, newHist):
                             h1 = hists1[hname]
                             h2 = hists2[hname]
                             if Hist and 'data' not in proc: h2.scale(lumi)
-                            if not any(appl in a.name for a in h2.integrate('sample', proc).integrate('channel', chan).axis('appl').identifiers()): 
+                            if not any(appl in a.name for a in h2.integrate('sample', proc).integrate('channel', chan).axis('appl').identifiers()):
                                 c = appl.split('_')[1]
                                 print(f'Checking {appl} for {chan} {c}')
                                 if c not in chan:
@@ -105,7 +103,7 @@ def comp(fin1, fin2, hists1, hists2, newHist):
                                     continue
                                 print(f'{appl} not found!')
                                 continue
-                            if not any(appl in a for a in h1.integrate('process', proc).integrate('channel', chan).axes['appl']): 
+                            if not any(appl in a for a in h1.integrate('process', proc).integrate('channel', chan).axes['appl']):
                                 c = appl.split('_')[1]
                                 if c not in proc: continue
                                 print(f'Skipping {proc} {chan} {c} {appl} {syst}')
@@ -142,7 +140,7 @@ if __name__ == '__main__':
     hists2={}
     yields1={}
     yields2={}
-    
+
     parser = argparse.ArgumentParser(description='You can select which file to run over')
     parser.add_argument('fin1'   , default='analysis/topEFT/histos/mar03_central17_pdf_np.pkl.gz' , help = 'Variable to run over')
     parser.add_argument('fin2'   , default='analysis/topEFT/histos/mar03_central17_pdf_np.pkl.gz' , help = 'Variable to run over')
@@ -151,20 +149,20 @@ if __name__ == '__main__':
     fin1    = args.fin1
     fin2    = args.fin2
     newHist = args.newHist
-    
+
     if ('_np' in fin1 and '_np' not in fin2) or ('_np' in fin2 and '_np' not in fin1):
         raise Exception("Looks like you're trying to compare a non-prompt subtracted file to one without!")
-    
+
     with gzip.open(fin1) as fin:
-      hin = pickle.load(fin)
-      for k in hin.keys():
-        if k in hists1: hists1[k]+=hin[k]
-        else:               hists1[k]=hin[k]
-    
+        hin = pickle.load(fin)
+        for k in hin.keys():
+            if k in hists1: hists1[k]+=hin[k]
+            else:               hists1[k]=hin[k]
+
     with gzip.open(fin2) as fin:
-      hin = pickle.load(fin)
-      for k in hin.keys():
-        if k in hists2: hists2[k]+=hin[k]
-        else:               hists2[k]=hin[k]
+        hin = pickle.load(fin)
+        for k in hin.keys():
+            if k in hists2: hists2[k]+=hin[k]
+            else:               hists2[k]=hin[k]
 
     comp(fin1, fin2, hists1, hists2, newHist)
