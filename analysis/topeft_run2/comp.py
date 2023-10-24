@@ -9,6 +9,7 @@ from coffea.hist import Bin
 import gzip
 import numpy as np
 import argparse
+import json
 from topcoffea.modules.get_param_from_jsons import GetParam
 from topcoffea.modules.paths import topcoffea_path
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
@@ -27,20 +28,25 @@ BINNING = {
 
 def comp(fin1, fin2, hists1, hists2, newHist):
     Hist = True if 'kmohrman' in fin2 else False # Official anatest25 was made _before_ the luminosity step was added
+    match = True
     if '_np' in fin1 and '_np' in fin2:
         for hname in hists2:
+            if 'njets' in hname: continue
             h = hists2[hname]
             if h.empty(): continue
             if hname not in hists2:
                 raise Exception(f'{hname} found in {fin1} but missing in {fin2}!')
             for proc in h.axis('sample').identifiers():
                 proc = proc.name
+                if any(proc in p for p in ["2l_CRflip", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]): continue
                 year = '20' + proc.split('UL')[1].split()[0]
                 lumi = 1000.0*get_tc_param(f"lumi_{year}")
                 yields1[proc] = {}
                 yields2[proc] = {}
                 for chan in h.axis('channel').identifiers():
                     chan = chan.name
+                    if 'flips' in proc and '2l' not in chan: continue
+                    if 'nonprompt' in proc and '4l' in chan: continue
                     yields1[proc][chan] = {}
                     yields2[proc][chan] = {}
                     for syst in h.axis('systematic').identifiers():
@@ -49,23 +55,29 @@ def comp(fin1, fin2, hists1, hists2, newHist):
                         h1 = hists1[hname]
                         h2 = hists2[hname]
                         if Hist and 'data' not in proc: h2.scale(lumi)
-                        if newHist: v1 = np.sum(h1.integrate('process', proc).integrate('channel', chan).integrate('systematic', syst).eval({})[()])
-                        else: v1 = np.sum(h1.integrate('sample', proc).integrate('channel', chan).integrate('systematic', syst).values()[()])
-                        v2 = h2.integrate('sample', proc).integrate('channel', chan).integrate('systematic', syst).values()[()]
+                        if chan not in h1.integrate('process', proc).axes['channel']:
+                            print(f'Skipping {proc} {chan} {syst}')
+                            continue 
+                        if newHist: v1 = h1.integrate('process', proc).integrate('channel', chan).integrate('systematic', syst).eval({})[()]
+                        else: v1 = h1.integrate('sample', proc).integrate('channel', chan).integrate('systematic', syst).values(overflow='all')[()]
+                        v2 = h2.integrate('sample', proc).integrate('channel', chan).integrate('systematic', syst).values(overflow='all')[()]
                         # Rebin old histogram to match new variable binning
-                        if 'njets' in hname:
-                            bins = BINNING[hname]
-                            v2 = h2.rebin(hname, Bin(hname, h2.axis(hname).label, bins)).integrate('sample', proc).integrate('channel', chan).integrate('systematic', syst).values()[()]
+                        #if 'njets' in hname:
+                        #    bins = BINNING[hname]
+                        #    v2 = h2.rebin(hname, Bin(hname, h2.axis(hname).label, bins)).integrate('sample', proc).integrate('channel', chan).integrate('systematic', syst).values()[()]
                         yields1[proc][chan][syst] = v1
                         yields2[proc][chan][syst] = v2
                         if np.any((np.nan_to_num(np.abs(v1 - v2)/v1, 0) > 1e-3) & ((v1-v2) != 0)):
                             d = [str(round(x*100, 2))+'%' for x in np.nan_to_num((v1-v2)/v1, 0)]
-                            print(f'Diff in {proc} {chan} {syst} greater than 1e-5\n{v1}\n{v2}\n{v1-v2}\n{d}\n\n!')
+                            print(f'Diff in {proc} {chan} {syst} greater than 1e-5!\n{v1}\n{v2}\n{v1-v2}\n{d}\n\n')
+                            match = False
 
+                        yields1[proc][chan][syst] = list(v1)
+                        yields2[proc][chan][syst] = list(v2)
     else:
-        match = True
         for hname in hists2:
-            if 'njets' not in hname: continue
+            if 'njets' in hname: continue
+            #if 'njets' not in hname: continue
             h = hists2[hname]
             if h.empty(): continue
             if hname not in hists2:
@@ -127,6 +139,12 @@ def comp(fin1, fin2, hists1, hists2, newHist):
                                 d = [str(round(x*100, 2))+'%' for x in np.nan_to_num((v1-v2)/v1, 0)]
                                 print(f'Diff in {proc} {chan} {appl} {syst} greater than 1e-5\n{v1}\n{v2}\n{v1-v2}\n{d}\n\n!')
                                 match = False
+                            yields1[proc][chan][appl][syst] = list(v1)
+                            yields2[proc][chan][appl][syst] = list(v2)
+    with open(fin1.replace('pkl.gz', 'json'), "w") as out_file:
+        json.dump(yields1, out_file, indent=4)
+    with open(fin2.replace('pkl.gz', 'json'), "w") as out_file:
+        json.dump(yields2, out_file, indent=4)
     if match:
         print('All processes match!')
 
