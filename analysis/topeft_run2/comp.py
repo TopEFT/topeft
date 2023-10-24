@@ -57,7 +57,7 @@ def comp(fin1, fin2, hists1, hists2, newHist):
                         if Hist and 'data' not in proc: h2.scale(lumi)
                         if chan not in h1.integrate('process', proc).axes['channel']:
                             print(f'Skipping {proc} {chan} {syst}')
-                            continue 
+                            continue
                         if newHist: v1 = h1.integrate('process', proc).integrate('channel', chan).integrate('systematic', syst).eval({})[()]
                         else: v1 = h1.integrate('sample', proc).integrate('channel', chan).integrate('systematic', syst).values(overflow='all')[()]
                         v2 = h2.integrate('sample', proc).integrate('channel', chan).integrate('systematic', syst).values(overflow='all')[()]
