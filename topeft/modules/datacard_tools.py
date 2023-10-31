@@ -664,11 +664,15 @@ class DatacardMaker():
                 corr_key = sp_key._asdict()
                 corr_key["process"] = proc_key
                 corr_key["systematic"] = syst_key
-                corr_key = type(sp_key)(*corr_key)
+                corr_key = type(sp_key)(**corr_key)
                 corr_keys.append(corr_key)
 
             for k in corr_keys:
-                h[sp_key] += h[k]
+                #h[sp_key] += h[k]
+                try:
+                    h[sp_key] += h._dense_hists[k]
+                except KeyError:
+                    pass
 
             sp_tup = tuple(sp_key)
             if self.verbose:
@@ -827,7 +831,7 @@ class DatacardMaker():
                             if arr[1] is not None:
                                 arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative
 
-                        syst = sp_key[0]
+                        syst = sp_key[2]
 
                         sum_arr = sum(arr[0])
                         if syst == "nominal" and base == "sm":
