@@ -794,6 +794,12 @@ class DatacardMaker():
         outf_root_name = os.path.join(self.out_dir,outf_root_name)
         with uproot.recreate(outf_root_name) as f:
             for p,wcs in selected_wcs.items():
+                # TODO This is a hack for now, track this upstream
+                if 'charge_flip' in p and '2l' not in ch:
+                    continue
+                # TODO This is a hack for now, track this upstream
+                if 'fakes' in p and '4l' in ch:
+                    continue
                 proc_hist = ch_hist.integrate("process",[p])
                 if self.verbose:
                     print(f"Decomposing {ch}-{p}")
