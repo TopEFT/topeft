@@ -621,7 +621,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
             lj0pt = ak.max(l_j_pairs_pt,axis=-1)
 
-            # LT 
+            # LT
             lt = l0.pt + l1.pt + met.pt
 
             # Define invariant mass hists
