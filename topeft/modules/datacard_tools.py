@@ -114,6 +114,8 @@ class MissingParton(RateSystematic):
         "2lss_4t_p": "2lss_4t_p_2b",
         "2lss_m": "2lss_m_2b",
         "2lss_p": "2lss_p_2b",
+        "2lss_fwd_m": "2lss_fwd_m_2b",
+        "2lss_fwd_p": "2lss_fwd_p_2b",
         "3l_onZ_1b": "3l_sfz_1b",
         "3l_onZ_2b": "3l_sfz_2b",
         "3l_p_offZ_1b": "3l1b_p",
