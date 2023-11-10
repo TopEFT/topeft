@@ -155,7 +155,7 @@ def main():
 
     ####### Copy the TOP-22-006 relevant files to their own dir ######
 
-    # Grab the ptz-lj0pt cards we want for the analysis, copy into a dir 
+    # Grab the ptz-lj0pt cards we want for the analysis, copy into a dir
     n_txt = 0
     n_root = 0
     if args.set_up_top22006:
