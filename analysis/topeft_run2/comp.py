@@ -83,11 +83,8 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2):
                         yields2[proc][chan][syst] = v2
                         if np.any((np.nan_to_num(np.abs(v1 - v2)/v1, 0) > 1e0) & ((v1-v2) != 0)):
                             d = [str(round(x*100, 2))+'%' for x in np.nan_to_num((v1-v2)/v1, 0)]
-                            print(year, lumi)
                             print(f'Diff in {proc} {chan} {syst} greater than 1e-5!\n{v1}\n{v2}\n{v1-v2}\n{d}\n\n')
                             match = False
-                            print(f"{h1.integrate('process', proc).integrate('channel', chan).integrate('systematic', syst).eval({})[()]=}")
-                            print(f"{h2.rebin(hname, Bin(hname, h2.axis(hname).label, bins)).integrate('sample', proc).integrate('channel', chan).integrate('systematic', syst).values(overflow='all')[()]*lumi=}")
 
                         yields1[proc][chan][syst] = list(v1)
                         yields2[proc][chan][syst] = list(v2)
