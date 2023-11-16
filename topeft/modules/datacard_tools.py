@@ -837,7 +837,7 @@ class DatacardMaker():
                             if arr[1] is not None:
                                 arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative
 
-                        syst = sp_key[2]
+                        syst = sp_key.systematic
 
                         sum_arr = sum(arr[0])
                         if syst == "nominal" and base == "sm":
