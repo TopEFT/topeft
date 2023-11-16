@@ -421,7 +421,7 @@ class YieldTools():
     #    - The hist you pass should have two axes (all other should already be integrated out)
     #    - The two axes should be the processes axis, and the dense axis (e.g. ht)
     #    - You pass a process name, and we select just that category from the process axis
-    def get_yield(self, h, proc, rwgt_pt):
+    def get_yield(self, h, proc, rwgt_pt={}):
         h_vals = h[proc].eval(rwgt_pt)
         h_vals = add_sumw2_stub(h_vals)
         if len(h_vals) != 0:  # I.e. dict is not empty, this process exists in this dict
