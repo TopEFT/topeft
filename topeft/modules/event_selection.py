@@ -423,6 +423,12 @@ def addLepCatMasks(events):
     events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
 
 
+def get_off_Z_mask_low(lep_collection,pt_window,flavor="os"):
+    ll_pairs = ak.combinations(lep_collection[:,0:2], 2, fields=["l0","l1"])
+    zpeak_mask = ((91.2-(ll_pairs.l0+ll_pairs.l1).mass)>pt_window)
+    if flavor == "os":
+
+
 # Returns the pt of the l+l that form the Z peak
 def get_Z_pt(lep_collection,pt_window):
 
