@@ -97,7 +97,8 @@ SR_CHAN_DICT = {
 
 CR_GRP_MAP = {
     "DY" : [],
-    "Ttbar" : [],
+    "Ttbar 1lep1q" : [],
+    "Ttbar 2lep" : [],
     "Ttbarpowheg" : [],
     "ZGamma" : [],
     "Diboson" : [],
@@ -1044,8 +1045,10 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             CR_GRP_MAP["DY"].append(proc_name)
         elif "TTG" in proc_name:
             CR_GRP_MAP["Conv"].append(proc_name)
-        elif "TTTo" in proc_name:
-            CR_GRP_MAP["Ttbar"].append(proc_name)
+        elif "TTTo2L" in proc_name:
+            CR_GRP_MAP["Ttbar 2lep"].append(proc_name)
+        elif "TTToSemi" in proc_name:
+            CR_GRP_MAP["Ttbar 1lep1q"].append(proc_name)
         elif "ZGTo" in proc_name:
             CR_GRP_MAP["ZGamma"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
@@ -1058,10 +1061,15 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
     # Loop over hists and make plots
-    skip_lst = ['ptbl', 'ptz', 'njets', 'nbtagsl', 'taupt', 'l1pt', 'l1eta', 'j0pt', 'b0pt', 'l0eta', 'j0eta', 'ht', 'ljptsum', 'o0pt', 'bl0pt', 'lj0pt', 'invmass', 'met']
+    #skip_lst = ['ptbl', 'ptz', 'njets', 'nbtagsl', 'taupt', 'l1pt', 'l1eta', 'j0pt', 'b0pt', 'l0eta', 'j0eta', 'ht', 'ljptsum', 'o0pt', 'bl0pt', 'lj0pt', 'invmass', 'met']
+    skip_lst = [] #['ptbl', 'ptz', 'njets', 'nbtagsl', 'taupt', 'l1pt', 'l1eta', 'j0pt', 'b0pt', 'l0eta', 'j0eta', 'ht', 'ljptsum', 'o0pt', 'bl0pt', 'lj0pt', 'met']
     #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
-        if (var_name in skip_lst): continue
+        print("Starting with", var_name)
+        if (var_name in skip_lst): 
+            print("Skipped\n")
+            continue
+        print("List of regions included")
         for item in dict_of_hists[var_name].identifiers("channel"):
             print(item)
         #if (var_name not in skip_wlst): continue
@@ -1118,7 +1126,14 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                     shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
                     shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
                 # Get the arrays we will actually put in the CR plot
-                nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
+                try:
+                    nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
+                except:
+                    print("histo not available, passing to the next one...")
+                    continue
+                else:
+                    pass
+
                 p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
                 m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m) # This goes in the main plot
                 p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
