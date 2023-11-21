@@ -872,6 +872,7 @@ class DatacardMaker():
                                 raise Warning("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
 
                         sum_arr = sum(arr[0])
+                        if sum_arr == 0: continue #TODO find a more elegant solution
                         if syst == "nominal" and base == "sm":
                             if self.verbose:
                                 print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr[0]}")
