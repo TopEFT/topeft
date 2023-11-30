@@ -321,7 +321,7 @@ def AttachTauSF(events, Taus, year):
     fake_muon_sf = np.where(whereFlag, SFevaluator['Tau_muonFakeSF_{year}'.format(year=year)](np.abs(eta)), 1)
     fake_muon_sf_up = np.where(whereFlag, SFevaluator['Tau_muonFakeSF_{year}_up'.format(year=year)](np.abs(eta)), 1)
     fake_muon_sf_down = np.where(whereFlag, SFevaluator['Tau_muonFakeSF_{year}_down'.format(year=year)](np.abs(eta)), 1)
-    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1))
+    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (padded_Taus["isVLoose"]))
     faker_sf = np.where(whereFlag, SFevaluator['TauFakeSF_{year}'.format(year=year)](pt), 1)
     faker_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_{year}_up'.format(year=year)](pt), 1)
     faker_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_{year}_down'.format(year=year)](pt), 1)
