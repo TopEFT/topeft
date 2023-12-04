@@ -57,11 +57,11 @@ dataset_dict_top22006 = {
 
     "2017" : {
         "SingleMuon" : [
-            "IsoMu24",
+            #"IsoMu24",
             "IsoMu27",
         ],
         "SingleElectron" : [
-            "Ele32_WPTight_Gsf",
+            #"Ele32_WPTight_Gsf",
             "Ele35_WPTight_Gsf",
         ],
         #"DoubleMuon" : [
