@@ -213,7 +213,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # Filters and cleanups
     filter_flags = events.Flag
     filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & (((year == "2016")|(year == "2016APV")) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
-    cleanup = events.minMllAFAS > 12
+    cleanup = events.minMllAFAS > 20        #used to be 12 for Top-22-006 but ttgamma analysis requires this to be 20
     muTightCharge = ((abs(padded_FOs[:,0].pdgId)!=13) | (padded_FOs[:,0].tightCharge>=1)) & ((abs(padded_FOs[:,1].pdgId)!=13) | (padded_FOs[:,1].tightCharge>=1))
 
     # Zee veto. Used for charge flips estimation
@@ -247,7 +247,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
         if sampleType == 'prompt':
             mask = (mask & prompt_mask)
         elif sampleType =='conversions':
-            mask = (mask & conv_mask)
+            mask = (mask & prompt_mask)     #temporarily here for ttgamma studies. Since ttgamma is our signal process, we don't want the conv_mask to be applied
         elif sampleType =='prompt_and_conversions':
             # Samples that we use for both prompt and conv contributions (i.e. just DY)
             mask = (mask & (prompt_mask | conv_mask))
@@ -483,6 +483,10 @@ def GenPhotonSelection(events):
     genPhoton_pT_eta_mask = (genPhoton_pT_mask & genPhoton_eta_mask)
     genPhoton_pT_eta_mask = ak.fill_none(ak.pad_none(genPhoton_pT_eta_mask,1),False)
     events['genPhoton_pT_eta_mask'] = genPhoton_pT_eta_mask
+
+def photonNumMask(events):
+    exactly_one_photon = ak.num(events.photon) == 1
+    events['photon_num_mask'] = exactly_one_photon
 
 #def addTightPhotonMask(events):
 #    tight_photon = ak.fill_none(ak.any(events.Photon.cutBased == 2, axis=1), False)           #tight photon mask

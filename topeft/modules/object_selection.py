@@ -138,6 +138,17 @@ def tightSelElec(clean_and_FO_selection_TTH, mvaTTHUL):
 def tightSelMuon(clean_and_FO_selection_TTH, mediumId, mvaTTHUL):
     return (clean_and_FO_selection_TTH) & (mediumId>0) & (mvaTTHUL > get_tc_param("mva_TTH_m_cut"))
 
+def photonpTetaMask(pt,eta):
+    pt_mask = pt > 20
+    eta_mask = abs(eta) < 1.44
+    #print(*pt_mask)
+    #print(*eta_mask)
+    #print(*(pt_mask & eta_mask))
+    pt_eta_mask = (pt_mask & eta_mask)
+    #pt_eta_mask = ak.fill_none(ak.pad_none((pt_mask & eta_mask),1),False)
+    #print(*pt_eta_mask)
+    return pt_eta_mask
+
 def tightSelPhoton(photonId):
     return (photonId >= (1<<get_te_param("photonId")))
 
