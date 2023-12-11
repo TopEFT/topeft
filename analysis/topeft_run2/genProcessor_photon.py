@@ -90,8 +90,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################## gen matched lepton selection #######################
         #genEle_mask = np.abs(ele.matched_gen.pdgId)==11
         #genEle_mask = abs(genPart.pdgId) == 11
-        ele_genpartFlavmask = (ele.genPartFlav == 1 | 15)
-        mu_genpartFlavmask = (mu.genPartFlav == 1 | 15)
+        ele_genpartFlavmask = ((ele.genPartFlav == 1) | (ele.genPartFlav == 15))
+        mu_genpartFlavmask = ((mu.genPartFlav == 1) | (mu.genPartFlav == 15))
         #genEle = genPart[is_final_mask & genEle_mask]
         #genMu_mask = np.abs(mu.matched_gen.pdgId)==13
         #genMu_mask = abs(genPart.pdgId) == 13
