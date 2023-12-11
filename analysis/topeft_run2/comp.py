@@ -9,6 +9,8 @@ import pickle
 from coffea.hist import Bin
 import gzip
 import numpy as np
+np.seterr(divide='ignore', invalid='ignore')
+import awkward as ak
 import argparse
 import json
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -93,26 +95,30 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                             fout.write(f'Skipping {proc} {chan} {syst} - {syst} missing')
                             continue
                         '''
-                        if newHist1: v1 = h1_syst.eval({})[()]
-                        else: v1 = h1_syst.values(overflow='all')[()]
-                        if newHist2: v2 = h2_syst.eval({})[()]
-                        else: v2 = h2_syst.values(overflow='all')[()]
-                        # Rebin old histogram to match new variable binning
-                        if 'njets' not in hname and not newHist2:
-                            bins = BINNING[hname]
-                            v2 = h2_syst.rebin(hname, Bin(hname, h2_syst.axis(hname).label, bins)).values(overflow='all')[()]
-                        if old_hist and 'data' not in proc:
-                            v2 = v2*lumi
-                            #print(f'Scaled by {lumi}')
-                            #fout.write(f'Scaled by {lumi}')
-                        yields1[proc][chan][syst] = v1
-                        yields2[proc][chan][syst] = v2
-                        if np.any((np.nan_to_num(np.abs(v1 - v2)/v1, 0) > 1e0) & ((v1-v2) != 0)):
-                            d = [str(round(x*100, 2))+'%' for x in np.nan_to_num((v1-v2)/v1, 0)]
-                            #print(f'Diff in {proc} {chan} {syst} greater than {tolerance}!\n{v1}\n{v2}\n{v1-v2}\n{d}\n\n')
-                            fout.write(f'Diff in {proc} {chan} {syst} greater than {tolerance}!\n{v1}\n{v2}\n{v1-v2}\n{d}\n\n')
-                            match = False
-
+                        for pt in [{}, {'ctW': 1}]:
+                            if newHist1: v1 = h1_syst.eval(pt)[()]
+                            else: 
+                                h1_syst.set_wilson_coefficients(**pt)
+                                v1 = h1_syst.values(overflow='all')[()]
+                            if newHist2: v2 = h2_syst.eval(pt)[()]
+                            else: 
+                                h2_syst.set_wilson_coefficients(**pt)
+                                v2 = h2_syst.values(overflow='all')[()]
+                            # Rebin old histogram to match new variable binning
+                            if 'njets' not in hname and not newHist2:
+                                bins = BINNING[hname]
+                                v2 = h2_syst.rebin(hname, Bin(hname, h2_syst.axis(hname).label, bins)).values(overflow='all')[()]
+                            if old_hist and 'data' not in proc:
+                                v2 = v2*lumi
+                                #print(f'Scaled by {lumi}')
+                                #fout.write(f'Scaled by {lumi}')
+                            yields1[proc][chan][syst] = v1
+                            yields2[proc][chan][syst] = v2
+                            if np.any((np.nan_to_num(np.abs(v1 - v2)/v1, 0) > tolerance) & ((v1-v2) != 0)):
+                                d = [str(round(x*100, 2))+'%' for x in np.nan_to_num((v1-v2)/v1, 0)]
+                                #print(f'Diff in {proc} {chan} {syst} greater than {tolerance}!\n{v1}\n{v2}\n{v1-v2}\n{d}\n\n')
+                                fout.write(f'Diff in {proc} {chan} {syst} {pt} greater than {tolerance}!\n{v1}\n{v2}\n{v1-v2}\n{d}\n\n')
+                                match = False
                         yields1[proc][chan][syst] = list(v1)
                         yields2[proc][chan][syst] = list(v2)
     else:
@@ -146,7 +152,10 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                     for appl in h2_chan.axis('appl').identifiers():
                         if not newHist2:
                             appl = appl.name
-                        if appl not in h1.axes['appl']: continue
+                        if appl not in h1_chan.axes['appl']:
+                            #print(f'Skipping {proc} {chan} {syst} - {chan} missing')
+                            fout.write(f'Skipping {proc} {chan} {appl} - {appl} missing\n')
+                            continue
                         yields1[proc][chan][appl] = {}
                         yields2[proc][chan][appl] = {}
                         if newHist1: h1_appl = h1_chan.integrate('appl', appl)
@@ -163,23 +172,23 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                             else: h1_syst = h1_appl.integrate('systematic', syst)
                             h2_syst = h2_appl.integrate('systematic', syst)
                             #if old_hist and 'data' not in proc: h2.scale(lumi)
-                            if not any(appl in a.name for a in h2_syst.integrate('sample', proc).integrate('channel', chan).axis('appl').identifiers()):
-                                c = appl.split('_')[1]
-                                #print(f'Checking {appl} for {chan} {c}')
-                                fout.write(f'Checking {appl} for {chan} {c}\n')
-                                if c not in chan:
-                                    #print(f'Skipping {appl} for {chan} {c}')
-                                    fout.write(f'Skipping {appl} for {chan} {c}\n')
-                                    continue
-                                #print(f'{appl} not found!')
-                                fout.write(f'{appl} not found!\n')
-                                continue
-                            if not any(appl in a for a in h1.integrate('process', proc).integrate('channel', chan).axes['appl']):
-                                c = appl.split('_')[1]
-                                if c not in proc: continue
-                                #print(f'Skipping {proc} {chan} {c} {appl} {syst}')
-                                fout.write(f'Skipping {proc} {chan} {c} {appl} {syst}\n')
-                                continue
+                            #if not any(appl in a.name for a in h2_syst.integrate('sample', proc).integrate('channel', chan).axis('appl').identifiers()):
+                            #    c = appl.split('_')[1]
+                            #    #print(f'Checking {appl} for {chan} {c}')
+                            #    fout.write(f'Checking {appl} for {chan} {c}\n')
+                            #    if c not in chan:
+                            #        #print(f'Skipping {appl} for {chan} {c}')
+                            #        fout.write(f'Skipping {appl} for {chan} {c}\n')
+                            #        continue
+                            #    #print(f'{appl} not found!')
+                            #    fout.write(f'{appl} not found!\n')
+                            #    continue
+                            #if not any(appl in a for a in h1.integrate('process', proc).integrate('channel', chan).axes['appl']):
+                            #    c = appl.split('_')[1]
+                            #    if c not in proc: continue
+                            #    #print(f'Skipping {proc} {chan} {c} {appl} {syst}')
+                            #    fout.write(f'Skipping {proc} {chan} {c} {appl} {syst}\n')
+                            #    continue
                             if newHist1:
                                 if not h1.integrate('process', proc).integrate('channel', chan).integrate('appl', appl).integrate('systematic', syst).eval({}):
                                     c = appl.split('_')[1]
@@ -192,9 +201,10 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                                     #print(f'Skipping {proc} {chan} {c} {appl} {syst}')
                                     fout.write(f'Skipping {proc} {chan} {c} {appl} {syst}\n')
                                     continue
-                            if newHist1: v1 = h1.integrate('process', proc).integrate('channel', chan).integrate('appl', appl).integrate('systematic', syst).eval({})[()]
-                            else: v1 = h1.integrate('sample', proc).integrate('channel', chan).integrate('appl', appl).integrate('systematic', syst).values(overflow='all')[()]
-                            v2 = h2_syst.integrate('sample', proc).integrate('channel', chan).integrate('appl', appl).integrate('systematic', syst).values(overflow='all')[()]
+                            if newHist1: v1 = h1_syst.eval({})[()]
+                            else: v1 = h1_syst.values(overflow='all')[()]
+                            if newHist2: v2 = h2_syst.eval({})[()]
+                            else: v2 = h2_syst.values(overflow='all')[()]
                             # Rebin old histogram to match new variable binning
                             if 'njets' not in hname:
                                 bins = BINNING[hname]
@@ -233,13 +243,13 @@ if __name__ == '__main__':
     parser.add_argument('fin2'   , default='analysis/topEFT/histos/mar03_central17_pdf_np.pkl.gz' , help = 'Variable to run over')
     parser.add_argument('--newHist1', action='store_true', help='First file was made with the new histEFT')
     parser.add_argument('--newHist2', action='store_true', help='Second file was made with the new histEFT')
-    parser.add_argument('--tolerance' '-t', default='1e-3', help='Tolerance for warnings')
+    parser.add_argument('--tolerance', '-t', default='1e-3', help='Tolerance for warnings')
     args    = parser.parse_args()
     fin1    = args.fin1
     fin2    = args.fin2
     newHist1 = args.newHist1
     newHist2 = args.newHist2
-    tolerance = args.tolerance
+    tolerance = float(args.tolerance)
 
     if ('_np' in fin1 and '_np' not in fin2) or ('_np' in fin2 and '_np' not in fin1):
         raise Exception("Looks like you're trying to compare a non-prompt subtracted file to one without!")
