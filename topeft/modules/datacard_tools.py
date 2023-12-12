@@ -742,7 +742,7 @@ class DatacardMaker():
         #       out the correct coeff array indices for the corresponding WC!
         # [1] https://github.com/TopEFT/topcoffea/blob/3bef686fead216183ebb6dfb464e67629cfe75f5/topcoffea/modules/eft_helper.py#L32-L36
         wc_to_terms = {}
-        index = 0
+        index = 1
         for i in range(len(wcs)):
             wc1 = wcs[i]
             wc_to_terms[wc1] = set()
@@ -773,7 +773,7 @@ class DatacardMaker():
                     # Here we replace any SM terms that are too small with a large dummy value
                     sm_norm = np.where(sl_arr[:,0] < 1e-5,999,sl_arr[:,0])
                     # Normalize each sub-array by corresponding SM term
-                    n_arr = (sl_arr.T / sm_norm).T
+                    n_arr = sl_arr
                     # This will contain only the coefficients which involve the given WC
                     wc_terms = np.abs(n_arr[:,idx_arr])
                     if np.any(wc_terms > self.tolerance):
