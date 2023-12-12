@@ -10,7 +10,6 @@ from coffea.hist import Bin
 import gzip
 import numpy as np
 np.seterr(divide='ignore', invalid='ignore')
-import awkward as ak
 import argparse
 import json
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -97,11 +96,11 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                         '''
                         for pt in [{}, {'ctW': 1}]:
                             if newHist1: v1 = h1_syst.eval(pt)[()]
-                            else: 
+                            else:
                                 h1_syst.set_wilson_coefficients(**pt)
                                 v1 = h1_syst.values(overflow='all')[()]
                             if newHist2: v2 = h2_syst.eval(pt)[()]
-                            else: 
+                            else:
                                 h2_syst.set_wilson_coefficients(**pt)
                                 v2 = h2_syst.values(overflow='all')[()]
                             # Rebin old histogram to match new variable binning
