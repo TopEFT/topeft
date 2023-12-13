@@ -622,7 +622,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             tau_M_mask  = (ak.num(tau[tau["isMedium"]>0])==1)
             tau_T_mask  = (ak.num(tau[tau["isTight"]>0]) ==1)
             tau_VT_mask = (ak.num(tau[tau["isVTight"]>0])==1)
-            jet_mask    = (njets>=4)
             tau_jet_mask= (nTauJets>=1)
             if not isData:
                 weight_mask = (genw<100000)
@@ -646,11 +645,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             #selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_or_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             
             #2l + 1tau selection
-            selections.add("2lss_p_1tau", (events.is2l & chargel0_p & bmask_atleast1med_or_atleast2loose & pass_trg & bmask_atmost2med & tau_VL_mask))
-            selections.add("2lss_m_1tau", (events.is2l & chargel0_m & bmask_atleast1med_or_atleast2loose & pass_trg & bmask_atmost2med & tau_VL_mask))
-            selections.add("2los_onZ_1tau", (events.is2l & charge2l_0 & sfosz_2l_mask & bmask_atleast2med & pass_trg & tau_VL_mask & jet_mask))
-            selections.add("2los_onZ_2tau", (events.is2l & charge2l_0 & sfosz_2l_mask & bmask_atleast2med & pass_trg & tau2_VL_mask & jet_mask))
-            selections.add("2lss_2tau", (events.is2l & bmask_atleast1med_or_atleast2loose & pass_trg & tau2_VL_mask))
+            selections.add("2lss_p_1tau", (events.is2l & chargel0_p & bmask_atleast1med_or_atleast2loose & pass_trg & bmask_atmost2med & tau_L_mask))
+            selections.add("2lss_m_1tau", (events.is2l & chargel0_m & bmask_atleast1med_or_atleast2loose & pass_trg & bmask_atmost2med & tau_L_mask))
+            selections.add("2los_onZ_1tau", (events.is2l & charge2l_0 & sfosz_2l_mask & bmask_atleast2med & pass_trg & tau_L_mask))
+            selections.add("2los_onZ_1tau", (events.is2l & charge2l_0 & sfosz_2l_mask & bmask_atleast2med & pass_trg & tau_2L_mask))
+            selections.add("2lss_2tau", (events.is2l & bmask_atleast1med_or_atleast2loose & pass_trg & tau2_L_mask))
 
             # 2lss selection for CR
             selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
@@ -678,8 +677,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg & no_tau_mask))
             selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg & no_tau_mask))
             selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg & no_tau_mask))
-            selections.add("3l_1tau_1b_VL", (events.is3l & bmask_exactly1med & pass_trg & tau_VL_mask))
-            selections.add("3l_1tau_2b_VL", (events.is3l & bmask_exactly2med & pass_trg & tau_VL_mask))
+            selections.add("3l_1tau_1b", (events.is3l & bmask_exactly1med & pass_trg & tau_L_mask))
+            selections.add("3l_1tau_2b", (events.is3l & bmask_exactly2med & pass_trg & tau_L_mask))
             selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
 
             # 4l selection
@@ -832,28 +831,28 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "3l" : {
                     "exactly_2j" : {
                         "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b_VL","3l_1tau_2b_VL",
+                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b","3l_1tau_2b",
                         ],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l", "isAR_3l"],
                     },
                     "exactly_3j" : {
                         "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b_VL","3l_1tau_2b_VL",
+                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b","3l_1tau_2b",
                         ],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l", "isAR_3l"],
                     },
                     "exactly_4j" : {
                         "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b_VL","3l_1tau_2b_VL",
+                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b","3l_1tau_2b",
                         ],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l", "isAR_3l"],
                     },
                     "atleast_5j" : {
                         "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b_VL","3l_1tau_2b_VL",
+                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b", "3l_1tau_1b","3l_1tau_2b",
                         ],
                         "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
                         "appl_lst"     : ["isSR_3l", "isAR_3l"],
