@@ -668,7 +668,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("1l_1tau_os_onZ_CR", (events.is1l & pass_trg & tau_L_mask & weight_mask & chargelt_0))
             selections.add("1l_1tau_onZ_CR", (events.is1l & pass_trg & tau_L_mask & weight_mask))
             selections.add("1l_onZ_CR", (events.is1l & bmask_exactly0med & ~tau_L_mask & pass_trg & weight_mask))
-            selections.add("1l_1tau_jet_CR", (events.is1l & pass_trg & weight_mask & tau_Fake_mask & tau_jet_mask))
+            #selections.add("1l_1tau_jet_CR", (events.is1l & pass_trg & weight_mask & tau_Fake_mask & tau_jet_mask))
             #selections.add("1l_1tau_jet_CR", (events.is1l & pass_trg & weight_mask & dis_mask)) 
 
             # 3l selection
@@ -680,7 +680,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg & no_tau_mask))
             selections.add("3l_1tau_1b_VL", (events.is3l & bmask_exactly1med & pass_trg & tau_VL_mask))
             selections.add("3l_1tau_2b_VL", (events.is3l & bmask_exactly2med & pass_trg & tau_VL_mask))
-            #selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
+            selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
 
             # 4l selection
             selections.add("4l", (events.is4l & bmask_atleast1med_or_atleast2loose & pass_trg))
@@ -882,27 +882,27 @@ class AnalysisProcessor(processor.ProcessorABC):
             cr_cat_dict = {
                 "1l_CRZ": {
                     "exactly_0j": {
-                        "lep_chan_lst" : ["1l_1tau_onZ_CR", "1l_1tau_os_onZ_CR", "1l_onZ_CR", "1l_1tau_jet_CR"],
+                        "lep_chan_lst" : ["1l_1tau_onZ_CR", "1l_1tau_os_onZ_CR", "1l_onZ_CR"],
                         "lep_flav_lst" : ["e", "m"],
                         "appl_lst"     : ["isSR_1l", "isAR_1l"] 
                      },
                     "exactly_1j": {
-                        "lep_chan_lst" : ["1l_1tau_onZ_CR", "1l_1tau_os_onZ_CR", "1l_onZ_CR", "1l_1tau_jet_CR"],
+                        "lep_chan_lst" : ["1l_1tau_onZ_CR", "1l_1tau_os_onZ_CR", "1l_onZ_CR"],
                         "lep_flav_lst" : ["e", "m"],
                         "appl_lst"     : ["isSR_1l", "isAR_1l"]
                      },
                     "exactly_2j": {
-                        "lep_chan_lst" : ["1l_1tau_onZ_CR", "1l_1tau_os_onZ_CR", "1l_onZ_CR", "1l_1tau_jet_CR"],
+                        "lep_chan_lst" : ["1l_1tau_onZ_CR", "1l_1tau_os_onZ_CR", "1l_onZ_CR"],
                         "lep_flav_lst" : ["e", "m"],
                         "appl_lst"     : ["isSR_1l", "isAR_1l"]
                      },
                     "exactly_3j": {
-                        "lep_chan_lst" : ["1l_1tau_onZ_CR", "1l_1tau_os_onZ_CR", "1l_onZ_CR", "1l_1tau_jet_CR"],
+                        "lep_chan_lst" : ["1l_1tau_onZ_CR", "1l_1tau_os_onZ_CR", "1l_onZ_CR"],
                         "lep_flav_lst" : ["e", "m"],
                         "appl_lst"     : ["isSR_1l", "isAR_1l"]
                      },
                     "atleast_4j": {
-                        "lep_chan_lst" : ["1l_1tau_onZ_CR", "1l_1tau_os_onZ_CR", "1l_onZ_CR", "1l_1tau_jet_CR"],
+                        "lep_chan_lst" : ["1l_1tau_onZ_CR", "1l_1tau_os_onZ_CR", "1l_onZ_CR"],
                         "lep_flav_lst" : ["e", "m"],
                         "appl_lst"     : ["isSR_1l", "isAR_1l"]
                      },
@@ -958,18 +958,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                         "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                     },
                 },
-                #"3l_CR" : {
-                #    "exactly_0j" : {
-                #        "lep_chan_lst" : ["3l_CR"],
-                #        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                #        "appl_lst"     : ["isSR_3l" , "isAR_3l"],
-                #    },
-                #    "atleast_1j" : {
-                #        "lep_chan_lst" : ["3l_CR"],
-                #        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                #        "appl_lst"     : ["isSR_3l" , "isAR_3l"],
-                #    },
-                #},
+                "3l_CR" : {
+                    "exactly_0j" : {
+                        "lep_chan_lst" : ["3l_CR"],
+                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                        "appl_lst"     : ["isSR_3l" , "isAR_3l"],
+                    },
+                    "atleast_1j" : {
+                        "lep_chan_lst" : ["3l_CR"],
+                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                        "appl_lst"     : ["isSR_3l" , "isAR_3l"],
+                    },
+                },
                 "2los_CRtt" : {
                     "exactly_2j"   : {
                         "lep_chan_lst" : ["2los_CRtt_Ftau", "2los_CRtt_Ttau"],
