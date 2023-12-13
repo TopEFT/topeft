@@ -32,14 +32,55 @@ FILL_OPS = {}
 
 # The channels that define the CR categories
 CR_CHAN_DICT = {
+    "cr_1l_1tau_os" :[
+        #"1l_1tau_os_CR_0j",                                                                                                                                   
+        #"1l_1tau_os_CR_1j",                                                                                                                                                  
+        "1l_1tau_os_CR_2j",
+        "1l_1tau_os_CR_3j",
+        "1l_1tau_os_CR_4j",
+    ],
     "cr_1l_1tau" :[
+        #"1l_1tau_CR_0j",
+        #"1l_1tau_CR_1j",
+        "1l_1tau_CR_2j",
         "1l_1tau_CR_3j",
+        "1l_1tau_CR_4j",
     ],
     "cr_1l_0tau" :[
+        "1l_CR_2j",
         "1l_CR_3j",
+        "1l_CR_4j",
     ],
-    "cr_1l_1tau_onZ" :[
-        "1l_1tau_onZ_CR_0j",
+    "cr_1l_1tau_onZ_234jets" :[
+        #"1l_1tau_onZ_CR_0j",
+        #"1l_1tau_onZ_CR_1j",
+        "1l_1tau_onZ_CR_2j",
+        "1l_1tau_onZ_CR_3j",
+        "1l_1tau_onZ_CR_4j",
+    ],
+    "cr_1l_1tau_onZ_01jets" :[
+        "1l_1tau_onZ_CR_0j",                                                                                                                                                    
+        "1l_1tau_onZ_CR_1j",                                                                                                                                                    
+        #"1l_1tau_onZ_CR_2j",
+        #"1l_1tau_onZ_CR_3j",
+        #"1l_1tau_onZ_CR_4j",
+    ],
+    "cr_1l_1tau_os_onZ_234jets" :[
+        #"1l_1tau_os_onZ_CR_0j",                                                                                                                                       
+        #"1l_1tau_os_onZ_CR_1j",                                                                                                                                     
+        "1l_1tau_os_onZ_CR_2j",
+        "1l_1tau_os_onZ_CR_3j",
+        "1l_1tau_os_onZ_CR_4j",
+    ],
+    "cr_1l_1tau_os_onZ_01jets" :[
+        "1l_1tau_os_onZ_CR_0j",                                                                                                                                                 
+        "1l_1tau_os_onZ_CR_1j",                                                                                                                                                 
+        #"1l_1tau_os_onZ_CR_2j",
+        #"1l_1tau_os_onZ_CR_3j",
+        #"1l_1tau_os_onZ_CR_4j",
+    ],
+    "cr_1l_1tau_jet" :[
+        '1l_1tau_jet_CR_0j',
     ],
     #"cr_2los_Z" : [
     #    "2los_ee_CRZ_0j",
@@ -1062,7 +1103,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
 
     # Loop over hists and make plots
     #skip_lst = ['ptbl', 'ptz', 'njets', 'nbtagsl', 'taupt', 'l1pt', 'l1eta', 'j0pt', 'b0pt', 'l0eta', 'j0eta', 'ht', 'ljptsum', 'o0pt', 'bl0pt', 'lj0pt', 'invmass', 'met']
-    skip_lst = [] #['ptbl', 'ptz', 'njets', 'nbtagsl', 'taupt', 'l1pt', 'l1eta', 'j0pt', 'b0pt', 'l0eta', 'j0eta', 'ht', 'ljptsum', 'o0pt', 'bl0pt', 'lj0pt', 'met']
+    skip_lst = ['tauGen'] #['ptbl', 'ptz', 'njets', 'nbtagsl', 'taupt', 'l1pt', 'l1eta', 'j0pt', 'b0pt', 'l0eta', 'j0eta', 'ht', 'ljptsum', 'o0pt', 'bl0pt', 'lj0pt', 'met']
     #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         print("Starting with", var_name)
