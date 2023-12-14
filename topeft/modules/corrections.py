@@ -301,10 +301,10 @@ def AttachTauSF(events, Taus, year):
     real_sf_loose = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose'.format(year=year)](dm,pt), 1)
     real_sf_loose_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose_up'.format(year=year)](dm,pt), 1)
     real_sf_loose_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose_down'.format(year=year)](dm,pt), 1)
-    #whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isMedium"]) & (~padded_Taus["isTight"]))
-    #real_sf_medium = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium'.format(year=year)](dm,pt), 1)
-    #real_sf_medium_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium_up'.format(year=year)](dm,pt), 1)
-    #real_sf_medium_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium_down'.format(year=year)](dm,pt), 1)
+    ##whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isMedium"]>0))
+    ##real_sf_medium = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium'.format(year=year)](dm,pt), 1)
+    ##real_sf_medium_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium_up'.format(year=year)](dm,pt), 1)
+    ##real_sf_medium_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium_down'.format(year=year)](dm,pt), 1)
     #whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isTight"]) & (~padded_Taus["isVTight"]))
     #real_sf_tight = np.where(whereFlag, SFevaluator['TauSF_{year}_Tight'.format(year=year)](dm,pt), 1)
     #real_sf_tight_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Tight_up'.format(year=year)](dm,pt), 1)
@@ -313,11 +313,11 @@ def AttachTauSF(events, Taus, year):
     #real_sf_Vtight = np.where(whereFlag, SFevaluator['TauSF_{year}_VTight'.format(year=year)](dm,pt), 1)
     #real_sf_Vtight_up = np.where(whereFlag, SFevaluator['TauSF_{year}_VTight_up'.format(year=year)](dm,pt), 1)
     #real_sf_Vtight_down = np.where(whereFlag, SFevaluator['TauSF_{year}_VTight_down'.format(year=year)](dm,pt), 1)
-    whereFlag = ((pt>20) & (pt<205) & ((gen==1)|(gen==3)))
+    whereFlag = ((pt>20) & (pt<205) & ((gen==1)|(gen==3)) & (padded_Taus["iseTight"]>0))
     fake_elec_sf = np.where(whereFlag, SFevaluator['Tau_elecFakeSF_{year}'.format(year=year)](np.abs(eta)), 1)
     fake_elec_sf_up = np.where(whereFlag, SFevaluator['Tau_elecFakeSF_{year}_up'.format(year=year)](np.abs(eta)), 1)
     fake_elec_sf_down = np.where(whereFlag, SFevaluator['Tau_elecFakeSF_{year}_down'.format(year=year)](np.abs(eta)), 1)
-    whereFlag = ((pt>20) & (pt<205) & ((gen==2)|(gen==4)))
+    whereFlag = ((pt>20) & (pt<205) & ((gen==2)|(gen==4))  & (padded_Taus["ismTight"]>0))
     fake_muon_sf = np.where(whereFlag, SFevaluator['Tau_muonFakeSF_{year}'.format(year=year)](np.abs(eta)), 1)
     fake_muon_sf_up = np.where(whereFlag, SFevaluator['Tau_muonFakeSF_{year}_up'.format(year=year)](np.abs(eta)), 1)
     fake_muon_sf_down = np.where(whereFlag, SFevaluator['Tau_muonFakeSF_{year}_down'.format(year=year)](np.abs(eta)), 1)
@@ -325,14 +325,17 @@ def AttachTauSF(events, Taus, year):
     #faker_sf = np.where(whereFlag, SFevaluator['TauFakeSF_{year}'.format(year=year)](pt), 1)
     #faker_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_{year}_up'.format(year=year)](pt), 1)
     #faker_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_{year}_down'.format(year=year)](pt), 1)
-    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (padded_Taus["isLoose"]))
+    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (padded_Taus["isLoose"]>0))
     new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF'](pt), 1)
     new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_up'](pt), 1)
     new_fake_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_down'](pt), 1)
     #padded_Taus["sf_tau"] = fake_elec_sf*fake_muon_sf*faker_sf*new_fake_sf
-    padded_Taus["sf_tau"] = real_sf_loose*fake_elec_sf*fake_muon_sf*new_fake_sf
-    padded_Taus["sf_tau_up"] = real_sf_loose_up*fake_elec_sf_up*fake_muon_sf_up*new_fake_sf_up
-    padded_Taus["sf_tau_down"] = real_sf_loose_down*fake_elec_sf_down*fake_muon_sf_down*new_fake_sf_down
+    real_sf = real_sf_loose
+    real_sf_up = real_sf_loose_up
+    real_sf_down = real_sf_loose_down
+    padded_Taus["sf_tau"] = real_sf*fake_elec_sf*fake_muon_sf*new_fake_sf
+    padded_Taus["sf_tau_up"] = real_sf_up*fake_elec_sf_up*fake_muon_sf_up*new_fake_sf_up
+    padded_Taus["sf_tau_down"] = real_sf_down*fake_elec_sf_down*fake_muon_sf_down*new_fake_sf_down
 
     events["sf_2l_taus"] = padded_Taus.sf_tau[:,0]
     events["sf_2l_taus_hi"] = padded_Taus.sf_tau_up[:,0]
