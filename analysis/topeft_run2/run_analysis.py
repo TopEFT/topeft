@@ -58,6 +58,7 @@ if __name__ == '__main__':
     parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
     parser.add_argument('--ecut', default=None  , help = 'Energy cut threshold i.e. throw out events above this (GeV)')
     parser.add_argument('--port', default='9123-9130', help = 'Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.')
+    parser.add_argument('--analysis', default='top22006', help = 'Baseline TOP-22-006 or others (future options)')
 
 
     args = parser.parse_args()
@@ -78,6 +79,7 @@ if __name__ == '__main__':
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
+    analysis      = args.analysis
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
 
@@ -241,7 +243,7 @@ if __name__ == '__main__':
     else:
         print('No Wilson coefficients specified')
 
-    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
+    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr,analysis)
 
     if executor == "work_queue":
         executor_args = {

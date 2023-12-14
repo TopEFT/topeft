@@ -55,7 +55,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, analysis='top22006', muonSyst='nominal', dtype=np.float32):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -103,6 +103,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
+        self._analysis = analysis # Whether to calculate and store the w**2 coefficients
 
 
     @property
@@ -524,15 +525,20 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("is_good_lumi",lumi_mask)
 
             # 2lss selection (drained of 4 top)
-            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ~fwdjet_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ~fwdjet_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            if analysis == 'top22006':
+                selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+                selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            else:
+                selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ~fwdjet_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+                selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & ~fwdjet_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             # 2lss selection (enriched in 4 top)
             selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             # 2lss selection (enriched in ttw ewk)
-            selections.add("2lss_fwd_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & fwdjet_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_fwd_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med  & fwdjet_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            if analysis != 'top22006':
+                selections.add("2lss_fwd_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & fwdjet_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+                selections.add("2lss_fwd_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med  & fwdjet_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             # 2lss selection for CR
             selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
@@ -732,6 +738,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                     },
                 },
             }
+            if analysis == 'top22006': # Remove forward region
+                sr_cat_dict["2l"]["exactly_4j"]["lep_chan_lst"] = [chan for chan in sr_cat_dict["2l"]["exactly_4j"]["lep_chan_lst"] if '_fwd_' not in chan]
+                sr_cat_dict["2l"]["exactly_5j"]["lep_chan_lst"] = [chan for chan in sr_cat_dict["2l"]["exactly_4j"]["lep_chan_lst"] if '_fwd_' not in chan]
+                sr_cat_dict["2l"]["exactly_6j"]["lep_chan_lst"] = [chan for chan in sr_cat_dict["2l"]["exactly_4j"]["lep_chan_lst"] if '_fwd_' not in chan]
+                sr_cat_dict["2l"]["atleast_7j"]["lep_chan_lst"] = [chan for chan in sr_cat_dict["2l"]["exactly_4j"]["lep_chan_lst"] if '_fwd_' not in chan]
 
             # This dictionary keeps track of which selections go with which CR categories
             cr_cat_dict = {
