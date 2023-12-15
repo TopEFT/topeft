@@ -257,7 +257,6 @@ if __name__ == '__main__':
             'environment_file': remote_environment.get_environment(
                 extra_pip_local = {"topeft": ["topeft", "setup.py"]},
             ),
-            'filepath': f'/project01/ndcms/{os.environ["USER"]}',
             'extra_input_files': ["analysis_processor.py"],
 
             'retries': 5,
