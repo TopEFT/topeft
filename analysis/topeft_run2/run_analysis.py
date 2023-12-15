@@ -264,6 +264,7 @@ if __name__ == '__main__':
             'environment_file': remote_environment.get_environment(
                 extra_pip_local = {"topeft": ["topeft", "setup.py"]},
             ),
+            'filepath': f'/project01/ndcms/{os.environ["USER"]}',
             'extra_input_files': ["analysis_processor.py"],
 
             'retries': 5,
@@ -272,7 +273,7 @@ if __name__ == '__main__':
             # use mid-range compression for chunks results. 9 is the default for work
             # queue in coffea. Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
-            'compression': 4,
+            'compression': 9,
 
             # automatically find an adequate resource allocation for tasks.
             # tasks are first tried using the maximum resources seen of previously ran
@@ -328,7 +329,7 @@ if __name__ == '__main__':
     tstart = time.time()
 
     if executor == "futures":
-        exec_instance = processor.FuturesExecutor(workers=nworkers)
+        exec_instance = processor.futures_executor(workers=nworkers)
         runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
     elif executor ==  "work_queue":
         executor = processor.WorkQueueExecutor(**executor_args)
@@ -341,9 +342,9 @@ if __name__ == '__main__':
     if executor == "work_queue":
         print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
 
-    nbins = sum(sum(arr.size for arr in h.view().values()) for h in output.values() if isinstance(h, hist.BaseHist))
-    nfilled = sum(sum(np.sum(arr > 0) for arr in h.view().values()) for h in output.values() if isinstance(h, hist.BaseHist))
-    print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/max(1, nbins),))
+    #nbins = sum(sum(arr.size for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
+    #nfilled = sum(sum(np.sum(arr > 0) for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
+    #print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
     if executor == "futures":
         print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
@@ -367,6 +368,6 @@ if __name__ == '__main__':
         # Run the renorm fact envelope calculation
         if do_renormfact_envelope:
             print("\nDoing the renorm. fact. envelope calculation...")
-            dict_of_histos = utils.get_hist_dict_non_empty(ddp.outHist)
+            dict_of_histos = utils.get_hist_from_pkl(out_pkl_file_name_np,allow_empty=False)
             dict_of_histos_after_applying_envelope = get_renormfact_envelope(dict_of_histos)
             utils.dump_to_pkl(out_pkl_file_name_np,dict_of_histos_after_applying_envelope)
