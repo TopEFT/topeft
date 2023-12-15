@@ -1,7 +1,6 @@
 import numpy as np
 import copy
 import coffea
-from coffea import hist
 from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.utils as utils
 from topeft.modules.compatibility import add_sumw2_stub
@@ -362,7 +361,8 @@ class YieldTools():
     def select_njet_bin(self,h,bin_val):
         if not isinstance(bin_val,int):
             raise Exception(f"Need to pass an int to this function, got a {type(bin_val)} instead. Exiting...")
-        h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [bin_val,bin_val+1]))
+        #TODO Rebinning not availble in histEFT
+        #h = h.rebin('njets', hist.Bin("njets",  "Jet multiplicity ", [bin_val,bin_val+1]))
         return h
 
 
