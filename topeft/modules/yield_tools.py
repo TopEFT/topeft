@@ -1,6 +1,5 @@
 import numpy as np
 import copy
-import coffea
 from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.utils as utils
 from topeft.modules.compatibility import add_sumw2_stub
