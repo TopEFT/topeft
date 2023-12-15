@@ -7,10 +7,8 @@ import cloudpickle
 import gzip
 import os
 
-import numpy as np
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
-import hist
 
 import topcoffea.modules.utils as utils
 import topcoffea.modules.remote_environment as remote_environment
