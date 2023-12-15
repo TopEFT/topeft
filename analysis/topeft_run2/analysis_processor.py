@@ -526,7 +526,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("is_good_lumi",lumi_mask)
 
             # 2lss selection (drained of 4 top)
-            if analysis == 'top22006':
+            if self._analysis == 'top22006':
                 selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
                 selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             else:
@@ -537,7 +537,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             # 2lss selection (enriched in ttw ewk)
-            if analysis != 'top22006':
+            if self._analysis != 'top22006':
                 selections.add("2lss_fwd_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med & fwdjet_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
                 selections.add("2lss_fwd_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med  & fwdjet_mask))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
@@ -739,7 +739,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     },
                 },
             }
-            if analysis == 'top22006': # Remove forward region
+            if self._analysis == 'top22006': # Remove forward region
                 sr_cat_dict["2l"]["exactly_4j"]["lep_chan_lst"] = [chan for chan in sr_cat_dict["2l"]["exactly_4j"]["lep_chan_lst"] if '_fwd_' not in chan]
                 sr_cat_dict["2l"]["exactly_5j"]["lep_chan_lst"] = [chan for chan in sr_cat_dict["2l"]["exactly_4j"]["lep_chan_lst"] if '_fwd_' not in chan]
                 sr_cat_dict["2l"]["exactly_6j"]["lep_chan_lst"] = [chan for chan in sr_cat_dict["2l"]["exactly_4j"]["lep_chan_lst"] if '_fwd_' not in chan]
