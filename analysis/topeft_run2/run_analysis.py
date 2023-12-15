@@ -6,6 +6,7 @@ import time
 import cloudpickle
 import gzip
 import os
+import dask
 
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
@@ -320,13 +321,49 @@ if __name__ == '__main__':
     tstart = time.time()
 
     if executor == "futures":
-        exec_instance = processor.futures_executor(workers=nworkers)
-        runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
+        runner = processor(schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
+        output = dask.compute(processor_instance)
     elif executor ==  "work_queue":
         executor = processor.WorkQueueExecutor(**executor_args)
         runner = processor.Runner(executor, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=180)
+        workers = wq.Factory(
+            # local runs:
+            batch_type="condor",
+            manager_host_port=f"localhost:{wq_port}"
+            # with a batch system, e.g., condor.
+            # (If coffea not at the installation site, then a conda
+            # environment_file should be defined in the work_queue_executor_args.)
+            # batch_type="condor", manager_name=wq_manager_name
+        )
+        
+        #workers.max_workers = 2
+        #workers.min_workers = 1
+        #workers.cores = 2
+        #workers.memory = 1000  # MB
+        #workers.disk = 2000  # MB
+        #workers.password = my_password_file
+        
+        # Instead of declaring the python environment per task, you can set it in
+        # the factory directly. This is useful if you are going to run a workflow
+        # several times using the same set of workers. It also ensures that the worker
+        # itself executes in a friendly environment.
+        # workers.python_package = "coffea-env.tar.gz"
+        #
+        # The factory tries to write temporary files to $TMPDIR (usually /tmp). When
+        # this is not available, or causes errors, this scracth directory can be
+        # manually set.
+        # workers.scratch_dir = "./my-scratch-dir"
+        
+        with workers:
+            # define the Runner instance
+            run_fn = Runner(
+                executor=executor,
+                chunksize=chunksize,
+                maxchunks=maxchunks,  # change this to None for a large run
+            )
+            # execute the analysis on the given dataset
+            output = run_fn(fileset, "Events", MyProcessor())
 
-    output = runner(flist, treename, processor_instance)
 
     dt = time.time() - tstart
 
