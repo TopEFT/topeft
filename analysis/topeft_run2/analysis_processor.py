@@ -93,7 +93,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 label=r"Events",
                 rebin=rebin
             )
-        self._accumulator = processor.dict_accumulator(histograms)
+        self._accumulator = histograms
 
         # Set the list of hists to fill
         if hist_lst is None:
@@ -235,7 +235,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
         # Initialize the out object
-        hout = self.accumulator.identity()
+        hout = self.accumulator
 
         ################### Electron selection ####################
 
@@ -803,6 +803,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
             # Loop over the hists we want to fill
+            varnames = {k:v for k,v in varnames.items() if k in self._hist_lst}
             for dense_axis_name, dense_axis_vals in varnames.items():
                 if dense_axis_name not in self._hist_lst:
                     print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
