@@ -292,9 +292,7 @@ class YieldTools():
                     raise Exception("There are no hists in this hist dict")
 
             # Chek if what we have is the output of the processsor, if so, get a specific hist from it
-            if isinstance(hin_dict,coffea.processor.accumulator.dict_accumulator):
-                hin_dict = hin_dict[h_name]
-            elif isinstance(hin_dict,dict):
+            if isinstance(hin_dict,dict):
                 hin_dict = hin_dict[h_name]
 
         return list(hin_dict.axes[axis])
