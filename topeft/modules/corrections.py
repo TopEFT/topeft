@@ -5,7 +5,7 @@
 
 #import uproot, uproot_methods
 import uproot
-from coffea import hist, lookup_tools
+from coffea import lookup_tools
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
 import numpy as np
@@ -854,6 +854,31 @@ def ApplyRochesterCorrections(year, mu, is_data):
 #### Functions needed
 StackOverUnderflow = lambda v : [sum(v[0:2])] + v[2:-2] + [sum(v[-2:])]
 
+def clopper_pearson_interval(num, denom, coverage=_coverage1sd):
+    """Compute Clopper-Pearson coverage interval for a binomial distribution
+
+    Parameters
+    ----------
+        num : numpy.ndarray
+            Numerator, or number of successes, vectorized
+        denom : numpy.ndarray
+            Denominator or number of trials, vectorized
+        coverage : float, optional
+            Central coverage interval, defaults to 68%
+
+    c.f. http://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+    """
+    if numpy.any(num > denom):
+        raise ValueError(
+            "Found numerator larger than denominator while calculating binomial uncertainty"
+        )
+    lo = scipy.stats.beta.ppf((1 - coverage) / 2, num, denom - num + 1)
+    hi = scipy.stats.beta.ppf((1 + coverage) / 2, num + 1, denom - num)
+    interval = numpy.array([lo, hi])
+    interval[:, num == 0.0] = 0.0
+    interval[1, num == denom] = 1.0
+    return interval
+
 def GetClopperPearsonInterval(hnum, hden):
     ''' Compute Clopper-Pearson interval from numerator and denominator histograms '''
     num = list(hnum.values(overflow='all')[()])
@@ -870,7 +895,7 @@ def GetClopperPearsonInterval(hnum, hden):
     num = np.array(num)
     den = np.array(den)
     num[num>den] = den[num > den]
-    down, up = hist.clopper_pearson_interval(num, den)
+    down, up = clopper_pearson_interval(num, den)
     ratio = np.array(num, dtype=float) / den
     return [ratio, down, up]
 
