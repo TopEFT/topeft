@@ -321,7 +321,6 @@ if __name__ == '__main__':
     tstart = time.time()
 
     if executor == "futures":
-        runner = processor(schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
         output = dask.compute(processor_instance)
     elif executor ==  "work_queue":
         executor = processor.WorkQueueExecutor(**executor_args)
