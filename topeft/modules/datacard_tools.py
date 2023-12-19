@@ -280,7 +280,7 @@ class DatacardMaker():
     @classmethod
     def get_lep_mult(cls,s):
         """ Returns the lepton multiplicity based on the string passed to it."""
-        if s.startswith("2lss_"):
+        if s.startswith("2lss_") or s.startswith("2los_"):
             return 2
         elif s.startswith("3l_"):
             return 3
@@ -314,6 +314,8 @@ class DatacardMaker():
         self.coeffs          = kwargs.pop("wcs",[])
         self.use_real_data   = kwargs.pop("unblind",False)
         self.verbose         = kwargs.pop("verbose",True)
+
+        print("drop syst in init?", self.drop_syst)
 
         if self.year_lst:
             for yr in self.year_lst:
@@ -474,7 +476,7 @@ class DatacardMaker():
                 for x in to_drop:
                     print(f"Removing systematic: {x}")
                 h = h.remove(list(to_drop),"systematic")
-
+                
             if km_dist != "njets":
                 edge_arr = self.BINNING[km_dist] + [h.axis(km_dist).edges()[-1]]
                 h = h.rebin(km_dist,Bin(km_dist,h.axis(km_dist).label,edge_arr))
@@ -494,7 +496,8 @@ class DatacardMaker():
 
             num_systs = len(h.identifiers("systematic"))
             print(f"Num. Systematics: {num_systs}")
-
+            print(h.identifiers("systematic"))
+            
             self.hists[km_dist] = h
 
     def channels(self,km_dist):
@@ -1003,6 +1006,8 @@ class DatacardMaker():
                 if km_dist == "njets" and (syst_name == "diboson_njets" or syst_name == "missing_parton"):
                     # These systematics are only treated as rate systs for njets distribution
                     continue
+                if "tau" in ch and syst_name == "missing_parton":
+                    continue
                 row = [f"{left_text:<{left_width}}"]
                 for p in proc_order:
                     proc_name = self.get_process(p) # Strips off any "_sm" or "_lin_*" junk
@@ -1014,8 +1019,12 @@ class DatacardMaker():
                         #     v = v[str(num_j)]
                     elif syst_name == "missing_parton":
                         v = rate_syst.get_process(proc_name)
-                        # First strip off any njet and/or bjet labels
-                        ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","")
+                        # First strip off any njet and/or bjet labels and tau references
+                        print("what is ch before stripping?", ch)
+                        ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","").replace("_1tau", "").replace("_2tau", "").replace("2los", "2lss") 
+                        print("what is v?", v)
+                        print("what is ch?", ch)
+                        print("what is before ch_key?", ch_key)
                         # Now construct the category key, matching names in the missing_parton file to the current category
                         if num_l == 2:
                             njet_offset = 4
@@ -1035,6 +1044,7 @@ class DatacardMaker():
                             ch_key = f"{ch_key}_{num_b}b"
                         else:
                             raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
+                        print("what is now ch_key?", ch_key)
                         # The bins in the missing_parton root files start indexing from 0
                         bin_idx = num_j - njet_offset
                         if isinstance(v,dict):
