@@ -325,7 +325,7 @@ if __name__ == '__main__':
         output = dask.compute(processor_instance)
     elif executor ==  "work_queue":
         executor = processor.WorkQueueExecutor(**executor_args)
-        runner = processor.Runner(executor, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=180)
+        runner = processor(executor, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=180)
         workers = wq.Factory(
             # local runs:
             batch_type="condor",
@@ -355,14 +355,8 @@ if __name__ == '__main__':
         # workers.scratch_dir = "./my-scratch-dir"
         
         with workers:
-            # define the Runner instance
-            run_fn = Runner(
-                executor=executor,
-                chunksize=chunksize,
-                maxchunks=maxchunks,  # change this to None for a large run
-            )
             # execute the analysis on the given dataset
-            output = run_fn(fileset, "Events", MyProcessor())
+            output = runner(processor_instance)
 
 
     dt = time.time() - tstart
