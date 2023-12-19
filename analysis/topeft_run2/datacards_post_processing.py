@@ -142,23 +142,35 @@ def main():
     # Grab the ptz-lj0pt cards we want for TOP-22-006, copy into a dir
     n_txt = 0
     n_root = 0
-    if args.set_up_top22006:
-        ptzlj0pt_path = os.path.join(args.datacards_path,"ptz-lj0pt_withSys")
-        os.mkdir(ptzlj0pt_path)
-        print(f"\nCopying TOP-22-006 relevant files to {ptzlj0pt_path}...")
-        for fname in datacard_files:
-            file_name_strip_ext = os.path.splitext(fname)[0]
-            if file_name_strip_ext in TOP22006_CATEGORIES:
-                shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
-                if fname.endswith(".txt"): n_txt += 1
-                if fname.endswith(".root"): n_root += 1
+    #if args.set_up_top22006:
+    
+    ptzlj0pt_path = os.path.join(args.datacards_path,"ptz-lj0pt_withSys")
+    os.mkdir(ptzlj0pt_path)
+    print(f"\nCopying TOP-22-006 relevant files to {ptzlj0pt_path}...")
+    for fname in datacard_files:
+        if not (fname.endswith(".txt") or fname.endswith(".root")):
+            continue
 
-        # Check that we got the expected number and print what we learn
-        print(f"\tNumber of text templates copied: {n_txt}")
-        print(f"\tNumber of root templates copied: {n_txt}")
-        if ((n_txt != 43) or (n_root != 43)):
-            raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
-        print("Done.\n")
+        file_name_strip_ext = os.path.splitext(fname)[0]
+
+        if ("_ptz" in fname) and not file_name_strip_ext in TOP22006_CATEGORIES:
+            continue
+
+        if args.set_up_top22006 and not file_name_strip_ext in TOP22006_CATEGORIES:
+            continue
+
+        shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
+        if fname.endswith(".txt"):
+            n_txt += 1
+        if fname.endswith(".root"):
+            n_root += 1
+
+    # Check that we got the expected number and print what we learn
+    print(f"\tNumber of text templates copied: {n_txt}")
+    print(f"\tNumber of root templates copied: {n_txt}")
+    if ((n_txt != 43) or (n_root != 43)) and args.set_up_top22006:
+        raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
+    print("Done.\n")
 
 
 
