@@ -81,7 +81,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "ljptsum" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ljptsum", "S$_{T}$ (GeV)", 11, 0, 1100)),
             #"o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 10, 0, 500)),
             #"bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 10, 0, 500)),
-            "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 30, 0, 600)),
+            "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
             "taupt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("taupt",   "Leading pt of tau (GeV)", 20, 0, 200)),
             #"dR"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("dR",   "dR of tau and lep", 200, 0, 20)),
             #"genWeight": HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("genWeight",   "genWeight of event", 100, 0, 10000)),
@@ -615,7 +615,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             
             #tau mask                                                                                                                                                                                      
             tau_Fake_mask   = (ak.num(tau)>0)
-            no_tau_mask = (ak.num(tau[tau["isVLoose"]>0])==0)
+
             tau_VL_mask = (ak.num(tau[tau["isVLoose"]>0])==1)
             tau_2VL_mask= (ak.num(tau[tau["isVLoose"]>0])==2)
             tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) ==1)
@@ -629,7 +629,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             else:
                 weight_mask = (njets>=0)
 
-
+            #This mask has to be consistent with the WP selection in SRs with taus
+            no_tau_mask = (ak.num(tau[tau["isLoose"]>0])==0)
             ######### Store boolean masks with PackedSelection ##########
 
             selections = PackedSelection(dtype='uint64')
