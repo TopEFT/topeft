@@ -439,3 +439,32 @@ def get_Z_pt(lep_collection,pt_window):
     pt_of_sfosz = pair_pt_with_sfosz_mask[zpeak_idx]
 
     return ak.flatten(pt_of_sfosz)
+
+def get_Z_pt_wtau(lep_collection,tau_collection,pt_window):
+    """
+    If there is a light-lepton pair compatible with the Z production, the ptz is computed as in TOP-22-006.
+    Otherwise, the opposite-sign lepton-tau pair is considered.
+    """
+    ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
+    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<pt_window)
+    sfos_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
+    sfosz_mask = ak.fill_none((sfos_mask & zpeak_mask),False)
+
+    pair_invmass = (ll_pairs.l0 + ll_pairs.l1).mass
+    pair_invmass_with_sfosz_mask = pair_invmass[sfosz_mask]
+    pair_pt = (ll_pairs.l0 + ll_pairs.l1).pt
+    pair_pt_with_sfosz_mask = pair_pt[sfosz_mask]
+
+
+    lt_pairs = ak.cartesian({"tau":tau_collection,"lep":lep_collection})    
+    sfos_lt_mask = (lt_pairs.lep.pdgId/abs(lt_pairs.lep.pdgId) == lt_pairs.tau.charge)
+    lt_pair_pt = (lt_pairs.lep + lt_pairs.tau).pt
+    lt_pair_os_pt = ak.pad_none(lt_pair_pt[sfos_lt_mask], 1)
+    zpeak_idx = ak.argmin(abs(pair_invmass_with_sfosz_mask - 91.2),keepdims=True,axis=1)
+    zero_idx = ak.zeros_like(zpeak_idx)
+    zero_idx = ak.fill_none(zero_idx, 0)
+
+    pt_of_sfosz = ak.where(ak.any(sfosz_mask, axis=-1), pair_pt_with_sfosz_mask[zpeak_idx], lt_pair_os_pt[zero_idx])
+
+    return ak.flatten(pt_of_sfosz)
+

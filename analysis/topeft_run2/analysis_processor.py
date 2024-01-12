@@ -66,6 +66,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 1000)),
             "ptbl"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 40, 0, 1000)),
             "ptz"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptz",     "$p_{T}$ Z (GeV)", 12, 0, 600)),
+            "ptz_wtau"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptz_wtau",     "$p_{T}$ Z with tau (GeV)", 12, 0, 600)),
             "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
             "nbtagsl" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsl", "Loose btag multiplicity ", 5, 0, 5)),
             "nbtagsm" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsm", "Medium btag multiplicity ", 5, 0, 5)),
@@ -287,7 +288,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         #print("new=", te_os.isClean(tau, l_loose, drmin=0.4))
         #print("default=", ak.num(events[ak.num(te_os.isClean(tau, l_loose, drmin=0.4))>=1]))
         tau = tau[tau.isGood]
-
+        
         tau['DMflag'] = ((tau.decayMode==0) | (tau.decayMode==1) | (tau.decayMode==10) | (tau.decayMode==11))
         dis_tau = tau[~tau['DMflag']]
         dis_mask= (ak.num(dis_tau)>=1)
@@ -741,8 +742,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
             ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
 
+            #print("In processor tau pdgid", tau["charge"])
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+            ptz_wtau = te_es.get_Z_pt_wtau(l_fo_conept_sorted_padded[:,0:3], tau[:,0:1], 10.0)
 
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
@@ -792,6 +795,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["invmass"] = mll_0_1
             varnames["ptbl"]    = ak.flatten(ptbl)
             varnames["ptz"]     = ptz
+            varnames["ptz_wtau"]     = ptz_wtau
             varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
