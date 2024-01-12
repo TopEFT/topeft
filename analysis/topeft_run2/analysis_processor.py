@@ -294,7 +294,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         dis_mask= (ak.num(dis_tau)>=1)
         #dis_events = events[dis_flag]
         #print(ak.num(ak.flatten(dis_events)))
-        #tau = tau[tau['DMflag']]
+        tau = tau[tau['DMflag']]
         tau["isVLoose"]  = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
         tau["isLoose"]   = te_os.isLooseTau(tau.idDeepTau2017v2p1VSjet)
         tau["isMedium"]  = te_os.isMediumTau(tau.idDeepTau2017v2p1VSjet)
