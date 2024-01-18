@@ -3,8 +3,6 @@
  into coffea format of corrections.
 '''
 
-#import uproot, uproot_methods
-import uproot
 from coffea import hist, lookup_tools
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
