@@ -14,9 +14,10 @@ from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 import topcoffea.modules.event_selection as tc_es
 import topcoffea.modules.object_selection as tc_os
+import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
+from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 
@@ -317,7 +318,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_obj_base.add('fact', events.nom, events.factUp*(sow/sow_factUp), events.factDown*(sow/sow_factDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
             weights_obj_base.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
-            weights_obj_base.add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 'up'), GetPUSF(events.Pileup.nTrueInt, year, 'down'))
+            weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down'))
 
 
         ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
