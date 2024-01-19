@@ -38,7 +38,8 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                     proc = proc.name
                 if newHist1: h1_proc = h1.integrate('process', proc)
                 else: h1_proc = h1.integrate('sample', proc)
-                h2_proc = h2.integrate('sample', proc)
+                if newHist2: h2_proc = h2.integrate('process', proc)
+                else: h2_proc = h2.integrate('sample', proc)
                 if any(proc in p for p in ["2l_CRflip", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]): continue
                 year = '20' + proc.split('UL')[1].split()[0]
                 lumi = 1000.0*get_tc_param(f"lumi_{year}")
@@ -53,7 +54,7 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                     #if '2lss_4t_m_7j' not in chan: continue
                     if 'flips' in proc and '2l' not in chan: continue
                     if 'nonprompt' in proc and '4l' in chan: continue
-                    if chan not in h1_proc.axes['channel']:
+                    if newHist1 and chan not in h1_proc.axes['channel']:
                         #print(f'Skipping {proc} {chan} {syst} - {chan} missing')
                         fout.write(f'Skipping {proc} {chan} - {chan} missing\n')
                     if newHist1: h1_chan = h1_proc.integrate('channel', chan)
@@ -74,7 +75,7 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                         if year not in syst and '_20' in syst: continue
                         if 'APV' in year and not 'APV' in syst: continue
                         if not 'APV' in year and 'APV' in syst: continue
-                        if syst not in h1_chan.axes['systematic']:
+                        if newHist1 and syst not in h1_chan.axes['systematic']:
                             #print(f'Skipping {proc} {chan} {syst} - {chan} missing')
                             fout.write(f'Skipping {proc} {chan} {syst} - {chan} missing\n')
                             fout.write(f'{h1_chan.axes["systematic"]=}\n')
@@ -104,6 +105,9 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                                 h2_syst.set_wilson_coefficients(**pt)
                                 v2 = h2_syst.values(overflow='all')[()]
                             # Rebin old histogram to match new variable binning
+                            if 'njets' not in hname and not newHist1:
+                                bins = BINNING[hname]
+                                v1 = h1_syst.rebin(hname, Bin(hname, h1_syst.axis(hname).label, bins)).values(overflow='all')[()]
                             if 'njets' not in hname and not newHist2:
                                 bins = BINNING[hname]
                                 v2 = h2_syst.rebin(hname, Bin(hname, h2_syst.axis(hname).label, bins)).values(overflow='all')[()]
@@ -129,7 +133,8 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
             if h2.empty(): continue
             if hname not in hists2:
                 raise Exception(f'{hname} found in {fin1} but missing in {fin2}!')
-            for proc in h2.axis('sample').identifiers():
+            ax_proc = h2.axes['process'] if newHist2 else h2.axis('sample').identifiers()
+            for proc in ax_proc:
                 if not newHist2:
                     proc = proc.name
                 if any(proc in p for p in ["2l_CRflip", "2l_CR", "3l_CR", "2los_CRtt", "2los_CRZ"]): continue
@@ -137,10 +142,12 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                 lumi = 1000.0*get_tc_param(f"lumi_{year}")
                 if newHist1: h1_proc = h1.integrate('process', proc)
                 else: h1_proc = h1.integrate('sample', proc)
-                h2_proc = h2.integrate('sample', proc)
+                if newHist2: h2_proc = h2.integrate('process', proc)
+                else: h2_proc = h2.integrate('sample', proc)
                 yields1[proc] = {}
                 yields2[proc] = {}
-                for chan in h2_proc.axis('channel').identifiers():
+                ax_chan = h2_proc.axes['channel'] if newHist2 else h2_proc.axis('channel').identifiers()
+                for chan in ax_chan:
                     if not newHist2:
                         chan = chan.name
                     yields1[proc][chan] = {}
@@ -148,7 +155,8 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                     if newHist1: h1_chan = h1_proc.integrate('channel', chan)
                     else: h1_chan = h1_proc.integrate('channel', chan)
                     h2_chan = h2_proc.integrate('channel', chan)
-                    for appl in h2_chan.axis('appl').identifiers():
+                    ax_appl = h2_chan.axes['appl'] if newHist2 else h2_chan.axis('appl').identifiers()
+                    for appl in ax_appl:
                         if not newHist2:
                             appl = appl.name
                         if appl not in h1_chan.axes['appl']:
@@ -160,8 +168,10 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                         if newHist1: h1_appl = h1_chan.integrate('appl', appl)
                         else: h1_appl = h1_chan.integrate('appl', appl)
                         h2_appl = h2_chan.integrate('appl', appl)
-                        for syst in h2_appl.axis('systematic').identifiers():
-                            syst = syst.name
+                        ax_syst = h2_chan.axes['systematic'] if newHist2 else h2_chan.axis('systematic').identifiers()
+                        for syst in ax_syst:
+                            if not newHist2:
+                                syst = syst.name
                             #if 'nominal' not in syst: continue
                             if syst not in h1_chan.axes['systematic']:
                                 #print(f'Skipping {proc} {chan} {syst} - {chan} missing')
@@ -205,7 +215,10 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                             if newHist2: v2 = h2_syst.eval({})[()]
                             else: v2 = h2_syst.values(overflow='all')[()]
                             # Rebin old histogram to match new variable binning
-                            if 'njets' not in hname:
+                            if 'njets' not in hname and not newHist1:
+                                bins = BINNING[hname]
+                                v1 = h1_syst.rebin(hname, Bin(hname, h1_syst.axis(hname).label, bins)).values(overflow='all')[()]
+                            if 'njets' not in hname and not newHist2:
                                 bins = BINNING[hname]
                                 v2 = h2_syst.rebin(hname, Bin(hname, h2_syst.axis(hname).label, bins)).values(overflow='all')[()]
                             if old_hist and 'data' not in proc:
