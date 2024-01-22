@@ -17,7 +17,7 @@ import topcoffea.modules.object_selection as tc_os
 import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
+from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 
@@ -307,8 +307,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
 
             # Attach PS weights (ISR/FSR) and scale weights (renormalization/factorization) and PDF weights
-            AttachPSWeights(events)
-            AttachScaleWeights(events)
+            tc_cor.AttachPSWeights(events)
+            tc_cor.AttachScaleWeights(events)
             #AttachPdfWeights(events) # TODO
             # FSR/ISR weights
             weights_obj_base.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown))
