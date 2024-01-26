@@ -3,11 +3,12 @@
  into coffea format of corrections.
 '''
 
-from coffea import hist, lookup_tools
+from coffea import lookup_tools
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
 import numpy as np
 import awkward as ak
+import scipy
 import gzip
 import pickle
 from coffea.jetmet_tools import JECStack, CorrectedJetsFactory, CorrectedMETFactory
