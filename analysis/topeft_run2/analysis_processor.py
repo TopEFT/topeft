@@ -531,7 +531,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over categories and fill the dict
             weights_dict = {}
-            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "1l_1tau_CR", "1l_CRZ"]:
+            for ch_name in ["2los", "2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "1l_1tau_CR", "1l_CRZ"]:
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
@@ -811,26 +811,48 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # This dictionary keeps track of which selections go with which SR categories
             sr_cat_dict = {
-                "2l" : {
+                "2los" : {
                     "exactly_4j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_onZ_1tau", "2los_onZ_2tau", "2lss_2tau"],
+                        "lep_chan_lst" : ["2los_onZ_1tau", "2los_onZ_2tau"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
+                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
                     },
                     "exactly_5j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_onZ_1tau", "2los_onZ_2tau", "2lss_2tau"],
+                        "lep_chan_lst" : ["2los_onZ_1tau", "2los_onZ_2tau"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
+                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
                     },
                     "exactly_6j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_onZ_1tau", "2los_onZ_2tau", "2lss_2tau"],
+                        "lep_chan_lst" : ["2los_onZ_1tau", "2los_onZ_2tau"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
+                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
                     },
                     "atleast_7j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2los_onZ_1tau", "2los_onZ_2tau", "2lss_2tau"],
+                        "lep_chan_lst" : ["2los_onZ_1tau", "2los_onZ_2tau"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS", "isSR_2lOS"] + (["isAR_2lSS_OS"] if isData else []),
+                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
+                    },
+                },
+                "2l" : {
+                    "exactly_4j" : {
+                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2lss_2tau"],
+                        "lep_flav_lst" : ["ee" , "em" , "mm"],
+                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                    },
+                    "exactly_5j" : {
+                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2lss_2tau"],
+                        "lep_flav_lst" : ["ee" , "em" , "mm"],
+                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                    },
+                    "exactly_6j" : {
+                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2lss_2tau"],
+                        "lep_flav_lst" : ["ee" , "em" , "mm"],
+                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+                    },
+                    "atleast_7j" : {
+                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m", "2lss_p_1tau", "2lss_m_1tau", "2lss_2tau"],
+                        "lep_flav_lst" : ["ee" , "em" , "mm"],
+                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
                     },
                 },
                 "3l" : {
