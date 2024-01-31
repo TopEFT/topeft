@@ -162,6 +162,7 @@ class DatacardMaker():
             "TTTo2L2Nu_",
         ],
         "ttlnu_": ["ttlnuJet_"],
+        "DY": ["DYJetsToLL_"],
     }
 
     # Controls how we rebin the dense axis of the corresponding distribution
@@ -330,7 +331,7 @@ class DatacardMaker():
 
         # Samples to be excluded from the datacard, should correspond to names before group_processes is run
         self.ignore = [
-            "DYJetsToLL", "DY10to50", "DY50",
+            #"DYJetsToLL", "DY10to50", "DY50",
             "ST_antitop_t-channel", "ST_top_s-channel", "ST_top_t-channel", "tbarW", "tW",
             "TTJets",
             "WJetsToLNu",
