@@ -668,11 +668,7 @@ class DatacardMaker():
                 corr_keys.append(corr_key)
 
             for k in corr_keys:
-                #h[sp_key] += h[k]
-                try:
-                    h[sp_key] += h._dense_hists[k]
-                except KeyError:
-                    pass
+                h[sp_key] += h[k]
 
             sp_tup = tuple(sp_key)
             if self.verbose:
