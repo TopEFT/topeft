@@ -3,6 +3,7 @@
  into coffea format of corrections.
 '''
 
+import uproot
 from coffea import hist, lookup_tools
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
@@ -267,19 +268,77 @@ SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
-def ApplyTES(events, Taus, isData):
+def ApplyTES(year, Taus, isData):
     if isData:
-        return Taus.pt
-    #padded_Taus = ak.pad_none(Taus,1)
-    #padded_Taus = ak.with_name(padded_Taus, "TauCandidate")
+        return (Taus.pt, Taus.mass)
+
     pt  = Taus.pt
     dm  = Taus.decayMode
     gen = Taus.genPartFlav
 
-    whereFlag = ((pt>20) & (pt<205) & (gen==5))
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
+    whereFlag = kinFlag & dmFlag #((pt>20) & (pt<205) & (gen==5) & (dm==0 | dm==1 | dm==10 | dm==11))
     tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
-    #return (Taus.pt*tes, Taus.mass*tes)
-    return(Taus.pt*tes)
+    return (Taus.pt*tes, Taus.mass*tes)
+    #return(Taus.pt*tes)
+
+def ApplyFES(year, Taus, isData):
+    if isData:
+        return (Taus.pt, Taus.mass)
+
+    pt  = Taus.pt
+    dm  = Taus.decayMode
+    gen = Taus.genPartFlav
+
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1))
+    whereFlag = kinFlag & dmFlag
+    fes = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](dm,pt), 1)
+    return (Taus.pt*fes, Taus.mass*fes)
+
+def ApplyTESSystematic(year, Taus, syst_name):
+    if not syst_name.startswith('TES'):
+        return (Taus.pt, Taus.mass)
+
+    pt  = Taus.pt
+    dm  = Taus.decayMode
+    gen = Taus.genPartFlav
+
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
+    whereFlag = kinFlag & dmFlag
+    syst_lab = f'TauTES_{year}'
+
+    if syst_name.endswith("Up"):
+        syst_lab += '_up'
+    elif syst_name.endswith("Down"):
+        syst_lab += '_down'
+
+    tes_syst = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
+    return(Taus.pt*tes_syst, Taus.mass*tes_syst)
+
+def ApplyFESSystematic(year, Taus, syst_name):
+    if not syst_name.startswith('FES'):
+        return (Taus.pt, Taus.mass)
+
+    pt  = Taus.pt
+    dm  = Taus.decayMode
+    gen = Taus.genPartFlav
+
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1))
+    whereFlag = kinFlag & dmFlag
+
+    syst_lab = f'TauFES_{year}'
+
+    if syst_name.endswith("Up"):
+        syst_lab += '_up'
+    elif syst_name.endswith("Down"):
+        syst_lab += '_down'
+
+    fes_syst = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](dm,pt), 1)
+    return(Taus.pt*fes_syst, Taus.mass*fes_syst)
 
 def AttachTauSF(events, Taus, year):
     padded_Taus = ak.pad_none(Taus,1)
@@ -295,7 +354,7 @@ def AttachTauSF(events, Taus, year):
     gen = padded_Taus.genPartFlav
     mass= padded_Taus.mass
 
-    whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isLoose"]))
+    whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isLoose"]>0))
     real_sf_loose = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose'.format(year=year)](dm,pt), 1)
     real_sf_loose_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose_up'.format(year=year)](dm,pt), 1)
     real_sf_loose_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose_down'.format(year=year)](dm,pt), 1)
@@ -616,6 +675,164 @@ def GetBTagSF(jets, year, wp='MEDIUM', syst='central'):
     return ([jets[f"btag_{syst}_up"],jets[f"btag_{syst}_down"]])
 
 
+###### Pileup reweighing
+##############################################
+## Get central PU data and MC profiles and calculate reweighting
+## Using the current UL recommendations in:
+##   https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData
+##   - 2018: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/PileUp/UltraLegacy/
+##   - 2017: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions17/13TeV/PileUp/UltraLegacy/
+##   - 2016: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/PileUp/UltraLegacy/
+##
+## MC histograms from:
+##    https://github.com/CMS-LUMI-POG/PileupTools/
+
+pudirpath = topcoffea_path('data/pileup/')
+
+def GetDataPUname(year, var=0):
+    ''' Returns the name of the file to read pu observed distribution '''
+    if year == '2016APV': year = '2016-preVFP'
+    if year == '2016': year = "2016-postVFP"
+    if var == 'nominal':
+        ppxsec = get_tc_param("pu_w")
+    elif var == 'up':
+        ppxsec = get_tc_param("pu_w_up")
+    elif var == 'down':
+        ppxsec = get_tc_param("pu_w_down")
+    year = str(year)
+    return 'PileupHistogram-goldenJSON-13tev-%s-%sub-99bins.root' % ((year), str(ppxsec))
+
+MCPUfile = {'2016APV':'pileup_2016BF.root', '2016':'pileup_2016GH.root', '2017':'pileup_2017_shifts.root', '2018':'pileup_2018_shifts.root'}
+def GetMCPUname(year):
+    ''' Returns the name of the file to read pu MC profile '''
+    return MCPUfile[str(year)]
+
+PUfunc = {}
+### Load histograms and get lookup tables (extractors are not working here...)
+for year in ['2016', '2016APV', '2017', '2018']:
+    PUfunc[year] = {}
+    with uproot.open(pudirpath+GetMCPUname(year)) as fMC:
+        hMC = fMC['pileup']
+        PUfunc[year]['MC'] = lookup_tools.dense_lookup.dense_lookup(
+            hMC.values() / np.sum(hMC.values()),
+            hMC.axis(0).edges()
+        )
+    with uproot.open(pudirpath + GetDataPUname(year,'nominal')) as fData:
+        hD = fData['pileup']
+        PUfunc[year]['Data'] = lookup_tools.dense_lookup.dense_lookup(
+            hD.values() / np.sum(hD.values()),
+            hD.axis(0).edges()
+        )
+    with uproot.open(pudirpath + GetDataPUname(year,'up')) as fDataUp:
+        hDUp = fDataUp['pileup']
+        PUfunc[year]['DataUp'] = lookup_tools.dense_lookup.dense_lookup(
+            hDUp.values() / np.sum(hDUp.values()),
+            hD.axis(0).edges()
+        )
+    with uproot.open(pudirpath + GetDataPUname(year, 'down')) as fDataDo:
+        hDDo = fDataDo['pileup']
+        PUfunc[year]['DataDo'] = lookup_tools.dense_lookup.dense_lookup(
+            hDDo.values() / np.sum(hDDo.values()),
+            hD.axis(0).edges()
+        )
+
+def GetPUSF(nTrueInt, year, var='nominal'):
+    year = str(year)
+    if year not in ['2016','2016APV','2017','2018']:
+        raise Exception(f"Error: Unknown year \"{year}\".")
+    nMC = PUfunc[year]['MC'](nTrueInt+1)
+    data_dir = 'Data'
+    if var == 'up':
+        data_dir = 'DataUp'
+    elif var == 'down':
+        data_dir = 'DataDo'
+    nData = PUfunc[year][data_dir](nTrueInt)
+    weights = np.divide(nData,nMC)
+    return weights
+
+def AttachPSWeights(events):
+    '''
+        Return a list of PS weights
+        PS weights (w_var / w_nominal)
+        [0] is ISR=0.5 FSR = 1
+        [1] is ISR=1 FSR = 0.5
+        [2] is ISR=2 FSR = 1
+        [3] is ISR=1 FSR = 2
+    '''
+    ISR = 0
+    FSR = 1
+    ISRdown = 0
+    FSRdown = 1
+    ISRup = 2
+    FSRup = 3
+    if events.PSWeight is None:
+        raise Exception('PSWeight not found!')
+    # Add up variation event weights
+    events['ISRUp'] = events.PSWeight[:, ISRup]
+    events['FSRUp'] = events.PSWeight[:, FSRup]
+    # Add down variation event weights
+    events['ISRDown'] = events.PSWeight[:, ISRdown]
+    events['FSRDown'] = events.PSWeight[:, FSRdown]
+
+def AttachScaleWeights(events):
+    '''
+    Return a list of scale weights
+    LHE scale variation weights (w_var / w_nominal)
+    Case 1:
+        [0] is renscfact = 0.5d0 facscfact = 0.5d0
+        [1] is renscfact = 0.5d0 facscfact = 1d0
+        [2] is renscfact = 0.5d0 facscfact = 2d0
+        [3] is renscfact =   1d0 facscfact = 0.5d0
+        [4] is renscfact =   1d0 facscfact = 1d0
+        [5] is renscfact =   1d0 facscfact = 2d0
+        [6] is renscfact =   2d0 facscfact = 0.5d0
+        [7] is renscfact =   2d0 facscfact = 1d0
+        [8] is renscfact =   2d0 facscfact = 2d0
+    Case 2:
+        [0] is MUF = "0.5" MUR = "0.5"
+        [1] is MUF = "1.0" MUR = "0.5"
+        [2] is MUF = "2.0" MUR = "0.5"
+        [3] is MUF = "0.5" MUR = "1.0"
+        [4] is MUF = "2.0" MUR = "1.0"
+        [5] is MUF = "0.5" MUR = "2.0"
+        [6] is MUF = "1.0" MUR = "2.0"
+        [7] is MUF = "2.0" MUR = "2.0"
+    '''
+    # Determine if we are in case 1 or case 2 by checking if we have 8 or 9 weights
+    len_of_wgts = ak.count(events.LHEScaleWeight,axis=-1)
+    all_len_9_or_0_bool = ak.all((len_of_wgts==9) | (len_of_wgts==0))
+    all_len_8_or_0_bool = ak.all((len_of_wgts==8) | (len_of_wgts==0))
+    if all_len_9_or_0_bool:
+        scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty
+        renormDown_factDown = 0
+        renormDown          = 1
+        renormDown_factUp   = 2
+        factDown            = 3
+        nominal             = 4
+        factUp              = 5
+        renormUp_factDown   = 6
+        renormUp            = 7
+        renormUp_factUp     = 8
+    elif all_len_8_or_0_bool:
+        scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 8), 1) # FIXME this is a bandaid until we understand _why_ some are empty
+        renormDown_factDown = 0
+        renormDown          = 1
+        renormDown_factUp   = 2
+        factDown            = 3
+        factUp              = 4
+        renormUp_factDown   = 5
+        renormUp            = 6
+        renormUp_factUp     = 7
+    else:
+        raise Exception("Unknown weight type")
+    # Get the weights from the event
+    events['renormfactDown'] = scale_weights[:,renormDown_factDown]
+    events['renormDown']     = scale_weights[:,renormDown]
+    events['factDown']       = scale_weights[:,factDown]
+    events['factUp']         = scale_weights[:,factUp]
+    events['renormUp']       = scale_weights[:,renormUp]
+    events['renormfactUp']   = scale_weights[:,renormUp_factUp]
+
 def AttachPdfWeights(events):
     '''
         Return a list of PDF weights
@@ -697,7 +914,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
         return cleanedJets.JES_jes.up
     elif (syst_var == 'JESDown'):
         return cleanedJets.JES_jes.down
-    elif (syst_var == 'nominal'):
+    elif (syst_var == 'nominal' or syst_var.startswith('TES') or syst_var.startswith('FES')):
         return cleanedJets
     elif (syst_var in ['nominal','MuonESUp','MuonESDown']):
         return cleanedJets
