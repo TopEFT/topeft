@@ -305,7 +305,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # We only calculate these values if not isData
         # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
         # Note: Here we will to the weights object the SFs that do not depend on any of the forthcoming loops
-        weights_obj_base = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+        weights_obj_base = coffea.analysis_tools.Weights(None,storeIndividual=True)
         if not isData:
 
             # If this is no an eft sample, get the genWeight
