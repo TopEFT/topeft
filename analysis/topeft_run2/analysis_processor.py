@@ -52,6 +52,81 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
         ret_str = "_".join([ret_str,component])
     return ret_str
 
+def calculate_Mo1(reco_obj0, reco_obj1, met):                                                                                           
+    # Convert the reconstructed objects to massless PtEtaPhiMLorentzVector structure                                                    
+    reco_obj0_massless = ak.zip({                                                                                                       
+        "pt": reco_obj0.pt,                                                                                                             
+        "eta": reco_obj0.eta,                                                                                                           
+        "phi": reco_obj0.phi,                                                                                                           
+        "mass": ak.zeros_like(reco_obj0.pt),                                                                                            
+    }, with_name="PtEtaPhiMLorentzVector")                                                                                              
+                                                                                                                                        
+    reco_obj1_massless = ak.zip({                                                                                                       
+        "pt": reco_obj1.pt,                                                                                                             
+        "eta": reco_obj1.eta,                                                                                                           
+        "phi": reco_obj1.phi,                                                                                                           
+        "mass": ak.zeros_like(reco_obj1.pt),                                                                                            
+    }, with_name="PtEtaPhiMLorentzVector")                                                                                              
+                                                                                                                                        
+    # For massless objects, ET is simply pt                                                                                             
+    ET_reco_obj0 = reco_obj0_massless.pt                                                                                                
+    ET_reco_obj1 = reco_obj1_massless.pt                                                                                                
+                                                                                                                                        
+    # Compute the combined transverse momentum components for the visible objects                                                       
+    px_reco_obj0 = ET_reco_obj0 * np.cos(reco_obj0_massless.phi)                                                                        
+    py_reco_obj0 = ET_reco_obj0 * np.sin(reco_obj0_massless.phi)                                                                        
+                                                                                                                                        
+    px_reco_obj1 = ET_reco_obj1 * np.cos(reco_obj1_massless.phi)                                                                        
+    py_reco_obj1 = ET_reco_obj1 * np.sin(reco_obj1_massless.phi)                                                                        
+                                                                                                                                        
+    # Compute the Mo1 using the separated visible objects and MET                                                                       
+    Mo1_squared = (ET_reco_obj0 + ET_reco_obj1 + met.pt)**2 - (px_reco_obj0 + px_reco_obj1 + met.pt*np.cos(met.phi))**2 - (py_reco_obj0 + py_reco_obj1 + met.pt*np.sin(met.phi))**2                                                                         
+    Mo1 = np.sqrt(Mo1_squared)                                                                                                          
+    #Mo1 = Mo1_squared                                                                                                                  
+                                                                                                                                        
+    return Mo1
+
+def calculate_M1T(reco_obj0, reco_obj1, met):
+    # Convert the reconstructed objects to PtEtaPhiMLorentzVector structure                                                             
+    reco_obj0_vector = ak.zip({
+        "pt": reco_obj0.pt,
+        "eta": reco_obj0.eta,
+        "phi": reco_obj0.phi,
+        "mass": reco_obj0.mass if hasattr(reco_obj0, 'mass') else ak.zeros_like(reco_obj0.pt),
+    }, with_name="PtEtaPhiMLorentzVector")
+
+    reco_obj1_vector = ak.zip({
+        "pt": reco_obj1.pt,
+        "eta": reco_obj1.eta,
+        "phi": reco_obj1.phi,
+        "mass": reco_obj1.mass if hasattr(reco_obj1, 'mass') else ak.zeros_like(reco_obj1.pt),
+    }, with_name="PtEtaPhiMLorentzVector")
+
+    # Combine the two reconstructed objects into a single system                                                                        
+    visible_system = reco_obj0_vector + reco_obj1_vector
+
+    # Compute the transverse energy for each object                                                                                     
+    ET_reco_obj0 = np.sqrt(reco_obj0_vector.pt**2 + reco_obj0_vector.mass**2)
+    ET_reco_obj1 = np.sqrt(reco_obj1_vector.pt**2 + reco_obj1_vector.mass**2)
+
+    # Compute the combined transverse energy                                                                                            
+    #ET_visible_system = ET_reco_obj0 + ET_reco_obj1                                                                                    
+    ET_visible_system = np.sqrt(visible_system.pt**2 + visible_system.mass**2)
+
+    # Compute the combined transverse momentum components for the visible system                                                        
+    px_visible_system = visible_system.pt * np.cos(visible_system.phi)
+    py_visible_system = visible_system.pt * np.sin(visible_system.phi)
+
+    met_px = met.pt*np.cos(met.phi)
+    met_py = met.pt*np.sin(met.phi)
+
+    # Compute the M1T using the combined visible system and MET                                                                         
+    M1T_squared = (ET_visible_system + met.pt)**2 - (px_visible_system + met_px)**2 - (py_visible_system + met_py)**2
+    M1T = np.sqrt(M1T_squared)
+
+    return M1T
+
+
 
 class AnalysisProcessor(processor.ProcessorABC):
 
@@ -84,6 +159,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             #"bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 10, 0, 500)),
             "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
             "taupt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("taupt",   "Leading pt of tau (GeV)", 20, 0, 200)),
+            "Mo1_l0tau": HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Cat("appl", "AR/SR"), hist.Bin("Mo1_l0tau", "M_{o1} of tau-lepton0 pair (GeV)", 10, 0, 500)),
+            "Mo1_l1tau": HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Cat("appl", "AR/SR"), hist.Bin("Mo1_l1tau", "M_{o1} of tau-lepton1 pair (GeV)", 10, 0, 500)),
+            "M1T_l0tau": HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Cat("appl", "AR/SR"), hist.Bin("M1T_l0tau", "M_{o1} of tau-lepton0 pair (GeV)", 10, 0, 500)),
+            "M1T_l1tau": HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"), hist.Cat("appl", "AR/SR"), hist.Bin("M1T_l1tau", "M_{o1} of tau-lepton1 pair (GeV)", 10, 0, 500)),
             #"dR"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("dR",   "dR of tau and lep", 200, 0, 20)),
             #"genWeight": HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("genWeight",   "genWeight of event", 100, 0, 10000)),
             #"tauGen"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("tauGen",   "gen part flav of tau", 10, 0, 10)),
@@ -291,7 +370,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau = tau[tau.isGood]
         
         tau['DMflag'] = ((tau.decayMode==0) | (tau.decayMode==1) | (tau.decayMode==10) | (tau.decayMode==11))
-        tau["pt"], tau["mass"]      = ApplyTES(year, tau, isData)
         dis_tau = tau[~tau['DMflag']]
         dis_mask= (ak.num(dis_tau)>=1)
         #dis_events = events[dis_flag]
@@ -785,6 +863,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             counts = np.ones_like(events['event'])
 
             #near, dR = tau0.nearest(l0, return_metric=True)
+            mo1_l0tau = calculate_Mo1(tau0, l0, met)
+            m1T_l0tau = calculate_M1T(tau0, l0, met)
+            mo1_l1tau = calculate_Mo1(tau0, l1, met)
+            m1T_l1tau = calculate_M1T(tau0, l1, met)
 
             # Variables we will loop over when filling hists
             varnames = {}
@@ -809,6 +891,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
             varnames["taupt"]   = tau0.pt
+            varnames["Mo1_l0tau"]   = mo1_l0tau
+            varnames["M1T_l0tau"]   = m1T_l0tau
+            varnames["Mo1_l1tau"]   = mo1_l1tau
+            varnames["M1T_l1tau"]   = m1T_l1tau
             #varnames["tauJetBtag"] = tauJetBtag 
             #if not isData:
                 #varnames["tauGen"]    = tau0.genPartFlav
