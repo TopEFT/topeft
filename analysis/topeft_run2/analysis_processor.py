@@ -345,7 +345,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         for syst_var in syst_var_list:
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
-            weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
+            weights_obj_base_for_kinematic_syst = copy.copy(weights_obj_base)
 
             #################### Jets ####################
 
@@ -469,7 +469,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ"]:
 
                 # For both data and MC
-                weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
+                weights_dict[ch_name] = copy.copy(weights_obj_base_for_kinematic_syst)
                 #TODO Enable after fake rates are fixed
                 '''
                 if ch_name.startswith("2l"):
@@ -648,7 +648,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 ecut_mask = (ljptsum<self._ecut_threshold)
 
             # Counts
-            counts = np.ones_like(events['event'])
+            counts = ak.ones_like(events['event'])
 
             # Variables we will loop over when filling hists
             varnames = {}
