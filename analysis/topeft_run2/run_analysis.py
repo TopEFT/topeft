@@ -7,9 +7,17 @@ import cloudpickle
 import gzip
 import os
 import dask
+from distributed import Client
 
 from coffea import processor
-from coffea.nanoevents import NanoAODSchema
+from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+from coffea.dataset_tools import preprocess
+from coffea.dataset_tools import (
+    apply_to_fileset,
+    max_chunks,
+    preprocess,
+)
+#from coffea.dataset_tools import filter_files
 
 import topcoffea.modules.utils as utils
 import topcoffea.modules.remote_environment as remote_environment
@@ -317,11 +325,75 @@ if __name__ == '__main__':
             'print_stdout': False,
         }
 
+    # Get fileset
+    fileset = {}
+    for name, fpaths in flist.items():
+        fileset[name] = {}
+        fileset[name]["files"] = {}
+        for fpath in fpaths:
+            fileset[name]["files"][fpath] = {"object_path": "Events"}
+            fileset[name]["metadata"] = {"dataset": name}
+    print(f'{fileset=}')
+    print("Number of datasets:",len(fileset))
+
     # Run the processor and get the output
     tstart = time.time()
 
     if executor == "futures":
-        output = dask.compute(processor_instance)
+        '''
+        dataset_runnable, dataset_updated = preprocess(
+            fileset,
+            align_clusters=False,
+            #step_size=100_000,
+            files_per_batch=1,
+            skip_bad_files=True,
+            #save_form=False,
+        )
+        to_compute = apply_to_fileset(
+                        processor_instance,
+                        max_chunks(dataset_runnable, 300),
+                        #schemaclass=BaseSchema,
+                    )
+        (out,) = dask.compute(to_compute)
+        '''
+        with Client(n_workers=8, threads_per_worker=1) as client:
+
+            # Run preprocess
+            print("\nRunning preprocess...")
+            dataset_runnable, dataset_updated = preprocess(
+                fileset,
+                #step_size=50_000, # missing in current version?
+                align_clusters=False,
+                files_per_batch=1,
+                #save_form=True,
+            )
+            #dataset_runnable = filter_files(dataset_runnable)
+
+            t_beforeapplytofileset = time.time()
+            # Run apply_to_fileset
+            print("\nRunning apply_to_fileset...")
+            histos_to_compute, reports = apply_to_fileset(
+                processor_instance,
+                dataset_runnable,
+                uproot_options={"allow_read_errors_with_report": True},
+                #parallelize_with_dask=True,
+            )
+
+            print("DONE with apply to fileset")
+
+            # Check columns to be read
+            #print("\nRunning necessary_columns...")
+            #columns_read = dak.necessary_columns(histos_to_compute[list(histos_to_compute.keys())[0]])
+            #print(columns_read)
+
+            t_beforecompute = time.time()
+            # Compute
+            print("\nRunning compute...")
+            output_futures, report_futures = {}, {}
+            for key in histos_to_compute:
+                output_futures[key], report_futures[key] = client.compute((histos_to_compute[key], reports[key],))
+
+            coutputs, creports = client.gather((output_futures, report_futures,))
     elif executor ==  "work_queue":
         executor = processor.WorkQueueExecutor(**executor_args)
         runner = processor(executor, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=180)
