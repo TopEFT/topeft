@@ -262,10 +262,9 @@ def AttachPerLeptonFR(leps, flavor, year):
     elif year == "2017": flip_year_name = "UL17"
     elif year == "2018": flip_year_name = "UL18"
     else: raise Exception(f"Not a known year: {year}")
-    #TODO convert coffea.hist to hist in pkl file
-    #with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
-    #    flip_hist = pickle.load(fin)
-    #    flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
+    with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
+        flip_hist = pickle.load(fin)
+        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
 
     # Get the fliprate scaling factor for the given year
     chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
