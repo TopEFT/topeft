@@ -4,8 +4,10 @@ import copy
 import coffea
 import numpy as np
 import awkward as ak
+import dask_awkward as dak
 
 import hist
+import hist.dask as dah
 from topcoffea.modules.histEFT import HistEFT
 
 from coffea import processor
@@ -353,7 +355,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
             vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
             tmp = ak.local_index(jets.pt) == vetos_tocleanjets.jetIdx
-            cleanedJets = jets[~ak.any(tmp, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
+            #cleanedJets = jets[~ak.any(tmp, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
+            #TODO fix jet cleaning
+            cleanedJets = jets
 
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
@@ -434,12 +438,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
                 isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
+                bJetSF   = [GetBTagSF(goodJets, year, 'LOOSE'),GetBTagSF(goodJets, year, 'MEDIUM')]
                 #TODO fix SFs pkl
-                #bJetSF   = [GetBTagSF(goodJets, year, 'LOOSE'),GetBTagSF(goodJets, year, 'MEDIUM')]
-                bJetSF   = [ak.ones_like(goodJets.pt),ak.ones_like(goodJets.pt)]
-                #TODO fix SFs pkl
-                #bJetEff  = [GetBtagEff(goodJets, year, 'loose'),GetBtagEff(goodJets, year, 'medium')]
-                bJetEff   = [ak.ones_like(goodJets.pt),ak.ones_like(goodJets.pt)]
+                bJetEff  = [GetBtagEff(goodJets, year, 'loose'),GetBtagEff(goodJets, year, 'medium')]
                 bJetEff_data   = [bJetEff[0]*bJetSF[0],bJetEff[1]*bJetSF[1]]
                 pMC     = ak.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
                 pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
@@ -492,21 +493,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                 '''
 
                 # For MC only
-                #TODO Enable after lep SFs are fixed
-                '''
                 if not isData:
                     if ch_name.startswith("2l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.copy(events.sf_2l_hi_muon), copy.copy(events.sf_2l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.copy(events.sf_2l_hi_elec), copy.copy(events.sf_2l_lo_elec))
                     elif ch_name.startswith("3l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.copy(events.sf_3l_hi_muon), copy.copy(events.sf_3l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.copy(events.sf_3l_hi_elec), copy.copy(events.sf_3l_lo_elec))
                     elif ch_name.startswith("4l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.copy(events.sf_4l_hi_muon), copy.copy(events.sf_4l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.copy(events.sf_4l_hi_elec), copy.copy(events.sf_4l_lo_elec))
                     else:
                         raise Exception(f"Unknown channel name: {ch_name}")
-                '''
 
 
             ######### Masks we need for the selection ##########
@@ -917,10 +915,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Fill the histos
                                         axes_fill_info_dict = {
                                             dense_axis_name : dense_axis_vals[all_cuts_mask],
-                                            "channel"       : ch_name,
-                                            "appl"          : appl,
-                                            "process"       : histAxisName,
-                                            "systematic"    : wgt_fluct,
+                                            "channel"       : dak.from_awkward(ak.Array([ch_name]), npartitions=1),
+                                            "appl"          : dak.from_awkward(ak.Array([appl]), npartitions=1),
+                                            "process"       : dak.from_awkward(ak.Array([histAxisName]), npartitions=1),
+                                            "systematic"    : dak.from_awkward(ak.Array([wgt_fluct]), npartitions=1),
                                             "weight"        : weights_flat,
                                             "eft_coeff"     : eft_coeffs_cut,
                                         }
