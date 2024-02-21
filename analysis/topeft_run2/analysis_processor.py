@@ -7,7 +7,6 @@ import awkward as ak
 import dask_awkward as dak
 
 import hist
-import hist.dask as dah
 from topcoffea.modules.histEFT import HistEFT
 
 from coffea import processor
