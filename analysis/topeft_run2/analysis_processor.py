@@ -914,11 +914,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                         # Fill the histos
                                         axes_fill_info_dict = {
-                                            dense_axis_name : dak.from_awkward(dense_axis_vals[all_cuts_mask], npartitions=1),
-                                            "channel"       : dak.from_awkward(ak.Array([ch_name]), npartitions=1),
-                                            "appl"          : dak.from_awkward(ak.Array([appl]), npartitions=1),
-                                            "process"       : dak.from_awkward(ak.Array([histAxisName]), npartitions=1),
-                                            "systematic"    : dak.from_awkward(ak.Array([wgt_fluct]), npartitions=1),
+                                            dense_axis_name : dense_axis_vals[all_cuts_mask],
+                                            "channel"       : ch_name,
+                                            "appl"          : appl,
+                                            "process"       : histAxisName,
+                                            "systematic"    : wgt_fluct,
                                             "weight"        : weights_flat,
                                             "eft_coeff"     : eft_coeffs_cut,
                                         }
