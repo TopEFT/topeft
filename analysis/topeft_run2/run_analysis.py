@@ -6,15 +6,14 @@ import time
 import cloudpickle
 import gzip
 import os
-import dask
+import dask_awkward as dak
 from distributed import Client
 
 from coffea import processor
-from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-from coffea.dataset_tools import preprocess
+from coffea.nanoevents import NanoAODSchema
 from coffea.dataset_tools import (
     apply_to_fileset,
-    max_chunks,
+    #max_chunks,
     preprocess,
 )
 #from coffea.dataset_tools import filter_files
@@ -382,9 +381,9 @@ if __name__ == '__main__':
             print("DONE with apply to fileset")
 
             # Check columns to be read
-            #print("\nRunning necessary_columns...")
-            #columns_read = dak.necessary_columns(histos_to_compute[list(histos_to_compute.keys())[0]])
-            #print(columns_read)
+            print("\nRunning necessary_columns...")
+            columns_read = dak.necessary_columns(histos_to_compute[list(histos_to_compute.keys())[0]])
+            print(columns_read)
 
             t_beforecompute = time.time()
             # Compute
