@@ -914,7 +914,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                         # Fill the histos
                                         axes_fill_info_dict = {
-                                            dense_axis_name : dense_axis_vals[all_cuts_mask],
+                                            dense_axis_name : dak.from_awkward(dense_axis_vals[all_cuts_mask], npartitions=1),
                                             "channel"       : dak.from_awkward(ak.Array([ch_name]), npartitions=1),
                                             "appl"          : dak.from_awkward(ak.Array([appl]), npartitions=1),
                                             "process"       : dak.from_awkward(ak.Array([histAxisName]), npartitions=1),
