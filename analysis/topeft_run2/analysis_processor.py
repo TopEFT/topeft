@@ -4,6 +4,7 @@ import copy
 import coffea
 import numpy as np
 import awkward as ak
+import dask_awkward as dak
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
@@ -20,7 +21,8 @@ import topcoffea.modules.object_selection as tc_os
 
 from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
+from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
+#from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 
@@ -228,7 +230,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
-        eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
+        eft_coeffs = ak.flatten(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
         if eft_coeffs is not None:
             # Check to see if the ordering of WCs for this sample matches what want
             if self._samples[dataset]["WCnames"] != self._wc_names_lst:
@@ -246,7 +248,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Muon selection ####################
 
-        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
+        #TODO Enable when rnd(shape) is sorted out
+        #mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
         mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
         mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
@@ -305,12 +308,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         # We only calculate these values if not isData
         # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
         # Note: Here we will to the weights object the SFs that do not depend on any of the forthcoming loops
-        weights_obj_base = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+        weights_obj_base = coffea.analysis_tools.Weights(None,storeIndividual=True)
         if not isData:
 
             # If this is no an eft sample, get the genWeight
             if eft_coeffs is None: genw = events["genWeight"]
-            else: genw= np.ones_like(events["event"])
+            else: genw= ak.ones_like(events["event"])
 
             # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
@@ -344,15 +347,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         for syst_var in syst_var_list:
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
-            weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
+            weights_obj_base_for_kinematic_syst = copy.copy(weights_obj_base)
 
             #################### Jets ####################
 
             # Jet cleaning, before any jet selection
             #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
             vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
-            tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
-            cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
+            tmp = ak.local_index(jets.pt) == vetos_tocleanjets.jetIdx
+            #cleanedJets = jets[~ak.any(tmp, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
+            #TODO fix jet cleaning
+            cleanedJets = jets
 
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
@@ -363,11 +368,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                 cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
                 cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
                 cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
-                events_cache = events.caches[0]
-                cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
+                #TODO implement or remove
+                #events_cache = events.caches[0]
+                cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets)#, lazy_cache=events_cache)
                 # SYSTEMATICS
                 cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
-                met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
+                met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets)#, lazy_cache=events_cache)
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
 
@@ -433,6 +439,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
                 isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
                 bJetSF   = [GetBTagSF(goodJets, year, 'LOOSE'),GetBTagSF(goodJets, year, 'MEDIUM')]
+                #TODO fix SFs pkl
                 bJetEff  = [GetBtagEff(goodJets, year, 'loose'),GetBtagEff(goodJets, year, 'medium')]
                 bJetEff_data   = [bJetEff[0]*bJetSF[0],bJetEff[1]*bJetSF[1]]
                 pMC     = ak.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
@@ -452,7 +459,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # Trigger SFs
                 GetTriggerSF(year,events,l0,l1)
-                weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+                #TODO Enable after trigger SFs are fixed
+                #weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
 
 
             ######### Event weights that do depend on the lep cat ###########
@@ -462,7 +470,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ"]:
 
                 # For both data and MC
-                weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
+                weights_dict[ch_name] = copy.copy(weights_obj_base_for_kinematic_syst)
+                #TODO Enable after fake rates are fixed
+                '''
                 if ch_name.startswith("2l"):
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
                     weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
@@ -480,18 +490,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                 if isData:
                     if ch_name in ["2l","2l_4t","2l_CR","2l_CRflip"]:
                         weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
+                '''
 
                 # For MC only
                 if not isData:
                     if ch_name.startswith("2l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.copy(events.sf_2l_hi_muon), copy.copy(events.sf_2l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.copy(events.sf_2l_hi_elec), copy.copy(events.sf_2l_lo_elec))
                     elif ch_name.startswith("3l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.copy(events.sf_3l_hi_muon), copy.copy(events.sf_3l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.copy(events.sf_3l_hi_elec), copy.copy(events.sf_3l_lo_elec))
                     elif ch_name.startswith("4l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.copy(events.sf_4l_hi_muon), copy.copy(events.sf_4l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.copy(events.sf_4l_hi_elec), copy.copy(events.sf_4l_lo_elec))
                     else:
                         raise Exception(f"Unknown channel name: {ch_name}")
 
@@ -635,7 +646,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 ecut_mask = (ljptsum<self._ecut_threshold)
 
             # Counts
-            counts = np.ones_like(events['event'])
+            counts = ak.ones_like(events['event'])
 
             # Variables we will loop over when filling hists
             varnames = {}

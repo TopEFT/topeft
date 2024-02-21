@@ -211,7 +211,7 @@ def ApplyTES(events, Taus, isData):
     gen = Taus.genPartFlav
 
     whereFlag = ((pt>20) & (pt<205) & (gen==5))
-    tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
+    tes = ak.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
     return (Taus.pt*tes, Taus.mass*tes)
     #return(Taus.pt*tes)
 
@@ -230,23 +230,23 @@ def AttachTauSF(events, Taus, year):
     mass= padded_Taus.mass
 
     whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isLoose"]) & (~padded_Taus["isMedium"]))
-    real_sf_loose = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose'.format(year=year)](dm,pt), 1)
-    real_sf_loose_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose_up'.format(year=year)](dm,pt), 1)
-    real_sf_loose_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose_down'.format(year=year)](dm,pt), 1)
+    real_sf_loose = ak.where(whereFlag, SFevaluator['TauSF_{year}_Loose'.format(year=year)](dm,pt), 1)
+    real_sf_loose_up = ak.where(whereFlag, SFevaluator['TauSF_{year}_Loose_up'.format(year=year)](dm,pt), 1)
+    real_sf_loose_down = ak.where(whereFlag, SFevaluator['TauSF_{year}_Loose_down'.format(year=year)](dm,pt), 1)
     whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isMedium"]) & (~padded_Taus["isTight"]))
-    real_sf_medium = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium'.format(year=year)](dm,pt), 1)
-    real_sf_medium_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium_up'.format(year=year)](dm,pt), 1)
-    real_sf_medium_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium_down'.format(year=year)](dm,pt), 1)
+    real_sf_medium = ak.where(whereFlag, SFevaluator['TauSF_{year}_Medium'.format(year=year)](dm,pt), 1)
+    real_sf_medium_up = ak.where(whereFlag, SFevaluator['TauSF_{year}_Medium_up'.format(year=year)](dm,pt), 1)
+    real_sf_medium_down = ak.where(whereFlag, SFevaluator['TauSF_{year}_Medium_down'.format(year=year)](dm,pt), 1)
     whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isTight"]))
-    real_sf_tight = np.where(whereFlag, SFevaluator['TauSF_{year}_Tight'.format(year=year)](dm,pt), 1)
-    real_sf_tight_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Tight_up'.format(year=year)](dm,pt), 1)
-    real_sf_tight_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Tight_down'.format(year=year)](dm,pt), 1)
+    real_sf_tight = ak.where(whereFlag, SFevaluator['TauSF_{year}_Tight'.format(year=year)](dm,pt), 1)
+    real_sf_tight_up = ak.where(whereFlag, SFevaluator['TauSF_{year}_Tight_up'.format(year=year)](dm,pt), 1)
+    real_sf_tight_down = ak.where(whereFlag, SFevaluator['TauSF_{year}_Tight_down'.format(year=year)](dm,pt), 1)
     whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=0) & (gen!=6))
     if year == "2016APV":
         year = "2016"
-    fake_sf = np.where(whereFlag, SFevaluator['TauFake_{year}'.format(year=year)](np.abs(eta),gen), 1)
+    fake_sf = ak.where(whereFlag, SFevaluator['TauFake_{year}'.format(year=year)](np.abs(eta),gen), 1)
     whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (~padded_Taus["isLoose"]) & (padded_Taus["isVLoose"]))
-    faker_sf = np.where(whereFlag, SFevaluator['TauFakeSF_{year}'.format(year=year)](pt), 1)
+    faker_sf = ak.where(whereFlag, SFevaluator['TauFakeSF_{year}'.format(year=year)](pt), 1)
     padded_Taus["sf_tau"] = real_sf_loose*real_sf_medium*real_sf_tight*fake_sf*faker_sf
     padded_Taus["sf_tau_up"] = real_sf_loose_up*real_sf_medium_up*real_sf_tight_up
     padded_Taus["sf_tau_down"] = real_sf_loose_down*real_sf_medium_down*real_sf_tight_down
@@ -264,7 +264,7 @@ def AttachPerLeptonFR(leps, flavor, year):
     else: raise Exception(f"Not a known year: {year}")
     with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
         flip_hist = pickle.load(fin)
-        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
+        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
 
     # Get the fliprate scaling factor for the given year
     chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
@@ -293,9 +293,11 @@ def AttachPerLeptonFR(leps, flavor, year):
         leps['fakefactor_%sclosureup' % flav]   = leps['fakefactor'] * leps['fakefactor_%sclosurefactor' % flav]
 
     if flavor == "Elec":
-        leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
+        #TODO implement
+        #leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
+        leps['fliprate'] = (chargeflip_sf)*(ak.ones_like(leps.pt))
     else:
-        leps['fliprate'] = np.zeros_like(leps.pt)
+        leps['fliprate'] = ak.zeros_like(leps.pt)
 
 def fakeRateWeight1l(events, lep1):
     for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown']:
@@ -335,8 +337,8 @@ def AttachMuonSF(muons, year):
     eta = np.abs(muons.eta)
     pt = muons.pt
     if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
-    reco_sf  = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt),1) # sf=1 when pt>20 becuase there is no reco SF available
-    reco_err = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0) # sf error =0 when pt>20 becuase there is no reco SF available
+    reco_sf  = ak.where(pt < 20,SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt),1) # sf=1 when pt>20 becuase there is no reco SF available
+    reco_err = ak.where(pt < 20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0) # sf error =0 when pt>20 becuase there is no reco SF available
     loose_sf  = SFevaluator['MuonLooseSF_{year}'.format(year=year)](eta,pt)
     loose_err = np.sqrt(
         SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt) * SFevaluator['MuonLooseSF_{year}_stat'.format(year=year)](eta,pt) +
@@ -372,12 +374,12 @@ def AttachElectronSF(electrons, year):
     if year not in ['2016','2016APV','2017','2018']:
         raise Exception(f"Error: Unknown year \"{year}\".")
 
-    reco_sf  = np.where(
+    reco_sf  = ak.where(
         pt < 20,
         SFevaluator['ElecRecoSFBe_{year}'.format(year=year)](eta,pt),
         SFevaluator['ElecRecoSFAb_{year}'.format(year=year)](eta,pt)
     )
-    reco_err = np.where(
+    reco_err = ak.where(
         pt < 20,
         SFevaluator['ElecRecoSFBe_{year}_er'.format(year=year)](eta,pt),
         SFevaluator['ElecRecoSFAb_{year}_er'.format(year=year)](eta,pt)
@@ -425,23 +427,23 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
     hnum = h.integrate('WP', wp)
     hden = h.integrate('WP', 'all')
     getnum = lookup_tools.dense_lookup.dense_lookup(
-        hnum.values(overflow='over')[()],
+        hnum.values()[()],
         [
-            hnum.axis('pt').edges(),
-            hnum.axis('abseta').edges(),
-            hnum.axis('flav').edges()
+            hnum.axes['pt'].edges,
+            hnum.axes['abseta'].edges,
+            hnum.axes['flav'].edges
         ]
     )
     getden = lookup_tools.dense_lookup.dense_lookup(
-        hden.values(overflow='over')[()],
+        hden.values()[()],
         [
-            hden.axis('pt').edges(),
-            hnum.axis('abseta').edges(),
-            hden.axis('flav').edges()
+            hden.axes['pt'].edges,
+            hnum.axes['abseta'].edges,
+            hden.axes['flav'].edges
         ]
     )
-    values = hnum.values(overflow='over')[()]
-    edges = [hnum.axis('pt').edges(), hnum.axis('abseta').edges(), hnum.axis('flav').edges()]
+    values = hnum.values()[()]
+    edges = [hnum.axes['pt'].edges, hnum.axes['abseta'].edges, hnum.axes['flav'].edges]
     fun = lambda pt, abseta, flav: getnum(pt,abseta,flav)/getden(pt,abseta,flav)
     return fun
 
@@ -484,23 +486,23 @@ def GetBTagSF(jets, year, wp='MEDIUM', syst='central'):
                 # Workaround: For UL16, use the SFs from the UL16APV for light flavor jets
                 if (f == 0) and (year == "2016"):
                     if f"{year}" in syst:
-                        jets[f"btag_{syst}_up"] = np.where(
+                        jets[f"btag_{syst}_up"] = ak.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag_UL16APV.eval("up_uncorrelated",jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
                             jets[f"btag_{syst}_up"]
                         )
-                        jets[f"btag_{syst}_down"] = np.where(
+                        jets[f"btag_{syst}_down"] = ak.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag_UL16APV.eval("down_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
                             jets[f"btag_{syst}_down"]
                         )
                     else:
-                        jets[f"btag_{syst}_up"] = np.where(
+                        jets[f"btag_{syst}_up"] = ak.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag_UL16APV.eval("up_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
                             jets[f"btag_{syst}_up"]
                         )
-                        jets[f"btag_{syst}_down"] = np.where(
+                        jets[f"btag_{syst}_down"] = ak.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag_UL16APV.eval("down_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
                             jets[f"btag_{syst}_down"]
@@ -508,23 +510,23 @@ def GetBTagSF(jets, year, wp='MEDIUM', syst='central'):
                 # Otherwise, proceed as usual
                 else:
                     if f"{year}" in syst:
-                        jets[f"btag_{syst}_up"] = np.where(
+                        jets[f"btag_{syst}_up"] = ak.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag.eval("up_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
                             jets[f"btag_{syst}_up"]
                         )
-                        jets[f"btag_{syst}_down"] = np.where(
+                        jets[f"btag_{syst}_down"] = ak.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag.eval("down_uncorrelated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
                             jets[f"btag_{syst}_down"]
                         )
                     else:
-                        jets[f"btag_{syst}_up"] = np.where(
+                        jets[f"btag_{syst}_up"] = ak.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag.eval("up_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
                             jets[f"btag_{syst}_up"]
                         )
-                        jets[f"btag_{syst}_down"] = np.where(
+                        jets[f"btag_{syst}_down"] = ak.where(
                             abs(jets.hadronFlavour) == f,
                             SFevaluatorBtag.eval("down_correlated", jets.hadronFlavour,np.abs(jets.eta),pt,jets.btagDeepFlavB,True),
                             jets[f"btag_{syst}_down"]
@@ -783,7 +785,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
         qmask = np.array(ak.flatten(qmask))
         gmask = abs(cleanedJets.partonFlavour)==21
         gmask = np.array(ak.flatten(gmask))
-        corrections = np.array(np.zeros_like(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt)))
+        corrections = np.array(ak.zeros_like(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt)))
         if 'Up' in syst_var:
             corrections[bmask] = corrections[bmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt))[bmask]
             corrections[cmask] = corrections[cmask] + np.array(ak.flatten(cleanedJets.JES_FlavorQCD.up.pt))[cmask]
@@ -883,8 +885,8 @@ def clopper_pearson_interval(num, denom, coverage=_coverage1sd):
 
 def GetClopperPearsonInterval(hnum, hden):
     ''' Compute Clopper-Pearson interval from numerator and denominator histograms '''
-    num = list(hnum.values(overflow='all')[()])
-    den = list(hden.values(overflow='all')[()])
+    num = list(hnum.values()[()])
+    den = list(hden.values()[()])
     if isinstance(num, list) and isinstance(num[0], np.ndarray):
         for i in range(len(num)):
             num[i] = np.array(StackOverUnderflow(list(num[i])), dtype=float)
@@ -904,9 +906,9 @@ def GetClopperPearsonInterval(hnum, hden):
 def GetEff(num, den):
     ''' Compute efficiency values from numerator and denominator histograms '''
     ratio, down, up = GetClopperPearsonInterval(num, den)
-    axis = num.axes()[0].name
-    bins = num.axis(axis).edges()
-    x    = num.axis(axis).centers()
+    axis = num.axes[0].name
+    bins = num.axes[axis].edges
+    x    = num.axes[axis].centers
     xlo  = bins[:-1]
     xhi  = bins[1:]
     return [[x, xlo-x, xhi-x],[ratio, down-ratio, up-ratio]]
@@ -940,28 +942,28 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     ratio[np.isnan(ratio)] = 1.0
     do[np.isnan(do)] = 0.0
     up[np.isnan(up)] = 0.0
-    GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
-    GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
-    GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
+    GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
+    GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
+    GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
     return [GetTrig, GetTrigDo, GetTrigUp]
 
 def GetTriggerSF(year, events, lep0, lep1):
     ls = []
     for syst in [0,1]:
         #2l
-        SF_ee = np.where((events.is2l & events.is_ee), LoadTriggerSF(year,ch='2l',flav='ee')[syst](lep0.pt,lep1.pt), 1.0)
-        SF_em = np.where((events.is2l & events.is_em), LoadTriggerSF(year,ch='2l',flav='em')[syst](lep0.pt,lep1.pt), 1.0)
-        SF_mm = np.where((events.is2l & events.is_mm), LoadTriggerSF(year,ch='2l',flav='mm')[syst](lep0.pt,lep1.pt), 1.0)
+        SF_ee = ak.where((events.is2l & events.is_ee), LoadTriggerSF(year,ch='2l',flav='ee')[syst](lep0.pt,lep1.pt), 1.0)
+        SF_em = ak.where((events.is2l & events.is_em), LoadTriggerSF(year,ch='2l',flav='em')[syst](lep0.pt,lep1.pt), 1.0)
+        SF_mm = ak.where((events.is2l & events.is_mm), LoadTriggerSF(year,ch='2l',flav='mm')[syst](lep0.pt,lep1.pt), 1.0)
         #3l
         '''
-        SF_eee=np.where((events.is3l & events.is_eee),LoadTriggerSF(year,ch='3l',flav='eee')[syst](lep0.pt,lep0.eta),1.0)
-        SF_eem=np.where((events.is3l & events.is_eem),LoadTriggerSF(year,ch='3l',flav='eem')[syst](lep0.pt,lep0.eta),1.0)
-        SF_emm=np.where((events.is3l & events.is_emm),LoadTriggerSF(year,ch='3l',flav='emm')[syst](lep0.pt,lep0.eta),1.0)
-        SF_mmm=np.where((events.is3l & events.is_mmm),LoadTriggerSF(year,ch='3l',flav='mmm')[syst](lep0.pt,lep0.eta),1.0)
+        SF_eee=ak.where((events.is3l & events.is_eee),LoadTriggerSF(year,ch='3l',flav='eee')[syst](lep0.pt,lep0.eta),1.0)
+        SF_eem=ak.where((events.is3l & events.is_eem),LoadTriggerSF(year,ch='3l',flav='eem')[syst](lep0.pt,lep0.eta),1.0)
+        SF_emm=ak.where((events.is3l & events.is_emm),LoadTriggerSF(year,ch='3l',flav='emm')[syst](lep0.pt,lep0.eta),1.0)
+        SF_mmm=ak.where((events.is3l & events.is_mmm),LoadTriggerSF(year,ch='3l',flav='mmm')[syst](lep0.pt,lep0.eta),1.0)
         ls.append(SF_ee*SF_em*SF_mm*SF_eee*SF_eem*SF_emm*SF_mmm)
         '''
         ls.append(SF_ee * SF_em * SF_mm)
-    ls[1] = np.where(ls[1] == 1.0, 0.0, ls[1]) # stat unc. down
+    ls[1] = ak.where(ls[1] == 1.0, 0.0, ls[1]) # stat unc. down
     events['trigger_sf'] = ls[0] # nominal
     events['trigger_sfDown'] = ls[0] - np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
     events['trigger_sfUp'] = ls[0] + np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
