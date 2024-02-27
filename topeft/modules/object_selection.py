@@ -138,19 +138,62 @@ def tightSelElec(clean_and_FO_selection_TTH, mvaTTHUL):
 def tightSelMuon(clean_and_FO_selection_TTH, mediumId, mvaTTHUL):
     return (clean_and_FO_selection_TTH) & (mediumId>0) & (mvaTTHUL > get_tc_param("mva_TTH_m_cut"))
 
-def photonpTetaMask(pt,eta):
-    pt_mask = pt > 20
-    eta_mask = abs(eta) < 1.44
-    #print(*pt_mask)
-    #print(*eta_mask)
-    #print(*(pt_mask & eta_mask))
-    pt_eta_mask = (pt_mask & eta_mask)
-    #pt_eta_mask = ak.fill_none(ak.pad_none((pt_mask & eta_mask),1),False)
-    #print(*pt_eta_mask)
+def pt_eta_cut_genMatched_objects(gen_matched_object,pt_threshold,eta_threshold):
+    pt_mask = gen_matched_object.pt > pt_threshold
+    eta_mask = abs(gen_matched_object.eta) < eta_threshold
+    pt_eta_mask = ak.fill_none(ak.pad_none((pt_mask & eta_mask),1),False)
+
     return pt_eta_mask
 
-def tightSelPhoton(photonId):
-    return (photonId >= (1<<get_te_param("photonId")))
+def object_sel_photon(ph_collection, pt_threshold, eta_threshold):
+    pt_mask = ph_collection.pt > pt_threshold
+    eta_mask = abs(ph_collection.eta) < eta_threshold
+    pt_eta_mask = ak.fill_none(ak.pad_none((pt_mask & eta_mask), 1), False)
+
+    return pt_eta_mask
+
+def pt_eta_cut_genMatched_photons(pt,eta):
+    pt_mask = pt > 20
+    eta_mask = abs(eta) < 1.44
+    pt_eta_mask = (pt_mask & eta_mask)
+    return pt_eta_mask
+
+def mediumPhoton(ph):
+    return (ph.cutBased >= 2)
+
+def mediumEle(ele):
+    return (ele.isMedium)
+
+def mediumMu(mu):
+    return (mu.mediumId)
+
+def selectPhoton(photons):
+    photon_pt_eta = (photons.pt > 20) & (abs(photons.eta)<1.44)
+    #Let's relax two components from medium cutBasedID -- 1. charged isolation and 2. sigmaetaeta
+    #split out the ID requirement using the vid (versioned ID) bitmap
+    #"(x & 3) >= 2" makes sure each component passes medium threshold
+    photon_MinPtCut = (photons.vidNestedWPBitmap >> 0 & 3) >= 2
+    photon_PhoSCEtaMultiRangeCut = (photons.vidNestedWPBitmap >> 2 & 3) >= 2
+    photon_PhoSingleTowerHadOverEmCut = (photons.vidNestedWPBitmap >> 4 & 3) >= 2
+    photon_sieie = (photons.vidNestedWPBitmap >> 6 & 3) >= 2
+    photon_ChIsoCut = (photons.vidNestedWPBitmap >> 8 & 3) >= 2
+    photon_NeuIsoCut = (photons.vidNestedWPBitmap >> 10 & 3) >= 2
+    photon_PhoIsoCut = (photons.vidNestedWPBitmap >> 12 & 3) >= 2
+
+    # photons passing all ID requirements, without the charged hadron isolation cut applied
+    photonID_relaxed = (
+        photon_MinPtCut
+        & photon_PhoSCEtaMultiRangeCut
+        & photon_PhoSingleTowerHadOverEmCut
+        & (photons.sieie < 0.010)
+        & (photons.pfRelIso03_chg < 1.141)
+        & photon_NeuIsoCut
+        & photon_PhoIsoCut
+    )
+
+    mediumPhotons_relaxed = photons[photon_pt_eta & photonID_relaxed]
+
+    return mediumPhotons_relaxed
 
 def isClean(obj_A, obj_B, drmin=0.4):
     objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)

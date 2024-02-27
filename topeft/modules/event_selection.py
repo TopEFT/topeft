@@ -209,7 +209,8 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
     padded_FOs = ak.pad_none(FOs,2)
-
+    l0 = padded_FOs[:,0]
+    l1 = padded_FOs[:,1]
     # Filters and cleanups
     filter_flags = events.Flag
     filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & (((year == "2016")|(year == "2016APV")) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
@@ -221,6 +222,10 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
 
     #Zll mask (for photon work)
     Zll_mask = abs( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 15             #this mask rejects any event with abs(m(ll) - m (Z)) < 15 GeV. Used for photon studies for 2los_sf cat
+
+    #Zllgamma mask (for photon work)
+    mediumcleanphotons_padded = ak.pad_none(events.photon,1) 
+    Zllgamma_mask = abs( (l0 + l1 + mediumcleanphotons_padded[:,0]).mass -91.2) > 15
 
     # IDs
     eleID1 = (abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0) & (padded_FOs[:,0].tightCharge>=2))
@@ -241,9 +246,12 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
         lep1_charge       = ((padded_FOs[:,0].gen_pdgId*padded_FOs[:,0].pdgId) > 0)
         lep2_charge       = ((padded_FOs[:,1].gen_pdgId*padded_FOs[:,1].pdgId) > 0)
         lep1_match_conv   = (padded_FOs[:,0].genPartFlav==22)
+        #print(f"lep1_match_conv: {lep1_match_conv}")
         lep2_match_conv   = (padded_FOs[:,1].genPartFlav==22)
+        #print(f"lep2_match_conv: {lep2_match_conv}")
         prompt_mask = ( lep1_match_prompt & lep2_match_prompt & lep1_charge & lep2_charge )
         conv_mask   = ( lep1_match_conv | lep2_match_conv )
+        #print(f"conv_mask: {conv_mask}")
         if sampleType == 'prompt':
             mask = (mask & prompt_mask)
         elif sampleType =='conversions':
@@ -255,10 +263,10 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
             raise Exception(f"Error: Unknown sampleType {sampleType}.")
 
     mask_nozeeveto = mask
-    #mask_Zllveto = mask & ( Zll_veto )
     mask = mask & (  Zee_veto )
     events['is2l'] = ak.fill_none(mask,False)
-    events['mask_Zll'] = ak.fill_none(Zll_mask,False)      #used for photon work for 2los_sf
+    events['mask_Zll'] = ak.fill_none(Zll_mask,False)      #used for photon work for 2los_sf category
+    events['mask_Zllgamma'] = ak.fill_none(Zllgamma_mask, False) #used for photon work for 2los_sf category
     events['is2l_nozeeveto'] = ak.fill_none(mask_nozeeveto,False)
 
     # SFs
@@ -437,42 +445,14 @@ def addLepCatMasks(events):
     events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
 
 def addPhotCatMasks(events):
-    photon_num = ak.num(events.photon) == 1  #require exactly 1 photon
-    photon_pT = events.photon.pt > 20   #require photon pT be > 20 GeV
-    photon_eta = abs(events.photon.eta) < 1.44  #eta mask of 1.44
-    # if we want to remove one component of the cut-based ID we can
-    # split out the ID requirement using the vid (versioned ID) bitmap
-    # this is enabling Iso to be inverted for control regions
-    photonID = 1<<1 # we require a medium cutBased photon. 
-    photon_MinPtCut = (events.photon.vidNestedWPBitmap >> 0 & 3) >= photonID
-    photon_PhoSCEtaMultiRangeCut = (events.photon.vidNestedWPBitmap >> 2 & 3) >= photonID
-    photon_PhoSingleTowerHadOverEmCut = (events.photon.vidNestedWPBitmap >> 4 & 3) >= photonID
-    photon_PhoFull5x5SigmaIEtaIEtaCut = (events.photon.vidNestedWPBitmap >> 6 & 3) >= photonID
-    photon_ChIsoCut = (events.photon.vidNestedWPBitmap >> 8 & 3) >= photonID
-    photon_NeuIsoCut = (events.photon.vidNestedWPBitmap >> 10 & 3) >= photonID
-    photon_PhoIsoCut = (events.photon.vidNestedWPBitmap >> 12 & 3) >= photonID
-    # Relax sigma_nn and charged had iso to remove non-prompt overlap
-    photonID_relaxed = (
-        photon_MinPtCut
-        & photon_PhoSCEtaMultiRangeCut
-        & photon_PhoSingleTowerHadOverEmCut
-        & (events.photon.sieie > 0.012) # Relaxed sigma_nn
-        & (events.photon.pfRelIso03_chg > 1.141) & (events.photon.pfRelIso03_chg < 15) # Relaxed charge had iso
-        & photon_NeuIsoCut
-        & photon_PhoIsoCut
-    )
-    is_ph_mask = (photon_num & photon_pT & photon_eta)
-    is_ph_mask = ak.fill_none(ak.pad_none(is_ph_mask,1),False)
-    events['is_ph'] = ak.all(is_ph_mask, axis=1)
-    is_ph_mask = (photon_pT & photon_eta & photonID_relaxed)
-    is_ph_mask = ak.fill_none(ak.pad_none(is_ph_mask,1),False)
-    events['is_ph_relaxed'] = ak.any(is_ph_mask, axis=1)
+    photon_num_mask = ak.num(events.photon) == 1  #require exactly 1 photon
+    events['is_ph'] = photon_num_mask
 
 def addZllGammaMask(events):                    #this mask is relevant for 2los_sf category in ttgamma analysis. needs abs(m(llgamma) - m(Z)) > 15 GeV
     FOs = events.l_fo_conept_sorted
     padded_FOs = ak.pad_none(FOs,2)
-    tight_photons = ak.pad_none(events.photon,1)
-    Zllgamma_mask = abs( (padded_FOs[:,0]+padded_FOs[:,1]+tight_photons[:,0]).mass -91.2) > 15 #for tight_photons, note that we will require only 1 photon in the event later 
+    mediumcleanphotons = ak.pad_none(events.photon,1)  #We require exactly 1 photon in the event
+    Zllgamma_mask = abs( (padded_FOs[:,0]+padded_FOs[:,1]+mediumcleanphotons[:,0]).mass -91.2) > 15  
     events['mask_Zllgamma'] = ak.fill_none(Zllgamma_mask,False)
 
 def GenPhotonSelection(events):
@@ -483,10 +463,6 @@ def GenPhotonSelection(events):
     genPhoton_pT_eta_mask = (genPhoton_pT_mask & genPhoton_eta_mask)
     genPhoton_pT_eta_mask = ak.fill_none(ak.pad_none(genPhoton_pT_eta_mask,1),False)
     events['genPhoton_pT_eta_mask'] = genPhoton_pT_eta_mask
-
-def photonNumMask(events):
-    exactly_one_photon = ak.num(events.photon) == 1
-    events['photon_num_mask'] = exactly_one_photon
 
 #def addTightPhotonMask(events):
 #    tight_photon = ak.fill_none(ak.any(events.Photon.cutBased == 2, axis=1), False)           #tight photon mask
