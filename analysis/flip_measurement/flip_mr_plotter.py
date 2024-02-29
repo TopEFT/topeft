@@ -7,7 +7,6 @@ import copy
 import matplotlib.pyplot as plt
 import cloudpickle
 import gzip
-import hist
 
 from topeft.modules.yield_tools import YieldTools
 import topcoffea.modules.utils as utils

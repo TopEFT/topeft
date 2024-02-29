@@ -61,7 +61,7 @@ def comp_datacard_dict(wc1, wc2, s1, s2, s1_n, s2_n):
     systs2 = collect(s2_n, wc2, s2)
     bad = 0
     missing = 0
-    total = np.sum([len(x) for x in s1]) 
+    total = np.sum([len(x) for x in s1])
     for syst, terms in systs1.items():
         if syst not in systs2:
             print(f'{syst} not found in file2!')
@@ -78,7 +78,7 @@ def comp_datacard_dict(wc1, wc2, s1, s2, s1_n, s2_n):
                 print(f'{syst} {term} not found in file2!')
                 missing += 1
                 continue
-            if term not in systs2[syst]: 
+            if term not in systs2[syst]:
                 if s1_val != systs2[syst][tmp]:
                     print(f'{syst} {term} {s1_val} does not match {systs2[syst][term]}!')
                     bad += 1

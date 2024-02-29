@@ -96,22 +96,22 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Initialize objects
         met  = events.MET
-        e    = events.Electron
+        ele  = events.Electron
         mu   = events.Muon
         jets = events.Jet
 
-        e["idEmu"] = ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
-        e["conept"] = coneptElec(e.pt, e.mvaTTHUL, e.jetRelIso)
-        mu["conept"] = coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
-        e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
+        ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
+        ele["conept"] = te_os.coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
+        mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
+        ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
 
         if not isData:
-            e["gen_pdgId"] = e.matched_gen.pdgId
+            ele["gen_pdgId"] = ele.matched_gen.pdgId
             mu["gen_pdgId"] = mu.matched_gen.pdgId
-            e["gen_parent_pdgId"] = e.matched_gen.distinctParent.pdgId
+            ele["gen_parent_pdgId"] = ele.matched_gen.distinctParent.pdgId
             mu["gen_parent_pdgId"] = mu.matched_gen.distinctParent.pdgId
-            e["gen_gparent_pdgId"] = e.matched_gen.distinctParent.distinctParent.pdgId
+            ele["gen_gparent_pdgId"] = ele.matched_gen.distinctParent.distinctParent.pdgId
             mu["gen_gparent_pdgId"] = mu.matched_gen.distinctParent.distinctParent.pdgId
 
         # Get the lumi mask for data
@@ -129,10 +129,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Object selection ####################
 
         # Electron selection
-        e["isPres"] = te_os.isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
-        e["isLooseE"] = te_os.isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
-        e["isFO"] = te_os.isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
-        e["isTightLep"] = te_os.tightSelElec(e.isFO, e.mvaTTHUL)
+        ele["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
+        ele["isLooseE"] = te_os.isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
+        ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTHUL, ele.jetRelIso, ele.mvaFall17V2noIso_WP90, year)
+        ele["isTightLep"] = te_os.tightSelElec(ele.isFO, ele.mvaTTHUL)
         # Muon selection
         mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
@@ -140,7 +140,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu["isTightLep"] = te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
         # Build loose collections
         m_loose = mu[mu.isPres & mu.isLooseM]
-        e_loose = e[e.isPres & e.isLooseE]
+        e_loose = ele[ele.isPres & ele.isLooseE]
         l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
 
         # Compute pair invariant masses, for all flavors all signes
@@ -149,7 +149,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
-        e_fo = e[e.isPres & e.isLooseE & e.isFO]
+        e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
 
         # Attach the lepton SFs to the electron and muons collections (the event selection expect these to be present)
         AttachElectronSF(e_fo,year=year)
