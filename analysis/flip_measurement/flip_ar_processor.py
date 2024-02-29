@@ -18,6 +18,7 @@ import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 
 from topcoffea.modules.get_param_from_jsons import GetParam
+get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 
 # Check if the values in an array are within a given range
@@ -193,8 +194,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### Weights ###########
 
+        # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
+        # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
+        lumi = 1000.0*get_tc_param(f"lumi_{year}")
         weights_object = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
-        if not isData: weights_object.add("norm",(xsec/sow)*events["genWeight"])
+        if not isData: weights_object.add("norm",(xsec/sow)*events["genWeight"]*lumi)
         else: weights_object.add("norm",np.ones_like(events["event"]))
 
         # Apply the flip rate to OS as a cross check
