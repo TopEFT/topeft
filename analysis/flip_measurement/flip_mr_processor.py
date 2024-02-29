@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 import numpy as np
 import awkward as ak
-from coffea import hist, processor
+import hist
+from coffea import processor
 
-import topcoffea.modules.objects as obj
+import topeft.modules.object_selection as te_os
 
 class AnalysisProcessor(processor.ProcessorABC):
 
@@ -13,15 +14,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._dtype = dtype
 
         # Create the histograms
-        self._accumulator = processor.dict_accumulator({
+        self._accumulator = {
             "ptabseta" : hist.Hist(
-                "Counts",
-                hist.Cat("sample", "sample"),
-                hist.Cat("flipstatus", "flipstatus"),
-                hist.Bin("pt", "pt", [0, 30.0, 45.0, 60.0, 100.0, 200.0]),
-                hist.Bin("abseta", "abseta", [0, 0.4, 0.8, 1.1, 1.4, 1.6, 1.9, 2.2, 2.5]),
+                hist.axis.StrCategory([], name="process", label="process", growth=True),
+                hist.axis.StrCategory([], name="flipstatus", label="flipstatus", growth=True),
+                hist.axis.Variable([0, 30.0, 45.0, 60.0, 100.0, 200.0], name="pt", label="pt"),
+                hist.axis.Variable([0, 0.4, 0.8, 1.1, 1.4, 1.6, 1.9, 2.2, 2.5], name="abseta", label="abseta"),
             ),
-        })
+        }
 
     @property
     def accumulator(self):
@@ -44,20 +44,20 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Object selection ####################
 
-        e = events.Electron
+        ele = events.Electron
 
-        e["gen_pdgId"] = e.matched_gen.pdgId
+        ele["gen_pdgId"] = ele.matched_gen.pdgId
 
-        e["idEmu"]         = obj.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
-        e["conept"]        = obj.coneptElec(e.pt, e.mvaTTHUL, e.jetRelIso)
-        e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
+        ele["idEmu"]         = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
+        ele["conept"]        = te_os.coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
+        ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
 
-        e["isPres"]     = obj.isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
-        e["isLooseE"]   = obj.isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
-        e["isFO"]       = obj.isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
-        e["isTightLep"] = obj.tightSelElec(e.isFO, e.mvaTTHUL)
+        ele["isPres"]     = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
+        ele["isLooseE"]   = te_os.isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
+        ele["isFO"]       = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTHUL, ele.jetRelIso, ele.mvaFall17V2noIso_WP90, year)
+        ele["isTightLep"] = te_os.tightSelElec(ele.isFO, ele.mvaTTHUL)
 
-        e_tight = e[e.isPres & e.isLooseE & e.isFO & e.isTightLep]
+        e_tight = ele[ele.isPres & ele.isLooseE & ele.isFO & ele.isTightLep]
 
         # Apply tight charge requirement (this happens in the event selection, so we want to apply it here to be consistent)
         e_tight = e_tight[e_tight.tightCharge>=2]
@@ -79,7 +79,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ########## Fill the histograms ##########
 
-        hout = self.accumulator.identity()
+        hout = self.accumulator
 
         # Loop over flip and noflip, and fill the histo
         flipstatus_mask_dict = { "truthFlip" : truthFlip_mask, "truthNoFlip" : truthNoFlip_mask }
@@ -91,7 +91,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "pt"         : dense_objs_flat.pt,
                 "abseta"     : abs(dense_objs_flat.eta),
                 "flipstatus" : flipstatus_mask_name,
-                "sample"     : histAxisName,
+                "process"     : histAxisName,
             }
 
             hout["ptabseta"].fill(**axes_fill_info_dict)

@@ -3,14 +3,21 @@ import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import hist, processor
+import hist
+from coffea import processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
-from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
-from topcoffea.modules.selection import *
+import topcoffea.modules.object_selection as tc_os
 from topcoffea.modules.paths import topcoffea_path
+
+from topeft.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
+from topeft.modules.paths import topeft_path
+import topeft.modules.event_selection as te_es
+import topeft.modules.object_selection as te_os
+
+from topcoffea.modules.get_param_from_jsons import GetParam
+get_te_param = GetParam(topeft_path("params/params.json"))
 
 # Check if the values in an array are within a given range
 def in_range_mask(in_var,lo_lim=None,hi_lim=None):
@@ -43,14 +50,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._dtype = dtype
 
         # Create the histograms
-        self._accumulator = processor.dict_accumulator({
-            "invmass" : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 100, 50, 150)),
-            "njets"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("njets", "njets", 8, 0, 8)),
-            "l0pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l0pt", "l0pt", 20, 0, 200)),
-            "l0eta"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l0eta", "l0eta", 20, -2.5, 2.5)),
-            "l1pt"    : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l1pt", "l1pt", 20, 0, 200)),
-            "l1eta"   : hist.Hist("Events", hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Bin("l1eta", "l1eta", 20, -2.5, 2.5)),
-        })
+        self._accumulator = {
+            "invmass" : hist.Hist("Events", hist.axis.StrCategory("process", "process"), hist.axis.StrCatategory("channel", "channel"), hist.axis.Regular(name="invmass", label="$m_{\ell\ell}$ (GeV) ", bins=100, start=50,   end=150)),
+            "njets"   : hist.Hist("Events", hist.axis.StrCategory("process", "process"), hist.axis.StrCatategory("channel", "channel"), hist.axis.Regular(name="njets",   label="njets",                 bins=8,   start=0,    end=8)),
+            "l0pt"    : hist.Hist("Events", hist.axis.StrCategory("process", "process"), hist.axis.StrCatategory("channel", "channel"), hist.axis.Regular(name="l0pt",    label="l0pt",                  bins=20,  start=0,    end=200)),
+            "l0eta"   : hist.Hist("Events", hist.axis.StrCategory("process", "process"), hist.axis.StrCatategory("channel", "channel"), hist.axis.Regular(name="l0eta",   label="l0eta",                 bins=20,  start=-2.5, end=2.5)),
+            "l1pt"    : hist.Hist("Events", hist.axis.StrCategory("process", "process"), hist.axis.StrCatategory("channel", "channel"), hist.axis.Regular(name="l1pt",    label="l1pt",                  bins=20,  start=0,    end=200)),
+            "l1eta"   : hist.Hist("Events", hist.axis.StrCategory("process", "process"), hist.axis.StrCatategory("channel", "channel"), hist.axis.Regular(name="l1eta",   label="l1eta",                 bins=20,  start=-2.5, end=2.5)),
+        }
 
     @property
     def accumulator(self):
@@ -122,15 +129,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Object selection ####################
 
         # Electron selection
-        e["isPres"] = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
-        e["isLooseE"] = isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
-        e["isFO"] = isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
-        e["isTightLep"] = tightSelElec(e.isFO, e.mvaTTHUL)
+        e["isPres"] = te_os.isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
+        e["isLooseE"] = te_os.isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
+        e["isFO"] = te_os.isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
+        e["isTightLep"] = te_os.tightSelElec(e.isFO, e.mvaTTHUL)
         # Muon selection
-        mu["isPres"] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-        mu["isLooseM"] = isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
-        mu["isFO"] = isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
-        mu["isTightLep"]= tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
+        mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
+        mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
+        mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
+        mu["isTightLep"] = te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
         # Build loose collections
         m_loose = mu[mu.isPres & mu.isLooseM]
         e_loose = e[e.isPres & e.isLooseE]
@@ -171,7 +178,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
         # Selecting jets and cleaning them
-        cleanedJets["isGood"] = isTightJet(getattr(cleanedJets, "pt"), cleanedJets.eta, cleanedJets.jetId, jetPtCut=30.) # temporary at 25 for synch, TODO: Do we want 30 or 25?
+        cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, "pt"), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
         goodJets = cleanedJets[cleanedJets.isGood]
         njets = ak.num(goodJets)
 
@@ -179,8 +186,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         #################### Event selection ####################
 
         # The event selection
-        add2lMaskAndSFs(events, year, isData, sampleType)
-        addLepCatMasks(events)
+        te_es.add2lMaskAndSFs(events, year, isData, sampleType)
+        te_es.addLepCatMasks(events)
 
 
         ######### Weights ###########
@@ -282,7 +289,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 axes_fill_info_dict = {
                     dense_axis_name  : dense_axis_vals[cuts_mask],
                     "channel"        : chan_name,
-                    "sample"         : histAxisName,
+                    "process"         : histAxisName,
                     "weight"         : weights_object.weight()[cuts_mask],
                 }
 

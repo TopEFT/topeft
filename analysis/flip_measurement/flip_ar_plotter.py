@@ -74,7 +74,7 @@ def print_summed_hist_vals(in_hist,ret="ssz",quiet=False):
 def make_plot():
 
     hin_dict = yt.get_hist_from_pkl(args.filepath)
-    sample_names_lst = yt.get_cat_lables(hin_dict,"sample")
+    sample_names_lst = yt.get_cat_lables(hin_dict,"process")
     chan_names_lst = yt.get_cat_lables(hin_dict,"channel")
 
     print("Samples:",sample_names_lst)
@@ -93,7 +93,7 @@ def make_plot():
 
             # Integrate and make plot (overlay the categories)
             savename = "_".join([sample_name,histo_name])
-            histo = histo.integrate("sample",sample_name)
+            histo = histo.integrate("process",sample_name)
             h_up = copy.deepcopy(histo)
             h_do = copy.deepcopy(histo)
             h_up.scale(1.3)
