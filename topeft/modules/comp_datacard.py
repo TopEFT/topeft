@@ -42,6 +42,7 @@ Look at a pair of datacard contents from strip
 
 def comp_datacard_dict(wc1, wc2, s1, s2, s1_n, s2_n):
     names = list(set([str(w) for w in wc1] + [str(w) for w in wc2]))
+
     def collect(s_n, wcs, sys):
         systs = {}
         for iline,line in enumerate(list(zip(wcs.keys(), s)) for s in sys):
@@ -57,6 +58,7 @@ def comp_datacard_dict(wc1, wc2, s1, s2, s1_n, s2_n):
                 else:
                     systs[sname] = {term: syst}
         return systs
+
     systs1 = collect(s1_n, wc1, s1)
     systs2 = collect(s2_n, wc2, s2)
     bad = 0
