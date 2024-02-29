@@ -212,11 +212,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######### Store boolean masks with PackedSelection ##########
 
         # Get mask for events that have two sf os leps close to z peak
-        sfosz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="os")
-        sfssz_2l_mask = get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="ss")
+        sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="os")
+        sfssz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="ss")
 
         # Pass trigger mask
-        pass_trg = trgPassNoOverlap(events,isData,dataset,str(year))
+        pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year))
 
         # Charge masks
         charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
