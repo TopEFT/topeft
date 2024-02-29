@@ -10,6 +10,7 @@ from coffea.lumi_tools import LumiMask
 
 import topcoffea.modules.object_selection as tc_os
 from topcoffea.modules.paths import topcoffea_path
+import topcoffea.modules.event_selection as tc_es
 
 from topeft.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
 from topeft.modules.paths import topeft_path
@@ -51,12 +52,12 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         self._accumulator = {
-            "invmass" : hist.Hist("Events", hist.axis.StrCategory("process", "process"), hist.axis.StrCatategory("channel", "channel"), hist.axis.Regular(name="invmass", label="$m_{\ell\ell}$ (GeV) ", bins=100, start=50,   end=150)),
-            "njets"   : hist.Hist("Events", hist.axis.StrCategory("process", "process"), hist.axis.StrCatategory("channel", "channel"), hist.axis.Regular(name="njets",   label="njets",                 bins=8,   start=0,    end=8)),
-            "l0pt"    : hist.Hist("Events", hist.axis.StrCategory("process", "process"), hist.axis.StrCatategory("channel", "channel"), hist.axis.Regular(name="l0pt",    label="l0pt",                  bins=20,  start=0,    end=200)),
-            "l0eta"   : hist.Hist("Events", hist.axis.StrCategory("process", "process"), hist.axis.StrCatategory("channel", "channel"), hist.axis.Regular(name="l0eta",   label="l0eta",                 bins=20,  start=-2.5, end=2.5)),
-            "l1pt"    : hist.Hist("Events", hist.axis.StrCategory("process", "process"), hist.axis.StrCatategory("channel", "channel"), hist.axis.Regular(name="l1pt",    label="l1pt",                  bins=20,  start=0,    end=200)),
-            "l1eta"   : hist.Hist("Events", hist.axis.StrCategory("process", "process"), hist.axis.StrCatategory("channel", "channel"), hist.axis.Regular(name="l1eta",   label="l1eta",                 bins=20,  start=-2.5, end=2.5)),
+            "invmass" : hist.Hist(hist.axis.StrCategory([], name="process", label="process", growth=True), hist.axis.StrCategory([], name="channel", label="channel", growth=True), hist.axis.Regular(name="invmass", label="$m_{\ell\ell}$ (GeV) ", bins=100, start=50,   stop=150)),
+            "njets"   : hist.Hist(hist.axis.StrCategory([], name="process", label="process", growth=True), hist.axis.StrCategory([], name="channel", label="channel", growth=True), hist.axis.Regular(name="njets",   label="njets",                 bins=8,   start=0,    stop=8)),
+            "l0pt"    : hist.Hist(hist.axis.StrCategory([], name="process", label="process", growth=True), hist.axis.StrCategory([], name="channel", label="channel", growth=True), hist.axis.Regular(name="l0pt",    label="l0pt",                  bins=20,  start=0,    stop=200)),
+            "l0eta"   : hist.Hist(hist.axis.StrCategory([], name="process", label="process", growth=True), hist.axis.StrCategory([], name="channel", label="channel", growth=True), hist.axis.Regular(name="l0eta",   label="l0eta",                 bins=20,  start=-2.5, stop=2.5)),
+            "l1pt"    : hist.Hist(hist.axis.StrCategory([], name="process", label="process", growth=True), hist.axis.StrCategory([], name="channel", label="channel", growth=True), hist.axis.Regular(name="l1pt",    label="l1pt",                  bins=20,  start=0,    stop=200)),
+            "l1eta"   : hist.Hist(hist.axis.StrCategory([], name="process", label="process", growth=True), hist.axis.StrCategory([], name="channel", label="channel", growth=True), hist.axis.Regular(name="l1eta",   label="l1eta",                 bins=20,  start=-2.5, stop=2.5)),
         }
 
     @property
@@ -216,7 +217,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         sfssz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="ss")
 
         # Pass trigger mask
-        pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year))
+        pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),te_es.dataset_dict_top22006,te_es.exclude_dict_top22006)
 
         # Charge masks
         charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
@@ -265,7 +266,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ########## Fill the histograms ##########
 
-        hout = self.accumulator.identity()
+        hout = self.accumulator
 
         # Set the list of channels to loop over
         chan_lst = ["osz","ssz"]
