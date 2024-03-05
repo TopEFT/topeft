@@ -3,6 +3,7 @@ import copy
 import coffea
 import numpy as np
 import awkward as ak
+import json
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 from coffea import hist, processor
 from coffea.util import load
@@ -651,77 +652,23 @@ class AnalysisProcessor(processor.ProcessorABC):
             ########## Fill the histograms ##########
 
             # This dictionary keeps track of which selections go with which SR categories
-            sr_cat_dict = {
-                "2l" : {
-                    "exactly_4j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "exactly_5j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "exactly_6j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "atleast_7j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                },
-                "3l" : {
-                    "exactly_2j" : {
-                        "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                        ],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                    },
-                    "exactly_3j" : {
-                        "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                        ],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                    },
-                    "exactly_4j" : {
-                        "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                        ],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                    },
-                    "atleast_5j" : {
-                        "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                        ],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                    },
-                },
-                "4l" : {
-                    "exactly_2j" : {
-                        "lep_chan_lst" : ["4l"],
-                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                        "appl_lst"     : ["isSR_4l"],
-                    },
-                    "exactly_3j" : {
-                        "lep_chan_lst" : ["4l"],
-                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                        "appl_lst"     : ["isSR_4l"],
-                    },
-                    "atleast_4j" : {
-                        "lep_chan_lst" : ["4l"],
-                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                        "appl_lst"     : ["isSR_4l"],
-                    },
-                },
-            }
+            json_file = open("ch_lst.json")
+            import_sr_cat_dict = json.load(json_file)
+            sr_cat_dict = {}
+            for lep_cat in import_sr_cat_dict.keys():
+                sr_cat_dict[lep_cat] = {}
+                for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
+                    if jet_cat == import_sr_cat_dict[lep_cat]["jet_lst"][-1]:
+                        jet_key = "atleast_" + str(jet_cat) + "j"
+                    else:
+                        jet_key = "exactly_" + str(jet_cat) + "j"
+                    sr_cat_dict[lep_cat][jet_key] = {}
+                    sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_sr_cat_dict[lep_cat]["lep_chan_lst"]
+                    sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
+                    if isData:
+                        sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
+                    else:
+                        sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"]
 
             # This dictionary keeps track of which selections go with which CR categories
             cr_cat_dict = {
