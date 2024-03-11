@@ -668,7 +668,8 @@ class DatacardMaker():
                 corr_keys.append(corr_key)
 
             for k in corr_keys:
-                h[sp_key] += h[k]
+                #TODO this is a hack becuase adding histograms has an issue with the under and overflow bins
+                h[sp_key] = np.array(h[sp_key].values(flow=True) + h[k].values(flow=True))
 
             sp_tup = tuple(sp_key)
             if self.verbose:
