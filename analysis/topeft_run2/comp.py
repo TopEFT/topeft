@@ -148,8 +148,7 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                                     yields2[proc][chan][syst] = v2
                                 #elif 'ttll' in proc:
                                 #    yields2[proc][chan][syst] += v2
-                            if syst == 'nominal' and '2lss_p_4' in chan:# and 'TTTo2L2Nu_centralUL18' in proc:
-                            #if pt == {} and syst == 'nominal' and '2lss_p_4' in chan:# and 'TTTo2L2Nu_centralUL18' in proc:
+                            if syst == 'nominal' and '2lss_p_4' in chan:
                                 if not newHist1:
                                     edg = h1_syst.axes()[0].edges()[:-1]
                                 else:
