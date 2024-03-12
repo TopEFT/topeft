@@ -423,13 +423,27 @@ def addLepCatMasks(events):
     events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
 
 
+def get_off_Z_mask_low(lep_collection,pt_window,flavor="os"):
+    ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
+    zpeak_mask = ((91.2-(ll_pairs.l0+ll_pairs.l1).mass)>pt_window)
+    if flavor == "os":
+        sf_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
+    elif flavor == "ss":
+        sf_mask = (ll_pairs.l0.pdgId == ll_pairs.l1.pdgId)
+    elif flavor == "as": # Same flav any sign
+        sf_mask = ((ll_pairs.l0.pdgId == ll_pairs.l1.pdgId) | (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId))
+    else:
+        raise Exception(f"Error: flavor requirement \"{flavor}\" is unknown.")
+    sfosz_mask = ak.flatten(ak.any((zpeak_mask & sf_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
+    return sfosz_mask
+
+
 # Returns the pt of the l+l that form the Z peak
 def get_Z_pt(lep_collection,pt_window):
 
     ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
-    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<pt_window)
     sfos_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
-    sfosz_mask = ak.fill_none((sfos_mask & zpeak_mask),False)
+    sfosz_mask = ak.fill_none((sfos_mask),False)
 
     pair_invmass = (ll_pairs.l0 + ll_pairs.l1).mass
     pair_invmass_with_sfosz_mask = pair_invmass[sfosz_mask]
