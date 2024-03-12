@@ -15,7 +15,88 @@ IGNORE_LINES = [
 ]
 
 # The list of ptz and lj0pt we choose to use in each category for topeft analysis
-TOPEFT_CATEGORIES = [
+
+TOPEFT_CATEGORIES_OFFZ_DIVISION = [
+
+    "ttx_multileptons-3l_onZ_1b_2j_ptz",
+    "ttx_multileptons-3l_onZ_1b_3j_ptz",
+    "ttx_multileptons-3l_onZ_1b_4j_ptz",
+    "ttx_multileptons-3l_onZ_1b_5j_ptz",
+    "ttx_multileptons-3l_onZ_2b_4j_ptz",
+    "ttx_multileptons-3l_onZ_2b_5j_ptz",
+    "ttx_multileptons-3l_m_offZ_high_1b_2j_ptz",
+    "ttx_multileptons-3l_m_offZ_high_1b_3j_ptz",
+    "ttx_multileptons-3l_m_offZ_high_1b_4j_ptz",
+    "ttx_multileptons-3l_m_offZ_high_1b_5j_ptz",
+    "ttx_multileptons-3l_m_offZ_high_2b_2j_ptz",
+    "ttx_multileptons-3l_m_offZ_high_2b_3j_ptz",
+    "ttx_multileptons-3l_m_offZ_high_2b_4j_ptz",
+    "ttx_multileptons-3l_m_offZ_high_2b_5j_ptz",
+    "ttx_multileptons-3l_m_offZ_low_1b_2j_ptz",
+    "ttx_multileptons-3l_m_offZ_low_1b_3j_ptz",
+    "ttx_multileptons-3l_m_offZ_low_1b_4j_ptz",
+    "ttx_multileptons-3l_m_offZ_low_1b_5j_ptz",
+    "ttx_multileptons-3l_m_offZ_low_2b_2j_ptz",
+    "ttx_multileptons-3l_m_offZ_low_2b_3j_ptz",
+    "ttx_multileptons-3l_m_offZ_low_2b_4j_ptz",
+    "ttx_multileptons-3l_m_offZ_low_2b_5j_ptz",
+    "ttx_multileptons-3l_p_offZ_high_1b_2j_ptz",
+    "ttx_multileptons-3l_p_offZ_high_1b_3j_ptz",
+    "ttx_multileptons-3l_p_offZ_high_1b_4j_ptz",
+    "ttx_multileptons-3l_p_offZ_high_1b_5j_ptz",
+    "ttx_multileptons-3l_p_offZ_high_2b_2j_ptz",
+    "ttx_multileptons-3l_p_offZ_high_2b_3j_ptz",
+    "ttx_multileptons-3l_p_offZ_high_2b_4j_ptz",
+    "ttx_multileptons-3l_p_offZ_high_2b_5j_ptz",
+    "ttx_multileptons-3l_p_offZ_low_1b_2j_ptz",
+    "ttx_multileptons-3l_p_offZ_low_1b_3j_ptz",
+    "ttx_multileptons-3l_p_offZ_low_1b_4j_ptz",
+    "ttx_multileptons-3l_p_offZ_low_1b_5j_ptz",
+    "ttx_multileptons-3l_p_offZ_low_2b_2j_ptz",
+    "ttx_multileptons-3l_p_offZ_low_2b_3j_ptz",
+    "ttx_multileptons-3l_p_offZ_low_2b_4j_ptz",
+    "ttx_multileptons-3l_p_offZ_low_2b_5j_ptz",
+
+    "ttx_multileptons-2lss_4t_m_4j_lj0pt",
+    "ttx_multileptons-2lss_4t_m_5j_lj0pt",
+    "ttx_multileptons-2lss_4t_m_6j_lj0pt",
+    "ttx_multileptons-2lss_4t_m_7j_lj0pt",
+    "ttx_multileptons-2lss_4t_p_4j_lj0pt",
+    "ttx_multileptons-2lss_4t_p_5j_lj0pt",
+    "ttx_multileptons-2lss_4t_p_6j_lj0pt",
+    "ttx_multileptons-2lss_4t_p_7j_lj0pt",
+    "ttx_multileptons-2lss_m_4j_lj0pt",
+    "ttx_multileptons-2lss_m_5j_lj0pt",
+    "ttx_multileptons-2lss_m_6j_lj0pt",
+    "ttx_multileptons-2lss_m_7j_lj0pt",
+    "ttx_multileptons-2lss_p_4j_lj0pt",
+    "ttx_multileptons-2lss_p_5j_lj0pt",
+    "ttx_multileptons-2lss_p_6j_lj0pt",
+    "ttx_multileptons-2lss_p_7j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_none_1b_2j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_none_1b_3j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_none_1b_4j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_none_1b_5j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_none_2b_2j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_none_2b_3j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_none_2b_4j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_none_2b_5j_lj0pt",
+    "ttx_multileptons-3l_onZ_2b_2j_lj0pt",
+    "ttx_multileptons-3l_onZ_2b_3j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_none_1b_2j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_none_1b_3j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_none_1b_4j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_none_1b_5j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_none_2b_2j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_none_2b_3j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_none_2b_4j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_none_2b_5j_lj0pt",
+    "ttx_multileptons-4l_2j_lj0pt",
+    "ttx_multileptons-4l_3j_lj0pt",
+    "ttx_multileptons-4l_4j_lj0pt",
+]
+
+TOPEFT_CATEGORIES_TOP22_006 = [
 
     "ttx_multileptons-3l_onZ_1b_2j_ptz",
     "ttx_multileptons-3l_onZ_1b_3j_ptz",
@@ -40,40 +121,24 @@ TOPEFT_CATEGORIES = [
     "ttx_multileptons-2lss_p_5j_lj0pt",
     "ttx_multileptons-2lss_p_6j_lj0pt",
     "ttx_multileptons-2lss_p_7j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_high_1b_2j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_high_1b_3j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_high_1b_4j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_high_1b_5j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_high_2b_2j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_high_2b_3j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_high_2b_4j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_high_2b_5j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_low_1b_2j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_low_1b_3j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_low_1b_4j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_low_1b_5j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_low_2b_2j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_low_2b_3j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_low_2b_4j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_low_2b_5j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_1b_2j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_1b_3j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_1b_4j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_1b_5j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_2b_2j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_2b_3j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_2b_4j_lj0pt",
+    "ttx_multileptons-3l_m_offZ_2b_5j_lj0pt",
     "ttx_multileptons-3l_onZ_2b_2j_lj0pt",
     "ttx_multileptons-3l_onZ_2b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_high_1b_2j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_high_1b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_high_1b_4j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_high_1b_5j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_high_2b_2j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_high_2b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_high_2b_4j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_high_2b_5j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_low_1b_2j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_low_1b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_low_1b_4j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_low_1b_5j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_low_2b_2j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_low_2b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_low_2b_4j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_low_2b_5j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_1b_2j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_1b_3j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_1b_4j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_1b_5j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_2b_2j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_2b_3j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_2b_4j_lj0pt",
+    "ttx_multileptons-3l_p_offZ_2b_5j_lj0pt",
     "ttx_multileptons-4l_2j_lj0pt",
     "ttx_multileptons-4l_3j_lj0pt",
     "ttx_multileptons-4l_4j_lj0pt",
@@ -102,6 +167,7 @@ def main():
     parser.add_argument("datacards_path", help = "The path to the directory with the datacards in it.")
     parser.add_argument("-c", "--check-condor-logs", action="store_true", help = "Check the contents of the condor err files.")
     parser.add_argument("-s", "--set-up-top22006", action="store_true", help = "Copy the ptz and lj0pt cards used in TOP-22-006 into their own directory.")
+    parser.add_argument("-z", "--offZ-division", default="False", help = )
     args = parser.parse_args()
 
     ###### Print out general info ######
@@ -158,8 +224,12 @@ def main():
     # Grab the ptz-lj0pt cards we want for the analysis, copy into a dir 
     n_txt = 0
     n_root = 0
+    if args.offZ_division == True:
+        TOPEFT_CATEGORIES = TOPEFT_CATEGORIES_OFFZ_DIVISION
+    if args.offZ_division == False:
+        TOPEFT_CATEGORIES = TOPEFT_CATEGORIES_TOP22_006 
     if args.set_up_top22006:
-        ptzlj0pt_path = os.path.join(args.datacards_path,"ptz-lj0pt_withSys")
+        ptzlj0pt_path = os.path.join(args.datacards_path,"ptz-lj0pt_withSys-lj0pt")
         os.mkdir(ptzlj0pt_path)
         print(f"\nCopying TOPEFT relevant files to {ptzlj0pt_path}...")
         for fname in datacard_files:
@@ -172,8 +242,12 @@ def main():
         # Check that we got the expected number and print what we learn
         print(f"\tNumber of text templates copied: {n_txt}")
         print(f"\tNumber of root templates copied: {n_txt}")
-        if ((n_txt != 59) or (n_root != 59)):
-            raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
+        if args.offZ_division == True:
+            if ((n_txt != 75) or (n_root != 75)):
+                raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
+        if args.offZ_division == False:
+            if ((n_txt != 43) or (n_root != 43)):
+                raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
         print("Done.\n")
 
 
