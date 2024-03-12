@@ -8,8 +8,10 @@
 '''
 
 import awkward as ak
+import numpy as np
 
 from topeft.modules.corrections import fakeRateWeight1l, fakeRateWeight2l, fakeRateWeight3l
+from topeft.modules.genParentage import maxHistoryPDGID
 
 
 # The datasets we are using, and the triggers in them
@@ -220,12 +222,16 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # Zee veto. Used for charge flips estimation
     Zee_veto = (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
 
-    #Zll mask (for photon work)
-    Zll_mask = abs( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 15             #this mask rejects any event with abs(m(ll) - m (Z)) < 15 GeV. Used for photon studies for 2los_sf cat
+    #Zll mask if the 2 leptons are of same flavor(for photon work)
+    ll_is_SF = (abs(l0.pdgId) == abs(l1.pdgId))
+    Zll_SF_mask = (ll_is_SF) & (abs( (l0+l1).mass -91.2) > 15)             #this mask rejects any event with abs(m(ll) - m (Z)) < 15 GeV. Used for photon studies for 2los_sf cat
 
-    #Zllgamma mask (for photon work)
+    #Zllgamma mask if the 2 leptons are of same flavor(for photon work)
     mediumcleanphotons_padded = ak.pad_none(events.photon,1) 
-    Zllgamma_mask = abs( (l0 + l1 + mediumcleanphotons_padded[:,0]).mass -91.2) > 15
+    Zllgamma_SF_mask = (ll_is_SF) & (abs( (l0 + l1 + mediumcleanphotons_padded[:,0]).mass -91.2) > 15)
+
+    #invariant mass of dilepton pair (for photon work)
+    #mll_20 = ((l0+l1).mass > 20)
 
     # IDs
     eleID1 = (abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0) & (padded_FOs[:,0].tightCharge>=2))
@@ -235,7 +241,8 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
     dilep = (ak.num(FOs)) >= 2
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
-    mask = (filters & cleanup & dilep & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
+    #mask = (filters & cleanup & dilep & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
+    mask = (filters & dilep & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
 
     # MC matching requirement (already passed for data)
     if sampleType == "data":
@@ -265,8 +272,9 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     mask_nozeeveto = mask
     mask = mask & (  Zee_veto )
     events['is2l'] = ak.fill_none(mask,False)
-    events['mask_Zll'] = ak.fill_none(Zll_mask,False)      #used for photon work for 2los_sf category
-    events['mask_Zllgamma'] = ak.fill_none(Zllgamma_mask, False) #used for photon work for 2los_sf category
+    events['mask_SF_Zll'] = ak.fill_none(Zll_SF_mask,False)      #used for photon work for 2los_sf category
+    events['mask_SF_Zllgamma'] = ak.fill_none(Zllgamma_SF_mask, False) #used for photon work for 2los_sf category
+    events['mll_20'] = ak.fill_none(cleanup,False) #ak.fill_none(mll_20,False)   #this is same thing as cleanups. Only implemented this separately for cutflow studies
     events['is2l_nozeeveto'] = ak.fill_none(mask_nozeeveto,False)
 
     # SFs
@@ -282,7 +290,8 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     events['is2l_SR'] = ak.fill_none(events['is2l_SR'],False)
     lep = (ak.num(FOs)) >= 1
     pt25 = ak.any(FOs[:,0:1].conept > 25.0, axis=1)
-    mask = (filters & cleanup & lep & pt25 & exclusive & eleID1 & muTightCharge)
+    #mask = (filters & cleanup & lep & pt25 & exclusive & eleID1 & muTightCharge)
+    mask = (filters & lep & pt25 & exclusive & eleID1 & muTightCharge)
     events['isl'] = ak.fill_none(mask,False)
     photon = ak.fill_none(ak.any(events.Photon.cutBased == 3, axis=1), False)
     events['is2lp_SR'] = (photon & (padded_FOs[:,0].isTightLep) | (padded_FOs[:,1].isTightLep))
@@ -463,6 +472,50 @@ def GenPhotonSelection(events):
     genPhoton_pT_eta_mask = (genPhoton_pT_mask & genPhoton_eta_mask)
     genPhoton_pT_eta_mask = ak.fill_none(ak.pad_none(genPhoton_pT_eta_mask,1),False)
     events['genPhoton_pT_eta_mask'] = genPhoton_pT_eta_mask
+
+def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
+    """Filter generated events with overlapping phase space"""
+    genMotherIdx = events.GenPart.genPartIdxMother
+    genpdgId = events.GenPart.pdgId
+
+    #calculate maxparent pdgId of the event
+    idx = ak.to_numpy(ak.flatten(abs(events.GenPart.pdgId)))
+    par = ak.to_numpy(ak.flatten(events.GenPart.genPartIdxMother))
+    num = ak.to_numpy(ak.num(events.GenPart.pdgId))
+    maxParentFlatten = maxHistoryPDGID(idx,par,num)
+    events["GenPart","maxParent"] = ak.unflatten(maxParentFlatten, num)
+   
+    #Only the photons that pass the kinematic cuts are potential candidates for overlapping photons
+    #If the overlap photon is actually from a non-prompt decay (maxParent > 37), it is not part of the phase space of the separate sample
+    overlapPhoSelect= ((events.GenPart.pt>=ptCut) & 
+                        (abs(events.GenPart.eta) < etaCut) &  
+                        (events.GenPart.status==1) & (abs(events.GenPart.pdgId)==22) &
+                        (events.GenPart.maxParent < 37)
+                        )
+
+    overlapPhotons = events.GenPart[overlapPhoSelect]
+
+    #Also require that photons are separate from all other gen particles
+    #Need not consider neutrinos and don't have to calculate dR between the OverlapPhoton and itself
+    finalGen = events.GenPart[((events.GenPart.status==1)|(events.GenPart.status==71)) & (events.GenPart.pt > 0.01) & 
+                                ~((abs(events.GenPart.pdgId)==12) | (abs(events.GenPart.pdgId)==14) | (abs(events.GenPart.pdgId)==16)) & 
+                                ~(overlapPhoSelect)] 
+
+    #calculate dR between overlap photons and each gen particle
+    phoGenDR = overlapPhotons.metric_table(finalGen)
+
+    ph_isolation_mask = ak.all(phoGenDR > deltaRCut, axis=-1)
+
+    #the event is overlapping with the separate sample if there is an overlap photon passing the dR cut, kinematic cuts, and not coming from hadronic activity
+    ph_isolation_mask = ak.any(ph_isolation_mask, axis=-1)
+    
+    if "TTTo" in dataset:
+        events["doesEventFallInTTbar"] = ~(ph_isolation_mask) #We want to invert the ph_isolation_mask because if all the prompt photons in an event satisfy dR cut, then we want to remove the event from TTbar
+        events["doesEventFallInTTGamma"] = np.ones(len(events), dtype=bool) #If the sample is TTbar, then we just set this to all True
+
+    elif "TTGamma" in dataset:
+        events["doesEventFallInTTGamma"] = (ph_isolation_mask) #We want the original ph_isolation_mask because if any of the prompt photons in an event doesn't satisfy dR cut, then we want to remove the event from TTGamma
+        events["doesEventFallInTTbar"] = np.ones(len(events), dtype=bool) #If the sample is TTGamma, then we just set this to all True 
 
 #def addTightPhotonMask(events):
 #    tight_photon = ak.fill_none(ak.any(events.Photon.cutBased == 2, axis=1), False)           #tight photon mask
