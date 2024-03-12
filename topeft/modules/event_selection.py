@@ -427,9 +427,8 @@ def addLepCatMasks(events):
 def get_Z_pt(lep_collection,pt_window):
 
     ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
-    zpeak_mask = (abs((ll_pairs.l0+ll_pairs.l1).mass - 91.2)<pt_window)
     sfos_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
-    sfosz_mask = ak.fill_none((sfos_mask & zpeak_mask),False)
+    sfosz_mask = ak.fill_none((sfos_mask),False)
 
     pair_invmass = (ll_pairs.l0 + ll_pairs.l1).mass
     pair_invmass_with_sfosz_mask = pair_invmass[sfosz_mask]

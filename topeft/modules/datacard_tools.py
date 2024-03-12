@@ -180,7 +180,8 @@ class DatacardMaker():
         "o0pt":    [0,100,200,400],
         "bl0pt":   [0,100,200,400],
         "l0pt":    [0,50,100,200],
-        "lj0pt":   [0,150,250,500]
+        "lj0pt":   [0,150,250,500],
+        "invmass": [0,50,200,500]
     }
 
     YEARS = ["UL16","UL16APV","UL17","UL18"]
@@ -853,7 +854,6 @@ class DatacardMaker():
                             arr[0][negative_bin_mask] = np.zeros_like( arr[0][negative_bin_mask] )  # set those to zero
                             if arr[1] is not None:
                                 arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative
-
                         syst = sp_key[0]
 
                         sum_arr = sum(arr[0])
@@ -861,8 +861,12 @@ class DatacardMaker():
                             if self.verbose:
                                 print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr[0]}")
                             if not self.use_real_data:
-                                # Create asimov dataset
-                                data_obs += arr
+                               vals = {"ctlTi":0.0}
+                               decomposed_templates_Asimov = self.decompose(proc_hist,wcs,vals)
+                               data_sm = decomposed_templates_Asimov.pop("sm")
+                               data_obs += data_sm[sp_key]
+                            #    # Create asimov dataset
+                            #    data_obs += arr
                         if syst == "nominal":
                             hist_name = f"{proc_name}"
                             text_card_info[proc_name]["rate"] = sum_arr
@@ -1059,7 +1063,7 @@ class DatacardMaker():
         print(f"Total Hists Written: {num_h}")
 
     # TODO: Can be a static member function
-    def decompose(self,h,wcs):
+    def decompose(self,h,wcs,vals=None):
         """
             Decomposes the EFT quadratic parameterization coefficients into combinations that result
             in non-negative coefficient terms.
@@ -1072,6 +1076,8 @@ class DatacardMaker():
         """
         tic = time.time()
         h.set_sm()
+        if vals is not None:
+            h.set_wilson_coefficients(**vals)
         sm = h.values(sumw2=True, overflow='all')
         # Note: The keys of this dictionary are a pretty contrived, but are useful later on
         r = {}
