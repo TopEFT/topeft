@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
     # To perform off Z event category division
     if offZ_split == True:
-       analysis_processor.offZ_split = True
+        analysis_processor.offZ_split = True
 
     # Check if we have valid options
     if executor not in LST_OF_KNOWN_EXECUTORS:
