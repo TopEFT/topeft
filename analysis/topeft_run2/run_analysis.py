@@ -83,7 +83,7 @@ if __name__ == '__main__':
     wc_lst = args.wc_list if args.wc_list is not None else []
 
     # To perform off Z event category division
-    if offZ_split == True:
+    if offZ_split is True:
         analysis_processor.offZ_split = True
 
     # Check if we have valid options
