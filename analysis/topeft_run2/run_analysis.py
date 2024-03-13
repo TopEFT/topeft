@@ -58,7 +58,7 @@ if __name__ == '__main__':
     parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
     parser.add_argument('--ecut', default=None  , help = 'Energy cut threshold i.e. throw out events above this (GeV)')
     parser.add_argument('--port', default='9123-9130', help = 'Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.')
-
+    parser.add_argument('--offZ-split', '-z', default='False', help = 'Perform off Z region event category division')
 
     args = parser.parse_args()
     jsonFiles  = args.jsonFiles
@@ -78,8 +78,13 @@ if __name__ == '__main__':
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
+    offZ_split = args.offZ_split
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
+
+    # To perform off Z event category division
+    if offZ_split == True:
+       analysis_processor.offZ_split = True
 
     # Check if we have valid options
     if executor not in LST_OF_KNOWN_EXECUTORS:
@@ -262,6 +267,7 @@ if __name__ == '__main__':
 
             'retries': 5,
 
+            'filepath': '/tmp',
             # use mid-range compression for chunks results. 9 is the default for work
             # queue in coffea. Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).

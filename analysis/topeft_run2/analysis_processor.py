@@ -62,6 +62,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
+        self.offZ_split = False
 
         # Create the histograms
         self._accumulator = processor.dict_accumulator({
@@ -489,7 +490,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             ######### Masks we need for the selection ##########
 
             # Get mask for events that have two sf os leps close to z peak
-            sfosz_3l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
+            sfosz_3l_OnZ_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
+            sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
+            sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
             sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
             sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
 
@@ -538,12 +541,27 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
             # 3l selection
-            selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
+            if not self.offZ_split:
+                selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & bmask_exactly1med & pass_trg))
+                selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & bmask_exactly1med & pass_trg))
+                selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & bmask_atleast2med & pass_trg))
+                selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & bmask_atleast2med & pass_trg))
+            if self.offZ_split:
+                selections.add("3l_p_offZ_low_1b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+                selections.add("3l_p_offZ_high_1b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+                selections.add("3l_p_offZ_none_1b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_any_mask & bmask_exactly1med & pass_trg))
+                selections.add("3l_m_offZ_low_1b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+                selections.add("3l_m_offZ_high_1b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
+                selections.add("3l_m_offZ_none_1b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_any_mask & bmask_exactly1med & pass_trg))
+                selections.add("3l_p_offZ_low_2b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
+                selections.add("3l_p_offZ_high_2b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
+                selections.add("3l_p_offZ_none_2b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_any_mask & bmask_atleast2med & pass_trg))
+                selections.add("3l_m_offZ_low_2b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
+                selections.add("3l_m_offZ_high_2b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
+                selections.add("3l_m_offZ_none_2b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_any_mask & bmask_atleast2med & pass_trg))
+
+            selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_OnZ_mask & bmask_exactly1med & pass_trg))
+            selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_OnZ_mask & bmask_atleast2med & pass_trg))
             selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
 
             # 4l selection
@@ -597,7 +615,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
-
+            if self.offZ_split:
+                ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
             bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
@@ -653,7 +672,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # This dictionary keeps track of which selections go with which SR categories
             json_file = open("ch_lst.json")
-            import_sr_cat_dict = json.load(json_file)
+            select_sr_cat_dict = json.load(json_file)
+            if not self.offZ_split:
+                import_sr_cat_dict = select_sr_cat_dict.TOP22_006_CH_LST
+            if self.offZ_split:
+                import_sr_cat_dict = select_sr_cat_dict.OFFZ_SPLIT_CH_LST
             sr_cat_dict = {}
             for lep_cat in import_sr_cat_dict.keys():
                 sr_cat_dict[lep_cat] = {}
@@ -852,7 +875,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Skip histos that are not defined (or not relevant) to given categories
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
-                                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                        if not self.offZ_split:
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                        if self.offZ_split:
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
