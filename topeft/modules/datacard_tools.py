@@ -667,11 +667,8 @@ class DatacardMaker():
                 corr_key = type(sp_key)(**corr_key)
                 corr_keys.append(corr_key)
 
-            #TODO this is a hack becuase adding histograms has an issue with the under and overflow bins
-            idx_sp_key = h.categories_to_index(sp_key)
             for k in corr_keys:
-                idx_key = h.categories_to_index(k)
-                h._dense_hists[idx_sp_key] += h._dense_hists[idx_key]
+                h[sp_key] += h[k]
 
             sp_tup = tuple(sp_key)
             if self.verbose:
