@@ -73,6 +73,7 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                     if newHist1 and chan not in h1_proc.axes['channel']:
                         #print(f'Skipping {proc} {chan} {syst} - {chan} missing')
                         fout.write(f'Skipping {proc} {chan} - {chan} missing\n')
+                        continue
                     if newHist1: h1_chan = h1_proc.integrate('channel', chan)
                     else: h1_chan = h1_proc.integrate('channel', chan)
                     h2_chan = h2_proc.integrate('channel', chan)
@@ -164,8 +165,9 @@ def comp(fin1, fin2, hists1, hists2, newHist1, newHist2, tolerance):
                                 if not newHist1: hep.histplot(v1rebin.to_hist(), label=fin1.split('/')[-1].split('_')[0] + ' rebin', histtype='step', yerr=False, flow='show')
                                 #if not newHist1 hep.histplot(bins, [sum(v1norebin[0:3]), sum(v1norebin[3:5]), sum(v1norebin[5:11])], label=fin1.split('/')[-1].split('_')[0] + ' manual rebin', ls='-.', histtype='step', yerr=False, flow='show')
                                 #hep.histplot([sum(v2[0:3]), sum(v2[3:5]), sum(v2[5:11])], bins=bins, label=fin1.split('/')[-1].split('_')[0] + ' manual rebin', ls='-.', histtype='step', yerr=False, flow='show')
-                                edg = h2_syst.axes[0].edges
-                                hep.histplot(h2_syst.as_hist(pt), label=fin2.split('/')[-1].split('_')[0], ls='--', histtype='step', yerr=False, flow='show')
+                                #edg = h2_syst.axes[0].edges
+                                if not newHist2: hep.histplot(h2_syst.to_hist(), label=fin2.split('/')[-1].split('_')[0], ls='--', histtype='step', yerr=False, flow='show')
+                                else: hep.histplot(h2_syst.as_hist(pt), label=fin2.split('/')[-1].split('_')[0], ls='--', histtype='step', yerr=False, flow='show')
                                 #if 'regular' in fin2: hep.histplot(bins, [v2[0], sum(v2[1:3]), sum(v2[4:5]), sum(v2[6:11])], label=fin2.split('/')[-1].split('_')[0] + ' manual rebin', ls='--', histtype='step', yerr=False, flow='show')
                                 plt.legend()
                                 if pt == {}:
