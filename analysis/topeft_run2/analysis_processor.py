@@ -62,7 +62,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
-        self.offZ_split = False
+        self.offZ_split = True #False
 
         # Create the histograms
         self._accumulator = processor.dict_accumulator({
@@ -671,12 +671,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             ########## Fill the histograms ##########
 
             # This dictionary keeps track of which selections go with which SR categories
-            json_file = open("ch_lst.json")
+            json_file = open("ch_lst.json", "r")
             select_sr_cat_dict = json.load(json_file)
+
             if not self.offZ_split:
-                import_sr_cat_dict = select_sr_cat_dict.TOP22_006_CH_LST
+                import_sr_cat_dict = select_sr_cat_dict["TOP22_006_CH_LST"]
             if self.offZ_split:
-                import_sr_cat_dict = select_sr_cat_dict.OFFZ_SPLIT_CH_LST
+                import_sr_cat_dict = select_sr_cat_dict["OFFZ_SPLIT_CH_LST"]
             sr_cat_dict = {}
             for lep_cat in import_sr_cat_dict.keys():
                 sr_cat_dict[lep_cat] = {}
