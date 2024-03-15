@@ -4,8 +4,10 @@
 OUT_NAME="example_name"
 
 # Build the run command for filling SR histos
-CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_NDSkim.cfg,../../input_samples/cfgs/data_samples_NDSkim.cfg"
+CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg" #,../../input_samples/cfgs/mc_background_samples_NDSkim.cfg,../../input_samples/cfgs/data_samples_NDSkim.cfg"
 OPTIONS="--hist-list ana --skip-cr --do-systs -s 50000 --do-np -o $OUT_NAME" # For analysis
+#OPTIONS="--hist-list ana --skip-cr --do-systs -s 50 -c 1 --do-np -o $OUT_NAME -x futures"
+
 
 # Build the run command for filling CR histos
 #CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_cr_NDSkim.cfg,../../input_samples/cfgs/data_samples_NDSkim.cfg"

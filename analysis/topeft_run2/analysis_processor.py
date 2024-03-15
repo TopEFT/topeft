@@ -671,28 +671,31 @@ class AnalysisProcessor(processor.ProcessorABC):
             ########## Fill the histograms ##########
 
             # This dictionary keeps track of which selections go with which SR categories
-            json_file = open("ch_lst.json", "r")
-            select_sr_cat_dict = json.load(json_file)
-
-            if not self.offZ_split:
-                import_sr_cat_dict = select_sr_cat_dict["TOP22_006_CH_LST"]
-            if self.offZ_split:
-                import_sr_cat_dict = select_sr_cat_dict["OFFZ_SPLIT_CH_LST"]
+            
             sr_cat_dict = {}
-            for lep_cat in import_sr_cat_dict.keys():
-                sr_cat_dict[lep_cat] = {}
-                for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
-                    if jet_cat == import_sr_cat_dict[lep_cat]["jet_lst"][-1]:
-                        jet_key = "atleast_" + str(jet_cat) + "j"
-                    else:
-                        jet_key = "exactly_" + str(jet_cat) + "j"
-                    sr_cat_dict[lep_cat][jet_key] = {}
-                    sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_sr_cat_dict[lep_cat]["lep_chan_lst"]
-                    sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
-                    if isData:
-                        sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
-                    else:
-                        sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"]
+            
+            with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
+                select_sr_cat_dict = json.load(ch_json)
+                
+                if not self.offZ_split:
+                    import_sr_cat_dict = select_sr_cat_dict["TOP22_006_CH_LST"]
+                else:
+                    import_sr_cat_dict = select_sr_cat_dict["OFFZ_SPLIT_CH_LST"]
+
+                for lep_cat in import_sr_cat_dict.keys():
+                    sr_cat_dict[lep_cat] = {}
+                    for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
+                        if jet_cat == import_sr_cat_dict[lep_cat]["jet_lst"][-1]:
+                            jet_key = "atleast_" + str(jet_cat) + "j"
+                        else:
+                            jet_key = "exactly_" + str(jet_cat) + "j"
+                        sr_cat_dict[lep_cat][jet_key] = {}
+                        sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_sr_cat_dict[lep_cat]["lep_chan_lst"]
+                        sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
+                        if isData:
+                            sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
+                        else:
+                            sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"]
 
             # This dictionary keeps track of which selections go with which CR categories
             cr_cat_dict = {
