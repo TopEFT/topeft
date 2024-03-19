@@ -791,7 +791,7 @@ class DatacardMaker():
             print(f"WC Selection Time: {dt:.2f} s")
         return selected_wcs
 
-    def analyze(self,km_dist,ch,selected_wcs, crop_negative_bins):
+    def analyze(self,km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict):
         """ Handles the EFT decomposition and the actual writing of the ROOT and text datacard files."""
         if not km_dist in self.hists:
             print(f"[ERROR] Unknown kinematic distribution: {km_dist}")
@@ -866,7 +866,11 @@ class DatacardMaker():
                                 print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr[0]}")
                             if not self.use_real_data:
                                 # Create asimov dataset
-                                data_obs += arr
+                                #data_obs += arr
+                                vals = wcs_dict # set wcs to certain values from command line
+                                decomposed_templates_Asimov = self.decompose(proc_hist,wcs,vals)
+                                data_sm = decomposed_templates_Asimov.pop("sm")
+                                data_obs += data_sm[sp_key]
                         if syst == "nominal":
                             hist_name = f"{proc_name}"
                             text_card_info[proc_name]["rate"] = sum_arr
@@ -1070,7 +1074,7 @@ class DatacardMaker():
         print(f"Total Hists Written: {num_h}")
 
     # TODO: Can be a static member function
-    def decompose(self,h,wcs):
+    def decompose(self,h,wcs,vals=None):
         """
             Decomposes the EFT quadratic parameterization coefficients into combinations that result
             in non-negative coefficient terms.
@@ -1083,6 +1087,8 @@ class DatacardMaker():
         """
         tic = time.time()
         h.set_sm()
+        if vals is not None:
+            h.set_wilson_coefficients(**vals)
         sm = h.values(sumw2=True, overflow='all')
         # Note: The keys of this dictionary are a pretty contrived, but are useful later on
         r = {}
