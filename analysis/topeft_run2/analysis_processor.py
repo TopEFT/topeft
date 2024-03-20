@@ -682,6 +682,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 else:
                     import_sr_cat_dict = select_sr_cat_dict["OFFZ_SPLIT_CH_LST"]
 
+                print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+                print("import_sr_cat_dict")
+                for k, v in import_sr_cat_dict.items():
+                    print(k, ":", v)
+                print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+
+
                 for lep_cat in import_sr_cat_dict.keys():
                     sr_cat_dict[lep_cat] = {}
                     for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
@@ -692,7 +699,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         sr_cat_dict[lep_cat][jet_key] = {}
                         sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_sr_cat_dict[lep_cat]["lep_chan_lst"]
                         sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
-                        if isData:
+                        if isData and "appl_lst_data" in import_sr_cat_dict[lep_cat].keys():
                             sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
                         else:
                             sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"]
