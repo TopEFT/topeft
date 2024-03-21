@@ -26,7 +26,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._accumulator = {
 
             "SumOfWeights": HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-            "counts": hist.Hist(proc_axis, dense_axis),
 
             "SumOfWeights_ISRUp":   HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
             "SumOfWeights_ISRDown": HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
@@ -87,7 +86,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Nominal
         hout["SumOfWeights"].fill(process=dataset, SumOfWeights=counts, weight=wgts, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["counts"].fill(process=dataset, SumOfWeights=counts, weight=ak.ones_like(wgts))
 
         # Fill ISR/FSR histos
         hout["SumOfWeights_ISRUp"].fill(process=dataset,   SumOfWeights=counts, weight=wgts*events.ISRUp,   eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
