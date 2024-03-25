@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
   - conda-forge::python=3.9
-  - numpy
+  - numpy=1.23.5
   - coffea<2023
   - ndcctools
   - conda-pack
