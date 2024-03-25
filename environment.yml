@@ -1,4 +1,4 @@
-name: clib-env
+name: coffea-env
 channels:
   - conda-forge
 dependencies:
