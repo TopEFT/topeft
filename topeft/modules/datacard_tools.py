@@ -869,14 +869,14 @@ class DatacardMaker():
                                     self.check_zero_arr1 = True
                             if syst =="FFUp":
                                 if self.check_zero_arr0 is True and sum(arr[0]) != 0:
-                                        print("Systematics Error arr[0]:Zero values in 'nominal' but non-zero in 'FFUp'")
+                                    print("Systematics Error arr[0]:Zero values in 'nominal' but non-zero in 'FFUp'")
                                 if self.check_zero_arr1 is True and sum(arr[1]) != 0:
-                                        print("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in 'FFUp'")
+                                    print("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in 'FFUp'")
                             if syst == "FFDown":
                                 if self.check_zero_arr0 is True and sum(arr[0]) != 0:
-                                        print("Systematics Error arr[0]:Zero values in 'nominal' but non-zero in 'FFDown'")
+                                    print("Systematics Error arr[0]:Zero values in 'nominal' but non-zero in 'FFDown'")
                                 if self.check_zero_arr1 is True and sum(arr[1]) != 0:
-                                        print("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in 'FFDown'")
+                                    print("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in 'FFDown'")
 
                         sum_arr = sum(arr[0])
                         if syst == "nominal" and base == "sm":
