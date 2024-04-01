@@ -1,5 +1,5 @@
 {
-    "TOP22_006_CH_LST": {
+    "TOP22_006_CH_LST_SR": {
         "2l": {
             "lep_chan_lst": [
                 "2lss_p",
@@ -20,10 +20,10 @@
                 "isAR_2lSS_OS"
             ],
             "jet_lst": [
-                4,
-                5,
-                6,
-                7
+                "4",
+                "5",
+                "6",
+                "7"
             ]
         },
         "3l": {
@@ -46,10 +46,10 @@
                 "isAR_3l"
             ],
             "jet_lst": [
-                2,
-                3,
-                4,
-                5
+                "2",
+                "3",
+                "4",
+                "5"
             ]
         },
         "4l": {
@@ -63,13 +63,13 @@
                 "isSR_4l"
             ],
             "jet_lst": [
-                2,
-                3,
-                4
+                "2",
+                "3",
+                "4"
             ]
         }
     },
-    "OFFZ_SPLIT_CH_LST": {
+    "OFFZ_SPLIT_CH_LST_SR": {
         "2l": {
             "lep_chan_lst": [
                 "2lss_p",
@@ -90,10 +90,10 @@
                 "isAR_2lSS_OS"
             ],
             "jet_lst": [
-                4,
-                5,
-                6,
-                7
+                "4",
+                "5",
+                "6",
+                "7"
             ]
         },
         "3l": {
@@ -124,10 +124,10 @@
                 "isAR_3l"
             ],
             "jet_lst": [
-                2,
-                3,
-                4,
-                5
+                "2",
+                "3",
+                "4",
+                "5"
             ]
         },
         "4l": {
@@ -141,10 +141,89 @@
                 "isSR_4l"
             ],
             "jet_lst": [
-                2,
-                3,
-                4
+                "2",
+                "3",
+                "4"
+            ]
+        }
+    },
+    "CH_LST_CR": {
+        "2l_CRflip" : {
+            "lep_chan_lst": [
+                "2lss_CRflip"
+            ],
+            "lep_flav_lst": [
+                "ee"
+            ],
+            "appl_lst": [
+                "isSR_2lSS" , "isAR_2lSS"
+            ],
+            "appl_lst_data": [
+                "isAR_2lSS_OS"
+            ],
+            "jet_lst": [
+                "atmost_3j"
+            ]
+        },
+        "2l_CR" : {
+            "lep_chan_lst": [
+                "2lss_CR"
+            ],
+            "lep_flav_lst": [
+                "ee" , "em" , "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lSS" , "isAR_2lSS"
+            ],
+            "appl_lst_data": [
+                "isAR_2lSS_OS"
+            ],
+            "jet_lst": [
+                "exactly_1j", "exactly_2j", "exactly_3j"
+            ]
+        },
+        "3l_CR" : {
+            "lep_chan_lst": [
+                "3l_CR"
+            ],
+            "lep_flav_lst": [
+                "eee" , "eem" , "emm", "mmm"
+            ],
+            "appl_lst": [
+                "isSR_3l" , "isAR_3l"
+            ],
+            "jet_lst": [
+                "exactly_0j", "atleast_1j"
+            ]
+        },
+        "2los_CRtt" : {
+            "lep_chan_lst": [
+                "2los_CRtt"
+            ],
+            "lep_flav_lst": [
+                "em"
+            ],
+            "appl_lst": [
+                "isSR_2lOS" , "isAR_2lOS"
+            ],
+            "jet_lst": [
+                "exactly_2j"
+            ]
+        },
+        "2los_CRZ" : {
+            "lep_chan_lst": [
+                "2los_CRZ"
+            ],
+            "lep_flav_lst": [
+                "ee", "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lOS" , "isAR_2lOS"
+            ],
+            "jet_lst": [
+                "atleast_0j"
             ]
         }
     }
+
 }

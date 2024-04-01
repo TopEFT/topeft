@@ -670,17 +670,19 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ########## Fill the histograms ##########
 
+            sr_cat_dict = {}
+            cr_cat_dict = {}
+
             # This dictionary keeps track of which selections go with which SR categories
  
-            sr_cat_dict = {}
- 
             with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
-                select_sr_cat_dict = json.load(ch_json)
+                select_cat_dict = json.load(ch_json)
  
                 if not self.offZ_split:
-                    import_sr_cat_dict = select_sr_cat_dict["TOP22_006_CH_LST"]
+                    import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
                 else:
-                    import_sr_cat_dict = select_sr_cat_dict["OFFZ_SPLIT_CH_LST"]
+                    import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
+                
 
                 print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
                 print("import_sr_cat_dict")
@@ -705,58 +707,29 @@ class AnalysisProcessor(processor.ProcessorABC):
                             sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"]
 
             # This dictionary keeps track of which selections go with which CR categories
-            cr_cat_dict = {
-                "2l_CRflip" : {
-                    "atmost_3j" : {
-                        "lep_chan_lst" : ["2lss_CRflip"],
-                        "lep_flav_lst" : ["ee"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                },
-                "2l_CR" : {
-                    "exactly_1j" : {
-                        "lep_chan_lst" : ["2lss_CR"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "exactly_2j" : {
-                        "lep_chan_lst" : ["2lss_CR"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "exactly_3j" : {
-                        "lep_chan_lst" : ["2lss_CR"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                },
-                "3l_CR" : {
-                    "exactly_0j" : {
-                        "lep_chan_lst" : ["3l_CR"],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l" , "isAR_3l"],
-                    },
-                    "atleast_1j" : {
-                        "lep_chan_lst" : ["3l_CR"],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l" , "isAR_3l"],
-                    },
-                },
-                "2los_CRtt" : {
-                    "exactly_2j"   : {
-                        "lep_chan_lst" : ["2los_CRtt"],
-                        "lep_flav_lst" : ["em"],
-                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                    },
-                },
-                "2los_CRZ" : {
-                    "atleast_0j"   : {
-                        "lep_chan_lst" : ["2los_CRZ"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                    },
-                },
-            }
+
+                import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+
+
+                print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+                print("import_cr_cat_dict")
+                for k, v in import_cr_cat_dict.items():
+                    print(k, ":", v)
+                print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+
+
+                for lep_cat in import_cr_cat_dict.keys():
+                    cr_cat_dict[lep_cat] = {}
+                    for jet_cat in import_cr_cat_dict[lep_cat]["jet_lst"]:
+                        cr_cat_dict[lep_cat][jet_key] = {}
+                        cr_cat_dict[lep_cat][jet_key]["jet_lst"] = import_cr_cat_dict[lep_cat]["jet_lst"]
+                        cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_cr_cat_dict[lep_cat]["lep_chan_lst"]
+                        cr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_cr_cat_dict[lep_cat]["lep_flav_lst"]
+                        if isData and "appl_lst_data" in import_cr_cat_dict[lep_cat].keys():
+                            cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"] + import_cr_cat_dict[lep_cat]["appl_lst_data"]
+                        else:
+                            cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
+
 
             # Include SRs and CRs unless we asked to skip them
             cat_dict = {}
