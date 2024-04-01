@@ -671,12 +671,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             ########## Fill the histograms ##########
 
             # This dictionary keeps track of which selections go with which SR categories
-            
+ 
             sr_cat_dict = {}
-            
+ 
             with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
                 select_sr_cat_dict = json.load(ch_json)
-                
+ 
                 if not self.offZ_split:
                     import_sr_cat_dict = select_sr_cat_dict["TOP22_006_CH_LST"]
                 else:
