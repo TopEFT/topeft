@@ -170,8 +170,7 @@ def main():
     parser.add_argument("--condor","-C",action="store_true",help="Split up the channels into multiple condor jobs")
     parser.add_argument("--chunks","-n",default=1,help="The number of channels each condor job should process")
     parser.add_argument("--keep-negative-bins",action="store_true",help="Don't crop negative bins")
-    parser.add_argument("--set-wc", default=[],action ="store", nargs="+", help="Specify the list of wcs to reset values")
-    parser.add_argument("--wc-vals", default=[],action="store", nargs="+", help="Specify the corresponding wc values to set for the wc list")
+    parser.add_argument("--wc-vals", default="",action="store", nargs="+", help="Specify the corresponding wc values to set for the wc list")
 
     args = parser.parse_args()
     pkl_file   = args.pkl_file
@@ -188,7 +187,6 @@ def main():
     drop_syst  = args.drop_syst
     unblind    = args.unblind
     verbose    = args.verbose
-    set_wc     = args.set_wc
     wc_vals    = args.wc_vals
 
     select_only = args.select_only
@@ -213,7 +211,6 @@ def main():
         "unblind": unblind,
         "verbose": verbose,
         "year_lst": years,
-        "set_wc": set_wc,
         "wc_vals": wc_vals,
     }
 
@@ -227,9 +224,9 @@ def main():
     tic = time.time()
     dc = DatacardMaker(pkl_file,**kwargs)
 
-    # convert wc_vals to integer list and zip with wc list to make a dictionary
-    wc_vals = [eval(i) for i in wc_vals]
-    wcs_dict = dict(zip(set_wc, wc_vals))
+    # convert wc_vals string to a dictionary
+    wc_vals = ''.join(wc_vals)
+    wcs_dict = eval("dict({})".format(wc_vals))
 
     dists = var_lst if len(var_lst) else dc.hists.keys()
     if use_selected:
