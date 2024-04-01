@@ -180,7 +180,8 @@ class DatacardMaker():
         "o0pt":    [0,100,200,400],
         "bl0pt":   [0,100,200,400],
         "l0pt":    [0,50,100,200],
-        "lj0pt":   [0,150,250,500]
+        "lj0pt":   [0,150,250,500],
+        "invmass": [0,50,100,500]
     }
 
     YEARS = ["UL16","UL16APV","UL17","UL18"]
@@ -847,14 +848,32 @@ class DatacardMaker():
                         "rate": -1
                     }
                     # There should be only 1 sparse axis at this point, the systematics axis
+                    self.check_zero_arr0 = False
+                    self.check_zero_arr1 = False
                     for sp_key,arr in v.items():
+                        syst = sp_key[0]
                         if crop_negative_bins:
                             negative_bin_mask = np.where( arr[0] < 0) # see where bins are negative
                             arr[0][negative_bin_mask] = np.zeros_like( arr[0][negative_bin_mask] )  # set those to zero
                             if arr[1] is not None:
                                 arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative
 
-                        syst = sp_key[0]
+                        if len(arr[0][negative_bin_mask]): # check systematics error for fake factors
+                            if syst =="nominal":
+                                if sum(arr[0]) == 0:
+                                    self.check_zero_arr0 = True
+                                if sum(arr[1]) == 0:
+                                    self.check_zero_arr1 = True
+                            if syst =="FFUp":
+                                if self.check_zero_arr0 == True and sum(arr[0]) != 0:
+                                        print("Systematics Error arr[0]:Zero values in 'nominal' but non-zero in 'FFUp'")
+                                if self.check_zero_arr1 == True and sum(arr[1]) != 0:
+                                        print("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in 'FFUp'")
+                            if syst == "FFDown":
+                                if self.check_zero_arr0 == True and sum(arr[0]) != 0:
+                                        print("Systematics Error arr[0]:Zero values in 'nominal' but non-zero in 'FFDown'")
+                                if self.check_zero_arr1 == True and sum(arr[1]) != 0:
+                                        print("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in 'FFDown'")
 
                         sum_arr = sum(arr[0])
                         if syst == "nominal" and base == "sm":
