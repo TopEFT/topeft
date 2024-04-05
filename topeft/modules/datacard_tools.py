@@ -861,9 +861,7 @@ class DatacardMaker():
                             if arr[1] is not None:
                                 arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative
 
-                     # check systematics error for fake factors
-
-                        if len(arr[0][negative_bin_mask]) and syst =="nominal":
+                        if len(arr[0][negative_bin_mask]) and syst =="nominal":  # check systematics error for fake factors
                             if sum(arr[0]) == 0:
                                 check_zero_arr0 = True
                             if sum(arr[1]) == 0:
