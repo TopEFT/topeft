@@ -152,6 +152,8 @@ def main():
                 shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
                 if fname.endswith(".txt"): n_txt += 1
                 if fname.endswith(".root"): n_root += 1
+        #also copy the selectedWCs.txt file
+        shutil.copyfile(os.path.join(args.datacards_path,"selectedWCs.txt"),os.path.join(ptzlj0pt_path,"selectedWCs.txt"))
 
         # Check that we got the expected number and print what we learn
         print(f"\tNumber of text templates copied: {n_txt}")
