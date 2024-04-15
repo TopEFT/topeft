@@ -477,50 +477,50 @@ def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
     """Filter generated events with overlapping phase space"""
     genMotherIdx = events.GenPart.genPartIdxMother
     genpdgId = events.GenPart.pdgId
-
     #calculate maxparent pdgId of the event
     idx = ak.to_numpy(ak.flatten(abs(events.GenPart.pdgId)))
     par = ak.to_numpy(ak.flatten(events.GenPart.genPartIdxMother))
     num = ak.to_numpy(ak.num(events.GenPart.pdgId))
     maxParentFlatten = maxHistoryPDGID(idx,par,num)
     events["GenPart","maxParent"] = ak.unflatten(maxParentFlatten, num)
-   
+
     #Only the photons that pass the kinematic cuts are potential candidates for overlapping photons
     #If the overlap photon is actually from a non-prompt decay (maxParent > 37), it is not part of the phase space of the separate sample
-    overlapPhoSelect= ((events.GenPart.pt>=ptCut) & 
-                        (abs(events.GenPart.eta) < etaCut) &  
-                        (events.GenPart.status==1) & (abs(events.GenPart.pdgId)==22) &
+
+    overlapPhoSelect = ((events.GenPart.pt>=ptCut) & (events.GenPart.status==1) & (events.GenPart.hasFlags(['isLastCopy'])) &
+                        (abs(events.GenPart.eta) < etaCut) &
+                        (abs(events.GenPart.pdgId)==22) &
                         (events.GenPart.maxParent < 37)
                         )
-
     overlapPhotons = events.GenPart[overlapPhoSelect]
 
     #Also require that photons are separate from all other gen particles
     #Need not consider neutrinos and don't have to calculate dR between the OverlapPhoton and itself
-    finalGen = events.GenPart[((events.GenPart.status==1)|(events.GenPart.status==71)) & (events.GenPart.pt > 0.01) & 
-                                ~((abs(events.GenPart.pdgId)==12) | (abs(events.GenPart.pdgId)==14) | (abs(events.GenPart.pdgId)==16)) & 
-                                ~(overlapPhoSelect)] 
+    finalGen = events.GenPart[(events.GenPart.status==1) & (events.GenPart.pt > 5.0) &
+                                ~((abs(events.GenPart.pdgId)==12) | (abs(events.GenPart.pdgId)==14) | (abs(events.GenPart.pdgId)==16)) &
+                                ~(overlapPhoSelect)]
 
     #calculate dR between overlap photons and each gen particle
     phoGenDR = overlapPhotons.metric_table(finalGen)
 
-    ph_isolation_mask = ak.all(phoGenDR > deltaRCut, axis=-1)
+    ph_iso_mask = ak.any(phoGenDR < deltaRCut, axis=-1)
 
     #the event is overlapping with the separate sample if there is an overlap photon passing the dR cut, kinematic cuts, and not coming from hadronic activity
-    ph_isolation_mask = ak.any(ph_isolation_mask, axis=-1)
-    
-    if "TTTo" in dataset:
-        events["doesEventFallInTTbar"] = ~(ph_isolation_mask) #We want to invert the ph_isolation_mask because if all the prompt photons in an event satisfy dR cut, then we want to remove the event from TTbar
-        events["doesEventFallInTTGamma"] = np.ones(len(events), dtype=bool) #If the sample is TTbar, then we just set this to all True
+    isolated_overlapPhotons = overlapPhotons[~ph_iso_mask]
 
-    elif "TTGamma" in dataset:
-        events["doesEventFallInTTGamma"] = (ph_isolation_mask) #We want the original ph_isolation_mask because if any of the prompt photons in an event doesn't satisfy dR cut, then we want to remove the event from TTGamma
-        events["doesEventFallInTTbar"] = np.ones(len(events), dtype=bool) #If the sample is TTGamma, then we just set this to all True 
+    if "TTTo" in dataset:   #samples from which the events with well-isolated overlapping photons are to be vetoed
+        criteria = (ak.num(isolated_overlapPhotons)==0)
+        events["vetoedbyOverlap"] = ~criteria
+        events["retainedbyOverlap"] = criteria
 
-#def addTightPhotonMask(events):
-#    tight_photon = ak.fill_none(ak.any(events.Photon.cutBased == 2, axis=1), False)           #tight photon mask
-    
-#    events['photon'] = tight_photon
+    elif "TTGamma" in dataset:  #currently unused but still good to have the implementation
+        criteria = (ak.num(isolated_overlapPhotons) >= 1)
+        events["vetoedbyOverlap"] = ~criteria
+        events["retainedbyOverlap"] = criteria
+
+    else: #might not be necessary
+        events["vetoedbyOverlap"] = np.ones(len(events), dtype=bool)
+        events["retainedbyOverlap"] = np.ones(len(events), dtype=bool)
 
 # Returns the pt of the l+l that form the Z peak
 def get_Z_pt(lep_collection,pt_window):

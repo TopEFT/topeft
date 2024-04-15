@@ -10,6 +10,7 @@ import awkward as ak
 from topcoffea.modules.get_param_from_jsons import GetParam
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
+from topeft.modules.genParentage import maxHistoryPDGID
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 
@@ -167,33 +168,104 @@ def mediumEle(ele):
 def mediumMu(mu):
     return (mu.mediumId)
 
+def maxParentage(genPart):
+    """Filter generated events with overlapping phase space"""
+    genMotherIdx = genPart.genPartIdxMother
+    genpdgId = genPart.pdgId
+    ##calculate maxparent pdgId of the event
+    idx = ak.to_numpy(ak.flatten(abs(genPart.pdgId)))
+    par = ak.to_numpy(ak.flatten(genPart.genPartIdxMother))
+    num = ak.to_numpy(ak.num(genPart.pdgId))
+    maxParentFlatten = maxHistoryPDGID(idx,par,num)
+    genPart["maxParent"] = ak.unflatten(maxParentFlatten, num)
+    genPart["maxParent"] = ak.unflatten(maxParentFlatten, num)
+
+    non_hadronic_parentage = ((abs(genPart.pdgId) == 22) & (genPart.maxParent < 37))
+
+    return non_hadronic_parentage
+
 def selectPhoton(photons):
-    photon_pt_eta = (photons.pt > 20) & (abs(photons.eta)<1.44)
+    photon_pt_eta_mask = (photons.pt > 20) & (abs(photons.eta)<1.44)
+
+    photon_pixelSeed_electronVeto_mask = (np.invert(photons.pixelSeed) & (photons.electronVeto))  #We invert the pixel seed cause we want to veto events with photons that have pixelSeed cause they are misid electrons
+    photon_mediumID = (photons.cutBased >= 2) #At least medium
     #Let's relax two components from medium cutBasedID -- 1. charged isolation and 2. sigmaetaeta
     #split out the ID requirement using the vid (versioned ID) bitmap
     #"(x & 3) >= 2" makes sure each component passes medium threshold
     photon_MinPtCut = (photons.vidNestedWPBitmap >> 0 & 3) >= 2
     photon_PhoSCEtaMultiRangeCut = (photons.vidNestedWPBitmap >> 2 & 3) >= 2
     photon_PhoSingleTowerHadOverEmCut = (photons.vidNestedWPBitmap >> 4 & 3) >= 2
-    photon_sieie = (photons.vidNestedWPBitmap >> 6 & 3) >= 2
+    photon_sieieCut = (photons.vidNestedWPBitmap >> 6 & 3) >= 2
     photon_ChIsoCut = (photons.vidNestedWPBitmap >> 8 & 3) >= 2
     photon_NeuIsoCut = (photons.vidNestedWPBitmap >> 10 & 3) >= 2
     photon_PhoIsoCut = (photons.vidNestedWPBitmap >> 12 & 3) >= 2
 
+    #also define the charged hadron isolation for photons
+    photon_chIso = ((photons.pfRelIso03_chg) * (photons.pt))
+
     # photons passing all ID requirements, without the charged hadron isolation cut applied
-    photonID_relaxed = (
+    mediumPhoton_noSieie_noChIso = (
         photon_MinPtCut
         & photon_PhoSCEtaMultiRangeCut
         & photon_PhoSingleTowerHadOverEmCut
-        & (photons.sieie < 0.010)
-        & (photons.pfRelIso03_chg < 1.141)
+        #& photon_sieieCut
+        #& (photons.sieie < 0.010)
+        #& (photons.pfRelIso03_chg < 1.141)
+        #& (photon_chIso < 1.141)
         & photon_NeuIsoCut
         & photon_PhoIsoCut
     )
 
-    mediumPhotons_relaxed = photons[photon_pt_eta & photonID_relaxed]
+    mediumPhoton_noChIso = (
+        photon_MinPtCut
+        & photon_PhoSCEtaMultiRangeCut
+        & photon_PhoSingleTowerHadOverEmCut
+        & photon_sieieCut
+        #& (photons.sieie < 0.010)
+        #& (photons.pfRelIso03_chg < 1.141)
+        #& (photon_chIso < 1.141)
+        & photon_NeuIsoCut
+        & photon_PhoIsoCut
+    )
 
-    return mediumPhotons_relaxed
+
+
+    #mediumPhotons_relaxed = photons[photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photonID_relaxed]
+    photons['mediumPhoton'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photon_mediumID)
+    photons['mediumPhoton_noSieie_noChIso'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_noSieie_noChIso)
+    photons['mediumPhoton_noChIso'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_noChIso)
+    mediumPhotons = photons[photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photon_mediumID]
+
+def categorizeGenPhoton(photons):    #currently unused
+    """A helper function to categorize MC reconstructed photons
+
+    Returns an integer array to label them as either a generated true photon (1),
+    a mis-identified generated electron (2), a photon from a hadron decay (3),
+    or a fake (e.g. from pileup) (4).
+    Taken from TTGamma processor used in CMSDAS 2023
+    """
+    #### Photon categories, using pdgID of the matched gen particle for the leading photon in the event
+    # reco photons matched to a generated photon
+    # if matched_gen is None (i.e. no match), then we set the flag False
+    matchedPho = ak.fill_none(photons.matched_gen.pdgId == 22, False)
+    # reco photons really generated as electrons
+    matchedEle = ak.fill_none(abs(photons.matched_gen.pdgId) == 11, False)
+    # if the gen photon has a PDG ID > 25 in its history, it has a hadronic parent
+    hadronicParent = ak.fill_none(photons.matched_gen.maxParent > 25, False)
+
+    # define the photon categories for tight photon events
+    # a genuine photon is a reconstructed photon which is matched to a generator level photon, and does not have a hadronic parent
+    isGenPho = matchedPho & ~hadronicParent
+    # a hadronic photon is a reconstructed photon which is matched to a generator level photon, but has a hadronic parent
+    isHadPho = matchedPho & hadronicParent
+    # a misidentified electron is a reconstructed photon which is matched to a generator level electron
+    isMisIDele = matchedEle
+    # a hadronic/fake photon is a reconstructed photon that does not fall within any of the above categories
+    isHadFake = ~isMisIDele & ~isHadPho & ~isGenPho
+
+    # integer definition for the photon category axis
+    # since false = 0 , true = 1, this only leaves the integer value of the category it falls into
+    return 1 * isGenPho + 2 * isMisIDele + 3 * isHadPho + 4 * isHadFake
 
 def isClean(obj_A, obj_B, drmin=0.4):
     objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
