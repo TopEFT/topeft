@@ -272,7 +272,6 @@ extLepSF.add_weight_sets(["TauFakeSF TauSF/pt_value %s"%topcoffea_path('data/Tau
 extLepSF.add_weight_sets(["TauFakeSF_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 extLepSF.add_weight_sets(["TauFakeSF_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 
-
 # Fake rate
 for year in ['2016APV_2016', 2017, 2018]:
     for syst in ['','_up','_down','_be1','_be2','_pt1','_pt2']:
@@ -287,17 +286,15 @@ ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 def ApplyTES(year, Taus, isData):
     if isData:
         return (Taus.pt, Taus.mass)
-
     pt  = Taus.pt
     dm  = Taus.decayMode
     gen = Taus.genPartFlav
 
     kinFlag = (pt>20) & (pt<205) & (gen==5)
     dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
-    whereFlag = kinFlag & dmFlag #((pt>20) & (pt<205) & (gen==5) & (dm==0 | dm==1 | dm==10 | dm==11))                                                                                                        
+    whereFlag = kinFlag & dmFlag #((pt>20) & (pt<205) & (gen==5) & (dm==0 | dm==1 | dm==10 | dm==11))
     tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
     return (Taus.pt*tes, Taus.mass*tes)
-    #return(Taus.pt*tes)                                                                                                                                                                                     
 
 def ApplyFES(year, Taus, isData):
     if isData:
@@ -358,7 +355,7 @@ def ApplyFESSystematic(year, Taus, syst_name):
     fes_syst = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1)
     return(Taus.pt*fes_syst, Taus.mass*fes_syst)
 
-def AttachTauSF(events, Taus, year):
+def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     padded_Taus = ak.pad_none(Taus,1)
     padded_Taus = ak.with_name(padded_Taus, "TauCandidate")
     padded_Taus["sf_tau"] = 1.0
