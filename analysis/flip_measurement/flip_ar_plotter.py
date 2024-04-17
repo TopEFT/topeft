@@ -6,7 +6,6 @@
 import os
 import copy
 import matplotlib.pyplot as plt
-import hist
 import mplhep as hep
 import numpy as np
 
