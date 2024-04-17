@@ -19,3 +19,10 @@ This directory contains several scripts that are relevant for the charge flip me
 ### Run scripts
 
 * `run_flip.py`: This run script can run either the `flip_mr_processor.py` or `flip_mr_processor.py` processor (specify the name of the processor with the `--processor_name` argument). It can also run with the `futures` or `work_queue` executor (specify this via the `--executor` argument).
+* Example: 
+```
+# Produce histograms in pkl file on OSU T3
+python run_flip.py ../../input_samples/sample_jsons/data_samples/2017/SingleElectron_B-UL2017_OSUSkim.json -x futures --processor flip_ar_processor -c 1 --xrd /
+# Plot histograms
+python flip_ar_plotter.py histos/flipTopEFT.pkl.gz
+```
