@@ -6,9 +6,12 @@
 import os
 import copy
 import matplotlib.pyplot as plt
-from coffea import hist
+import hist
+import mplhep as hep
+import numpy as np
 
-from topcoffea.modules.YieldTools import YieldTools
+import topcoffea.modules.utils as utils
+from topeft.modules.yield_tools import YieldTools
 yt = YieldTools()
 
 import argparse
@@ -19,38 +22,43 @@ args = parser.parse_args()
 outpath = args.outpath
 
 # Plots one or two histos (optionally along with an "up" and "down" variation) and returns the fig
-def make_fig(histo1,histo2=None,hup=None,hdo=None):
+def make_fig(histo1,histo2=None,hup=None,hdo=None,stack=True):
     #print("\nPlotting values:",histo1.values())
     #print("\nPlotting values:",histo2.values())
     fig, ax = plt.subplots(1, 1, figsize=(7,7))
 
     # Plot the "up" and "down" histos
+    #if hup is not None and hdo is not None:
+    #    hep.histplot(
+    #        hup,
+    #        stack=False,
+    #        #line_opts={'color': 'lightgrey'},
+    #        #clear=False,
+    #    )
+    #    hep.histplot(
+    #        hdo,
+    #        stack=False,
+    #        #line_opts={'color': 'lightgrey'},
+    #        #clear=False,
+    #    )
+    yerr = None
+    # if up/down provided, compute differnce w.r.t. the nominal
     if hup is not None and hdo is not None:
-        hist.plot1d(
-            hup,
-            stack=False,
-            line_opts={'color': 'lightgrey'},
-            clear=False,
-        )
-        hist.plot1d(
-            hdo,
-            stack=False,
-            line_opts={'color': 'lightgrey'},
-            clear=False,
-        )
+        yerr = [[np.sqrt(hup.values() - histo1.values()), np.sqrt(hdo.values() - histo1.values())]]
 
     # Plot the main histos
-    hist.plot1d(
-        histo1,
-        stack=False,
-        clear=False,
-    )
     if histo2 is not None:
-        hist.plot1d(
+        hep.histplot(
             histo2,
-            stack=False,
-            clear=False,
+            stack=stack,
+            yerr=yerr,
         )
+    hep.histplot(
+        histo1,
+        stack=stack,
+        yerr=yerr,
+        #clear=False,
+    )
 
     ax.autoscale(axis='y')
     return fig
@@ -73,7 +81,7 @@ def print_summed_hist_vals(in_hist,ret="ssz",quiet=False):
 # Main wrapper function
 def make_plot():
 
-    hin_dict = yt.get_hist_from_pkl(args.filepath)
+    hin_dict = utils.get_hist_from_pkl(args.filepath)
     sample_names_lst = yt.get_cat_lables(hin_dict,"process")
     chan_names_lst = yt.get_cat_lables(hin_dict,"channel")
 
@@ -89,16 +97,17 @@ def make_plot():
 
             # Copy (and rebin the ss)
             histo = copy.deepcopy(histo_orig)
-            if histo_name == "invmass": histo = histo.rebin("invmass",2)
+            #if histo_name == "invmass": histo = histo.rebin("invmass",2)
 
             # Integrate and make plot (overlay the categories)
             savename = "_".join([sample_name,histo_name])
             histo = histo.integrate("process",sample_name)
             h_up = copy.deepcopy(histo)
             h_do = copy.deepcopy(histo)
-            h_up.scale(1.3)
-            h_do.scale(0.7)
-            fig = make_fig(histo["ssz"],histo2=histo["osz"],hup=h_up["osz"],hdo=h_do["osz"])
+            h_up *= 1.3
+            h_do *= 0.7
+            fig = make_fig(histo[{"channel": "ssz"}],histo2=histo[{"channel": "osz"}],hup=h_up[{"channel": "osz"}],hdo=h_do[{"channel": "osz"}])
+            fig = make_fig(histo[{"channel": "ssz"}],histo2=histo[{"channel": "osz"}])
             fig.savefig(os.path.join(outpath,savename))
 
 

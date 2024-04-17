@@ -202,7 +202,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         else: weights_object.add("norm",np.ones_like(events["event"]))
 
         # Apply the flip rate to OS as a cross check
-        weights_object.add("fliprate", events.flipfactor_2l)
+        #weights_object.add("fliprate", events.flipfactor_2l)
 
         # Print info
         #print("id0:",l0.pdgId)
@@ -265,8 +265,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             "l1eta"   : l1.eta,
         }
 
-        print(l0.pt)
-        print(l1.eta)
 
         ########## Fill the histograms ##########
 

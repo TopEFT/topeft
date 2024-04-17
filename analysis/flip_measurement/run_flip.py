@@ -60,7 +60,7 @@ flist = {}
 for sample_name,jsn in samples_to_process.items():
     #if jsn['WCnames'] != []: raise Exception(f"Error: This processor is not set up to handle EFT samples.")
     xrd_src = jsn['redirector']
-    flist[sample_name] = [f"{xrd_src}{fn}" for fn in jsn['files']]
+    flist[sample_name] = [f"{xrd_src}/{fn}" for fn in jsn['files']]
 
     jsn_txt = json.dumps(jsn,indent=2,sort_keys=True)
 
