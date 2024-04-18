@@ -1,7 +1,6 @@
 import pickle
 import gzip
 import numpy as np
-import matplotlib.pyplot as plt
 import uproot
 import ROOT
 ROOT.gROOT.SetBatch(True)

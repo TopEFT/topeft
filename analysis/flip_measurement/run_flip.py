@@ -97,7 +97,7 @@ if executor == "work_queue":
         'stats_log': 'stats.log',
 
         'environment_file': remote_environment.get_environment(
-                extra_pip_local = {"topeft": ["topeft", "setup.py"]},
+            extra_pip_local = {"topeft": ["topeft", "setup.py"]},
         ),
         'extra_input_files': extra_input_files_lst,
 
