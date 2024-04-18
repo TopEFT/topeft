@@ -1,0 +1,19 @@
+{
+  "xsec": 1.0,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "dataUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_E_UL2017/output_1511.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_E_UL2017/output_1763.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_E_UL2017/output_2881.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_E_UL2017/output_2882.root"
+  ],
+  "nEvents": 19043421,
+  "nGenEvents": 19043421,
+  "nSumOfWeights": 19043421.0,
+  "isData": true,
+  "path": "/MuonEG/Run2017E-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD"
+}

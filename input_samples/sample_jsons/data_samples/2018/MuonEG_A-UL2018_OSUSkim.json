@@ -1,0 +1,22 @@
+{
+  "xsec": 1.0,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "dataUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_A_UL2018/output_2047.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_A_UL2018/output_3937.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_A_UL2018/output_4115.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_A_UL2018/output_4451.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_A_UL2018/output_4683.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_A_UL2018/output_4802.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/MuonEG_A_UL2018/output_4817.root"
+  ],
+  "nEvents": 32958503,
+  "nGenEvents": 32958503,
+  "nSumOfWeights": 32958503.0,
+  "isData": true,
+  "path": "/MuonEG/Run2018A-UL2018_MiniAODv2_NanoAODv9-v1/NANOAOD"
+}
