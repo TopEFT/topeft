@@ -96,7 +96,9 @@ if executor == "work_queue":
         'transactions_log': 'tr.log',
         'stats_log': 'stats.log',
 
-        'environment_file': remote_environment.get_environment(),
+        'environment_file': remote_environment.get_environment(
+                extra_pip_local = {"topeft": ["topeft", "setup.py"]},
+        ),
         'extra_input_files': extra_input_files_lst,
 
         # use mid-range compression for chunks results. 9 is the default for work
