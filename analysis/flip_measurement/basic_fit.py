@@ -1,12 +1,7 @@
 import pickle
-import hist
 import gzip
 import numpy as np
 import matplotlib.pyplot as plt
-import argparse
-import mplhep as hep
-from coffea.hist import Bin
-from topeft.modules import axes
 import uproot
 import ROOT
 ROOT.gROOT.SetBatch(True)
@@ -16,10 +11,10 @@ hists={}
 fin = 'histos/flipTopEFT.pkl.gz'
 
 with gzip.open(fin) as fin:
-  hin = pickle.load(fin)
-  for k in hin.keys():
-    if k in hists: hists[k]+=hin[k]
-    else:               hists[k]=hin[k]
+    hin = pickle.load(fin)
+    for k in hin.keys():
+        if k in hists: hists[k]+=hin[k]
+        else:               hists[k]=hin[k]
 
 
 # Bit of a hacky way, since ROOT and RooFit is easier to use than SciPy for fitting Gaussian + exponential
