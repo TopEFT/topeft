@@ -24,7 +24,7 @@ parser.add_argument('--nchunks','-c'        , default=0, type=int, help = 'You c
 parser.add_argument('--outname','-o'        , default='flipTopEFT', help = 'Name of the output file with histograms')
 parser.add_argument('--outpath','-p'        , default='histos', help = 'Name of the output directory')
 parser.add_argument('--treename'            , default='Events', help = 'Name of the tree inside the files')
-parser.add_argument('--xrd'                 , default='', help = 'The XRootD redirector to use when reading directly from json files')
+parser.add_argument('--xrd'                 , default=None, help = 'The XRootD redirector to use when reading directly from json files')
 
 args = parser.parse_args()
 inputFiles = args.inputFiles.replace(' ','').split(',')  # Remove whitespace and split by commas
@@ -60,6 +60,9 @@ flist = {}
 for sample_name,jsn in samples_to_process.items():
     #if jsn['WCnames'] != []: raise Exception(f"Error: This processor is not set up to handle EFT samples.")
     xrd_src = jsn['redirector']
+    if xrd is not None:
+        xrd_src = xrd
+        print(f'Replacing {xrd_src=} with {xrd=}')
     flist[sample_name] = [f"{xrd_src}/{fn}" for fn in jsn['files']]
 
     jsn_txt = json.dumps(jsn,indent=2,sort_keys=True)
