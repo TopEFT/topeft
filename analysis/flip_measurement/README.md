@@ -16,6 +16,17 @@ This directory contains several scripts that are relevant for the charge flip me
 
 * `flip_ar_plotter.py`: This script is designed to plot the output histograms of `flip_ar_processor.py`. It is useful as a simple comparison between the SS data and the prediction (though using `topeft` and looking at the flip CR would be a much more thorough comparison since that would incorporate other contributions into the prediction, e.g. `fakes`). 
 
+### Fitters
+* `basic_fit.py`: An example of fitting for the fake rate
+```bash
+python basic_fit.py 
+```
+**Note:** This script uses PyROOT. Since this isn't essential for the full repo, ROOT is *not* installed by default. To run this script, you must first run:
+```
+conda install root
+```
+(or `micromamba` if using mamba)
+
 ### Run scripts
 
 * `run_flip.py`: This run script can run either the `flip_mr_processor.py` or `flip_mr_processor.py` processor (specify the name of the processor with the `--processor_name` argument). It can also run with the `futures` or `work_queue` executor (specify this via the `--executor` argument).
