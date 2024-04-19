@@ -24,8 +24,11 @@ osz = fout['osz'].to_pyroot()
 
 # Workspace for fitting
 w = ROOT.RooWorkspace("w")
+# Crate model for fitting (Crystal Ball + Gaus + expo) (using RooFit factory syntax)
+# Crystal Ball does a bit better at capturing the asymmetric shape due to radiation effects
+w.factory(f"SUM::model(nsig[0, {osz.Integral()}]*CBShape::sig(mass[50, 150], mean[91, 60, 120], sigma[1, 0.1, 20], alpha[1, 0, 5], n[5, 0, 10]), nsig1[0, {osz.Integral()}]*Gaussian::sig1(mass, mean, sigma1[1, 0.1, 20]), nbkg[0, {osz.Integral()}]*Exponential::bkg(mass, lambda[-10, 10]))")
 # Crate model for fitting (Gaus1 + Gaus2 + expo) (using RooFit factory syntax)
-w.factory(f"SUM::model(nsig[0, {osz.Integral()}]*Gaussian::sig(mass[50, 150], mean[91, 60, 120], sigma[1, 0.1, 20]), nsig1[0, {osz.Integral()}]*Gaussian::sig1(mass, mean, sigma1[1, 0.1, 20]), nbkg[0, {osz.Integral()}]*Exponential::bkg(mass, lambda[-10, 10]))")
+#w.factory(f"SUM::model(nsig[0, {osz.Integral()}]*Gaussian::sig(mass[50, 150], mean[91, 60, 120], sigma[1, 0.1, 20]), nsig1[0, {osz.Integral()}]*Gaussian::sig1(mass, mean, sigma1[1, 0.1, 20]), nbkg[0, {osz.Integral()}]*Exponential::bkg(mass, lambda[-10, 10]))")
 # Import data into ws
 data = ROOT.RooDataHist("data", "data", w.var("mass"), ROOT.RooFit.Import(osz))
 # Fit the model to the data
