@@ -29,11 +29,11 @@ ssz = fout['ssz'].to_pyroot()
 w = ROOT.RooWorkspace("w")
 # Crate model for fitting (Crystal Ball + Gaus + expo) (using RooFit factory syntax)
 # Crystal Ball does a bit better at capturing the asymmetric shape due to radiation effects
-w.factory(f"SUM::model(nsig[0, {osz.Integral()}]*CBShape::sig(mass[50, 150], mean[91, 60, 120], sigma[1, 0.1, 20], alpha[1, 0, 5], n[5, 0, 10]), nsig1[0, {osz.Integral()}]*Gaussian::sig1(mass, mean, sigma1[1, 0.1, 20]), nbkg[0, {osz.Integral()}]*Exponential::bkg(mass, lambda[-10, 10]))")
+#w.factory(f"SUM::model(nsig[0, {osz.Integral()}]*CBShape::sig(mass[60, 120], mean[91, 60, 120], sigma[1, 0.1, 20], alpha[1, 0, 5], n[5, 0, 10]), nsig1[0, {osz.Integral()}]*Gaussian::sig1(mass, mean, sigma1[1, 0.1, 20]), nbkg[0, {osz.Integral()}]*Exponential::bkg(mass, lambda[-10, 10]))")
 #TODO find a better model for same-signed (ss)
-w.factory(f"SUM::model_ss(nsig_ss[0, {ssz.Integral()}]*CBShape::sig_ss(mass, mean_ss[91, 60, 120], sigma_ss[1, 0.1, 20], alpha_ss[1, 0, 5], n_ss[5, 0, 10]), nsig1_ss[0, {ssz.Integral()}]*Gaussian::sig1_ss(mass, mean, sigma1_ss[1, 0.1, 20]), nbkg_ss[0, {ssz.Integral()}]*Exponential::bkg_ss(mass, lambda_ss[-10, 10]))")
 # Crate model for fitting (Gaus1 + Gaus2 + expo) (using RooFit factory syntax)
-#w.factory(f"SUM::model(nsig[0, {osz.Integral()}]*Gaussian::sig(mass[50, 150], mean[91, 60, 120], sigma[1, 0.1, 20]), nsig1[0, {osz.Integral()}]*Gaussian::sig1(mass, mean, sigma1[1, 0.1, 20]), nbkg[0, {osz.Integral()}]*Exponential::bkg(mass, lambda[-10, 10]))")
+w.factory(f"SUM::model(nsig[0, {osz.Integral()}]*Gaussian::sig(mass[60, 120], mean[91, 60, 120], sigma[1, 0.1, 20]), nsig1[0, {osz.Integral()}]*Gaussian::sig1(mass, mean, sigma1[1, 0.1, 20]), nbkg[0, {osz.Integral()}]*Exponential::bkg(mass, lambda[-10, 10]))")
+w.factory(f"SUM::model_ss(nsig_ss[0, {ssz.Integral()}]*CBShape::sig_ss(mass, mean_ss[91, 60, 120], sigma_ss[1, 0.1, 20], alpha_ss[1, 0, 5], n_ss[5, 0, 10]), nsig1_ss[0, {ssz.Integral()}]*Gaussian::sig1_ss(mass, mean, sigma1_ss[1, 0.1, 20]), nbkg_ss[0, {ssz.Integral()}]*Exponential::bkg_ss(mass, lambda_ss[-10, 10]))")
 # Import data into ws
 data = ROOT.RooDataHist("data", "data", w.var("mass"), ROOT.RooFit.Import(osz))
 data_ss = ROOT.RooDataHist("data_ss", "data_ss", w.var("mass"), ROOT.RooFit.Import(ssz))
@@ -43,19 +43,23 @@ w.Print("v")
 w.pdf("model_ss").fitTo(data_ss, ROOT.RooFit.PrintLevel(0)) # PrintLevel(0) suppresses printouts. Change to see things like fit results and correlation martrix
 
 # Frame for drawing
-f = w.var("mass").frame()
+f_osz = w.var("mass").frame()
+f_ssz = w.var("mass").frame()
 
 # Plot the data
 c1 = ROOT.TCanvas()
-c1.cd()
-data.plotOn(f)
-w.pdf("model").plotOn(f)
-#TODO draw ss version on a separate plot
-w.pdf("model").plotOn(f, ROOT.RooFit.Components(w.pdf("bkg")), ROOT.RooFit.LineStyle(ROOT.kDashed))
-w.pdf("model_ss").plotOn(f, ROOT.RooFit.LineColor(ROOT.kRed))
-w.pdf("model_ss").plotOn(f, ROOT.RooFit.Components(w.pdf("bkg_ss")), ROOT.RooFit.LineStyle(ROOT.kDashed), ROOT.RooFit.LineColor(ROOT.kRed))
-f.Draw()
-c1.SaveAs("fit_osz.png")
+c1.Divide(2)
+c1.cd(1)
+data.plotOn(f_osz)
+w.pdf("model").plotOn(f_osz)
+w.pdf("model").plotOn(f_osz, ROOT.RooFit.Components(w.pdf("bkg")), ROOT.RooFit.LineStyle(ROOT.kDashed))
+f_osz.Draw()
+c1.cd(2)
+data_ss.plotOn(f_ssz)
+w.pdf("model_ss").plotOn(f_ssz, ROOT.RooFit.LineColor(ROOT.kRed))
+w.pdf("model_ss").plotOn(f_ssz, ROOT.RooFit.Components(w.pdf("bkg_ss")), ROOT.RooFit.LineStyle(ROOT.kDashed), ROOT.RooFit.LineColor(ROOT.kRed))
+f_ssz.Draw()
+c1.SaveAs("fit_z.png")
 
 # Compute total signal (sum of both Gaussian terms)
 nsig = w.var("nsig").getVal() + w.var("nsig1").getVal()
