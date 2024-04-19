@@ -18,9 +18,6 @@ This directory contains several scripts that are relevant for the charge flip me
 
 ### Fitters
 * `basic_fit.py`: An example of fitting for the fake rate
-```bash
-python basic_fit.py 
-```
 **Note:** This script uses PyROOT. Since this isn't essential for the full repo, ROOT is *not* installed by default. To run this script, you must first run:
 ```
 conda install root
@@ -34,6 +31,8 @@ conda install root
 ```
 # Produce histograms in pkl file on OSU T3
 python run_flip.py ../../input_samples/sample_jsons/data_samples/2017/SingleElectron_B-UL2017_OSUSkim.json -x futures --processor flip_ar_processor -c 1 --xrd /
-# Plot histograms
+# Plot histograms (optional at this point)
 python flip_ar_plotter.py histos/flipTopEFT.pkl.gz
+# Extract flip rate and plot
+python basic_fit.py 
 ```
