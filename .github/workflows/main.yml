@@ -132,6 +132,19 @@ jobs:
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_workqueue.py
 
+      - name: Uplaod datacard
+        uses: actions/checkout@v3
+          with:
+            repository: TopEFT/EFTFit
+            ref: 'dev_datacard'
+            token:  ${{ secrets.EFT_token}}
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "<>"
+          cp analysis/topeft_run2/test/ttx_multileptons-2lss_p_4j_lj0pt.txt cards/
+          git add cards/ttx_multileptons-2lss_p_4j_lj0pt.txt
+          git commit -m "udpate datacard"
+          git push
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
