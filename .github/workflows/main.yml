@@ -133,11 +133,12 @@ jobs:
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_workqueue.py
 
       - name: Uplaod datacard
-      - name: Push to target repository
           run: |
             git config --global user.name 'TopEFT'
             git config --global user.email 'yates.313@osu.edu'
-            git remote add target https://github.com/TopEFT/EFTFit.git
+            mkdir cards
+            cp histos/ttx_multileptons-2lss_p_4j_lj0pt.txt cards
+            git remote add cards/* https://github.com/TopEFT/EFTFit.git
             git token ${{ secrets.EFT_token }}
             git push target HEAD:dev_datacard
 
