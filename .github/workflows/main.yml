@@ -133,7 +133,7 @@ jobs:
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_workqueue.py
 
       - name: Uplaod datacard
-          run: |
+        run: |
             git config --global user.name 'TopEFT'
             git config --global user.email 'yates.313@osu.edu'
             mkdir cards
