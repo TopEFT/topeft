@@ -141,7 +141,7 @@ jobs:
           destination_repo: 'TopEFT/EFTFit'
           destination_folder: 'cards'
           #user_email: 'your-email@example.com'
-          user_name: 'TopEFT'
+          user_name: 'bryates'
           commit_message: 'Updating CI datacard'
 
       - name: Upload coverage to Codecov
