@@ -127,23 +127,22 @@ jobs:
       - name: Compare topeft yields
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append -k test_compare_yields_after_processor
-
-      - name: Run topeft processors over test files with workqueue executor
-        run: |
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_workqueue.py
-
       - name: Uplaod datacard
         uses: dmnemec/copy_file_to_another_repo_action@main
         env:
           API_TOKEN_GITHUB: ${{ secrets.EFT_token }}
         with:
-          source_file: '/home/runner/work/topeft/topeft/histos/ttx_multileptons-2lss_p_4j_lj0pt.txt cards'
+          source_file: 'histos/ttx_multileptons-2lss_p_4j_lj0pt.txt'
           destination_repo: 'TopEFT/EFTFit'
           destination_branch: 'dev_datacard'
           destination_folder: 'cards'
           #user_email: 'your-email@example.com'
           user_name: 'bryates'
           commit_message: 'Updating CI datacard'
+
+      - name: Run topeft processors over test files with workqueue executor
+        run: |
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_workqueue.py
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
