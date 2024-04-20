@@ -133,15 +133,13 @@ jobs:
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_workqueue.py
 
       - name: Uplaod datacard
-        uses: cpina/github-action-push-to-another-repository@main
-        env:
-          API_TOKEN_GITHUB: ${{ secrets.EFT_token}}
-        with:
-          #source-directory: 'histos'
-          destination-github-username: 'TopEFT'
-          destination-repository-name: 'EFTFit'
-          user-email: yates.313@osu.edu
-          target-branch: dev_datacard
+      - name: Push to target repository
+          run: |
+            git config --global user.name 'TopEFT'
+            git config --global user.email 'yates.313@osu.edu'
+            git remote add target https://github.com/TopEFT/EFTFit.git
+            git token ${{ secrets.EFT_token }}
+            git push target HEAD:dev_datacard
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v2
