@@ -137,7 +137,7 @@ jobs:
         env:
           API_TOKEN_GITHUB: ${{ secrets.EFT_token }}
         with:
-          source_file: 'histos/ttx_multileptons-2lss_p_4j_lj0pt.txt cards'
+          source_file: '/home/runner/work/topeft/topeft/histos/ttx_multileptons-2lss_p_4j_lj0pt.txt cards'
           destination_repo: 'TopEFT/EFTFit'
           destination_branch: 'dev_datacard'
           destination_folder: 'cards'
