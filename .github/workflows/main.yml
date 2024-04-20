@@ -139,6 +139,7 @@ jobs:
         with:
           source_file: 'histos/ttx_multileptons-2lss_p_4j_lj0pt.txt cards'
           destination_repo: 'TopEFT/EFTFit'
+          destination_branch: 'dev_datacard'
           destination_folder: 'cards'
           #user_email: 'your-email@example.com'
           user_name: 'bryates'
