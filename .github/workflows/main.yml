@@ -137,7 +137,7 @@ jobs:
         env:
           API_TOKEN_GITHUB: ${{ secrets.EFT_token}}
         with:
-          source-directory: 'histos'
+          #source-directory: 'histos'
           destination-github-username: 'TopEFT'
           destination-repository-name: 'EFTFit'
           user-email: yates.313@osu.edu
