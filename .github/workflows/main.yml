@@ -134,10 +134,10 @@ jobs:
 
       - name: Uplaod datacard
         uses: actions/checkout@v3
-          with:
-            repository: TopEFT/EFTFit
-            ref: 'dev_datacard'
-            token:  ${{ secrets.EFT_token}}
+        with:
+          repository: TopEFT/EFTFit
+          ref: 'dev_datacard'
+          token:  ${{ secrets.EFT_token}}
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
