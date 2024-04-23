@@ -13,9 +13,9 @@ jobs:
     name: Lint
     steps:
       - name: Check out source repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
       - name: Set up Python environment
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
       - name: flake8 Lint
         uses: py-actions/flake8@v2
         with:
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: Add conda to system path
         run: |
