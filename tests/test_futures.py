@@ -48,4 +48,4 @@ def test_datacardmaker():
     # Run datacard maker
     subprocess.run(args, check=True)
 
-    assert (comp_datacard('histos/ttx_multileptons-2lss_p_4j_lj0pt.txt','analysis/topeft_run2/test/ttx_multileptons-2lss_p_4j_lj0pt.txt'))
+    assert (comp_datacard('cards/ttx_multileptons-2lss_p_4j_lj0pt.txt','analysis/topeft_run2/test/ttx_multileptons-2lss_p_4j_lj0pt.txt'))
