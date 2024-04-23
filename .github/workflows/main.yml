@@ -149,4 +149,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: plots
-          path: tmp_quad_plos*/
+          path: |
+            tmp_quad_plos*/
+            histo
+            analysis/topeft_run2/histos
