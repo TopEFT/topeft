@@ -36,7 +36,7 @@ def test_datacardmaker():
         "analysis/topeft_run2/make_cards.py",
         "analysis/topeft_run2/histos/output_check_yields_nonprompt.pkl.gz",
         "-d",
-        "histos",
+        "cards",
         "--var-lst",
         "lj0pt",
         "--do-nuisance",

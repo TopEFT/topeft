@@ -151,5 +151,5 @@ jobs:
           name: plots
           path: |
             tmp_quad_plos*/
-            histo
+            cards
             analysis/topeft_run2/histos
