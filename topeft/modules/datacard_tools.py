@@ -422,7 +422,7 @@ class DatacardMaker():
         for km_dist, h in self.hists.items():
             if h.empty():
                 continue
-            if self.var_lst and km_dist not in self.var_lst:
+            if self.var_lst and km_dist not in self.var_lst and km_dist.replace("_sumw2", "") not in self.var_lst:
                 continue
             print(f"Loading: {km_dist}")
             # Remove processes that we don't include in the datacard
@@ -787,7 +787,14 @@ class DatacardMaker():
         outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="root")
 
         h = self.hists[km_dist]
+        try:
+            h_sumw2 = self.hists[km_dist+"_sumw2"]
+        except KeyError:
+            msg = "No sumw2 histogram found! Setting errors to 0"
+            print(msg)
+            h_sumw2 = None
         ch_hist = h.integrate("channel",[ch])
+        ch_sumw2 = h_sumw2.integrate("channel",[ch]) if h_sumw2 is not None else h_sumw2
         data_obs = np.zeros((2, ch_hist.dense_axis.extent))
 
         print(f"Generating root file: {outf_root_name}")
@@ -805,9 +812,10 @@ class DatacardMaker():
                 if 'fakes' in p and '4l' in ch:
                     continue
                 proc_hist = ch_hist.integrate("process",[p])
+                proc_sumw2 = ch_sumw2.integrate("process",[p]) if ch_sumw2 is not None else ch_sumw2
                 if self.verbose:
                     print(f"Decomposing {ch}-{p}")
-                decomposed_templates = self.decompose(proc_hist,wcs)
+                decomposed_templates = self.decompose(proc_hist,proc_sumw2,wcs)
                 is_eft = self.is_signal(p)
                 # Note: This feels like a messy way of picking out the data_obs info
                 if p == "data":
@@ -1040,7 +1048,7 @@ class DatacardMaker():
         print(f"Total Hists Written: {num_h}")
 
     # TODO: Can be a static member function
-    def decompose(self,h,wcs):
+    def decompose(self,h,sumw2,wcs):
         """
             Decomposes the EFT quadratic parameterization coefficients into combinations that result
             in non-negative coefficient terms.
@@ -1054,7 +1062,8 @@ class DatacardMaker():
         tic = time.time()
 
         sm = h.eval({})
-        sm = add_sumw2_stub(sm)
+        sm_w2 = sumw2.eval({})
+        sm = add_sumw2_stub(sm,sm_w2)
 
         # Note: The keys of this dictionary are a pretty contrived, but are useful later on
         r = {}
