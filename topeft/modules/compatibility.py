@@ -1,4 +1,3 @@
-import hist
 import numpy as np
 
 
