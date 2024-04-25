@@ -8,5 +8,7 @@ def add_sumw2_stub(eval_d, sumw2=False):
         if not sumw2:
             eval_d2[k] = np.stack((v, np.broadcast_to(np.zeros((1,)), len(v))))
         else:
-            eval_d2[k] = np.stack((v, np.sqrt(sumw2[k])))
+            err = sumw2[k]
+            err[err<0] = 0
+            eval_d2[k] = np.stack((v, np.sqrt(err)))
     return eval_d2
