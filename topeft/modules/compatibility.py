@@ -9,6 +9,5 @@ def add_sumw2_stub(eval_d, sumw2=False):
             eval_d2[k] = np.stack((v, np.broadcast_to(np.zeros((1,)), len(v))))
         else:
             variance = sumw2[k]
-            variance[variance<0] = 0
             eval_d2[k] = np.stack((v, variance))
     return eval_d2
