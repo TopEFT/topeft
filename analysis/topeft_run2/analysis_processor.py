@@ -937,18 +937,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
-                                        if not isEFT: # Only SM (bkg) and data
-                                            sumw2 = np.square(weights_flat)
-                                            axes_fill_info_dict = {
-                                                dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
-                                                "channel"       : ch_name,
-                                                "appl"          : appl,
-                                                "process"       : histAxisName,
-                                                "systematic"    : wgt_fluct,
-                                                "weight"        : sumw2,
-                                                "eft_coeff"     : eft_coeffs_cut,
-                                            }
-                                            hout[dense_axis_name+"_sumw2"].fill(**axes_fill_info_dict)
+                                        axes_fill_info_dict = {
+                                            dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
+                                            "channel"       : ch_name,
+                                            "appl"          : appl,
+                                            "process"       : histAxisName,
+                                            "systematic"    : wgt_fluct,
+                                            "weight"        : np.square(weights_flat),
+                                            "eft_coeff"     : eft_coeffs_cut,
+                                        }
+                                        hout[dense_axis_name+"_sumw2"].fill(**axes_fill_info_dict)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
