@@ -119,7 +119,7 @@ class DataDrivenProducer:
 
                         # now we actually make the subtraction
                         # var(A - B) = var(A) + var(B)
-                        if '_sumw2' not in key:
+                        if not key.endswith("_sumw2"):
                             hPromptSub.scale(-1)
                         hFakes += hPromptSub
                         # now adding them to the list of processes:
