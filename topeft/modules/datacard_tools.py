@@ -796,7 +796,7 @@ class DatacardMaker():
             print(msg)
             h_sumw2 = None
         ch_hist = h.integrate("channel",[ch])
-        ch_sumw2 = h_sumw2.integrate("channel",[ch]) if h_sumw2 is not None else h_sumw2
+        ch_sumw2 = h_sumw2 if h_sumw2 is None else h_sumw2.integrate("channel",[ch])
         data_obs = np.zeros((2, ch_hist.dense_axis.extent))
 
         print(f"Generating root file: {outf_root_name}")
@@ -814,7 +814,7 @@ class DatacardMaker():
                 if 'fakes' in p and '4l' in ch:
                     continue
                 proc_hist = ch_hist.integrate("process",[p])
-                proc_sumw2 = ch_sumw2.integrate("process",[p]) if ch_sumw2 is not None else ch_sumw2
+                proc_sumw2 = ch_sumw2 if ch_sumw2 is not None else ch_sumw2.integrate("process",[p])
                 if self.verbose:
                     print(f"Decomposing {ch}-{p}")
                 decomposed_templates = self.decompose(proc_hist,proc_sumw2,wcs)
