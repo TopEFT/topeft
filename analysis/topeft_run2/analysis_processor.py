@@ -937,7 +937,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
-                                        sumw2 = np.zeros_like(weights_flat)
+                                        sumw2 = np.ones_like(weights_flat)
                                         if not isEFT: # Only SM (bkg) and data
                                             sumw2 = np.square(weights_flat)
                                         axes_fill_info_dict = {
