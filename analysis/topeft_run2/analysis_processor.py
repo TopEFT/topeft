@@ -67,6 +67,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
+        self._isEFT = self._samples[dataset]["WCnames"] != []
         self._dtype = dtype
 
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
@@ -936,13 +937,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                        sumw2 = np.zeros_like(weights_flat)
+                                        if not self._isEFT: # Only SM (bkg) and data
+                                            sumw2 = np.square(weights_flat)
                                         axes_fill_info_dict = {
                                             dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
                                             "channel"       : ch_name,
                                             "appl"          : appl,
                                             "process"       : histAxisName,
                                             "systematic"    : wgt_fluct,
-                                            "weight"        : np.square(weights_flat),
+                                            "weight"        : sumw2,
                                             "eft_coeff"     : eft_coeffs_cut,
                                         }
                                         hout[dense_axis_name+"_sumw2"].fill(**axes_fill_info_dict)
