@@ -788,9 +788,10 @@ class DatacardMaker():
         outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="root")
 
         h = self.hists[km_dist]
-        try:
+        h_sumw2 = None
+        if f"{km_dist}_sumw2" in self.hists:
             h_sumw2 = self.hists[km_dist+"_sumw2"]
-        except KeyError:
+        else:
             msg = "No sumw2 histogram found! Setting errors to 0"
             print(msg)
             h_sumw2 = None
