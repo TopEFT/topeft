@@ -794,7 +794,6 @@ class DatacardMaker():
         else:
             msg = "No sumw2 histogram found! Setting errors to 0"
             print(msg)
-            h_sumw2 = None
         ch_hist = h.integrate("channel",[ch])
         ch_sumw2 = h_sumw2 if h_sumw2 is None else h_sumw2.integrate("channel",[ch])
         data_obs = np.zeros((2, ch_hist.dense_axis.extent))
