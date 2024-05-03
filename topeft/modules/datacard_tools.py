@@ -422,8 +422,9 @@ class DatacardMaker():
         for km_dist, h in self.hists.items():
             if h.empty():
                 continue
-            km_dist_sumw = km_dist.replace('_sumw2','')
-            if self.var_lst and km_dist not in self.var_lst and km_dist_sumw not in self.var_lst:
+            km_dist_missing = km_dist not in self.var_lst
+            km_base_dist_missing = km_dist.replace('_sumw2','') not in self.var_lst
+            if self.var_lst and km_dist_missing and km_base_dist_missing:
                 continue
             print(f"Loading: {km_dist}")
             # Remove processes that we don't include in the datacard
