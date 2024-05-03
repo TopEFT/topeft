@@ -291,11 +291,15 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
 
     # Pt requirements for 3rd lepton (different for e and m)
     pt3lmask = ak.any(ak.where(abs(FOs[:,2:3].pdgId)==11,FOs[:,2:3].conept>15.0,FOs[:,2:3].conept>10.0),axis=1)
-
+ 
     # 3l requirements:
     trilep = (ak.num(FOs)) >=3
     pt251510 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & pt3lmask)
-    exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
+    #exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
+
+    # tight selection for two ss leptons
+    exclusive = get_ssTight_mask(FOs)
+
     mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3 )
 
     # MC matching requirement (already passed for data)
@@ -440,3 +444,11 @@ def get_Z_pt(lep_collection,pt_window):
     pt_of_sfosz = pair_pt_with_sfosz_mask[zpeak_idx]
 
     return ak.flatten(pt_of_sfosz)
+
+def get_ssTight_mask(lep_collection,flavor="ss"):   # function specifically used for 3l selection
+    ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
+    afss_mask = (ll_pairs.l0.charge + ll_pairs.l1.charge != 0) # get any flavor same sign mask
+    tight_mask = ll_pairs.l0.isTightLep & ll_pairs.l1.isTightLep  # requirement for the two ss leptons to pass the tight selection
+    ssTight_mask = ak.flatten(ak.any((afss_mask & tight_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
+    return ssTight_mask
+
