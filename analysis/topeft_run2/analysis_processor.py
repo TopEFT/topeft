@@ -1,21 +1,25 @@
 #!/usr/bin/env python
+
 import copy
 import coffea
 import numpy as np
 import awkward as ak
-np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import hist, processor
+
+import hist
+from topcoffea.modules.histEFT import HistEFT
+
+from coffea import processor
 from coffea.util import load
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 import topcoffea.modules.event_selection as tc_es
 import topcoffea.modules.object_selection as tc_os
 import topcoffea.modules.corrections as tc_cor
 
+from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
 import topeft.modules.event_selection as te_es
@@ -24,6 +28,9 @@ import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
+
+np.seterr(divide='ignore', invalid='ignore', over='ignore')
+
 
 
 
@@ -56,33 +63,54 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
 
-        # Create the histograms
-        self._accumulator = processor.dict_accumulator({
-            "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 20, 0, 1000)),
-            "ptbl"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 40, 0, 1000)),
-            "ptz"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptz",     "$p_{T}$ Z (GeV)", 12, 0, 600)),
-            "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 10, 0, 10)),
-            "nbtagsl" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsl", "Loose btag multiplicity ", 5, 0, 5)),
-            "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 10, 0, 500)),
-            "l1pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l1pt",    "Subleading lep $p_{T}$ (GeV)", 10, 0, 100)),
-            "l1eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l1eta",   "Subleading $\eta$", 20, -2.5, 2.5)),
-            "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 10, 0, 500)),
-            "b0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("b0pt",    "Leading b jet  $p_{T}$ (GeV)", 10, 0, 500)),
-            "l0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",   "Leading lep $\eta$", 20, -2.5, 2.5)),
-            "j0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
-            "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 20, 0, 1000)),
-            "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 20, 0, 400)),
-            "ljptsum" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ljptsum", "S$_{T}$ (GeV)", 11, 0, 1100)),
-            "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 10, 0, 500)),
-            "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 10, 0, 500)),
-            "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
-        })
+        proc_axis = hist.axis.StrCategory([], name="process", growth=True)
+        chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
+        syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
+        appl_axis = hist.axis.StrCategory([], name="appl", label=r"AR/SR", growth=True)
+
+        histograms = {}
+        for name, info in axes_info.items():
+            if not rebin and "variable" in info:
+                dense_axis = hist.axis.Variable(
+                    info["variable"], name=name, label=info["label"]
+                )
+                sumw2_axis = hist.axis.Variable(
+                    info["variable"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
+                )
+            else:
+                dense_axis = hist.axis.Regular(
+                    *info["regular"], name=name, label=info["label"]
+                )
+                sumw2_axis = hist.axis.Regular(
+                    *info["regular"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
+                )
+            histograms[name] = HistEFT(
+                proc_axis,
+                chan_axis,
+                syst_axis,
+                appl_axis,
+                dense_axis,
+                wc_names=wc_names_lst,
+                label=r"Events",
+                rebin=rebin
+            )
+            histograms[name+"_sumw2"] = HistEFT(
+                proc_axis,
+                chan_axis,
+                syst_axis,
+                appl_axis,
+                sumw2_axis,
+                wc_names=wc_names_lst,
+                label=r"Events",
+                rebin=rebin
+            )
+        self._accumulator = histograms
 
         # Set the list of hists to fill
         if hist_lst is None:
@@ -119,6 +147,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Dataset parameters
         dataset = events.metadata["dataset"]
+        isEFT   = self._samples[dataset]["WCnames"] != []
 
         isData             = self._samples[dataset]["isData"]
         histAxisName       = self._samples[dataset]["histAxisName"]
@@ -224,7 +253,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
         # Initialize the out object
-        hout = self.accumulator.identity()
+        hout = self.accumulator
 
         ################### Electron selection ####################
 
@@ -792,6 +821,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
             # Loop over the hists we want to fill
+            varnames = {k:v for k,v in varnames.items() if k in self._hist_lst}
             for dense_axis_name, dense_axis_vals in varnames.items():
                 if dense_axis_name not in self._hist_lst:
                     print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
@@ -887,7 +917,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Weights and eft coeffs
                                         weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
-                                        eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
 
                                         # Fill the histos
@@ -895,11 +924,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             dense_axis_name : dense_axis_vals[all_cuts_mask],
                                             "channel"       : ch_name,
                                             "appl"          : appl,
-                                            "sample"        : histAxisName,
+                                            "process"       : histAxisName,
                                             "systematic"    : wgt_fluct,
                                             "weight"        : weights_flat,
                                             "eft_coeff"     : eft_coeffs_cut,
-                                            "eft_err_coeff" : eft_w2_coeffs_cut,
                                         }
 
                                         # Skip histos that are not defined (or not relevant) to given categories
@@ -909,6 +937,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                        axes_fill_info_dict = {
+                                            dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
+                                            "channel"       : ch_name,
+                                            "appl"          : appl,
+                                            "process"       : histAxisName,
+                                            "systematic"    : wgt_fluct,
+                                            "weight"        : np.square(weights_flat),
+                                            "eft_coeff"     : eft_coeffs_cut,
+                                        }
+                                        hout[dense_axis_name+"_sumw2"].fill(**axes_fill_info_dict)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
