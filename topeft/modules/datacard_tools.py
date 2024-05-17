@@ -879,7 +879,6 @@ class DatacardMaker():
                                 print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr[0]}")
                             if not self.use_real_data:
                                 # Create asimov dataset
-                                #data_obs += arr
                                 vals = wcs_dict # set wcs to certain values from command line
                                 decomposed_templates_Asimov = self.decompose(proc_hist,wcs,vals)
                                 data_sm = decomposed_templates_Asimov.pop("sm")
