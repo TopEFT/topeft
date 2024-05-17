@@ -868,7 +868,7 @@ class DatacardMaker():
                             if not self.use_real_data:
                                 # Create asimov dataset
                                 vals = wcs_dict # set wcs to certain values from command line
-                                decomposed_templates_Asimov = self.decompose(proc_hist,wcs,vals)
+                                decomposed_templates_Asimov = self.decompose(proc_hist,proc_sumw2,wcs,vals)
                                 data_sm = decomposed_templates_Asimov.pop("sm")
                                 data_obs += data_sm[sp_key]
                         if syst == "nominal":
@@ -1068,7 +1068,7 @@ class DatacardMaker():
 
     # TODO: Can be a static member function
 
-    def decompose(self,h,wcs,vals={}):
+    def decompose(self,h,sumw_2,wcs,vals={}):
         """
             Decomposes the EFT quadratic parameterization coefficients into combinations that result
             in non-negative coefficient terms.
