@@ -1068,7 +1068,7 @@ class DatacardMaker():
 
     # TODO: Can be a static member function
 
-    def decompose(self,h,sumw_2,wcs,vals={}):
+    def decompose(self,h,sumw2,wcs,vals={}):
         """
             Decomposes the EFT quadratic parameterization coefficients into combinations that result
             in non-negative coefficient terms.
