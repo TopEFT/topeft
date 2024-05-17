@@ -26,7 +26,7 @@ error  = {condor_dir}/job_{idx}.err
 log    = {condor_dir}/job_{idx}.log
 
 request_cpus = 1
-request_memory = 4096
+request_memory = 8192
 request_disk = 1024
 
 transfer_input_files = make_cards.py,selectedWCs.txt

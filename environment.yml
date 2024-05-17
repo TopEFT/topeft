@@ -3,8 +3,8 @@ channels:
   - conda-forge
 dependencies:
   - conda-forge::python=3.9
-  - numpy
-  - coffea<2023
+  - numpy=1.23.5
+  - coffea=0.7.21
   - ndcctools
   - conda-pack
   - dill
