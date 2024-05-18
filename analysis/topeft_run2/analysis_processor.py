@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import sys     #<---- added this 
+from collections import defaultdict #<----added this
 import copy
 import coffea
 import numpy as np
@@ -82,8 +84,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 10, 0, 500)),
             "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 10, 0, 500)),
             "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
+           #"runeventinfodict": processor.defaultdict_accumulator(str)  #<-------added this
         })
-
+        #file = open("check.txt","w")
         # Set the list of hists to fill
         if hist_lst is None:
             # If the hist list is none, assume we want to fill all hists
@@ -116,7 +119,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
     # Main function: run on a given dataset
     def process(self, events):
-
+        file = open("check.txt","w")
         # Dataset parameters
         dataset = events.metadata["dataset"]
 
@@ -521,20 +524,20 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("is_good_lumi",lumi_mask)
 
             # 2lss selection (drained of 4 top)
-            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_p", (events.is2lSS & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_m", (events.is2lSS & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             # 2lss selection (enriched in 4 top)
-            selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_4t_p", (events.is2lSS & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_4t_m", (events.is2lSS & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
 
             # 2lss selection for CR
-            selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
+            selections.add("2lss_CR", (events.is2lSS & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            selections.add("2lss_CRflip", (events.is2lSS_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
 
             # 2los selection
-            selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
-            selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
+            selections.add("2los_CRtt", (events.is2lOS_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
+            selections.add("2los_CRZ", (events.is2lOS_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
             # 3l selection
             selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
@@ -647,6 +650,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
 
+            #dictruneventinfo = {"runeventinfodict": defaultdict(str)}  #<---------------added this
 
             ########## Fill the histograms ##########
 
@@ -907,19 +911,58 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
                                         if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-
+                                        if ("2lss" in lep_chan):
+                                            print("\n\n\n\n\n\n\n\n\n")
+                                            print("check to see")
+                                            print("\n\n\n\n\n\n\n\n\n")
+                                            file.write("l0pt")
+                                            file.write(str(varnames["l0pt"][0:14]))
+                                            file.write("l1pt")
+                                            file.write(str(varnames["l1pt"][0:14]))
+                                            file.write("l2pt")
+                                            file.write(str(l2[0:14].conept))
+                                            file.write("l0eta")
+                                            file.write(str(varnames["l0eta"][0:14]))
+                                            file.write("l1eta")
+                                            file.write(str(varnames["l1eta"][0:14]))
+                                            file.write("l2eta")
+                                            file.write(str(l2[0:14].eta))
+                                            file.write("l0.pdgId")
+                                            file.write(str(l0[0:14].pdgId))
+                                            file.write("l1.pdgId")
+                                            file.write(str(l1[0:14].pdgId))
+                                            file.write("l2.pdgId")
+                                            file.write(str(l2[0:14].pdgId))
+                                            file.write("l0phi")
+                                            file.write(str(l0[0:14].phi))
+                                            file.write("l1phi")
+                                            file.write(str(l1[0:14].phi))
+                                            file.write("l2phi")
+                                            file.write(str(l2[0:14].phi))
+                                            file.write("\n\n\n\n\n\n\n\n\n")
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                        # <--------added the following 9 lines to fill runeventinfo dict
+                                        #event=events.event
+                                        #run = events.run
+                                        #lumiBlock = events.luminosityBlock
+                                        #event_cut = event[all_cuts_mask]
+                                        #run_cut = run[all_cuts_mask]
+                                        #lumiBlock_cut = lumiBlock[all_cuts_mask]
+                                        #for i in range(len(event_cut)):
+                                        #    dictruneventinfo["runeventinfodict"][f"{ch_name}"]= f'{year}_{run_cut[i]}:{event_cut[i]}:{lumiBlock_cut[i]};'
+
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
 
                             # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
                             if dense_axis_name == "njets": break
-
+        file.close()
         return hout
-
+#        return dictruneventinfo #<----added this and commented out the line above
     def postprocess(self, accumulator):
         return accumulator
+
 
 if __name__ == '__main__':
     # Load the .coffea files

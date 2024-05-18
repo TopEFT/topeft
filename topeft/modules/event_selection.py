@@ -225,9 +225,11 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
 
     # 2l requirements:
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
-    dilep = (ak.num(FOs)) >= 2
+    dilep_OS = (ak.num(FOs)) >= 2
+    dilep_SS = (ak.num(FOs)) == 2
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
-    mask = (filters & cleanup & dilep & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
+    mask_OS = (filters & cleanup & dilep_OS & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
+    mask_SS = (filters & cleanup & dilep_SS & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
 
     # MC matching requirement (already passed for data)
     if sampleType == "data":
@@ -242,19 +244,26 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
         prompt_mask = ( lep1_match_prompt & lep2_match_prompt & lep1_charge & lep2_charge )
         conv_mask   = ( lep1_match_conv | lep2_match_conv )
         if sampleType == 'prompt':
-            mask = (mask & prompt_mask)
+            mask_OS = (mask_OS & prompt_mask)
+            mask_SS = (mask_SS & prompt_mask)
         elif sampleType =='conversions':
-            mask = (mask & conv_mask)
+            mask_OS = (mask_OS & conv_mask)
+            mask_SS = (mask_SS & conv_mask)
         elif sampleType =='prompt_and_conversions':
             # Samples that we use for both prompt and conv contributions (i.e. just DY)
-            mask = (mask & (prompt_mask | conv_mask))
+            mask_OS = (mask_OS & (prompt_mask | conv_mask))
+            mask_SS = (mask_SS & (prompt_mask | conv_mask))
         else:
             raise Exception(f"Error: Unknown sampleType {sampleType}.")
 
-    mask_nozeeveto = mask
-    mask = mask & (  Zee_veto )
-    events['is2l'] = ak.fill_none(mask,False)
-    events['is2l_nozeeveto'] = ak.fill_none(mask_nozeeveto,False)
+    mask_nozeeveto_OS = mask_OS
+    mask_nozeeveto_SS = mask_SS
+    mask_OS = mask_OS & (  Zee_veto )
+    mask_SS = mask_SS & (  Zee_veto )
+    events['is2lOS'] = ak.fill_none(mask_OS,False)
+    events['is2lSS'] = ak.fill_none(mask_SS,False)
+    events['is2lOS_nozeeveto'] = ak.fill_none(mask_nozeeveto_OS,False)
+    events['is2lSS_nozeeveto'] = ak.fill_none(mask_nozeeveto_SS,False)
 
     # SFs
     events['sf_2l_muon'] = padded_FOs[:,0].sf_nom_2l_muon*padded_FOs[:,1].sf_nom_2l_muon
@@ -294,13 +303,13 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
  
     # 3l requirements:
     trilep = (ak.num(FOs)) >=3
-    pt251510 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & pt3lmask)
-    #exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
+    pt251510 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1)) # & pt3lmask)
+    exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
 
     # tight selection for two ss leptons
-    exclusive = get_ssTight_mask(FOs)
+    exclusive_2 = get_ssTight_mask(FOs)
 
-    mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3 )
+    mask = (filters & cleanup & trilep & pt251510 & exclusive & exclusive_2 & eleID1 & eleID2 ) #& eleID3 )
 
     # MC matching requirement (already passed for data)
     if sampleType == "data":
@@ -335,7 +344,8 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     events['sf_3l_lo_elec'] = padded_FOs[:,0].sf_lo_3l_elec*padded_FOs[:,1].sf_lo_3l_elec*padded_FOs[:,2].sf_lo_3l_elec
 
     # SR:
-    events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
+    #events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
+    events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep)
     events['is3l_SR'] = ak.fill_none(events['is3l_SR'],False)
 
     # FF:
@@ -447,7 +457,7 @@ def get_Z_pt(lep_collection,pt_window):
 
 def get_ssTight_mask(lep_collection,flavor="ss"):   # function specifically used for 3l selection
     ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
-    afss_mask = (ll_pairs.l0.charge + ll_pairs.l1.charge != 0) # get any flavor same sign mask
+    afss_mask = ((ll_pairs.l0.charge + ll_pairs.l1.charge) != 0) # get any flavor same sign mask
     tight_mask = ll_pairs.l0.isTightLep & ll_pairs.l1.isTightLep  # requirement for the two ss leptons to pass the tight selection
     ssTight_mask = ak.flatten(ak.any((afss_mask & tight_mask),axis=1,keepdims=True)) # Use flatten here because it is too nested (i.e. it looks like this [[T],[F],[T],...], and want this [T,F,T,...]))
     return ssTight_mask
