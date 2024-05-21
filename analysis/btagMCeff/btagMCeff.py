@@ -4,7 +4,8 @@ import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 #from coffea.arrays import Initialize # Not used and gives error
-from coffea import hist, processor
+from coffea import processor
+import hist
 from coffea.util import load
 
 from topcoffea.modules.objects import *
@@ -20,11 +21,16 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
+        jpt_axis = hist.axis.Regular(naem="pt", "Jet p_{T} (GeV)", 40, 0, 800)
+        jeta_axis = hist.axis.Regular(naem="eta", r"Jet \eta (GeV)", 25, -2.5, 2.5)
+        jaeta_axis = hist.axis.Regular(naem="abseta", r"Jet \eta (GeV)", [0, 1, 1.8, 2.4])
+        flav_axis = hist.axis.IntCategory(name="flav", [], growth=True)
+        wp_axis = hist.axis.StrCategory(name="WP", [], growth=True)
         self._accumulator = processor.dict_accumulator({
-            'jetpt'  : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("pt",  "Jet p_{T} (GeV) ", 40, 0, 800)),
-            'jeteta' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("eta", "Jet eta", 25, -2.5, 2.5)),
-            'jetpteta' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("pt",  "Jet p_{T} (GeV) ", [20, 30, 60, 120]), hist.Bin("abseta", "Jet eta", [0, 1, 1.8, 2.4])),
-            'jetptetaflav' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Bin("pt",  "Jet p_{T} (GeV) ", [20, 30, 60, 120]), hist.Bin("abseta", "Jet eta", [0, 1, 1.8, 2.4]), hist.Bin("flav", "Flavor", [0, 4, 5]) ),
+            'jetpt'  : hist.Hist(wp_axis, flav_axis jpt_axis),
+            'jeteta'  : hist.Hist(wp_axis, flav_axis jeta_axis),
+            'jetpteta'  : hist.Hist(wp_axis, flav_axis jpt_axis, jeta_axis),
+            'jetptetaflav'  : hist.Hist(wp_axis, flav_axis jpt_axis, jaeta_axi, flav_axis),
         })
 
     @property
