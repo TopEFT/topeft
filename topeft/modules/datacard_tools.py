@@ -422,7 +422,9 @@ class DatacardMaker():
         for km_dist, h in self.hists.items():
             if h.empty():
                 continue
-            if self.var_lst and km_dist not in self.var_lst:
+            km_dist_missing = km_dist not in self.var_lst
+            km_base_dist_missing = km_dist.replace('_sumw2','') not in self.var_lst
+            if self.var_lst and km_dist_missing and km_base_dist_missing:
                 continue
             print(f"Loading: {km_dist}")
             # Remove processes that we don't include in the datacard
@@ -761,7 +763,7 @@ class DatacardMaker():
             print(f"WC Selection Time: {dt:.2f} s")
         return selected_wcs
 
-    def analyze(self,km_dist,ch,selected_wcs, crop_negative_bins):
+    def analyze(self,km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict):
         """ Handles the EFT decomposition and the actual writing of the ROOT and text datacard files."""
         if not km_dist in self.hists:
             print(f"[ERROR] Unknown kinematic distribution: {km_dist}")
@@ -787,7 +789,14 @@ class DatacardMaker():
         outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="root")
 
         h = self.hists[km_dist]
+        h_sumw2 = None
+        if f"{km_dist}_sumw2" in self.hists:
+            h_sumw2 = self.hists[km_dist+"_sumw2"]
+        else:
+            msg = "No sumw2 histogram found! Setting errors to 0"
+            print(msg)
         ch_hist = h.integrate("channel",[ch])
+        ch_sumw2 = h_sumw2 if h_sumw2 is None else h_sumw2.integrate("channel",[ch])
         data_obs = np.zeros((2, ch_hist.dense_axis.extent))
 
         print(f"Generating root file: {outf_root_name}")
@@ -805,9 +814,10 @@ class DatacardMaker():
                 if 'fakes' in p and '4l' in ch:
                     continue
                 proc_hist = ch_hist.integrate("process",[p])
+                proc_sumw2 = ch_sumw2 if ch_sumw2 is None else ch_sumw2.integrate("process",[p])
                 if self.verbose:
                     print(f"Decomposing {ch}-{p}")
-                decomposed_templates = self.decompose(proc_hist,wcs)
+                decomposed_templates = self.decompose(proc_hist,proc_sumw2,wcs)
                 is_eft = self.is_signal(p)
                 # Note: This feels like a messy way of picking out the data_obs info
                 if p == "data":
@@ -827,14 +837,28 @@ class DatacardMaker():
                         "rate": -1
                     }
                     # There should be only 1 sparse axis at this point, the systematics axis
+                    check_zero_arr0 = False
+                    check_zero_arr1 = False
                     for sp_key,arr in v.items():
+                        syst = sp_key[0]
                         if crop_negative_bins:
                             negative_bin_mask = np.where( arr[0] < 0) # see where bins are negative
                             arr[0][negative_bin_mask] = np.zeros_like( arr[0][negative_bin_mask] )  # set those to zero
                             if arr[1] is not None:
                                 arr[1][negative_bin_mask] = np.zeros_like( arr[1][negative_bin_mask] )  # if there's a sumw2 defined, that one's set to zero as well. Otherwise we will get 0 +/- something, which is compatible with negative
 
+
                         syst = sp_key.systematic
+                        if syst =="nominal":  # check systematics error for fake factors
+                            if sum(arr[0]) == 0:
+                                check_zero_arr0 = True
+                            if sum(arr[1]) == 0:
+                                check_zero_arr1 = True
+                        if "FF" in syst:
+                            if check_zero_arr0 and sum(arr[0]) != 0:
+                                raise Warning("Systematics Error arr[0]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
+                            if check_zero_arr1 and sum(arr[1]) != 0:
+                                raise Warning("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
 
                         sum_arr = sum(arr[0])
                         if sum_arr == 0: continue #TODO find a more elegant solution
@@ -843,7 +867,10 @@ class DatacardMaker():
                                 print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr[0]}")
                             if not self.use_real_data:
                                 # Create asimov dataset
-                                data_obs += arr
+                                vals = wcs_dict # set wcs to certain values from command line
+                                decomposed_templates_Asimov = self.decompose(proc_hist,proc_sumw2,wcs,vals)
+                                data_sm = decomposed_templates_Asimov.pop("sm")
+                                data_obs += data_sm[sp_key]
                         if syst == "nominal":
                             hist_name = f"{proc_name}"
                             text_card_info[proc_name]["rate"] = sum_arr
@@ -885,7 +912,7 @@ class DatacardMaker():
                                 all_shapes.add(syst_base)
                                 text_card_info[proc_name]["shapes"].add(syst_base)
                             syst_width = max(len(syst),syst_width)
-                        zero_out_sumw2 = p != "fakes" # Zero out sumw2 for all proc but fakes, so that we only do auto stats for fakes
+                        zero_out_sumw2 = p != "fakes" and "close" not in p # Zero out sumw2 for all proc but fakes, so that we only do auto stats for fakes
                         f[hist_name] = to_hist(arr,hist_name,zero_wgts=zero_out_sumw2)
 
                         num_h += 1
@@ -1040,7 +1067,8 @@ class DatacardMaker():
         print(f"Total Hists Written: {num_h}")
 
     # TODO: Can be a static member function
-    def decompose(self,h,wcs):
+
+    def decompose(self,h,sumw2,wcs,vals={}):
         """
             Decomposes the EFT quadratic parameterization coefficients into combinations that result
             in non-negative coefficient terms.
@@ -1054,7 +1082,8 @@ class DatacardMaker():
         tic = time.time()
 
         sm = h.eval({})
-        sm = add_sumw2_stub(sm)
+        sm_w2 = sumw2.eval(vals)
+        sm = add_sumw2_stub(sm,sm_w2)
 
         # Note: The keys of this dictionary are a pretty contrived, but are useful later on
         r = {}

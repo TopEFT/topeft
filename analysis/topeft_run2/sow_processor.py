@@ -7,7 +7,7 @@ from coffea import processor
 import hist
 from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
-import topeft.modules.corrections as corrections
+import topcoffea.modules.corrections as corrections
 
 
 
@@ -23,7 +23,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Create the histogram
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         dense_axis = hist.axis.Regular(bins=1, start=0, stop=2, name="SumOfWeights", label="SumOfWeights")
-        self._accumulator = processor.dict_accumulator({
+        self._accumulator = {
 
             "SumOfWeights": HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
 
@@ -39,7 +39,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "SumOfWeights_renormfactUp":   HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
             "SumOfWeights_renormfactDown": HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
 
-        })
+        }
 
     @property
     def accumulator(self):
@@ -82,7 +82,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         corrections.AttachScaleWeights(events)
 
         ###### Fill histograms ######
-        hout = self.accumulator.identity()
+        hout = self.accumulator
 
         # Nominal
         hout["SumOfWeights"].fill(process=dataset, SumOfWeights=counts, weight=wgts, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)

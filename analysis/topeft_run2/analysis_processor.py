@@ -80,9 +80,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                 dense_axis = hist.axis.Variable(
                     info["variable"], name=name, label=info["label"]
                 )
+                sumw2_axis = hist.axis.Variable(
+                    info["variable"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
+                )
             else:
                 dense_axis = hist.axis.Regular(
                     *info["regular"], name=name, label=info["label"]
+                )
+                sumw2_axis = hist.axis.Regular(
+                    *info["regular"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
                 )
             histograms[name] = HistEFT(
                 proc_axis,
@@ -90,6 +96,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                 syst_axis,
                 appl_axis,
                 dense_axis,
+                wc_names=wc_names_lst,
+                label=r"Events",
+                rebin=rebin
+            )
+            histograms[name+"_sumw2"] = HistEFT(
+                proc_axis,
+                chan_axis,
+                syst_axis,
+                appl_axis,
+                sumw2_axis,
                 wc_names=wc_names_lst,
                 label=r"Events",
                 rebin=rebin
@@ -131,6 +147,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Dataset parameters
         dataset = events.metadata["dataset"]
+        isEFT   = self._samples[dataset]["WCnames"] != []
 
         isData             = self._samples[dataset]["isData"]
         histAxisName       = self._samples[dataset]["histAxisName"]
@@ -920,6 +937,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                        axes_fill_info_dict = {
+                                            dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
+                                            "channel"       : ch_name,
+                                            "appl"          : appl,
+                                            "process"       : histAxisName,
+                                            "systematic"    : wgt_fluct,
+                                            "weight"        : np.square(weights_flat),
+                                            "eft_coeff"     : eft_coeffs_cut,
+                                        }
+                                        hout[dense_axis_name+"_sumw2"].fill(**axes_fill_info_dict)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break

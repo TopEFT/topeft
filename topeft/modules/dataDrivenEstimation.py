@@ -118,7 +118,9 @@ class DataDrivenProducer:
                         hPromptSub = hPromptSub.remove("systematic", syst_var_idet_rm_lst)
 
                         # now we actually make the subtraction
-                        hPromptSub.scale(-1)
+                        # var(A - B) = var(A) + var(B)
+                        if not key.endswith("_sumw2"):
+                            hPromptSub.scale(-1)
                         hFakes += hPromptSub
                         # now adding them to the list of processes:
                         if newhist==None:
