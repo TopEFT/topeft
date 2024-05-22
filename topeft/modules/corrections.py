@@ -408,7 +408,8 @@ def AttachPerLeptonFR(leps, flavor, year):
     else: raise Exception(f"Not a known year: {year}")
     with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
         flip_hist = pickle.load(fin)
-        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
+        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
+        #flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
 
     # Get the fliprate scaling factor for the given year
     chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
@@ -569,23 +570,23 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
     hnum = h.integrate('WP', wp)
     hden = h.integrate('WP', 'all')
     getnum = lookup_tools.dense_lookup.dense_lookup(
-        hnum.values(flow=True),
+        hnum.values(overflow='over')[()],
         [
-            hnum.axes['pt'].edges,
-            hnum.axes['abseta'].edges,
-            hnum.axes['flav'].edges
+            hnum.axis('pt').edges(),
+            hnum.axis('abseta').edges(),
+            hnum.axis('flav').edges()
         ]
     )
     getden = lookup_tools.dense_lookup.dense_lookup(
-        hden.values(flow=True),
+        hden.values(overflow='over')[()],
         [
-            hden.axes['pt'].edges,
-            hnum.axes['abseta'].edges,
-            hden.axes['flav'].edges
+            hden.axis('pt').edges(),
+            hnum.axis('abseta').edges(),
+            hden.axis('flav').edges()
         ]
     )
-    values = hnum.values(flow=True)
-    edges = [hnum.axes['pt'].edges, hnum.axes['abseta'].edges, hnum.axes['flav'].edges]
+    values = hnum.values(overflow='over')[()]
+    edges = [hnum.axis('pt').edges(), hnum.axis('abseta').edges(), hnum.axis('flav').edges()]
     fun = lambda pt, abseta, flav: getnum(pt,abseta,flav)/getden(pt,abseta,flav)
     return fun
 
