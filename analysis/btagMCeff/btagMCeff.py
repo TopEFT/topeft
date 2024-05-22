@@ -21,11 +21,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
-        jpt_axis = hist.axis.Regular(naem="pt", "Jet p_{T} (GeV)", 40, 0, 800)
-        jeta_axis = hist.axis.Regular(naem="eta", r"Jet \eta (GeV)", 25, -2.5, 2.5)
-        jaeta_axis = hist.axis.Regular(naem="abseta", r"Jet \eta (GeV)", [0, 1, 1.8, 2.4])
-        flav_axis = hist.axis.IntCategory(name="flav", [], growth=True)
-        wp_axis = hist.axis.StrCategory(name="WP", [], growth=True)
+        jpt_axis = hist.axis.Regular(40, 0, 800, name="pt", "Jet p_{T} (GeV)")
+        jeta_axis = hist.axis.Regular(25, -2.5, 2.5, name="eta", r"Jet \eta (GeV)")
+        jaeta_axis = hist.axis.Regular([0, 1, 1.8, 2.4], name="abseta", r"Jet \eta (GeV)")
+        flav_axis = hist.axis.IntCategory([], name="flav", growth=True)
+        wp_axis = hist.axis.StrCategory([], name="WP", growth=True)
         self._accumulator = processor.dict_accumulator({
             'jetpt'  : hist.Hist(wp_axis, flav_axis jpt_axis),
             'jeteta'  : hist.Hist(wp_axis, flav_axis jeta_axis),
