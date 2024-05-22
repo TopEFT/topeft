@@ -27,10 +27,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         flav_axis = hist.axis.IntCategory([], name="flav", growth=True)
         wp_axis = hist.axis.StrCategory([], name="WP", growth=True)
         self._accumulator = processor.dict_accumulator({
-            'jetpt'  : hist.Hist(wp_axis, flav_axis jpt_axis),
-            'jeteta'  : hist.Hist(wp_axis, flav_axis jeta_axis),
-            'jetpteta'  : hist.Hist(wp_axis, flav_axis jpt_axis, jeta_axis),
-            'jetptetaflav'  : hist.Hist(wp_axis, flav_axis jpt_axis, jaeta_axi, flav_axis),
+            'jetpt'  : hist.Hist(wp_axis, flav_axis, jpt_axis),
+            'jeteta'  : hist.Hist(wp_axis, flav_axis, jeta_axis),
+            'jetpteta'  : hist.Hist(wp_axis, flav_axis, jpt_axis, jeta_axis),
+            'jetptetaflav'  : hist.Hist(wp_axis, jpt_axis, jaeta_axi, flav_axis),
         })
 
     @property
