@@ -230,7 +230,6 @@ def group_bins(histo,bin_map,axis_name="process",drop_unspecified=False):
         bins_to_remap_lst.extend(bins_in_grp)
     if not drop_unspecified:
         for bin_name in histo.axes[axis_name]:
-        #for bin_name in yt.get_cat_lables(histo,axis_name):
             if bin_name not in bins_to_remap_lst:
                 bin_map[bin_name] = bin_name
 
@@ -534,57 +533,32 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,
     labels = [proc for proc in h_mc.axes['process']]
     #for proc in h_mc.axes['process']:
     hep.histplot(
-    #h_mc.plot1d(
-        #h_mc[{'process': proc}],
         hists,
         label=labels,
         ax=ax,
         stack=True,
-        #line_opts=None,
-        #fill_opts=FILL_OPS,
         histtype='fill',
-        #error_opts=mc_err_ops,
-        #clear=False,
     )
 
     # Plot the data
     hep.histplot(
-    #h_data.plot1d(
         h_data,
         ax=ax,
-        #error_opts = DATA_ERR_OPS,
         histtype='errorbar',
         **DATA_ERR_OPS,
         stack=False,
-        #clear=False,
     )
+
+
+    # Make the ratio plot
     hep.histplot(
-    #h_data.plot1d(
         (h_data / h_mc[{'process': sum}]),
         yerr = np.sqrt(h_data.values()) / np.sum(h_data.values()),
         ax=rax,
-        #error_opts = DATA_ERR_OPS,
         histtype='errorbar',
         **DATA_ERR_OPS,
         stack=False,
-        #clear=False,
     )
-   
-
-    # Make the ratio plot
-    #h_data.plot_ratio(
-    #    #num = h_data.sum("process"),
-    #    #denom = h_mc.sum("process"),
-    #    h_mc[{'process': sum}],
-    #    #ax = rax,
-    #    #error_opts = DATA_ERR_OPS,
-    #    #**DATA_ERR_OPS,
-    #    #denom_fill_opts = {},
-    #    #guide_opts = {},
-    #    #unc = 'num',
-    #    #clear = False,
-    #    rp_uncert_draw_type="bar"
-    #)
 
     # Plot the syst error
     if plot_syst_err:
