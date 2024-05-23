@@ -268,7 +268,7 @@ class YieldTools():
         else: hin_dict = path
 
         # Get list of keys
-        return list(hin_dict.keys())
+        return list(x.name for x in hin_dict.axes)
 
 
     # Takes a hist dictionary (i.e. from the pkl file that the processor makes) and an axis name, returns the list of categories for that axis. Defaults to 'njets' histogram if none given.
