@@ -26,7 +26,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
-        jpt_axis = hist.axis.Regular(40, 0, 800, name="pt", label="Jet p_{T} (GeV)")
+        jpt_axis = hist.axis.Variable([20, 30, 60, 120], name="pt", label="Jet p_{T} (GeV)")
+        jetpt_axis = hist.axis.Regular(40, 0, 800, name="pt", label="Jet p_{T} (GeV)")
+        jeta_axis = hist.axis.Regular(25, -2.5, 2.5, name="eta", label=r"Jet \eta (GeV)")
         jeta_axis = hist.axis.Regular(25, -2.5, 2.5, name="eta", label=r"Jet \eta (GeV)")
         jaeta_axis = hist.axis.Variable([0, 1, 1.8, 2.4], name="abseta", label=r"Jet \eta (GeV)")
         Flav_axis = hist.axis.StrCategory([], name="Flav", growth=True)
@@ -36,7 +38,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             'jetpt'  : hist.Hist(wp_axis, Flav_axis, jpt_axis),
             'jeteta'  : hist.Hist(wp_axis, Flav_axis, jeta_axis),
             'jetpteta'  : hist.Hist(wp_axis, Flav_axis, jpt_axis, jaeta_axis),
-            'jetptetaflav'  : hist.Hist(wp_axis, jpt_axis, jaeta_axis, flav_axis),
+            'jetptetaflav'  : hist.Hist(wp_axis, jetpt_axis, jaeta_axis, flav_axis),
         }
 
     @property
