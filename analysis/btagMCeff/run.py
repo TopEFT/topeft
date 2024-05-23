@@ -7,7 +7,6 @@ import os
 
 import numpy as np
 from coffea import hist, processor
-from coffea.util import load
 from coffea.nanoevents import NanoAODSchema
 
 import btagMCeff
@@ -133,7 +132,7 @@ if __name__ == '__main__':
 
     nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
     nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
+    #print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
     print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
 
     # This is taken from the DM photon analysis...
