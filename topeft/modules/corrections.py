@@ -420,26 +420,26 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
             else:
                 hists[k] = hin[k]
     h = hists['jetptetaflav']
-    hnum = h.integrate('WP', wp)
-    hden = h.integrate('WP', 'all')
+    hnum = h[{'WP': wp}]
+    hden = h[{'WP': 'all'}]
     getnum = lookup_tools.dense_lookup.dense_lookup(
-        hnum.values(overflow='over')[()],
+        hnum.values(flow=True)[1:,1:,1:], # Strip off underflow
         [
-            hnum.axis('pt').edges(),
-            hnum.axis('abseta').edges(),
-            hnum.axis('flav').edges()
+            hnum.axes['pt'].edges,
+            hnum.axes['abseta'].edges,
+            hnum.axes['flav'].edges
         ]
     )
     getden = lookup_tools.dense_lookup.dense_lookup(
-        hden.values(overflow='over')[()],
+        hden.values(flow=True)[1:,1:,1:],
         [
-            hden.axis('pt').edges(),
-            hnum.axis('abseta').edges(),
-            hden.axis('flav').edges()
+            hden.axes['pt'].edges,
+            hnum.axes['abseta'].edges,
+            hden.axes['flav'].edges
         ]
     )
-    values = hnum.values(overflow='over')[()]
-    edges = [hnum.axis('pt').edges(), hnum.axis('abseta').edges(), hnum.axis('flav').edges()]
+    values = hnum.values(flow=True)[1:,1:,1:]
+    edges = [hnum.axes['pt'].edges, hnum.axes['abseta'].edges, hnum.axes['flav'].edges]
     fun = lambda pt, abseta, flav: getnum(pt,abseta,flav)/getden(pt,abseta,flav)
     return fun
 
