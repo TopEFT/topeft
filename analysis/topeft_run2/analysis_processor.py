@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-import sys     #<---- added this 
-from collections import defaultdict #<----added this
 import copy
 import coffea
 import numpy as np
@@ -650,7 +648,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
 
-            #dictruneventinfo = {"runeventinfodict": defaultdict(str)}  #<---------------added this
 
             ########## Fill the histograms ##########
 
@@ -911,55 +908,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
                                         if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-                                        if ("2lss" in lep_chan):
-                                            print("\n\n\n\n\n\n\n\n\n")
-                                            print("check to see")
-                                            print("\n\n\n\n\n\n\n\n\n")
-                                            file.write("l0pt")
-                                            file.write(str(varnames["l0pt"][0:14]))
-                                            file.write("l1pt")
-                                            file.write(str(varnames["l1pt"][0:14]))
-                                            file.write("l2pt")
-                                            file.write(str(l2[0:14].conept))
-                                            file.write("l0eta")
-                                            file.write(str(varnames["l0eta"][0:14]))
-                                            file.write("l1eta")
-                                            file.write(str(varnames["l1eta"][0:14]))
-                                            file.write("l2eta")
-                                            file.write(str(l2[0:14].eta))
-                                            file.write("l0.pdgId")
-                                            file.write(str(l0[0:14].pdgId))
-                                            file.write("l1.pdgId")
-                                            file.write(str(l1[0:14].pdgId))
-                                            file.write("l2.pdgId")
-                                            file.write(str(l2[0:14].pdgId))
-                                            file.write("l0phi")
-                                            file.write(str(l0[0:14].phi))
-                                            file.write("l1phi")
-                                            file.write(str(l1[0:14].phi))
-                                            file.write("l2phi")
-                                            file.write(str(l2[0:14].phi))
-                                            file.write("\n\n\n\n\n\n\n\n\n")
-                                        hout[dense_axis_name].fill(**axes_fill_info_dict)
-                                        # <--------added the following 9 lines to fill runeventinfo dict
-                                        #event=events.event
-                                        #run = events.run
-                                        #lumiBlock = events.luminosityBlock
-                                        #event_cut = event[all_cuts_mask]
-                                        #run_cut = run[all_cuts_mask]
-                                        #lumiBlock_cut = lumiBlock[all_cuts_mask]
-                                        #for i in range(len(event_cut)):
-                                        #    dictruneventinfo["runeventinfodict"][f"{ch_name}"]= f'{year}_{run_cut[i]}:{event_cut[i]}:{lumiBlock_cut[i]};'
 
+                                        hout[dense_axis_name].fill(**axes_fill_info_dict)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
 
                             # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
                             if dense_axis_name == "njets": break
-        file.close()
         return hout
-#        return dictruneventinfo #<----added this and commented out the line above
+
     def postprocess(self, accumulator):
         return accumulator
 
