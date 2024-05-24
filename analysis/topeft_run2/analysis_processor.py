@@ -84,7 +84,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
            #"runeventinfodict": processor.defaultdict_accumulator(str)  #<-------added this
         })
-        #file = open("check.txt","w")
         # Set the list of hists to fill
         if hist_lst is None:
             # If the hist list is none, assume we want to fill all hists
@@ -117,7 +116,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
     # Main function: run on a given dataset
     def process(self, events):
-        file = open("check.txt","w")
         # Dataset parameters
         dataset = events.metadata["dataset"]
 
