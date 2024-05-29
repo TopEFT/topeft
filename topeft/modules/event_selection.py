@@ -321,8 +321,10 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
         lep1_match_conv   = (padded_FOs[:,0].genPartFlav==22)
         lep2_match_conv   = (padded_FOs[:,1].genPartFlav==22)
         lep3_match_conv   = (padded_FOs[:,2].genPartFlav==22)
-        prompt_mask = ( lep1_match_prompt & lep2_match_prompt & lep3_match_prompt )
-        conv_mask   = ( lep1_match_conv | lep2_match_conv | lep3_match_conv)
+        #prompt_mask = ( lep1_match_prompt & lep2_match_prompt & lep3_match_prompt )
+        #conv_mask   = ( lep1_match_conv | lep2_match_conv | lep3_match_conv)
+        prompt_mask = ( lep1_match_prompt & lep2_match_prompt)
+        conv_mask   = ( lep1_match_conv | lep2_match_conv)
         if sampleType == 'prompt':
             mask = (mask & prompt_mask)
         elif sampleType =='conversions':
