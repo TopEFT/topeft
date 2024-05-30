@@ -524,48 +524,29 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Lumi mask (for data)
             selections.add("is_good_lumi",lumi_mask)
 
-            # 2lss selection (drained of 4 top)
-            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            # 2lss selection 
+            selections.add("2lss", (events.is2l & pass_trg))
+            selections.add("bmask_atleast1m2l_atmost2m", (bmask_atleast1med_atleast2loose & bmask_atmost2med))
+            selections.add("bmask_atleast3m", (bmask_atleast3med))
+            selections.add("2l_p", (chargel0_p))
+            selections.add("2l_m", (chargel0_m))
+            selections.add("3l", (events.is3l & pass_trg))
+            selections.add("bmask_exactly1m", (bmask_exactly1med))
+            selections.add("bmask_exactly2m", (bmask_exactly2med))
+            selections.add("3l_p", (charge3l_p))
+            selections.add("3l_m", (charge3l_m))
+            selections.add("3l_onZ", (sfosz_3l_OnZ_mask))
+            selections.add("3l_offZ", (sfosz_3l_OffZ_mask))
+            selections.add("4l", (events.is4l & pass_trg))
+            
 
-            # 2lss selection (enriched in 4 top)
-            selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-
-            # 2lss selection for CR
             selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
 
-            # 2los selection
             selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
             selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
 
-            # 3l selection
-            if not self.offZ_split:
-                selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & bmask_exactly1med & pass_trg))
-                selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & bmask_exactly1med & pass_trg))
-                selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & bmask_atleast2med & pass_trg))
-                selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & bmask_atleast2med & pass_trg))
-            if self.offZ_split:
-                selections.add("3l_p_offZ_low_1b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
-                selections.add("3l_p_offZ_high_1b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
-                selections.add("3l_p_offZ_none_1b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_any_mask & bmask_exactly1med & pass_trg))
-                selections.add("3l_m_offZ_low_1b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
-                selections.add("3l_m_offZ_high_1b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask & bmask_exactly1med & pass_trg))
-                selections.add("3l_m_offZ_none_1b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_any_mask & bmask_exactly1med & pass_trg))
-                selections.add("3l_p_offZ_low_2b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
-                selections.add("3l_p_offZ_high_2b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
-                selections.add("3l_p_offZ_none_2b", (events.is3l & charge3l_p & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_any_mask & bmask_atleast2med & pass_trg))
-                selections.add("3l_m_offZ_low_2b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
-                selections.add("3l_m_offZ_high_2b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask & bmask_atleast2med & pass_trg))
-                selections.add("3l_m_offZ_none_2b", (events.is3l & charge3l_m & ~sfosz_3l_OnZ_mask & ~sfosz_3l_OffZ_any_mask & bmask_atleast2med & pass_trg))
-
-            selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_OnZ_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_OnZ_mask & bmask_atleast2med & pass_trg))
             selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
-
-            # 4l selection
-            selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
 
             # Lep flavor selection
             selections.add("ee",  events.is_ee)
@@ -690,7 +671,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                     print(k, ":", v)
                 print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 
-
                 for lep_cat in import_sr_cat_dict.keys():
                     sr_cat_dict[lep_cat] = {}
                     for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
@@ -699,7 +679,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         else:
                             jet_key = "exactly_" + str(jet_cat) + "j"
                         sr_cat_dict[lep_cat][jet_key] = {}
-                        sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_sr_cat_dict[lep_cat]["lep_chan_lst"]
+                        sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_sr_cat_dict[lep_cat]["lep_chan_lst"]                            
                         sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
                         if isData and "appl_lst_data" in import_sr_cat_dict[lep_cat].keys():
                             sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
