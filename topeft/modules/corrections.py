@@ -262,7 +262,7 @@ def AttachPerLeptonFR(leps, flavor, year):
     else: raise Exception(f"Not a known year: {year}")
     with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
         flip_hist = pickle.load(fin)
-        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
+        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
 
     # Get the fliprate scaling factor for the given year
     chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
@@ -420,26 +420,26 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
             else:
                 hists[k] = hin[k]
     h = hists['jetptetaflav']
-    hnum = h.integrate('WP', wp)
-    hden = h.integrate('WP', 'all')
+    hnum = h[{'WP': wp}]
+    hden = h[{'WP': 'all'}]
     getnum = lookup_tools.dense_lookup.dense_lookup(
-        hnum.values(overflow='over')[()],
+        hnum.values(flow=True)[1:,1:,1:], # Strip off underflow
         [
-            hnum.axis('pt').edges(),
-            hnum.axis('abseta').edges(),
-            hnum.axis('flav').edges()
+            hnum.axes['pt'].edges,
+            hnum.axes['abseta'].edges,
+            hnum.axes['flav'].edges
         ]
     )
     getden = lookup_tools.dense_lookup.dense_lookup(
-        hden.values(overflow='over')[()],
+        hden.values(flow=True)[1:,1:,1:],
         [
-            hden.axis('pt').edges(),
-            hnum.axis('abseta').edges(),
-            hden.axis('flav').edges()
+            hden.axes['pt'].edges,
+            hnum.axes['abseta'].edges,
+            hden.axes['flav'].edges
         ]
     )
-    values = hnum.values(overflow='over')[()]
-    edges = [hnum.axis('pt').edges(), hnum.axis('abseta').edges(), hnum.axis('flav').edges()]
+    values = hnum.values(flow=True)[1:,1:,1:]
+    edges = [hnum.axes['pt'].edges, hnum.axes['abseta'].edges, hnum.axes['flav'].edges]
     fun = lambda pt, abseta, flav: getnum(pt,abseta,flav)/getden(pt,abseta,flav)
     return fun
 
@@ -724,8 +724,8 @@ def clopper_pearson_interval(num, denom, coverage=_coverage1sd):
 
 def GetClopperPearsonInterval(hnum, hden):
     ''' Compute Clopper-Pearson interval from numerator and denominator histograms '''
-    num = list(hnum.values(overflow='all')[()])
-    den = list(hden.values(overflow='all')[()])
+    num = list(hnum.values(flow=True)[()])
+    den = list(hden.values(flow=True)[()])
     if isinstance(num, list) and isinstance(num[0], np.ndarray):
         for i in range(len(num)):
             num[i] = np.array(StackOverUnderflow(list(num[i])), dtype=float)
@@ -745,9 +745,9 @@ def GetClopperPearsonInterval(hnum, hden):
 def GetEff(num, den):
     ''' Compute efficiency values from numerator and denominator histograms '''
     ratio, down, up = GetClopperPearsonInterval(num, den)
-    axis = num.axes()[0].name
-    bins = num.axis(axis).edges()
-    x    = num.axis(axis).centers()
+    axis = num.axes[0].name
+    bins = num.axes[axis].edges
+    x    = num.axes[axis].centers
     xlo  = bins[:-1]
     xhi  = bins[1:]
     return [[x, xlo-x, xhi-x],[ratio, down-ratio, up-ratio]]
@@ -781,9 +781,9 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     ratio[np.isnan(ratio)] = 1.0
     do[np.isnan(do)] = 0.0
     up[np.isnan(up)] = 0.0
-    GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
-    GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
-    GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
+    GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
+    GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
+    GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
     return [GetTrig, GetTrigDo, GetTrigUp]
 
 def GetTriggerSF(year, events, lep0, lep1):
