@@ -308,9 +308,8 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
 
     # tight selection for two ss leptons
     exclusive_2 = get_ssTight_mask(FOs)
-
     mask = (filters & cleanup & trilep & pt251510 & exclusive & exclusive_2 & eleID1 & eleID2 ) #& eleID3 )
-
+    mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 ) #& eleID3 )
     # MC matching requirement (already passed for data)
     if sampleType == "data":
         pass
@@ -347,8 +346,9 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
 
     # SR:
     #events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
-    events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep)
-    events['is3l_SR'] = ak.fill_none(events['is3l_SR'],False)
+    #events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep)
+    #events['is3l_SR'] = ak.fill_none(events['is3l_SR'],False)
+    events['is3l_SR'] = get_ssTight_mask(padded_FOs[:,0:3])
 
     # FF:
     fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
