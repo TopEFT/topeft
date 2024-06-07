@@ -331,7 +331,7 @@ def ApplyTESSystematic(year, Taus, syst_name):
         syst_lab += '_down'
 
     tes_syst = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
-    return(Taus.pt*tes_syst, Taus.mass*tes_syst)
+    return (Taus.pt*tes_syst, Taus.mass*tes_syst)
 
 def ApplyFESSystematic(year, Taus, syst_name):
     if not syst_name.startswith('FES'):
@@ -354,7 +354,7 @@ def ApplyFESSystematic(year, Taus, syst_name):
         syst_lab += '_down'
 
     fes_syst = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1)
-    return(Taus.pt*fes_syst, Taus.mass*fes_syst)
+    return (Taus.pt*fes_syst, Taus.mass*fes_syst)
 
 def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     padded_Taus = ak.pad_none(Taus,1)
