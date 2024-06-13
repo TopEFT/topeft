@@ -105,51 +105,19 @@ def getPoints(dict_of_hists):
             samples_to_rm_from_mc_hist.append(sample_name)
         if sample_name not in data_sample_lst:
             samples_to_rm_from_data_hist.append(sample_name)
-    print("\nAll samples:",all_samples)
-    print("\nMC samples:",mc_sample_lst)
-    print("\nData samples:",data_sample_lst)
-    print("\nVariables:",dict_of_hists.keys())
 
-    # Fill group map (should we just fully hard code this?)
     for proc_name in all_samples:
         if "data" in proc_name:
             CR_GRP_MAP["Data"].append(proc_name)
-        #elif "nonprompt" in proc_name:
-        #    CR_GRP_MAP["Nonprompt"].append(proc_name)
-        #elif "flips" in proc_name:
-        #    CR_GRP_MAP["Flips"].append(proc_name)
-        #elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name) or ("TTZToLL_M1to10" in proc_name):
-        #    CR_GRP_MAP["Signal"].append(proc_name)
-        #elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name or "TWZToLL" in proc_name:
-        #    CR_GRP_MAP["Single top"].append(proc_name)
-        #elif "DY" in proc_name:
-        #    CR_GRP_MAP["DY"].append(proc_name)
-        #elif "TTG" in proc_name:
-        #    CR_GRP_MAP["Conv"].append(proc_name)
         elif "TTTo" in proc_name:
             CR_GRP_MAP["Ttbar"].append(proc_name)
-        #elif "ZGTo" in proc_name:
-        #    CR_GRP_MAP["ZGamma"].append(proc_name)
-        #elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
-        #    CR_GRP_MAP["Triboson"].append(proc_name)
-        #elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
-        #    CR_GRP_MAP["Diboson"].append(proc_name)
-        #elif "WJets" in proc_name:
-        #    CR_GRP_MAP["Singleboson"].append(proc_name)
-        #else:
-        #    raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
     var_name = "taupt"
     cr_cat_dict = CR_CHAN_DICT
-    #cr_cat_dict = get_dict_with_stripped_bin_names(cr_cat_dict,"lepflav")
     hist_mc = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
     hist_data = dict_of_hists[var_name].remove(samples_to_rm_from_data_hist,"sample")
     
     # Integrate to get the categories we want
-    Fake_axes  = {}
-    Fake_axes["channe"] = "2los_CRtt_Ftau_2j"
-    Tight_axes = {}
-    Tight_axes["channel"] = "2los_CRtt_Ttau_2j"
     mc_fake     = hist_mc.integrate("appl","isSR_2lOS").integrate("channel", "2los_CRtt_Ftau_2j")
     mc_tight    = hist_mc.integrate("appl","isSR_2lOS").integrate("channel", "2los_CRtt_Ttau_2j")
     data_fake     = hist_data.integrate("appl","isSR_2lOS").integrate("channel", "2los_CRtt_Ftau_2j")
@@ -162,9 +130,6 @@ def getPoints(dict_of_hists):
     mc_tight    = mc_tight.integrate("systematic","nominal")
     data_fake   = data_fake.integrate("systematic","nominal")
     data_tight  = data_tight.integrate("systematic","nominal")
-    #import inspect
-    #for item in inspect.getmembers(data_fake):
-    #    print(item)
 
     for sample in mc_fake._sumw2:
         mc_fake_e = mc_fake._sumw2[sample]
@@ -254,12 +219,6 @@ def main():
     # Set up the command line parser
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
-    parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
-    parser.add_argument("-n", "--output-name", default="plots", help = "A name for the output directory")
-    parser.add_argument("-t", "--include-timestamp-tag", action="store_true", help = "Append the timestamp to the out dir name")
-    parser.add_argument("-y", "--year", default=None, help = "The year of the sample")
-    parser.add_argument("-u", "--unit-norm", action="store_true", help = "Unit normalize the plots")
-    parser.add_argument("-s", "--skip-syst", default=False, action="store_true", help = "Skip syst errs in plots, only relevant for CR plots right now")
     args = parser.parse_args()
 
     # Whether or not to unit norm the plots

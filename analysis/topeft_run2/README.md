@@ -97,3 +97,9 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - Additionally, it can also grab the right set of ptz and lj0pt templates (for the right categories) used in TOP-22-006
     - Example: `python datacards_post_processing.py /path/to/your/datacards/dir -c -s`
 
+### Script for producing tau jet fake SFs
+
+* 'tauFitter.py`:
+    - This script creates the jet fake tau SFs using control regions from the processor.
+    - Example usage: `python tauFitter.py -f /path/to/your.pkl.gz`
+    - The pkl file needs the 2los tau control regions
