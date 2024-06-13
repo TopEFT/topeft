@@ -1,121 +1,103 @@
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5258003.svg)](https://doi.org/10.5281/zenodo.5258002)
-[![CI](https://github.com/TopEFT/topcoffea/actions/workflows/main.yml/badge.svg)](https://github.com/TopEFT/topeft/actions/workflows/main.yml)
-[![Coffea-casa](https://img.shields.io/badge/launch-Coffea--casa-green)](https://cmsaf-jh.unl.edu/hub/spawn)
-[![codecov](https://codecov.io/gh/TopEFT/topcoffea/branch/master/graph/badge.svg?token=U2DMI1C22F)](https://codecov.io/gh/TopEFT/topcoffea)
+## topEFT
+This directory contains scripts for the Full Run 2 EFT analysis. This README documents and explains how to run the scrips.
 
-# topeft
-Top quark EFT analyses using the Coffea framework
+### Scripts for remaking reference files that the CI tests against
 
-## Repository contents
-The `topeft/topeft` directory is set up to be installed as a pip installable package.
-- `topeft/topeft`: A package containing modules and files that will be installed into the environment. 
-- `topeft/setup.py`: File for installing the `topeft` package
-- `topeft/analysis`: Subfolders with different analyses or studies. 
-- `topeft/tests`: Scripts for testing the code with `pytest`. For additional details, please see the [README](https://github.com/TopEFT/topeft/blob/master/tests/README.md) in the `tests` directory.
-- `topeft/input_samples`: Configuration files that point to root files to process.
-
-## Getting started
-
-### Setting up
-If conda is not already available, download and install it:
-```
-curl https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh > conda-install.sh
-bash conda-install.sh
-```
-The topeft directory is set up to be installed as a python package. First clone the repository as shown, then run the following commands to set up the environment (note that `environment.yml` is a file that is a part of the `topeft` repository, so you should `cd` into `topeft` before running the command):
-```
-git clone https://github.com/TopEFT/topeft.git
-cd topeft
-unset PYTHONPATH # To avoid conflicts.  
-conda env create -f environment.yml
-conda activate coffea-env
-pip install -e .
-```
-The `-e` option installs the project in editable mode (i.e. setuptools "develop mode"). If you wish to uninstall the package, you can do so by running `pip uninstall topcoffea`. 
-The `topcoffea` package upon which this analysis also depends is not yet available on `PyPI`, so we need to clone the `topcoffea` repo and install it ourselves.
-```
-cd /your/favorite/directory
-git clone https://github.com/TopEFT/topcoffea.git
-cd topcoffea
-pip install -e .  
-```
-Now all of the dependencies have been installed and the `topeft` repository is ready to be used. The next time you want to use it, all you have to do is to activate the environment via `conda activate coffea-env`. 
+* `remake_ci_ref_datacard.py`:
+    - This script runs the datacard maker tests.
+    - Example usage: `python remake_ci_ref_datacard.py`
+    
+* `remake_ci_ref_datacard.sh`:
+    - This script runs `remake_ci_ref_datacard.py` and copies the resulting reference files to the `analysis/topEFT/test`
+    - Example usage: `sh remake_ci_ref_datacard.sh`
 
 
-### To run an example job 
+### Scripts that check or plot things directly from the NAOD files
 
-First `cd` into `analysis/topeft_run2` and run the `run_analysis.py` script, passing it the path to your config file or json file. In this example we'll process a single root file locally, using a json file that is already set up. 
-```
-cd analysis/topeft_run2
-wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root
-python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json -x futures
+* `check_for_lepMVA.py`:
+    - Checks if the NanoAOD root file has the ttH lepMVA in it
 
-```
-To make use of distributed resources, the `work queue` executor can be used. To use the work queue executor, just change the executor option to  `-x work_queue` and run the run script as before. Next, you will need to request some workers to execute the tasks on the distributed resources. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
-```
-conda activate coffea-env
-condor_submit_workers -M ${USER}-workqueue-coffea -t 900 --cores 12 --memory 48000 --disk 100000 10
-```
-The workers will terminate themselves after 15 minutes of inactivity. More details on the work queue executor can be found [here](https://github.com/TopEFT/topeft/blob/master/README_WORKQUEUE.md).
+* `make_1d_quad_plots.py`:
+    - Makes plots of the inclusive 1d parameterization for the events in an input root file 
 
 
-## How to contribute
+### Scripts for making things that are inputs to the processors
 
-If you would like to push changes to the repo, please make a branch and open a PR and ensure that the CI passes. Note that if you are developing on a fork, the CodeCov CI will fail.
+* `make_jsons.py`:
+    - The purpose of this script is to function as a wrapper for the `topcoffea/modules/createJSON.py` script. That script can also be run from the command line, but many options must be specified, so if you would like to make multiple JSON files or if you will need to remake the JSON files at some point, it is easier to use this script.
+    - To make JSON files for samples that you would like to process:
+        * Make a dictionary, where the key is the name of the JSON file you would like to produce, and the value is another dictionary, specifying the path to the sample, the name you would like the sample to have on the `sample` axis of the coffea histogram, and the cross section that the sample should correspond to in the `topcoffea/cfg/xsec.cfg` file. The path to the sample should start with `/store`. The existing dictionaries in the file can be used as examples.
+        * In the `main()` function, call `make_jsons_for_dict_of_samples()`, and pass your dictionary, along with a redirector (if you are accessing the sample via xrootd), the year of the sample, and the path to an output directory.
+        * After the JSON file is produced, it will be moved to the output directory that you specified.
+    - Make sure to run `run_sow.py` and `update_json_sow.py` to update the sum of weights before committing and pushing any updates to the json files
+    - Once you have produced the JSON file, you should consider committing it to the repository (so that other people can easily process the sample as well), along with the updated `make_jsons.py` script (so that if you have to reproduce the JSON in the future, you will not have to redo any work).
+    - Example usage: `python make_jsons.py`
 
-Note, if your branch gets out of date as other PRs are merged into the master branch, you may need to merge those changes into your brnach and fix any conflicts prior to your PR being merged. 
+* `make_skim_jsons.py`:
+    - Makes JSON files for skimmed samples to be used as input for the processor
 
-If your branch changes anything that is expected to causes the yields to change, please run the following to updated the reference yields:
-```bash
-cd analysis/topEFT/
-sh remake_ci_ref_yields.sh
-sh remake_ci_ref_datacard.sh
-```
-The first script remakes the reference `json` file for the yields, and the second remakes the reference `txt` file for the datacar maker. If you are sure these change are expected, commit and push them to the PR.
+* `update_json_sow.py`:
+    - This script updates the actual json files corresponding to the samples run with `run_sow.py`
+    - Example usage: `python update_json_sow.py histos/sowTopEFT.pkl.gz --json-dir ../../input_samples/sample_jsons/some_json_dir`
 
-## Installing and running pytest locally
-To install `pytest` for local testing, run:
-```bash
-conda install -c conda-forge pytest pytest-cov
-```
-where `pytest-cov` is only used if you want to locally check the code coverage.
-
-The `pytest` commands are run automatically in the CI. If you would like to run them locally, you can simply run:
-```bash
-pytest
-```
-from the main topcoffea directory. This will run _all_ the tests, which will take ~20 minutes. To run a subset, use e.g.:
-```bash
-pytest -k test_futures
-```
-where `test_futures` is the file/test you would like to run (check the `tests` directory for all the available tests, or write your own and push it!). If you would also like to see how the coverage changes, you can add `--cov=./ --cov-report=html` to `pytest` commands. This will create an `html` directory that you can then copy to any folder which you have web access to (e.g. `~/www/` on Earth) For a better printout of what passed and failed, add `-rP` to the `pytest` commands.
+* `missing_parton.py`:
+    - This script compares two sets of datacards (central NLO and private LO) and computes the necessary uncertainty to bring them into agreement (after account for all included systematics).
+    - Datacards should be copied to `histos/central_sm` and `histos/private_sm` respectively.
+    - Example usage: `python analysis/topEFT/missing_parton.py --output-path ~/www/coffea/master/1D/ --years 2017`
+    - :warning: The part of this script that gets the lumi has not been updated since the `topcoffea` refactoring. 
 
 
+### Run scripts and processors
 
-## To reproduce the TOP-22-006 histograms and datacards
+* `run_topeft.py` for `topeft.py`:
+    - This is the run script for the main `topeft.py` processor. Its usage is documented on the repository's main README. It uses either the `work_queue` or the `futures` executors (with `futures` it uses 8 cores by default). The `work_queue` executor makes use of remote resources, and you will need to submit workers using a `condor_submit_workers` command as explained on the main `topcoffea` README. You can configure the run with a number of command line arguments, but the most important one is the config file, where you list the samples you would like to process (by pointing to the JSON files for each sample, located inside of `topcoffea/json`. 
+    - Example usage: `python run_topeft.py ../../topcoffea/cfg/your_cfg.cfg`  
 
-The [v0.5 tag](https://github.com/TopEFT/topcoffea/releases/tag/v0.5) was used to produce the results in the TOP-22-006 paper.
+* `run_sow.py` for `sow_processor.py`:
+    - This script runs over the provided json files and calculates the properer sum of weights
+    - Example usage: `python run_sow.py ../../topcoffea/json/signal_samples/private_UL/UL17_tHq_b1.json --xrd root://deepthought.crc.nd.edu/`
 
-1. Run the processor to obtain the histograms (from the skimmed naod files). Use the `fullR2_run.sh` script in the `analysis/topEFT` directory.
-    ```
-    time source fullR2_run.sh
-    ```
-
-2. Run the datacard maker to obtain the cards and templates (from the pickled histogram file produced in Step 1, be sure to use the version with the nonprompt estimation, i.e. the one with `_np` appended to the name you specified for the `OUT_NAME` in `fullR2_run.sh`).
-    ```
-    time python make_cards.py /path/to/your/examplename_np.pkl.gz -C --do-nuisance --var-lst lj0pt ptz -d /scratch365/you/somedir --unblind --do-mc-stat
-    ```
-
-3. Run the post-processing checks on the cards to look for any unexpected errors in the condor logs and to grab the right set of ptz and lj0pt templates and cards used in TOP-22-006. The script will copy the relevant cards/templates to a directory called `ptz-lj0pt_withSys` that it makes inside of the directory you pass that points to the cards and templates made in Step 2. This `ptz-lj0pt_withSys` is the directory that can be copied to wherever you plan to run the `combine` steps (e.g. PSI).
-    ```
-    time python datacards_post_processing.py /scratch365/you/somedir -c -s
-    ```
-
-4. Check the yields with `get_datacard_yields.py` script. This scrip will read the datacards in the directory produced in Step 3 and will dump the SM yields (summed over jet bins) to the screen (the text is formatted as a latex table). Use the `--unblind` option if you want to also see the data numbers.
-    ```
-    python get_datacard_yields.py /scratch365/you/somedir/ptz-lj0pt_withSys/ --unblind
-    ```
-
-5. Proceed to the [Steps for reproducing the "official" TOP-22-006 workspace](https://github.com/TopEFT/EFTFit#steps-for-reproducing-the-official-top-22-006-workspace) steps listed in the EFTFit Readme. Remember that in addition to the files cards and templates, you will also need the `selectedWCs.txt` file. 
+* `fullR2_run.sh`: Wrapper script for making the full TOP-22-006 pkl file with `run_topeft.py`. 
 
 
+### Scripts for finding, comparing and plotting yields from histograms (from the processor)
+
+* `make_cr_and_sr_plots.py`:
+    - This script makes plots for all CRs categories, also has the ability to make SR plots. 
+    - The script takes as input a pkl file that should have both data and background MC included.
+    - Example usage: `python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/some/dir -n some_dir_name -y 2018 -t -u`
+
+* `get_yield_json.py`:
+    - This script takes a pkl file produced by the processor, finds the yields in the analysis categories, and saves the yields to a json file. It can also print the info to the screen. The default pkl file to process is `hists/plotsTopEFT.pkl.gz`.
+    - Example usage: `python get_yield_json.py -f histos/your_pkl_file.pkl.gz`
+
+* `comp_yields.py`:
+    - This script takes two json files of yields (produced by `get_yield_json.py`), finds the difference and percent difference between them in each category, and prints out all of the information. You can also compare to the TOP-19-001 yields by specifying `TOP-19-001` as one of the inputs. Specifying the second file is optional, and it will default to the reference yield file. The script returns a non-zero exit code if any of the percent differences are larger than a given value (currently set to 1e-8). 
+    - Example usage: `python comp_yields.py your_yields_1.json your_yields_2.json`
+
+
+### Scripts for making and checking the datacards
+
+* `make_cards.py`
+    - Example usage: `time python make_cards.py /path/to/your.pkl.gz -C --do-nuisance --var-lst lj0pt ptz -d /path/to/output/dir --unblind --do-mc-stat`
+
+* `parse_datacard_templtes.py`:
+    - Takes as input the path to a dir that has all of the template root files produced by the datacard maker, can output info about the templates or plots of the templates
+
+* `get_datacard_yields.py`:
+    - Gets SM yields from template histograms, dumps the yields (in latex table format) to the screen
+    - Example usage: `python get_datacard_yields.py /path/to/dir/with/your/templates/`
+
+* `make_1d_quad_plots_from_template_histos.py`:
+    - The purpose of this script was to help to understand the quadratic dependence of the systematics on the WCs. This script takes as input the information from the template histograms, and the goal is to reconstruct the quadratic parameterizations from the templates. The relevant templates are the ones produced by topcoffea's datacard maker, which should be passed to `EFTFit`'s `look_at_templates.C` (which opens the templates, optionally extrapolates the up/down beyond +-1sigma, and dumps the info into a python dictionary). The comments in the script have more information about how to run it. 
+
+* `datacards_post_processing.py`:
+    - This script does some basic checks of the cards and templates produced by the `make_cards.py` script.
+    - It also can parse the condor log files and dump a summary of the contents
+    - Additionally, it can also grab the right set of ptz and lj0pt templates (for the right categories) used in TOP-22-006
+    - Example: `python datacards_post_processing.py /path/to/your/datacards/dir -c -s`
+
+* 'tauFitter.py`:
+    - This script creates the jet fake tau SFs using control regions from the processor.
+    - Example usage: `python tauFitter.py -f /path/to/your.pkl.gz`
+    - The pkl file needs the 2los tau control regions
