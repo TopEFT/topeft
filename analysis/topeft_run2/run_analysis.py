@@ -119,7 +119,7 @@ if __name__ == '__main__':
         # Here we hardcode a list of hists used for the analysis
         hist_lst = ["njets","lj0pt","ptz"]
     elif args.hist_list == ["photon"]:
-        hist_lst = ["photon_pt","lj0pt"]
+        hist_lst = ['njet_bjet','photon_pt','invmass','l0pt','l1pt','njets','nbjetsm']
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass"]
@@ -258,7 +258,7 @@ if __name__ == '__main__':
             'tasks_accum_log': 'tasks.log',
 
             'environment_file': remote_environment.get_environment(
-                extra_pip_local = {"topeft": ["topeft", "setup.py"]},
+                extra_pip_local = {"topeft": ["topeft", "setup.py"],"coffea": ["coffea"]},
             ),
             'extra_input_files': ["analysis_processor.py"],
 
