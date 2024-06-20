@@ -21,6 +21,7 @@
     "dz_tau_cut" : 0.2,
     "sip3d_cut" : 8,
     "photonId" : 1,
+    "medium_e" : 3,
 
     "lo_xsec_samples": [
         "TTGamma_centralUL16APV",
@@ -43,15 +44,7 @@
         "TTGJets_centralUL16APV",
         "TTGJets_centralUL16",
         "TTGJets_centralUL17",
-        "TTGJets_centralUL18",
-        "ZGToLLG_centralUL16APV",
-        "ZGToLLG_centralUL16",
-        "ZGToLLG_centralUL17",
-        "ZGToLLG_centralUL18",
-        "TTGamma_centralUL16APV",
-        "TTGamma_centralUL16",
-        "TTGamma_centralUL17",
-        "TTGamma_centralUL18"
+        "TTGJets_centralUL18"
     ],
 
     "prompt_subtraction_samples": [
