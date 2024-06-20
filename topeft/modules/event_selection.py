@@ -207,7 +207,6 @@ def add1lMaskAndSFs(events, year, isData, sampleType):
 
 # 2l selection (we do not make the ss requirement here)
 def add2lMaskAndSFs(events, year, isData, sampleType):
-
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
     padded_FOs = ak.pad_none(FOs,2)
@@ -224,14 +223,11 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
 
     #Zll mask if the 2 leptons are of same flavor(for photon work)
     ll_is_SF = (abs(l0.pdgId) == abs(l1.pdgId))
-    Zll_SF_mask = (ll_is_SF) & (abs( (l0+l1).mass -91.2) > 15)             #this mask rejects any event with abs(m(ll) - m (Z)) < 15 GeV. Used for photon studies for 2los_sf cat
+    Zll_SF_mask = (abs( (l0+l1).mass -91.2) > 15)             #this mask rejects any event with abs(m(ll) - m (Z)) < 15 GeV. Used for photon studies for 2los_sf cat
 
     #Zllgamma mask if the 2 leptons are of same flavor(for photon work)
-    mediumcleanphotons_padded = ak.pad_none(events.photon,1) 
-    Zllgamma_SF_mask = (ll_is_SF) & (abs( (l0 + l1 + mediumcleanphotons_padded[:,0]).mass -91.2) > 15)
-
-    #invariant mass of dilepton pair (for photon work)
-    #mll_20 = ((l0+l1).mass > 20)
+    mediumcleanphotons_padded = ak.pad_none(events.photon,1) #pads empty array with a single None value 
+    Zllgamma_SF_mask = (abs( (l0 + l1 + mediumcleanphotons_padded[:,0]).mass -91.2) > 15)
 
     # IDs
     eleID1 = (abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0) & (padded_FOs[:,0].tightCharge>=2))
@@ -241,8 +237,15 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
     dilep = (ak.num(FOs)) >= 2
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
-    #mask = (filters & cleanup & dilep & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
-    mask = (filters & dilep & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
+    #the following mask "ptl0l1" is used for the new CR "2los_CR_lowleppt" to be used in ttgamma EFT work
+    ptl0 = ak.any(FOs[:,0:1].conept > 25.0, axis=1)
+    ptl1 = ak.any(abs(FOs[:,1:2].conept-12.5) < 2.5, axis=1) #the sub-leading lepton 10 GeV < l1pT < 15 GeV
+    ptl0l1  = ptl0 & ptl1
+
+    pt2520 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 20.0, axis=1))  #this is only used for comparison study with the new UL ttgamma analysis
+    mask = (filters & dilep & cleanup & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
+    mask_2l_lowptlep = (filters & dilep & ptl0l1 & exclusive & eleID1 & eleID2 & muTightCharge)
+    mask = (filters & dilep & cleanup & pt2520 & exclusive & eleID1 & eleID2 & muTightCharge)  #this is only used for comparison study with the new UL ttgamma analysis
 
     # MC matching requirement (already passed for data)
     if sampleType == "data":
@@ -253,28 +256,34 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
         lep1_charge       = ((padded_FOs[:,0].gen_pdgId*padded_FOs[:,0].pdgId) > 0)
         lep2_charge       = ((padded_FOs[:,1].gen_pdgId*padded_FOs[:,1].pdgId) > 0)
         lep1_match_conv   = (padded_FOs[:,0].genPartFlav==22)
-        #print(f"lep1_match_conv: {lep1_match_conv}")
         lep2_match_conv   = (padded_FOs[:,1].genPartFlav==22)
-        #print(f"lep2_match_conv: {lep2_match_conv}")
         prompt_mask = ( lep1_match_prompt & lep2_match_prompt & lep1_charge & lep2_charge )
         conv_mask   = ( lep1_match_conv | lep2_match_conv )
-        #print(f"conv_mask: {conv_mask}")
         if sampleType == 'prompt':
             mask = (mask & prompt_mask)
+            mask_2l_lowptlep = (mask_2l_lowptlep & prompt_mask)
         elif sampleType =='conversions':
-            mask = (mask & prompt_mask)     #temporarily here for ttgamma studies. Since ttgamma is our signal process, we don't want the conv_mask to be applied
+            mask = (mask & conv_mask)
+            mask_2l_lowptlep = (mask_2l_lowptlep & conv_mask)
         elif sampleType =='prompt_and_conversions':
             # Samples that we use for both prompt and conv contributions (i.e. just DY)
             mask = (mask & (prompt_mask | conv_mask))
+            mask_2l_lowptlep = (mask_2l_lowptlep & (prompt_mask | conv_mask))
         else:
             raise Exception(f"Error: Unknown sampleType {sampleType}.")
 
     mask_nozeeveto = mask
     mask = mask & (  Zee_veto )
     events['is2l'] = ak.fill_none(mask,False)
+    #the following masks (next 4 lines) are relevant to 2los CR with low lepton pT
+    mask_2l_lowptlep_nozeeveto = mask_2l_lowptlep
+    mask_2l_lowptlep = mask_2l_lowptlep & (Zee_veto)
+    events['is2l_lowptlep'] = ak.fill_none(mask_2l_lowptlep, False)
+    events['is2l_lowptlep_nozeeveto'] = ak.fill_none(mask_2l_lowptlep_nozeeveto, False)
+
     events['mask_SF_Zll'] = ak.fill_none(Zll_SF_mask,False)      #used for photon work for 2los_sf category
     events['mask_SF_Zllgamma'] = ak.fill_none(Zllgamma_SF_mask, False) #used for photon work for 2los_sf category
-    events['mll_20'] = ak.fill_none(cleanup,False) #ak.fill_none(mll_20,False)   #this is same thing as cleanups. Only implemented this separately for cutflow studies
+    events['mll_20'] = ak.fill_none(cleanup,False)   #this is same thing as cleanups. Only implemented this separately for cutflow studies
     events['is2l_nozeeveto'] = ak.fill_none(mask_nozeeveto,False)
 
     # SFs
@@ -304,10 +313,8 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # FF:
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
 
-
 # 3l selection
 def add3lMaskAndSFs(events, year, isData, sampleType):
-
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
     padded_FOs = ak.pad_none(FOs,3)
@@ -453,17 +460,6 @@ def addLepCatMasks(events):
     events['is_mmmm'] = ((n_e_4l==0) & (n_m_4l==4))
     events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
 
-def addPhotCatMasks(events):
-    photon_num_mask = ak.num(events.photon) == 1  #require exactly 1 photon
-    events['is_ph'] = photon_num_mask
-
-def addZllGammaMask(events):                    #this mask is relevant for 2los_sf category in ttgamma analysis. needs abs(m(llgamma) - m(Z)) > 15 GeV
-    FOs = events.l_fo_conept_sorted
-    padded_FOs = ak.pad_none(FOs,2)
-    mediumcleanphotons = ak.pad_none(events.photon,1)  #We require exactly 1 photon in the event
-    Zllgamma_mask = abs( (padded_FOs[:,0]+padded_FOs[:,1]+mediumcleanphotons[:,0]).mass -91.2) > 15  
-    events['mask_Zllgamma'] = ak.fill_none(Zllgamma_mask,False)
-
 def GenPhotonSelection(events):
     genPhoton_pT_mask = events.genPhoton.pt>20
     events['genPhoton_pT_mask'] = genPhoton_pT_mask
@@ -508,12 +504,12 @@ def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
     #the event is overlapping with the separate sample if there is an overlap photon passing the dR cut, kinematic cuts, and not coming from hadronic activity
     isolated_overlapPhotons = overlapPhotons[~ph_iso_mask]
 
-    if "TTTo" in dataset:   #samples from which the events with well-isolated overlapping photons are to be vetoed
+    if ("TTTo" in dataset) or ("DY" in dataset):   #samples from which the events with well-isolated overlapping photons are to be vetoed
         criteria = (ak.num(isolated_overlapPhotons)==0)
         events["vetoedbyOverlap"] = ~criteria
         events["retainedbyOverlap"] = criteria
 
-    elif "TTGamma" in dataset:  #currently unused but still good to have the implementation
+    elif ("TTGamma" in dataset) or ("ZGToLLG" in dataset):  #currently unused but still good to have the implementation
         criteria = (ak.num(isolated_overlapPhotons) >= 1)
         events["vetoedbyOverlap"] = ~criteria
         events["retainedbyOverlap"] = criteria
@@ -521,6 +517,42 @@ def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
     else: #might not be necessary
         events["vetoedbyOverlap"] = np.ones(len(events), dtype=bool)
         events["retainedbyOverlap"] = np.ones(len(events), dtype=bool)
+
+def select_nonpromptphoton(events):
+    ph = events.photon 
+
+    """Filter generated events with overlapping phase space"""
+    genMotherIdx = ph.matched_gen.genPartIdxMother
+    genpdgId = ph.matched_gen.pdgId
+    #calculate maxparent pdgId of the event
+    idx = ak.to_numpy(ak.flatten(abs(ph.matched_gen.pdgId)))
+    par = ak.to_numpy(ak.flatten(ph.matched_gen.genPartIdxMother))
+    num = ak.to_numpy(ak.num(ph.matched_gen.pdgId))
+    maxParentFlatten = maxHistoryPDGID(idx,par,num)
+    ph["matched_gen","maxParent"] = ak.unflatten(maxParentFlatten, num)
+
+    genmatchedPho = ak.fill_none(ph.matched_gen.pdgId == 22, False)
+
+    # reco photons really generated as electrons
+    matchedEle = ak.fill_none(abs(ph.matched_gen.pdgId) == 11, False)
+    # if the gen photon has a PDG ID > 25 in its history, it has a hadronic parent
+    hadronicParent = ak.fill_none(ph.matched_gen.maxParent > 25, False)
+
+    # define the photon categories for tight photon events
+    # a genuine photon is a reconstructed photon which is matched to a generator level photon, and does not have a hadronic parent
+    isGenPho = genmatchedPho & ~hadronicParent
+    # a hadronic photon is a reconstructed photon which is matched to a generator level photon, but has a hadronic parent
+    isHadPho = genmatchedPho & hadronicParent
+    # a misidentified electron is a reconstructed photon which is matched to a generator level electron
+    isMisIDele = matchedEle
+    # a hadronic/fake photon is a reconstructed photon that does not fall within any of the above categories
+    isHadFake = ~isMisIDele & ~isHadPho & ~isGenPho
+
+    #let's define a "nonprompt" photon mask
+    isNonPromptPho = ~isGenPho
+
+    events['isGenPho'] = isGenPho
+    events['isNonPromptPho'] = isNonPromptPho 
 
 # Returns the pt of the l+l that form the Z peak
 def get_Z_pt(lep_collection,pt_window):
