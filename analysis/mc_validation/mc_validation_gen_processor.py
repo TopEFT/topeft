@@ -31,6 +31,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             "ht"           : HistEFT(proc_axis, hist.axis.Regular(100, 0, 1000, name="ht",           label=r"Scalar sum of genjet pt"), wc_names=wc_names_lst, rebin=False),
             "ht_clean"     : HistEFT(proc_axis, hist.axis.Regular(100, 0, 1000, name="ht_clean",     label=r"Scalar sum of clean genjet pt"), wc_names=wc_names_lst, rebin=False),
             "tops_pt"      : HistEFT(proc_axis, hist.axis.Regular(50,  0, 500,  name="tops_pt",      label=r"Pt of the sum of the tops"), wc_names=wc_names_lst, rebin=False),
+            "l0_pt"      : HistEFT(proc_axis, hist.axis.Regular(50,  0, 500,    name="l0_pt",      label=r"Pt of leading lepton"), wc_names=wc_names_lst, rebin=False),
+            "j0_pt"      : HistEFT(proc_axis, hist.axis.Regular(50,  0, 500,    name="j0_pt",      label=r"Pt of leading jet"), wc_names=wc_names_lst, rebin=False),
             "tX_pt"        : HistEFT(proc_axis, hist.axis.Regular(40,  0, 400,  name="tX_pt",        label=r"Pt of the t(t)X system"), wc_names=wc_names_lst, rebin=False),
             "njets"        : HistEFT(proc_axis, hist.axis.Regular(10,  0, 10,   name="njets",        label=r"njets"), wc_names=wc_names_lst, rebin=False),
         }
@@ -134,6 +136,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             "ht_clean" : ht_clean,
             "tX_pt" : tX_pt,
             "tops_pt" : tops_pt,
+            "l0_pt" : ak.firsts(gen_l.pt),
+            "j0_pt" : ak.firsts(genjet.pt),
             "njets" : njets,
         }
 
