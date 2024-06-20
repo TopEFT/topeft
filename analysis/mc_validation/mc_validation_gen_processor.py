@@ -33,7 +33,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             "tops_pt"      : HistEFT(proc_axis, hist.axis.Regular(50,  0, 500,  name="tops_pt",      label=r"Pt of the sum of the tops"), wc_names=wc_names_lst, rebin=False),
             "tX_pt"        : HistEFT(proc_axis, hist.axis.Regular(40,  0, 400,  name="tX_pt",        label=r"Pt of the t(t)X system"), wc_names=wc_names_lst, rebin=False),
             "njets"        : HistEFT(proc_axis, hist.axis.Regular(10,  0, 10,   name="njets",        label=r"njets"), wc_names=wc_names_lst, rebin=False),
-            "njets"        : HistEFT(proc_axis, hist.axis.Regular(10,  0, 10,   name="njets",        label=r"njets"), wc_names=wc_names_lst, rebin=False),
         }
 
         # Set the list of hists to fill
