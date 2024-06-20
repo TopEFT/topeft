@@ -2,14 +2,18 @@
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import hist, processor
+from coffea import processor
+import hist
 
 from topcoffea.modules.GetValuesFromJsons import get_lumi
 from topcoffea.modules.objects import *
 #from topcoffea.modules.corrections import get_ht_sf
 from topcoffea.modules.selection import *
-from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
+from topcoffea.modules.get_param_from_jsons import GetParam
+from topcoffea.modules.paths import topcoffea_path
+get_tc_param = GetParam(topcoffea_path("params/params.json"))
 
 
 class AnalysisProcessor(processor.ProcessorABC):
@@ -100,7 +104,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Jet object selection
         genjet = genjet[genjet.pt > 30]
-        is_clean_jet = isClean(genjet, gen_e, drmin=0.4) & isClean(genjet, gen_m, drmin=0.4) & isClean(genjet, gen_t, drmin=0.4)
+        is_clean_jet = te_os.isClean(genjet, gen_e, drmin=0.4) & te_os.isClean(genjet, gen_m, drmin=0.4) & te_os.isClean(genjet, gen_t, drmin=0.4)
         genjet_clean = genjet[is_clean_jet]
         njets = ak.num(genjet_clean)
 
@@ -171,8 +175,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             event_weight_cut = event_weight[isnotnone_mask]
             eft_coeffs_cut = eft_coeffs
             if eft_coeffs is not None: eft_coeffs_cut = eft_coeffs[isnotnone_mask]
-            eft_w2_coeffs_cut = eft_w2_coeffs
-            if eft_w2_coeffs is not None: eft_w2_coeffs_cut = eft_w2_coeffs[isnotnone_mask]
+            #eft_w2_coeffs_cut = eft_w2_coeffs
+            #if eft_w2_coeffs is not None: eft_w2_coeffs_cut = eft_w2_coeffs[isnotnone_mask]
 
             # Fill the histos
             axes_fill_info_dict = {
@@ -180,7 +184,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "sample"        : histAxisName,
                 "weight"        : event_weight_cut,
                 "eft_coeff"     : eft_coeffs_cut,
-                "eft_err_coeff" : eft_w2_coeffs_cut,
+                #"eft_err_coeff" : eft_w2_coeffs_cut,
             }
 
             hout[dense_axis_name].fill(**axes_fill_info_dict)
