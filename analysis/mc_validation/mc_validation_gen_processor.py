@@ -5,10 +5,7 @@ np.seterr(divide='ignore', invalid='ignore', over='ignore')
 from coffea import processor
 import hist
 
-from topcoffea.modules.GetValuesFromJsons import get_lumi
-from topcoffea.modules.objects import *
-#from topcoffea.modules.corrections import get_ht_sf
-from topcoffea.modules.selection import *
+import topeft.modules.object_selection as te_os
 from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -18,24 +15,26 @@ get_tc_param = GetParam(topcoffea_path("params/params.json"))
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, dtype=np.float32):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
 
         # Create the histograms
-        self._accumulator = processor.dict_accumulator({
-            "mll_fromzg_e" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("mll_fromzg_e", "invmass ee from z/gamma", 40, 0, 200)),
-            "mll_fromzg_m" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("mll_fromzg_m", "invmass mm from z/gamma", 40, 0, 200)),
-            "mll_fromzg_t" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("mll_fromzg_t", "invmass tautau from z/gamma", 40, 0, 200)),
-            "mll"          : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("mll", "Invmass l0l1", 60, 0, 600)),
-            "ht"           : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("ht", "Scalar sum of genjet pt", 100, 0, 1000)),
-            "ht_clean"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("ht_clean", "Scalar sum of clean genjet pt", 100, 0, 1000)),
-            "tops_pt"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("tops_pt", "Pt of the sum of the tops", 50, 0, 500)),
-            "tX_pt"        : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("tX_pt", "Pt of the t(t)X system", 40, 0, 400)),
-            "njets"        : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("njets", "njets", 10, 0, 10)),
-        })
+        proc_axis = hist.axis.StrCategory([], name="process", growth=True)
+        self._accumulator = {
+            "mll_fromzg_e" : HistEFT(proc_axis, hist.axis.Regular(40,  0, 200,  name="mll_fromzg_e", label=r"invmass ee from z/gamma"), wc_names=wc_names_lst, rebin=False),
+            "mll_fromzg_m" : HistEFT(proc_axis, hist.axis.Regular(40,  0, 200,  name="mll_fromzg_m", label=r"invmass mm from z/gamma"), wc_names=wc_names_lst, rebin=False),
+            "mll_fromzg_t" : HistEFT(proc_axis, hist.axis.Regular(40,  0, 200,  name="mll_fromzg_t", label=r"invmass tautau from z/gamma"), wc_names=wc_names_lst, rebin=False),
+            "mll"          : HistEFT(proc_axis, hist.axis.Regular(60,  0, 600,  name="mll",          label=r"Invmass l0l1"), wc_names=wc_names_lst, rebin=False),
+            "ht"           : HistEFT(proc_axis, hist.axis.Regular(100, 0, 1000, name="ht",           label=r"Scalar sum of genjet pt"), wc_names=wc_names_lst, rebin=False),
+            "ht_clean"     : HistEFT(proc_axis, hist.axis.Regular(100, 0, 1000, name="ht_clean",     label=r"Scalar sum of clean genjet pt"), wc_names=wc_names_lst, rebin=False),
+            "tops_pt"      : HistEFT(proc_axis, hist.axis.Regular(50,  0, 500,  name="tops_pt",      label=r"Pt of the sum of the tops"), wc_names=wc_names_lst, rebin=False),
+            "tX_pt"        : HistEFT(proc_axis, hist.axis.Regular(40,  0, 400,  name="tX_pt",        label=r"Pt of the t(t)X system"), wc_names=wc_names_lst, rebin=False),
+            "njets"        : HistEFT(proc_axis, hist.axis.Regular(10,  0, 10,   name="njets",        label=r"njets"), wc_names=wc_names_lst, rebin=False),
+            "njets"        : HistEFT(proc_axis, hist.axis.Regular(10,  0, 10,   name="njets",        label=r"njets"), wc_names=wc_names_lst, rebin=False),
+        }
 
         # Set the list of hists to fill
         if hist_lst is None:
@@ -154,7 +153,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # If this is not an eft sample, get the genWeight
         if eft_coeffs is None: genw = events["genWeight"]
         else: genw = np.ones_like(events["event"])
-        lumi = get_lumi(year)*1000.0
+        lumi = 1000.0*get_tc_param(f"lumi_{year}")
         event_weight = lumi*xsec*genw/sow
 
         # Example of reweighting based on Ht
@@ -165,7 +164,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ### Loop over the hists we want to fill ###
 
-        hout = self.accumulator.identity()
+        hout = self.accumulator
 
         for dense_axis_name, dense_axis_vals in dense_axis_dict.items():
 
@@ -181,7 +180,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Fill the histos
             axes_fill_info_dict = {
                 dense_axis_name : dense_axis_vals_cut,
-                "sample"        : histAxisName,
+                "process"       : histAxisName,
                 "weight"        : event_weight_cut,
                 "eft_coeff"     : eft_coeffs_cut,
                 #"eft_err_coeff" : eft_w2_coeffs_cut,
