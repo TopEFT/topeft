@@ -17,7 +17,7 @@ import topcoffea.modules.object_selection as tc_os
 
 
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
+from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPhotonSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 import topeft.modules.jetbJetMultiplicity as jbM
@@ -302,6 +302,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Attach the lepton SFs to the electron and muons collections
         AttachElectronSF(e_fo,year=year)
         AttachMuonSF(m_fo,year=year)
+        AttachPhotonSF(mediumcleanPhoton,year=year)
 
         # Attach per leptovetoedbyOverlaps
         AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
@@ -319,7 +320,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             'JES_FlavorQCDUp', 'JES_AbsoluteUp', 'JES_RelativeBalUp', 'JES_BBEC1Up', 'JES_RelativeSampleUp', 'JES_FlavorQCDDown', 'JES_AbsoluteDown', 'JES_RelativeBalDown', 'JES_BBEC1Down', 'JES_RelativeSampleDown'
         ]
         wgt_correction_syst_lst = [
-            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
+            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown","phoSF_Up","phoSF_Down",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown", # Theory systs
         ]
 
@@ -526,7 +527,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # For MC only
                 if not isData:
                     if ch_name.startswith("2l"):
-                        if "ph" in ch_name: pass     #skip for now if the channel is photon related
+                        if "ph" in ch_name:
+                            pass     #skip for now if the channel is photon related
+                            weights_dict[ch_name].add("phoSF", events.sf_2l_photon, copy.deepcopy(events.sf_2l_hi_photon), copy.deepcopy(events.sf_2l_lo_photon))
                         else:
                             weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                             weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))

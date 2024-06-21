@@ -198,6 +198,29 @@ for year in ['2016APV_2016', 2017, 2018]:
 extLepSF.finalize()
 SFevaluator = extLepSF.make_evaluator()
 
+###### Photon scale factors
+################################################################
+extPhoSF = lookup_tools.extractor()
+
+# New UL Photon SFs
+# Muon: reco
+# pT vs super cluster eta
+extPhoSF.add_weight_sets(["PhotonTightSF_2016 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2016_statData statData %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2016_statMC statMC %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2016APV EGamma_SF2D %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2016APV_statData statData %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2016APV_statMC statMC %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2017 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Tight_UL17.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2017_statData statData %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Tight_UL17.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2017_statMC statMC %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Tight_UL17.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2018 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL18.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2018_statData statData %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL18.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2018_statMC statMC %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL18.root')])
+
+extPhoSF.finalize()
+PhoSFevaluator = extPhoSF.make_evaluator()
+
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
 def ApplyTES(events, Taus, isData):
@@ -347,6 +370,7 @@ def AttachMuonSF(muons, year):
     new_err = SFevaluator['MuonSF_{year}_er'.format(year=year)](eta,pt)
 
     muons['sf_nom_2l_muon'] = new_sf * reco_sf * loose_sf * iso_sf
+    print(muons.sf_nom_2l_muon, '\n\n\n\n')
     muons['sf_hi_2l_muon']  = (new_sf + new_err) * (reco_sf + reco_err) * (loose_sf + loose_err) * (iso_sf + iso_err)
     muons['sf_lo_2l_muon']  = (new_sf - new_err) * (reco_sf - reco_err) * (loose_sf - loose_err) * (iso_sf - iso_err)
     muons['sf_nom_3l_muon'] = new_sf * reco_sf * loose_sf
@@ -402,6 +426,25 @@ def AttachElectronSF(electrons, year):
     electrons['sf_nom_3l_muon'] = ak.ones_like(reco_sf)
     electrons['sf_hi_3l_muon']  = ak.ones_like(reco_sf)
     electrons['sf_lo_3l_muon']  = ak.ones_like(reco_sf)
+
+def AttachPhotonSF(photons, year):
+    '''
+      Description:
+          Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the photons array passed to this function. These
+          values correspond to the nominal, up, and down photon scalefactor values respectively.
+    '''
+    sieie = np.abs(photons.sieie)
+    pt = photons.pt
+    if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
+    tight_sf  = PhoSFevaluator['PhotonTightSF_{year}'.format(year=year)](sieie,pt)
+    tight_err = np.sqrt(
+        np.square(PhoSFevaluator['PhotonTightSF_{year}_statData'.format(year=year)](sieie,pt)) +
+        np.square(PhoSFevaluator['PhotonTightSF_{year}_statMC'.format(year=year)](sieie,pt))
+    )
+
+    photons['sf_nom_photon'] = tight_sf
+    photons['sf_hi_photon']  = (tight_sf + tight_err)
+    photons['sf_lo_photon']  = (tight_sf - tight_err)
 
 ###### Btag scale factors
 ################################################################
