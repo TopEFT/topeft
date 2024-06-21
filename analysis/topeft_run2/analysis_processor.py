@@ -62,7 +62,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
-        self.offZ_split = True #False
+        self.offZ_split = False
+
 
         # Create the histograms
         self._accumulator = processor.dict_accumulator({
@@ -524,6 +525,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Lumi mask (for data)
             selections.add("is_good_lumi",lumi_mask)
 
+
             # 2lss selection 
             selections.add("2lss", (events.is2l & pass_trg))
             selections.add("bmask_atleast1m2l_atmost2m", (bmask_atleast1med_atleast2loose & bmask_atmost2med))
@@ -539,6 +541,57 @@ class AnalysisProcessor(processor.ProcessorABC):
             #selections.add("3l_offZ", (sfosz_3l_OffZ_mask))
             selections.add("4l", (events.is4l & pass_trg))
             
+            ## Testing the parsing of the region definitions from jsons
+            with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json_test:
+                select_cat_dict_test = json.load(ch_json_test)
+                #reading the macro analysis setup
+                if not self.offZ_split:
+                    import_sr_cat_dict_test = select_cat_dict_test["TOP22_006_CH_LST_SR"]
+                else:
+                    import_sr_cat_dict_test = select_cat_dict_test["OFFZ_SPLIT_CH_LST_SR"]
+
+                #looping over 2l, 3l, and so on
+                for lep_cat, lep_cat_dict in import_sr_cat_dict_test.items():
+                    lep_ch_list = lep_cat_dict['lep_chan_lst']
+                    #print("\n\n\n\n\n\n\n\n\n")
+                    #print("lep_cat", lep_cat)
+                    #print("lep_cat_dict", lep_cat_dict)
+                    #print("lep_ch_list", lep_ch_list)
+                    #print("\n\n\n\n\n\n\n\n\n")
+
+                    chtag = None
+                    #looping over each region within the lep category
+                    for lep_ch in lep_ch_list:
+                        #print("\n\n\n\n\n\n\n\n\n")
+                        #print("lep_ch", lep_ch)
+                        #print("\n\n\n\n\n\n\n\n\n")
+                        tempmask = None
+                        #the first entry of the list is the region name to add in "selections"
+                        chtag = lep_ch[0]
+                        
+                        for chcut in lep_ch[1:]:
+                            #print("\n\n\n\n\n\n\n\n\n")
+                            #print("lep_ch", lep_ch)
+                            #print("chtag", chtag)
+                            #print("chcut", chcut)
+                            #print("\n\n\n\n\n\n\n\n\n")
+                            if not tempmask is None:
+                                tempmask = tempmask & selections.any(chcut)
+                            else:
+                                tempmask = selections.any(chcut)
+                        
+                        #print("\n\n\n\n\n\n\n\n\n")
+                        #print("chtag, tempmask", chtag, tempmask)
+                        #print("\n\n\n\n\n\n\n\n\n")
+                        selections.add(chtag, tempmask)
+
+            
+            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))
+            #print("\n\n\n\n\n\n\n\n\n\n\n")
+            #print("2lss_pnew", selections.any("2lss_pnew"))
+            #print("2lss_p", selections.any("2lss_p"))
+            #print(ak.to_list(ak.any(selections.any("2lss_pnew") != selections.any("2lss_p"))))
+            #print("\n\n\n\n\n\n\n\n\n\n")
 
             selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
             selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
@@ -665,11 +718,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                     import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
                 
 
-                print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-                print("import_sr_cat_dict")
-                for k, v in import_sr_cat_dict.items():
-                    print(k, ":", v)
-                print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+                #print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+                #print("import_sr_cat_dict")
+                #for k, v in import_sr_cat_dict.items():
+                #    print(k, ":", v)
+                #print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 
                 for lep_cat in import_sr_cat_dict.keys():
                     sr_cat_dict[lep_cat] = {}
@@ -691,11 +744,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
 
 
-                print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-                print("import_cr_cat_dict")
-                for k, v in import_cr_cat_dict.items():
-                    print(k, ":", v)
-                print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+                #print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+                #print("import_cr_cat_dict")
+                #for k, v in import_cr_cat_dict.items():
+                #    print(k, ":", v)
+                #print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 
 
                 for lep_cat in import_cr_cat_dict.keys():

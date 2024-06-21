@@ -1,0 +1,32 @@
+{
+    "TOP22_006_CH_LST_SR": {
+        "2l": {
+            "lep_chan_lst": [
+                [
+		    "2lss_pnew",
+		    "2lss",
+		    "2l_p",
+		    "bmask_atleast1m2l_atmost2m"
+                ]
+            ],
+            "lep_flav_lst": [
+                "ee",
+                "em",
+                "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lSS",
+                "isAR_2lSS"
+            ],
+            "appl_lst_data": [
+                "isAR_2lSS_OS"
+            ],
+            "jet_lst": [
+                "4",
+                "5",
+                "6",
+                "7"
+            ]
+        }
+     }
+}
