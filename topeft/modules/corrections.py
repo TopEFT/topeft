@@ -370,7 +370,6 @@ def AttachMuonSF(muons, year):
     new_err = SFevaluator['MuonSF_{year}_er'.format(year=year)](eta,pt)
 
     muons['sf_nom_2l_muon'] = new_sf * reco_sf * loose_sf * iso_sf
-    print(muons.sf_nom_2l_muon, '\n\n\n\n')
     muons['sf_hi_2l_muon']  = (new_sf + new_err) * (reco_sf + reco_err) * (loose_sf + loose_err) * (iso_sf + iso_err)
     muons['sf_lo_2l_muon']  = (new_sf - new_err) * (reco_sf - reco_err) * (loose_sf - loose_err) * (iso_sf - iso_err)
     muons['sf_nom_3l_muon'] = new_sf * reco_sf * loose_sf
