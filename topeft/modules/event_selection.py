@@ -226,7 +226,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     Zll_SF_mask = (abs( (l0+l1).mass -91.2) > 15)             #this mask rejects any event with abs(m(ll) - m (Z)) < 15 GeV. Used for photon studies for 2los_sf cat
 
     #Zllgamma mask if the 2 leptons are of same flavor(for photon work)
-    mediumcleanphotons_padded = ak.pad_none(events.photon,1) #pads empty array with a single None value 
+    mediumcleanphotons_padded = ak.pad_none(events.photon,1) #pads empty array with a single None value
     Zllgamma_SF_mask = (abs( (l0 + l1 + mediumcleanphotons_padded[:,0]).mass -91.2) > 15)
 
     # IDs
@@ -500,8 +500,8 @@ def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
     #Also require that photons are separate from all other gen particles
     #Need not consider neutrinos and don't have to calculate dR between the OverlapPhoton and itself
     finalGen = events.GenPart[(events.GenPart.status==1) & (events.GenPart.pt > 5.0) &
-                                ~((abs(events.GenPart.pdgId)==12) | (abs(events.GenPart.pdgId)==14) | (abs(events.GenPart.pdgId)==16)) &
-                                ~(overlapPhoSelect)]
+                              ~((abs(events.GenPart.pdgId)==12) | (abs(events.GenPart.pdgId)==14) | (abs(events.GenPart.pdgId)==16)) &
+                              ~(overlapPhoSelect)]
 
     #calculate dR between overlap photons and each gen particle
     phoGenDR = overlapPhotons.metric_table(finalGen)
@@ -526,7 +526,7 @@ def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
         events["retainedbyOverlap"] = np.ones(len(events), dtype=bool)
 
 def select_nonpromptphoton(events):
-    ph = events.photon 
+    ph = events.photon
 
     """Filter generated events with overlapping phase space"""
     genMotherIdx = ph.matched_gen.genPartIdxMother
@@ -559,7 +559,7 @@ def select_nonpromptphoton(events):
     isNonPromptPho = ~isGenPho
 
     events['isGenPho'] = isGenPho
-    events['isNonPromptPho'] = isNonPromptPho 
+    events['isNonPromptPho'] = isNonPromptPho
 
 # Returns the pt of the l+l that form the Z peak
 def get_Z_pt(lep_collection,pt_window):
