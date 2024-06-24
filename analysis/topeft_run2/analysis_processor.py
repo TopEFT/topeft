@@ -679,7 +679,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             
 
             # AR/SR categories
-            selections.add("isSR_2lp",     ( events.is2lp_SR) & charge2l_0)
             selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1)
             selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1)
             selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip

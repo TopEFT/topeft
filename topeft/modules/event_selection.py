@@ -302,7 +302,6 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     #mask = (filters & cleanup & lep & pt25 & exclusive & eleID1 & muTightCharge)
     mask = (filters & lep & pt25 & exclusive & eleID1 & muTightCharge)
     events['isl'] = ak.fill_none(mask,False)
-    photon = ak.fill_none(ak.any(events.Photon.cutBased == 3, axis=1), False)
     padded_photon = ak.pad_none(events.photon, 1)
 
     # SFs
@@ -310,12 +309,9 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     events['sf_2l_hi_photon'] = padded_photon.sf_hi_photon[:,0]
     events['sf_2l_lo_photon'] = padded_photon.sf_lo_photon[:,0]
 
-    events['is2lp_SR'] = (photon & (padded_FOs[:,0].isTightLep) | (padded_FOs[:,1].isTightLep))
-    events['is2lp_SR'] = ak.fill_none(events['is2lp_SR'],False)
     #lep = (ak.num(FOs)) >= 1
     #pt25 = ak.any(FOs[:,0:1].conept > 25.0, axis=1)
     #mask = (filters & cleanup & lep & pt25 & exclusive & eleID1 & muTightCharge)
-    events['is2l_photon'] = ak.fill_none(mask & photon, False)
 
     # FF:
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
