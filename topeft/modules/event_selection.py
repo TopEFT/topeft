@@ -303,13 +303,12 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
  
     # 3l requirements:
     trilep = (ak.num(FOs)) >=3
-    pt251510 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1)) # & pt3lmask)
+    pt251510 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1) & pt3lmask)
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<4
 
     # tight selection for two ss leptons
-    exclusive_2 = get_ssTight_mask(FOs)
-    mask = (filters & cleanup & trilep & pt251510 & exclusive & exclusive_2 & eleID1 & eleID2 ) #& eleID3 )
-    mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 ) #& eleID3 )
+    mask = (filters & cleanup & trilep & pt251510 & exclusive & eleID1 & eleID2 & eleID3 )
+
     # MC matching requirement (already passed for data)
     if sampleType == "data":
         pass
@@ -320,10 +319,8 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
         lep1_match_conv   = (padded_FOs[:,0].genPartFlav==22)
         lep2_match_conv   = (padded_FOs[:,1].genPartFlav==22)
         lep3_match_conv   = (padded_FOs[:,2].genPartFlav==22)
-        #prompt_mask = ( lep1_match_prompt & lep2_match_prompt & lep3_match_prompt )
-        #conv_mask   = ( lep1_match_conv | lep2_match_conv | lep3_match_conv)
-        prompt_mask = ( lep1_match_prompt & lep2_match_prompt)
-        conv_mask   = ( lep1_match_conv | lep2_match_conv)
+        prompt_mask = ( lep1_match_prompt & lep2_match_prompt & lep3_match_prompt )
+        conv_mask   = ( lep1_match_conv | lep2_match_conv | lep3_match_conv)
         if sampleType == 'prompt':
             mask = (mask & prompt_mask)
         elif sampleType =='conversions':
