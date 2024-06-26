@@ -1,0 +1,16 @@
+{
+  "xsec": 1.0,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "dataUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_F_UL2016/output_1852.root"
+  ],
+  "nEvents": 4360689,
+  "nGenEvents": 4360689,
+  "nSumOfWeights": 4360689.0,
+  "isData": true,
+  "path": "/DoubleEG/Run2016F-UL2016_MiniAODv2_NanoAODv9-v1/NANOAOD"
+}

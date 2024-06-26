@@ -1,0 +1,28 @@
+{
+  "xsec": 1.0,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "dataUL16APV",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_371.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_375.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_39.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_42.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_722.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_732.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_733.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_741.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_742.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_745.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_746.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_753.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/DoubleMuon_D_HIPM_UL2016/output_798.root"
+  ],
+  "nEvents": 33861745,
+  "nGenEvents": 33861745,
+  "nSumOfWeights": 33861745.0,
+  "isData": true,
+  "path": "/DoubleMuon/Run2016D-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD"
+}

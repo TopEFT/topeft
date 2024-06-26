@@ -245,7 +245,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     pt2520 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 20.0, axis=1))  #this is only used for comparison study with the new UL ttgamma analysis
     mask = (filters & dilep & cleanup & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
     mask_2l_lowptlep = (filters & dilep & ptl0l1 & exclusive & eleID1 & eleID2 & muTightCharge)
-    mask = (filters & dilep & cleanup & pt2520 & exclusive & eleID1 & eleID2 & muTightCharge)  #this is only used for comparison study with the new UL ttgamma analysis
+    #mask = (filters & dilep & cleanup & pt2520 & exclusive & eleID1 & eleID2 & muTightCharge)  #this is only used for comparison study with the new UL ttgamma analysis
 
     # MC matching requirement (already passed for data)
     if sampleType == "data":

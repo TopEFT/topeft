@@ -1,0 +1,26 @@
+{
+  "xsec": 1.0,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "dataUL16APV",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_D_HIPM_UL2016/output_711.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_D_HIPM_UL2016/output_719.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_D_HIPM_UL2016/output_728.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_D_HIPM_UL2016/output_739.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_D_HIPM_UL2016/output_743.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_D_HIPM_UL2016/output_751.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_D_HIPM_UL2016/output_759.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_D_HIPM_UL2016/output_769.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_D_HIPM_UL2016/output_770.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_D_HIPM_UL2016/output_773.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleMuon_D_HIPM_UL2016/output_775.root"
+  ],
+  "nEvents": 98017996,
+  "nGenEvents": 98017996,
+  "nSumOfWeights": 98017996.0,
+  "isData": true,
+  "path": "/SingleMuon/Run2016D-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD"
+}

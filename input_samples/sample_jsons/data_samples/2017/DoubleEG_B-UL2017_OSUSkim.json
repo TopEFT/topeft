@@ -1,0 +1,23 @@
+{
+  "xsec": 1.0,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "dataUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_B_UL2017/output_2272.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_B_UL2017/output_2482.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_B_UL2017/output_2958.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_B_UL2017/output_3455.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_B_UL2017/output_3456.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_B_UL2017/output_3762.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_B_UL2017/output_3979.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleEG_B_UL2017/output_3980.root"
+  ],
+  "nEvents": 58088760,
+  "nGenEvents": 58088760,
+  "nSumOfWeights": 58088760.0,
+  "isData": true,
+  "path": "/DoubleEG/Run2017B-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD"
+}

@@ -1,0 +1,23 @@
+{
+  "xsec": 1.0,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "dataUL16APV",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleElectron_D_HIPM_UL2016/output_681.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleElectron_D_HIPM_UL2016/output_689.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleElectron_D_HIPM_UL2016/output_696.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleElectron_D_HIPM_UL2016/output_707.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleElectron_D_HIPM_UL2016/output_715.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleElectron_D_HIPM_UL2016/output_716.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleElectron_D_HIPM_UL2016/output_727.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV/v1/SingleElectron_D_HIPM_UL2016/output_778.root"
+  ],
+  "nEvents": 148167727,
+  "nGenEvents": 148167727,
+  "nSumOfWeights": 148167727.0,
+  "isData": true,
+  "path": "/SingleElectron/Run2016D-HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD"
+}

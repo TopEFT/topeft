@@ -1,0 +1,23 @@
+{
+  "xsec": 1.0,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "dataUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleMuon_B_UL2017/output_1117.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleMuon_B_UL2017/output_1179.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleMuon_B_UL2017/output_233.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleMuon_B_UL2017/output_449.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleMuon_B_UL2017/output_653.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleMuon_B_UL2017/output_74.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleMuon_B_UL2017/output_816.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/FullRun2/v3/DoubleMuon_B_UL2017/output_914.root"
+  ],
+  "nEvents": 14501767,
+  "nGenEvents": 14501767,
+  "nSumOfWeights": 14501767.0,
+  "isData": true,
+  "path": "/DoubleMuon/Run2017B-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD"
+}

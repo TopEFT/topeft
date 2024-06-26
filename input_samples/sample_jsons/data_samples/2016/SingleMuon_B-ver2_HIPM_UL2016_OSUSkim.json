@@ -1,0 +1,31 @@
+{
+  "xsec": 1.0,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "dataUL16APV",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_319.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_323.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_326.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_334.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_337.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_340.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_342.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_344.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_345.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_348.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_351.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_352.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_353.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_360.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_361.root",
+    "/store/user/byates/skims/data/NAOD_ULv9_new-lepMVA-v2/2016APV_eraB/v1/SingleMuon_B_ver2_HIPM_UL2016/output_362.root"
+  ],
+  "nEvents": 158145722,
+  "nGenEvents": 158145722,
+  "nSumOfWeights": 158145722.0,
+  "isData": true,
+  "path": "/SingleMuon/Run2016B-ver2_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/NANOAOD"
+}
