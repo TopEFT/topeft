@@ -63,10 +63,12 @@ def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
 
 def coneptElec(pt, mvaTTHUL, jetRelIso):
     conePt = (0.90 * pt * (1 + jetRelIso))
+    return pt
     return ak.where((mvaTTHUL>get_tc_param("mva_TTH_e_cut")),pt,conePt)
 
 def coneptMuon(pt, mvaTTHUL, jetRelIso, mediumId):
     conePt = (0.90 * pt * (1 + jetRelIso))
+    return pt
     return ak.where(((mvaTTHUL>get_tc_param("mva_TTH_m_cut"))&(mediumId>0)),pt,conePt)
 
 def isPresElec(pt, eta, dxy, dz, miniIso, sip3D, eleId):
@@ -110,7 +112,8 @@ def isFOElec(pt, conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits,
     btabReq    = (jetBTagDeepFlav<bTagCut)
     ptReq      = (conept>get_te_param("fo_pt_cut"))
     qualityReq = (ttH_idEmu_cuts_E3 & convVeto & (lostHits==0))
-    mvaReq     = ((mvaTTHUL>get_tc_param("mva_TTH_e_cut")) | ((mvaFall17V2noIso_WP90) & (jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
+    mvaReq     = ((jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (jetRelIso < get_te_param("fo_e_jetRelIso_cut")))
+    #mvaReq     = ((mvaTTHUL>get_tc_param("mva_TTH_e_cut")) | ((mvaFall17V2noIso_WP90) & (jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
 
     return ptReq & btabReq & qualityReq & mvaReq
 
@@ -130,13 +133,16 @@ def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTHUL, jetRelIso, year):
 
     btagReq = (jetBTagDeepFlav<bTagCut)
     ptReq   = (conept>get_te_param("fo_pt_cut"))
-    mvaReq  = ((mvaTTHUL>get_tc_param("mva_TTH_m_cut")) | ((jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (jetRelIso < get_te_param("fo_m_jetRelIso_cut"))))
+    mvaReq  = ((jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (jetRelIso < get_te_param("fo_m_jetRelIso_cut")))
+    #mvaReq  = ((mvaTTHUL>get_tc_param("mva_TTH_m_cut")) | ((jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (jetRelIso < get_te_param("fo_m_jetRelIso_cut"))))
     return ptReq & btagReq & mvaReq
 
-def tightSelElec(clean_and_FO_selection_TTH, mvaTTHUL):
+def tightSelElec(clean_and_FO_selection_TTH, mvaTTHUL, isTight):
+    return (clean_and_FO_selection_TTH) & isTight
     return (clean_and_FO_selection_TTH) & (mvaTTHUL > get_tc_param("mva_TTH_e_cut"))
 
 def tightSelMuon(clean_and_FO_selection_TTH, mediumId, mvaTTHUL):
+    return (clean_and_FO_selection_TTH) & (mediumId>0)
     return (clean_and_FO_selection_TTH) & (mediumId>0) & (mvaTTHUL > get_tc_param("mva_TTH_m_cut"))
 
 def pt_eta_cut_genMatched_objects(gen_matched_object,pt_threshold,eta_threshold):
