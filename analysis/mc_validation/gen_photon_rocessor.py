@@ -180,18 +180,18 @@ class AnalysisProcessor(processor.ProcessorABC):
         }
         selections.add("atmost_3j" , (njets<=3))
         cat_dict = {
-                "2los_CRtt" : {
-                    "atmost_3j"   : {
-                        "lep_chan_lst" : ["2los_CRtt_photon"],
-                        "lep_flav_lst" : ["em"],
-                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                    },
-                    "atleast_1j"   : {
-                        "lep_chan_lst" : ["2los_CRtt_photon"],
-                        "lep_flav_lst" : ["em"],
-                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                    },
+            "2los_CRtt" : {
+                "atmost_3j"   : {
+                    "lep_chan_lst" : ["2los_CRtt_photon"],
+                    "lep_flav_lst" : ["em"],
+                    "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
                 },
+                "atleast_1j"   : {
+                    "lep_chan_lst" : ["2los_CRtt_photon"],
+                    "lep_flav_lst" : ["em"],
+                    "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+                },
+            },
         }
 
 
