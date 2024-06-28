@@ -149,7 +149,8 @@ class DatacardMaker():
             "ZZZ_",
         ],
         "tWZ": ["TWZToLL_"],
-        "convs": ["TTGamma_"],
+        #"convs": ["TTGamma_"],
+        "ttA": ["TTGamma_"],
         "fakes": ["nonprompt"],
         "charge_flips_": ["flips"],
         "data_obs": ["data"],
@@ -389,7 +390,7 @@ class DatacardMaker():
         self.syst_shape_decorrelate = {
             "ISR": [
                 {
-                    "matches": ["ttH","ttll","tttt","convs"],
+                    "matches": ["ttH","ttll","tttt","ttA"],
                     "group": "gg",
                 },
                 {
