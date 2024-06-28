@@ -1085,7 +1085,9 @@ class DatacardMaker():
         tic = time.time()
 
         sm = h.eval({})
-        sm_w2 = sumw2.eval(vals)
+        if sumw2 is None:
+            print("No sumw2 histogram found! Setting errors to 0")
+        sm_w2 = sumw2.eval(vals) if sumw2 is not None else 0
         sm = add_sumw2_stub(sm,sm_w2)
 
         # Note: The keys of this dictionary are a pretty contrived, but are useful later on
