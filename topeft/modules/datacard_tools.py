@@ -175,7 +175,7 @@ class DatacardMaker():
     FNAME_TEMPLATE = "ttx_multileptons-{cat}_{kmvar}.{ext}"
     # FNAME_TEMPLATE = "TESTING_ttx_multileptons-{cat}.{ext}"
 
-    SIGNALS = set(["ttH","tllq","ttll","ttlnu","tHq","tttt"])
+    SIGNALS = set(["ttH","tllq","ttll","ttlnu","tHq","tttt","ttA"])
 
     @classmethod
     def get_year(cls,s):
