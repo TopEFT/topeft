@@ -2,15 +2,10 @@
 #Created on October 6, 2023
 
 #!/usr/bin/env python
-import copy
-import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import hist, processor
-from coffea.util import load
-from coffea.analysis_tools import PackedSelection
-from coffea.lumi_tools import LumiMask
+from coffea import processor
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.histEFT import HistEFT
@@ -42,7 +37,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "genlep_pt"     : HistEFT(proc_axis, hist.axis.Regular(20, 0 ,200), label="$p_{T}$ $Gen lepton$ (GeV)", wc_names=wc_names_lst),
         }
 
-       # Set the list of hists to fill
+        # Set the list of hists to fill
         if hist_lst is None:
             # If the hist list is none, assume we want to fill all hists
             self._hist_lst = list(self._accumulator.keys())
@@ -106,19 +101,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         genleps = genleps[genlep_pt_eta_mask]
         genleps_ptsorted = genleps[ak.argsort(genleps.pt,axis=-1,ascending=False)]
         genleps_ptsorted_padded = ak.pad_none(genleps_ptsorted, 2)
-        pt2515 = (ak.any(genleps_ptsorted_padded[:,0:1].pt>25,axis=1) & ak.any(genleps_ptsorted_padded[:,1:2].pt>15,axis=1)) #Require that the leading(sub-leading) lepton pT be at least 25(15)GeV. 
+        pt2515 = (ak.any(genleps_ptsorted_padded[:,0:1].pt>25,axis=1) & ak.any(genleps_ptsorted_padded[:,1:2].pt>15,axis=1)) #Require that the leading(sub-leading) lepton pT be at least 25(15)GeV.
         #genleps_ptsorted_padded = genleps_ptsorted_padded[pt2515]
         genl0 = genleps_ptsorted_padded[:,0]
         genl1 = genleps_ptsorted_padded[:,1]
 
-        #pt2515 = (ak.any(genleps_ptsorted_padded[:,0:1].pt>25,axis=1) & ak.any(genleps_ptsorted_padded[:,1:2].pt>15,axis=1)) #Require that the leading(sub-leading) lepton pT be at least 25(15)GeV. 
-        
+        #pt2515 = (ak.any(genleps_ptsorted_padded[:,0:1].pt>25,axis=1) & ak.any(genleps_ptsorted_padded[:,1:2].pt>15,axis=1)) #Require that the leading(sub-leading) lepton pT be at least 25(15)GeV.
+
         genleps_num_mask = ak.num(genleps_ptsorted) == 2 #Require that there are exactly 2 gen_matched leptons
         #genleps_chargesum_zero = ak.fill_none(((genl0.charge + genl1.charge)==0),False)     #Require that the two leptons are of opposite signs
         genleps_chargesum_zero = (np.sign(genl0.pdgId) == - np.sign(genl1.pdgId))
         genleps_chargesum_zero = ak.fill_none(genleps_chargesum_zero, False)
-        #genleps_final_mask = (genleps_num_mask & pt2515 & genleps_chargesum_zero) 
-        
+        #genleps_final_mask = (genleps_num_mask & pt2515 & genleps_chargesum_zero)
+
 
         invmass_ll = (genl0+genl1).mass
         mll_min20 = ak.fill_none((invmass_ll > 20),False)       #Require that the invariant mass of the lepton pairs be at least 20 GeV.
@@ -186,7 +181,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         #Final mask relevant to the "category" we are interested in.
         #genph_2lOS_mask = (genleps_num_mask & genleps_chargesum_zero & genjets_num_mask & genbJets_num_mask & events.genPhoton_pT_eta_mask & genphoton_num_mask)
         genphoton_2lOS_mask = (all_genleps_mask & genjets_num_mask & genbJets_num_mask & genphoton_num_mask)
-        nogenphoton_2lOS_mask = (all_genleps_mask & genjets_num_mask & genbJets_num_mask) 
+        nogenphoton_2lOS_mask = (all_genleps_mask & genjets_num_mask & genbJets_num_mask)
 
         ##### Loop over the hists we want to fill ###########
 
