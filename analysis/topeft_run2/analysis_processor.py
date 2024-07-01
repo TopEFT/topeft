@@ -426,7 +426,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Count jets
             njets = ak.num(goodJets)
             ht = ak.sum(goodJets.pt,axis=-1)
-            j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
+            j0 = ak.firsts(goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)])
 
             # Loose DeepJet WP
             if year == "2017":
@@ -517,7 +517,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over categories and fill the dict
             weights_dict = {}
-            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "ttgamma", "photon","2los_sf_ph","2los_of_ph","2los_sf_cr_ph","2los_CRZ_noph","2los_CRZ_ph","2los_CR_Zg_ULttg","2los_lowpTlep_CR","2los_newCRs"]:
+            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "photon","2los_sf_ph","2los_of_ph","2los_sf_cr_ph","2los_CRZ_noph","2los_CRZ_ph","2los_CR_Zg_ULttg","2los_lowpTlep_CR","2los_newCRs"]:
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
@@ -774,15 +774,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["l0eta"]   = l0.eta
             varnames["l1pt"]    = l1.conept
             varnames["l1eta"]   = l1.eta
-            varnames["j0pt"]    = ak.flatten(j0.pt)
-            varnames["j0eta"]   = ak.flatten(j0.eta)
+            varnames["j0pt"]    = ak.fill_none(j0.pt, 0)
+            varnames["j0eta"]   = ak.fill_none(j0.eta, 0)
             varnames["njets"]   = njets
             varnames["nbtagsl"] = nbtagsl
             varnames["nbjetsm"] = nbtagsm
             varnames["invmass"] = mll_0_1
-            varnames["ptbl"]    = ak.flatten(ptbl)
+            varnames["ptbl"]    = ak.firsts(ptbl)
             varnames["ptz"]     = ptz
-            varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
+            varnames["b0pt"]    = ak.firsts(ptbl_bjet.pt)
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
@@ -908,24 +908,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                         "appl_lst"     : ["isSR_3l" , "isAR_3l"],
                     },
                 },
-                "ttgamma" : {
-                    "atleast_1j"   : {
-                        "lep_chan_lst" : ["ttgamma"],
-                        "lep_flav_lst" : ["ee", "mm", "em"],
-                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                    },
-                },
                 "2los_CRtt" : {
                     "atmost_3j"   : {
-                        "lep_chan_lst" : ["2los_CRtt_photon"],
+                        "lep_chan_lst" : ["2los_CRtt"],
                         "lep_flav_lst" : ["em"],
-                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                    },
-                },
-                "2los_CRZ" : {
-                    "atleast_0j"   : {
-                        "lep_chan_lst" : ["2los_CRZ_photon"],
-                        "lep_flav_lst" : ["ee", "mm"],
                         "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
                     },
                 },
@@ -1000,7 +986,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
             #edit this list if you want to select only few cat_dict keys.
-            cat_interest =['2los_CR_Zg_ULttg']
+            #FIXME uncomment for testing
+            #cat_interest =['2los_CR_Zg_ULttg'] #TODO remove once testing is done
 
             # Loop over the hists we want to fill
             varnames = {k:v for k,v in varnames.items() if k in self._hist_lst}
@@ -1028,8 +1015,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 for wgt_fluct in wgt_var_lst:
 
                     #Loop over nlep categories "2l", "3l", "4l"
-                    #for nlep_cat in cat_dict.keys():
-                    for nlep_cat in cat_interest:
+                    for nlep_cat in cat_dict.keys():
 
                         # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                         # Need to do this inside of nlep cat loop since some wgts depend on lep cat
@@ -1149,6 +1135,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                         #hout[dense_axis_name].fill(**axes_fill_info_dict_prompt_photon)
                                         #hout[dense_axis_name].fill(**axes_fill_info_dict_nonprompt_photon)
+                                        #print(axes_fill_info_dict, '\n\n\n')
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
                                         axes_fill_info_dict = {
                                             dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
