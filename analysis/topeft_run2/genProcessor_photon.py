@@ -7,6 +7,7 @@ import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 from coffea import processor
 
+import hist
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
