@@ -15,7 +15,7 @@ import topcoffea.modules.remote_environment as remote_environment
 
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
-import mc_validation_gen_processor as gen_processor
+import gen_photon_processor as gen_processor
 
 LST_OF_KNOWN_EXECUTORS = ["futures","work_queue"]
 
