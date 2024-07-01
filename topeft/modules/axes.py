@@ -34,6 +34,17 @@ info = {
     "b0pt": {"regular": (10, 0, 500), "label": r"Leading b jet  $p_{T}$ (GeV) "},
     "l0eta": {"regular": (20, -2.5, 2.5), "label": r"Leading lep $\eta$ "},
     "j0eta": {"regular": (30, -3, 3), "label": r"Leading jet  $\eta$ "},
+    "photon_pt": {
+        "regular": (20, 0, 400),
+        "variable": [20,35,50,70,100,170,200,250,300],
+        "label": "$p_{T}$ $\gamma$ (GeV)"
+    },
+    "nPhoton": {"regular": (7, 0, 7), "label": "Photon multiplicity"},
+    "photon_relPFchIso": {"regular": (50,0,7), "label": "PF relative ch. had. isolation (GeV)"},
+    "photon_PFchIso": {"regular": (100,0,15), "label": "PF ch. had. isolation (GeV)"},
+    "cutBased": {"regular": (6, 0, 6), "label": "$p_{T}$ $\gamma$ (GeV)"},
+    "pp_mass": {"regular": (60, 0, 600), "label": "$m_{\gamma\gamma}$ (GeV)"},
+    "invmass_llgamma": {"regular": (28,60,200), "label": "$m_{\ell\ell\gamma}$ (GeV)"},
     "ht": {
         "regular": (20, 0, 1000),
         "variable": [0, 300, 500, 800],
