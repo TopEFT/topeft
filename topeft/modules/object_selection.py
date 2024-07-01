@@ -207,7 +207,7 @@ def selectPhoton(photons):
     mediumPhoton_noSieie_noChIso = (
         photon_MinPtCut &
         photon_PhoSCEtaMultiRangeCut &
-        photon_PhoSingleTowerHadOverEmCut
+        photon_PhoSingleTowerHadOverEmCut &
         #& photon_sieieCut
         #& (photons.sieie < 0.010)
         #& (photons.pfRelIso03_chg < 1.141)
@@ -220,7 +220,7 @@ def selectPhoton(photons):
         photon_MinPtCut &
         photon_PhoSCEtaMultiRangeCut &
         photon_PhoSingleTowerHadOverEmCut &
-        photon_sieieCut
+        photon_sieieCut &
         #& (photons.sieie < 0.010)
         #& (photons.pfRelIso03_chg < 1.141)
         #& (photon_chIso < 1.141) &

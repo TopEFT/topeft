@@ -37,7 +37,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
         syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
         appl_axis = hist.axis.StrCategory([], name="appl", label=r"AR/SR", growth=True)
-                dense_axis = hist.axis.Regular(
         self._accumulator = processor.dict_accumulator({
             "genphoton_pt"  : HistEFT(proc_axis, hist.axis.Regular(10, 0, 200), label="$p_{T}$ $Gen\gamma$ (GeV)",  wc_names=wc_names_lst),
             "genlep_pt"     : HistEFT(proc_axis, hist.axis.Regular(20, 0 ,200), label="$p_{T}$ $Gen lepton$ (GeV)", wc_names=wc_names_lst)),

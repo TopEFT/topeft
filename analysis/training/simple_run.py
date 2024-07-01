@@ -5,6 +5,7 @@ import cloudpickle
 import gzip
 import os
 
+import simple_processor
 import numpy as np
 from coffea import hist, processor
 from coffea.nanoevents import NanoAODSchema
