@@ -38,7 +38,7 @@ info = {
         "regular": (20, 0, 400),
         "variable": [20,35,50,70,100,170,200,250,300],
         "label": "$p_{T}$ $\gamma$ (GeV)"
-     },
+    },
     "nPhoton": {"regular": (7, 0, 7), "label": "Photon multiplicity"},
     "photon_relPFchIso": {"regular": (50,0,7), "label": "PF relative ch. had. isolation (GeV)"},
     "photon_PFchIso": {"regular": (100,0,15), "label": "PF ch. had. isolation (GeV)"},

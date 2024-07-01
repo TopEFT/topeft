@@ -205,27 +205,27 @@ def selectPhoton(photons):
 
     # photons passing all ID requirements, without the charged hadron isolation cut applied
     mediumPhoton_noSieie_noChIso = (
-        photon_MinPtCut
-        & photon_PhoSCEtaMultiRangeCut
-        & photon_PhoSingleTowerHadOverEmCut
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut
         #& photon_sieieCut
         #& (photons.sieie < 0.010)
         #& (photons.pfRelIso03_chg < 1.141)
-        #& (photon_chIso < 1.141)
-        & photon_NeuIsoCut
-        & photon_PhoIsoCut
+        #& (photon_chIso < 1.141) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
     )
 
     mediumPhoton_noChIso = (
-        photon_MinPtCut
-        & photon_PhoSCEtaMultiRangeCut
-        & photon_PhoSingleTowerHadOverEmCut
-        & photon_sieieCut
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        photon_sieieCut
         #& (photons.sieie < 0.010)
         #& (photons.pfRelIso03_chg < 1.141)
-        #& (photon_chIso < 1.141)
-        & photon_NeuIsoCut
-        & photon_PhoIsoCut
+        #& (photon_chIso < 1.141) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
     )
 
     #mediumPhotons_relaxed = photons[photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photonID_relaxed]
