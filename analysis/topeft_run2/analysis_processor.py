@@ -293,7 +293,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         cleanPh = ph[ph.isClean]
         te_os.selectPhoton(cleanPh)
         mediumcleanPhoton = cleanPh[cleanPh.mediumPhoton]
-        #Also pt sort the mediumcleanPhoton collection 
+        #Also pt sort the mediumcleanPhoton collection
         mediumcleanPhoton = mediumcleanPhoton[ak.argsort(mediumcleanPhoton.pt,axis=-1,ascending=False)]
 
         #If MC, also use the mediumcleanPhoton collection to define prompt photon mask. We don't apply it to the photon collection right away.
@@ -569,7 +569,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sfosz_3l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
             sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
             sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
-            sfosz_2los_ttg_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=15.0) 
+            sfosz_2los_ttg_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=15.0)
 
             # Pass trigger mask
             pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),te_es.dataset_dict_top22006,te_es.exclude_dict_top22006)
@@ -594,7 +594,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
             #photon multiplicity mask
-            exactly_1ph = (ak.num(mediumcleanPhoton)==1) 
+            exactly_1ph = (ak.num(mediumcleanPhoton)==1)
             exactly_0ph = (ak.num(mediumcleanPhoton)==0)
             atleast_1ph = (ak.num(mediumcleanPhoton)>=1)
             atleast_2ph = (ak.num(mediumcleanPhoton)>=2)
@@ -654,7 +654,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("2los_CR_sf_lowpTlep", (retainedbyOverlap & events.is2l_lowptlep_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ttg_mask & events.mask_SF_Zllgamma &bmask_atleast1med & pass_trg & exactly_1ph))
             selections.add("2los_CR_of_lowpTlep", (retainedbyOverlap & events.is2l_lowptlep_nozeeveto & charge2l_0 & events.is_em & bmask_atleast1med & pass_trg & exactly_1ph))
             selections.add("2los_CR_of_lowJet", (retainedbyOverlap & events.is2l & charge2l_0 & events.is_em & bmask_exactly0med & pass_trg & exactly_1ph))
- 
+
             # 3l selection
             selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast1med & pass_trg))
             selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
@@ -694,7 +694,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("atleast_0j", (njets>=0))
             selections.add("atmost_1j" , (njets<=1))
             selections.add("atmost_3j" , (njets<=3))
-            
+
 
             # AR/SR categories
             selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1)
@@ -731,7 +731,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             nPhoton = ak.num(mediumcleanPhoton)
             photon_relPFchIso = ak.fill_none(ak.pad_none(mediumcleanPhoton_noChIso.pfRelIso03_chg,1),-1)
             photon_PFchIso = ak.fill_none(ak.pad_none(mediumcleanPhoton_noChIso.pfRelIso03_chg * mediumcleanPhoton_noChIso.pt,1), -1)
-            invmass_llg = ak.fill_none(((l0 + l1 + ak.firsts(mediumcleanPhoton)).mass),-1)    #Invmass of leading two leps and photon 
+            invmass_llg = ak.fill_none(((l0 + l1 + ak.firsts(mediumcleanPhoton)).mass),-1)    #Invmass of leading two leps and photon
 
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
@@ -763,7 +763,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             counts = np.ones_like(events['event'])
 
             #(jets,bjets) for njet_bjet histogram
-            jets_bjets_multiplicity = jbM.multiplicityOfJetsAndbJets(njets,nbtagsm) 
+            jets_bjets_multiplicity = jbM.multiplicityOfJetsAndbJets(njets,nbtagsm)
 
             # Variables we will loop over when filling hists
             varnames = {}
@@ -793,7 +793,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["cutBased"]    = cutBased
             varnames["pp_mass"]     = pp_mass
             varnames["invmass_llgamma"] = invmass_llg
-            varnames["njet_bjet"] = jets_bjets_multiplicity 
+            varnames["njet_bjet"] = jets_bjets_multiplicity
 
             ########## Fill the histograms ##########
 
@@ -981,7 +981,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "2los_newCRs" : {
                     "atmost_1j" : {
                         "lep_chan_lst" : ["2los_CR_of_lowJet"],
-                        "lep_flav_lst" : ["em"], 
+                        "lep_flav_lst" : ["em"],
                         "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
                     },
                 },
@@ -1099,12 +1099,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                         # Weights and eft coeffs for prompt photon category
                                         weights_flat_prompt = weight[is_prompt_photon & all_cuts_mask]
-                                        #weights_flat = counts[all_cuts_mask]
+                                        weights_flat = counts[all_cuts_mask]
                                         eft_coeffs_prompt_cut = eft_coeffs[is_prompt_photon & all_cuts_mask] if eft_coeffs is not None else None
                                         eft_w2_coeffs_prompt_cut = eft_w2_coeffs[is_prompt_photon & all_cuts_mask] if eft_w2_coeffs is not None else None
                                         # Weights and eft coeffs for non-prompt photon category
                                         weights_flat_nonprompt = weight[~is_prompt_photon & all_cuts_mask]
-                                        #weights_flat = counts[all_cuts_mask]
                                         eft_coeffs_nonprompt_cut = eft_coeffs[~is_prompt_photon & all_cuts_mask] if eft_coeffs is not None else None
                                         eft_w2_coeffs_nonprompt_cut = eft_w2_coeffs[~is_prompt_photon & all_cuts_mask] if eft_w2_coeffs is not None else None
                                         #eft coeffs when no prompt/non-prompt categorization is made

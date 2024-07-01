@@ -189,7 +189,6 @@ def selectPhoton(photons):
 
     photon_pixelSeed_electronVeto_mask = (np.invert(photons.pixelSeed) & (photons.electronVeto))  #We invert the pixel seed cause we want to veto events with photons that have pixelSeed cause they are misid electrons
     photon_mediumID = (photons.cutBased >= 2) #At least medium
-    #photon_loose_notmedium = 
     #Let's relax two components from medium cutBasedID -- 1. charged isolation and 2. sigmaetaeta
     #split out the ID requirement using the vid (versioned ID) bitmap
     #"(x & 3) >= 2" makes sure each component passes medium threshold
@@ -274,25 +273,25 @@ def isClean(obj_A, obj_B, drmin=0.4):
 def is_prompt_photon(genpart_collection,photon_obj):
 
     #let's first define a mask to make sure our reco photon is matched to a true gen level photon
-    is_true_photon = ak.fill_none(abs(photon_obj.matched_gen.pdgId)==22,False) 
+    is_true_photon = ak.fill_none(abs(photon_obj.matched_gen.pdgId)==22,False)
 
     true_photon = photon_obj[is_true_photon]  #collection of reco photon that is matched to a true gen photon
 
-    #first use genPartFlav 
+    #first use genPartFlav
     ph_prompt_match = (true_photon.genPartFlav == 1)
 
     #Next, let's look at genPartIdx of true_photon collection
     genpartidx_of_true_photon = true_photon.genPartIdx
     genparticles_at_genpartidx = genpart_collection[genpartidx_of_true_photon]
     mother_of_gen_particle = genparticles_at_genpartidx.parent
-    
+
     #Now let's loop over the parentage history of the genparticles_at_genpartidx collection and see if there is a hadron in the chain. If there is one, it is non-prompt photon
     mother_is_not_hadron = True
     while not ak.all(ak.is_none(mother_of_gen_particle, axis=1)):
         mother_is_not_hadron = (mother_is_not_hadron & ( (ak.fill_none(abs(mother_of_gen_particle.pdgId), 0) < 37) ))
         mother_of_gen_particle = mother_of_gen_particle.parent
- 
+
     is_prompt_photon = (ph_prompt_match & mother_is_not_hadron)
     has_prompt_photon = ak.any(is_prompt_photon,axis=1) #WARNING: The reason this is probably fine is cause we eventually require that the event has exactly 1 photon
 
-    return has_prompt_photon 
+    return has_prompt_photon

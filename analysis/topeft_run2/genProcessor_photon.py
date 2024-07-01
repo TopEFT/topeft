@@ -13,13 +13,10 @@ from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.HistEFT import HistEFT
+from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
-import topcoffea.modules.event_selection as tc_es
-import topcoffea.modules.object_selection as tc_os
 
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 
@@ -29,16 +26,21 @@ get_te_param = GetParam(topeft_path("params/params.json"))
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32):
+    def __init__(self, processs, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32):
 
-        self._samples = samples
+        self._processs = processs
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
 
         # Create the histograms
+        proc_axis = hist.axis.StrCategory([], name="process", growth=True)
+        chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
+        syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
+        appl_axis = hist.axis.StrCategory([], name="appl", label=r"AR/SR", growth=True)
+                dense_axis = hist.axis.Regular(
         self._accumulator = processor.dict_accumulator({
-            "genphoton_pt"  : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Bin("genphoton_pt",     "$p_{T}$ $Gen\gamma$ (GeV)", 10, 0, 200)),
-            "genlep_pt" : HistEFT("Events", wc_names_lst, hist.Cat("sample","sample"), hist.Bin("genlep_pt",             "$p_{T}$ $Gen lepton$ (GeV)", 20,0,200)),
+            "genphoton_pt"  : HistEFT(proc_axis, hist.axis.Regular(10, 0, 200), label="$p_{T}$ $Gen\gamma$ (GeV)",  wc_names=wc_names_lst),
+            "genlep_pt"     : HistEFT(proc_axis, hist.axis.Regular(20, 0 ,200), label="$p_{T}$ $Gen lepton$ (GeV)", wc_names=wc_names_lst)),
         })
 
        # Set the list of hists to fill
@@ -69,11 +71,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         ### Dataset parameters ###
         dataset = events.metadata["dataset"]
 
-        isData             = self._samples[dataset]["isData"]
-        histAxisName       = self._samples[dataset]["histAxisName"]
-        year               = self._samples[dataset]["year"]
-        xsec               = self._samples[dataset]["xsec"]
-        sow                = self._samples[dataset]["nSumOfWeights"]
+        isData             = self._processs[dataset]["isData"]
+        histAxisName       = self._processs[dataset]["histAxisName"]
+        year               = self._processs[dataset]["year"]
+        xsec               = self._processs[dataset]["xsec"]
+        sow                = self._processs[dataset]["nSumOfWeights"]
 
         if isData: raise Exception("Error: This processor is not for data")
 
@@ -171,12 +173,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
         eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
         if eft_coeffs is not None:
-            # Check to see if the ordering of WCs for this sample matches what want
-            if self._samples[dataset]["WCnames"] != self._wc_names_lst:
-                eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
+            # Check to see if the ordering of WCs for this process matches what want
+            if self._processs[dataset]["WCnames"] != self._wc_names_lst:
+                eft_coeffs = efth.remap_coeffs(self._processs[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
-        #If this is not an eft sample, get the genWeight
+        #If this is not an eft process, get the genWeight
         if eft_coeffs is None: genw = events["genWeight"]
         else: genw = np.ones_like(events["event"])
         lumi = 1000.0*get_tc_param(f"lumi_{year}")
@@ -210,7 +212,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Fill the histos
             axes_fill_info_dict = {
                 dense_axis_name : dense_axis_vals_cut,
-                "sample"        : histAxisName,
+                "process"        : histAxisName,
                 "weight"        : event_weights_cut,
                 "eft_coeff"     : eft_coeffs_cut,
                 "eft_err_coeff" : eft_w2_coeffs_cut,
