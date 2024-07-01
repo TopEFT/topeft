@@ -3,13 +3,12 @@
  into coffea format of corrections.
 '''
 
-#import uproot, uproot_methods
-import uproot
-from coffea import hist, lookup_tools
+from coffea import lookup_tools
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
 import numpy as np
 import awkward as ak
+import scipy
 import gzip
 import pickle
 from coffea.jetmet_tools import JECStack, CorrectedJetsFactory, CorrectedMETFactory
@@ -286,7 +285,7 @@ def AttachPerLeptonFR(leps, flavor, year):
     else: raise Exception(f"Not a known year: {year}")
     with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
         flip_hist = pickle.load(fin)
-        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
+        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
 
     # Get the fliprate scaling factor for the given year
     chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
@@ -463,26 +462,26 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
             else:
                 hists[k] = hin[k]
     h = hists['jetptetaflav']
-    hnum = h.integrate('WP', wp)
-    hden = h.integrate('WP', 'all')
+    hnum = h[{'WP': wp}]
+    hden = h[{'WP': 'all'}]
     getnum = lookup_tools.dense_lookup.dense_lookup(
-        hnum.values(overflow='over')[()],
+        hnum.values(flow=True)[1:,1:,1:], # Strip off underflow
         [
-            hnum.axis('pt').edges(),
-            hnum.axis('abseta').edges(),
-            hnum.axis('flav').edges()
+            hnum.axes['pt'].edges,
+            hnum.axes['abseta'].edges,
+            hnum.axes['flav'].edges
         ]
     )
     getden = lookup_tools.dense_lookup.dense_lookup(
-        hden.values(overflow='over')[()],
+        hden.values(flow=True)[1:,1:,1:],
         [
-            hden.axis('pt').edges(),
-            hnum.axis('abseta').edges(),
-            hden.axis('flav').edges()
+            hden.axes['pt'].edges,
+            hnum.axes['abseta'].edges,
+            hden.axes['flav'].edges
         ]
     )
-    values = hnum.values(overflow='over')[()]
-    edges = [hnum.axis('pt').edges(), hnum.axis('abseta').edges(), hnum.axis('flav').edges()]
+    values = hnum.values(flow=True)[1:,1:,1:]
+    edges = [hnum.axes['pt'].edges, hnum.axes['abseta'].edges, hnum.axes['flav'].edges]
     fun = lambda pt, abseta, flav: getnum(pt,abseta,flav)/getden(pt,abseta,flav)
     return fun
 
@@ -572,163 +571,6 @@ def GetBTagSF(jets, year, wp='MEDIUM', syst='central'):
                         )
     return ([jets[f"btag_{syst}_up"],jets[f"btag_{syst}_down"]])
 
-###### Pileup reweighing
-##############################################
-## Get central PU data and MC profiles and calculate reweighting
-## Using the current UL recommendations in:
-##   https://twiki.cern.ch/twiki/bin/viewauth/CMS/PileupJSONFileforData
-##   - 2018: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions18/13TeV/PileUp/UltraLegacy/
-##   - 2017: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions17/13TeV/PileUp/UltraLegacy/
-##   - 2016: /afs/cern.ch/cms/CAF/CMSCOMM/COMM_DQM/certification/Collisions16/13TeV/PileUp/UltraLegacy/
-##
-## MC histograms from:
-##    https://github.com/CMS-LUMI-POG/PileupTools/
-
-pudirpath = topcoffea_path('data/pileup/')
-
-def GetDataPUname(year, var=0):
-    ''' Returns the name of the file to read pu observed distribution '''
-    if year == '2016APV': year = '2016-preVFP'
-    if year == '2016': year = "2016-postVFP"
-    if var == 'nominal':
-        ppxsec = get_tc_param("pu_w")
-    elif var == 'up':
-        ppxsec = get_tc_param("pu_w_up")
-    elif var == 'down':
-        ppxsec = get_tc_param("pu_w_down")
-    year = str(year)
-    return 'PileupHistogram-goldenJSON-13tev-%s-%sub-99bins.root' % ((year), str(ppxsec))
-
-MCPUfile = {'2016APV':'pileup_2016BF.root', '2016':'pileup_2016GH.root', '2017':'pileup_2017_shifts.root', '2018':'pileup_2018_shifts.root'}
-def GetMCPUname(year):
-    ''' Returns the name of the file to read pu MC profile '''
-    return MCPUfile[str(year)]
-
-PUfunc = {}
-### Load histograms and get lookup tables (extractors are not working here...)
-for year in ['2016', '2016APV', '2017', '2018']:
-    PUfunc[year] = {}
-    with uproot.open(pudirpath+GetMCPUname(year)) as fMC:
-        hMC = fMC['pileup']
-        PUfunc[year]['MC'] = lookup_tools.dense_lookup.dense_lookup(
-            hMC.values() / np.sum(hMC.values()),
-            hMC.axis(0).edges()
-        )
-    with uproot.open(pudirpath + GetDataPUname(year,'nominal')) as fData:
-        hD = fData['pileup']
-        PUfunc[year]['Data'] = lookup_tools.dense_lookup.dense_lookup(
-            hD.values() / np.sum(hD.values()),
-            hD.axis(0).edges()
-        )
-    with uproot.open(pudirpath + GetDataPUname(year,'up')) as fDataUp:
-        hDUp = fDataUp['pileup']
-        PUfunc[year]['DataUp'] = lookup_tools.dense_lookup.dense_lookup(
-            hDUp.values() / np.sum(hDUp.values()),
-            hD.axis(0).edges()
-        )
-    with uproot.open(pudirpath + GetDataPUname(year, 'down')) as fDataDo:
-        hDDo = fDataDo['pileup']
-        PUfunc[year]['DataDo'] = lookup_tools.dense_lookup.dense_lookup(
-            hDDo.values() / np.sum(hDDo.values()),
-            hD.axis(0).edges()
-        )
-
-def GetPUSF(nTrueInt, year, var='nominal'):
-    year = str(year)
-    if year not in ['2016','2016APV','2017','2018']:
-        raise Exception(f"Error: Unknown year \"{year}\".")
-    nMC = PUfunc[year]['MC'](nTrueInt+1)
-    data_dir = 'Data'
-    if var == 'up':
-        data_dir = 'DataUp'
-    elif var == 'down':
-        data_dir = 'DataDo'
-    nData = PUfunc[year][data_dir](nTrueInt)
-    weights = np.divide(nData,nMC)
-    return weights
-
-def AttachPSWeights(events):
-    '''
-        Return a list of PS weights
-        PS weights (w_var / w_nominal)
-        [0] is ISR=0.5 FSR = 1
-        [1] is ISR=1 FSR = 0.5
-        [2] is ISR=2 FSR = 1
-        [3] is ISR=1 FSR = 2
-    '''
-    ISR = 0
-    FSR = 1
-    ISRdown = 0
-    FSRdown = 1
-    ISRup = 2
-    FSRup = 3
-    if events.PSWeight is None:
-        raise Exception('PSWeight not found!')
-    # Add up variation event weights
-    events['ISRUp'] = events.PSWeight[:, ISRup]
-    events['FSRUp'] = events.PSWeight[:, FSRup]
-    # Add down variation event weights
-    events['ISRDown'] = events.PSWeight[:, ISRdown]
-    events['FSRDown'] = events.PSWeight[:, FSRdown]
-
-def AttachScaleWeights(events):
-    '''
-    Return a list of scale weights
-    LHE scale variation weights (w_var / w_nominal)
-    Case 1:
-        [0] is renscfact = 0.5d0 facscfact = 0.5d0
-        [1] is renscfact = 0.5d0 facscfact = 1d0
-        [2] is renscfact = 0.5d0 facscfact = 2d0
-        [3] is renscfact =   1d0 facscfact = 0.5d0
-        [4] is renscfact =   1d0 facscfact = 1d0
-        [5] is renscfact =   1d0 facscfact = 2d0
-        [6] is renscfact =   2d0 facscfact = 0.5d0
-        [7] is renscfact =   2d0 facscfact = 1d0
-        [8] is renscfact =   2d0 facscfact = 2d0
-    Case 2:
-        [0] is MUF = "0.5" MUR = "0.5"
-        [1] is MUF = "1.0" MUR = "0.5"
-        [2] is MUF = "2.0" MUR = "0.5"
-        [3] is MUF = "0.5" MUR = "1.0"
-        [4] is MUF = "2.0" MUR = "1.0"
-        [5] is MUF = "0.5" MUR = "2.0"
-        [6] is MUF = "1.0" MUR = "2.0"
-        [7] is MUF = "2.0" MUR = "2.0"
-    '''
-    # Determine if we are in case 1 or case 2 by checking if we have 8 or 9 weights
-    len_of_wgts = ak.count(events.LHEScaleWeight,axis=-1)
-    all_len_9_or_0_bool = ak.all((len_of_wgts==9) | (len_of_wgts==0))
-    all_len_8_or_0_bool = ak.all((len_of_wgts==8) | (len_of_wgts==0))
-    if all_len_9_or_0_bool:
-        scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 9), 1) # FIXME this is a bandaid until we understand _why_ some are empty
-        renormDown_factDown = 0
-        renormDown          = 1
-        renormDown_factUp   = 2
-        factDown            = 3
-        nominal             = 4
-        factUp              = 5
-        renormUp_factDown   = 6
-        renormUp            = 7
-        renormUp_factUp     = 8
-    elif all_len_8_or_0_bool:
-        scale_weights = ak.fill_none(ak.pad_none(events.LHEScaleWeight, 8), 1) # FIXME this is a bandaid until we understand _why_ some are empty
-        renormDown_factDown = 0
-        renormDown          = 1
-        renormDown_factUp   = 2
-        factDown            = 3
-        factUp              = 4
-        renormUp_factDown   = 5
-        renormUp            = 6
-        renormUp_factUp     = 7
-    else:
-        raise Exception("Unknown weight type")
-    # Get the weights from the event
-    events['renormfactDown'] = scale_weights[:,renormDown_factDown]
-    events['renormDown']     = scale_weights[:,renormDown]
-    events['factDown']       = scale_weights[:,factDown]
-    events['factUp']         = scale_weights[:,factUp]
-    events['renormUp']       = scale_weights[:,renormUp]
-    events['renormfactUp']   = scale_weights[:,renormUp_factUp]
 
 def AttachPdfWeights(events):
     '''
@@ -896,10 +738,36 @@ def ApplyRochesterCorrections(year, mu, is_data):
 #### Functions needed
 StackOverUnderflow = lambda v : [sum(v[0:2])] + v[2:-2] + [sum(v[-2:])]
 
+_coverage1sd = scipy.stats.norm.cdf(1) - scipy.stats.norm.cdf(-1)
+def clopper_pearson_interval(num, denom, coverage=_coverage1sd):
+    """Compute Clopper-Pearson coverage interval for a binomial distribution
+
+    Parameters
+    ----------
+        num : numpy.ndarray
+            Numerator, or number of successes, vectorized
+        denom : numpy.ndarray
+            Denominator or number of trials, vectorized
+        coverage : float, optional
+            Central coverage interval, defaults to 68%
+
+    c.f. http://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+    """
+    if np.any(num > denom):
+        raise ValueError(
+            "Found numerator larger than denominator while calculating binomial uncertainty"
+        )
+    lo = scipy.stats.beta.ppf((1 - coverage) / 2, num, denom - num + 1)
+    hi = scipy.stats.beta.ppf((1 + coverage) / 2, num + 1, denom - num)
+    interval = np.array([lo, hi])
+    interval[:, num == 0.0] = 0.0
+    interval[1, num == denom] = 1.0
+    return interval
+
 def GetClopperPearsonInterval(hnum, hden):
     ''' Compute Clopper-Pearson interval from numerator and denominator histograms '''
-    num = list(hnum.values(overflow='all')[()])
-    den = list(hden.values(overflow='all')[()])
+    num = list(hnum.values(flow=True)[()])
+    den = list(hden.values(flow=True)[()])
     if isinstance(num, list) and isinstance(num[0], np.ndarray):
         for i in range(len(num)):
             num[i] = np.array(StackOverUnderflow(list(num[i])), dtype=float)
@@ -912,16 +780,16 @@ def GetClopperPearsonInterval(hnum, hden):
     num = np.array(num)
     den = np.array(den)
     num[num>den] = den[num > den]
-    down, up = hist.clopper_pearson_interval(num, den)
+    down, up = clopper_pearson_interval(num, den)
     ratio = np.array(num, dtype=float) / den
     return [ratio, down, up]
 
 def GetEff(num, den):
     ''' Compute efficiency values from numerator and denominator histograms '''
     ratio, down, up = GetClopperPearsonInterval(num, den)
-    axis = num.axes()[0].name
-    bins = num.axis(axis).edges()
-    x    = num.axis(axis).centers()
+    axis = num.axes[0].name
+    bins = num.axes[axis].edges
+    x    = num.axes[axis].centers
     xlo  = bins[:-1]
     xhi  = bins[1:]
     return [[x, xlo-x, xhi-x],[ratio, down-ratio, up-ratio]]
@@ -955,9 +823,9 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     ratio[np.isnan(ratio)] = 1.0
     do[np.isnan(do)] = 0.0
     up[np.isnan(up)] = 0.0
-    GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
-    GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
-    GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
+    GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
+    GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
+    GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
     return [GetTrig, GetTrigDo, GetTrigUp]
 
 def GetTriggerSF(year, events, lep0, lep1):
