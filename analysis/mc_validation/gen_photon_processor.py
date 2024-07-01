@@ -186,11 +186,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                     "lep_flav_lst" : ["em"],
                     "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
                 },
-                "atleast_1j"   : {
-                    "lep_chan_lst" : ["2los_CRtt_photon"],
-                    "lep_flav_lst" : ["em"],
-                    "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                },
             },
         }
 
@@ -224,7 +219,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         for dense_axis_name, dense_axis_vals in dense_axis_dict.items():
             if dense_axis_name not in self._hist_lst:
-                print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
+                #print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
                 continue
             for chan in cat_dict:
                 flav_ch = None
