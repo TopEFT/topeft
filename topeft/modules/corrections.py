@@ -205,17 +205,13 @@ extPhoSF = lookup_tools.extractor()
 # Muon: reco
 # pT vs super cluster eta
 extPhoSF.add_weight_sets(["PhotonTightSF_2016 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2016_statData statData %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2016_statMC statMC %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2016_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16.root')])
 extPhoSF.add_weight_sets(["PhotonTightSF_2016APV EGamma_SF2D %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16_postVFP.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2016APV_statData statData %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16_postVFP.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2016APV_statMC statMC %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2016APV_err EGamma_SF2D_err %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16_postVFP.root')])
 extPhoSF.add_weight_sets(["PhotonTightSF_2017 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Tight_UL17.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2017_statData statData %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Tight_UL17.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2017_statMC statMC %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Tight_UL17.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2017_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Tight_UL17.root')])
 extPhoSF.add_weight_sets(["PhotonTightSF_2018 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL18.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2018_statData statData %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL18.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2018_statMC statMC %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL18.root')])
+extPhoSF.add_weight_sets(["PhotonTightSF_2018_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL18.root')])
 
 extPhoSF.finalize()
 PhoSFevaluator = extPhoSF.make_evaluator()
@@ -435,10 +431,7 @@ def AttachPhotonSF(photons, year):
     pt = photons.pt
     if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
     tight_sf  = PhoSFevaluator['PhotonTightSF_{year}'.format(year=year)](sieie,pt)
-    tight_err = np.sqrt(
-        np.square(PhoSFevaluator['PhotonTightSF_{year}_statData'.format(year=year)](sieie,pt)) +
-        np.square(PhoSFevaluator['PhotonTightSF_{year}_statMC'.format(year=year)](sieie,pt))
-    )
+    tight_err = PhoSFevaluator['PhotonTightSF_{year}_err'.format(year=year)](sieie,pt)
 
     photons['sf_nom_photon'] = tight_sf
     photons['sf_hi_photon']  = (tight_sf + tight_err)
