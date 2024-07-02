@@ -265,9 +265,7 @@ class DatacardMaker():
     @classmethod
     def get_lep_mult(cls,s):
         """ Returns the lepton multiplicity based on the string passed to it."""
-        if s.startswith("2los_"):
-            return 2
-        if s.startswith("2lss_"):
+        if s.startswith("2l_"):
             return 2
         elif s.startswith("3l_"):
             return 3
