@@ -146,7 +146,8 @@ class DatacardMaker():
             "ZZZ_",
         ],
         "tWZ": ["TWZToLL_"],
-        "convs": ["TTGamma_"],
+        #"convs": ["TTGamma_"],
+        "ttA": ["TTGamma_"],
         "fakes": ["nonprompt"],
         "charge_flips_": ["flips"],
         "data_obs": ["data"],
@@ -174,7 +175,7 @@ class DatacardMaker():
     FNAME_TEMPLATE = "ttx_multileptons-{cat}_{kmvar}.{ext}"
     # FNAME_TEMPLATE = "TESTING_ttx_multileptons-{cat}.{ext}"
 
-    SIGNALS = set(["ttH","tllq","ttll","ttlnu","tHq","tttt"])
+    SIGNALS = set(["ttH","tllq","ttll","ttlnu","tHq","tttt","ttA"])
 
     @classmethod
     def get_year(cls,s):
@@ -264,7 +265,7 @@ class DatacardMaker():
     @classmethod
     def get_lep_mult(cls,s):
         """ Returns the lepton multiplicity based on the string passed to it."""
-        if s.startswith("2lss_"):
+        if s.startswith("2l_"):
             return 2
         elif s.startswith("3l_"):
             return 3
@@ -371,7 +372,7 @@ class DatacardMaker():
         self.syst_shape_decorrelate = {
             "ISR": [
                 {
-                    "matches": ["ttH","ttll","tttt","convs"],
+                    "matches": ["ttH","ttll","tttt","ttA"],
                     "group": "gg",
                 },
                 {
@@ -1082,7 +1083,9 @@ class DatacardMaker():
         tic = time.time()
 
         sm = h.eval({})
-        sm_w2 = sumw2.eval(vals)
+        if sumw2 is None:
+            print("No sumw2 histogram found! Setting errors to 0")
+        sm_w2 = sumw2.eval(vals) if sumw2 is not None else 0
         sm = add_sumw2_stub(sm,sm_w2)
 
         # Note: The keys of this dictionary are a pretty contrived, but are useful later on
