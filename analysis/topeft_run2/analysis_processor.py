@@ -322,7 +322,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         AttachMuonSF(m_fo,year=year)
         AttachPhotonSF(mediumcleanPhoton,year=year)
 
-        # Attach per leptovetoedbyOverlaps
+        # Attach per lepton fake rates
         AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
         AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
         m_fo['convVeto'] = ak.ones_like(m_fo.charge)
@@ -1012,7 +1012,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Loop over the systematics
                 for wgt_fluct in wgt_var_lst:
 
-                    #Loop over nlep categories "2l", "3l", "4l"
+                    # Loop over nlep categories "2l", "3l", "4l"
                     for nlep_cat in cat_dict.keys():
 
                         # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
