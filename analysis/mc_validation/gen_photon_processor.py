@@ -286,7 +286,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
         for ch_name in ["2los_CRtt", "2los_ph", "2los_CR_Zg_ULttg"]:
             weights_dict[ch_name] = copy.deepcopy(weights_obj_base)
-            weights_dict[ch_name].add("phoSF", ak.ones_like(ak.firsts(gen_p).pt), np.random.rand(*ak.to_numpy(ak.firsts(gen_p).pt).shape), np.random.rand(*ak.to_numpy(ak.firsts(gen_p).pt).shape))
+            weights_dict[ch_name].add("CMS_eff_g", ak.ones_like(ak.firsts(gen_p).pt), np.random.rand(*ak.to_numpy(ak.firsts(gen_p).pt).shape), np.random.rand(*ak.to_numpy(ak.firsts(gen_p).pt).shape))
 
         # Example of reweighting based on Ht
         #if "private" in histAxisName:
