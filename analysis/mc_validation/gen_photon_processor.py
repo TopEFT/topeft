@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import copy
+import coffea
 import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
@@ -42,6 +44,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
+        self._do_systematics = do_systematics # Whether to process systematic samples
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
 
@@ -127,6 +130,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         is2lOS_em = is2lOS & ak.any(is_em | is_me)
 
         gen_p = genpart[is_final_mask & (abs(genpart.pdgId) == 22)]
+        ######### Systematics ###########
+
+        # Define the lists of systematics we include
+        wgt_correction_syst_lst = [
+            "phoSFUp","phoSFDown" # Exp systs
+        ]
 
         gen_l = gen_l[ak.argsort(gen_l.pt, axis=-1, ascending=False)]
         gen_l = ak.pad_none(gen_l,2)
@@ -271,6 +280,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         lumi = 1000.0*get_tc_param(f"lumi_{year}")
         event_weight = lumi*xsec*genw/sow
 
+        weights_dict = {}
+        # For both data and MC
+        weights_obj_base = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+        weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
+        for ch_name in ["2los_CRtt", "2los_ph", "2los_CR_Zg_ULttg"]:
+            weights_dict[ch_name] = copy.deepcopy(weights_obj_base)
+            weights_dict[ch_name].add("phoSF", ak.ones_like(ak.firsts(gen_p).pt), np.random.rand(*ak.to_numpy(ak.firsts(gen_p).pt).shape), np.random.rand(*ak.to_numpy(ak.firsts(gen_p).pt).shape))
+
         # Example of reweighting based on Ht
         #if "private" in histAxisName:
         #    ht_sf = get_ht_sf(ht,histAxisName)
@@ -293,52 +310,71 @@ class AnalysisProcessor(processor.ProcessorABC):
                 for k in sr_cat_dict:
                     if k in cr_cat_dict:
                         raise Exception(f"The key {k} is in both CR and SR dictionaries.")
-            for nlep_cat in cat_dict.keys():
-                flav_ch = None
-                njet_ch = None
-                njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
-                # Loop over the njets list for each channel
-                for njet_val in cat_dict[nlep_cat]:
 
-                    # Loop over the appropriate AR and SR for this channel
-                    for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
-                        # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
-                        for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
+            # Set up the list of syst wgt variations to loop over
+            wgt_var_lst = ["nominal"]
+            if self._do_systematics:
+                if not isData:
+                    wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst
 
-                            # Loop over the lep flavor list for each channel
-                            for lep_flav in cat_dict[nlep_cat][njet_val]["lep_flav_lst"]:
-                                #cuts_lst = [chan, njet_val]
-                                cuts_lst = [appl,lep_chan]
-                                if dense_axis_name == "njets":
-                                    all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
-                                else:
-                                    njet_ch = njet_val
-                                    all_cuts_mask = (selections.all(*cuts_lst))
-                                ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
+            for wgt_fluct in wgt_var_lst:
+                for nlep_cat in cat_dict.keys():
+                    flav_ch = None
+                    njet_ch = None
+                    njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
+                    weights_object = weights_dict[nlep_cat]
+                    if (wgt_fluct == "nominal"):
+                        # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
+                        weight = weights_object.weight(None)
+                    else:
+                        # Otherwise get the weight from the Weights object
+                        if wgt_fluct in weights_object.variations:
+                            weight = weights_object.weight(wgt_fluct)
+                        else:
+                            # Note in this case there is no up/down fluct for this cateogry, so we don't want to fill a hist for it
+                            continue
+                    # Loop over the njets list for each channel
+                    for njet_val in cat_dict[nlep_cat]:
 
-                                # Mask out the none values
-                                isnotnone_mask = (ak.fill_none((dense_axis_vals != None),False))
-                                isnotnone_mask = isnotnone_mask & all_cuts_mask
-                                dense_axis_vals_cut = dense_axis_vals[isnotnone_mask]
-                                event_weight_cut = event_weight[isnotnone_mask]
-                                eft_coeffs_cut = eft_coeffs
-                                if eft_coeffs is not None: eft_coeffs_cut = eft_coeffs[isnotnone_mask]
-                                #eft_w2_coeffs_cut = eft_w2_coeffs
-                                #if eft_w2_coeffs is not None: eft_w2_coeffs_cut = eft_w2_coeffs[isnotnone_mask]
+                        # Loop over the appropriate AR and SR for this channel
+                        for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
+                            # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
+                            for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
 
-                                # Fill the histos
-                                axes_fill_info_dict = {
-                                    dense_axis_name : dense_axis_vals_cut,
-                                    "process"       : histAxisName,
-                                    "appl"          : appl,
-                                    "channel"       : ch_name,
-                                    "systematic"    : "nominal",
-                                    "weight"        : event_weight_cut,
-                                    "eft_coeff"     : eft_coeffs_cut,
-                                    #"eft_err_coeff" : eft_w2_coeffs_cut,
-                                }
+                                # Loop over the lep flavor list for each channel
+                                for lep_flav in cat_dict[nlep_cat][njet_val]["lep_flav_lst"]:
+                                    #cuts_lst = [chan, njet_val]
+                                    cuts_lst = [appl,lep_chan]
+                                    if dense_axis_name == "njets":
+                                        all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
+                                    else:
+                                        njet_ch = njet_val
+                                        all_cuts_mask = (selections.all(*cuts_lst))
+                                    ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
 
-                                hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                    # Mask out the none values
+                                    isnotnone_mask = (ak.fill_none((dense_axis_vals != None),False))
+                                    isnotnone_mask = isnotnone_mask & all_cuts_mask
+                                    dense_axis_vals_cut = dense_axis_vals[isnotnone_mask]
+                                    event_weight_cut = weight[isnotnone_mask]
+                                    eft_coeffs_cut = eft_coeffs
+                                    if eft_coeffs is not None: eft_coeffs_cut = eft_coeffs[isnotnone_mask]
+                                    #eft_w2_coeffs_cut = eft_w2_coeffs
+                                    #if eft_w2_coeffs is not None: eft_w2_coeffs_cut = eft_w2_coeffs[isnotnone_mask]
+
+                                    # Fill the histos
+                                    axes_fill_info_dict = {
+                                        dense_axis_name : dense_axis_vals_cut,
+                                        "process"       : histAxisName,
+                                        "appl"          : appl,
+                                        "channel"       : ch_name,
+                                        "systematic"    : wgt_fluct,
+                                        "weight"        : event_weight_cut,
+                                        "eft_coeff"     : eft_coeffs_cut,
+                                        #"eft_err_coeff" : eft_w2_coeffs_cut,
+                                    }
+
+                                    hout[dense_axis_name].fill(**axes_fill_info_dict)
 
         return hout
 
