@@ -245,7 +245,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         }
         sr_cat_dict = {
             "2los_ph" : {
-                "atleast_1j"   : {
+                "atleast_3j"   : {
                     "lep_chan_lst" : ["2los_ph"],
                     "lep_flav_lst" : ["ee", "mm", "em"],
                     "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
