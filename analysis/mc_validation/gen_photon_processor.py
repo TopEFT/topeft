@@ -9,6 +9,7 @@ import hist
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
+import topcoffea.modules.event_selection as tc_es
 from topcoffea.modules.get_param_from_jsons import GetParam
 from topcoffea.modules.paths import topcoffea_path
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
@@ -41,24 +42,27 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
+        self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
+        self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
 
         # Create the histograms
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
         syst_axis = hist.axis.StrCategory([], name="systematic", growth=True)
+        appl_axis = hist.axis.StrCategory([], name="appl", label=r"AR/SR", growth=True)
         self._accumulator = {
-            "mll_fromzg_e" : HistEFT(proc_axis, chan_axis, syst_axis, hist.axis.Regular(40,  0, 200,  name="mll_fromzg_e", label=r"invmass ee from z/gamma"), wc_names=wc_names_lst, rebin=False),
-            "mll_fromzg_m" : HistEFT(proc_axis, chan_axis, syst_axis, hist.axis.Regular(40,  0, 200,  name="mll_fromzg_m", label=r"invmass mm from z/gamma"), wc_names=wc_names_lst, rebin=False),
-            "mll_fromzg_t" : HistEFT(proc_axis, chan_axis, syst_axis, hist.axis.Regular(40,  0, 200,  name="mll_fromzg_t", label=r"invmass tautau from z/gamma"), wc_names=wc_names_lst, rebin=False),
-            "mll"          : HistEFT(proc_axis, chan_axis, syst_axis, hist.axis.Regular(60,  0, 600,  name="mll",          label=r"Invmass l0l1"), wc_names=wc_names_lst, rebin=False),
-            "ht"           : HistEFT(proc_axis, chan_axis, syst_axis, hist.axis.Regular(100, 0, 1000, name="ht",           label=r"Scalar sum of genjet pt"), wc_names=wc_names_lst, rebin=False),
-            "ht_clean"     : HistEFT(proc_axis, chan_axis, syst_axis, hist.axis.Regular(100, 0, 1000, name="ht_clean",     label=r"Scalar sum of clean genjet pt"), wc_names=wc_names_lst, rebin=False),
-            "tops_pt"      : HistEFT(proc_axis, chan_axis, syst_axis, hist.axis.Regular(50,  0, 500,  name="tops_pt",      label=r"Pt of the sum of the tops"), wc_names=wc_names_lst, rebin=False),
-            "photon_pt"    : HistEFT(proc_axis, chan_axis, syst_axis, hist.axis.Variable([20,35,50,70,100,170,200,250,300],  name="photon_pt",      label=r"Pt of the sum of the photon"), wc_names=wc_names_lst, rebin=False),
-            "l0_pt"        : HistEFT(proc_axis, chan_axis, syst_axis, hist.axis.Regular(50,  0, 500,    name="l0_pt",      label=r"Pt of leading lepton"), wc_names=wc_names_lst, rebin=False),
-            "j0_pt"        : HistEFT(proc_axis, chan_axis, syst_axis, hist.axis.Regular(50,  0, 500,    name="j0_pt",      label=r"Pt of leading jet"), wc_names=wc_names_lst, rebin=False),
-            "tX_pt"        : HistEFT(proc_axis, chan_axis, syst_axis, hist.axis.Regular(40,  0, 400,  name="tX_pt",        label=r"Pt of the t(t)X system"), wc_names=wc_names_lst, rebin=False),
-            "njets"        : HistEFT(proc_axis, chan_axis, syst_axis, hist.axis.Regular(10,  0, 10,   name="njets",        label=r"njets"), wc_names=wc_names_lst, rebin=False),
+            "mll_fromzg_e" : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(40,  0, 200,  name="mll_fromzg_e", label=r"invmass ee from z/gamma"), wc_names=wc_names_lst, rebin=False),
+            "mll_fromzg_m" : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(40,  0, 200,  name="mll_fromzg_m", label=r"invmass mm from z/gamma"), wc_names=wc_names_lst, rebin=False),
+            "mll_fromzg_t" : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(40,  0, 200,  name="mll_fromzg_t", label=r"invmass tautau from z/gamma"), wc_names=wc_names_lst, rebin=False),
+            "mll"          : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(60,  0, 600,  name="mll",          label=r"Invmass l0l1"), wc_names=wc_names_lst, rebin=False),
+            "ht"           : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(100, 0, 1000, name="ht",           label=r"Scalar sum of genjet pt"), wc_names=wc_names_lst, rebin=False),
+            "ht_clean"     : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(100, 0, 1000, name="ht_clean",     label=r"Scalar sum of clean genjet pt"), wc_names=wc_names_lst, rebin=False),
+            "tops_pt"      : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(50,  0, 500,  name="tops_pt",      label=r"Pt of the sum of the tops"), wc_names=wc_names_lst, rebin=False),
+            "photon_pt"    : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Variable([20,35,50,70,100,170,200,250,300],  name="photon_pt",      label=r"Pt of the sum of the photon"), wc_names=wc_names_lst, rebin=False),
+            "l0_pt"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(50,  0, 500,    name="l0_pt",      label=r"Pt of leading lepton"), wc_names=wc_names_lst, rebin=False),
+            "j0_pt"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(50,  0, 500,    name="j0_pt",      label=r"Pt of leading jet"), wc_names=wc_names_lst, rebin=False),
+            "tX_pt"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(40,  0, 400,  name="tX_pt",        label=r"Pt of the t(t)X system"), wc_names=wc_names_lst, rebin=False),
+            "njets"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(10,  0, 10,   name="njets",        label=r"njets"), wc_names=wc_names_lst, rebin=False),
         }
 
         # Set the list of hists to fill
@@ -116,6 +120,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         gen_m = genpart[is_final_mask & (abs(genpart.pdgId) == 13)]
         gen_t = genpart[is_final_mask & (abs(genpart.pdgId) == 15)]
 
+        # Object selection before padding
+        is_em = (np.abs(gen_l[:,0].pdgId)==11) & (np.abs(gen_l[:,1].pdgId)==13)
+        is_me = (np.abs(gen_l[:,1].pdgId)==11) & (np.abs(gen_l[:,0].pdgId)==13)
+        is2lOS = ak.any(gen_l[:,0].pdgId/np.abs(gen_l[:,1].pdgId)+gen_l[:,1].pdgId/np.abs(gen_l[:,1].pdgId)==0) & ((ak.num(gen_e) + ak.num(gen_m))==2)
+        is2lOS_em = is2lOS & ak.any(is_em | is_me)
+
         gen_p = genpart[is_final_mask & (abs(genpart.pdgId) == 22)]
 
         gen_l = gen_l[ak.argsort(gen_l.pt, axis=-1, ascending=False)]
@@ -139,13 +149,50 @@ class AnalysisProcessor(processor.ProcessorABC):
         genbjet_clean = genjet[np.abs(genjet.partonFlavour)==5]
         njets = ak.num(genjet_clean)
         nbjets = ak.num(genbjet_clean)
+        atleast_1ph = ak.num(gen_p)>0
 
 
-        is_em = (np.abs(gen_l[:,0].pdgId)==11) & (np.abs(gen_l[:,1].pdgId)==13)
-        is_me = (np.abs(gen_l[:,1].pdgId)==11) & (np.abs(gen_l[:,0].pdgId)==13)
-        selections.add("2los_CRtt", (ak.any(gen_l[:,0].pdgId/np.abs(gen_l[:,1].pdgId)+gen_l[:,1].pdgId/np.abs(gen_l[:,1].pdgId)==0) & ak.any(is_em | is_me) & (nbjets==2)) & (ak.num(gen_p)>0) & (ak.firsts(gen_p).pt>20)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
+        selections.add("2los_CRtt", is2lOS_em & (nbjets==2) & (~atleast_1ph)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
         #selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
+        selections.add("2los_ph", is2lOS & (nbjets==2) & (ak.num(gen_p)>0) & (ak.firsts(gen_p).pt>20)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
+        #selections.add("2los_sf_ph", (retainedbyOverlap & events.is2l & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ttg_mask & events.mask_SF_Zllgamma & bmask_atleast1med & pass_trg & exactly_1ph))
+        sfosz_2los_ttg_mask = tc_es.get_Z_peak_mask(gen_l[:,0:2],pt_window=15.0) 
+        Zllgamma_SF_mask = (abs( (gen_l[:,0] + gen_l[:,1] + gen_p[:,0]).mass -91.2) > 15)
+        selections.add("2los_sf_Zg_CR_ULttg", (is2lOS_em & ~sfosz_2los_ttg_mask & Zllgamma_SF_mask & (nbjets==2) & atleast_1ph))
+        #selections.add("2los_sf_Zg_CR_ULttg", (retainedbyOverlap & events.is2l_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ttg_mask & ~events.mask_SF_Zllgamma & bmask_atleast1med & pass_trg & atleast_1ph))
+
+
+        # Njets selection
+        selections.add("exactly_0j", (njets==0))
+        selections.add("exactly_1j", (njets==1))
+        selections.add("exactly_2j", (njets==2))
+        selections.add("exactly_3j", (njets==3))
+        selections.add("exactly_4j", (njets==4))
+        selections.add("exactly_5j", (njets==5))
+        selections.add("exactly_6j", (njets==6))
+        selections.add("atleast_1j", (njets>=1))
+        selections.add("atleast_2j", (njets>=2))
+        selections.add("atleast_3j", (njets>=3))
+        selections.add("atleast_4j", (njets>=4))
+        selections.add("atleast_5j", (njets>=5))
+        selections.add("atleast_7j", (njets>=7))
+        selections.add("atleast_0j", (njets>=0))
+        selections.add("atmost_1j" , (njets<=1))
         selections.add("atmost_3j" , (njets<=3))
+
+
+        # AR/SR categories
+        #selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1)
+        #selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1)
+        #selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
+        selections.add("isSR_2lOS",    is2lOS)#( events.is2l_SR) & charge2l_0)
+        selections.add("isAR_2lOS",    is2lOS)#(~events.is2l_SR) & charge2l_0)
+
+        #selections.add("isSR_3l",  events.is3l_SR)
+        #selections.add("isAR_3l", ~events.is3l_SR)
+        #selections.add("isSR_4l",  events.is4l_SR)
+
+
         ### Get dense axis variables ###
 
         ht = ak.sum(genjet.pt,axis=-1)
@@ -178,13 +225,30 @@ class AnalysisProcessor(processor.ProcessorABC):
             "j0_pt" : ak.firsts(genjet.pt),
             "njets" : njets,
         }
-        selections.add("atmost_3j" , (njets<=3))
         cat_dict = {
             "2los_CRtt" : {
                 "atmost_3j"   : {
-                    "lep_chan_lst" : ["2los_CRtt_photon"],
+                    "lep_chan_lst" : ["2los_ph"],
                     "lep_flav_lst" : ["em"],
                     "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+                },
+            },
+        }
+        sr_cat_dict = {
+            "2los_ph" : {
+                "atleast_1j"   : {
+                    "lep_chan_lst" : ["2los_ph"],
+                    "lep_flav_lst" : ["ee", "mm", "em"],
+                    "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
+                },
+            },
+        }
+        cr_cat_dict = {
+            "2los_CR_Zg_ULttg" : {
+                "atleast_2j"   : {
+                    "lep_chan_lst" : ["2los_sf_Zg_CR_ULttg"],
+                    "lep_flav_lst" : ["ee", "mm"],
+                    "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
                 },
             },
         }
@@ -221,41 +285,60 @@ class AnalysisProcessor(processor.ProcessorABC):
             if dense_axis_name not in self._hist_lst:
                 #print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
                 continue
-            for chan in cat_dict:
+            if not self._skip_signal_regions:
+                cat_dict.update(sr_cat_dict)
+            if not self._skip_control_regions:
+                cat_dict.update(cr_cat_dict)
+            if (not self._skip_signal_regions and not self._skip_control_regions):
+                for k in sr_cat_dict:
+                    if k in cr_cat_dict:
+                        raise Exception(f"The key {k} is in both CR and SR dictionaries.")
+            for nlep_cat in cat_dict.keys():
                 flav_ch = None
                 njet_ch = None
-                njets_any_mask = selections.any(*cat_dict[chan].keys())
-                for njet_val in cat_dict[chan]:
-                    cuts_lst = [chan, njet_val]
-                    if dense_axis_name == "njets":
-                        all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
-                    else:
-                        njet_ch = njet_val
-                        all_cuts_mask = (selections.all(*cuts_lst))
-                    ch_name = construct_cat_name(chan,njet_str=njet_ch,flav_str=flav_ch)
+                njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
+                # Loop over the njets list for each channel
+                for njet_val in cat_dict[nlep_cat]:
 
-                    # Mask out the none values
-                    isnotnone_mask = (ak.fill_none((dense_axis_vals != None),False))
-                    isnotnone_mask = isnotnone_mask & all_cuts_mask
-                    dense_axis_vals_cut = dense_axis_vals[isnotnone_mask]
-                    event_weight_cut = event_weight[isnotnone_mask]
-                    eft_coeffs_cut = eft_coeffs
-                    if eft_coeffs is not None: eft_coeffs_cut = eft_coeffs[isnotnone_mask]
-                    #eft_w2_coeffs_cut = eft_w2_coeffs
-                    #if eft_w2_coeffs is not None: eft_w2_coeffs_cut = eft_w2_coeffs[isnotnone_mask]
+                    # Loop over the appropriate AR and SR for this channel
+                    for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
+                        # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
+                        for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
 
-                    # Fill the histos
-                    axes_fill_info_dict = {
-                        dense_axis_name : dense_axis_vals_cut,
-                        "process"       : histAxisName,
-                        "channel"       : ch_name,
-                        "systematic"    : "nominal",
-                        "weight"        : event_weight_cut,
-                        "eft_coeff"     : eft_coeffs_cut,
-                        #"eft_err_coeff" : eft_w2_coeffs_cut,
-                    }
+                            # Loop over the lep flavor list for each channel
+                            for lep_flav in cat_dict[nlep_cat][njet_val]["lep_flav_lst"]:
+                                #cuts_lst = [chan, njet_val]
+                                cuts_lst = [appl,lep_chan]
+                                if dense_axis_name == "njets":
+                                    all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
+                                else:
+                                    njet_ch = njet_val
+                                    all_cuts_mask = (selections.all(*cuts_lst))
+                                ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
 
-                    hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                # Mask out the none values
+                                isnotnone_mask = (ak.fill_none((dense_axis_vals != None),False))
+                                isnotnone_mask = isnotnone_mask & all_cuts_mask
+                                dense_axis_vals_cut = dense_axis_vals[isnotnone_mask]
+                                event_weight_cut = event_weight[isnotnone_mask]
+                                eft_coeffs_cut = eft_coeffs
+                                if eft_coeffs is not None: eft_coeffs_cut = eft_coeffs[isnotnone_mask]
+                                #eft_w2_coeffs_cut = eft_w2_coeffs
+                                #if eft_w2_coeffs is not None: eft_w2_coeffs_cut = eft_w2_coeffs[isnotnone_mask]
+
+                                # Fill the histos
+                                axes_fill_info_dict = {
+                                    dense_axis_name : dense_axis_vals_cut,
+                                    "process"       : histAxisName,
+                                    "appl"          : appl,
+                                    "channel"       : ch_name,
+                                    "systematic"    : "nominal",
+                                    "weight"        : event_weight_cut,
+                                    "eft_coeff"     : eft_coeffs_cut,
+                                    #"eft_err_coeff" : eft_w2_coeffs_cut,
+                                }
+
+                                hout[dense_axis_name].fill(**axes_fill_info_dict)
 
         return hout
 
