@@ -20,16 +20,16 @@ import gen_photon_processor as gen_processor
 LST_OF_KNOWN_EXECUTORS = ["futures","work_queue"]
 
 WGT_VAR_LST = [
-    "nSumOfWeights_ISRUp",
-    "nSumOfWeights_ISRDown",
-    "nSumOfWeights_FSRUp",
-    "nSumOfWeights_FSRDown",
-    "nSumOfWeights_renormUp",
-    "nSumOfWeights_renormDown",
-    "nSumOfWeights_factUp",
-    "nSumOfWeights_factDown",
-    "nSumOfWeights_renormfactUp",
-    "nSumOfWeights_renormfactDown",
+    #"nSumOfWeights_ISRUp",
+    #"nSumOfWeights_ISRDown",
+    #"nSumOfWeights_FSRUp",
+    #"nSumOfWeights_FSRDown",
+    #"nSumOfWeights_renormUp",
+    #"nSumOfWeights_renormDown",
+    #"nSumOfWeights_factUp",
+    #"nSumOfWeights_factDown",
+    #"nSumOfWeights_renormfactUp",
+    #"nSumOfWeights_renormfactDown",
 ]
 
 if __name__ == '__main__':
