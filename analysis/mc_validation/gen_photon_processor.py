@@ -134,7 +134,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Define the lists of systematics we include
         wgt_correction_syst_lst = [
-            "phoSFUp","phoSFDown" # Exp systs
+            "CMS_eff_gUp","CMS_eff_gDown" # Exp systs
         ]
 
         gen_l = gen_l[ak.argsort(gen_l.pt, axis=-1, ascending=False)]
