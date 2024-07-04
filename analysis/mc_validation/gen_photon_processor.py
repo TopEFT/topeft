@@ -123,12 +123,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         gen_m = genpart[is_final_mask & (abs(genpart.pdgId) == 13)]
         gen_t = genpart[is_final_mask & (abs(genpart.pdgId) == 15)]
 
-        # Object selection before padding
-        is_em = (np.abs(gen_l[:,0].pdgId)==11) & (np.abs(gen_l[:,1].pdgId)==13)
-        is_me = (np.abs(gen_l[:,1].pdgId)==11) & (np.abs(gen_l[:,0].pdgId)==13)
-        is2lOS = ak.any(gen_l[:,0].pdgId/np.abs(gen_l[:,1].pdgId)+gen_l[:,1].pdgId/np.abs(gen_l[:,1].pdgId)==0) & ((ak.num(gen_e) + ak.num(gen_m))==2)
-        is2lOS_em = is2lOS & ak.any(is_em | is_me)
-
         gen_p = genpart[is_final_mask & (abs(genpart.pdgId) == 22)]
         ######### Systematics ###########
 
@@ -143,6 +137,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         gen_m = gen_m[ak.argsort(gen_m.pt, axis=-1, ascending=False)]
         gen_t = gen_t[ak.argsort(gen_t.pt, axis=-1, ascending=False)]
 
+        # Object selection after padding
+        is_em = (np.abs(gen_l[:,0].pdgId)==11) & (np.abs(gen_l[:,1].pdgId)==13)
+        is_me = (np.abs(gen_l[:,1].pdgId)==11) & (np.abs(gen_l[:,0].pdgId)==13)
+        is2lOS = ak.any(gen_l[:,0].pdgId/np.abs(gen_l[:,1].pdgId)+gen_l[:,1].pdgId/np.abs(gen_l[:,1].pdgId)==0) & ((ak.num(gen_e) + ak.num(gen_m))==2)
+        is2lOS_em = is2lOS & ak.any(is_em | is_me)
+
+        gen_p = ak.fill_none(ak.pad_none(gen_p,1), 0)
         gen_p = gen_p[ak.argsort(gen_p.pt, axis=-1, ascending=False)]
 
         gen_l_from_zg = ak.pad_none(gen_l[(gen_l.distinctParent.pdgId == 23) | (gen_l.distinctParent.pdgId == 22)], 2)
