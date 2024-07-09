@@ -3,7 +3,7 @@
 import copy
 import coffea
 import numpy as np
-import awkward as ak
+import dask_awkward as dak
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
@@ -91,24 +91,30 @@ class AnalysisProcessor(processor.ProcessorABC):
                     *info["regular"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
                 )
             histograms[name] = HistEFT(
-                proc_axis,
-                chan_axis,
-                syst_axis,
-                appl_axis,
-                dense_axis,
+                category_axes=[
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                ],
+                dense_axis=dense_axis,
                 wc_names=wc_names_lst,
-                label=r"Events",
-                rebin=rebin
+                # TODO: Add to HistEFT:
+                # label=r"Events",
+                # rebin=rebin
             )
             histograms[name+"_sumw2"] = HistEFT(
-                proc_axis,
-                chan_axis,
-                syst_axis,
-                appl_axis,
-                sumw2_axis,
+                category_axes=[
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                ],
+                dense_axis=sumw2_axis,
                 wc_names=wc_names_lst,
-                label=r"Events",
-                rebin=rebin
+                # TODO: Add to HistEFT:
+                # label=r"Events",
+                # rebin=rebin
             )
         self._accumulator = histograms
 
@@ -220,16 +226,17 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
-        events.nom = ak.ones_like(events.MET.pt)
+        events.nom = dak.ones_like(events.MET.pt)
 
         ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
         ele["conept"] = te_os.coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
         mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
-        ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
-        mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+
+        ele["btagDeepFlavB"] = dak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
+        mu["btagDeepFlavB"] = dak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
         if not isData:
-            ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
-            mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
+            ele["gen_pdgId"] = dak.fill_none(ele.matched_gen.pdgId, 0)
+            mu["gen_pdgId"] = dak.fill_none(mu.matched_gen.pdgId, 0)
 
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
@@ -246,7 +253,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
-        eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
+        try:
+            eft_coeffs = events["EFTfitCoefficients"]
+        except KeyError:
+            eft_coeffs = None
+
         if eft_coeffs is not None:
             # Check to see if the ordering of WCs for this sample matches what want
             if self._samples[dataset]["WCnames"] != self._wc_names_lst:
@@ -274,7 +285,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         m_loose = mu[mu.isPres & mu.isLooseM]
         e_loose = ele[ele.isPres & ele.isLooseE]
-        l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
+        l_loose = dak.with_name(dak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
 
         ################### Tau selection ####################
 
@@ -285,8 +296,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau["isTight"] = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
 
         # Compute pair invariant masses, for all flavors all signes
-        llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
-        events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
+        llpairs = dak.combinations(l_loose, 2, fields=["l0","l1"])
+        events["minMllAFAS"] = dak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
@@ -299,10 +310,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Attach per lepton fake rates
         AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
         AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
-        m_fo['convVeto'] = ak.ones_like(m_fo.charge)
-        m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
-        l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
-        l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
+        m_fo['convVeto'] = dak.ones_like(m_fo.charge)
+        m_fo['lostHits'] = dak.zeros_like(m_fo.charge)
+        l_fo = dak.with_name(dak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
+        l_fo_conept_sorted = l_fo[dak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
         ######### Systematics ###########
 
@@ -323,12 +334,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         # We only calculate these values if not isData
         # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
         # Note: Here we will to the weights object the SFs that do not depend on any of the forthcoming loops
-        weights_obj_base = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+        weights_obj_base = coffea.analysis_tools.Weights(None,storeIndividual=True)
+        #weights_obj_base = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         if not isData:
 
             # If this is no an eft sample, get the genWeight
             if eft_coeffs is None: genw = events["genWeight"]
-            else: genw= np.ones_like(events["event"])
+            else: genw= dak.ones_like(events["event"])
+            #else: genw= da.ones_like(events["event"])
 
             # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
@@ -362,15 +375,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         for syst_var in syst_var_list:
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
-            weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
+            weights_obj_base_for_kinematic_syst = copy.copy(weights_obj_base)
 
             #################### Jets ####################
 
             # Jet cleaning, before any jet selection
-            #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
-            vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
-            tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
-            cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
+            #vetos_tocleanjets = dak.with_name( dak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
+            vetos_tocleanjets = dak.with_name( l_fo, "PtEtaPhiMCandidate")
+            #tmp = dak.cartesian([dak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
+            #cleanedJets = jets[~da.any(tmp.0 == tmp.1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
+            cleanedJets = jets[te_os.isClean(jets, vetos_tocleanjets)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
@@ -379,20 +393,20 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not isData:
                 cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
                 cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
-                cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-                cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
-                events_cache = events.caches[0]
-                cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
+                cleanedJets["pt_gen"] =dak.values_astype(dak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
+                cleanedJets["rho"] = dak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
+                #events_cache = events.caches[0]
+                cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets)#, lazy_cache=events_cache)
                 # SYSTEMATICS
                 cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
-                met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
+                met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets)#, lazy_cache=events_cache)
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
 
             # Count jets
-            njets = ak.num(goodJets)
-            ht = ak.sum(goodJets.pt,axis=-1)
-            j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
+            njets = dak.num(goodJets)
+            ht = dak.sum(goodJets.pt,axis=-1)
+            j0 = goodJets[dak.argmax(goodJets.pt,axis=-1,keepdims=True)]
 
             # Loose DeepJet WP
             if year == "2017":
@@ -407,7 +421,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 raise ValueError(f"Error: Unknown year \"{year}\".")
             isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
-            nbtagsl = ak.num(goodJets[isBtagJetsLoose])
+            nbtagsl = dak.num(goodJets[isBtagJetsLoose])
 
             # Medium DeepJet WP
             if year == "2017":
@@ -422,7 +436,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 raise ValueError(f"Error: Unknown year \"{year}\".")
             isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
-            nbtagsm = ak.num(goodJets[isBtagJetsMedium])
+            nbtagsm = dak.num(goodJets[isBtagJetsMedium])
 
 
             #################### Add variables into event object so that they persist ####################
@@ -438,7 +452,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             te_es.addLepCatMasks(events)
 
             # Convenient to have l0, l1, l2 on hand
-            l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
+            l_fo_conept_sorted_padded = dak.pad_none(l_fo_conept_sorted, 3)
             l0 = l_fo_conept_sorted_padded[:,0]
             l1 = l_fo_conept_sorted_padded[:,1]
             l2 = l_fo_conept_sorted_padded[:,2]
@@ -453,10 +467,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 bJetSF   = [GetBTagSF(goodJets, year, 'LOOSE'),GetBTagSF(goodJets, year, 'MEDIUM')]
                 bJetEff  = [GetBtagEff(goodJets, year, 'loose'),GetBtagEff(goodJets, year, 'medium')]
                 bJetEff_data   = [bJetEff[0]*bJetSF[0],bJetEff[1]*bJetSF[1]]
-                pMC     = ak.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
-                pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-                pData   = ak.prod(bJetEff_data[1]  [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_data[0]  [isBtagJetsLooseNotMedium] - bJetEff_data[1]  [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_data[0]  [isNotBtagJetsLoose]), axis=-1)
-                weights_obj_base_for_kinematic_syst.add("btagSF", pData/pMC)
+                pMC     = dak.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * dak.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * dak.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
+                pMC     = dak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
+                pData   = dak.prod(bJetEff_data[1]  [isBtagJetsMedium], axis=-1) * dak.prod((bJetEff_data[0]  [isBtagJetsLooseNotMedium] - bJetEff_data[1]  [isBtagJetsLooseNotMedium]), axis=-1) * dak.prod((1-bJetEff_data[0]  [isNotBtagJetsLoose]), axis=-1)
+                weights_obj_base_for_kinematic_syst.add("btagSF", (pData/pMC))
 
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
@@ -464,13 +478,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                         bJetSFDo = [GetBTagSF(goodJets, year, 'LOOSE', syst=b_syst)[1],GetBTagSF(goodJets, year, 'MEDIUM', syst=b_syst)[1]]
                         bJetEff_dataUp = [bJetEff[0]*bJetSFUp[0],bJetEff[1]*bJetSFUp[1]]
                         bJetEff_dataDo = [bJetEff[0]*bJetSFDo[0],bJetEff[1]*bJetSFDo[1]]
-                        pDataUp = ak.prod(bJetEff_dataUp[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataUp[0][isBtagJetsLooseNotMedium] - bJetEff_dataUp[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataUp[0][isNotBtagJetsLoose]), axis=-1)
-                        pDataDo = ak.prod(bJetEff_dataDo[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataDo[0][isBtagJetsLooseNotMedium] - bJetEff_dataDo[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataDo[0][isNotBtagJetsLoose]), axis=-1)
+                        pDataUp = dak.prod(bJetEff_dataUp[1][isBtagJetsMedium], axis=-1) * dak.prod((bJetEff_dataUp[0][isBtagJetsLooseNotMedium] - bJetEff_dataUp[1][isBtagJetsLooseNotMedium]), axis=-1) * dak.prod((1-bJetEff_dataUp[0][isNotBtagJetsLoose]), axis=-1)
+                        pDataDo = dak.prod(bJetEff_dataDo[1][isBtagJetsMedium], axis=-1) * dak.prod((bJetEff_dataDo[0][isBtagJetsLooseNotMedium] - bJetEff_dataDo[1][isBtagJetsLooseNotMedium]), axis=-1) * dak.prod((1-bJetEff_dataDo[0][isNotBtagJetsLoose]), axis=-1)
                         weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, (pDataUp/pMC)/(pData/pMC),(pDataDo/pMC)/(pData/pMC))
 
                 # Trigger SFs
                 GetTriggerSF(year,events,l0,l1)
-                weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+                weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.copy(events.trigger_sfUp), copy.copy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
 
 
             ######### Event weights that do depend on the lep cat ###########
@@ -480,19 +494,19 @@ class AnalysisProcessor(processor.ProcessorABC):
             for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ"]:
 
                 # For both data and MC
-                weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
+                weights_dict[ch_name] = copy.copy(weights_obj_base_for_kinematic_syst)
                 if ch_name.startswith("2l"):
-                    weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
-                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
-                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
-                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
-                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
+                    weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.copy(events.fakefactor_2l_up), copy.copy(events.fakefactor_2l_down))
+                    weights_dict[ch_name].add("FFpt",  events.nom, copy.copy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.copy(events.fakefactor_2l_pt2/events.fakefactor_2l))
+                    weights_dict[ch_name].add("FFeta", events.nom, copy.copy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.copy(events.fakefactor_2l_be2/events.fakefactor_2l))
+                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.copy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.copy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
+                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.copy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.copy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
                 elif ch_name.startswith("3l"):
-                    weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
-                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
-                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
-                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
-                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
+                    weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.copy(events.fakefactor_3l_up), copy.copy(events.fakefactor_3l_down))
+                    weights_dict[ch_name].add("FFpt",  events.nom, copy.copy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.copy(events.fakefactor_3l_pt2/events.fakefactor_3l))
+                    weights_dict[ch_name].add("FFeta", events.nom, copy.copy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.copy(events.fakefactor_3l_be2/events.fakefactor_3l))
+                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.copy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.copy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
+                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.copy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.copy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
 
                 # For data only
                 if isData:
@@ -502,14 +516,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # For MC only
                 if not isData:
                     if ch_name.startswith("2l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.copy(events.sf_2l_hi_muon), copy.copy(events.sf_2l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.copy(events.sf_2l_hi_elec), copy.copy(events.sf_2l_lo_elec))
                     elif ch_name.startswith("3l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.copy(events.sf_3l_hi_muon), copy.copy(events.sf_3l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.copy(events.sf_3l_hi_elec), copy.copy(events.sf_3l_lo_elec))
                     elif ch_name.startswith("4l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.copy(events.sf_4l_hi_muon), copy.copy(events.sf_4l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.copy(events.sf_4l_hi_elec), copy.copy(events.sf_4l_lo_elec))
                     else:
                         raise Exception(f"Unknown channel name: {ch_name}")
 
@@ -534,12 +548,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
 
             # Charge masks
-            chargel0_p = ak.fill_none(((l0.charge)>0),False)
-            chargel0_m = ak.fill_none(((l0.charge)<0),False)
-            charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
-            charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
-            charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
-            charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
+            chargel0_p = dak.fill_none(((l0.charge)>0),False)
+            chargel0_m = dak.fill_none(((l0.charge)<0),False)
+            charge2l_0 = dak.fill_none(((l0.charge+l1.charge)==0),False)
+            charge2l_1 = dak.fill_none(((l0.charge+l1.charge)!=0),False)
+            charge3l_p = dak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
+            charge3l_m = dak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
 
             ######### Store boolean masks with PackedSelection ##########
@@ -618,42 +632,42 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Calculate ptbl
             ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
-            ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt,axis=-1,keepdims=True)] # Only save hardest b-jet
+            ptbl_bjet = ptbl_bjet[dak.argmax(ptbl_bjet.pt,axis=-1,keepdims=True)] # Only save hardest b-jet
             ptbl_lep = l_fo_conept_sorted
             ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
-            ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
+            ptbl = dak.values_astype(dak.fill_none(ptbl, -1), np.float32)
 
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
 
             # Leading (b+l) pair pt
-            bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
-            bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
+            bjetsl = goodJets[isBtagJetsLoose][dak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
+            bl_pairs = dak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
             blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
-            bl0pt = ak.flatten(blpt[ak.argmax(blpt,axis=-1,keepdims=True)])
+            bl0pt = dak.flatten(blpt[dak.argmax(blpt,axis=-1,keepdims=True)])
 
             # Collection of all objects (leptons and jets)
-            l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
+            l_j_collection = dak.with_name(dak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
 
             # Leading object (j or l) pt
-            o0pt = ak.max(l_j_collection.pt,axis=-1)
+            o0pt = dak.max(l_j_collection.pt,axis=-1)
 
             # Pairs of l+j
-            l_j_pairs = ak.combinations(l_j_collection,2,fields=["o0","o1"])
+            l_j_pairs = dak.combinations(l_j_collection,2,fields=["o0","o1"])
             l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
             l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
-            lj0pt = ak.max(l_j_pairs_pt,axis=-1)
+            lj0pt = dak.max(l_j_pairs_pt,axis=-1)
 
             # Define invariant mass hists
             mll_0_1 = (l0+l1).mass # Invmass for leading two leps
 
             # ST (but "st" is too hard to search in the code, so call it ljptsum)
-            ljptsum = ak.sum(l_j_collection.pt,axis=-1)
+            ljptsum = dak.sum(l_j_collection.pt,axis=-1)
             if self._ecut_threshold is not None:
                 ecut_mask = (ljptsum<self._ecut_threshold)
 
             # Counts
-            counts = np.ones_like(events['event'])
+            counts = dak.ones_like(events['event'])
 
             # Variables we will loop over when filling hists
             varnames = {}
@@ -664,14 +678,14 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["l0eta"]   = l0.eta
             varnames["l1pt"]    = l1.conept
             varnames["l1eta"]   = l1.eta
-            varnames["j0pt"]    = ak.flatten(j0.pt)
-            varnames["j0eta"]   = ak.flatten(j0.eta)
+            varnames["j0pt"]    = dak.flatten(j0.pt)
+            varnames["j0eta"]   = dak.flatten(j0.eta)
             varnames["njets"]   = njets
             varnames["nbtagsl"] = nbtagsl
             varnames["invmass"] = mll_0_1
-            varnames["ptbl"]    = ak.flatten(ptbl)
+            varnames["ptbl"]    = dak.flatten(ptbl)
             varnames["ptz"]     = ptz
-            varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
+            varnames["b0pt"]    = dak.flatten(ptbl_bjet.pt)
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt

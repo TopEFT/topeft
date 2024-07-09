@@ -87,7 +87,7 @@ jobs:
         run: |
           mkdir dir_for_topcoffea
           cd dir_for_topcoffea
-          git clone https://github.com/TopEFT/topcoffea.git
+          git clone -b dask_hists https://github.com/TopEFT/topcoffea.git
           cd topcoffea
           conda run -n coffea-env pip install -e .
           cd ../..
@@ -116,9 +116,9 @@ jobs:
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_make_1d_quad_plots.py 
 
-      - name: Run topeft processors over test files with futures executor
+      - name: Run topeft processors over test files with dask executor
         run: |
-          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_futures.py
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_dask.py
 
       - name: Get topeft yields 
         run: |
