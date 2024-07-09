@@ -3,11 +3,14 @@ import copy
 import coffea
 import numpy as np
 import awkward as ak
+import correctionlib as clib
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 from coffea import hist, processor
 from coffea.util import load
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
+from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper as clib_wrapper
+from coffea.lookup_tools.dense_lookup import dense_lookup
 
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.HistEFT import HistEFT
@@ -26,14 +29,12 @@ get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 
 
-
 # Takes strings as inputs, constructs a string for the full channel name
 # Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
     # chan_str should look something like "3l_p_offZ_1b", NOTE: This function assumes nlep comes first
     # njet_str should look something like "atleast_5j",   NOTE: This function assumes njets comes last
     # flav_str should look something like "emm"
 def construct_cat_name(chan_str,njet_str=None,flav_str=None):
-
     # Get the component strings
     nlep_str = chan_str.split("_")[0] # Assumes n leps comes first in the str
     chan_str = "_".join(chan_str.split("_")[1:]) # The rest of the channel name is everything that comes after nlep
@@ -353,9 +354,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                 cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
                 cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
                 events_cache = events.caches[0]
+                #cleanedJets_fields0 = cleanedJets.fields
                 cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
                 # SYSTEMATICS
                 cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
+                cleanedJets_fields1 = cleanedJets.fields
+                print("\n\n\n\n\n\n\n\n\n")
+                #print("cleanedJets fields before corrections:", cleanedJets_fields0)
+                print("cleanedJets fields after corrections:", cleanedJets_fields1)
+                print("\n\n\n\n\n\n\n\n\n")
                 met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
@@ -418,26 +425,80 @@ class AnalysisProcessor(processor.ProcessorABC):
             ######### Event weights that do not depend on the lep cat ##########
 
             if not isData:
+                # Workaround to use UL16APV SFs for UL16 for light jets
+                if year == "2016":
+                    year_light = "2016APV"
+                else:
+                    year_light = year
 
-                # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
                 isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
-                bJetSF   = [GetBTagSF(goodJets, year, 'LOOSE'),GetBTagSF(goodJets, year, 'MEDIUM')]
-                bJetEff  = [GetBtagEff(goodJets, year, 'loose'),GetBtagEff(goodJets, year, 'medium')]
-                bJetEff_data   = [bJetEff[0]*bJetSF[0],bJetEff[1]*bJetSF[1]]
-                pMC     = ak.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
-                pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-                pData   = ak.prod(bJetEff_data[1]  [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_data[0]  [isBtagJetsLooseNotMedium] - bJetEff_data[1]  [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_data[0]  [isNotBtagJetsLoose]), axis=-1)
-                weights_obj_base_for_kinematic_syst.add("btagSF", pData/pMC)
+
+                light_mask = goodJets.hadronFlavour==0
+                bc_mask = goodJets.hadronFlavour>0
+
+                jets_light = goodJets[light_mask]
+                jets_bc    = goodJets[bc_mask]
+
+                btag_effM_light = GetBtagEff(jets_light, year, 'medium')
+                btag_effM_bc = GetBtagEff(jets_bc, year, 'medium')
+                btag_effL_light = GetBtagEff(jets_light, year, 'loose')
+                btag_effL_bc = GetBtagEff(jets_bc, year, 'loose')
+                
+                btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M",year_light,"deepJet_incl","central")
+                btag_sfM_bc    = tc_cor.btag_sf_eval(jets_bc,    "M",year,      "deepJet_comb","central")
+                btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L",year_light,"deepJet_incl","central")
+                btag_sfL_bc    = tc_cor.btag_sf_eval(jets_bc,    "L",year,      "deepJet_comb","central")
+
+                pData_light, pMC_light = tc_cor.get_method1a_wgt_doublewp(btag_effM_light, btag_effL_light, btag_sfM_light, btag_sfL_light, isBtagJetsMedium[light_mask], isBtagJetsLooseNotMedium[light_mask], isNotBtagJetsLoose[light_mask])
+                btag_w_light = pData_light/pMC_light
+                pData_bc, pMC_bc = tc_cor.get_method1a_wgt_doublewp(btag_effM_bc, btag_effL_bc, btag_sfM_bc, btag_sfL_bc, isBtagJetsMedium[bc_mask], isBtagJetsLooseNotMedium[bc_mask], isNotBtagJetsLoose[bc_mask])
+                btag_w_bc = pData_bc/pMC_bc
+                btag_w = btag_w_light*btag_w_bc
+                weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
 
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
-                        bJetSFUp = [GetBTagSF(goodJets, year, 'LOOSE', syst=b_syst)[0],GetBTagSF(goodJets, year, 'MEDIUM', syst=b_syst)[0]]
-                        bJetSFDo = [GetBTagSF(goodJets, year, 'LOOSE', syst=b_syst)[1],GetBTagSF(goodJets, year, 'MEDIUM', syst=b_syst)[1]]
-                        bJetEff_dataUp = [bJetEff[0]*bJetSFUp[0],bJetEff[1]*bJetSFUp[1]]
-                        bJetEff_dataDo = [bJetEff[0]*bJetSFDo[0],bJetEff[1]*bJetSFDo[1]]
-                        pDataUp = ak.prod(bJetEff_dataUp[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataUp[0][isBtagJetsLooseNotMedium] - bJetEff_dataUp[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataUp[0][isNotBtagJetsLoose]), axis=-1)
-                        pDataDo = ak.prod(bJetEff_dataDo[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataDo[0][isBtagJetsLooseNotMedium] - bJetEff_dataDo[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataDo[0][isNotBtagJetsLoose]), axis=-1)
-                        weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, (pDataUp/pMC)/(pData/pMC),(pDataDo/pMC)/(pData/pMC))
+                        if b_syst.endswith("_corr"):
+                            corrtype = "correlated"
+                        else:
+                            corrtype = "uncorrelated"
+
+                        if b_syst.startswith("light_"):
+                            jets_flav = jets_light
+                            flav_mask = light_mask
+                            sys_year = year_light
+                            dJ_tag = "incl"
+                            btag_effM = btag_effM_light
+                            btag_effL = btag_effL_light
+                            pMC_flav = pMC_light
+                            fixed_btag_w = btag_w_bc
+                        elif b_syst.startswith("bc_"):
+                            jets_flav = jets_bc
+                            flav_mask = bc_mask
+                            sys_year = year
+                            dJ_tag = "comb"
+                            btag_effM = btag_effM_bc
+                            btag_effL = btag_effL_bc
+                            pMC_flav = pMC_bc
+                            fixed_btag_w = btag_w_light
+                        else:
+                            raise ValueError("btag systematics should be divided in flavor (bc or light)!")
+
+                        btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L",sys_year,f"deepJet_{dJ_tag}",f"up_{corrtype}")
+                        btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L",sys_year,f"deepJet_{dJ_tag}",f"down_{corrtype}")
+                        btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M",sys_year,f"deepJet_{dJ_tag}",f"up_{corrtype}")
+                        btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M",sys_year,f"deepJet_{dJ_tag}",f"down_{corrtype}")
+
+                        pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_up, btag_sfL_up, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
+                        pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_down, btag_sfL_down, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
+
+                        btag_w_up = (pData_up/pMC_flav)
+                        btag_w_down = (pData_down/pMC_flav)
+
+                        btag_w_up = fixed_btag_w*btag_w_up/btag_w
+                        btag_w_down = fixed_btag_w*btag_w_down/btag_w
+                        
+                        weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
 
                 # Trigger SFs
                 GetTriggerSF(year,events,l0,l1)

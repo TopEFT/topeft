@@ -307,7 +307,18 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     padded_Taus["sf_tau"] = 1.0
     padded_Taus["sf_tau_up"] = 1.0
     padded_Taus["sf_tau_down"] = 1.0
-    
+
+    if year.startswith("2016"):
+        clib_year = "2016preVFP" if year == "2016APV" else "2016postVFP"
+    else:
+        clib_year = year
+
+    runII = ["16", "17", "18"]
+
+    clib_json = clib_year + "_UL" if any(runIIyear in clib_year for runIIyear in runII) else clib_year
+    json_path = topcoffea_path(f"data/POG/TAU/{clib_json}/tau.json.gz")
+    ceval = correctionlib.CorrectionSet.from_file(json_path)
+
     pt  = padded_Taus.pt
     dm  = padded_Taus.decayMode
     wp  = padded_Taus.idDeepTau2017v2p1VSjet
@@ -315,6 +326,82 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     gen = padded_Taus.genPartFlav
     mass= padded_Taus.mass
 
+    #pt_flat = ak.flatten(pt)
+    #eta_flat = ak.flatten(eta)
+    #dm_flat = ak.flatten(dm)
+    #gen_flat = ak.flatten(gen)
+
+    ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
+    DeepTaus = [
+        ("DeepTau2017v2p1VSjet", ak.flatten(padded_Taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
+        ("DeepTau2017v2p1VSe", ak.flatten(padded_Taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
+        ("DeepTau2017v2p1VSmu", ak.flatten(padded_Taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
+    ]
+
+    DT_sf_list = []
+    DT_up_list = []
+    DT_down_list = []
+    
+    pt_mask_flat = ak.flatten((pt>20) & (pt<205))
+
+    for DeepTau in DeepTaus:
+        discr = DeepTau[0]
+        id_mask = DeepTau[1]
+        arg_list = DeepTau[2]
+        args = []
+        for ttag in arg_list:
+            args.append(
+                ak.flatten(Tau[ttag])
+            )
+        tau_mask = id_mask & pt_mask_flat
+
+        args_sf = args + ["sf"]
+        DT_sf_list.append(
+            ak.where(
+                ~tau_mask,
+                1,
+                ceval[discr].evaluate(*args_sf)
+            )
+        )
+        args_up = args + ["up"]
+        DT_up_list.append(
+            ak.where(
+                ~tau_mask,
+                1,
+                ceval[discr].evaluate(*args_up)
+            )
+        )
+        args_down = args + ["down"]
+        DT_down_list.append(
+            ak.where(
+                ~tau_mask,
+                1,
+                ceval[discr].evaluate(*args_down)
+            )
+        )
+
+    DT_sf_flat = None 
+    DT_up_flat = None 
+    DT_do_flat = None 
+    for idr, DT_sf_discr in enumerate(DT_sf_list):
+        DT_sf_discr = ak.to_numpy(DT_sf_discr)
+        DT_up_discr = ak.to_numpy(DT_up_perbin[idr])
+        DT_do_discr = ak.to_numpy(DT_do_perbin[idr])
+        if idr == 0:
+            DT_sf_flat = DT_sf_discr
+            DT_up_flat = DT_up_discr
+            DT_do_flat = DT_do_discr
+        else:
+            DT_sf_flat *= DT_sf_discr
+            DT_up_flat *= DT_up_discr
+            DT_do_flat *= DT_do_discr
+
+    DT_sf = ak.unflatten(DT_sf_flat, ak.num(pt))
+    DT_up = ak.unflatten(DT_up_flat, ak.num(pt))
+    DT_do = ak.unflatten(DT_do_flat, ak.num(pt))
+    ## end of correction-lib implementation
+    
+    ## legacy
     whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus[f"is{vsJetWP}"]>0))
     real_sf_loose = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}'](dm,pt), 1)
     real_sf_loose_up = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}_up'](dm,pt), 1)
@@ -341,6 +428,11 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     padded_Taus["sf_tau_up"] = real_sf_up*fake_elec_sf_up*fake_muon_sf_up*new_fake_sf_up
     padded_Taus["sf_tau_down"] = real_sf_down*fake_elec_sf_down*fake_muon_sf_down*new_fake_sf_down
 
+    ## final step for correction-lib
+    DT_sf *= new_fake_sf
+    DT_up *= new_fake_sf_up
+    DT_down *= new_fake_sf_down
+    
     events["sf_2l_taus"] = padded_Taus.sf_tau[:,0]
     events["sf_2l_taus_hi"] = padded_Taus.sf_tau_up[:,0]
     events["sf_2l_taus_lo"] = padded_Taus.sf_tau_down[:,0]
@@ -421,13 +513,22 @@ def AttachMuonSF(muons, year):
       Description:
           Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the muons array passed to this function. These
           values correspond to the nominal, up, and down muon scalefactor values respectively.
+    Run2 strategy:
+    - Use reco from TOP-22-006
+    - use loose from correction-lib
     '''
+
+    
     eta = np.abs(muons.eta)
     pt = muons.pt
     if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
     
-    ###clib ready
-    ##legacy
+    ## Run2:
+    ## only loose_sf can be consistently used with correction-lib, for the other we use the TOP-22-006 original SFs
+    ## Run3:
+    ## reco_loose_sf will be used in place of reco*loose, both for nominal and systematics
+
+    ## these are the reco and loose TOP-22-006 SFs
     reco_sf  = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}'.format(year=year)](eta,pt),1) # sf=1 when pt>20 becuase there is no reco SF available
     reco_err = np.where(pt < 20,SFevaluator['MuonRecoSF_{year}_er'.format(year=year)](eta,pt),0) # sf error =0 when pt>20 becuase there is no reco SF available
     loose_sf  = SFevaluator['MuonLooseSF_{year}'.format(year=year)](eta,pt)
@@ -436,7 +537,6 @@ def AttachMuonSF(muons, year):
         SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt) * SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt)
     )
 
-    ####clib ----- for Run2: to discuss
     if year.startswith("2016"):
         clib_year = "2016preVFP" if year == "2016APV" else "2016postVFP"
     else:
@@ -444,8 +544,9 @@ def AttachMuonSF(muons, year):
 
     runII = ["16", "17", "18"]
 
+    ## General setup to use correction-lib
     clib_json = clib_year + "_UL" if any(runIIyear in clib_year for runIIyear in runII) else clib_year
-    json_path = f"/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/MUO/{clib_json}/muon_Z.json.gz"
+    json_path = topcoffea_path(f"data/POG/MUO/{clib_json}/muon_Z.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
 
     pt_flat = ak.flatten(pt)
@@ -455,60 +556,66 @@ def AttachMuonSF(muons, year):
     pt_flat_reco = ak.where(~pt_mask_reco, 40., pt_flat)
     pt_flat_loose = ak.where(~pt_mask, 15., pt_flat)
 
-    #reco_sf_flat = ak.where(
-    #    ~pt_mask_reco,
-    #    1,
-    #    ceval["NUM_TrackerMuons_DEN_genTracks"].evaluate(abseta_flat, pt_flat_reco, "nominal")
-    #)
-    #reco_err_flat = ak.where(
-    #    ~pt_mask_reco,
-    #    1,
-    #    np.sqrt(
-    #        ceval["NUM_TrackerMuons_DEN_genTracks"].evaluate(abseta_flat, pt_flat_reco, "syst") * ceval["NUM_TrackerMuons_DEN_genTracks"].evaluate(abseta_flat, pt_flat_reco, "syst") + ceval["NUM_TrackerMuons_DEN_genTracks"].evaluate(abseta_flat, pt_flat_reco, "stat") * ceval["NUM_TrackerMuons_DEN_genTracks"].evaluate(abseta_flat, pt_flat_reco, "stat")
-    #    )
-    #)
+    # It won't be used neither for Run2 or Run3
+    reco_sf_flat = ak.where(
+        ~pt_mask_reco,
+        1,
+        ceval["NUM_TrackerMuons_DEN_genTracks"].evaluate(abseta_flat, pt_flat_reco, "nominal")
+    )
+    reco_err_flat = ak.where(
+        ~pt_mask_reco,
+        1,
+        np.sqrt(
+            ceval["NUM_TrackerMuons_DEN_genTracks"].evaluate(abseta_flat, pt_flat_reco, "syst") * ceval["NUM_TrackerMuons_DEN_genTracks"].evaluate(abseta_flat, pt_flat_reco, "syst") + ceval["NUM_TrackerMuons_DEN_genTracks"].evaluate(abseta_flat, pt_flat_reco, "stat") * ceval["NUM_TrackerMuons_DEN_genTracks"].evaluate(abseta_flat, pt_flat_reco, "stat")
+        )
+    )
 
+    ## The only one to be actually got from clib for Run2
     loose_sf_flat = ak.where(
         ~pt_mask,
         1,
-        ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(clib_json, abseta_flat, pt_flat_loose, "sf")
+        ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "nominal")
     )
     loose_err_flat = ak.where(
         ~pt_mask,
         1,
         np.sqrt(
-            ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(clib_json, abseta_flat, pt_flat_loose, "syst") * ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(clib_json, abseta_flat, pt_flat_loose, "syst") + ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(clib_json, abseta_flat, pt_flat_loose, "stat") * ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(clib_json, abseta_flat, pt_flat_loose, "stat")
+            ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "syst") * ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "syst") + ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "stat") * ceval["NUM_LooseID_DEN_TrackerMuons"].evaluate(abseta_flat, pt_flat_loose, "stat")
     )
     )
 
+    ## To keep for Run3 SFs
     reco_loose_sf_flat = ak.where(
         ~pt_mask,
         1,
-        ceval["NUM_LooseID_DEN_genTracks"].evaluate(clib_json, abseta_flat, pt_flat_loose, "sf")
+        ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "nominal")
     )
-    #reco_sf_clib = ak.unflatten(reco_sf_flat, ak.num(pt))
-    #reco_err_clib = ak.unflatten(reco_sf_flat, ak.num(pt))
+    reco_loose_err_flat = ak.where(
+        ~pt_mask,
+        1,
+        ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "syst") * ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "syst") + ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "stat") * ceval["NUM_LooseID_DEN_genTracks"].evaluate(abseta_flat, pt_flat_loose, "stat")
+    )
+
+
+    reco_sf_clib = ak.unflatten(reco_sf_flat, ak.num(pt))
+    reco_err_clib = ak.unflatten(reco_err_flat, ak.num(pt))
     loose_sf_clib = ak.unflatten(loose_sf_flat, ak.num(pt))
-    loose_err_clib = ak.unflatten(loose_sf_flat, ak.num(pt))
+    loose_err_clib = ak.unflatten(loose_err_flat, ak.num(pt))
     reco_loose_sf_clib = ak.unflatten(reco_loose_sf_flat, ak.num(pt))
+    reco_loose_err_clib = ak.unflatten(reco_loose_err_flat, ak.num(pt))
     
-    print("\n\n\n\n\n\n\n\n\n\n\n\n")
-    #print("clib reco*loose", ak.to_list(reco_sf_clib*loose_sf_clib))
-    print("pt", ak.to_list(pt))
-    print("clib reco_loose", ak.to_list(reco_loose_sf_clib))
-    print("legacy reco_sf*loose_sf:", ak.to_list(reco_sf*loose_sf))
-    print("legacy-clib reco_sf*loose_sf:", ak.to_list(reco_sf*loose_sf-reco_loose_sf_clib))
-    print("clib loose_sf:", ak.to_list(loose_sf_clib))
-    print("legacy loose_sf:", ak.to_list(loose_sf))
-    print("legacy-clib loose_sf:", ak.to_list(loose_sf-loose_sf_clib))
-    print("\n\n\n\n\n\n\n\n\n\n\n\n")
-    
-    ###ad-hoc (not clib ready)
+
+    ## ad-hoc from TOP-22-006 for Run2 (not clib ready)
     iso_sf  = SFevaluator['MuonIsoSF_{year}'.format(year=year)](eta,pt)
     iso_err = SFevaluator['MuonIsoSF_{year}_er'.format(year=year)](eta,pt)
     new_sf  = SFevaluator['MuonSF_{year}'.format(year=year)](eta,pt)
     new_err = SFevaluator['MuonSF_{year}_er'.format(year=year)](eta,pt)
 
+    ## For Run2, we can already use SFs and up/down variations from correction-lib for loose id selection
+    loose_sf = loose_sf_clib
+    loose_err = loose_err_clib
+
+    #Run2 implementation
     muons['sf_nom_2l_muon'] = new_sf * reco_sf * loose_sf * iso_sf
     muons['sf_hi_2l_muon']  = (new_sf + new_err) * (reco_sf + reco_err) * (loose_sf + loose_err) * (iso_sf + iso_err)
     muons['sf_lo_2l_muon']  = (new_sf - new_err) * (reco_sf - reco_err) * (loose_sf - loose_err) * (iso_sf - iso_err)
@@ -534,18 +641,6 @@ def AttachElectronSF(electrons, year):
     if year not in ['2016','2016APV','2017','2018']:
         raise Exception(f"Error: Unknown year \"{year}\".")
 
-    #legacy approach
-    #reco_sf  = np.where(
-    #    pt < 20,
-    #    SFevaluator['ElecRecoSFBe_{year}'.format(year=year)](eta,pt),
-    #    SFevaluator['ElecRecoSFAb_{year}'.format(year=year)](eta,pt)
-    #)
-    #reco_err = np.where(
-    #    pt < 20,
-    #    SFevaluator['ElecRecoSFBe_{year}_er'.format(year=year)](eta,pt),
-    #    SFevaluator['ElecRecoSFAb_{year}_er'.format(year=year)](eta,pt)
-    #)
-
     new_sf_2l  = SFevaluator['ElecSF_{year}_2lss'.format(year=year)](np.abs(eta),pt)
     new_err_2l = SFevaluator['ElecSF_{year}_2lss_er'.format(year=year)](np.abs(eta),pt)
     new_sf_3l  = SFevaluator['ElecSF_{year}_3l'.format(year=year)](np.abs(eta),pt)
@@ -555,9 +650,7 @@ def AttachElectronSF(electrons, year):
     iso_sf  = SFevaluator['ElecIsoSF_{year}'.format(year=year)](np.abs(eta),pt)
     iso_err = SFevaluator['ElecIsoSF_{year}_er'.format(year=year)](np.abs(eta),pt)
 
-    ###correction lib implementation
     # Get the right sf json for the given year                                                                                    
-    
     if year.startswith("2016"):
         clib_year = "2016preVFP" if year == "2016APV" else "2016postVFP"
     else:
@@ -566,13 +659,12 @@ def AttachElectronSF(electrons, year):
     runII = ["16", "17", "18"]
 
     clib_json = clib_year + "_UL" if any(runIIyear in clib_year for runIIyear in runII) else clib_year
-    json_path = f"/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/EGM/{clib_json}/electron.json.gz"
+    json_path = topcoffea_path(f"data/POG/EGM/{clib_json}/electron.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
     
     eta_flat = ak.flatten(eta)
     pt_flat = ak.flatten(pt)
 
-    ##dict approach
     pt_bins = OrderedDict([
         ("RecoBelow20", [10, 20]),
         ("RecoAbove20", [20, 1000])
@@ -583,9 +675,6 @@ def AttachElectronSF(electrons, year):
     reco_do_perbin = []
 
     for bintag, bin_edges in pt_bins.items():
-        #print("\n\n\n\n\n\n\n\n\n")
-        #print("bintag, bin_edges", bintag, bin_edges)
-        #print("\n\n\n\n\n\n\n\n\n")
         pt_mask = ak.flatten((pt >= bin_edges[0]) & (pt < bin_edges[1]))
         pt_bin_flat = ak.where(~pt_mask, bin_edges[1]-0.1, pt_flat) 
         reco_sf_perbin.append(
@@ -610,11 +699,10 @@ def AttachElectronSF(electrons, year):
             )
         )
 
-    reco_sf_flat = None #ak.ones_like(pt_flat)
-    reco_up_flat = None #ak.ones_like(pt_flat)
-    reco_do_flat = None #ak.ones_like(pt_flat)
+    reco_sf_flat = None 
+    reco_up_flat = None 
+    reco_do_flat = None 
     for idr, reco_sf_bin_flat in enumerate(reco_sf_perbin):
-        #reco_bin_flat = ak.astype(reco_bin_flat, np.float64)
         reco_sf_bin_flat = ak.to_numpy(reco_sf_bin_flat)
         reco_up_bin_flat = ak.to_numpy(reco_up_perbin[idr])
         reco_do_bin_flat = ak.to_numpy(reco_do_perbin[idr])
@@ -630,19 +718,6 @@ def AttachElectronSF(electrons, year):
     reco_sf = ak.unflatten(reco_sf_flat, ak.num(pt))
     reco_up = ak.unflatten(reco_up_flat, ak.num(pt))
     reco_do = ak.unflatten(reco_do_flat, ak.num(pt))
-
-    #print("\n\n\n\n\n\n\n\n\n\n\n")
-    #print("legacy reco sf:", ak.to_list(reco_sf))
-    #print("clib reco sf:", ak.to_list(reco_sf_clib))
-    #print("diff reco sf:", ak.to_list(reco_sf - reco_sf_clib))
-    #print("\n\n\n\n\n\n\n\n\n\n\n")
-    #print("legacy reco err up:", ak.to_list(reco_sf + reco_err))
-    #print("clib reco up:", ak.to_list(reco_up_clib))
-    #print("diff reco up:", ak.to_list(reco_sf + reco_err - reco_up_clib))
-    #print("legacy reco err down:", ak.to_list(reco_sf - reco_err))
-    #print("clib reco down:", ak.to_list(reco_do_clib))
-    #print("diff reco down:", ak.to_list(reco_sf - reco_err - reco_do_clib))
-    #print("\n\n\n\n\n\n\n\n\n\n\n")
 
     electrons['sf_nom_2l_elec'] = reco_sf * new_sf_2l * loose_sf * iso_sf
     electrons['sf_hi_2l_elec']  = (reco_up) * (new_sf_2l + new_err_2l) * (loose_sf + loose_err) * (iso_sf + iso_err)

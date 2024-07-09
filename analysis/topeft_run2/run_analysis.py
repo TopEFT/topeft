@@ -262,6 +262,8 @@ if __name__ == '__main__':
 
             'retries': 5,
 
+            'filepath': f'/project01/ndcms/{os.environ["USER"]}',
+
             # use mid-range compression for chunks results. 9 is the default for work
             # queue in coffea. Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
@@ -274,7 +276,6 @@ if __name__ == '__main__':
             # forever until a larger worker connects.
             'resource_monitor': True,
             'resources_mode': 'auto',
-
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
             # of a workflow run a little bit faster.
