@@ -120,6 +120,10 @@ jobs:
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_futures.py
 
+      - name: Run topeft processors over test files with dask executor
+        run: |
+          conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append tests/test_dask.py
+
       - name: Get topeft yields 
         run: |
           conda run -n coffea-env pytest --cov=./ --cov-report=xml -rP --cov-append -k test_make_yields_after_processor
