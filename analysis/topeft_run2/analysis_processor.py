@@ -4,8 +4,6 @@ import copy
 import coffea
 import numpy as np
 import dask_awkward as dak
-import awkward as ak
-import dask.array as da
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
