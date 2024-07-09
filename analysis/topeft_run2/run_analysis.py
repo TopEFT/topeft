@@ -15,7 +15,7 @@ import topcoffea.modules.utils as utils
 import topcoffea.modules.remote_environment as remote_environment
 
 import warnings
-warnings.filterwarnings("error", module="coffea.*")
+#warnings.filterwarnings("error", module="coffea.*")
 from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
 from coffea.dataset_tools import preprocess, filter_files
 
