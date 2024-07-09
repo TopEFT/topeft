@@ -11,3 +11,6 @@ dependencies:
   - xrootd
   - git
   - pyyaml
+  - dask
+  - dask-awkward
+  - dask-histogram
