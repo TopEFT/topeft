@@ -227,16 +227,17 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
-        events.nom = ak.ones_like(events.MET.pt)
+        events.nom = da.ones_like(events.MET.pt)
 
         ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
         ele["conept"] = te_os.coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
         mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
-        ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
-        mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+
+        ele["btagDeepFlavB"] = dak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
+        mu["btagDeepFlavB"] = dak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
         if not isData:
-            ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
-            mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
+            ele["gen_pdgId"] = dak.fill_none(ele.matched_gen.pdgId, 0)
+            mu["gen_pdgId"] = dak.fill_none(mu.matched_gen.pdgId, 0)
 
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
@@ -253,7 +254,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
-        eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
+        try:
+            eft_coeffs = events["EFTfitCoefficients"]
+        except KeyError:
+            eft_coeffs = None
+
         if eft_coeffs is not None:
             # Check to see if the ordering of WCs for this sample matches what want
             if self._samples[dataset]["WCnames"] != self._wc_names_lst:
@@ -281,7 +286,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         m_loose = mu[mu.isPres & mu.isLooseM]
         e_loose = ele[ele.isPres & ele.isLooseE]
-        l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
+        l_loose = da.with_name(da.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
 
         ################### Tau selection ####################
 
@@ -292,8 +297,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau["isTight"] = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
 
         # Compute pair invariant masses, for all flavors all signes
-        llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
-        events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
+        llpairs = da.combinations(l_loose, 2, fields=["l0","l1"])
+        events["minMllAFAS"] = da.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
@@ -306,10 +311,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Attach per lepton fake rates
         AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
         AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
-        m_fo['convVeto'] = ak.ones_like(m_fo.charge)
-        m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
-        l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
-        l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
+        m_fo['convVeto'] = da.ones_like(m_fo.charge)
+        m_fo['lostHits'] = da.zeros_like(m_fo.charge)
+        l_fo = da.with_name(da.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
+        l_fo_conept_sorted = l_fo[da.argsort(l_fo.conept, axis=-1,ascending=False)]
 
         ######### Systematics ###########
 
@@ -374,10 +379,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             #################### Jets ####################
 
             # Jet cleaning, before any jet selection
-            #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
-            vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
-            tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
-            cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
+            #vetos_tocleanjets = da.with_name( da.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
+            vetos_tocleanjets = da.with_name( l_fo, "PtEtaPhiMCandidate")
+            tmp = da.cartesian([da.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
+            cleanedJets = jets[~da.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
@@ -386,8 +391,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not isData:
                 cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
                 cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
-                cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-                cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
+                cleanedJets["pt_gen"] =da.values_astype(da.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
+                cleanedJets["rho"] = da.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
                 events_cache = events.caches[0]
                 cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
                 # SYSTEMATICS
@@ -397,9 +402,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             goodJets = cleanedJets[cleanedJets.isGood]
 
             # Count jets
-            njets = ak.num(goodJets)
-            ht = ak.sum(goodJets.pt,axis=-1)
-            j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
+            njets = da.num(goodJets)
+            ht = da.sum(goodJets.pt,axis=-1)
+            j0 = goodJets[da.argmax(goodJets.pt,axis=-1,keepdims=True)]
 
             # Loose DeepJet WP
             if year == "2017":
@@ -414,7 +419,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 raise ValueError(f"Error: Unknown year \"{year}\".")
             isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
-            nbtagsl = ak.num(goodJets[isBtagJetsLoose])
+            nbtagsl = da.num(goodJets[isBtagJetsLoose])
 
             # Medium DeepJet WP
             if year == "2017":
@@ -429,7 +434,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 raise ValueError(f"Error: Unknown year \"{year}\".")
             isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
-            nbtagsm = ak.num(goodJets[isBtagJetsMedium])
+            nbtagsm = da.num(goodJets[isBtagJetsMedium])
 
 
             #################### Add variables into event object so that they persist ####################
@@ -445,7 +450,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             te_es.addLepCatMasks(events)
 
             # Convenient to have l0, l1, l2 on hand
-            l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
+            l_fo_conept_sorted_padded = da.pad_none(l_fo_conept_sorted, 3)
             l0 = l_fo_conept_sorted_padded[:,0]
             l1 = l_fo_conept_sorted_padded[:,1]
             l2 = l_fo_conept_sorted_padded[:,2]
@@ -460,9 +465,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 bJetSF   = [GetBTagSF(goodJets, year, 'LOOSE'),GetBTagSF(goodJets, year, 'MEDIUM')]
                 bJetEff  = [GetBtagEff(goodJets, year, 'loose'),GetBtagEff(goodJets, year, 'medium')]
                 bJetEff_data   = [bJetEff[0]*bJetSF[0],bJetEff[1]*bJetSF[1]]
-                pMC     = ak.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
-                pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-                pData   = ak.prod(bJetEff_data[1]  [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_data[0]  [isBtagJetsLooseNotMedium] - bJetEff_data[1]  [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_data[0]  [isNotBtagJetsLoose]), axis=-1)
+                pMC     = da.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * da.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * da.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
+                pMC     = da.where(pMC==0,1,pMC) # removeing zeroes from denominator...
+                pData   = da.prod(bJetEff_data[1]  [isBtagJetsMedium], axis=-1) * da.prod((bJetEff_data[0]  [isBtagJetsLooseNotMedium] - bJetEff_data[1]  [isBtagJetsLooseNotMedium]), axis=-1) * da.prod((1-bJetEff_data[0]  [isNotBtagJetsLoose]), axis=-1)
                 weights_obj_base_for_kinematic_syst.add("btagSF", pData/pMC)
 
                 if self._do_systematics and syst_var=='nominal':
@@ -471,8 +476,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                         bJetSFDo = [GetBTagSF(goodJets, year, 'LOOSE', syst=b_syst)[1],GetBTagSF(goodJets, year, 'MEDIUM', syst=b_syst)[1]]
                         bJetEff_dataUp = [bJetEff[0]*bJetSFUp[0],bJetEff[1]*bJetSFUp[1]]
                         bJetEff_dataDo = [bJetEff[0]*bJetSFDo[0],bJetEff[1]*bJetSFDo[1]]
-                        pDataUp = ak.prod(bJetEff_dataUp[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataUp[0][isBtagJetsLooseNotMedium] - bJetEff_dataUp[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataUp[0][isNotBtagJetsLoose]), axis=-1)
-                        pDataDo = ak.prod(bJetEff_dataDo[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataDo[0][isBtagJetsLooseNotMedium] - bJetEff_dataDo[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataDo[0][isNotBtagJetsLoose]), axis=-1)
+                        pDataUp = da.prod(bJetEff_dataUp[1][isBtagJetsMedium], axis=-1) * da.prod((bJetEff_dataUp[0][isBtagJetsLooseNotMedium] - bJetEff_dataUp[1][isBtagJetsLooseNotMedium]), axis=-1) * da.prod((1-bJetEff_dataUp[0][isNotBtagJetsLoose]), axis=-1)
+                        pDataDo = da.prod(bJetEff_dataDo[1][isBtagJetsMedium], axis=-1) * da.prod((bJetEff_dataDo[0][isBtagJetsLooseNotMedium] - bJetEff_dataDo[1][isBtagJetsLooseNotMedium]), axis=-1) * da.prod((1-bJetEff_dataDo[0][isNotBtagJetsLoose]), axis=-1)
                         weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, (pDataUp/pMC)/(pData/pMC),(pDataDo/pMC)/(pData/pMC))
 
                 # Trigger SFs
@@ -541,12 +546,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
 
             # Charge masks
-            chargel0_p = ak.fill_none(((l0.charge)>0),False)
-            chargel0_m = ak.fill_none(((l0.charge)<0),False)
-            charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
-            charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
-            charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
-            charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
+            chargel0_p = da.fill_none(((l0.charge)>0),False)
+            chargel0_m = da.fill_none(((l0.charge)<0),False)
+            charge2l_0 = da.fill_none(((l0.charge+l1.charge)==0),False)
+            charge2l_1 = da.fill_none(((l0.charge+l1.charge)!=0),False)
+            charge3l_p = da.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
+            charge3l_m = da.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
 
 
             ######### Store boolean masks with PackedSelection ##########
@@ -625,37 +630,37 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Calculate ptbl
             ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
-            ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt,axis=-1,keepdims=True)] # Only save hardest b-jet
+            ptbl_bjet = ptbl_bjet[da.argmax(ptbl_bjet.pt,axis=-1,keepdims=True)] # Only save hardest b-jet
             ptbl_lep = l_fo_conept_sorted
             ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
-            ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
+            ptbl = da.values_astype(da.fill_none(ptbl, -1), np.float32)
 
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
 
             # Leading (b+l) pair pt
-            bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
-            bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
+            bjetsl = goodJets[isBtagJetsLoose][da.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
+            bl_pairs = da.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
             blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
-            bl0pt = ak.flatten(blpt[ak.argmax(blpt,axis=-1,keepdims=True)])
+            bl0pt = da.flatten(blpt[da.argmax(blpt,axis=-1,keepdims=True)])
 
             # Collection of all objects (leptons and jets)
-            l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
+            l_j_collection = da.with_name(da.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
 
             # Leading object (j or l) pt
-            o0pt = ak.max(l_j_collection.pt,axis=-1)
+            o0pt = da.max(l_j_collection.pt,axis=-1)
 
             # Pairs of l+j
-            l_j_pairs = ak.combinations(l_j_collection,2,fields=["o0","o1"])
+            l_j_pairs = da.combinations(l_j_collection,2,fields=["o0","o1"])
             l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
             l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
-            lj0pt = ak.max(l_j_pairs_pt,axis=-1)
+            lj0pt = da.max(l_j_pairs_pt,axis=-1)
 
             # Define invariant mass hists
             mll_0_1 = (l0+l1).mass # Invmass for leading two leps
 
             # ST (but "st" is too hard to search in the code, so call it ljptsum)
-            ljptsum = ak.sum(l_j_collection.pt,axis=-1)
+            ljptsum = da.sum(l_j_collection.pt,axis=-1)
             if self._ecut_threshold is not None:
                 ecut_mask = (ljptsum<self._ecut_threshold)
 
@@ -671,14 +676,14 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["l0eta"]   = l0.eta
             varnames["l1pt"]    = l1.conept
             varnames["l1eta"]   = l1.eta
-            varnames["j0pt"]    = ak.flatten(j0.pt)
-            varnames["j0eta"]   = ak.flatten(j0.eta)
+            varnames["j0pt"]    = da.flatten(j0.pt)
+            varnames["j0eta"]   = da.flatten(j0.eta)
             varnames["njets"]   = njets
             varnames["nbtagsl"] = nbtagsl
             varnames["invmass"] = mll_0_1
-            varnames["ptbl"]    = ak.flatten(ptbl)
+            varnames["ptbl"]    = da.flatten(ptbl)
             varnames["ptz"]     = ptz
-            varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
+            varnames["b0pt"]    = da.flatten(ptbl_bjet.pt)
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
