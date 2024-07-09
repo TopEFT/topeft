@@ -23,10 +23,6 @@ from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
 import analysis_processor
 
-
-
-
-
 LST_OF_KNOWN_EXECUTORS = ["dask","taskvine"]
 
 WGT_VAR_LST = [
