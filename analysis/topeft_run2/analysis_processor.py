@@ -470,7 +470,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 pMC     = dak.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * dak.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * dak.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
                 pMC     = dak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
                 pData   = dak.prod(bJetEff_data[1]  [isBtagJetsMedium], axis=-1) * dak.prod((bJetEff_data[0]  [isBtagJetsLooseNotMedium] - bJetEff_data[1]  [isBtagJetsLooseNotMedium]), axis=-1) * dak.prod((1-bJetEff_data[0]  [isNotBtagJetsLoose]), axis=-1)
-                print(pData,pMC, '\n\n\n')
                 weights_obj_base_for_kinematic_syst.add("btagSF", (pData/pMC))
 
                 if self._do_systematics and syst_var=='nominal':
