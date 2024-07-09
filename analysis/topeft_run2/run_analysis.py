@@ -43,7 +43,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='You can customize your run')
     parser.add_argument('jsonFiles'        , nargs='?', default='', help = 'Json file(s) containing files and metadata')
     parser.add_argument('--executor','-x'  , default='taskvine', help = 'Which executor to use')
-    parser.add_argument('--prefix', '-r'   , nargs='?', default='', help = 'Prefix or redirector to look for the files')
+    parser.add_argument('--prefix', '-r'   , nargs='?', default='.', help = 'Prefix or redirector to look for the files')
     parser.add_argument('--test','-t'       , action='store_true'  , help = 'To perform a test, run over a few events in a couple of chunks')
     parser.add_argument('--pretend'        , action='store_true', help = 'Read json files but, not execute the analysis')
     parser.add_argument('--nworkers','-n'   , default=8  , help = 'Number of workers')
