@@ -61,7 +61,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "ht"           : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(100, 0, 1000, name="ht",           label=r"Scalar sum of genjet pt"), wc_names=wc_names_lst, rebin=False),
             "ht_clean"     : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(100, 0, 1000, name="ht_clean",     label=r"Scalar sum of clean genjet pt"), wc_names=wc_names_lst, rebin=False),
             "tops_pt"      : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(50,  0, 500,  name="tops_pt",      label=r"Pt of the sum of the tops"), wc_names=wc_names_lst, rebin=False),
-            "photon_pt"    : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Variable([20,35,50,70,100,170,200,250,300],  name="photon_pt",      label=r"Pt of the sum of the photon"), wc_names=wc_names_lst, rebin=False),
+            "photon_pt"    : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Variable([20,35,50,70,100,170,200,250,300],  name="photon_pt",      label=r"$p_{T}$ $\gamma$ (GeV)"), wc_names=wc_names_lst, rebin=False),
             "l0_pt"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(50,  0, 500,    name="l0_pt",      label=r"Pt of leading lepton"), wc_names=wc_names_lst, rebin=False),
             "j0_pt"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(50,  0, 500,    name="j0_pt",      label=r"Pt of leading jet"), wc_names=wc_names_lst, rebin=False),
             "tX_pt"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(40,  0, 400,  name="tX_pt",        label=r"Pt of the t(t)X system"), wc_names=wc_names_lst, rebin=False),
@@ -128,7 +128,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Define the lists of systematics we include
         wgt_correction_syst_lst = [
-            "CMS_eff_gUp","CMS_eff_gDown" # Exp systs
+            "phoSFUp","phoSFDown" # Exp systs
+            #"CMS_effUp","CMS_effDown" # Exp systs
         ]
 
         gen_l = gen_l[ak.argsort(gen_l.pt, axis=-1, ascending=False)]
@@ -287,7 +288,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
         for ch_name in ["2los_CRtt", "2los_ph", "2los_CR_Zg_ULttg"]:
             weights_dict[ch_name] = copy.deepcopy(weights_obj_base)
-            weights_dict[ch_name].add("CMS_eff_g", ak.ones_like(ak.firsts(gen_p).pt), np.random.rand(*ak.to_numpy(ak.firsts(gen_p).pt).shape), np.random.rand(*ak.to_numpy(ak.firsts(gen_p).pt).shape))
+            weights_dict[ch_name].add("phoSF", ak.ones_like(ak.firsts(gen_p).pt), np.random.rand(*ak.to_numpy(ak.firsts(gen_p).pt).shape), np.random.rand(*ak.to_numpy(ak.firsts(gen_p).pt).shape))
+            #weights_dict[ch_name].add("CMS_eff_g", ak.ones_like(ak.firsts(gen_p).pt), np.random.rand(*ak.to_numpy(ak.firsts(gen_p).pt).shape), np.random.rand(*ak.to_numpy(ak.firsts(gen_p).pt).shape))
 
         # Example of reweighting based on Ht
         #if "private" in histAxisName:
