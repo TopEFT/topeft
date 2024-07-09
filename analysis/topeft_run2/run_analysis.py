@@ -330,8 +330,8 @@ if __name__ == '__main__':
     )
 
     to_compute = {}
-    # for name, events_of_name in events.items():
-    #     to_compute[name] = processor_instance.process(events_of_name)
+    for name, events_of_name in events.items():
+        to_compute[name] = processor_instance.process(events_of_name)
 
     (output, ) = dask.compute(to_compute, **scheduler_opts)
 
