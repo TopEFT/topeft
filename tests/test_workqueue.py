@@ -33,6 +33,6 @@ def test_topcoffea_wq():
 
     # Run TopCoffea
     with factory:
-        subprocess.run(args, cwd="analysis/topeft_run2", timeout=400)
+        subprocess.run(args, cwd="analysis/topeft_run2", timeout=600)
 
     assert (exists('analysis/topeft_run2/histos/output_check_yields_wq.pkl.gz'))

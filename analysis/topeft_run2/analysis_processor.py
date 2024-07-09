@@ -3,7 +3,8 @@
 import copy
 import coffea
 import numpy as np
-import awkward as ak
+import dask_awkward as dak
+import dask.array as da
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
@@ -91,24 +92,30 @@ class AnalysisProcessor(processor.ProcessorABC):
                     *info["regular"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
                 )
             histograms[name] = HistEFT(
-                proc_axis,
-                chan_axis,
-                syst_axis,
-                appl_axis,
-                dense_axis,
+                category_axes=[
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                ],
+                dense_axis=dense_axis,
                 wc_names=wc_names_lst,
-                label=r"Events",
-                rebin=rebin
+                # TODO: Add to HistEFT:
+                # label=r"Events",
+                # rebin=rebin
             )
             histograms[name+"_sumw2"] = HistEFT(
-                proc_axis,
-                chan_axis,
-                syst_axis,
-                appl_axis,
-                sumw2_axis,
+                category_axes=[
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                ],
+                dense_axis=sumw2_axis,
                 wc_names=wc_names_lst,
-                label=r"Events",
-                rebin=rebin
+                # TODO: Add to HistEFT:
+                # label=r"Events",
+                # rebin=rebin
             )
         self._accumulator = histograms
 

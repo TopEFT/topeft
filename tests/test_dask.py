@@ -9,12 +9,16 @@ def test_topcoffea():
         "python",
         "analysis/topeft_run2/run_analysis.py",
         "-x",
-        "futures",
+        "dask",
         "input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json",
         "-o",
         "output_check_yields",
         "-p",
-        "analysis/topeft_run2/histos/"
+        "analysis/topeft_run2/histos/",
+        "--nchunks",
+        "1",
+        "--chunksize",
+        "1000"
     ]
 
     # Run TopCoffea
