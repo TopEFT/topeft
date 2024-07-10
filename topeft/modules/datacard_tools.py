@@ -448,7 +448,7 @@ class DatacardMaker():
 
             if not self.do_nuisance:
                 # Remove all shape systematics
-                h.prune("systematic", ["nominal"])
+                h = h[{"systematic": ["nominal"]}]
 
             if self.drop_syst:
                 to_drop = set()
@@ -707,7 +707,7 @@ class DatacardMaker():
             # Only select from a subset of channels
             if self.verbose:
                 print(f"Selecting WCs from subset of channels: {ch_lst}")
-            h.prune("channel", ch_lst)
+            h = h[{"channel": ch_lst}]
 
         procs = list(h.axes["process"])
         selected_wcs = {p: set() for p in procs}
