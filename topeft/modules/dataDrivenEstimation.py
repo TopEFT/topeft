@@ -1,5 +1,4 @@
 import argparse
-from coffea import hist
 import topcoffea.modules.utils as utils
 import cloudpickle
 from collections import defaultdict
@@ -31,107 +30,103 @@ class DataDrivenProducer:
 
         for key,histo in self.inhist.items():
 
-            if not len(histo.values()): # histo is empty, so we just integrate over appl and keep an empty histo
+            if histo.empty(): # histo is empty, so we just integrate over appl and keep an empty histo
                 print(f'[W]: Histogram {key} is empty, returning an empty histo')
                 self.outHist[key]=histo.integrate('appl')
                 continue
 
             # First we are gonna scale all MC processes in  by the luminosity
-            name_regex='(?P<sample>.*)UL(?P<year>.*)'
+            name_regex='(?P<process>.*)UL(?P<year>.*)'
             pattern=re.compile(name_regex)
 
-            scale_dict={}
-            for sample in histo.identifiers('sample'):
-                match = pattern.search(sample.name)
-                sampleName=match.group('sample')
+            for process in histo.axes['process']:
+                match = pattern.search(process)
+                sampleName=match.group('process')
                 year=match.group('year')
                 if not match:
-                    raise RuntimeError(f"Sample {sample} does not match the naming convention.")
+                    raise RuntimeError(f"Sample {process} does not match the naming convention.")
                 if year not in ['16APV','16','17','18']:
-                    raise RuntimeError(f"Sample {sample} does not match the naming convention, year \"{year}\" is unknown.")
-
-            prescale=histo.values().copy()
-            histo.scale( scale_dict, axis=('sample',))
-            postscale=histo.values()
+                    raise RuntimeError(f"Sample {process} does not match the naming convention, year \"{year}\" is unknown.")
 
             # now for each year we actually perform the subtraction and integrate out the application regions
             newhist=None
-            for ident in histo.identifiers('appl'):
+            for ident in histo.axes['appl']:
                 hAR=histo.integrate('appl', ident)
 
-                if 'isAR' not in ident.name:
+                if 'isAR' not in ident:
                     # if we are in the signal region, we just take the
                     # whole histogram integrating out the application region axis
                     if newhist==None:
                         newhist=hAR
                     else:
-                        newhist.add(hAR)
+                        newhist += hAR
                 else:
-                    if "isAR_2lSS_OS"==ident.name:
+                    if "isAR_2lSS_OS"==ident:
                         # we are in the flips application region and theres no "prompt" subtraction, so we just have to rename data to flips, put it in the right axis and we are done
                         newNameDictData=defaultdict(list)
-                        for sample in hAR.identifiers('sample'):
-                            match = pattern.search(sample.name)
-                            sampleName=match.group('sample')
+                        for process in hAR.axes['process']:
+                            match = pattern.search(process)
+                            sampleName=match.group('process')
                             year=match.group('year')
                             nonPromptName='flipsUL%s'%year
                             if self.dataName==sampleName:
-                                newNameDictData[nonPromptName].append(sample.name)
-                        hFlips=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
+                                newNameDictData[nonPromptName].append(process)
+                        hFlips=hAR.group('process', newNameDictData)
 
                         # remove any up/down FF variations from the flip histo since we don't use that info
                         syst_var_idet_rm_lst = []
-                        syst_var_idet_lst = hFlips.identifiers("systematic")
+                        syst_var_idet_lst = list(hFlips.axes["systematic"])
                         for syst_var_idet in syst_var_idet_lst:
-                            if (syst_var_idet.name != "nominal"):
+                            if (syst_var_idet != "nominal"):
                                 syst_var_idet_rm_lst.append(syst_var_idet)
-                        hFlips = hFlips.remove(syst_var_idet_rm_lst,"systematic")
+                        hFlips = hFlips.remove("systematic", syst_var_idet_rm_lst)
 
                         # now adding them to the list of processes:
                         if newhist==None:
                             newhist=hFlips
                         else:
-                            newhist.add( hFlips )
+                            newhist += hFlips
 
 
                     else:
                         # if we are in the nonprompt application region, we also integrate the application region axis
-                        # and construct the new sample 'nonprompt'
+                        # and construct the new process 'nonprompt'
                         # we look at data only, and rename it to fakes
                         newNameDictData=defaultdict(list); newNameDictNoData=defaultdict(list)
-                        for sample in hAR.identifiers('sample'):
-                            match = pattern.search(sample.name)
-                            sampleName=match.group('sample')
+                        for process in hAR.axes['process']:
+                            match = pattern.search(process)
+                            sampleName=match.group('process')
                             year=match.group('year')
                             nonPromptName='nonpromptUL%s'%year
                             if self.dataName==sampleName:
-                                newNameDictData[nonPromptName].append(sample.name)
+                                newNameDictData[nonPromptName].append(process)
                             elif sampleName in self.promptSubtractionSamples:
-                                newNameDictNoData[nonPromptName].append(sample.name)
+                                newNameDictNoData[nonPromptName].append(process)
                             else:
                                 print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
-                        hFakes=hAR.group('sample',  hist.Cat('sample','sample'), newNameDictData)
+                        hFakes=hAR.group('process', newNameDictData)
                         # now we take all the stuff that is not data in the AR to make the prompt subtraction and assign them to nonprompt.
-                        hPromptSub=hAR.group('sample', hist.Cat('sample','sample'), newNameDictNoData )
+                        hPromptSub=hAR.group('process', newNameDictNoData)
 
                         # remove the up/down variations (if any) from the prompt subtraction histo
                         # but keep FFUp and FFDown, as these are the nonprompt up and down variations
                         syst_var_idet_rm_lst = []
-                        syst_var_idet_lst = hPromptSub.identifiers("systematic")
+                        syst_var_idet_lst = list(hPromptSub.axes["systematic"])
                         for syst_var_idet in syst_var_idet_lst:
-                            if (syst_var_idet.name != "nominal") and (not syst_var_idet.name.startswith("FF")):
+                            if (syst_var_idet != "nominal") and (not syst_var_idet.startswith("FF")):
                                 syst_var_idet_rm_lst.append(syst_var_idet)
-                        hPromptSub = hPromptSub.remove(syst_var_idet_rm_lst,"systematic")
-                        hPromptSub = hPromptSub.copy_sm()
+                        hPromptSub = hPromptSub.remove("systematic", syst_var_idet_rm_lst)
 
                         # now we actually make the subtraction
-                        hPromptSub.scale(-1)
-                        hFakes.add(hPromptSub)
+                        # var(A - B) = var(A) + var(B)
+                        if not key.endswith("_sumw2"):
+                            hPromptSub.scale(-1)
+                        hFakes += hPromptSub
                         # now adding them to the list of processes:
                         if newhist==None:
                             newhist=hFakes
                         else:
-                            newhist.add(hFakes)
+                            newhist += hFakes
 
             self.outHist[key]=newhist
 
