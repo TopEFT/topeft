@@ -12,7 +12,6 @@ import scipy
 import gzip
 import pickle
 import correctionlib
-
 from coffea.jetmet_tools import JECStack, CorrectedJetsFactory, CorrectedMETFactory
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
@@ -326,11 +325,6 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     eta = padded_Taus.eta
     gen = padded_Taus.genPartFlav
     mass= padded_Taus.mass
-
-    #pt_flat = ak.flatten(pt)
-    #eta_flat = ak.flatten(eta)
-    #dm_flat = ak.flatten(dm)
-    #gen_flat = ak.flatten(gen)
 
     ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
     DeepTaus = [

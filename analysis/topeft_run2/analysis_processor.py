@@ -13,9 +13,6 @@ from coffea.util import load
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
-from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper as clib_wrapper
-from coffea.lookup_tools.dense_lookup import dense_lookup
-
 from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
 import topcoffea.modules.event_selection as tc_es
@@ -383,15 +380,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
                 cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
                 events_cache = events.caches[0]
-                #cleanedJets_fields0 = cleanedJets.fields
                 cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
-                # SYSTEMATICS
                 cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
-                cleanedJets_fields1 = cleanedJets.fields
-                print("\n\n\n\n\n\n\n\n\n")
-                #print("cleanedJets fields before corrections:", cleanedJets_fields0)
-                print("cleanedJets fields after corrections:", cleanedJets_fields1)
-                print("\n\n\n\n\n\n\n\n\n")
                 met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
