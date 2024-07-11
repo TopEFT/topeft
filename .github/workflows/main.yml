@@ -89,8 +89,6 @@ jobs:
           cd dir_for_topcoffea
           git clone -b correction_lib_integration https://github.com/TopEFT/topcoffea.git
           cd topcoffea
-          git fetch --all
-          git rebase origin/TauSF_update -X theirs
           conda run -n coffea-env pip install -e .
           cd ../..
           conda run -n coffea-env pip install -e .
