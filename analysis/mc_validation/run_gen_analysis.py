@@ -258,7 +258,7 @@ if __name__ == '__main__':
                 extra_pip_local = {"topeft": ["topeft", "setup.py"]},
             ),
             'filepath': f'/project01/ndcms/{os.environ["USER"]}',
-            'extra_input_files': ["mc_validation_gen_processor.py"],
+            'extra_input_files': ["gen_photon_processor.py"],
 
             'retries': 5,
 
