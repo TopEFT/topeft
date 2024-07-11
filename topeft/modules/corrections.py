@@ -380,8 +380,8 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     DT_do_flat = None
     for idr, DT_sf_discr in enumerate(DT_sf_list):
         DT_sf_discr = ak.to_numpy(DT_sf_discr)
-        DT_up_discr = ak.to_numpy(DT_up_perbin[idr])
-        DT_do_discr = ak.to_numpy(DT_do_perbin[idr])
+        DT_up_discr = ak.to_numpy(DT_up_list[idr])
+        DT_do_discr = ak.to_numpy(DT_do_list[idr])
         if idr == 0:
             DT_sf_flat = DT_sf_discr
             DT_up_flat = DT_up_discr
@@ -426,7 +426,7 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     ## final step for correction-lib
     DT_sf *= new_fake_sf
     DT_up *= new_fake_sf_up
-    DT_down *= new_fake_sf_down
+    DT_do *= new_fake_sf_down
 
     events["sf_2l_taus"] = padded_Taus.sf_tau[:,0]
     events["sf_2l_taus_hi"] = padded_Taus.sf_tau_up[:,0]
