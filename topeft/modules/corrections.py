@@ -335,7 +335,7 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
 
     DT_sf_list = []
     DT_up_list = []
-    DT_down_list = []
+    DT_do_list = []
 
     pt_mask_flat = ak.flatten((pt>20) & (pt<205))
 
@@ -367,7 +367,7 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
             )
         )
         args_down = args + ["down"]
-        DT_down_list.append(
+        DT_do_list.append(
             ak.where(
                 ~tau_mask,
                 1,
