@@ -308,11 +308,10 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     padded_Taus["sf_tau_up"] = 1.0
     padded_Taus["sf_tau_down"] = 1.0
 
+    clib_year = year
     if year.startswith("2016"):
         clib_year = "2016preVFP" if year == "2016APV" else "2016postVFP"
-    else:
-        clib_year = year
-
+     
     runII = ["16", "17", "18"]
 
     clib_json = clib_year + "_UL" if any(runIIyear in clib_year for runIIyear in runII) else clib_year
