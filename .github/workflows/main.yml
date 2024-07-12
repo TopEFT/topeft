@@ -110,7 +110,7 @@ jobs:
       - name: Pytest setup
         run: |
           conda install -y -n coffea-env -c conda-forge pytest pytest-cov root_base
-          mkdir histos
+          mkdir cards
 
       - name: Test make 1d quad plots
         run: |
@@ -144,3 +144,12 @@ jobs:
           flags: unittests
           name: codecov-umbrella
           verbose: true
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: results
+          path: |
+            tmp_quad_plos*/
+            cards
+            analysis/topeft_run2/histos
