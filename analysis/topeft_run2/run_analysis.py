@@ -7,8 +7,7 @@ import cloudpickle
 import gzip
 import os
 
-import numpy as np
-from coffea import hist, processor
+from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
 import topcoffea.modules.utils as utils
@@ -321,7 +320,7 @@ if __name__ == '__main__':
     tstart = time.time()
 
     if executor == "futures":
-        exec_instance = processor.FuturesExecutor(workers=nworkers)
+        exec_instance = processor.futures_executor(workers=nworkers)
         runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
     elif executor ==  "work_queue":
         executor = processor.WorkQueueExecutor(**executor_args)
@@ -334,9 +333,9 @@ if __name__ == '__main__':
     if executor == "work_queue":
         print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
 
-    nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
+    #nbins = sum(sum(arr.size for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
+    #nfilled = sum(sum(np.sum(arr > 0) for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
+    #print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
     if executor == "futures":
         print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))

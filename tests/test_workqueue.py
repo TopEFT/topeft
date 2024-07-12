@@ -1,5 +1,5 @@
 import subprocess
-from work_queue import Factory
+from ndcctools.work_queue import Factory
 from os.path import exists
 
 

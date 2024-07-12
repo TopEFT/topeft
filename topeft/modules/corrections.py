@@ -3,11 +3,12 @@
  into coffea format of corrections.
 '''
 
-from coffea import hist, lookup_tools
+from coffea import lookup_tools
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
 import numpy as np
 import awkward as ak
+import scipy
 import gzip
 import pickle
 from coffea.jetmet_tools import JECStack, CorrectedJetsFactory, CorrectedMETFactory
@@ -407,7 +408,7 @@ def AttachPerLeptonFR(leps, flavor, year):
     else: raise Exception(f"Not a known year: {year}")
     with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
         flip_hist = pickle.load(fin)
-        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axis("pt").edges(),flip_hist.axis("eta").edges()])
+        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
 
     # Get the fliprate scaling factor for the given year
     chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
@@ -565,26 +566,26 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
             else:
                 hists[k] = hin[k]
     h = hists['jetptetaflav']
-    hnum = h.integrate('WP', wp)
-    hden = h.integrate('WP', 'all')
+    hnum = h[{'WP': wp}]
+    hden = h[{'WP': 'all'}]
     getnum = lookup_tools.dense_lookup.dense_lookup(
-        hnum.values(overflow='over')[()],
+        hnum.values(flow=True)[1:,1:,1:], # Strip off underflow
         [
-            hnum.axis('pt').edges(),
-            hnum.axis('abseta').edges(),
-            hnum.axis('flav').edges()
+            hnum.axes['pt'].edges,
+            hnum.axes['abseta'].edges,
+            hnum.axes['flav'].edges
         ]
     )
     getden = lookup_tools.dense_lookup.dense_lookup(
-        hden.values(overflow='over')[()],
+        hden.values(flow=True)[1:,1:,1:],
         [
-            hden.axis('pt').edges(),
-            hnum.axis('abseta').edges(),
-            hden.axis('flav').edges()
+            hden.axes['pt'].edges,
+            hnum.axes['abseta'].edges,
+            hden.axes['flav'].edges
         ]
     )
-    values = hnum.values(overflow='over')[()]
-    edges = [hnum.axis('pt').edges(), hnum.axis('abseta').edges(), hnum.axis('flav').edges()]
+    values = hnum.values(flow=True)[1:,1:,1:]
+    edges = [hnum.axes['pt'].edges, hnum.axes['abseta'].edges, hnum.axes['flav'].edges]
     fun = lambda pt, abseta, flav: getnum(pt,abseta,flav)/getden(pt,abseta,flav)
     return fun
 
@@ -841,10 +842,36 @@ def ApplyRochesterCorrections(year, mu, is_data):
 #### Functions needed
 StackOverUnderflow = lambda v : [sum(v[0:2])] + v[2:-2] + [sum(v[-2:])]
 
+_coverage1sd = scipy.stats.norm.cdf(1) - scipy.stats.norm.cdf(-1)
+def clopper_pearson_interval(num, denom, coverage=_coverage1sd):
+    """Compute Clopper-Pearson coverage interval for a binomial distribution
+
+    Parameters
+    ----------
+        num : numpy.ndarray
+            Numerator, or number of successes, vectorized
+        denom : numpy.ndarray
+            Denominator or number of trials, vectorized
+        coverage : float, optional
+            Central coverage interval, defaults to 68%
+
+    c.f. http://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval
+    """
+    if np.any(num > denom):
+        raise ValueError(
+            "Found numerator larger than denominator while calculating binomial uncertainty"
+        )
+    lo = scipy.stats.beta.ppf((1 - coverage) / 2, num, denom - num + 1)
+    hi = scipy.stats.beta.ppf((1 + coverage) / 2, num + 1, denom - num)
+    interval = np.array([lo, hi])
+    interval[:, num == 0.0] = 0.0
+    interval[1, num == denom] = 1.0
+    return interval
+
 def GetClopperPearsonInterval(hnum, hden):
     ''' Compute Clopper-Pearson interval from numerator and denominator histograms '''
-    num = list(hnum.values(overflow='all')[()])
-    den = list(hden.values(overflow='all')[()])
+    num = list(hnum.values(flow=True)[()])
+    den = list(hden.values(flow=True)[()])
     if isinstance(num, list) and isinstance(num[0], np.ndarray):
         for i in range(len(num)):
             num[i] = np.array(StackOverUnderflow(list(num[i])), dtype=float)
@@ -857,16 +884,16 @@ def GetClopperPearsonInterval(hnum, hden):
     num = np.array(num)
     den = np.array(den)
     num[num>den] = den[num > den]
-    down, up = hist.clopper_pearson_interval(num, den)
+    down, up = clopper_pearson_interval(num, den)
     ratio = np.array(num, dtype=float) / den
     return [ratio, down, up]
 
 def GetEff(num, den):
     ''' Compute efficiency values from numerator and denominator histograms '''
     ratio, down, up = GetClopperPearsonInterval(num, den)
-    axis = num.axes()[0].name
-    bins = num.axis(axis).edges()
-    x    = num.axis(axis).centers()
+    axis = num.axes[0].name
+    bins = num.axes[axis].edges
+    x    = num.axes[axis].centers
     xlo  = bins[:-1]
     xhi  = bins[1:]
     return [[x, xlo-x, xhi-x],[ratio, down-ratio, up-ratio]]
@@ -900,9 +927,9 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     ratio[np.isnan(ratio)] = 1.0
     do[np.isnan(do)] = 0.0
     up[np.isnan(up)] = 0.0
-    GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
-    GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
-    GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axis('l0pt').edges(), h['hmn'].axis(axisY).edges()])
+    GetTrig   = lookup_tools.dense_lookup.dense_lookup(ratio, [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
+    GetTrigUp = lookup_tools.dense_lookup.dense_lookup(up   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
+    GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
     return [GetTrig, GetTrigDo, GetTrigUp]
 
 def GetTriggerSF(year, events, lep0, lep1):
