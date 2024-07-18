@@ -509,7 +509,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over categories and fill the dict
             weights_dict = {}
-            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "2los_ph", "2los_sf_ph","2los_of_ph","2los_sf_cr_ph","2los_CRZ_noph","2los_CRZ_ph","2los_CR_Zg_ULttg","2los_lowpTlep_CR","2los_newCRs"]:
+            for ch_name in ["2los", "2lss", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "2los_ph", "2los_sf_ph","2los_of_ph","2los_sf_cr_ph","2los_CRZ_noph","2los_CRZ_ph","2los_CR_Zg_ULttg","2los_lowpTlep_CR","2los_newCRs"]:
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
@@ -528,7 +528,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For data only
                 if isData:
-                    if ch_name in ["2l","2l_4t","2l_CR","2l_CRflip"]:
+                    if ch_name in ["2lss","2lss_4t","2lss_CR","2lss_CRflip"]:
                         weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
 
                 # For MC only
@@ -782,12 +782,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # This dictionary keeps track of which selections go with which SR categories
             sr_cat_dict = {
-                "2l" : {
+                "2los" : {
                     "atmost_3j"   : {
                         "lep_chan_lst" : ["2los_ph"],
                         "lep_flav_lst" : ["ee", "mm", "em"],
                         "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
-                    },
+                    }
+                },
+                "2lss" : {
                     "exactly_4j" : {
                         "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
                         "lep_flav_lst" : ["ee" , "em" , "mm"],
