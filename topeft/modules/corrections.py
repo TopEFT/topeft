@@ -287,19 +287,77 @@ SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
-def ApplyTES(events, Taus, isData):
+def ApplyTES(year, Taus, isData):
     if isData:
-        return Taus.pt
-    #padded_Taus = ak.pad_none(Taus,1)
-    #padded_Taus = ak.with_name(padded_Taus, "TauCandidate")
+        return (Taus.pt, Taus.mass)
     pt  = Taus.pt
     dm  = Taus.decayMode
     gen = Taus.genPartFlav
 
-    whereFlag = ((pt>20) & (pt<205) & (gen==5))
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
+    whereFlag = kinFlag & dmFlag #((pt>20) & (pt<205) & (gen==5) & (dm==0 | dm==1 | dm==10 | dm==11))
     tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
     return (Taus.pt*tes, Taus.mass*tes)
-    #return(Taus.pt*tes)
+
+def ApplyFES(year, Taus, isData):
+    if isData:
+        return (Taus.pt, Taus.mass)
+
+    eta  = Taus.eta
+    pt  = Taus.pt
+    dm  = Taus.decayMode
+    gen = Taus.genPartFlav
+
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1))
+    whereFlag = kinFlag & dmFlag
+    fes = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1)
+    return (Taus.pt*fes, Taus.mass*fes)
+
+def ApplyTESSystematic(year, Taus, syst_name):
+    if not syst_name.startswith('TES'):
+        return (Taus.pt, Taus.mass)
+
+    pt  = Taus.pt
+    dm  = Taus.decayMode
+    gen = Taus.genPartFlav
+
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
+    whereFlag = kinFlag & dmFlag
+    syst_lab = f'TauTES_{year}'
+
+    if syst_name.endswith("Up"):
+        syst_lab += '_up'
+    elif syst_name.endswith("Down"):
+        syst_lab += '_down'
+
+    tes_syst = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
+    return (Taus.pt*tes_syst, Taus.mass*tes_syst)
+
+def ApplyFESSystematic(year, Taus, syst_name):
+    if not syst_name.startswith('FES'):
+        return (Taus.pt, Taus.mass)
+
+    pt  = Taus.pt
+    eta  = Taus.eta
+    dm  = Taus.decayMode
+    gen = Taus.genPartFlav
+
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1))
+    whereFlag = kinFlag & dmFlag
+
+    syst_lab = f'TauFES_{year}'
+
+    if syst_name.endswith("Up"):
+        syst_lab += '_up'
+    elif syst_name.endswith("Down"):
+        syst_lab += '_down'
+
+    fes_syst = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1)
+    return (Taus.pt*fes_syst, Taus.mass*fes_syst)
 
 def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     padded_Taus = ak.pad_none(Taus,1)
@@ -430,7 +488,6 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     events["sf_2l_taus"] = padded_Taus.sf_tau[:,0]
     events["sf_2l_taus_hi"] = padded_Taus.sf_tau_up[:,0]
     events["sf_2l_taus_lo"] = padded_Taus.sf_tau_down[:,0]
-
 def AttachPerLeptonFR(leps, flavor, year):
     # Get the flip rates lookup object
     if year == "2016APV": flip_year_name = "UL16APV"
