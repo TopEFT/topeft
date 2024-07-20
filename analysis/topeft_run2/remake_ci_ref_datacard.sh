@@ -12,3 +12,5 @@ time python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_p
 # Run the datacard maker
 printf "\nRunning the datacard maker...\n"
 python make_cards.py histos/new_ref_histos_np.pkl.gz -d test --var-lst lj0pt --do-nuisance --ch-lst "2lss_p_4j" --selected-wcs-ref "test/selectedWCs_ref_ci.json"
+
+cp test/selectedWCs.txt test/selectedWCs_ref_ci.json
