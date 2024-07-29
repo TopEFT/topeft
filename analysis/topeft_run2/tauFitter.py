@@ -221,18 +221,6 @@ def main():
     parser.add_argument("-f", "--pkl-file-path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
     args = parser.parse_args()
 
-    # Whether or not to unit norm the plots
-    unit_norm_bool = args.unit_norm
-
-    # Make a tmp output directory in curren dir a different dir is not specified
-    timestamp_tag = datetime.datetime.now().strftime('%Y%m%d_%H%M')
-    save_dir_path = args.output_path
-    outdir_name = args.output_name
-    if args.include_timestamp_tag:
-        outdir_name = outdir_name + "_" + timestamp_tag
-    save_dir_path = os.path.join(save_dir_path,outdir_name)
-    os.mkdir(save_dir_path)
-
     # Get the histograms
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
     x_mc,y_mc,yerr_mc,x_data,y_data,yerr_data = getPoints(hin_dict)
