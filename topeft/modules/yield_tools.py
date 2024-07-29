@@ -2,7 +2,7 @@ import numpy as np
 import copy
 from topcoffea.modules.histEFT import HistEFT
 import topcoffea.modules.utils as utils
-from topeft.modules.compatibility import add_sumw2_stub
+#from topeft.modules.compatibility import add_sumw2_stub
 
 class YieldTools():
 
@@ -423,7 +423,7 @@ class YieldTools():
     #    - You pass a process name, and we select just that category from the process axis
     def get_yield(self, h, proc, rwgt_pt={}):
         h_vals = h[proc].eval(rwgt_pt)
-        h_vals = add_sumw2_stub(h_vals)
+        #h_vals = add_sumw2_stub(h_vals)
         if len(h_vals) != 0:  # I.e. dict is not empty, this process exists in this dict
             for i, (k, v) in enumerate(h_vals.items()):
                 v_sum = v[0].sum()
