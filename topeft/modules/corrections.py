@@ -205,17 +205,46 @@ extPhoSF = lookup_tools.extractor()
 # Muon: reco
 # pT vs super cluster eta
 extPhoSF.add_weight_sets(["PhotonMediumSF_2016 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16.root')])
-extPhoSF.add_weight_sets(["PhotonMediumSF_2016_statData statData %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16.root')])
-extPhoSF.add_weight_sets(["PhotonMediumSF_2016_statMC statMC %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2016_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16.root')])
 extPhoSF.add_weight_sets(["PhotonMediumSF_2016APV EGamma_SF2D %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16_postVFP.root')])
-extPhoSF.add_weight_sets(["PhotonMediumSF_2016APV_statData statData %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16_postVFP.root')])
-extPhoSF.add_weight_sets(["PhotonMediumSF_2016APV_statMC statMC %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2016APV_err EGamma_SF2D_err %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16_postVFP.root')])
 extPhoSF.add_weight_sets(["PhotonMediumSF_2017 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Medium_UL17.root')])
-extPhoSF.add_weight_sets(["PhotonMediumSF_2017_statData statData %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Medium_UL17.root')])
-extPhoSF.add_weight_sets(["PhotonMediumSF_2017_statMC statMC %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Medium_UL17.root')])
-extPhoSF.add_weight_sets(["PhotonMediumSF_2018 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL18.root')])
-extPhoSF.add_weight_sets(["PhotonMediumSF_2018_statData statData %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL18.root')])
-extPhoSF.add_weight_sets(["PhotonMediumSF_2018_statMC statMC %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL18.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2017_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Medium_UL17.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2018 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Med_UL18.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2018_statData statData %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Med_UL18.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2018_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Med_UL18.root')])
+extPhoSF.add_weight_sets(["SF_CSEV_Medium_2016_postVFP MediumID/SF_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["Staunc_CSEV_Medium_2016_postVFP MediumID/Staunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PUunc_CSEV_Medium_2016_postVFP MediumID/PUunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_postVFP.root')])
+#Model only in UL2017 and 18 extPhoSF.add_weight_sets(["Modelunc_CSEV_Medium_16_postVFP MediumID/Modelunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["SF_HasPix_Medium_2016_postVFP MediumID/SF_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["Staunc_HasPix_Medium_2016_postVFP MediumID/Staunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PUunc_HasPix_Medium_2016_postVFP MediumID/PUunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_postVFP.root')])
+#Model only in UL2017 and 18 extPhoSF.add_weight_sets(["Modelunc_HasPix_Medium_16_postVFP MediumID/Modelunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["SF_CSEV_Medium_2016_preVFP MediumID/SF_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["Staunc_CSEV_Medium_2016_preVFP MediumID/Staunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["PUunc_CSEV_Medium_2016_preVFP MediumID/PUunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_preVFP.root')])
+#Model only in UL2017 and 18 extPhoSF.add_weight_sets(["Modelunc_CSEV_Medium_16_preVFP MediumID/Modelunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["SF_HasPix_Medium_2016_preVFP MediumID/SF_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["Staunc_HasPix_Medium_2016_preVFP MediumID/Staunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["PUunc_HasPix_Medium_2016_preVFP MediumID/PUunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_preVFP.root')])
+#Model only in UL2017 and 18 extPhoSF.add_weight_sets(["Modelunc_HasPix_Medium_16_preVFP MediumID/Modelunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["SF_CSEV_Medium_2017 MediumID/SF_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["Staunc_CSEV_Medium_2017 MediumID/Staunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["PUunc_CSEV_Medium_2017 MediumID/PUunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["Modelunc_CSEV_Medium_2017 MediumID/Modelunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["SF_HasPix_Medium_2017 MediumID/SF_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["Staunc_HasPix_Medium_2017 MediumID/Staunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["PUunc_HasPix_Medium_2017 MediumID/PUunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["Modelunc_HasPix_Medium_2017 MediumID/Modelunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["SF_CSEV_Medium_2018 MediumID/SF_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["Staunc_CSEV_Medium_2018 MediumID/Staunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["PUunc_CSEV_Medium_2018 MediumID/PUunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["Modelunc_CSEV_Medium_2018 MediumID/Modelunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["SF_HasPix_Medium_2018 MediumID/SF_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["Staunc_HasPix_Medium_2018 MediumID/Staunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["PUunc_HasPix_Medium_2018 MediumID/PUunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["Modelunc_HasPix_Medium_2018 MediumID/Modelunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL18.root')])
 
 extPhoSF.finalize()
 PhoSFevaluator = extPhoSF.make_evaluator()
@@ -433,13 +462,58 @@ def AttachPhotonSF(photons, year):
     '''
     sieie = np.abs(photons.sieie)
     pt = photons.pt
+    eta = photons.eta
+    aeta = np.abs(photons.eta)
+    r9 = photons.r9
     if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
-    tight_sf  = PhoSFevaluator['PhotonTightSF_{year}'.format(year=year)](sieie,pt)
-    tight_err = PhoSFevaluator['PhotonTightSF_{year}_err'.format(year=year)](sieie,pt)
+    photon_sf  = PhoSFevaluator['PhotonMediumSF_{year}'.format(year=year)](sieie,pt)
+    photon_err = np.power(PhoSFevaluator['PhotonMediumSF_{year}_err'.format(year=year)](sieie,pt), 2)
 
-    photons['sf_nom_photon'] = tight_sf
-    photons['sf_hi_photon']  = (tight_sf + tight_err)
-    photons['sf_lo_photon']  = (tight_sf - tight_err)
+    sf_year = year
+    if '2016APV' in year:
+        sf_year = '2016_preVFP'
+    elif '2016' in year:
+        sf_year = '2016_postVFP'
+    '''
+    High R9 [R9 > 0.96], Low R9 [R9 < 0.96]
+    EB: |eta| < 1.5
+    EE: 1.5 > |eta| > 2.5
+    '''
+    r9_cut  = 0.96
+    eta_cut = 1.5
+    EBhR9 = (1 * ak.ones_like(r9))
+    EBlR9 = (2 * ak.ones_like(r9))
+    EEhR9 = (4 * ak.ones_like(r9))
+    EElR9 = (5 * ak.ones_like(r9))
+    for sf_type in ['CSEV', 'HasPix']:
+        EBlR9_sf = PhoSFevaluator[f'SF_{sf_type}_Medium_{sf_year}'](EBlR9)
+        EBhR9_sf = PhoSFevaluator[f'SF_{sf_type}_Medium_{sf_year}'](EBhR9)
+        EElR9_sf = PhoSFevaluator[f'SF_{sf_type}_Medium_{sf_year}'](EElR9)
+        EEhR9_sf = PhoSFevaluator[f'SF_{sf_type}_Medium_{sf_year}'](EEhR9)
+        tmp_sf = ak.ones_like(photon_sf)
+        tmp_sf = ak.where((aeta < eta_cut) & (r9<r9_cut), EBlR9_sf[aeta<eta_cut], tmp_sf)
+        tmp_sf = ak.where((aeta < eta_cut) & (r9>r9_cut), EBhR9_sf[aeta<eta_cut], tmp_sf)
+        tmp_sf = ak.where((aeta > eta_cut) & (r9<r9_cut), EElR9_sf[aeta<eta_cut], tmp_sf)
+        tmp_sf = ak.where((aeta > eta_cut) & (r9>r9_cut), EEhR9_sf[aeta<eta_cut], tmp_sf)
+        photon_sf = photon_sf + tmp_sf
+        for syst_type in ['Staunc', 'PUunc', 'Modelunc']:
+            if '16' in sf_year and 'Model' in syst_type:
+                #Model only in UL17 and 18 
+                continue
+            tmp_err = ak.ones_like(photon_err)
+            tmp_err  = ak.where((aeta < eta_cut) & (r9<r9_cut), 
+                         PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EBlR9)[aeta<eta_cut], tmp_err)
+            tmp_err  = ak.where((aeta < eta_cut) & (r9>r9_cut), 
+                         PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EBhR9)[aeta<eta_cut], tmp_err)
+            tmp_err  = ak.where((aeta > eta_cut) & (r9<r9_cut), 
+                         PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EElR9)[aeta<eta_cut], tmp_err)
+            tmp_err  = ak.where((aeta > eta_cut) & (r9>r9_cut), 
+                         PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EEhR9)[aeta<eta_cut], tmp_err)
+            photon_err = photon_err + np.power(tmp_err, 2)
+
+    photons['sf_nom_photon'] = photon_sf
+    photons['sf_hi_photon']  = np.sqrt(photon_sf + photon_err)
+    photons['sf_lo_photon']  = np.sqrt(photon_sf - photon_err)
 
 ###### Btag scale factors
 ################################################################
