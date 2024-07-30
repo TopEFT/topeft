@@ -498,16 +498,16 @@ def AttachPhotonSF(photons, year):
         photon_sf = photon_sf + tmp_sf
         for syst_type in ['Staunc', 'PUunc', 'Modelunc']:
             if '16' in sf_year and 'Model' in syst_type:
-                #Model only in UL17 and 18 
+                #Model only in UL17 and 18
                 continue
             tmp_err = ak.ones_like(photon_err)
-            tmp_err  = ak.where((aeta < eta_cut) & (r9<r9_cut), 
+            tmp_err  = ak.where((aeta < eta_cut) & (r9<r9_cut),
                          PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EBlR9)[aeta<eta_cut], tmp_err)
-            tmp_err  = ak.where((aeta < eta_cut) & (r9>r9_cut), 
+            tmp_err  = ak.where((aeta < eta_cut) & (r9>r9_cut),
                          PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EBhR9)[aeta<eta_cut], tmp_err)
-            tmp_err  = ak.where((aeta > eta_cut) & (r9<r9_cut), 
+            tmp_err  = ak.where((aeta > eta_cut) & (r9<r9_cut),
                          PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EElR9)[aeta<eta_cut], tmp_err)
-            tmp_err  = ak.where((aeta > eta_cut) & (r9>r9_cut), 
+            tmp_err  = ak.where((aeta > eta_cut) & (r9>r9_cut),
                          PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EEhR9)[aeta<eta_cut], tmp_err)
             photon_err = photon_err + np.power(tmp_err, 2)
 
