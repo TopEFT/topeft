@@ -70,7 +70,12 @@ jobs:
       - name: Add conda to system path
         run: |
           echo $CONDA/bin >> $GITHUB_PATH 
-
+      
+      - name: Set Swap Space
+        uses: pierotofy/set-swap-space@49819abfb41bd9b44fb781159c033dba90353a7c
+        with:
+          swap-size-gb: 10
+      
       - name: Create conda env and install dependencies
         run: |
           conda config --set channel_priority strict
@@ -82,7 +87,7 @@ jobs:
         run: |
           mkdir dir_for_topcoffea
           cd dir_for_topcoffea
-          git clone -b photonSFs https://github.com/TopEFT/topcoffea.git
+          git clone -b photon_seedveto https://github.com/TopEFT/topcoffea.git
           cd topcoffea
           conda run -n coffea-env pip install -e .
           cd ../..

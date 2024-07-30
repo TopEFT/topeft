@@ -8,7 +8,7 @@ import argparse
 
 # Lines that show up in the condor err files that we want to ignore
 IGNORE_LINES = [
-    "FutureWarning: In coffea version v0.8.0 (target date: 31 Dec 2022), this will be an error.",
+    "FutureWarning: In coffea version v2023.3.0 (target date: 31 Mar 2023), this will be an error.",
     "(Set coffea.deprecations_as_errors = True to get a stack trace now.)",
     "ImportError: coffea.hist is deprecated",
     "warnings.warn(message, FutureWarning)",
@@ -152,6 +152,8 @@ def main():
                 shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
                 if fname.endswith(".txt"): n_txt += 1
                 if fname.endswith(".root"): n_root += 1
+        #also copy the selectedWCs.txt file
+        shutil.copyfile(os.path.join(args.datacards_path,"selectedWCs.txt"),os.path.join(ptzlj0pt_path,"selectedWCs.txt"))
 
         # Check that we got the expected number and print what we learn
         print(f"\tNumber of text templates copied: {n_txt}")

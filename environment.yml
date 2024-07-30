@@ -4,10 +4,11 @@ channels:
 dependencies:
   - conda-forge::python=3.9
   - numpy=1.23.5
-  - coffea
+  - coffea=0.7.21
   - ndcctools
   - conda-pack
   - dill
   - xrootd
   - git
   - pyyaml
+  - setuptools==70.3.0
