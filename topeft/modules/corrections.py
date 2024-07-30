@@ -502,13 +502,13 @@ def AttachPhotonSF(photons, year):
                 continue
             tmp_err = ak.ones_like(photon_err)
             tmp_err  = ak.where((aeta < eta_cut) & (r9<r9_cut),
-                         PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EBlR9)[aeta<eta_cut], tmp_err)
+                                PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EBlR9)[aeta<eta_cut], tmp_err)
             tmp_err  = ak.where((aeta < eta_cut) & (r9>r9_cut),
-                         PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EBhR9)[aeta<eta_cut], tmp_err)
+                                PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EBhR9)[aeta<eta_cut], tmp_err)
             tmp_err  = ak.where((aeta > eta_cut) & (r9<r9_cut),
-                         PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EElR9)[aeta<eta_cut], tmp_err)
+                                PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EElR9)[aeta<eta_cut], tmp_err)
             tmp_err  = ak.where((aeta > eta_cut) & (r9>r9_cut),
-                         PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EEhR9)[aeta<eta_cut], tmp_err)
+                                PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EEhR9)[aeta<eta_cut], tmp_err)
             photon_err = photon_err + np.power(tmp_err, 2)
 
     photons['sf_nom_photon'] = photon_sf
