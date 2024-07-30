@@ -500,8 +500,8 @@ def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
         events["retainedbyOverlap"] = criteria
 
     else: #might not be necessary
-        events["vetoedbyOverlap"] = np.ones(len(events), dtype=bool)
-        events["retainedbyOverlap"] = np.ones(len(events), dtype=bool)
+        events["vetoedbyOverlap"] = ak.ones_like(events.GenPart.pt, dtype=bool)
+        events["retainedbyOverlap"] = ak.ones_like(events.GenPart.pt, dtype=bool)
 
 
 def select_nonpromptphoton(events):
