@@ -3,7 +3,7 @@
         "2l": {
             "lep_chan_lst": [
                 [
-		    "2lss_pnew",
+		    "2lss_p",
 		    "2lss",
 		    "2l_p",
 		    "bmask_atleast1m2l_atmost2m"
