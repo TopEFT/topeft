@@ -561,11 +561,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("3l", (events.is3l & pass_trg))
             preselections.add("bmask_exactly1m", (bmask_exactly1med))
             preselections.add("bmask_exactly2m", (bmask_exactly2med))
-            preselections.add("3l_p", (charge3l_p))
-            preselections.add("3l_m", (charge3l_m))
-            #selections.add("3l_onZ", (sfosz_3l_OnZ_mask))
-            #selections.add("3l_offZ", (sfosz_3l_OffZ_mask))
+            preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
+            preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
+            preselections.add("onZ", (sfosz_3l_OnZ_mask))
+            preselections.add("offZ", (sfosz_3l_OffZ_mask))
             preselections.add("4l", (events.is4l & pass_trg))
+            preselections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg))
+            preselections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
+            preselections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg))
+            preselections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg))
+            preselections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
             
             ## Testing the parsing of the region definitions from jsons
             with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json_test:

@@ -8,6 +8,24 @@
 		    "2l_p",
 		    "bmask_atleast1m2l_atmost2m"
                 ]
+		[
+                    "2lss_m",
+                    "2lss",
+                    "2l_m",
+                    "bmask_atleast1m2l_atmost2m"
+                ]
+		[
+                    "2lss_p_4t",
+                    "2lss",
+                    "2l_p",
+                    "bmask_atleast1m2l_atleast3mm"
+                ]
+                [
+                    "2lss_m_4t",
+                    "2lss",
+                    "2l_m",
+                    "bmask_atleast1m2l_atleast3mm"
+                ]
             ],
             "lep_flav_lst": [
                 "ee",
@@ -28,5 +46,154 @@
                 "7"
             ]
         }
+	"3l": {
+            "lep_chan_lst": [
+                [
+                    "3l_onZ_1b",
+		    "3l",
+		    "onZ",
+		    "bmask_exactly1m"
+                ]
+		[
+                    "3l_onZ_2b",
+                    "3l",
+                    "onZ",
+                    "bmask_exactly2m"
+                ]
+		[
+                    "3l_m_offZ_1b",
+                    "3l_m",
+                    "offZ",
+                    "bmask_exactly1m"
+                ]
+		[
+                    "3l_m_offZ_2b",
+                    "3l_m",
+                    "offZ",
+                    "bmask_exactly2m"
+                ]
+		[
+                    "3l_p_offZ_1b",
+                    "3l_p",
+                    "offZ",
+                    "bmask_exactly1m"
+                ]
+                [
+                    "3l_p_offZ_2b",
+                    "3l_p",
+                    "offZ",
+                    "bmask_exactly2m"
+                ]
+            ],
+            "lep_flav_lst": [
+                "eee",
+                "eem",
+                "emm",
+		"mmm"
+            ],
+            "appl_lst": [
+                "isSR_3l",
+                "isAR_3l"
+            ],
+            "jet_lst": [
+                "2",
+                "3",
+                "4",
+                "5"
+            ]
+	}
+	"3l": {
+            "lep_chan_lst": [
+                [
+                    "4l",
+		    "4l"
+		]
+            ],
+            "lep_flav_lst": [
+		"llll"
+            ],
+            "appl_lst": [
+		"isSR_4l",
+		"isAR_4l"
+            ],
+            "jet_lst": [
+		"2",
+		"3",
+		"4",
+		"5"
+            ]
+        }
+	"2l_CR": {
+            "lep_chan_lst": [
+                [
+                    "2lss_CR",
+		    "2lss_CR",
+                    "2lss_CRflip"
+		]
+            ],
+	    "appl_lst": [
+	        "isSR_2lSS",
+                "isAR_2lSS"
+            ],
+	    "appl_lst_data": [
+                "isAR_2lSS_OS"
+            ],
+            "jet_lst": [
+		"0",
+		"1",
+		"2"
+            ]
+        }
+	"2los_CRZ": {
+            "lep_chan_lst": [
+                [
+                    "2los_CRZ",
+		    "2los_CRZ"
+                ]
+            ],
+            "appl_lst": [
+                "isSR_2lSS",
+                "isAR_2lSS"
+            ],
+            "appl_lst_data": [
+                "isAR_2lSS_OS"
+            ],
+            "jet_lst": [
+                "0"
+            ]
+        }
+	"2los_CRtt": {
+            "lep_chan_lst": [
+                [
+                    "2los_CRtt",
+		    "2los_CRtt"
+                ]
+            ],
+            "appl_lst": [
+                "isSR_2lSS",
+                "isAR_2lSS"
+            ],
+            "appl_lst_data": [
+                "isAR_2lSS_OS"
+            ],
+            "jet_lst": [
+                "2"
+            ]
+        }
+	"3l_CR": {
+            "lep_chan_lst": [
+	        [
+                    "3l_CR"
+                ]
+            ],
+	    "appl_lst": [
+                "isSR_3l",
+                "isAR_3l"
+            ],
+            "jet_lst": [
+                "0",
+		"1"
+            ]
+	}
      }
 }
