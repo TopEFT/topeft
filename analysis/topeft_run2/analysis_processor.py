@@ -518,6 +518,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             
             # Get mask for events that have two sf os leps close to z peak
             sfosz_3l_OnZ_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
+            sfosz_3l_OffZ_mask = ~sfosz_3l_OnZ_mask
             sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
             sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
             sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
@@ -552,85 +553,62 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("is_good_lumi",lumi_mask)
             preselections.add("is_good_lumi",lumi_mask)
             
-            # 2lss selection 
+            # 2lss selection
+            preselections.add("chargedl0", (chargel0_p | chargel0_m))
             preselections.add("2lss", (events.is2l & pass_trg))
-            preselections.add("bmask_atleast1m2l_atmost2m", (bmask_atleast1med_atleast2loose & bmask_atmost2med))
+            preselections.add("2l_nozeeveto", (events.is2l_nozeeveto & pass_trg))
+            preselections.add("2los", charge2l_0)
+            preselections.add("2lem", events.is_em)
+            preselections.add("2lee", events.is_ee)
+            preselections.add("2l_onZ_as", sfasz_2l_mask)
+            preselections.add("2l_onZ", sfosz_2l_mask)
             preselections.add("bmask_atleast3m", (bmask_atleast3med))
+            preselections.add("bmask_atleast1m2l", (bmask_atleast1med_atleast2loose))
+            preselections.add("bmask_atmost2m", (bmask_atmost2med))
             preselections.add("2l_p", (chargel0_p))
             preselections.add("2l_m", (chargel0_m))
             preselections.add("3l", (events.is3l & pass_trg))
+            preselections.add("bmask_exactly0m", (bmask_exactly0med))
             preselections.add("bmask_exactly1m", (bmask_exactly1med))
             preselections.add("bmask_exactly2m", (bmask_exactly2med))
             preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
             preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
-            preselections.add("onZ", (sfosz_3l_OnZ_mask))
-            preselections.add("offZ", (sfosz_3l_OffZ_mask))
+            preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
+            preselections.add("3l_offZ", (sfosz_3l_OffZ_mask))
+            preselections.add("3l_offZ_low", (sfosz_3l_OffZ_low_mask))
+            preselections.add("3l_offZ_any", (sfosz_3l_OffZ_any_mask))
             preselections.add("4l", (events.is4l & pass_trg))
-            preselections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg))
-            preselections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
-            preselections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg))
-            preselections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg))
-            preselections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
-            
-            ## Testing the parsing of the region definitions from jsons
+
+            select_cat_dict = None
             with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json_test:
-                select_cat_dict_test = json.load(ch_json_test)
-                #reading the macro analysis setup
-                if not self.offZ_split:
-                    import_sr_cat_dict_test = select_cat_dict_test["TOP22_006_CH_LST_SR"]
-                else:
-                    import_sr_cat_dict_test = select_cat_dict_test["OFFZ_SPLIT_CH_LST_SR"]
-
-                #looping over 2l, 3l, and so on
-                for lep_cat, lep_cat_dict in import_sr_cat_dict_test.items():
-                    lep_ch_list = lep_cat_dict['lep_chan_lst']
-                    #print("\n\n\n\n\n\n\n\n\n")
-                    #print("lep_cat", lep_cat)
-                    #print("lep_cat_dict", lep_cat_dict)
-                    #print("lep_ch_list", lep_ch_list)
-                    #print("\n\n\n\n\n\n\n\n\n")
-
-                    chtag = None
-                    #looping over each region within the lep category
-                    for lep_ch in lep_ch_list:
-                        #print("\n\n\n\n\n\n\n\n\n")
-                        #print("lep_ch", lep_ch)
-                        #print("\n\n\n\n\n\n\n\n\n")
-                        tempmask = None
-                        #the first entry of the list is the region name to add in "selections"
-                        chtag = lep_ch[0]
-                        
-                        for chcut in lep_ch[1:]:
-                            #print("\n\n\n\n\n\n\n\n\n")
-                            #print("lep_ch", lep_ch)
-                            #print("chtag", chtag)
-                            #print("chcut", chcut)
-                            #print("\n\n\n\n\n\n\n\n\n")
-                            if not tempmask is None:
-                                tempmask = tempmask & preselections.any(chcut)
-                            else:
-                                tempmask = preselections.any(chcut)
-                        
-                        #print("\n\n\n\n\n\n\n\n\n")
-                        #print("chtag, tempmask", chtag, tempmask)
-                        #print("\n\n\n\n\n\n\n\n\n")
-                        selections.add(chtag, tempmask)
+                select_cat_dict = json.load(ch_json_test)
             
-            #selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))
-            #print("\n\n\n\n\n\n\n\n\n\n\n")
-            #print("2lss_pnew", selections.any("2lss_pnew"))
-            #print("2lss_p", selections.any("2lss_p"))
-            #print(ak.to_list(ak.any(selections.any("2lss_pnew") != selections.any("2lss_p"))))
-            #print("\n\n\n\n\n\n\n\n\n\n")
+            #reading the macro analysis setup
+            if not self.offZ_split:
+                import_sr_cat_dict_test = select_cat_dict["TOP22_006_CH_LST_SR"]
+            else:
+                import_sr_cat_dict_test = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
 
-            selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
+            #Filling selections according to the json specifications
+            for lep_cat, lep_cat_dict in import_sr_cat_dict_test.items():
+                lep_ch_list = lep_cat_dict['lep_chan_lst']
+                chtag = None
 
-            selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
-            selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
+                #looping over each region within the lep category
+                for lep_ch in lep_ch_list:
+                    tempmask = None
+                    #the first entry of the list is the region name to add in "selections"
+                    chtag = lep_ch[0]
+                    
+                    for chcut in lep_ch[1:]:
+                        if not tempmask is None:
+                            tempmask = tempmask & preselections.any(chcut)
+                        else:
+                            tempmask = preselections.any(chcut)
+                    selections.add(chtag, tempmask)
 
-            selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
-
+            del preselections
+            
             # Lep flavor selection
             selections.add("ee",  events.is_ee)
             selections.add("em",  events.is_em)
@@ -738,60 +716,40 @@ class AnalysisProcessor(processor.ProcessorABC):
             cr_cat_dict = {}
 
             # This dictionary keeps track of which selections go with which SR categories
- 
-            with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
-                select_cat_dict = json.load(ch_json)
- 
-                if not self.offZ_split:
-                    import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
-                else:
-                    import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
-                
+            if not self.offZ_split:
+                import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
+            else:
+                import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
 
-                #print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-                #print("import_sr_cat_dict")
-                #for k, v in import_sr_cat_dict.items():
-                #    print(k, ":", v)
-                #print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-
-                for lep_cat in import_sr_cat_dict.keys():
-                    sr_cat_dict[lep_cat] = {}
-                    for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
-                        if jet_cat == import_sr_cat_dict[lep_cat]["jet_lst"][-1]:
-                            jet_key = "atleast_" + str(jet_cat) + "j"
-                        else:
-                            jet_key = "exactly_" + str(jet_cat) + "j"
-                        sr_cat_dict[lep_cat][jet_key] = {}
-                        sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_sr_cat_dict[lep_cat]["lep_chan_lst"]                            
-                        sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
-                        if isData and "appl_lst_data" in import_sr_cat_dict[lep_cat].keys():
-                            sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
-                        else:
-                            sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"]
+            for lep_cat in import_sr_cat_dict.keys():
+                sr_cat_dict[lep_cat] = {}
+                for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
+                    if jet_cat == import_sr_cat_dict[lep_cat]["jet_lst"][-1]:
+                        jet_key = "atleast_" + str(jet_cat) + "j"
+                    else:
+                        jet_key = "exactly_" + str(jet_cat) + "j"
+                    sr_cat_dict[lep_cat][jet_key] = {}
+                    sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_sr_cat_dict[lep_cat]["lep_chan_lst"]                        
+                    sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
+                    if isData and "appl_lst_data" in import_sr_cat_dict[lep_cat].keys():
+                        sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
+                    else:
+                        sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"]
 
             # This dictionary keeps track of which selections go with which CR categories
+            import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
 
-                import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
-
-
-                #print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-                #print("import_cr_cat_dict")
-                #for k, v in import_cr_cat_dict.items():
-                #    print(k, ":", v)
-                #print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
-
-
-                for lep_cat in import_cr_cat_dict.keys():
-                    cr_cat_dict[lep_cat] = {}
-                    for jet_cat in import_cr_cat_dict[lep_cat]["jet_lst"]:
-                        cr_cat_dict[lep_cat][jet_key] = {}
-                        cr_cat_dict[lep_cat][jet_key]["jet_lst"] = import_cr_cat_dict[lep_cat]["jet_lst"]
-                        cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_cr_cat_dict[lep_cat]["lep_chan_lst"]
-                        cr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_cr_cat_dict[lep_cat]["lep_flav_lst"]
-                        if isData and "appl_lst_data" in import_cr_cat_dict[lep_cat].keys():
-                            cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"] + import_cr_cat_dict[lep_cat]["appl_lst_data"]
-                        else:
-                            cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
+            for lep_cat in import_cr_cat_dict.keys():
+                cr_cat_dict[lep_cat] = {}
+                for jet_cat in import_cr_cat_dict[lep_cat]["jet_lst"]:
+                    cr_cat_dict[lep_cat][jet_key] = {}
+                    cr_cat_dict[lep_cat][jet_key]["jet_lst"] = import_cr_cat_dict[lep_cat]["jet_lst"]
+                    cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_cr_cat_dict[lep_cat]["lep_chan_lst"]
+                    cr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_cr_cat_dict[lep_cat]["lep_flav_lst"]
+                    if isData and "appl_lst_data" in import_cr_cat_dict[lep_cat].keys():
+                        cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"] + import_cr_cat_dict[lep_cat]["appl_lst_data"]
+                    else:
+                        cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
 
             # Include SRs and CRs unless we asked to skip them
             cat_dict = {}
@@ -877,7 +835,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Construct the hist name
                                         flav_ch = None
                                         njet_ch = None
-                                        cuts_lst = [appl,lep_chan]
+                                        cuts_lst = [appl,lep_chan[0]]
                                         if isData:
                                             cuts_lst.append("is_good_lumi")
                                         if self._split_by_lepton_flavor:
@@ -886,7 +844,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if dense_axis_name != "njets":
                                             njet_ch = njet_val
                                             cuts_lst.append(njet_val)
-                                        ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
+                                        ch_name = construct_cat_name(lep_chan[0],njet_str=njet_ch,flav_str=flav_ch)
 
                                         # Get the cuts mask for all selections
                                         if dense_axis_name == "njets":
