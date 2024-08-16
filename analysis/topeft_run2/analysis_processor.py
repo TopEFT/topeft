@@ -585,12 +585,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             
             #reading the macro analysis setup
             if not self.offZ_split:
-                import_sr_cat_dict_test = select_cat_dict["TOP22_006_CH_LST_SR"]
+                import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
             else:
-                import_sr_cat_dict_test = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
+                import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
 
             #Filling selections according to the json specifications
-            for lep_cat, lep_cat_dict in import_sr_cat_dict_test.items():
+            for lep_cat, lep_cat_dict in import_sr_cat_dict.items():
                 lep_ch_list = lep_cat_dict['lep_chan_lst']
                 chtag = None
 
@@ -709,17 +709,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
 
-
             ########## Fill the histograms ##########
 
             sr_cat_dict = {}
             cr_cat_dict = {}
-
-            # This dictionary keeps track of which selections go with which SR categories
-            if not self.offZ_split:
-                import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
-            else:
-                import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
 
             for lep_cat in import_sr_cat_dict.keys():
                 sr_cat_dict[lep_cat] = {}
@@ -729,7 +722,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                     else:
                         jet_key = "exactly_" + str(jet_cat) + "j"
                     sr_cat_dict[lep_cat][jet_key] = {}
-                    sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_sr_cat_dict[lep_cat]["lep_chan_lst"]                        
+                    sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
+                    for lep_chan_def in import_sr_cat_dict[lep_cat]["lep_chan_lst"]:
+                        sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0]) #= lep_chan_def[0]import_sr_cat_dict[lep_cat]["lep_chan_lst"]                        
                     sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
                     if isData and "appl_lst_data" in import_sr_cat_dict[lep_cat].keys():
                         sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
@@ -744,13 +739,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                 for jet_cat in import_cr_cat_dict[lep_cat]["jet_lst"]:
                     cr_cat_dict[lep_cat][jet_key] = {}
                     cr_cat_dict[lep_cat][jet_key]["jet_lst"] = import_cr_cat_dict[lep_cat]["jet_lst"]
-                    cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = import_cr_cat_dict[lep_cat]["lep_chan_lst"]
+                    cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
+                    for lep_chan_def in import_cr_cat_dict[lep_cat]["lep_chan_lst"]:
+                        cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0])
                     cr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_cr_cat_dict[lep_cat]["lep_flav_lst"]
                     if isData and "appl_lst_data" in import_cr_cat_dict[lep_cat].keys():
                         cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"] + import_cr_cat_dict[lep_cat]["appl_lst_data"]
                     else:
                         cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
 
+            del import_sr_cat_dict, import_cr_cat_dict
             # Include SRs and CRs unless we asked to skip them
             cat_dict = {}
             if not self._skip_signal_regions:
@@ -762,7 +760,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if k in cr_cat_dict:
                         raise Exception(f"The key {k} is in both CR and SR dictionaries.")
 
-
+            print("\n\n\n\n\n\n")
+            print("cat dict")
+            print(cat_dict)
+            print("\n\n\n\n\n\n")
             # Loop over the hists we want to fill
             for dense_axis_name, dense_axis_vals in varnames.items():
                 if dense_axis_name not in self._hist_lst:
@@ -835,7 +836,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Construct the hist name
                                         flav_ch = None
                                         njet_ch = None
-                                        cuts_lst = [appl,lep_chan[0]]
+                                        cuts_lst = [appl,lep_chan]
                                         if isData:
                                             cuts_lst.append("is_good_lumi")
                                         if self._split_by_lepton_flavor:
@@ -844,7 +845,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if dense_axis_name != "njets":
                                             njet_ch = njet_val
                                             cuts_lst.append(njet_val)
-                                        ch_name = construct_cat_name(lep_chan[0],njet_str=njet_ch,flav_str=flav_ch)
+                                        ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
 
                                         # Get the cuts mask for all selections
                                         if dense_axis_name == "njets":
@@ -867,11 +868,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             dense_axis_name : dense_axis_vals[all_cuts_mask],
                                             "channel"       : ch_name,
                                             "appl"          : appl,
-                                            "process"        : histAxisName,
+                                            "process"       : histAxisName,
                                             "systematic"    : wgt_fluct,
                                             "weight"        : weights_flat,
                                             "eft_coeff"     : eft_coeffs_cut,
-                                            "eft_err_coeff" : eft_w2_coeffs_cut,
                                         }
 
                                         # Skip histos that are not defined (or not relevant) to given categories
