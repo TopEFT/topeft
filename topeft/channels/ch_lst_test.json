@@ -62,7 +62,7 @@
                     "3l_onZ_2b",
                     "3l",
                     "3l_onZ",
-                    "bmask_exactly2m"
+                    "bmask_atleast2m"
                 ],
 		[
                     "3l_m_offZ_1b",
@@ -74,7 +74,7 @@
                     "3l_m_offZ_2b",
                     "3l_m",
                     "3l_offZ",
-                    "bmask_exactly2m"
+                    "bmask_atleast2m"
                 ],
 		[
                     "3l_p_offZ_1b",
@@ -86,7 +86,7 @@
                     "3l_p_offZ_2b",
                     "3l_p",
                     "3l_offZ",
-                    "bmask_exactly2m"
+                    "bmask_atleast2m"
                 ]
             ],
             "lep_flav_lst": [
@@ -193,11 +193,8 @@
 		"mm"
             ],
             "appl_lst": [
-                "isSR_2lSS",
-                "isAR_2lSS"
-            ],
-            "appl_lst_data": [
-                "isAR_2lSS_OS"
+                "isSR_2lOS",
+                "isAR_2lOS"
             ],
             "jet_lst": [
                 ">0"
@@ -217,11 +214,8 @@
 		"em"
             ],
             "appl_lst": [
-                "isSR_2lSS",
-                "isAR_2lSS"
-            ],
-            "appl_lst_data": [
-                "isAR_2lSS_OS"
+                "isSR_2lOS",
+                "isAR_2lOS"
             ],
             "jet_lst": [
                 "=2"
