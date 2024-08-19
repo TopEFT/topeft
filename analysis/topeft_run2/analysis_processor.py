@@ -31,6 +31,134 @@ get_te_param = GetParam(topeft_path("params/params.json"))
 
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 
+def generate_sr_cat_dict_hardcoded(isData):
+    sr_cat_dict = {
+        "2l": {
+            "exactly_4j": {
+                "lep_chan_lst": ["2lss_p", "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                "lep_flav_lst": ["ee", "em", "mm"],
+                "appl_lst": ["isSR_2lSS", "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+            },
+            "exactly_5j": {
+                "lep_chan_lst": ["2lss_p", "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                "lep_flav_lst": ["ee", "em", "mm"],
+                "appl_lst": ["isSR_2lSS", "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+            },
+            "exactly_6j": {
+                "lep_chan_lst": ["2lss_p", "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                "lep_flav_lst": ["ee", "em", "mm"],
+                "appl_lst": ["isSR_2lSS", "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+            },
+            "atleast_7j": {
+                "lep_chan_lst": ["2lss_p", "2lss_m", "2lss_4t_p", "2lss_4t_m"],
+                "lep_flav_lst": ["ee", "em", "mm"],
+                "appl_lst": ["isSR_2lSS", "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+            },
+        },
+        "3l": {
+            "exactly_2j": {
+                "lep_chan_lst": [
+                    "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b",
+                ],
+                "lep_flav_lst": ["eee", "eem", "emm", "mmm"],
+                "appl_lst": ["isSR_3l", "isAR_3l"],
+            },
+            "exactly_3j": {
+                "lep_chan_lst": [
+                    "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b",
+                ],
+                "lep_flav_lst": ["eee", "eem", "emm", "mmm"],
+                "appl_lst": ["isSR_3l", "isAR_3l"],
+            },
+            "exactly_4j": {
+                "lep_chan_lst": [
+                    "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b",
+                ],
+                "lep_flav_lst": ["eee", "eem", "emm", "mmm"],
+                "appl_lst": ["isSR_3l", "isAR_3l"],
+            },
+            "atleast_5j": {
+                "lep_chan_lst": [
+                    "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b",
+                ],
+                "lep_flav_lst": ["eee", "eem", "emm", "mmm"],
+                "appl_lst": ["isSR_3l", "isAR_3l"],
+            },
+        },
+        "4l": {
+            "exactly_2j": {
+                "lep_chan_lst": ["4l"],
+                "lep_flav_lst": ["llll"],  # Not keeping track of these separately
+                "appl_lst": ["isSR_4l"],
+            },
+            "exactly_3j": {
+                "lep_chan_lst": ["4l"],
+                "lep_flav_lst": ["llll"],  # Not keeping track of these separately
+                "appl_lst": ["isSR_4l"],
+            },
+            "atleast_4j": {
+                "lep_chan_lst": ["4l"],
+                "lep_flav_lst": ["llll"],  # Not keeping track of these separately
+                "appl_lst": ["isSR_4l"],
+            },
+        },
+    }
+    return sr_cat_dict
+
+def generate_cr_cat_dict_hardcoded(isData):
+    cr_cat_dict = {
+        "2l_CRflip" : {
+            "atmost_3j" : {
+                "lep_chan_lst" : ["2lss_CRflip"],
+                "lep_flav_lst" : ["ee"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+            },
+        },
+        "2l_CR" : {
+            "exactly_1j" : {
+                "lep_chan_lst" : ["2lss_CR"],
+                "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+            },
+            "exactly_2j" : {
+                "lep_chan_lst" : ["2lss_CR"],
+                "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+            },
+            "exactly_3j" : {
+                "lep_chan_lst" : ["2lss_CR"],
+                "lep_flav_lst" : ["ee" , "em" , "mm"],
+                "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
+            },
+        },
+        "3l_CR" : {
+            "exactly_0j" : {
+                "lep_chan_lst" : ["3l_CR"],
+                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                "appl_lst"     : ["isSR_3l" , "isAR_3l"],
+            },
+            "atleast_1j" : {
+                "lep_chan_lst" : ["3l_CR"],
+                "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
+                "appl_lst"     : ["isSR_3l" , "isAR_3l"],
+            },
+        },
+        "2los_CRtt" : {
+            "exactly_2j"   : {
+                "lep_chan_lst" : ["2los_CRtt"],
+                "lep_flav_lst" : ["em"],
+                "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+            },
+        },
+        "2los_CRZ" : {
+            "atleast_0j"   : {
+                "lep_chan_lst" : ["2los_CRZ"],
+                "lep_flav_lst" : ["ee", "mm"],
+                "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
+            },
+        },
+    }
+    return cr_cat_dict
 
 # Takes strings as inputs, constructs a string for the full channel name
 # Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
@@ -789,6 +917,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                         cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
 
             del import_sr_cat_dict, import_cr_cat_dict
+            sr_cat_dict_top = generate_sr_cat_dict_hardcoded(isData)
+            cr_cat_dict_top = generate_cr_cat_dict_hardcoded(isData)
+            assert sr_cat_dict == sr_cat_dict_top, "SR Cat Dictionaries do not match!"
+            assert cr_cat_dict == cr_cat_dict_top, "SR Cat Dictionaries do not match!"
+
             # Include SRs and CRs unless we asked to skip them
             cat_dict = {}
             if not self._skip_signal_regions:
@@ -800,10 +933,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if k in cr_cat_dict:
                         raise Exception(f"The key {k} is in both CR and SR dictionaries.")
                 
-            print("\n\n\n\n\n\n")
-            print("cat dict")
-            print(cat_dict)
-            print("\n\n\n\n\n\n")
+            #print("\n\n\n\n\n\n")
+            #print("cat dict")
+            #print(cat_dict)
+            #print("\n\n\n\n\n\n")
             # Loop over the hists we want to fill
             for dense_axis_name, dense_axis_vals in varnames.items():
                 if dense_axis_name not in self._hist_lst:
@@ -858,7 +991,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         # Useful in cases like njets hist where we don't store njets in a sparse axis
                         njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
 
-                        print("\n\n\n\n\n\n\n\n\n\n\n\n\n")
+                        #print("\n\n\n\n\n\n\n\n\n\n\n\n\n")
                         # Loop over the njets list for each channel
                         for njet_val in cat_dict[nlep_cat].keys():
 
@@ -924,9 +1057,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
-                                        print("dense_axis_name:", dense_axis_name)
-                                        print(axes_fill_info_dict)
-                                        hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                        #print("dense_axis_name:", dense_axis_name)
+                                        #print(axes_fill_info_dict)
+                                        #hout[dense_axis_name].fill(**axes_fill_info_dict)
                                         axes_fill_info_dict = {
                                             dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
                                             "channel"       : ch_name,
