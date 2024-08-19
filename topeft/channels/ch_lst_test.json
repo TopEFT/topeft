@@ -44,10 +44,10 @@
                 "isAR_2lSS_OS"
             ],
             "jet_lst": [
-                "4",
-                "5",
-                "6",
-                "7"
+                "=4",
+                "=5",
+                "=6",
+                ">7"
             ]
         },
 	"3l": {
@@ -100,17 +100,18 @@
                 "isAR_3l"
             ],
             "jet_lst": [
-                "2",
-                "3",
-                "4",
-                "5"
+                "=2",
+                "=3",
+                "=4",
+                ">5"
             ]
 	},
 	"4l": {
             "lep_chan_lst": [
                 [
                     "4l",
-		    "4l"
+		    "4l",
+		    "bmask_atleast1m2l"
 		]
             ],
             "lep_flav_lst": [
@@ -120,10 +121,9 @@
 		"isSR_4l"
             ],
             "jet_lst": [
-		"2",
-		"3",
-		"4",
-		"5"
+		"=2",
+		"=3",
+		">4"
             ]
         }
     },
@@ -135,31 +135,6 @@
 		    "chargedl0",
 		    "2lss",
 		    "bmask_exactly1m"
-		]
-            ],
-            "lep_flav_lst": [
-		"ee"
-            ],
-	    "appl_lst": [
-	        "isSR_2lSS",
-                "isAR_2lSS"
-            ],
-	    "appl_lst_data": [
-                "isAR_2lSS_OS"
-            ],
-            "jet_lst": [
-		"0",
-		"1",
-		"2"
-            ]
-        },
-	"2l_CRflip": {
-            "lep_chan_lst": [
-                [
-                    "2lss_CRflip",
-		    "2l_nozeeveto",
-		    "2lee",
-		    "2l_onZ_as"
 		]
             ],
             "lep_flav_lst": [
@@ -175,9 +150,32 @@
                 "isAR_2lSS_OS"
             ],
             "jet_lst": [
-		"0",
-		"1",
-		"2"
+		"=1",
+		"=2",
+		"=3"
+            ]
+        },
+	"2l_CRflip": {
+            "lep_chan_lst": [
+                [
+                    "2lss_CRflip",
+		    "2l_nozeeveto",
+		    "2lee",
+		    "2l_onZ_as"
+		]
+            ],
+            "lep_flav_lst": [
+		"ee"
+            ],
+	    "appl_lst": [
+	        "isSR_2lSS",
+                "isAR_2lSS"
+            ],
+	    "appl_lst_data": [
+                "isAR_2lSS_OS"
+            ],
+            "jet_lst": [
+		"<3"
             ]
         },
 	"2los_CRZ": {
@@ -202,7 +200,7 @@
                 "isAR_2lSS_OS"
             ],
             "jet_lst": [
-                "0"
+                ">0"
             ]
         },
 	"2los_CRtt": {
@@ -226,7 +224,7 @@
                 "isAR_2lSS_OS"
             ],
             "jet_lst": [
-                "2"
+                "=2"
             ]
         },
 	"3l_CR": {
@@ -243,14 +241,13 @@
 		"emm",
 		"mmm"
             ],
-
 	    "appl_lst": [
                 "isSR_3l",
                 "isAR_3l"
             ],
             "jet_lst": [
-                "0",
-		"1"
+                "=0",
+		">1"
             ]
 	}
     }

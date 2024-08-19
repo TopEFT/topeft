@@ -583,13 +583,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json_test:
                 select_cat_dict = json.load(ch_json_test)
             
-            #reading the macro analysis setup
+            # This dictionary keeps track of which selections go with which SR categories
             if not self.offZ_split:
                 import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
             else:
                 import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
 
-            #Filling selections according to the json specifications
+            # This dictionary keeps track of which selections go with which CR categories
+            import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+
+            #Filling selections according to the json specifications for SRs
             for lep_cat, lep_cat_dict in import_sr_cat_dict.items():
                 lep_ch_list = lep_cat_dict['lep_chan_lst']
                 chtag = None
@@ -607,6 +610,26 @@ class AnalysisProcessor(processor.ProcessorABC):
                             tempmask = preselections.any(chcut)
                     selections.add(chtag, tempmask)
 
+                    #Filling selections according to the json specifications for CRs
+
+            for lep_cat, lep_cat_dict in import_cr_cat_dict.items():
+                lep_ch_list = lep_cat_dict['lep_chan_lst']
+                chtag = None
+
+                #looping over each region within the lep category
+                for lep_ch in lep_ch_list:
+                    tempmask = None
+                    #the first entry of the list is the region name to add in "selections"
+                    chtag = lep_ch[0]
+                    
+                    for chcut in lep_ch[1:]:
+                        if not tempmask is None:
+                            tempmask = tempmask & preselections.any(chcut)
+                        else:
+                            tempmask = preselections.any(chcut)
+                    selections.add(chtag, tempmask)
+
+    
             del preselections
             
             # Lep flavor selection
@@ -717,14 +740,21 @@ class AnalysisProcessor(processor.ProcessorABC):
             for lep_cat in import_sr_cat_dict.keys():
                 sr_cat_dict[lep_cat] = {}
                 for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
-                    if jet_cat == import_sr_cat_dict[lep_cat]["jet_lst"][-1]:
-                        jet_key = "atleast_" + str(jet_cat) + "j"
+                    jettag = None
+                    if jet_cat.startswith("="):
+                        jettag = "exactly_"
+                    elif jet_cat.startswith("<"):
+                        jettag = "atmost_"
+                    elif jet_cat.startswith(">"):
+                        jettag = "atleast_"
                     else:
-                        jet_key = "exactly_" + str(jet_cat) + "j"
+                        raise RuntimeError(f"jet_cat {jet_cat} in {lep_cat} misses =,<,> !")
+                    jet_key = jettag + str(jet_cat).replace("=", "").replace("<", "").replace(">", "") + "j"
+
                     sr_cat_dict[lep_cat][jet_key] = {}
                     sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
                     for lep_chan_def in import_sr_cat_dict[lep_cat]["lep_chan_lst"]:
-                        sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0]) #= lep_chan_def[0]import_sr_cat_dict[lep_cat]["lep_chan_lst"]                        
+                        sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0]) 
                     sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
                     if isData and "appl_lst_data" in import_sr_cat_dict[lep_cat].keys():
                         sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
@@ -737,8 +767,18 @@ class AnalysisProcessor(processor.ProcessorABC):
             for lep_cat in import_cr_cat_dict.keys():
                 cr_cat_dict[lep_cat] = {}
                 for jet_cat in import_cr_cat_dict[lep_cat]["jet_lst"]:
+                    jettag = None
+                    if jet_cat.startswith("="):
+                        jettag = "exactly_"
+                    elif jet_cat.startswith("<"):
+                        jettag = "atmost_"
+                    elif jet_cat.startswith(">"):
+                        jettag = "atleast_"
+                    else:
+                        raise RuntimeError(f"jet_cat {jet_cat} in {lep_cat} misses =,<,> !")
+                    jet_key = jettag + str(jet_cat).replace("=", "").replace("<", "").replace(">", "") + "j"
+
                     cr_cat_dict[lep_cat][jet_key] = {}
-                    cr_cat_dict[lep_cat][jet_key]["jet_lst"] = import_cr_cat_dict[lep_cat]["jet_lst"]
                     cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
                     for lep_chan_def in import_cr_cat_dict[lep_cat]["lep_chan_lst"]:
                         cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0])
@@ -759,7 +799,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 for k in sr_cat_dict:
                     if k in cr_cat_dict:
                         raise Exception(f"The key {k} is in both CR and SR dictionaries.")
-
+                
             print("\n\n\n\n\n\n")
             print("cat dict")
             print(cat_dict)
@@ -818,6 +858,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         # Useful in cases like njets hist where we don't store njets in a sparse axis
                         njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
 
+                        print("\n\n\n\n\n\n\n\n\n\n\n\n\n")
                         # Loop over the njets list for each channel
                         for njet_val in cat_dict[nlep_cat].keys():
 
@@ -832,7 +873,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                     # Loop over the lep flavor list for each channel
                                     for lep_flav in cat_dict[nlep_cat][njet_val]["lep_flav_lst"]:
-
+                                        #print("HERE", cat_dict[nlep_cat][njet_val], lep_flav)
                                         # Construct the hist name
                                         flav_ch = None
                                         njet_ch = None
@@ -883,6 +924,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
+                                        print("dense_axis_name:", dense_axis_name)
+                                        print(axes_fill_info_dict)
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
                                         axes_fill_info_dict = {
                                             dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
