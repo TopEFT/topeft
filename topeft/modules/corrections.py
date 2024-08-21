@@ -1,3 +1,4 @@
+
 '''
  This script is used to transform scale factors, which are tipically provided as 2D histograms within root files,
  into coffea format of corrections.
@@ -27,6 +28,18 @@ basepathFromTTH = 'data/fromTTH/'
 ###### Lepton scale factors
 ################################################################
 extLepSF = lookup_tools.extractor()
+
+clib_year_map = {
+    "2016APV": "2016preVFP_UL",
+    "2016preVFP": "2016preVFP_UL",
+    "2016": "2016postVFP_UL",
+    "2017": "2017_UL",
+    "2018": "2018_UL",
+    "2022": "2022_Summer22",
+    "2022EE": "2022_Summer22EE",
+    "2023": "2022_Summer23",
+    "2023BPix": "2022_Summer23BPix",
+}
 
 # New UL Lepton SFs
 # Muon: reco ##clib ready
@@ -366,14 +379,8 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     padded_Taus["sf_tau_up"] = 1.0
     padded_Taus["sf_tau_down"] = 1.0
 
-    clib_year = year
-    if year.startswith("2016"):
-        clib_year = "2016preVFP" if year == "2016APV" else "2016postVFP"
-
-    runII = ["16", "17", "18"]
-
-    clib_json = clib_year + "_UL" if any(runIIyear in clib_year for runIIyear in runII) else clib_year
-    json_path = topcoffea_path(f"data/POG/TAU/{clib_json}/tau.json.gz")
+    clib_year = clib_year_map[year]
+    json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
 
     pt  = padded_Taus.pt
@@ -587,16 +594,8 @@ def AttachMuonSF(muons, year):
         SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt) * SFevaluator['MuonLooseSF_{year}_syst'.format(year=year)](eta,pt)
     )
 
-    if year.startswith("2016"):
-        clib_year = "2016preVFP" if year == "2016APV" else "2016postVFP"
-    else:
-        clib_year = year
-
-    runII = ["16", "17", "18"]
-
-    ## General setup to use correction-lib
-    clib_json = clib_year + "_UL" if any(runIIyear in clib_year for runIIyear in runII) else clib_year
-    json_path = topcoffea_path(f"data/POG/MUO/{clib_json}/muon_Z.json.gz")
+    clib_year = clib_year_map[year]
+    json_path = topcoffea_path(f"data/POG/MUO/{clib_year}/muon_Z.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
 
     pt_flat = ak.flatten(pt)
@@ -705,10 +704,8 @@ def AttachElectronSF(electrons, year):
     else:
         clib_year = year
 
-    runII = ["16", "17", "18"]
-
-    clib_json = clib_year + "_UL" if any(runIIyear in clib_year for runIIyear in runII) else clib_year
-    json_path = topcoffea_path(f"data/POG/EGM/{clib_json}/electron.json.gz")
+    clib_year = clib_year_map[year]
+    json_path = topcoffea_path(f"data/POG/EGM/{clib_year}/electron.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
 
     eta_flat = ak.flatten(eta)
@@ -730,21 +727,21 @@ def AttachElectronSF(electrons, year):
             ak.where(
                 ~pt_mask,
                 1,
-                ceval["UL-Electron-ID-SF"].evaluate(clib_year,"sf", bintag, eta_flat, pt_bin_flat)
+                ceval["UL-Electron-ID-SF"].evaluate(clib_year.replace("_UL", ""),"sf", bintag, eta_flat, pt_bin_flat)
             )
         )
         reco_up_perbin.append(
             ak.where(
                 ~pt_mask,
                 1,
-                ceval["UL-Electron-ID-SF"].evaluate(clib_year,"sfup", bintag, eta_flat, pt_bin_flat)
+                ceval["UL-Electron-ID-SF"].evaluate(clib_year.replace("_UL", ""),"sfup", bintag, eta_flat, pt_bin_flat)
             )
         )
         reco_do_perbin.append(
             ak.where(
                 ~pt_mask,
                 1,
-                ceval["UL-Electron-ID-SF"].evaluate(clib_year,"sfdown", bintag, eta_flat, pt_bin_flat)
+                ceval["UL-Electron-ID-SF"].evaluate(clib_year.replace("_UL", ""),"sfdown", bintag, eta_flat, pt_bin_flat)
             )
         )
 
