@@ -1,0 +1,27 @@
+{
+  "xsec": 0.1651,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "WWZ_4F_centralUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16_WWZ_4F/output_1214.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16_WWZ_4F/output_2598.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16_WWZ_4F/output_3089.root"
+  ],
+  "nEvents": 4662000,
+  "nGenEvents": 4662000,
+  "nSumOfWeights": 796209.4046733598,
+  "isData": false,
+  "nSumOfWeights_ISRUp": 796198.7993409799,
+  "nSumOfWeights_ISRDown": 796150.8952193428,
+  "nSumOfWeights_FSRUp": 795731.8389910822,
+  "nSumOfWeights_FSRDown": 796230.8263284294,
+  "nSumOfWeights_renormUp": 768849.1151299746,
+  "nSumOfWeights_renormDown": 829219.4480606623,
+  "nSumOfWeights_factUp": 784597.2275763297,
+  "nSumOfWeights_factDown": 810171.0372930017,
+  "nSumOfWeights_renormfactUp": 757686.4321834276,
+  "nSumOfWeights_renormfactDown": 844084.2740769014
+}

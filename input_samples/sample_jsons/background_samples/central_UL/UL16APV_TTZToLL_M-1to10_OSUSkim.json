@@ -1,0 +1,26 @@
+{
+  "xsec": 0.082,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "TTZToLL_M1to10_centralUL16APV",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p8/WZ_lowMassTTZ/v1/UL16APV_TTZToLL_M_1to10/output_177.root"
+  ],
+  "nEvents": 290000,
+  "nGenEvents": 290000,
+  "nSumOfWeights": 15462.019407352002,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL16NanoAODAPVv9/TTZToLL_M-1to10_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1",
+  "nSumOfWeights_ISRUp": 15450.180261363566,
+  "nSumOfWeights_ISRDown": 15469.855755283006,
+  "nSumOfWeights_FSRUp": 15315.888289135997,
+  "nSumOfWeights_FSRDown": 15511.67607920058,
+  "nSumOfWeights_renormUp": 13928.863743139316,
+  "nSumOfWeights_renormDown": 17093.604329599388,
+  "nSumOfWeights_factUp": 15139.174568466302,
+  "nSumOfWeights_factDown": 15859.635575546416,
+  "nSumOfWeights_renormfactUp": 13577.760472655822,
+  "nSumOfWeights_renormfactDown": 17430.3799669288
+}

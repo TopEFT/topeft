@@ -1,0 +1,26 @@
+{
+  "xsec": 61526.7,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "WJetsToLNu_centralUL16APV",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_WJetsToLNu/output_539.root"
+  ],
+  "nEvents": 28949426,
+  "nGenEvents": 28949426,
+  "nSumOfWeights": 4989519445986.183,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL16NanoAODAPVv9/WJetsToLNu_TuneCP5_13TeV-amcatnloFXFX-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v2",
+  "nSumOfWeights_ISRUp": 4975127517869.225,
+  "nSumOfWeights_ISRDown": 5000304204170.757,
+  "nSumOfWeights_FSRUp": 4987216804232.431,
+  "nSumOfWeights_FSRDown": 4991041929748.754,
+  "nSumOfWeights_renormUp": 4910624686321.264,
+  "nSumOfWeights_renormDown": 5076530580783.541,
+  "nSumOfWeights_factUp": 5126070880468.158,
+  "nSumOfWeights_factDown": 4768389545854.016,
+  "nSumOfWeights_renormfactUp": 5083989264216.649,
+  "nSumOfWeights_renormfactDown": 4899988910927.001
+}

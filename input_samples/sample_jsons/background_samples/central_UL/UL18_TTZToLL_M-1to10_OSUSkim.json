@@ -1,0 +1,27 @@
+{
+  "xsec": 0.082,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "TTZToLL_M1to10_centralUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p8/WZ_lowMassTTZ/v1/UL18_TTZToLL_M_1to10/output_185.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p8/WZ_lowMassTTZ/v1/UL18_TTZToLL_M_1to10/output_189.root"
+  ],
+  "nEvents": 994000,
+  "nGenEvents": 994000,
+  "nSumOfWeights": 53133.24052306401,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL18NanoAODv9/TTZToLL_M-1to10_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1",
+  "nSumOfWeights_ISRUp": 53152.513662751095,
+  "nSumOfWeights_ISRDown": 53112.91018439809,
+  "nSumOfWeights_FSRUp": 53005.96035314107,
+  "nSumOfWeights_FSRDown": 53198.40798246907,
+  "nSumOfWeights_renormUp": 47854.083854861245,
+  "nSumOfWeights_renormDown": 58756.6137074739,
+  "nSumOfWeights_factUp": 52029.732956815635,
+  "nSumOfWeights_factDown": 54494.01545204412,
+  "nSumOfWeights_renormfactUp": 46650.91089187304,
+  "nSumOfWeights_renormfactDown": 59903.676094932365
+}

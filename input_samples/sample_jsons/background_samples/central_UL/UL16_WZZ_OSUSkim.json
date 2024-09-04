@@ -1,0 +1,28 @@
+{
+  "xsec": 0.05565,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "WZZ_centralUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16_WZZ/output_2771.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16_WZZ/output_3584.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16_WZZ/output_3706.root"
+  ],
+  "nEvents": 4691000,
+  "nGenEvents": 4691000,
+  "nSumOfWeights": 268159.95737512805,
+  "isData": false,
+  "path": "/WZZ_TuneCP5_13TeV-amcatnlo-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM",
+  "nSumOfWeights_ISRUp": 268169.01996122225,
+  "nSumOfWeights_ISRDown": 268134.3660443714,
+  "nSumOfWeights_FSRUp": 268360.4772148451,
+  "nSumOfWeights_FSRDown": 268163.8054566425,
+  "nSumOfWeights_renormUp": 258525.16033309037,
+  "nSumOfWeights_renormDown": 279697.5207468332,
+  "nSumOfWeights_factUp": 263295.34508056287,
+  "nSumOfWeights_factDown": 273992.08111535007,
+  "nSumOfWeights_renormfactUp": 253853.54057052484,
+  "nSumOfWeights_renormfactDown": 285894.44294808386
+}

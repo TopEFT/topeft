@@ -1,0 +1,28 @@
+{
+  "xsec": 80.95,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "ST_antitop_t-channel_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_ST_antitop_t_channel/output_2427.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_ST_antitop_t_channel/output_3382.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_ST_antitop_t_channel/output_3689.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_ST_antitop_t_channel/output_3751.root"
+  ],
+  "nEvents": 69793000,
+  "nGenEvents": 69793000,
+  "nSumOfWeights": 4462869081.826045,
+  "isData": false,
+  "nSumOfWeights_ISRUp": 4462770113.501062,
+  "nSumOfWeights_ISRDown": 4462934924.856583,
+  "nSumOfWeights_FSRUp": 4463935077.9828415,
+  "nSumOfWeights_FSRDown": 4462575901.523562,
+  "nSumOfWeights_renormUp": 4213513561.985265,
+  "nSumOfWeights_renormDown": 4697510280.736272,
+  "nSumOfWeights_factUp": 4479245480.187987,
+  "nSumOfWeights_factDown": 4471406863.682731,
+  "nSumOfWeights_renormfactUp": 4211840880.0487404,
+  "nSumOfWeights_renormfactDown": 4696448100.433115
+}

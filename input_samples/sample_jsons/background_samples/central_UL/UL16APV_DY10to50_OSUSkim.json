@@ -6,10 +6,10 @@
   "options": "",
   "WCnames": [],
   "files": [
-    "/store/user/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_DY10to50/output_123.root",
-    "/store/user/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_DY10to50/output_533.root",
-    "/store/user/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_DY10to50/output_544.root",
-    "/store/user/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_DY10to50/output_563.root"
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_DY10to50/output_123.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_DY10to50/output_533.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_DY10to50/output_544.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_DY10to50/output_563.root"
   ],
   "nEvents": 25799525,
   "nGenEvents": 25799525,

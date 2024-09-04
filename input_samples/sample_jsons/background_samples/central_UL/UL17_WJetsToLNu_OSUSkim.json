@@ -1,0 +1,25 @@
+{
+  "xsec": 61526.7,
+  "year": "2017",
+  "treeName": "Events",
+  "histAxisName": "WJetsToLNu_centralUL17",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL17_WJetsToLNu/output_3724.root"
+  ],
+  "nEvents": 78307186,
+  "nGenEvents": 78307186,
+  "nSumOfWeights": 1030816975.03636,
+  "isData": false,
+  "nSumOfWeights_ISRUp": 991667365.8650064,
+  "nSumOfWeights_ISRDown": 1061922459.3288105,
+  "nSumOfWeights_FSRUp": 1030274887.9918244,
+  "nSumOfWeights_FSRDown": 1031439032.6923635,
+  "nSumOfWeights_renormUp": 1027121427.1907097,
+  "nSumOfWeights_renormDown": 1035346411.489943,
+  "nSumOfWeights_factUp": 1137926619.4897692,
+  "nSumOfWeights_factDown": 912506336.5118705,
+  "nSumOfWeights_renormfactUp": 1134167917.1795578,
+  "nSumOfWeights_renormfactDown": 916917712.6464895
+}
