@@ -1,0 +1,31 @@
+{
+  "xsec": 0.01398,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "ZZZ_centralUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p5/fix_ext_stats_jsons/v1/UL18_ZZZ/output_158.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p5/fix_ext_stats_jsons/v1/UL18_ZZZ/output_161.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p5/fix_ext_stats_jsons/v1/UL18_ZZZ/output_164.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p5/fix_ext_stats_jsons/v1/UL18_ZZZ/output_168.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p5/fix_ext_stats_jsons/v1/UL18_ZZZ/output_169.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p5/fix_ext_stats_jsons/v1/UL18_ZZZ/output_170.root"
+  ],
+  "nEvents": 10139000,
+  "nGenEvents": 10139000,
+  "nSumOfWeights": 149718.288925024,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL18NanoAODv9/ZZZ_TuneCP5_13TeV-amcatnlo-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/",
+  "nSumOfWeights_ISRUp": 149704.16980655753,
+  "nSumOfWeights_ISRDown": 149718.98607495878,
+  "nSumOfWeights_FSRUp": 149659.87382396075,
+  "nSumOfWeights_FSRDown": 149741.12341253582,
+  "nSumOfWeights_renormUp": 146845.4420100013,
+  "nSumOfWeights_renormDown": 153157.69551009455,
+  "nSumOfWeights_factUp": 149482.79629904416,
+  "nSumOfWeights_factDown": 150334.11275808004,
+  "nSumOfWeights_renormfactUp": 146556.3205840958,
+  "nSumOfWeights_renormfactDown": 153796.1651891852
+}

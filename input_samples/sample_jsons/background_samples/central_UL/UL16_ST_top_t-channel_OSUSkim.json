@@ -1,0 +1,29 @@
+{
+  "xsec": 136.02,
+  "year": "2016",
+  "treeName": "Events",
+  "histAxisName": "ST_top_t-channel_centralUL16",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16_ST_top_t_channel/output_2094.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16_ST_top_t_channel/output_3194.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16_ST_top_t_channel/output_3682.root",
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/FullRun2/v2/UL16_ST_top_t_channel/output_3761.root"
+  ],
+  "nEvents": 63073000,
+  "nGenEvents": 63073000,
+  "nSumOfWeights": 6703802049.125999,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL16NanoAODv9/ST_t-channel_top_4f_InclusiveDecays_TuneCP5_13TeV-powheg-madspin-pythia8",
+  "nSumOfWeights_ISRUp": 6704002086.723404,
+  "nSumOfWeights_ISRDown": 6703650390.875136,
+  "nSumOfWeights_FSRUp": 6703523281.703806,
+  "nSumOfWeights_FSRDown": 6703729495.882575,
+  "nSumOfWeights_renormUp": 6345949440.2956505,
+  "nSumOfWeights_renormDown": 7026657702.109598,
+  "nSumOfWeights_factUp": 6729531073.015819,
+  "nSumOfWeights_factDown": 6718691582.281665,
+  "nSumOfWeights_renormfactUp": 6346109251.828928,
+  "nSumOfWeights_renormfactDown": 7031675952.717986
+}

@@ -1,0 +1,26 @@
+{
+  "xsec": 0.00159,
+  "year": "2018",
+  "treeName": "Events",
+  "histAxisName": "ZZTo4L_centralUL18",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p9/GluGluToContinToZZ/v1/UL18_GluGluToContinToZZTo4tau/output_416.root"
+  ],
+  "nEvents": 493998,
+  "nGenEvents": 493998,
+  "nSumOfWeights": 493998.0,
+  "isData": false,
+  "path": "/store/mc/RunIISummer20UL18NanoAODv9/GluGluToContinToZZTo4tau_TuneCP5_13TeV-mcfm701-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2",
+  "nSumOfWeights_ISRUp": 493955.1759338379,
+  "nSumOfWeights_ISRDown": 494032.26203918457,
+  "nSumOfWeights_FSRUp": 494425.0950603485,
+  "nSumOfWeights_FSRDown": 493794.78842926025,
+  "nSumOfWeights_renormUp": 493998.0,
+  "nSumOfWeights_renormDown": 493998.0,
+  "nSumOfWeights_factUp": 493998.0,
+  "nSumOfWeights_factDown": 493998.0,
+  "nSumOfWeights_renormfactUp": 493998.0,
+  "nSumOfWeights_renormfactDown": 493998.0
+}

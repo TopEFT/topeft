@@ -1,0 +1,25 @@
+{
+  "xsec": 3.68,
+  "year": "2016APV",
+  "treeName": "Events",
+  "histAxisName": "ST_top_s-channel_centralUL16APV",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/users/byates/skims/mc/new-lepMVA-v2/central_bkgd_p1/2016APV/v1/UL16APV_ST_top_s_channel/output_531.root"
+  ],
+  "nEvents": 5518000,
+  "nGenEvents": 5518000,
+  "nSumOfWeights": 19596250.1249042,
+  "isData": false,
+  "nSumOfWeights_ISRUp": 19598842.095193394,
+  "nSumOfWeights_ISRDown": 19593449.67681406,
+  "nSumOfWeights_FSRUp": 19594293.342608884,
+  "nSumOfWeights_FSRDown": 19595662.909199372,
+  "nSumOfWeights_renormUp": 9579669.00811357,
+  "nSumOfWeights_renormDown": 10066110.84942203,
+  "nSumOfWeights_factUp": 9911450.201888744,
+  "nSumOfWeights_factDown": 9660758.672074983,
+  "nSumOfWeights_renormfactUp": 9701509.15451038,
+  "nSumOfWeights_renormfactDown": 9942955.81776937
+}
