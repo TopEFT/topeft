@@ -8,7 +8,6 @@
 '''
 
 import awkward as ak
-import numpy as np
 
 from topeft.modules.corrections import fakeRateWeight1l, fakeRateWeight2l, fakeRateWeight3l
 from topeft.modules.genParentage import maxHistoryPDGID
@@ -207,6 +206,7 @@ def add1lMaskAndSFs(events, year, isData, sampleType):
 
 # 2l selection (we do not make the ss requirement here)
 def add2lMaskAndSFs(events, year, isData, sampleType):
+
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
     padded_FOs = ak.pad_none(FOs,2)
@@ -215,10 +215,10 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # Filters and cleanups
     filter_flags = events.Flag
     filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & (((year == "2016")|(year == "2016APV")) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
-    cleanup = events.minMllAFAS > 20        #used to be 12 for Top-22-006 but ttgamma analysis requires this to be 20
+    cleanup = events.minMllAFAS > 12
     muTightCharge = ((abs(padded_FOs[:,0].pdgId)!=13) | (padded_FOs[:,0].tightCharge>=1)) & ((abs(padded_FOs[:,1].pdgId)!=13) | (padded_FOs[:,1].tightCharge>=1))
 
-    # Zee veto. Used for charge flips estimation
+    # Zee veto
     Zee_veto = (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
 
     #Zll mask if the 2 leptons are of same flavor(for photon work)
@@ -237,15 +237,13 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     exclusive = ak.num( FOs[FOs.isTightLep],axis=-1)<3
     dilep = (ak.num(FOs)) >= 2
     pt2515 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 15.0, axis=1))
+    mask = (filters & cleanup & dilep & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
     #the following mask "ptl0l1" is used for the new CR "2los_CR_lowleppt" to be used in ttgamma EFT work
     ptl0 = ak.any(FOs[:,0:1].conept > 25.0, axis=1)
     ptl1 = ak.any(abs(FOs[:,1:2].conept-12.5) < 2.5, axis=1) #the sub-leading lepton 10 GeV < l1pT < 15 GeV
     ptl0l1  = ptl0 & ptl1
 
-    pt2520 = (ak.any(FOs[:,0:1].conept > 25.0, axis=1) & ak.any(FOs[:,1:2].conept > 20.0, axis=1))  #this is only used for comparison study with the new UL ttgamma analysis
-    mask = (filters & dilep & cleanup & pt2515 & exclusive & eleID1 & eleID2 & muTightCharge)
     mask_2l_lowptlep = (filters & dilep & ptl0l1 & exclusive & eleID1 & eleID2 & muTightCharge)
-    mask = (filters & dilep & cleanup & pt2520 & exclusive & eleID1 & eleID2 & muTightCharge)  #this is only used for comparison study with the new UL ttgamma analysis
 
     # MC matching requirement (already passed for data)
     if sampleType == "data":
@@ -261,14 +259,11 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
         conv_mask   = ( lep1_match_conv | lep2_match_conv )
         if sampleType == 'prompt':
             mask = (mask & prompt_mask)
-            mask_2l_lowptlep = (mask_2l_lowptlep & prompt_mask)
         elif sampleType =='conversions':
             mask = (mask & conv_mask)
-            mask_2l_lowptlep = (mask_2l_lowptlep & conv_mask)
         elif sampleType =='prompt_and_conversions':
             # Samples that we use for both prompt and conv contributions (i.e. just DY)
             mask = (mask & (prompt_mask | conv_mask))
-            mask_2l_lowptlep = (mask_2l_lowptlep & (prompt_mask | conv_mask))
         else:
             raise Exception(f"Error: Unknown sampleType {sampleType}.")
 
@@ -297,11 +292,6 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # SR:
     events['is2l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
     events['is2l_SR'] = ak.fill_none(events['is2l_SR'],False)
-    lep = (ak.num(FOs)) >= 1
-    pt25 = ak.any(FOs[:,0:1].conept > 25.0, axis=1)
-    #mask = (filters & cleanup & lep & pt25 & exclusive & eleID1 & muTightCharge)
-    mask = (filters & lep & pt25 & exclusive & eleID1 & muTightCharge)
-    events['isl'] = ak.fill_none(mask,False)
     padded_photon = ak.pad_none(events.photon, 1)
 
     # SFs
@@ -309,15 +299,13 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     events['sf_2l_hi_photon'] = padded_photon.sf_hi_photon[:,0]
     events['sf_2l_lo_photon'] = padded_photon.sf_lo_photon[:,0]
 
-    #lep = (ak.num(FOs)) >= 1
-    #pt25 = ak.any(FOs[:,0:1].conept > 25.0, axis=1)
-    #mask = (filters & cleanup & lep & pt25 & exclusive & eleID1 & muTightCharge)
-
     # FF:
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
 
+
 # 3l selection
 def add3lMaskAndSFs(events, year, isData, sampleType):
+
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
     padded_FOs = ak.pad_none(FOs,3)
@@ -362,7 +350,9 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
             mask = (mask & (prompt_mask | conv_mask))
         else:
             raise Exception(f"Error: Unknown sampleType {sampleType}.")
+
     events['is3l'] = ak.fill_none(mask,False)
+
     # SFs
     events['sf_3l_muon'] = padded_FOs[:,0].sf_nom_3l_muon*padded_FOs[:,1].sf_nom_3l_muon*padded_FOs[:,2].sf_nom_3l_muon
     events['sf_3l_elec'] = padded_FOs[:,0].sf_nom_3l_elec*padded_FOs[:,1].sf_nom_3l_elec*padded_FOs[:,2].sf_nom_3l_elec
@@ -463,14 +453,6 @@ def addLepCatMasks(events):
     events['is_mmmm'] = ((n_e_4l==0) & (n_m_4l==4))
     events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
 
-def GenPhotonSelection(events):
-    genPhoton_pT_mask = events.genPhoton.pt>20
-    events['genPhoton_pT_mask'] = genPhoton_pT_mask
-    genPhoton_eta_mask = abs(events.genPhoton.eta) < 1.44
-    events['genPhoton_eta_mask'] = genPhoton_eta_mask
-    genPhoton_pT_eta_mask = (genPhoton_pT_mask & genPhoton_eta_mask)
-    genPhoton_pT_eta_mask = ak.fill_none(ak.pad_none(genPhoton_pT_eta_mask,1),False)
-    events['genPhoton_pT_eta_mask'] = genPhoton_pT_eta_mask
 
 def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
     """Filter generated events with overlapping phase space"""
@@ -518,8 +500,9 @@ def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
         events["retainedbyOverlap"] = criteria
 
     else: #might not be necessary
-        events["vetoedbyOverlap"] = np.ones(len(events), dtype=bool)
-        events["retainedbyOverlap"] = np.ones(len(events), dtype=bool)
+        events["vetoedbyOverlap"] = ak.ones_like(events.GenPart.pt, dtype=bool)
+        events["retainedbyOverlap"] = ak.ones_like(events.GenPart.pt, dtype=bool)
+
 
 def select_nonpromptphoton(events):
     ph = events.photon
@@ -556,6 +539,7 @@ def select_nonpromptphoton(events):
 
     events['isGenPho'] = isGenPho
     events['isNonPromptPho'] = isNonPromptPho
+
 
 # Returns the pt of the l+l that form the Z peak
 def get_Z_pt(lep_collection,pt_window):
