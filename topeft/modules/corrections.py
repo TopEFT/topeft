@@ -658,8 +658,8 @@ def AttachPhotonSF(photons, year):
             photon_err = photon_err + np.power(tmp_err, 2)
 
     photons['sf_nom_photon'] = photon_sf
-    photons['sf_hi_photon']  = np.sqrt(photon_sf + photon_err)
-    photons['sf_lo_photon']  = np.sqrt(photon_sf - photon_err)
+    photons['sf_hi_photon']  = photon_sf + np.sqrt(photon_err)
+    photons['sf_lo_photon']  = photon_sf - np.sqrt(photon_err)
 
 ###### Btag scale factors
 ################################################################
