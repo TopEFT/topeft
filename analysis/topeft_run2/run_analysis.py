@@ -49,6 +49,7 @@ if __name__ == '__main__':
     parser.add_argument('--do-errors'      , action='store_true', help = 'Save the w**2 coefficients')
     parser.add_argument('--do-systs', action='store_true', help = 'Compute systematic variations')
     parser.add_argument('--split-lep-flavor', action='store_true', help = 'Split up categories by lepton flavor')
+    parser.add_argument('--offZ-split','-z', action='store_true', help = 'Split up 3l offZ categories') 
     parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
     parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
     parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
@@ -74,6 +75,7 @@ if __name__ == '__main__':
     do_errors  = args.do_errors
     do_systs   = args.do_systs
     split_lep_flavor = args.split_lep_flavor
+    offZ_split = args.offZ_split
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
@@ -240,7 +242,7 @@ if __name__ == '__main__':
     else:
         print('No Wilson coefficients specified')
 
-    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
+    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr,offZ_split)
 
     if executor == "work_queue":
         executor_args = {

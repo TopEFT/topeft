@@ -60,13 +60,13 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=True):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
-        self.offZ_split = False
-        
+        self._offZ_split = offZ_split
+ 
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
         syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
@@ -566,6 +566,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("bmask_atmost2m", (bmask_atmost2med))
             preselections.add("2l_p", (chargel0_p))
             preselections.add("2l_m", (chargel0_m))
+
+            # 3l selection
             preselections.add("3l", (events.is3l & pass_trg))
             preselections.add("bmask_exactly0m", (bmask_exactly0med))
             preselections.add("bmask_exactly1m", (bmask_exactly1med))
@@ -575,8 +577,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
             preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
             preselections.add("3l_offZ", (sfosz_3l_OffZ_mask))
-            preselections.add("3l_offZ_low", (sfosz_3l_OffZ_low_mask))
-            preselections.add("3l_offZ_any", (sfosz_3l_OffZ_any_mask))
+            preselections.add("3l_offZ_low", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask))
+            preselections.add("3l_offZ_high", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask))
+            preselections.add("3l_offZ_none", (sfosz_3l_OffZ_mask & ~sfosz_3l_OffZ_any_mask))
+
+            # 4l selection
             preselections.add("4l", (events.is4l & pass_trg))
 
             select_cat_dict = None
@@ -584,11 +589,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 select_cat_dict = json.load(ch_json_test)
             
             # This dictionary keeps track of which selections go with which SR categories
-            if not self.offZ_split:
-                import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
-            else:
+            if self._offZ_split:
                 import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
-
+            else:
+                import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
             # This dictionary keeps track of which selections go with which CR categories
             import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
 
@@ -680,7 +684,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
-            if self.offZ_split:
+            if self._offZ_split:
                 ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
@@ -905,10 +909,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Skip histos that are not defined (or not relevant) to given categories
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
-                                        if not self.offZ_split:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                        if self.offZ_split:
+                                        if self._offZ_split:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
+                                        else:
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
