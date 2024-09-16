@@ -255,11 +255,14 @@ if __name__ == '__main__':
             'tasks_accum_log': 'tasks.log',
 
             'environment_file': remote_environment.get_environment(
-                extra_pip_local = {"topeft": ["topeft", "setup.py"]},
+                extra_pip_local = {
+                    "topeft": ["topeft", "setup.py"],
+                    "topcoffea": ["topcoffea", "setup.py"]
+                },
             ),
             'extra_input_files': ["analysis_processor.py"],
 
-            'retries': 5,
+            'retries': 10,
 
             # use mid-range compression for chunks results. 9 is the default for work
             # queue in coffea. Valid values are 0 (minimum compression, less memory
@@ -273,7 +276,7 @@ if __name__ == '__main__':
             # forever until a larger worker connects.
             'resource_monitor': True,
             'resources_mode': 'auto',
-
+            'filepath': '/tmp',
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
             # of a workflow run a little bit faster.
@@ -292,8 +295,8 @@ if __name__ == '__main__':
             # control the size of accumulation tasks. Results are
             # accumulated in groups of size chunks_per_accum, keeping at
             # most chunks_per_accum at the same time in memory per task.
-            'chunks_per_accum': 25,
-            'chunks_accum_in_mem': 2,
+            'chunks_per_accum': 10,
+            'chunks_accum_in_mem': 1,
 
             # terminate workers on which tasks have been running longer than average.
             # This is useful for temporary conditions on worker nodes where a task will
