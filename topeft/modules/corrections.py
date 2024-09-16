@@ -336,10 +336,10 @@ def ApplyTES(year, Taus, isData, tagger="DeepTau2017v2p1", syst_name="nom"):
     dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
     whereFlag = kinFlag & dmFlag #((pt>20) & (pt<205) & (gen==5) & (dm==0 | dm==1 | dm==10 | dm==11))
     tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
-    
+
     ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
     padded_Taus = ak.pad_none(Taus,1)
-    padded_Taus = ak.with_name(padded_Taus, "TauCandidate")    
+    padded_Taus = ak.with_name(padded_Taus, "TauCandidate")
 
     clib_year = clib_year_map[year]
     json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
@@ -1061,21 +1061,11 @@ def ApplyJetCorrections(year, corr_type, useclib=True):
             "* * " + topcoffea_path(f'data/JEC/Summer19UL{jec_tag}_MC_L2Relative_{jet_algo}.txt'),
             "* * " + topcoffea_path(f'data/JEC/Quad_Summer19UL{jec_tag}_MC_UncertaintySources_{jet_algo}.junc.txt')
         ])
-        '''                                                                                                                                                                                                      
-        extJEC.add_weight_sets([                                                                                                                                                                                 
-        "* * " + topcoffea_path('data/JEC_fromNick/%s_MC_SF_{jet_algo}.jersf.txt' % jer_tag),                                                                                                                    
-        "* * " + topcoffea_path('data/JEC_fromNick/%s_MC_PtResolution_{jet_algo}.jr.txt' % jer_tag),                                                                                                             
-        "* * " + topcoffea_path('data/JEC_fromNick/Summer19UL%s_MC_L1FastJet_{jet_algo}.jec.txt' % jec_tag),                                                                                                     
-        "* * " + topcoffea_path('data/JEC_fromNick/Summer19UL%s_MC_L2Relative_{jet_algo}.jec.txt' % jec_tag),                                                                                                    
-        "* * " + topcoffea_path('data/JEC_fromNick/Summer19UL%s_MC_UncertaintySources_{jet_algo}.junc.txt' % jec_tag)                                                                                            
-        ])                                                                                                                                                                                                       
-        '''
         jec_types = [
             'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
             'BBEC1', 'Absolute', 'RelativeBal', 'RelativeSample'
         ]
         jec_regroup = ["Quad_Summer19UL%s_MC_UncertaintySources_{jet_algo}_%s" % (jec_tag,jec_type) for jec_type in jec_types]
-        #jec_regroup = ["Summer19UL%s_MC_UncertaintySources_{jet_algo}_%s" % (jec_tag,jec_type) for jec_type in jec_types] #[:5]]
         jec_names = [
             f"{jer_tag}_MC_SF_{jet_algo}",
             f"{jer_tag}_MC_PtResolution_{jet_algo}",
@@ -1097,7 +1087,6 @@ def ApplyJetCorrections(year, corr_type, useclib=True):
             'Regrouped_BBEC1', 'Regrouped_Absolute', 'Regrouped_RelativeBal', 'RelativeSample'
         ]
         jec_regroup_clib = [f"Quad_Summer19UL{jec_tag}_MC_UncertaintySources_{jet_algo}_{jec_type}" for jec_type in jec_types_clib]
-        #jec_regroup_clib = ["Summer19UL%s_MC_UncertaintySources_{jet_algo}_%s" % (jec_tag,jec_type) for jec_type in jec_types_clib] #[:5]]
         jec_names_clib = [
             f"{jer_tag}_MC_SF_{jet_algo}",
             f"{jer_tag}_MC_PtResolution_{jet_algo}",
