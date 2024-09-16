@@ -319,13 +319,6 @@ for year in ['2016APV_2016', 2017, 2018]:
     for syst in ['','_up','_down','_be1','_be2','_pt1','_pt2']:
         extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb_recorrected{syst} %s" % topcoffea_path(basepathFromTTH + 'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
         extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva090_el_data_comb_NC_recorrected{syst} %s" % topcoffea_path(basepathFromTTH + 'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
-
-## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
-DeepTaus = [
-    ("DeepTau2017v2p1VSjet", ak.flatten(padded_Taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
-    ("DeepTau2017v2p1VSe", ak.flatten(padded_Taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
-    ("DeepTau2017v2p1VSmu", ak.flatten(padded_Taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
-]
         
 extLepSF.finalize()
 SFevaluator = extLepSF.make_evaluator()
@@ -362,6 +355,13 @@ def ApplyTES(year, Taus, isData, tagger="DeepTau2017v2p1", syst_name="nom"):
     arg_tau = ["pt", "eta", "decayMode", "genPartFlav"]
     pt_mask_flat = ak.flatten((pt>0) & (pt<1000))
 
+    ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
+    DeepTaus = [
+        ("DeepTau2017v2p1VSjet", ak.flatten(padded_Taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
+        ("DeepTau2017v2p1VSe", ak.flatten(padded_Taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
+        ("DeepTau2017v2p1VSmu", ak.flatten(padded_Taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
+    ]
+    
     for DeepTau in DeepTaus:
         discr = DeepTau[0]
         id_mask = DeepTau[1]
@@ -503,6 +503,13 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     DT_do_list = []
 
     pt_mask_flat = ak.flatten((pt>20) & (pt<205))
+
+    ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
+    DeepTaus = [
+        ("DeepTau2017v2p1VSjet", ak.flatten(padded_Taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
+        ("DeepTau2017v2p1VSe", ak.flatten(padded_Taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
+        ("DeepTau2017v2p1VSmu", ak.flatten(padded_Taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
+    ]
 
     for DeepTau in DeepTaus:
         discr = DeepTau[0]
