@@ -262,7 +262,7 @@ if __name__ == '__main__':
             ),
             'extra_input_files': ["analysis_processor.py"],
 
-            'retries': 10,
+            'retries': 5,
 
             # use mid-range compression for chunks results. 9 is the default for work
             # queue in coffea. Valid values are 0 (minimum compression, less memory
@@ -295,8 +295,8 @@ if __name__ == '__main__':
             # control the size of accumulation tasks. Results are
             # accumulated in groups of size chunks_per_accum, keeping at
             # most chunks_per_accum at the same time in memory per task.
-            'chunks_per_accum': 10,
-            'chunks_accum_in_mem': 1,
+            'chunks_per_accum': 25,
+            'chunks_accum_in_mem': 2,
 
             # terminate workers on which tasks have been running longer than average.
             # This is useful for temporary conditions on worker nodes where a task will
