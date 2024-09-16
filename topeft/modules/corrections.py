@@ -319,13 +319,12 @@ for year in ['2016APV_2016', 2017, 2018]:
     for syst in ['','_up','_down','_be1','_be2','_pt1','_pt2']:
         extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb_recorrected{syst} %s" % topcoffea_path(basepathFromTTH + 'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
         extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva090_el_data_comb_NC_recorrected{syst} %s" % topcoffea_path(basepathFromTTH + 'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
-        
 extLepSF.finalize()
 SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
-def ApplyTES(year, Taus, isData, tagger="DeepTau2017v2p1", syst_name="nom"):
+def ApplyTES(year, Taus, isData, tagger="DeepTau2017v2p1", syst_name="nom", vsJetWP="Loose"):
     if isData:
         return (Taus.pt, Taus.mass)
     pt  = Taus.pt
@@ -361,6 +360,10 @@ def ApplyTES(year, Taus, isData, tagger="DeepTau2017v2p1", syst_name="nom"):
         ("DeepTau2017v2p1VSe", ak.flatten(padded_Taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
         ("DeepTau2017v2p1VSmu", ak.flatten(padded_Taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
     ]
+
+    DT_sf_list = []
+    DT_up_list = []
+    DT_do_list = []
     
     for DeepTau in DeepTaus:
         discr = DeepTau[0]
