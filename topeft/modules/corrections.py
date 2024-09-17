@@ -286,35 +286,27 @@ ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
 def ApplyTES(year, Taus, isData):
     if isData:
-        return (Taus.pt, Taus.mass)
+        return Taus.pt
     pt  = Taus.pt
     dm  = Taus.decayMode
     gen = Taus.genPartFlav
+    eta  = Taus.eta
 
-    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    kinFlag = (pt>20) & (pt<205) & (gen==5) 
     dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
     whereFlag = kinFlag & dmFlag #((pt>20) & (pt<205) & (gen==5) & (dm==0 | dm==1 | dm==10 | dm==11))
     tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
-    return (Taus.pt*tes, Taus.mass*tes)
-
-def ApplyFES(year, Taus, isData):
-    if isData:
-        return (Taus.pt, Taus.mass)
-
-    eta  = Taus.eta
-    pt  = Taus.pt
-    dm  = Taus.decayMode
-    gen = Taus.genPartFlav
-
-    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    kinFlag = (pt>20) & (pt<205) & (gen>=1) & (gen<=4)
     dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1))
     whereFlag = kinFlag & dmFlag
     fes = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1)
-    return (Taus.pt*fes, Taus.mass*fes)
+    return (Taus.pt*tes*fes)
 
-def ApplyTESSystematic(year, Taus, syst_name):
+def ApplyTESSystematic(year, Taus, isData, syst_name):
     if not syst_name.startswith('TES'):
-        return (Taus.pt, Taus.mass)
+        return (Taus.pt)
+    if isData:
+        return (Taus.pt)
 
     pt  = Taus.pt
     dm  = Taus.decayMode
@@ -331,11 +323,13 @@ def ApplyTESSystematic(year, Taus, syst_name):
         syst_lab += '_down'
 
     tes_syst = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
-    return (Taus.pt*tes_syst, Taus.mass*tes_syst)
+    return (Taus.pt*tes_syst)
 
-def ApplyFESSystematic(year, Taus, syst_name):
+def ApplyFESSystematic(year, Taus, isData, syst_name):
     if not syst_name.startswith('FES'):
-        return (Taus.pt, Taus.mass)
+        return (Taus.pt)
+    if isData:
+        return (Taus.pt)
 
     pt  = Taus.pt
     eta  = Taus.eta
@@ -354,7 +348,7 @@ def ApplyFESSystematic(year, Taus, syst_name):
         syst_lab += '_down'
 
     fes_syst = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1)
-    return (Taus.pt*fes_syst, Taus.mass*fes_syst)
+    return (Taus.pt*fes_syst)
 
 def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     padded_Taus = ak.pad_none(Taus,1)
@@ -384,7 +378,7 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     fake_muon_sf_up = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_up'](np.abs(eta)), 1)
     fake_muon_sf_down = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_down'](np.abs(eta)), 1)
 
-    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (padded_Taus["is{vsJetWP}"]>0))
+    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (padded_Taus["isLoose"]>0))
     new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF'](pt), 1)
     new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_up'](pt), 1)
     new_fake_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_down'](pt), 1)
@@ -392,13 +386,19 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     real_sf = real_sf_loose
     real_sf_up = real_sf_loose_up
     real_sf_down = real_sf_loose_down
-    padded_Taus["sf_tau"] = real_sf*fake_elec_sf*fake_muon_sf*new_fake_sf
-    padded_Taus["sf_tau_up"] = real_sf_up*fake_elec_sf_up*fake_muon_sf_up*new_fake_sf_up
-    padded_Taus["sf_tau_down"] = real_sf_down*fake_elec_sf_down*fake_muon_sf_down*new_fake_sf_down
+    padded_Taus["sf_tau_real"] = real_sf
+    padded_Taus["sf_tau_real_up"] = real_sf_up
+    padded_Taus["sf_tau_real_down"] = real_sf_down
+    padded_Taus["sf_tau_fake"] = fake_elec_sf*fake_muon_sf*new_fake_sf
+    padded_Taus["sf_tau_fake_up"] = fake_elec_sf_up*fake_muon_sf_up*new_fake_sf_up
+    padded_Taus["sf_tau_fake_down"] = fake_elec_sf_down*fake_muon_sf_down*new_fake_sf_down
 
-    events["sf_2l_taus"] = padded_Taus.sf_tau[:,0]
-    events["sf_2l_taus_hi"] = padded_Taus.sf_tau_up[:,0]
-    events["sf_2l_taus_lo"] = padded_Taus.sf_tau_down[:,0]
+    events["sf_2l_taus_real"] = padded_Taus.sf_tau_real[:,0]
+    events["sf_2l_taus_real_hi"] = padded_Taus.sf_tau_real_up[:,0]
+    events["sf_2l_taus_real_lo"] = padded_Taus.sf_tau_real_down[:,0]
+    events["sf_2l_taus_fake"] = padded_Taus.sf_tau_fake[:,0]
+    events["sf_2l_taus_fake_hi"] = padded_Taus.sf_tau_fake_up[:,0]
+    events["sf_2l_taus_fake_lo"] = padded_Taus.sf_tau_fake_down[:,0]
 def AttachPerLeptonFR(leps, flavor, year):
     # Get the flip rates lookup object
     if year == "2016APV": flip_year_name = "UL16APV"
@@ -759,7 +759,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
         return cleanedJets.JES_jes.down
     elif (syst_var == 'nominal'):
         return cleanedJets
-    elif (syst_var in ['nominal','MuonESUp','MuonESDown']):
+    elif (syst_var in ['nominal','MuonESUp','MuonESDown', 'TESUp', 'TESDown', 'FESUp', 'FESDown']):
         return cleanedJets
     elif ('JES_FlavorQCD' in syst_var in syst_var):# and (('Up' in syst_var and syst_var.replace('Up', '') in cleanedJets.fields) or ('Down' in syst_var and syst_var.replace('Down', '') in cleanedJets.fields))):
         # Overwrite FlavorQCD with the proper jet flavor uncertainty

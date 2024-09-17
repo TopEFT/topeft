@@ -456,3 +456,14 @@ def get_ll_pt(lep_collection,pt_window):
     pt_of_sfosz = pair_pt_with_sfosz_mask[zpeak_idx]
 
     return ak.flatten(pt_of_sfosz)
+
+def lt_Z_mask(lep0, lep1, tau, pt_window):
+    sfosz_l0t_mask = ((lep0.pdgId/abs(lep0.pdgId)) == tau.charge)
+    zpeak_mask0 = (abs((lep0+tau).mass - 70.0)<20.0)
+    sfosz_l1t_mask = ((lep1.pdgId/abs(lep1.pdgId)) == tau.charge)
+    zpeak_mask1 = (abs((lep1+tau).mass - 70.0)<15.0)
+    sfosz_mask0 = (sfosz_l0t_mask & zpeak_mask0)
+    sfosz_mask1 = (sfosz_l1t_mask & zpeak_mask1)
+    sfosz_mask = (sfosz_mask0 | sfosz_mask1)
+
+    return sfosz_mask
