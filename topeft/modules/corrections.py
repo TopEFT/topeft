@@ -364,7 +364,7 @@ def ApplyTES(year, Taus, isData, tagger="DeepTau2017v2p1", syst_name="nom", vsJe
     DT_sf_list = []
     DT_up_list = []
     DT_do_list = []
-    
+
     for DeepTau in DeepTaus:
         discr = DeepTau[0]
         id_mask = DeepTau[1]
