@@ -31,6 +31,8 @@ def ignore_line(line_to_check,list_of_str_to_ignore=IGNORE_LINES):
             ignore = True
     return ignore
 
+def extract_number(item):
+    return str(''.join(char for char in item if char.isdigit()))
 
 # Check the output of the datacard maekr
 def main():
@@ -94,7 +96,7 @@ def main():
     ####### Copy the TOP-22-006 relevant files to their own dir ######
 
 
-    with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
+    with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json:
         select_ch_lst = json.load(ch_json)
         #reading the macro analysis setup
         if args.set_up_top22006:
@@ -108,16 +110,18 @@ def main():
         for lep_cat, lep_cat_dict in import_sr_ch_lst.items():
             lep_ch_list = lep_cat_dict['lep_chan_lst']
             jet_list = lep_cat_dict['jet_lst']
+            jet_list = [extract_number(item) for item in jet_list]
             #looping over each region within the lep category
             for lep_ch in lep_ch_list:
+                lep_ch_name = lep_ch[0]
                 for jet in jet_list:
                     # special channels to be binned by ptz instead of lj0pt
-                    if lep_ch == "3l_onZ_1b" or (lep_ch == "3l_onZ_2b" and (int(jet) == 4 or int(jet) == 5)):
-                        channelname = lep_ch + "_" + jet + "j_ptz"
-                    elif args.set_up_offZdivision and ( "high" in lep_ch  or "low" in lep_ch ): # extra channels from offZ division binned by ptz
-                        channelname = lep_ch + "_" + jet + "j_ptz"
+                    if lep_ch_name == "3l_onZ_1b" or (lep_ch_name == "3l_onZ_2b" and (int(jet) == 4 or int(jet) == 5)):
+                        channelname = lep_ch_name + "_" + jet + "j_ptz"
+                    elif args.set_up_offZdivision and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
+                        channelname = lep_ch_name + "_" + jet + "j_ptz"
                     else:
-                        channelname = lep_ch + "_" + jet + "j_lj0pt"
+                        channelname = lep_ch_name + "_" + jet + "j_lj0pt"
                     CATSELECTED.append(channelname)
 
     # Grab the ptz-lj0pt cards we want for TOP-22-006, copy into a dir
