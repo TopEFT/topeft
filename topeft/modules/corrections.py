@@ -15,7 +15,7 @@ import pickle
 import correctionlib
 from coffea.jetmet_tools import JECStack, CorrectedMETFactory
 ### workaround while waiting the correcion-lib integration will be provided in the coffea package
-from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
+from topcoffea.modules import CorrectedJetsFactory
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
 
