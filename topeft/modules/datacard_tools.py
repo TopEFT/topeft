@@ -807,6 +807,7 @@ class DatacardMaker():
         outf_root_name = os.path.join(self.out_dir,outf_root_name)
         with uproot.recreate(outf_root_name) as f:
             for p,wcs in selected_wcs.items():
+                self.make_scalings(h,wcs)
                 # TODO This is a hack for now, track this upstream
                 if 'charge_flip' in p and '2l' not in ch:
                     continue
@@ -829,6 +830,7 @@ class DatacardMaker():
                             raise RuntimeError("filling obs data more than once!")
                         for sp_key,arr in data_sm.items():
                             data_obs += arr
+                decomposed_templates = {k: v for k, v in decomposed_templates.items() if k == 'sm'}
                 for base,v in decomposed_templates.items():
                     proc_name = f"{p}_{base}"
                     col_width = max(len(proc_name),col_width)
@@ -1128,6 +1130,19 @@ class DatacardMaker():
             print(f"\tTotal terms: {terms}")
 
         return r
+
+    def make_scalings(self,h,wcs):
+        nwcs = len(h.wc_names)
+        bins = h[{
+            'process': 'ttll',
+            'channel': '2lss_p_4j',
+            'systematic': 'nominal'
+            }].values()
+        #print(hist['bin_2lss_p_4j_lj0pt'])
+        #len(bins) == 3 or 4
+        #len(bins[0]) == (nwcs+1) * (nwcs+2) / 2
+        with open('scalingscheck.txt', 'w') as file:
+            file.write(str(bins))
 
 
 if __name__ == '__main__':
