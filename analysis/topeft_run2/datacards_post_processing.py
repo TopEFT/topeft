@@ -42,6 +42,7 @@ def main():
     parser.add_argument("-c", "--check-condor-logs", action="store_true", help = "Check the contents of the condor err files.")
     parser.add_argument("-s", "--set-up-top22006", action="store_true", help = "Copy the ptz and lj0pt cards used in TOP-22-006 into their own directory.")
     parser.add_argument("-z", "--set-up-offZdivision", action="store_true", help = "Copy the ptz and lj0pt cards with 3l offZ division.")
+    parser.add_argument("-t", "--tau-flag", action="store_true", help = "Copy the ptz, lj0pt, and ptz_wtau cards for tau channels.")
     args = parser.parse_args()
 
     ###### Print out general info ######
@@ -103,6 +104,8 @@ def main():
             import_sr_ch_lst = select_ch_lst["TOP22_006_CH_LST_SR"]
         if args.set_up_offZdivision:
             import_sr_ch_lst = select_ch_lst["OFFZ_SPLIT_CH_LST_SR"]
+        if args.tau_flag:
+            import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
 
         CATSELECTED = []
 
@@ -120,6 +123,10 @@ def main():
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif args.set_up_offZdivision and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
+                    elif args.tau_flag and ("2los" in lep_ch_name):
+                        channelname = lep_ch_name + "_" + jet + "j_ptz"
+                    elif args.tau_flag and ("1tau_onZ" in lep_ch_name):
+                        channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
                     else:
                         channelname = lep_ch_name + "_" + jet + "j_lj0pt"
                     CATSELECTED.append(channelname)

@@ -207,13 +207,6 @@
                     "bmask_atleast1m2l",
                     "1tau",
                     "offZ_tau"
-                ],
-                [
-                    "2los_onZ_1tau",
-                    "2los",
-                    "bmask_atleast2m",
-                    "1tau",
-                    "2l_onZ"
                 ]
 	    ],
 	    "lep_flav_lst": [
