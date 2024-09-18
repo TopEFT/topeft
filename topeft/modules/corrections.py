@@ -1090,8 +1090,8 @@ def ApplyJetCorrections(year, corr_type, useclib=True):
         jec_stack = JECStack(jec_inputs)
 
     elif useclib:
-        json_path = (f"/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/{jec_year}/jet_jerc.json.gz")
-        #json_path = (f"/cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/{jec_year}/fatJet_jerc.json.gz")
+        json_path = topcoffea_path(f"data/POG/JME/{jec_year}/jet_jerc.json.gz")
+        #json_path = topcoffea_path(f"data/POG/JME/{jec_year}/fatJet_jerc.json.gz")
         jec_types_clib = [
             'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
             'Regrouped_BBEC1', 'Regrouped_Absolute', 'Regrouped_RelativeBal', 'RelativeSample'
