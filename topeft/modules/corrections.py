@@ -15,7 +15,7 @@ import pickle
 import correctionlib
 from coffea.jetmet_tools import JECStack, CorrectedMETFactory
 ### workaround while waiting the correcion-lib integration will be provided in the coffea package
-from topcoffea.modules import CorrectedJetsFactory
+from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
 
@@ -324,7 +324,7 @@ SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
-def ApplyTES(year, Taus, isData, tagger="DeepTau2017v2p1", syst_name="nom", vsJetWP="Loose"):
+def ApplyTES(year, Taus, isData, tagger, syst_name, vsJetWP):
     if isData:
         return (Taus.pt, Taus.mass)
     pt  = Taus.pt
@@ -1034,7 +1034,6 @@ def AttachPdfWeights(events):
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
 # JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC
 def ApplyJetCorrections(year, corr_type, useclib=True):
-    #useclib = False
     usejecstack = not useclib
 
     if year not in clib_year_map.keys():

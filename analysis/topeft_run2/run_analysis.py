@@ -257,7 +257,7 @@ if __name__ == '__main__':
             'environment_file': remote_environment.get_environment(
                 extra_pip_local = {
                     "topeft": ["topeft", "setup.py"],
-                    "topcoffea": ["topcoffea", "setup.py"]
+                    #"topcoffea": ["topcoffea", "setup.py"]
                 },
             ),
             'extra_input_files': ["analysis_processor.py"],
@@ -276,7 +276,7 @@ if __name__ == '__main__':
             # forever until a larger worker connects.
             'resource_monitor': True,
             'resources_mode': 'auto',
-            'filepath': '/tmp',
+
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
             # of a workflow run a little bit faster.
