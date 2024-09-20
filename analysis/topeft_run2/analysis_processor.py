@@ -563,8 +563,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Get mask for events that have two sf os leps close to z peak
             sfosz_3l_OnZ_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
             sfosz_3l_OffZ_mask = ~sfosz_3l_OnZ_mask
-            #sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
-            #sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
+            sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
+            sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
             sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
             sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
             if self.tau_flag:
@@ -632,10 +632,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
             preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
             preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
-            preselections.add("3l_offZ", (sfosz_3l_OffZ_mask))
-            #preselections.add("3l_offZ_low", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask))
-            #preselections.add("3l_offZ_high", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask))
-            #preselections.add("3l_offZ_none", (sfosz_3l_OffZ_mask & ~sfosz_3l_OffZ_any_mask))
+            if self._offZ_split: 
+                preselections.add("3l_offZ_low", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask))
+                preselections.add("3l_offZ_high", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask))
+                preselections.add("3l_offZ_none", (sfosz_3l_OffZ_mask & ~sfosz_3l_OffZ_any_mask))
+            else:
+                preselections.add("3l_offZ", (sfosz_3l_OffZ_mask))
 
             # 4l selection
             preselections.add("4l", (events.is4l & pass_trg))
