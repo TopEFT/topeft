@@ -281,7 +281,7 @@ if __name__ == '__main__':
             # forever until a larger worker connects.
             'resource_monitor': True,
             'resources_mode': 'auto',
-            'filepath': f'/project01/ndcms/{os.environ["USER"]}',
+            #'filepath': f'/project01/ndcms/{os.environ["USER"]}',
 
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
