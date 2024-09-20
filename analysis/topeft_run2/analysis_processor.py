@@ -691,7 +691,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     selections.add(chtag, tempmask)
 
             del preselections
-            
+
             # Lep flavor selection
             selections.add("ee",  events.is_ee)
             selections.add("em",  events.is_em)
@@ -819,7 +819,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     sr_cat_dict[lep_cat][jet_key] = {}
                     sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
                     for lep_chan_def in import_sr_cat_dict[lep_cat]["lep_chan_lst"]:
-                        sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0]) 
+                        sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0])
                     sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
                     if isData and "appl_lst_data" in import_sr_cat_dict[lep_cat].keys():
                         sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
@@ -861,7 +861,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 for k in sr_cat_dict:
                     if k in cr_cat_dict:
                         raise Exception(f"The key {k} is in both CR and SR dictionaries.")
-                
+
             # Loop over the hists we want to fill
             for dense_axis_name, dense_axis_vals in varnames.items():
                 if dense_axis_name not in self._hist_lst:
@@ -916,7 +916,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                         # Loop over the njets list for each channel
                         for njet_val in cat_dict[nlep_cat].keys():
-                            
+
                             # Loop over the appropriate AR and SR for this channel
                             for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
 
@@ -991,7 +991,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             "eft_coeff"     : eft_coeffs_cut,
                                         }
                                         hout[dense_axis_name+"_sumw2"].fill(**axes_fill_info_dict)
-                                        
+
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
 
