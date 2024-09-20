@@ -492,7 +492,7 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     events["sf_2l_taus_fake"] = padded_Taus.sf_tau_fake[:,0]
     events["sf_2l_taus_fake_hi"] = padded_Taus.sf_tau_fake_up[:,0]
     events["sf_2l_taus_fake_lo"] = padded_Taus.sf_tau_fake_down[:,0]
-   
+
     ## final step for correction-lib
     DT_sf *= new_fake_sf
     DT_up *= new_fake_sf_up
