@@ -297,7 +297,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Tau selection ####################
 
         if self.tau_flag:
-            tau["pt"] = ApplyTES(year, tau, isData)
+            tau["pt"], tau["mass"] = ApplyTES(year, tau, isData)
             tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
             tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.3)
             tau["isGood"]  =  tau["isClean"] & tau["isPres"]
@@ -316,8 +316,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 AttachTauSF(events,tau,year=year)
             tau_padded = ak.pad_none(tau, 1)
             tau0 = tau_padded[:,0]
-        else:
 
+        else:
             tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
             tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
             tau["isGood"]  =  tau["isClean"] & tau["isPres"]
@@ -420,8 +420,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
                 met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
                 if self.tau_flag:
-                    tau["pt"]      = ApplyTESSystematic(year, tau, isData, syst_var)
-                    tau["pt"]      = ApplyFESSystematic(year, tau, isData, syst_var)
+                    tau["pt"], tau["mass"]      = ApplyTESSystematic(year, tau, isData, syst_var)
+                    tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var)
+
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
 

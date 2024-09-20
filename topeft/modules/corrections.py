@@ -318,7 +318,7 @@ def ApplyTES(year, Taus, isData):
     dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1))
     whereFlag = kinFlag & dmFlag
     fes = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1)
-    return (Taus.pt*tes*fes)
+    return (Taus.pt*tes*fes, Taus.mass*tes*fes)
 
 def ApplyTESSystematic(year, Taus, isData, syst_name):
     if not syst_name.startswith('TES'):
@@ -341,7 +341,7 @@ def ApplyTESSystematic(year, Taus, isData, syst_name):
         syst_lab += '_down'
 
     tes_syst = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
-    return (Taus.pt*tes_syst)
+    return (Taus.pt*tes_syst, Taus.mass*tes_syst)
 
 def ApplyFESSystematic(year, Taus, isData, syst_name):
     if not syst_name.startswith('FES'):
