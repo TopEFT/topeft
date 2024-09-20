@@ -66,7 +66,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._dtype = dtype
         self._offZ_split = offZ_split
         self.tau_flag = tau_flag
- 
+
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
         syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
@@ -147,7 +147,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Dataset parameters
         dataset = events.metadata["dataset"]
         isEFT   = self._samples[dataset]["WCnames"] != []
-        
+
         isData             = self._samples[dataset]["isData"]
         histAxisName       = self._samples[dataset]["histAxisName"]
         year               = self._samples[dataset]["year"]
@@ -296,7 +296,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
         ################### Tau selection ####################
-        
+
         if self.tau_flag:
             tau["pt"] = ApplyTES(year, tau, isData)
             tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
@@ -346,7 +346,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             wgt_correction_syst_lst.append("lepSF_taus_realDown")
             wgt_correction_syst_lst.append("lepSF_taus_fakeUp")
             wgt_correction_syst_lst.append("lepSF_taus_fakeDown")
-            
+
         data_syst_lst = [
             "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
         ]
@@ -559,7 +559,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
             ######### Masks we need for the selection ##########
-            
+
             # Get mask for events that have two sf os leps close to z peak
             sfosz_3l_OnZ_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
             sfosz_3l_OffZ_mask = ~sfosz_3l_OnZ_mask
@@ -601,7 +601,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Lumi mask (for data)
             selections.add("is_good_lumi",lumi_mask)
             preselections.add("is_good_lumi",lumi_mask)
-            
+
             # 2lss selection
             preselections.add("chargedl0", (chargel0_p | chargel0_m))
             preselections.add("2lss", (events.is2l & pass_trg))
@@ -643,7 +643,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             select_cat_dict = None
             with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json_test:
                 select_cat_dict = json.load(ch_json_test)
-            
+
             # This dictionary keeps track of which selections go with which SR categories
             if self._offZ_split:
                 import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
@@ -664,7 +664,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     tempmask = None
                     #the first entry of the list is the region name to add in "selections"
                     chtag = lep_ch[0]
-                    
+
                     for chcut in lep_ch[1:]:
                         if not tempmask is None:
                             tempmask = tempmask & preselections.any(chcut)
@@ -672,8 +672,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                             tempmask = preselections.any(chcut)
                     selections.add(chtag, tempmask)
 
-                    #Filling selections according to the json specifications for CRs
-
+            #Filling selections according to the json specifications for CRs
             for lep_cat, lep_cat_dict in import_cr_cat_dict.items():
                 lep_ch_list = lep_cat_dict['lep_chan_lst']
                 chtag = None
@@ -683,7 +682,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     tempmask = None
                     #the first entry of the list is the region name to add in "selections"
                     chtag = lep_ch[0]
-                    
+
                     for chcut in lep_ch[1:]:
                         if not tempmask is None:
                             tempmask = tempmask & preselections.any(chcut)
@@ -691,7 +690,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                             tempmask = preselections.any(chcut)
                     selections.add(chtag, tempmask)
 
-    
             del preselections
             
             # Lep flavor selection
