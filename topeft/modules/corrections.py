@@ -292,7 +292,7 @@ def ApplyTES(year, Taus, isData):
     gen = Taus.genPartFlav
     eta  = Taus.eta
 
-    kinFlag = (pt>20) & (pt<205) & (gen==5) 
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
     dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
     whereFlag = kinFlag & dmFlag #((pt>20) & (pt<205) & (gen==5) & (dm==0 | dm==1 | dm==10 | dm==11))
     tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
