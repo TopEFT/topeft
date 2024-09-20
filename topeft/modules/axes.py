@@ -60,4 +60,14 @@ info = {
         "variable": [0, 150, 250, 500],
         "label": r"Leading pt of pair from l+j collection (GeV) ",
     },
+    "ptz_wtau": {
+        "regular": (12, 0, 600),
+        "variable": [0, 150, 250, 500],
+        "label": r"pt of lepton hadronic tau pair (GeV) ",
+    },
+    "tau0pt": {
+        "regular": (12, 0, 600),
+        "variable": [0, 150, 250, 500],
+        "label": r"pt of leading hadronic tau (GeV) ",
+    },
 }
