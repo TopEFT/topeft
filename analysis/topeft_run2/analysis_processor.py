@@ -564,11 +564,29 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
             ######### Event weights that do depend on the lep cat ###########
+            select_cat_dict = None
+            with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json_test:
+                select_cat_dict = json.load(ch_json_test)
 
-            # Loop over categories and fill the dict
+            # This dictionary keeps track of which selections go with which SR categories
+            if self._offZ_split:
+                import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
+            elif self.tau_h_analysis:
+                import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
+            else:
+                import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
+
+            # This dictionary keeps track of which selections go with which CR categories
+            import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+
+            #This list keeps track of the lepton categories
+            lep_cats = list(import_sr_cat_dict.keys()) + list(import_cr_cat_dict.keys())
+            lep_cats += ["2l_4t"]
+            lep_cats_data = [lep_cat for lep_cat in lep_cats if (lep_cat.startswith("2l") and not "os" in lep_cat)]
+            
             weights_dict = {}
-            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ"]:
 
+            for ch_name in lep_cats:
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
                 if ch_name.startswith("2l"):
@@ -586,7 +604,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For data only
                 if isData:
-                    if ch_name in ["2l","2l_4t","2l_CR","2l_CRflip"]:
+                    if ch_name in lep_cats_data:
                         weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
 
                 # For MC only
@@ -694,21 +712,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # 4l selection
             preselections.add("4l", (events.is4l & pass_trg))
-
-            select_cat_dict = None
-            with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json_test:
-                select_cat_dict = json.load(ch_json_test)
-
-            # This dictionary keeps track of which selections go with which SR categories
-            if self._offZ_split:
-                import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
-            elif self.tau_h_analysis:
-                import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
-            else:
-                import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
-            # This dictionary keeps track of which selections go with which CR categories
-            import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
-
+            
             #Filling selections according to the json specifications for SRs
             for lep_cat, lep_cat_dict in import_sr_cat_dict.items():
                 lep_ch_list = lep_cat_dict['lep_chan_lst']
