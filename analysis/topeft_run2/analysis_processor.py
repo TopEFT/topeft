@@ -583,7 +583,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             lep_cats = list(import_sr_cat_dict.keys()) + list(import_cr_cat_dict.keys())
             lep_cats += ["2l_4t"]
             lep_cats_data = [lep_cat for lep_cat in lep_cats if (lep_cat.startswith("2l") and not "os" in lep_cat)]
-            
+
             weights_dict = {}
 
             for ch_name in lep_cats:
@@ -712,7 +712,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # 4l selection
             preselections.add("4l", (events.is4l & pass_trg))
-            
+
             #Filling selections according to the json specifications for SRs
             for lep_cat, lep_cat_dict in import_sr_cat_dict.items():
                 lep_ch_list = lep_cat_dict['lep_chan_lst']
