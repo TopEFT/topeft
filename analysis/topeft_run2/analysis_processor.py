@@ -26,6 +26,9 @@ import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 
 from topcoffea.modules.get_param_from_jsons import GetParam
+# NEW
+from pprint import pprint
+# NEW
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 
@@ -216,13 +219,24 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau  = events.Tau
         jets = events.Jet
 
+        # NEW
+        print("events fields", events.fields)
+
+        # NEW
+
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
         events.nom = ak.ones_like(events.MET.pt)
 
         ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
-        ele["conept"] = te_os.coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
-        mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
+        #Original
+        #ele["conept"] = te_os.coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
+        #mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
+        #Original
+        # NEW: changed mvaTTHUL to mvaTTH
+        ele["conept"] = te_os.coneptElec(ele.pt, ele.mvaTTH, ele.jetRelIso)
+        mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
+        # NEW
         ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
         if not isData:
@@ -236,6 +250,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             golden_json_path = topcoffea_path("data/goldenJsons/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt")
         elif year == "2018":
             golden_json_path = topcoffea_path("data/goldenJsons/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt")
+        # NEW
+        elif year == "2022":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_Collisions2022_355100_362760_Golden.txt")
+        elif year == "2023":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_Collisions2023_366442_370790_Golden.txt")
+        # NEW
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
@@ -254,20 +274,41 @@ class AnalysisProcessor(processor.ProcessorABC):
         hout = self.accumulator
 
         ################### Electron selection ####################
-
-        ele["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
+        #Original
+        #le["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
+        #Original
+        #NEW
+        ele["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, ele.mvaNoIso_WP90)
+        #NEW
         ele["isLooseE"] = te_os.isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
-        ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTHUL, ele.jetRelIso, ele.mvaFall17V2noIso_WP90, year)
-        ele["isTightLep"] = te_os.tightSelElec(ele.isFO, ele.mvaTTHUL)
-
+        #Original
+        #ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTHUL, ele.jetRelIso, ele.mvaFall17V2noIso_WP90, year)
+        #Original
+        #NEW
+        ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTH, ele.jetRelIso, ele.mvaNoIso_WP80, year)
+        #NEW
+        #Original
+        #ele["isTightLep"] = te_os.tightSelElec(ele.isFO, ele.mvaTTHUL)
+        #Original
+        #NEW
+        ele["isTightLep"] = te_os.tightSelElec(ele.isFO, ele.mvaTTH)
+        #NEW
         ################### Muon selection ####################
-
-        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
+        #Original
+        #mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
+        #mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
+        #mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
+        #mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
+        #mu["isTightLep"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
+        #Original
+        #NEW
+        #Need to Rochester Corrections for run3
+        #mu["pt"] = ApplyRochesterCorrections(year, mu, isData)
         mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
-        mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
-        mu["isTightLep"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
-
+        mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTH, mu.jetRelIso, year)
+        mu["isTightLep"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
+        #NEW
         ################### Loose selection ####################
 
         m_loose = mu[mu.isPres & mu.isLooseM]
@@ -291,12 +332,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
 
         # Attach the lepton SFs to the electron and muons collections
-        AttachElectronSF(e_fo,year=year)
-        AttachMuonSF(m_fo,year=year)
+        #AttachElectronSF(e_fo,year=year)
+        #AttachMuonSF(m_fo,year=year)
 
         # Attach per lepton fake rates
-        AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
-        AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
+        #AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
+        #AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
         m_fo['convVeto'] = ak.ones_like(m_fo.charge)
         m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
@@ -400,6 +441,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 btagwpl = get_tc_param("btag_wp_loose_UL16")
             elif year=="2016APV":
                 btagwpl = get_tc_param("btag_wp_loose_UL16APV")
+            elif year=="2022":
+                btagwpl = get_tc_param("btag_wp_loose_2022")
+            elif year=="2022EE":
+                btagwpl = get_tc_param("btag_wp_loose_2022EE")
+            elif year=="2023":
+                btagwpl = get_tc_param("btag_wp_loose_2023")
+            elif year=="2023BPix":
+                btagwpl = get_tc_param("btag_wp_loose_2023BPix")
             else:
                 raise ValueError(f"Error: Unknown year \"{year}\".")
             isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
@@ -415,6 +464,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 btagwpm = get_tc_param("btag_wp_medium_UL16")
             elif year=="2016APV":
                 btagwpm = get_tc_param("btag_wp_medium_UL16APV")
+            elif year=="2022":
+                btagwpm = get_tc_param("btag_wp_medium_2022")
+            elif year=="2022EE":
+                btagwpm = get_tc_param("btag_wp_medium_2022EE")
+            elif year=="2023":
+                btagwpm = get_tc_param("btag_wp_medium_2023")
+            elif year=="2023BPix":
+                btagwpm = get_tc_param("btag_wp_medium_2023BPix")
             else:
                 raise ValueError(f"Error: Unknown year \"{year}\".")
             isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
@@ -427,7 +484,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Put njets and l_fo_conept_sorted into events
             events["njets"] = njets
             events["l_fo_conept_sorted"] = l_fo_conept_sorted
-
+            
             # The event selection
             te_es.add2lMaskAndSFs(events, year, isData, sampleType)
             te_es.add3lMaskAndSFs(events, year, isData, sampleType)
@@ -531,23 +588,23 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
-                if ch_name.startswith("2l"):
-                    weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
-                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
-                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
-                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
-                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
-                elif ch_name.startswith("3l"):
-                    weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
-                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
-                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
-                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
-                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
+                #if ch_name.startswith("2l"):
+                    #weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
+                    #weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
+                    #weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
+                    #weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
+                    #weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
+                #elif ch_name.startswith("3l"):
+                    #weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
+                    #weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
+                    #weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
+                    #weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
+                    #weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
 
                 # For data only
-                if isData:
-                    if ch_name in ["2l","2l_4t","2l_CR","2l_CRflip"]:
-                        weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
+                #if isData:
+                    #if ch_name in ["2l","2l_4t","2l_CR","2l_CRflip"]:
+                        #weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
 
                 # For MC only
                 if not isData:
@@ -572,6 +629,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
 
             # Pass trigger mask
+            # NEW - comment out
             pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),te_es.dataset_dict_top22006,te_es.exclude_dict_top22006)
 
             # b jet masks
