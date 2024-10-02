@@ -691,7 +691,7 @@ def AttachMuonSF(muons, year):
     eta = np.abs(muons.eta)
     pt = muons.pt
     if year not in clib_year_map.keys():
-        raise Exception(f"Error: Unknown year \"{year}\".")
+        raise Exception(f"Error: Unknown year \"{year}\"\n"".")
 
     ## Run2:
     ## only loose_sf can be consistently used with correction-lib, for the other we use the TOP-22-006 original SFs
@@ -1040,26 +1040,30 @@ def ApplyJetCorrections(year, corr_type, useclib=True):
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
 
-    if year == '2016':
-        jec_tag = '16_V7'
-        jer_tag = 'Summer20UL16_JRV3'
-    elif year == '2016APV':
-        jec_tag = '16APV_V7'
-        jer_tag = 'Summer20UL16APV_JRV3'
-    elif year == '2017':
-        jec_tag = '17_V5'
-        jer_tag = 'Summer19UL17_JRV2'
-    elif year == '2018':
-        jec_tag = '18_V5'
-        jer_tag = 'Summer19UL18_JRV2'
-    else:
-        raise Exception(f"Error: Unknown year \"{year}\".")
-    jec_year = year
-    if year.startswith("2016"):
-        jec_year = "2016preVFP" if year == "2016APV" else "2016postVFP"
-    if int(year.replace("APV", "")) < 2020:
-        jec_year += "_UL"
+    #if year == '2016':
+    #    jec_tag = '16_V7'
+    #    jer_tag = 'Summer20UL16_JRV3'
+    #elif year == '2016APV':
+    #    jec_tag = '16APV_V7'
+    #    jer_tag = 'Summer20UL16APV_JRV3'
+    #elif year == '2017':
+    #    jec_tag = '17_V5'
+    #    jer_tag = 'Summer19UL17_JRV2'
+    #elif year == '2018':
+    #    jec_tag = '18_V5'
+    #    jer_tag = 'Summer19UL18_JRV2'
+    #else:
+    #    raise Exception(f"Error: Unknown year \"{year}\".")
 
+    #jec_year = year
+    #if year.startswith("2016"):
+    #    jec_year = "2016preVFP" if year == "2016APV" else "2016postVFP"
+    #if int(year.replace("APV", "")) < 2020:
+    #    jec_year += "_UL"
+
+    jec_year = clib_year_map[year]
+    jec_tag = jerc_tag_map[year][0]
+    jer_tag = jerc_tag_map[year][1]
     jet_algo = "AK4PFchs"
     #jet_algo = "AK8PFPuppi"
     if usejecstack:
