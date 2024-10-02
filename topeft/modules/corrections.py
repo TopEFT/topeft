@@ -609,11 +609,14 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
 
 def AttachPerLeptonFR(leps, flavor, year):
     # Get the flip rates lookup object
+    if year not in clib_year_map.keys():
+        raise Exception(f"Error: Unknown year \"{year}\"\n"".")
+
     if year == "2016APV": flip_year_name = "UL16APV"
     elif year == "2016": flip_year_name = "UL16"
     elif year == "2017": flip_year_name = "UL17"
     elif year == "2018": flip_year_name = "UL18"
-    else: raise Exception(f"Not a known year: {year}")
+    else: flip_year_name = "UL18" #TO READAPT when fakefactors are ready #raise Exception(f"Not a known year: {year}")
     with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
         flip_hist = pickle.load(fin)
         flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
@@ -624,6 +627,8 @@ def AttachPerLeptonFR(leps, flavor, year):
     # For FR filepath naming conventions
     if '2016' in year:
         year = '2016APV_2016'
+    elif year[2] == "2":
+        year = '2018'
 
     # Add the flip/fake info into the leps opject
     for syst in ffSysts:
@@ -687,12 +692,33 @@ def AttachMuonSF(muons, year):
     - Use reco from TOP-22-006
     - use loose from correction-lib
     '''
+    dt_era = None
+    if year[2] == "2":
+        dt_era = "Run3"
+    else:
+        dt_era = "Run2"
 
     eta = np.abs(muons.eta)
     pt = muons.pt
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\"\n"".")
 
+    #temporary Run3 implementation
+    if dt_era == "Run3":
+        muons['sf_nom_2l_muon'] = ak.ones_like(pt)
+        muons['sf_hi_2l_muon']  = ak.ones_like(pt)
+        muons['sf_lo_2l_muon']  = ak.ones_like(pt)
+        muons['sf_nom_3l_muon'] = ak.ones_like(pt)
+        muons['sf_hi_3l_muon']  = ak.ones_like(pt)
+        muons['sf_lo_3l_muon']  = ak.ones_like(pt)
+        muons['sf_nom_2l_elec'] = ak.ones_like(pt)
+        muons['sf_hi_2l_elec']  = ak.ones_like(pt)
+        muons['sf_lo_2l_elec']  = ak.ones_like(pt)
+        muons['sf_nom_3l_elec'] = ak.ones_like(pt)
+        muons['sf_hi_3l_elec']  = ak.ones_like(pt)
+        muons['sf_lo_3l_elec']  = ak.ones_like(pt)
+        return None
+    
     ## Run2:
     ## only loose_sf can be consistently used with correction-lib, for the other we use the TOP-22-006 original SFs
     ## Run3:
@@ -796,12 +822,34 @@ def AttachElectronSF(electrons, year):
           Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the electrons array passed to this function. These
           values correspond to the nominal, up, and down electron scalefactor values respectively.
     '''
+
+    dt_era = None
+    if year[2] == "2":
+        dt_era = "Run3"
+    else:
+        dt_era = "Run2"
+
     eta = electrons.eta
     pt = electrons.pt
-
+    
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
 
+    if dt_era == "Run3":
+        electrons['sf_nom_2l_elec'] = ak.ones_like(pt)
+        electrons['sf_hi_2l_elec']  = ak.ones_like(pt)
+        electrons['sf_lo_2l_elec']  = ak.ones_like(pt)
+        electrons['sf_nom_3l_elec'] = ak.ones_like(pt)
+        electrons['sf_hi_3l_elec']  = ak.ones_like(pt)
+        electrons['sf_lo_3l_elec']  = ak.ones_like(pt)
+        electrons['sf_nom_2l_muon'] = ak.ones_like(pt)
+        electrons['sf_hi_2l_muon']  = ak.ones_like(pt)
+        electrons['sf_lo_2l_muon']  = ak.ones_like(pt)
+        electrons['sf_nom_3l_muon'] = ak.ones_like(pt)
+        electrons['sf_hi_3l_muon']  = ak.ones_like(pt)
+        electrons['sf_lo_3l_muon']  = ak.ones_like(pt)
+        return None
+    
     new_sf_2l  = SFevaluator['ElecSF_{year}_2lss'.format(year=year)](np.abs(eta),pt)
     new_err_2l = SFevaluator['ElecSF_{year}_2lss_er'.format(year=year)](np.abs(eta),pt)
     new_sf_3l  = SFevaluator['ElecSF_{year}_3l'.format(year=year)](np.abs(eta),pt)
@@ -931,12 +979,14 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
     values = hnum.values(flow=True)[1:,1:,1:]
     edges = [hnum.axes['pt'].edges, hnum.axes['abseta'].edges, hnum.axes['flav'].edges]
     fun = lambda pt, abseta, flav: getnum(pt,abseta,flav)/getden(pt,abseta,flav)
+
     return fun
 
 def GetBtagEff(jets, year, wp='medium'):
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
-    return GetMCeffFunc(year,wp)(jets.pt, np.abs(jets.eta), jets.hadronFlavour)
+    result = GetMCeffFunc(year,wp)(jets.pt, np.abs(jets.eta), jets.hadronFlavour) if year[2] != "2" else ak.ones_like(jets.pt)
+    return result
 
 def GetBTagSF(jets, year, wp='MEDIUM', syst='central'):
     if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topeft_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),wp)
@@ -1315,12 +1365,18 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     return [GetTrig, GetTrigDo, GetTrigUp]
 
 def GetTriggerSF(year, events, lep0, lep1):
+    dt_era = "Run3" if year[2] == "2" else "Run2"
     ls = []
     for syst in [0,1]:
         #2l
-        SF_ee = np.where((events.is2l & events.is_ee), LoadTriggerSF(year,ch='2l',flav='ee')[syst](lep0.pt,lep1.pt), 1.0)
-        SF_em = np.where((events.is2l & events.is_em), LoadTriggerSF(year,ch='2l',flav='em')[syst](lep0.pt,lep1.pt), 1.0)
-        SF_mm = np.where((events.is2l & events.is_mm), LoadTriggerSF(year,ch='2l',flav='mm')[syst](lep0.pt,lep1.pt), 1.0)
+        if dt_era == "Run2":
+            SF_ee = np.where((events.is2l & events.is_ee), LoadTriggerSF(year,ch='2l',flav='ee')[syst](lep0.pt,lep1.pt), 1.0)
+            SF_em = np.where((events.is2l & events.is_em), LoadTriggerSF(year,ch='2l',flav='em')[syst](lep0.pt,lep1.pt), 1.0)
+            SF_mm = np.where((events.is2l & events.is_mm), LoadTriggerSF(year,ch='2l',flav='mm')[syst](lep0.pt,lep1.pt), 1.0)
+        elif dt_era == "Run3":
+            SF_ee = ak.ones_like(events.is2l)
+            SF_em = ak.ones_like(events.is2l)
+            SF_mm = ak.ones_like(events.is2l)
         #3l
         '''
         SF_eee=np.where((events.is3l & events.is_eee),LoadTriggerSF(year,ch='3l',flav='eee')[syst](lep0.pt,lep0.eta),1.0)
