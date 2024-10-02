@@ -238,6 +238,11 @@ def add1lMaskAndSFs(events, year, isData, sampleType):
 
 # 2l selection (we do not make the ss requirement here)
 def add2lMaskAndSFs(events, year, isData, sampleType):
+    dt_era = None
+    if year[2] == "2":
+        dt_era = "Run3"
+    else:
+        dt_era = "Run2"
 
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
@@ -291,12 +296,13 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
 
     # SFs
     # NEW - comment out
-    #events['sf_2l_muon'] = padded_FOs[:,0].sf_nom_2l_muon*padded_FOs[:,1].sf_nom_2l_muon
-    #events['sf_2l_elec'] = padded_FOs[:,0].sf_nom_2l_elec*padded_FOs[:,1].sf_nom_2l_elec
-    #events['sf_2l_hi_muon'] = padded_FOs[:,0].sf_hi_2l_muon*padded_FOs[:,1].sf_hi_2l_muon
-    #events['sf_2l_hi_elec'] = padded_FOs[:,0].sf_hi_2l_elec*padded_FOs[:,1].sf_hi_2l_elec
-    #events['sf_2l_lo_muon'] = padded_FOs[:,0].sf_lo_2l_muon*padded_FOs[:,1].sf_lo_2l_muon
-    #events['sf_2l_lo_elec'] = padded_FOs[:,0].sf_lo_2l_elec*padded_FOs[:,1].sf_lo_2l_elec
+    if dt_era == "Run2":
+        events['sf_2l_muon'] = padded_FOs[:,0].sf_nom_2l_muon*padded_FOs[:,1].sf_nom_2l_muon
+        events['sf_2l_elec'] = padded_FOs[:,0].sf_nom_2l_elec*padded_FOs[:,1].sf_nom_2l_elec
+        events['sf_2l_hi_muon'] = padded_FOs[:,0].sf_hi_2l_muon*padded_FOs[:,1].sf_hi_2l_muon
+        events['sf_2l_hi_elec'] = padded_FOs[:,0].sf_hi_2l_elec*padded_FOs[:,1].sf_hi_2l_elec
+        events['sf_2l_lo_muon'] = padded_FOs[:,0].sf_lo_2l_muon*padded_FOs[:,1].sf_lo_2l_muon
+        events['sf_2l_lo_elec'] = padded_FOs[:,0].sf_lo_2l_elec*padded_FOs[:,1].sf_lo_2l_elec
 
     # SR:
     events['is2l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
@@ -304,7 +310,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
 
     # FF:
     #NEW - comment out
-    #fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
+    fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
 
 
 # 3l selection

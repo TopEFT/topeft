@@ -220,8 +220,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         jets = events.Jet
 
         # NEW
-        print("events fields", events.fields)
-
+        print("\n\n\n\n\n\n\n\n")
+        print("events fields", [field for field in events.fields if "Rho" in field])
+        print("\n\n\n\n\n\n\n\n")
         # NEW
 
         # An array of lenght events that is just 1 for each event
@@ -260,6 +261,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError(f"Error: Unknown year \"{year}\".")
         lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
 
+        dt_era = None
+        if year[2] == "2":
+            dt_era = "Run3"
+        else:
+            dt_era = "Run2"
+
+        print("\n\n\n\n\n\n\n")
+        print(year, dt_era)
+        print("\n\n\n\n\n\n\n")
         ######### EFT coefficients ##########
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
@@ -278,36 +288,30 @@ class AnalysisProcessor(processor.ProcessorABC):
         #le["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
         #Original
         #NEW
-        ele["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, ele.mvaNoIso_WP90)
-        #NEW
+        if dt_era == "Run3":
+            elePresId = ele.mvaNoIso_WP90
+            eleFOId = ele.mvaNoIso_WP80
+            eleMVATTH = ele.mvaTTH
+            muMVATTH = mu.mvaTTH
+            jetsRho = events.Rho
+        elif dt_era == "Run2":
+            elePresId = ele.mvaFall17V2noIso_WPL
+            eleFOId = ele.mvaFall17V2noIso_WP90
+            eleMVATTH = ele.mvaTTHUL
+            muMVATTH = mu.mvaTTHUL
+            jetsRho = events.fixedGridRhoFastjetAll
+        ele["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, elePresId)
         ele["isLooseE"] = te_os.isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
-        #Original
-        #ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTHUL, ele.jetRelIso, ele.mvaFall17V2noIso_WP90, year)
-        #Original
-        #NEW
-        ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTH, ele.jetRelIso, ele.mvaNoIso_WP80, year)
-        #NEW
-        #Original
-        #ele["isTightLep"] = te_os.tightSelElec(ele.isFO, ele.mvaTTHUL)
-        #Original
-        #NEW
-        ele["isTightLep"] = te_os.tightSelElec(ele.isFO, ele.mvaTTH)
-        #NEW
+        ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTH, ele.jetRelIso, eleFOId, year)
+        ele["isTightLep"] = te_os.tightSelElec(ele.isFO, eleMVATTH)
+
         ################### Muon selection ####################
-        #Original
-        #mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
-        #mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-        #mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
-        #mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
-        #mu["isTightLep"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
-        #Original
-        #NEW
         #Need to Rochester Corrections for run3
         #mu["pt"] = ApplyRochesterCorrections(year, mu, isData)
         mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
-        mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTH, mu.jetRelIso, year)
-        mu["isTightLep"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTH)
+        mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, muMVATTH, mu.jetRelIso, year)
+        mu["isTightLep"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, muMVATTH)
         #NEW
         ################### Loose selection ####################
 
@@ -385,7 +389,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_obj_base.add('renorm', events.nom, events.renormUp*(sow/sow_renormUp), events.renormDown*(sow/sow_renormDown))
             weights_obj_base.add('fact', events.nom, events.factUp*(sow/sow_factUp), events.factDown*(sow/sow_factDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
-            weights_obj_base.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
+            weights_obj_base.add('PreFiring', ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom)) #events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
             weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down'))
 
 
@@ -419,7 +423,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
                 cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
                 cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-                cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
+                #cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
+                cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
                 events_cache = events.caches[0]
                 cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
                 cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
