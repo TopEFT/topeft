@@ -219,12 +219,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau  = events.Tau
         jets = events.Jet
 
-        # NEW
-        print("\n\n\n\n\n\n\n\n")
-        print("events fields", [field for field in events.fields if "Rho" in field])
-        print("\n\n\n\n\n\n\n\n")
-        # NEW
-
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
         events.nom = ak.ones_like(events.MET.pt)
@@ -267,9 +261,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         else:
             dt_era = "Run2"
 
-        print("\n\n\n\n\n\n\n")
-        print(year, dt_era)
-        print("\n\n\n\n\n\n\n")
         ######### EFT coefficients ##########
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
@@ -336,12 +327,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
 
         # Attach the lepton SFs to the electron and muons collections
-        #AttachElectronSF(e_fo,year=year)
-        #AttachMuonSF(m_fo,year=year)
+        AttachElectronSF(e_fo,year=year)
+        AttachMuonSF(m_fo,year=year)
 
         # Attach per lepton fake rates
-        #AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
-        #AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
+        AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
+        AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
         m_fo['convVeto'] = ak.ones_like(m_fo.charge)
         m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
@@ -419,7 +410,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
             # Jet energy corrections
-            if not isData:
+            if not isData and dt_era == "Run2":
                 cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
                 cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
                 cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
