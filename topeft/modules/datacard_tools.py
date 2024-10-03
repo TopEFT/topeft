@@ -296,6 +296,7 @@ class DatacardMaker():
         self.coeffs          = kwargs.pop("wcs",[])
         self.use_real_data   = kwargs.pop("unblind",False)
         self.verbose         = kwargs.pop("verbose",True)
+        self.scalings        = []
 
         if self.year_lst:
             for yr in self.year_lst:
@@ -807,7 +808,6 @@ class DatacardMaker():
         outf_root_name = os.path.join(self.out_dir,outf_root_name)
         with uproot.recreate(outf_root_name) as f:
             for p,wcs in selected_wcs.items():
-                self.make_scalings(h,wcs)
                 # TODO This is a hack for now, track this upstream
                 if 'charge_flip' in p and '2l' not in ch:
                     continue
@@ -932,6 +932,11 @@ class DatacardMaker():
                         if p == "tllq" or p == "tHq":
                             # Handle the 'missing_parton' uncertainty
                             pass
+
+                # obtain the scalings for scalings.json file
+                if p != "fakes":
+                    self.scalings = h.make_scalings_content(self.scalings,ch,km_dist,p,h.wc_names,h.make_scalings(h,ch,p))
+
             f["data_obs"] = to_hist(data_obs,"data_obs")
 
         line_break = "##----------------------------------\n"
@@ -1129,21 +1134,7 @@ class DatacardMaker():
             print(f"\tDecompose Time: {dt:.2f} s")
             print(f"\tTotal terms: {terms}")
 
-        return r
-
-    def make_scalings(self,h,wcs):
-        nwcs = len(h.wc_names)
-        bins = h[{
-            'process': 'ttll',
-            'channel': '2lss_p_4j',
-            'systematic': 'nominal'
-            }].values()
-        #print(hist['bin_2lss_p_4j_lj0pt'])
-        #len(bins) == 3 or 4
-        #len(bins[0]) == (nwcs+1) * (nwcs+2) / 2
-        with open('scalingscheck.txt', 'w') as file:
-            file.write(str(bins))
-
+        return r 
 
 if __name__ == '__main__':
     fpath = topeft_path("../analysis/topEFT/histos/may18_fullRun2_withSys_anatest08_np.pkl.gz")

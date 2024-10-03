@@ -68,6 +68,8 @@ def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins, wcs_dict):
         for ch in matched_chs:
             r = dc.analyze(km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict)
 
+    with open("scalings-preselect.json", "w") as fout:
+            json.dump(dc.scalings, fout, indent=4)
 # VERY IMPORTANT:
 #   This setup assumes the output directory is mounted on the remote condor machines
 # Note:
