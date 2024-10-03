@@ -89,7 +89,7 @@ def main():
 
     ###### Print out general info ######
 
-    with open('scalings_preselect.json', 'r') as file:
+    with open('scalings-preselect.json', 'r') as file:
         scalings_content = json.load(file)
 
     # Count the number of text data cards and root templates
