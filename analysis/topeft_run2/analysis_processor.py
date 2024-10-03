@@ -34,8 +34,6 @@ get_te_param = GetParam(topeft_path("params/params.json"))
 
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 
-
-
 # Takes strings as inputs, constructs a string for the full channel name
 # Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
     # chan_str should look something like "3l_p_offZ_1b", NOTE: This function assumes nlep comes first
@@ -219,18 +217,33 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau  = events.Tau
         jets = events.Jet
 
+        dt_era = None
+        if year[2] == "2":
+            dt_era = "Run3"
+        else:
+            dt_era = "Run2"
+
+        if dt_era == "Run3":
+            elePresId = ele.mvaNoIso_WP90
+            eleFOId = ele.mvaNoIso_WP80
+            eleMVATTH = ele.mvaTTH
+            muMVATTH = mu.mvaTTH
+            jetsRho = events.Rho
+        elif dt_era == "Run2":
+            elePresId = ele.mvaFall17V2noIso_WPL
+            eleFOId = ele.mvaFall17V2noIso_WP90
+            eleMVATTH = ele.mvaTTHUL
+            muMVATTH = mu.mvaTTHUL
+            jetsRho = events.fixedGridRhoFastjetAll
+        
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
         events.nom = ak.ones_like(events.MET.pt)
 
         ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
-        #Original
-        #ele["conept"] = te_os.coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
-        #mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
-        #Original
-        # NEW: changed mvaTTHUL to mvaTTH
-        ele["conept"] = te_os.coneptElec(ele.pt, ele.mvaTTH, ele.jetRelIso)
-        mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTH, mu.jetRelIso, mu.mediumId)
+        ele["conept"] = te_os.coneptElec(ele.pt, eleMVATTH, ele.jetRelIso)
+        mu["conept"] = te_os.coneptMuon(mu.pt, muMVATTH, mu.jetRelIso, mu.mediumId)
+
         # NEW
         ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
@@ -255,12 +268,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError(f"Error: Unknown year \"{year}\".")
         lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
 
-        dt_era = None
-        if year[2] == "2":
-            dt_era = "Run3"
-        else:
-            dt_era = "Run2"
-
         ######### EFT coefficients ##########
 
         # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
@@ -279,21 +286,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         #le["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
         #Original
         #NEW
-        if dt_era == "Run3":
-            elePresId = ele.mvaNoIso_WP90
-            eleFOId = ele.mvaNoIso_WP80
-            eleMVATTH = ele.mvaTTH
-            muMVATTH = mu.mvaTTH
-            jetsRho = events.Rho
-        elif dt_era == "Run2":
-            elePresId = ele.mvaFall17V2noIso_WPL
-            eleFOId = ele.mvaFall17V2noIso_WP90
-            eleMVATTH = ele.mvaTTHUL
-            muMVATTH = mu.mvaTTHUL
-            jetsRho = events.fixedGridRhoFastjetAll
         ele["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, elePresId)
         ele["isLooseE"] = te_os.isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
-        ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTH, ele.jetRelIso, eleFOId, year)
+        ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, eleMVATTH, ele.jetRelIso, eleFOId, year)
         ele["isTightLep"] = te_os.tightSelElec(ele.isFO, eleMVATTH)
 
         ################### Muon selection ####################
