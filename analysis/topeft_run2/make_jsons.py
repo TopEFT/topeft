@@ -448,7 +448,48 @@ central_2017_dict = {
         "xsecName": "tttt",
     },
 }
-
+central_2022_dict = {
+    "2022_ttHnobb":{
+        "path"  : "/TTHtoNon2B_M-125_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v4/NANOAODSIM",
+        "histAxisName": "ttHnobb_central2022",
+        "xsecName": "ttHnobb_13p6TeV",
+    },
+    "2022_ttHnobb-1Jets":{
+        "path"  : "/TTHtoNon2B-1Jets_M-125_TuneCP5_13p6TeV_amcatnloFXFX-madspin-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+        "histAxisName": "ttHnobb-1Jets_central2022",
+        "xsecName": "ttHnobb-1Jets_13p6TeV",
+    },
+    "2022_TTLNu":{
+        "path"  : "/TTLNu-1Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v1/NANOAODSIM",
+        "histAxisName": "ttLNu_cental2022",
+        "xsecName" : "TTLNu_13p6TeV",
+    },
+    "2022_TTLL_MLL-4to50":{
+        "path" : "/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+        "histAxisName": "TTLL_MLL-4to50_central2022",
+        "xsecName" : "TTLL_MLL-4to50_13p6TeV",    
+},
+    "2022_TTLL_MLL-50":{
+        "path" : "/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+        "histAxisName": "TTLL_MLL-50_central2022",
+        "xsecName" : "TTLL_MLL-50_13p6TeV",
+    },
+    "2022_TZQB-Zto2L-4FS_MLL-30":{
+        "path" : "/TZQB-Zto2L-4FS_MLL-30_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+        "histAxisName": " TZQB-Zto2L-4FS_MLL-30_central2022",
+        "xsecName" : "TZQB-Zto2L-4FS_MLL-30_13p6TeV",
+    },
+    "2022_TZQB-4FS_OnshellZ":{
+        "path" : "/TZQB-4FS_OnshellZ_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v4/NANOAODSIM",
+        "histAxisName" : "TZQB-4FS_OnshellZ_central2022",
+        "xsecName" : "TZQB-4FS_OnshellZ_13p6TeV",
+    },
+    "2022_TTTT":{
+        "path" : "/TTTT_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+        "histAxisName" : "TTTT_central2022",
+        "xsecName" : "TTTT_13p6TeV",
+    },
+}
 ########### Central signal samples UL ###########
 
 central_UL16_dict = {
@@ -1461,6 +1502,224 @@ central_UL16APV_bkg_dict = {
         "xsecName" : "ggToZZTo4tau",
     },
 }
+central_2022_bkg_dict = {
+#    "TTG-1Jets_PTG-10to100":{
+#        "path" : "/TTG-1Jets_PTG-10to100_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v1/NANOAODSIM",
+#        "histAxisName" : "TTG-1Jets_PTG-10to100_central2022",
+#        "xsecName" : "TTG-1Jets_PTG-10to100_13p6TeV",
+#    },
+#    "TTG-1Jets_PTG-100to200":{
+#        "path" : "/TTG-1Jets_PTG-100to200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v3/NANOAODSIM",
+#        "histAxisName" : "TTG-1Jets_PTG-100to200_central2022",
+#        "xsecName" : "TTG-1Jets_PTG-100to200_13p6TeV",
+#    },
+#    "TTG-1Jets_PTG-200": {
+#        "path" : "/TTG-1Jets_PTG-200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v3/NANOAODSIM",
+#        "histAxisName" : "TTG-1Jets_PTG-200_central2022",
+#        "xsecName" : "TTG-1Jets_PTG-200_13p6TeV",
+#    },
+#    "TTto2L2Nu": { 
+#        "path": "/TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName": "TTto2L2Nu_central2022",
+#        "xsecName" : "TTto2L2Nu_13p6TeV",
+#    },
+#    "TTto2L2Nu-ext1":{
+#        "path": "/TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM",
+#        "histAxisName": "TTto2L2Nu-ext1_central2022",
+#        "xsecName" : "TTto2L2Nu_13p6TeV",
+#    },
+#    "TTto2L2Nu-2Jets":{
+#        "path" : "/TTto2L2Nu-2Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v1/NANOAODSIM",
+#        "histAxisName":"TTto2L2Nu-2Jets_central2022",
+#        "xsecName" : "TTto2L2Nu-2Jets_13p6TeV",
+#    },
+#    "TTto2L2Nu-3Jets":{
+#        "path" : "/TTto2L2Nu-3Jets_TuneCP5_13p6TeV_madgraphMLM-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"TTto2L2Nu-3Jets_central2022",
+#        "xsecName" : "TTto2L2Nu-3Jets_13p6TeV",
+#    },
+#    "TTtoLNu2Q":{
+#        "path":"/TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName": "TTtoLNu2Q_central2022",
+#        "xsecName": "TTtoLNu2Q_13p6TeV"
+#    },
+#    "TTtoLNu2Q-ext1":{
+#        "path":"/TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM",
+#        "histAxisName": "TTtoLNu2Q-ext1_central2022",
+#        "xsecName":"TTtoLNu2Q_13p6TeV"
+#    },
+#    "TWZ_Tto2Q_WtoLNu_Zto2L":{
+#        "path":"/TWZ_Tto2Q_WtoLNu_Zto2L_DR1_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v4/NANOAODSIM",
+#        "histAxisName":"TWZ_Tto2Q_WtoLNu_Zto2L_central2022",
+#        "xsecName":"TWZ_Tto2Q_WtoLNu_Zto2L_13p6TeV",
+#    },
+#    "TWZ_TtoLNu_Wto2Q_Zto2L":{
+#        "path":"/TWZ_TtoLNu_Wto2Q_Zto2L_DR1_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v4/NANOAODSIM",
+#        "histAxisName":"TWZ_TtoLNu_Wto2Q_Zto2L_central2022",
+#        "xsecName":"TWZ_TtoLNu_Wto2Q_Zto2L_13p6TeV",
+#    },
+#    "TWZ_TtoLNu_WtoLNu_Zto2L":{
+#        "path":"/TWZ_TtoLNu_WtoLNu_Zto2L_DR1_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v4/NANOAODSIM",
+#        "histAxisName":"TWZ_TtoLNu_WtoLNu_Zto2L_central2022",
+#        "xsecName":"TWZ_TtoLNu_WtoLNu_Zto2L_13p6TeV",
+#    },
+#
+#    "WJetsToLNu":{
+#        "path":"/WtoLNu-2Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"WJetsToLNu_central2022",
+#        "xsecName":"WJetsToLNu_13p6TeV",
+#    },
+#    "WWTo2L2Nu":{
+#        "path":"/WWto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"WWTo2L2Nu_central2022",
+#        "xsecName": "WWTo2L2Nu_13p6TeV",
+#    },
+#    "WWTo2L2Nu-ext1":{
+#        "path":"/WWto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM",
+#        "histAxisName":"WWTo2L2Nu-ext1_central2022",
+#        "xsecName":"WWTo2L2Nu_13p6TeV",
+#    },
+#    "WZTo3LNu":{
+#        "path":"/WZto3LNu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"WZTo3LNu_central2022",
+#        "xsecName":"WZTo3LNu_13p6TeV",
+#    },
+#    "ZZTo4L":{
+#        "path":"/ZZto4L_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ZZTo4L_central2022",
+#        "xsecName":"ZZTo4L_13p6TeV",
+#    },
+#    "ZZTo4L-ext1":{
+#        "path":"/ZZto4L_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM",
+#        "histAxisName":"ZZTo4L-ext1_central2022",
+#        "xsecName":"ZZTo4L_13p6TeV",
+#    },
+#    "ZZTo4L-1Jet":{
+#        "path":"/ZZto4L-1Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v3/NANOAODSIM",
+#        "histAxisName":"ZZTo4L-1Jet_central2022",
+#        "xsecName":"ZZTo4L-1Jet_13p6TeV",
+#    },
+#    "WWW":{
+#        "path":"/WWW_4F_TuneCP5_13p6TeV_amcatnlo-madspin-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"WWW_central2022",
+#        "xsecName":"WWW_13p6TeV",
+#    },
+#    "WWZ":{
+#        "path":"/WWZ_4F_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"WWZ_central2022",
+#        "xsecName":"WWZ_13p6TeV",
+#    },
+#    "ZZZ":{
+#        "path":"/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ZZZ_central2022",
+#        "xsecName":"ZZZ_13p6TeV",
+#    },
+#    "ggToZZTo2e2mu":{
+#        "path":"/GluGlutoContinto2Zto2E2Mu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v1/NANOAODSIM",
+#        "histAxisName":"ggToZZTo2e2mu_central2022",
+#        "xsecName":"ggToZZTo2e2mu_13p6TeV",
+#    },
+#    "ggToZZTo2e2tau":{
+#        "path":"/GluGluToContinto2Zto2E2Tau_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ggToZZTo2e2tau_central2022",
+#        "xsecName":"ggToZZTo2e2tau_13p6TeV",
+#    },
+#    "ggToZZTo2mu2tau":{
+#        "path":"/GluGluToContinto2Zto2Mu2Tau_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ggToZZTo2mu2tau_central2022",
+#        "xsecName":"ggToZZTo2mu2tau_13p6TeV",
+#    },
+#    "ggToZZTo4e":{
+#        "path":"/GluGlutoContinto2Zto4E_TuneCP5_13p6TeV_mcfm-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ggToZZTo4e_central2022",
+#        "xsecName":"ggToZZTo4e_13p6TeV"
+#    },
+#    "ggToZZTo4mu":{
+#        "path":"/GluGlutoContinto2Zto4Mu_TuneCP5_13p6TeV_mcfm-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ggToZZTo4mu_central2022",
+#        "xsecName":"ggToZZTo4mu_13p6TeV",
+#    },
+#    "ggToZZTo4tau":{
+#        "path":"/GluGlutoContinto2Zto4Tau_TuneCP5_13p6TeV_mcfm-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ggToZZTo4tau_central2022",
+#        "xsecName":"ggToZZTo4tau_13p6TeV",
+#    },
+#    "DYJetsToLL_MLL-10to50":{
+#        "path":"/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"DYJetsToLL_MLL-10to50_central2022",
+#        "xsecName":"DYto2L-2Jets_MLL-10to50_13p6TeV",
+#    },
+#    "DYJetsToLL_MLL-10to50-ext1":{
+#        "path":"/DYto2L-2Jets_MLL-10to50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v1/NANOAODSIM",
+#        "histAxisName":"DYJetsToLL_MLL-10to50-ext1_central2022",
+#        "xsecName":"DYto2L-2Jets_MLL-10to50_13p6TeV",
+#    },
+#    "DYJetsToLL_MLL-50":{
+#        "path":"/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"DYJetsToLL_MLL-50_central2022",
+#        "xsecName":"DYto2L-2Jets_MLL-50_13p6TeV"
+#    },
+#    "DYJetsToLL_MLL-50-ext1":{
+#        "path":"/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v1/NANOAODSIM",
+#        "histAxisName":"DYJetsToLL_MLL-50-ext1_central2022",
+#        "xsecName":"DYto2L-2Jets_MLL-50_13p6TeV",
+#    },
+#    "ST_top_s-channel":{
+#        "path":"/TBbartoLplusNuBbar-s-channel-4FS_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ST_top_s-channel_central2022",
+#        "xsecName":"ST_top_s-channel_13p6TeV",
+#    },
+#    "ST_top_t-channel":{
+#        "path":"/TBbarQ_t-channel_4FS_TuneCP5_13p6TeV_powheg-madspin-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ST_top_t-channel_central2022",
+#        "xsecName":"ST_top_t-channel_13p6TeV",
+#    },
+#    "ST_antitop_t-channel":{
+#        "path":"/TbarBQ_t-channel_4FS_TuneCP5_13p6TeV_powheg-madspin-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ST_antitop_t-channel_central2022",
+#        "xsecName":"ST_antitop_t-channel_13p6TeV",
+#    },
+#    "ST_tW_Leptonic":{
+#        "path":"/TWminusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ST_tW_Leptonic_central2022",
+#        "xsecName":"ST_tW_Leptonic_13p6TeV",
+#    },
+#    "ST_tW_Leptonic-ext1":{
+#        "path":"/TWminusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM",
+#        "histAxisName":"ST_tW_Leptonic-ext1_central2022",
+#        "xsecName":"ST_tW_Leptonic_13p6TeV",
+#    },
+#    "ST_tW_Semileptonic":{
+#        "path":"/TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ST_tW_Semileptonic_central2022",
+#        "xsecName":"ST_tW_Semileptonic_13p6TeV",
+#    },
+#    "ST_tW_Semileptonic-ext1":{
+#        "path":"/TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM",
+#        "histAxisName":"ST_tW_Semileptonic-ext1_central2022",
+#        "xsecName":"ST_tW_Semileptonic_13p6TeV"
+#    },
+#    "ST_tbarW_Leptonic":{
+#        "path":"/TbarWplusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ST_tbarW_Leptonic_central2022",
+#        "xsecName":"ST_tbarW_Leptonic_13p6TeV",
+#    },
+#    "ST_tbarW_Leptonic-ext1":{
+#        "path":"/TbarWplusto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM",
+#        "histAxisName":"ST_tbarW_Leptonic-ext1_central2022",
+#        "xsecName":"ST_tbarW_Leptonic_13p6TeV"
+#    },
+#    "ST_tbarW_Semileptonic":{
+#        "path":"/TbarWplustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+#        "histAxisName":"ST_tbarW_Semileptonic_central2022",
+#        "xsecName":"ST_tbarW_Semileptonic_13p6TeV",
+#    },
+#    "ST_tbarW_Semileptonic-ext1":{
+#        "path":"/TbarWplustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM",
+#        "histAxisName":"ST_tbarW_Semileptonic-ext1_central2022",
+#        "xsecName":"ST_tbarW_Semileptonic_13p6TeV",
+#    },
+}
 
 ########### Data ##############
 from collections import defaultdict
@@ -1630,7 +1889,32 @@ for era in dataset_eras:
                 version = version_overwrite[ds_name][era]
         ds_path = "/{ds}/{year}{era}_{ver}/NANOAOD".format(year=year,ds=ds_name,era=era,ver=version)
         data_2018_dict[key_name]['path'] = ds_path
-
+### 2022 ###
+year = 'Run2022'
+naod_version = 'v1'
+dataset_names = ["EGamma", "Muon", "MuonEG"] 
+dataset_eras = [
+    'C-22Sep2023',
+    'D-22Sep2023',
+    'E-22Sep2023',
+    'F-22Sep2023',
+    'G-22Sep2023',
+]
+version_overwrite = {
+    'EGamma': {
+        'G-22Sep2023': 'v2',
+    }
+}
+data_2022_dict = defaultdict(lambda: {'path': '','histAxisName': 'data2022', 'xsecName': 'data'})
+for era in dataset_eras:
+    for ds_name in dataset_names:
+        key_name = "{name}_{era}".format(name=ds_name,era=era)
+        version = naod_version
+        if ds_name in version_overwrite:
+            if era in version_overwrite[ds_name]:
+                version = version_overwrite[ds_name][era]
+        ds_path = "/{ds}/{year}{era}-{ver}/NANOAOD".format(year=year,ds=ds_name,era=era,ver=version)
+        data_2022_dict[key_name]['path'] = ds_path
 ########### TESTING ###########
 
 test_dict = {
@@ -1690,7 +1974,6 @@ def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False
         print("Failed: None")
 
 
-
 # Uncomment the make_jsons_for_dict_of_samples() lines for the jsons you want to make/remake
 def main():
 
@@ -1705,11 +1988,13 @@ def main():
     out_dir_central_bkg_UL = os.path.join(jsons_path,"background_samples/central_UL/")
     out_dir_central_2017   = os.path.join(jsons_path,"signal_samples/central_2017/")
     out_dir_central_sync   = os.path.join(jsons_path,"sync_samples/")
-
+    out_dir_central_bkg_2022 = os.path.join(jsons_path,"background_samples/central_2022/")
+    out_dir_central_2022 = os.path.join(jsons_path,"signal_samples/central_2022/")
+    
     out_dir_data_2016 = os.path.join(jsons_path,"data_samples/2016/")
     out_dir_data_2017 = os.path.join(jsons_path,"data_samples/2017/")
     out_dir_data_2018 = os.path.join(jsons_path,"data_samples/2018/")
-
+    out_dir_data_2022 = os.path.join(jsons_path,"data_samples/2022/")
     ######### Make/remake JSONs #########
 
     # Private UL samples
@@ -1734,22 +2019,24 @@ def main():
     #make_jsons_for_dict_of_samples(central_UL16APV_dict, "/hadoop","2016APV", out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
     #make_jsons_for_dict_of_samples(central_UL17_dict,    "/hadoop","2017",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
     #make_jsons_for_dict_of_samples(central_UL18_dict,    "/hadoop","2018",    out_dir_central_UL,on_das=False) # Central signal samples ar at ND now
-
+    #NEW
+    #make_jsons_for_dict_of_samples(central_2022_dict,"root://cms-xrd-global.cern.ch/","2022",out_dir_central_2022,on_das=True)
     # Central background samples
     # Note: Some of the bkg dicts have both a "path" and a "path_local" (these are samples that generated JSONs for after moving the samples to ND),
     #       while the others only have a "path" (i.e. dataset name), these were the ones we produced JSONs for prior to moving the samples to ND, but
     #       these should also be located at ND, so if the samples need to be remade, you can add a "local_path" with the path starting with /store
-    make_jsons_for_dict_of_samples(central_UL17_bkg_dict,   "/hadoop","2017",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
-    make_jsons_for_dict_of_samples(central_UL18_bkg_dict,   "/hadoop","2018",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
-    make_jsons_for_dict_of_samples(central_UL16_bkg_dict,   "/hadoop","2016",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
-    make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"/hadoop","2016APV",out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
-
+    #make_jsons_for_dict_of_samples(central_UL17_bkg_dict,   "/hadoop","2017",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
+    #make_jsons_for_dict_of_samples(central_UL18_bkg_dict,   "/hadoop","2018",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
+    #make_jsons_for_dict_of_samples(central_UL16_bkg_dict,   "/hadoop","2016",   out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
+    #make_jsons_for_dict_of_samples(central_UL16APV_bkg_dict,"/hadoop","2016APV",out_dir_central_bkg_UL,on_das=False) # Background samples are at ND now
+    #NEW
+    #make_jsons_for_dict_of_samples(central_2022_bkg_dict,"root://cms-xrd-global.cern.ch/","2022",out_dir_central_bkg_2022,on_das=True)
     # Data samples
     #make_jsons_for_dict_of_samples(data_2016APV_dict,"root://ndcms.crc.nd.edu/","2016APV",out_dir_data_2016,on_das=True)
     #make_jsons_for_dict_of_samples(data_2016_dict,"root://ndcms.crc.nd.edu/","2016",out_dir_data_2016,on_das=True)
     #make_jsons_for_dict_of_samples(data_2017_dict,"root://ndcms.crc.nd.edu/","2017",out_dir_data_2017,on_das=True)
     #make_jsons_for_dict_of_samples(data_2018_dict,"root://ndcms.crc.nd.edu/","2018",out_dir_data_2018,on_das=True)
-
+    #make_jsons_for_dict_of_samples(data_2022_dict, "root://cms-xrd-global.cern.ch/","2022",out_dir_data_2022,on_das=True)
     # Testing finding list of files with xrdfs ls
     #make_jsons_for_dict_of_samples(test_dict,"root://xrootd-local.unl.edu/","2017",".")
 
