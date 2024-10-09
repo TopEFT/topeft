@@ -34,6 +34,76 @@ get_te_param = GetParam(topeft_path("params/params.json"))
 
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 
+#JERC dictionary for various keys
+jerc_dict = {
+    "2016": {
+        "jec_mc"  : "Summer19UL16_V7_MC",
+        "jec_data": "Summer19UL16_RunFGH_V7_DATA",
+        "jer"     : "Summer20UL16_JRV3_MC"
+    },
+    "2016APV": {
+        "jec_mc": "Summer19UL16APV_V7_MC",
+        "jec_data": {
+            "B": "Summer19UL16APV_RunBCD_V7_DATA",
+            "C": "Summer19UL16APV_RunBCD_V7_DATA",
+            "D": "Summer19UL16APV_RunBCD_V7_DATA",
+            "E": "Summer19UL16APV_RunEF_V7_DATA",
+            "F": "Summer19UL16APV_RunEF_V7_DATA",
+        },
+        "jer": "Summer20UL16APV_JRV3_MC"
+    },
+    "2017": {
+        "jec_mc": "Summer19UL17_V5_MC",
+        "jec_data": {
+            "B": "Summer19UL17_RunB_V5_DATA",
+            "C": "Summer19UL17_RunC_V5_DATA",
+            "D": "Summer19UL17_RunD_V5_DATA",
+            "E": "Summer19UL17_RunE_V5_DATA",
+            "F": "Summer19UL17_RunF_V5_DATA",
+        },
+        "jer": "Summer19UL17_JRV2_MC"
+    },
+    "2018": {
+        "jec_mc": "Summer19UL18_V5_MC",
+        "jec_data": {
+            "A": "Summer19UL18_RunA_V5_DATA",
+            "B": "Summer19UL18_RunB_V5_DATA",
+            "C": "Summer19UL18_RunC_V5_DATA",
+            "D": "Summer19UL18_RunD_V5_DATA",
+        },
+        "jer": "Summer19UL18_JRV2_MC"
+    },
+    "2022": {
+        "jec_mc"  : "Summer22_22Sep2023_V2_MC",
+        "jec_data": "Summer22_22Sep2023_RunCD_V2_DATA",
+        "jer"     : "Summer22_22Sep2023_JRV1_MC"
+    },
+    "2022EE": {
+        "jec_mc": "Summer22EE_22Sep2023_V2_MC",
+        "jec_data": {
+            "E": "Summer22EE_22Sep2023_RunE_V2_DATA",
+            "F": "Summer22EE_22Sep2023_RunF_V2_DATA",
+            "G": "Summer22EE_22Sep2023_RunG_V2_DATA",
+        },
+        "jer": "Summer22EE_22Sep2023_JRV1_MC"
+    },
+    "2023": {
+        "jec_mc": "Summer23Prompt23_V1_MC",
+        "jec_data": {
+            "C1": "Summer23Prompt23_RunCv123_V1_DATA",
+            "C2": "Summer23Prompt23_RunCv123_V1_DATA",
+            "C3": "Summer23Prompt23_RunCv123_V1_DATA",
+            "C4": "Summer23Prompt23_RunCv4_V1_DATA",
+        },
+        "jer": "Summer23Prompt23_RunCv1234_JRV1_MC"
+    },
+    "2023BPix": {
+        "jec_mc"  : "Summer23BPixPrompt23_V1_MC",
+        "jec_data": "Summer23BPixPrompt23_RunD_V1_DATA",
+        "jer"     : "Summer23BPixPrompt23_RunD_JRV1_MC"
+    }
+}
+
 # Takes strings as inputs, constructs a string for the full channel name
 # Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
     # chan_str should look something like "3l_p_offZ_1b", NOTE: This function assumes nlep comes first
@@ -58,7 +128,6 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
         if component is None: continue
         ret_str = "_".join([ret_str,component])
     return ret_str
-
 
 class AnalysisProcessor(processor.ProcessorABC):
 
@@ -154,6 +223,18 @@ class AnalysisProcessor(processor.ProcessorABC):
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
 
+        dt_era = None
+        if year[2] == "2":
+            dt_era = "Run3"
+        else:
+            dt_era = "Run2"
+
+        era = None
+
+        if isData:
+            #if dt_era == "Run2":
+            era = self._samples[dataset]["path"].split("/")[2].split("-")[0][-1]
+
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
             if histAxisName in get_te_param("lo_xsec_samples"):
@@ -216,12 +297,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu   = events.Muon
         tau  = events.Tau
         jets = events.Jet
-
-        dt_era = None
-        if year[2] == "2":
-            dt_era = "Run3"
-        else:
-            dt_era = "Run2"
 
         if dt_era == "Run3":
             elePresId = ele.mvaNoIso_WP90
@@ -292,8 +367,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         ele["isTightLep"] = te_os.tightSelElec(ele.isFO, eleMVATTH)
 
         ################### Muon selection ####################
-        #Need to Rochester Corrections for run3
-        #mu["pt"] = ApplyRochesterCorrections(year, mu, isData)
+        if dt_era == "Run2":
+            mu["pt"] = ApplyRochesterCorrections(year, mu, isData)
+        else:
+            #Need to Rochester Corrections for run3
+            pass
+        
         mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
         mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, muMVATTH, mu.jetRelIso, year)
@@ -322,8 +401,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
 
         # Attach the lepton SFs to the electron and muons collections
-        AttachElectronSF(e_fo,year=year)
-        AttachMuonSF(m_fo,year=year)
+        AttachElectronSF(e_fo,year=year) ##Run3 moved
+        AttachMuonSF(m_fo,year=year) ##Run3 moved
 
         # Attach per lepton fake rates
         AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
@@ -354,7 +433,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Note: Here we will to the weights object the SFs that do not depend on any of the forthcoming loops
         weights_obj_base = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         if not isData:
-
             # If this is no an eft sample, get the genWeight
             if eft_coeffs is None: genw = events["genWeight"]
             else: genw= np.ones_like(events["event"])
@@ -403,14 +481,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
+            cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
+            cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
+            cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
 
             # Jet energy corrections
             if not isData and dt_era == "Run2":
-                cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
-                cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
                 cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-                #cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
-                cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
                 events_cache = events.caches[0]
                 cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
                 cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
