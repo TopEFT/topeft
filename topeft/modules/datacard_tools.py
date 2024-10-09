@@ -296,6 +296,8 @@ class DatacardMaker():
         self.coeffs          = kwargs.pop("wcs",[])
         self.use_real_data   = kwargs.pop("unblind",False)
         self.verbose         = kwargs.pop("verbose",True)
+        self.wc_scalings     = kwargs.pop("wc_scalings",[])
+        self.scalings        = []
 
         if self.year_lst:
             for yr in self.year_lst:
@@ -763,6 +765,20 @@ class DatacardMaker():
             print(f"WC Selection Time: {dt:.2f} s")
         return selected_wcs
 
+    def make_scalings_json(self,scalings_json,ch,km_dist,p,wc_names,scalings):
+        scalings_json.append(
+            {
+                "channel": ch + "_" + str(km_dist),
+                "process": p + "_sm",  # NOTE: needs to be in the datacard
+                "parameters": ["cSM[1]"]
+                + [ wc for wc in wc_names],
+                "scaling":
+                    scalings
+                ,
+             }
+        )
+        return scalings_json
+
     def analyze(self,km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict):
         """ Handles the EFT decomposition and the actual writing of the ROOT and text datacard files."""
         if not km_dist in self.hists:
@@ -829,6 +845,7 @@ class DatacardMaker():
                             raise RuntimeError("filling obs data more than once!")
                         for sp_key,arr in data_sm.items():
                             data_obs += arr
+                decomposed_templates = {k: v for k, v in decomposed_templates.items() if k == 'sm'}
                 for base,v in decomposed_templates.items():
                     proc_name = f"{p}_{base}"
                     col_width = max(len(proc_name),col_width)
@@ -930,6 +947,14 @@ class DatacardMaker():
                         if p == "tllq" or p == "tHq":
                             # Handle the 'missing_parton' uncertainty
                             pass
+                # obtain the scalings for scalings.json file
+                if p != "fakes":
+                    if self.wc_scalings:
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scalings(self.wc_scalings)
+                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings)
+                    else:
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scalings()
+                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings)
             f["data_obs"] = to_hist(data_obs,"data_obs")
 
         line_break = "##----------------------------------\n"
@@ -1127,8 +1152,7 @@ class DatacardMaker():
             print(f"\tDecompose Time: {dt:.2f} s")
             print(f"\tTotal terms: {terms}")
 
-        return r
-
+        return r 
 
 if __name__ == '__main__':
     fpath = topeft_path("../analysis/topEFT/histos/may18_fullRun2_withSys_anatest08_np.pkl.gz")
