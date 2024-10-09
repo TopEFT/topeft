@@ -370,7 +370,7 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     events['is3l_SR'] = ak.fill_none(events['is3l_SR'],False)
 
     # FF:
-    #fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
+    fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
 
 
 # 4l selection
