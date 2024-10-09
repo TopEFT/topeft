@@ -173,6 +173,7 @@ def main():
     parser.add_argument("--chunks","-n",default=1,help="The number of channels each condor job should process")
     parser.add_argument("--keep-negative-bins",action="store_true",help="Don't crop negative bins")
     parser.add_argument("--wc-vals", default="",action="store", nargs="+", help="Specify the corresponding wc values to set for the wc list")
+    parser.add_argument("--wc-scalings", default=[],action="extend",nargs="+",help="Specify a list of wc ordering for scalings.json")
 
     args = parser.parse_args()
     pkl_file   = args.pkl_file
@@ -191,6 +192,7 @@ def main():
     verbose    = args.verbose
     wc_vals    = args.wc_vals
 
+    wc_scalings = args.wc_scalings 
     select_only = args.select_only
     use_selected = args.use_selected
 
@@ -214,6 +216,7 @@ def main():
         "verbose": verbose,
         "year_lst": years,
         "wc_vals": wc_vals,
+        "wc_scalings": wc_scalings,
     }
 
     if out_dir != "." and not os.path.exists(out_dir):
