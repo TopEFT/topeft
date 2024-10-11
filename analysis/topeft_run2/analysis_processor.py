@@ -4,6 +4,7 @@ import copy
 import coffea
 import numpy as np
 import awkward as ak
+import json
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
@@ -154,6 +155,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
 
+        dt_era = None
+        if year[2] == "2":
+            dt_era = "Run3"
+        else:
+            dt_era = "Run2"
+
+        run_era = None
+        if isData:
+            run_era = self._samples[dataset]["path"].split("/")[2].split("-")[0][-1]
+        
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
             if histAxisName in get_te_param("lo_xsec_samples"):
@@ -217,18 +228,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau  = events.Tau
         jets = events.Jet
 
-        dt_era = None
-        if year[2] == "2":
-            dt_era = "Run3"
-        else:
-            dt_era = "Run2"
 
         if dt_era == "Run3":
             elePresId = ele.mvaNoIso_WP90
             eleFOId = ele.mvaNoIso_WP80
             eleMVATTH = ele.mvaTTH
             muMVATTH = mu.mvaTTH
-            jetsRho = events.Rho
+            jetsRho = events.Rho["fixedGridRhoFastjetAll"]
         elif dt_era == "Run2":
             elePresId = ele.mvaFall17V2noIso_WPL
             eleFOId = ele.mvaFall17V2noIso_WP90
@@ -282,7 +288,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ele["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, elePresId)
         ele["isLooseE"] = te_os.isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
         ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, eleMVATTH, ele.jetRelIso, eleFOId, year)
-        ele["isTightLep"] = te_os.tightSelElec(ele.isFO, ele.mvaTTHUL)
+        ele["isTightLep"] = te_os.tightSelElec(ele.isFO, eleMVATTH)
 
         ################### Muon selection ####################
 
@@ -290,7 +296,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
         mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, muMVATTH, mu.jetRelIso, year)
-        mu["isTightLep"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
+        mu["isTightLep"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, muMVATTH)
 
         ################### Loose selection ####################
 
@@ -329,10 +335,20 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######### Systematics ###########
 
         # Define the lists of systematics we include
+        #obj_correction_syst_lst = [
+        #    f'JER_{year}Up',f'JER_{year}Down', # Systs that affect the kinematics of objects
+        #    'JES_FlavorQCDUp', 'JES_AbsoluteUp', 'JES_RelativeBalUp', 'JES_BBEC1Up', 'JES_RelativeSampleUp', 'JES_FlavorQCDDown', 'JES_AbsoluteDown', 'JES_RelativeBalDown', 'JES_BBEC1Down', 'JES_RelativeSampleDown'
+        #]
+        obj_jes_entries = []
+        with open(topeft_path('modules/jerc_dict.json'), 'r') as f:
+            jerc_dict = json.load(f)
+            for junc in jerc_dict[year]['junc']:
+                junc = junc.replace("Regrouped_", "")
+                obj_jes_entries.append(f'JES_{junc}Up')
+                obj_jes_entries.append(f'JES_{junc}Down')
         obj_correction_syst_lst = [
-            f'JER_{year}Up',f'JER_{year}Down', # Systs that affect the kinematics of objects
-            'JES_FlavorQCDUp', 'JES_AbsoluteUp', 'JES_RelativeBalUp', 'JES_BBEC1Up', 'JES_RelativeSampleUp', 'JES_FlavorQCDDown', 'JES_AbsoluteDown', 'JES_RelativeBalDown', 'JES_BBEC1Down', 'JES_RelativeSampleDown'
-        ]
+            f'JER_{year}Up', f'JER_{year}Down'
+        ] + obj_jes_entries
         wgt_correction_syst_lst = [
             "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown", # Theory systs
@@ -357,6 +373,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             lumi = 1000.0*get_tc_param(f"lumi_{year}")
             weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
 
+            if dt_era == "Run2":
+                l1prefiring_args = [events.L1PreFiringWeight.Nom, events.L1PreFiringWeight.Up, events.L1PreFiringWeight.Dn]
+            elif dt_era == "Run3":
+                l1prefiring_args = [ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom)]
+                
             # Attach PS weights (ISR/FSR) and scale weights (renormalization/factorization) and PDF weights
             tc_cor.AttachPSWeights(events)
             tc_cor.AttachScaleWeights(events)
@@ -367,8 +388,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             # renorm/fact scale
             weights_obj_base.add('renorm', events.nom, events.renormUp*(sow/sow_renormUp), events.renormDown*(sow/sow_renormDown))
             weights_obj_base.add('fact', events.nom, events.factUp*(sow/sow_factUp), events.factDown*(sow/sow_factDown))
-            # Prefiring and PU (note prefire weights only available in nanoAODv9)
-            weights_obj_base.add('PreFiring', ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom)) #events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
+            # Prefiring and PU (note prefire weights only available in nanoAODv9 and for Run2)
+            weights_obj_base.add('PreFiring', *l1prefiring_args)
             weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down'))
 
 
@@ -382,6 +403,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Loop over the list of systematic variations we've constructed
         met_raw=met
         for syst_var in syst_var_list:
+            #print(f"\n\n\n\n\n\n\n{syst_var}")
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
             weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
@@ -397,19 +419,24 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
+            cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
+            cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
+            cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
+            #print("cleanedJets fields", cleanedJets.fields)
+            
             # Jet energy corrections
-            if not isData and dt_era == "Run2":
-                cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
-                cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
-                cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-                cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
-                events_cache = events.caches[0]
-                cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
-                cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
-                met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
+            if not isData: #and dt_era == "Run2":
+                cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
+            events_cache = events.caches[0]
+            cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)
+            cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
+            #met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
+
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
-
+            #print([field for field in goodJets.fields if (field.startswith("JE") or 'jec' in field)])
+            #print("\n\n\n\n\n\n\n")
+            
             # Count jets
             njets = ak.num(goodJets)
             ht = ak.sum(goodJets.pt,axis=-1)
