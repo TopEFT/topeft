@@ -1,6 +1,5 @@
 '''
  selection.py
-
  This script contains several functions that implement the some event selection.
  The functinos defined here can be used to define a selection, signal/control region, etc.
  The functions are called with (jagged)arrays as imputs plus some custom paramenters and return a boolean mask.
