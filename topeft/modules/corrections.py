@@ -324,55 +324,55 @@ SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
-def ApplyTES(year, Taus, isData, tagger, syst_name, vsJetWP):
+def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
     if isData:
-        return (Taus.pt, Taus.mass)
-    pt  = Taus.pt
-    dm  = Taus.decayMode
-    gen = Taus.genPartFlav
+        return (taus.pt, taus.mass)
+    pt  = taus.pt
+    dm  = taus.decayMode
+    gen = taus.genPartFlav
 
     kinFlag = (pt>20) & (pt<205) & (gen==5)
-    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
+    dmFlag = ((taus.decayMode==0) | (taus.decayMode==1) | (taus.decayMode==10) | (taus.decayMode==11))
     whereFlag = kinFlag & dmFlag #((pt>20) & (pt<205) & (gen==5) & (dm==0 | dm==1 | dm==10 | dm==11))
     tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
 
     ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
-    padded_Taus = ak.pad_none(Taus,1)
-    padded_Taus = ak.with_name(padded_Taus, "TauCandidate")
+    padded_taus = ak.pad_none(taus,1)
+    padded_taus = ak.with_name(padded_taus, "TauCandidate")
 
     clib_year = clib_year_map[year]
     json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
 
-    pt  = padded_Taus.pt
-    dm  = padded_Taus.decayMode
-    wp  = padded_Taus.idDeepTau2017v2p1VSjet
-    eta = padded_Taus.eta
-    gen = padded_Taus.genPartFlav
-    mass= padded_Taus.mass
+    pt  = padded_taus.pt
+    dm  = padded_taus.decayMode
+    wp  = padded_taus.idDeepTau2017v2p1VSjet
+    eta = padded_taus.eta
+    gen = padded_taus.genPartFlav
+    mass= padded_taus.mass
 
     arg_tau = ["pt", "eta", "decayMode", "genPartFlav"]
     pt_mask_flat = ak.flatten((pt>0) & (pt<1000))
 
     ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
-    DeepTaus = [
-        ("DeepTau2017v2p1VSjet", ak.flatten(padded_Taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
-        ("DeepTau2017v2p1VSe", ak.flatten(padded_Taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
-        ("DeepTau2017v2p1VSmu", ak.flatten(padded_Taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
+    deep_tau_cuts = [
+        ("DeepTau2017v2p1VSjet", ak.flatten(padded_taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
+        ("DeepTau2017v2p1VSe", ak.flatten(padded_taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
+        ("DeepTau2017v2p1VSmu", ak.flatten(padded_taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
     ]
 
     DT_sf_list = []
     DT_up_list = []
     DT_do_list = []
 
-    for DeepTau in DeepTaus:
-        discr = DeepTau[0]
-        id_mask = DeepTau[1]
-        arg_list = DeepTau[2]
+    for deep_tau_cut in deep_tau_cuts:
+        discr = deep_tau_cut[0]
+        id_mask = deep_tau_cut[1]
+        arg_list = deep_tau_cut[2]
         args = []
         for ttag in arg_list:
             args.append(
-                ak.flatten(padded_Taus[ttag])
+                ak.flatten(padded_taus[ttag])
             )
         tau_mask = id_mask & pt_mask_flat
 
@@ -422,33 +422,33 @@ def ApplyTES(year, Taus, isData, tagger, syst_name, vsJetWP):
     DT_do = ak.unflatten(DT_do_flat, ak.num(pt))
     ## end of correction-lib implementation
 
-    return (Taus.pt*tes, Taus.mass*tes)
+    return (taus.pt*tes, taus.mass*tes)
 
-def ApplyFES(year, Taus, isData):
+def ApplyFES(year, taus, isData):
     if isData:
-        return (Taus.pt, Taus.mass)
+        return (taus.pt, taus.mass)
 
-    eta  = Taus.eta
-    pt  = Taus.pt
-    dm  = Taus.decayMode
-    gen = Taus.genPartFlav
+    eta  = taus.eta
+    pt  = taus.pt
+    dm  = taus.decayMode
+    gen = taus.genPartFlav
 
     kinFlag = (pt>20) & (pt<205) & (gen==5)
-    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1))
+    dmFlag = ((taus.decayMode==0) | (taus.decayMode==1))
     whereFlag = kinFlag & dmFlag
     fes = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1)
-    return (Taus.pt*fes, Taus.mass*fes)
+    return (taus.pt*fes, taus.mass*fes)
 
-def ApplyTESSystematic(year, Taus, syst_name):
+def ApplyTESSystematic(year, taus, syst_name):
     if not syst_name.startswith('TES'):
-        return (Taus.pt, Taus.mass)
+        return (taus.pt, taus.mass)
 
-    pt  = Taus.pt
-    dm  = Taus.decayMode
-    gen = Taus.genPartFlav
+    pt  = taus.pt
+    dm  = taus.decayMode
+    gen = taus.genPartFlav
 
     kinFlag = (pt>20) & (pt<205) & (gen==5)
-    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
+    dmFlag = ((taus.decayMode==0) | (taus.decayMode==1) | (taus.decayMode==10) | (taus.decayMode==11))
     whereFlag = kinFlag & dmFlag
     syst_lab = f'TauTES_{year}'
 
@@ -458,19 +458,19 @@ def ApplyTESSystematic(year, Taus, syst_name):
         syst_lab += '_down'
 
     tes_syst = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
-    return (Taus.pt*tes_syst, Taus.mass*tes_syst)
+    return (taus.pt*tes_syst, taus.mass*tes_syst)
 
-def ApplyFESSystematic(year, Taus, syst_name):
+def ApplyFESSystematic(year, taus, syst_name):
     if not syst_name.startswith('FES'):
-        return (Taus.pt, Taus.mass)
+        return (taus.pt, taus.mass)
 
-    pt  = Taus.pt
-    eta  = Taus.eta
-    dm  = Taus.decayMode
-    gen = Taus.genPartFlav
+    pt  = taus.pt
+    eta  = taus.eta
+    dm  = taus.decayMode
+    gen = taus.genPartFlav
 
     kinFlag = (pt>20) & (pt<205) & (gen==5)
-    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1))
+    dmFlag = ((taus.decayMode==0) | (taus.decayMode==1))
     whereFlag = kinFlag & dmFlag
 
     syst_lab = f'TauFES_{year}'
@@ -481,25 +481,25 @@ def ApplyFESSystematic(year, Taus, syst_name):
         syst_lab += '_down'
 
     fes_syst = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1)
-    return (Taus.pt*fes_syst, Taus.mass*fes_syst)
+    return (taus.pt*fes_syst, taus.mass*fes_syst)
 
-def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
-    padded_Taus = ak.pad_none(Taus,1)
-    padded_Taus = ak.with_name(padded_Taus, "TauCandidate")
-    padded_Taus["sf_tau"] = 1.0
-    padded_Taus["sf_tau_up"] = 1.0
-    padded_Taus["sf_tau_down"] = 1.0
+def AttachTauSF(events, taus, year, vsJetWP="Loose"):
+    padded_taus = ak.pad_none(taus,1)
+    padded_taus = ak.with_name(padded_taus, "TauCandidate")
+    padded_taus["sf_tau"] = 1.0
+    padded_taus["sf_tau_up"] = 1.0
+    padded_taus["sf_tau_down"] = 1.0
 
     clib_year = clib_year_map[year]
     json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
 
-    pt  = padded_Taus.pt
-    dm  = padded_Taus.decayMode
-    wp  = padded_Taus.idDeepTau2017v2p1VSjet
-    eta = padded_Taus.eta
-    gen = padded_Taus.genPartFlav
-    mass= padded_Taus.mass
+    pt  = padded_taus.pt
+    dm  = padded_taus.decayMode
+    wp  = padded_taus.idDeepTau2017v2p1VSjet
+    eta = padded_taus.eta
+    gen = padded_taus.genPartFlav
+    mass= padded_taus.mass
 
     DT_sf_list = []
     DT_up_list = []
@@ -508,20 +508,20 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     pt_mask_flat = ak.flatten((pt>20) & (pt<205))
 
     ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
-    DeepTaus = [
-        ("DeepTau2017v2p1VSjet", ak.flatten(padded_Taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
-        ("DeepTau2017v2p1VSe", ak.flatten(padded_Taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
-        ("DeepTau2017v2p1VSmu", ak.flatten(padded_Taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
+    deep_tau_cuts = [
+        ("DeepTau2017v2p1VSjet", ak.flatten(padded_taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
+        ("DeepTau2017v2p1VSe", ak.flatten(padded_taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
+        ("DeepTau2017v2p1VSmu", ak.flatten(padded_taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
     ]
 
-    for DeepTau in DeepTaus:
-        discr = DeepTau[0]
-        id_mask = DeepTau[1]
-        arg_list = DeepTau[2]
+    for deep_tau_cut in deep_tau_cuts:
+        discr = deep_tau_cut[0]
+        id_mask = deep_tau_cut[1]
+        arg_list = deep_tau_cut[2]
         args = []
         for ttag in arg_list:
             args.append(
-                ak.flatten(padded_Taus[ttag])
+                ak.flatten(padded_taus[ttag])
             )
         tau_mask = id_mask & pt_mask_flat
 
@@ -572,21 +572,21 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     ## end of correction-lib implementation
 
     ## legacy
-    whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus[f"is{vsJetWP}"]>0))
+    whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_taus[f"is{vsJetWP}"]>0))
     real_sf_loose = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}'](dm,pt), 1)
     real_sf_loose_up = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}_up'](dm,pt), 1)
     real_sf_loose_down = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}_down'](dm,pt), 1)
 
-    whereFlag = ((pt>20) & (pt<205) & ((gen==1)|(gen==3)) & (padded_Taus["iseTight"]>0))
+    whereFlag = ((pt>20) & (pt<205) & ((gen==1)|(gen==3)) & (padded_taus["iseTight"]>0))
     fake_elec_sf = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}'](np.abs(eta)), 1)
     fake_elec_sf_up = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}_up'](np.abs(eta)), 1)
     fake_elec_sf_down = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}_down'](np.abs(eta)), 1)
-    whereFlag = ((pt>20) & (pt<205) & ((gen==2)|(gen==4))  & (padded_Taus["ismTight"]>0))
+    whereFlag = ((pt>20) & (pt<205) & ((gen==2)|(gen==4))  & (padded_taus["ismTight"]>0))
     fake_muon_sf = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}'](np.abs(eta)), 1)
     fake_muon_sf_up = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_up'](np.abs(eta)), 1)
     fake_muon_sf_down = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_down'](np.abs(eta)), 1)
 
-    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (padded_Taus["is{vsJetWP}"]>0))
+    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (padded_taus["is{vsJetWP}"]>0))
     new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF'](pt), 1)
     new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_up'](pt), 1)
     new_fake_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_down'](pt), 1)
@@ -594,18 +594,19 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     real_sf = real_sf_loose
     real_sf_up = real_sf_loose_up
     real_sf_down = real_sf_loose_down
-    padded_Taus["sf_tau"] = real_sf*fake_elec_sf*fake_muon_sf*new_fake_sf
-    padded_Taus["sf_tau_up"] = real_sf_up*fake_elec_sf_up*fake_muon_sf_up*new_fake_sf_up
-    padded_Taus["sf_tau_down"] = real_sf_down*fake_elec_sf_down*fake_muon_sf_down*new_fake_sf_down
+    padded_taus["sf_tau"] = real_sf*fake_elec_sf*fake_muon_sf*new_fake_sf
+    padded_taus["sf_tau_up"] = real_sf_up*fake_elec_sf_up*fake_muon_sf_up*new_fake_sf_up
+    padded_taus["sf_tau_down"] = real_sf_down*fake_elec_sf_down*fake_muon_sf_down*new_fake_sf_down
 
     ## final step for correction-lib
     DT_sf *= new_fake_sf
     DT_up *= new_fake_sf_up
     DT_do *= new_fake_sf_down
 
-    events["sf_2l_taus"] = padded_Taus.sf_tau[:,0]
-    events["sf_2l_taus_hi"] = padded_Taus.sf_tau_up[:,0]
-    events["sf_2l_taus_lo"] = padded_Taus.sf_tau_down[:,0]
+    events["sf_2l_taus"] = padded_taus.sf_tau[:,0]
+    events["sf_2l_taus_hi"] = padded_taus.sf_tau_up[:,0]
+    events["sf_2l_taus_lo"] = padded_taus.sf_tau_down[:,0]
+
 def AttachPerLeptonFR(leps, flavor, year):
     # Get the flip rates lookup object
     if year == "2016APV": flip_year_name = "UL16APV"
