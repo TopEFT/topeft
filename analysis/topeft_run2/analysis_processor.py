@@ -164,7 +164,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         run_era = None
         if isData:
             run_era = self._samples[dataset]["path"].split("/")[2].split("-")[0][-1]
-        
+            
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
             if histAxisName in get_te_param("lo_xsec_samples"):
@@ -207,9 +207,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_renormfactUp   = -1
             sow_renormfactDown = -1
 
-        datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
+        datasets = ["Muon", "SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets:
-            if d in dataset: dataset = dataset.split('_')[0]
+            if dataset.startswith(d):
+                dataset = dataset.split('_')[0]
 
         # Set the sampleType (used for MC matching requirement)
         sampleType = "prompt"
@@ -305,7 +306,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
 
         ################### Tau selection ####################
-
+        ## TO RECHECK ONCE JOHN'S PR IS COMPLETE
         tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
         tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
         tau["isGood"]  =  tau["isClean"] & tau["isPres"]
@@ -321,8 +322,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
 
         # Attach the lepton SFs to the electron and muons collections
-        AttachElectronSF(e_fo,year=year)
-        AttachMuonSF(m_fo,year=year)
+        AttachElectronSF(e_fo,year=year) #Run3 ready
+        AttachMuonSF(m_fo,year=year) #Run3 ready
 
         # Attach per lepton fake rates
         AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
@@ -335,10 +336,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######### Systematics ###########
 
         # Define the lists of systematics we include
-        #obj_correction_syst_lst = [
-        #    f'JER_{year}Up',f'JER_{year}Down', # Systs that affect the kinematics of objects
-        #    'JES_FlavorQCDUp', 'JES_AbsoluteUp', 'JES_RelativeBalUp', 'JES_BBEC1Up', 'JES_RelativeSampleUp', 'JES_FlavorQCDDown', 'JES_AbsoluteDown', 'JES_RelativeBalDown', 'JES_BBEC1Down', 'JES_RelativeSampleDown'
-        #]
         obj_jes_entries = []
         with open(topeft_path('modules/jerc_dict.json'), 'r') as f:
             jerc_dict = json.load(f)
@@ -363,10 +360,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Note: Here we will to the weights object the SFs that do not depend on any of the forthcoming loops
         weights_obj_base = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         if not isData:
-
             # If this is no an eft sample, get the genWeight
-            if eft_coeffs is None: genw = events["genWeight"]
-            else: genw= np.ones_like(events["event"])
+            if eft_coeffs is None:
+                genw = events["genWeight"]
+            else:
+                genw= np.ones_like(events["event"])
 
             # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
@@ -379,18 +377,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                 l1prefiring_args = [ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom)]
                 
             # Attach PS weights (ISR/FSR) and scale weights (renormalization/factorization) and PDF weights
-            tc_cor.AttachPSWeights(events)
-            tc_cor.AttachScaleWeights(events)
-            #AttachPdfWeights(events) # TODO
-            # FSR/ISR weights
+            tc_cor.AttachPSWeights(events) #TODO
+            tc_cor.AttachScaleWeights(events) #TODO
+            #AttachPdfWeights(events) #TODO
+            # FSR/ISR weights #TODO
             weights_obj_base.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown))
             weights_obj_base.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown))
-            # renorm/fact scale
+            # renorm/fact scale #TODO
             weights_obj_base.add('renorm', events.nom, events.renormUp*(sow/sow_renormUp), events.renormDown*(sow/sow_renormDown))
             weights_obj_base.add('fact', events.nom, events.factUp*(sow/sow_factUp), events.factDown*(sow/sow_factDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9 and for Run2)
-            weights_obj_base.add('PreFiring', *l1prefiring_args)
-            weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down'))
+            weights_obj_base.add('PreFiring', *l1prefiring_args) #Run3 ready
+            weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down')) #TODO
 
 
         ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
@@ -403,7 +401,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Loop over the list of systematic variations we've constructed
         met_raw=met
         for syst_var in syst_var_list:
-            #print(f"\n\n\n\n\n\n\n{syst_var}")
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
             weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
@@ -428,9 +425,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not isData: #and dt_era == "Run2":
                 cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
             events_cache = events.caches[0]
-            cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)
+            cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
             cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
-            #met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
+            met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era).build(met_raw, cleanedJets, lazy_cache=events_cache)
 
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
