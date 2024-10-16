@@ -377,8 +377,17 @@ class AnalysisProcessor(processor.ProcessorABC):
                 l1prefiring_args = [ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom)]
                 
             # Attach PS weights (ISR/FSR) and scale weights (renormalization/factorization) and PDF weights
-            tc_cor.AttachPSWeights(events) #TODO
-            tc_cor.AttachScaleWeights(events) #TODO
+            tc_cor.AttachPSWeights(events) #Run3 ready
+            tc_cor.AttachScaleWeights(events) #Run3 ready (with caveat on "nominal")
+            #print("\n\n\n\n\n\n\n\n\n\n")
+            #print("events['renormfactDown']", ak.to_list(events['renormfactDown']))
+            #print("events['renormDown']", ak.to_list(events['renormDown']))
+            #print("events['factDown']", ak.to_list(events['factDown']))
+            #print("events['factUp']", ak.to_list(events['factUp']))
+            #print("events['renormUp']", ak.to_list(events['renormUp']))
+            #print("events['renormfactUp']", ak.to_list(events['renormfactUp']))
+            ##print("events['nominal']", ak.to_list(events['nominal']))
+            #print("\n\n\n\n\n\n\n\n\n\n")
             #AttachPdfWeights(events) #TODO
             # FSR/ISR weights #TODO
             weights_obj_base.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown))
