@@ -68,8 +68,6 @@ def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins, wcs_dict):
         for ch in matched_chs:
             r = dc.analyze(km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict)
 
-    with open("scalings-preselect.json", "w") as fout:
-            json.dump(dc.scalings, fout, indent=4)
 # VERY IMPORTANT:
 #   This setup assumes the output directory is mounted on the remote condor machines
 # Note:
@@ -252,6 +250,7 @@ def main():
         selected_wcs = {}
         for km_dist in dists:
             all_chs = dc.channels(km_dist)
+            print(all_chs)
             matched_chs = regex_match(all_chs,ch_lst)
             if select_only and ch_lst:
                 print(f"Channels to process: {matched_chs}")
@@ -290,6 +289,11 @@ def main():
         run_condor(dc,pkl_file,out_dir,dists,ch_lst,chunks)
     else:
         run_local(dc,dists,ch_lst,selected_wcs, not args.keep_negative_bins, wcs_dict)
+
+    # make pre-selection scalings.json 
+    with open(os.path.join(out_dir,"scalings-preselect.json"),"w") as f:
+        json.dump(dc.scalings, f, indent=4)
+
     dt = time.time() - tic
     print(f"Total Time: {dt:.2f} s")
     print("Finished!")
