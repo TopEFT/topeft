@@ -89,7 +89,7 @@ def main():
 
     ###### Print out general info ######
 
-    with open('scalings-preselect.json', 'r') as file:
+    with open(os.path.join(args.datacards_path,'scalings-preselect.json'), 'r') as file:
         scalings_content = json.load(file)
 
     # Count the number of text data cards and root templates
@@ -163,7 +163,8 @@ def main():
                 item["channel"] = "ch" + str(ch_index)
             else:
                 scalings_content = [d for d in scalings_content if d != item]
-        with open('scalings.json', 'w') as file:
+
+        with open(os.path.join(ptzlj0pt_path, 'scalings.json'), 'w') as file:
             json.dump(scalings_content, file, indent=4)            
 
         # Check that we got the expected number and print what we learn
