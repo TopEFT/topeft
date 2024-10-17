@@ -171,6 +171,7 @@ def main():
     parser.add_argument("--chunks","-n",default=1,help="The number of channels each condor job should process")
     parser.add_argument("--keep-negative-bins",action="store_true",help="Don't crop negative bins")
     parser.add_argument("--wc-vals", default="",action="store", nargs="+", help="Specify the corresponding wc values to set for the wc list")
+    parser.add_argument("--wc-scalings", default=[],action="extend",nargs="+",help="Specify a list of wc ordering for scalings.json")
 
     args = parser.parse_args()
     pkl_file   = args.pkl_file
@@ -189,6 +190,7 @@ def main():
     verbose    = args.verbose
     wc_vals    = args.wc_vals
 
+    wc_scalings = args.wc_scalings 
     select_only = args.select_only
     use_selected = args.use_selected
 
@@ -212,6 +214,7 @@ def main():
         "verbose": verbose,
         "year_lst": years,
         "wc_vals": wc_vals,
+        "wc_scalings": wc_scalings,
     }
 
     if out_dir != "." and not os.path.exists(out_dir):
@@ -247,6 +250,7 @@ def main():
         selected_wcs = {}
         for km_dist in dists:
             all_chs = dc.channels(km_dist)
+            print(all_chs)
             matched_chs = regex_match(all_chs,ch_lst)
             if select_only and ch_lst:
                 print(f"Channels to process: {matched_chs}")
@@ -285,6 +289,11 @@ def main():
         run_condor(dc,pkl_file,out_dir,dists,ch_lst,chunks)
     else:
         run_local(dc,dists,ch_lst,selected_wcs, not args.keep_negative_bins, wcs_dict)
+
+    # make pre-selection scalings.json 
+    with open(os.path.join(out_dir,"scalings-preselect.json"),"w") as f:
+        json.dump(dc.scalings, f, indent=4)
+
     dt = time.time() - tic
     print(f"Total Time: {dt:.2f} s")
     print("Finished!")
