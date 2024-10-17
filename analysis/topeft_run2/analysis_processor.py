@@ -381,7 +381,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
                 events_cache = events.caches[0]
                 cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
-                cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
+                cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
                 met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
