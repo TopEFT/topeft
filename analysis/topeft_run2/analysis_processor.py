@@ -389,15 +389,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             ##print("events['nominal']", ak.to_list(events['nominal']))
             #print("\n\n\n\n\n\n\n\n\n\n")
             #AttachPdfWeights(events) #TODO
-            # FSR/ISR weights #TODO
+            # FSR/ISR weights -- corrections come from AttachPSWeights
             weights_obj_base.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown))
             weights_obj_base.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown))
-            # renorm/fact scale #TODO
+            # renorm/fact scale  -- corrections come from AttachScaleWeights
             weights_obj_base.add('renorm', events.nom, events.renormUp*(sow/sow_renormUp), events.renormDown*(sow/sow_renormDown))
             weights_obj_base.add('fact', events.nom, events.factUp*(sow/sow_factUp), events.factDown*(sow/sow_factDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9 and for Run2)
             weights_obj_base.add('PreFiring', *l1prefiring_args) #Run3 ready
-            weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down')) #TODO
+            weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down')) #Run3 ready
 
 
         ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
@@ -410,6 +410,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Loop over the list of systematic variations we've constructed
         met_raw=met
         for syst_var in syst_var_list:
+            print("\n\n\n\n\n\n\n", syst_var)
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
             weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
@@ -434,10 +435,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not isData: #and dt_era == "Run2":
                 cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
             events_cache = events.caches[0]
+            print("before ApplyJetCorr:", ak.to_list(cleanedJets.pt)) 
             cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
+            print("after ApplyJetCorr:", ak.to_list(cleanedJets.pt)) 
             cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
+            print("after ApplyJetSysts:", ak.to_list(cleanedJets.pt)) 
             met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era).build(met_raw, cleanedJets, lazy_cache=events_cache)
-
+            print("\n\n\n\n\n\n\n")
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
             #print([field for field in goodJets.fields if (field.startswith("JE") or 'jec' in field)])
@@ -449,47 +453,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
 
             # Loose DeepJet WP
-            if year == "2017":
-                btagwpl = get_tc_param("btag_wp_loose_UL17")
-            elif year == "2018":
-                btagwpl = get_tc_param("btag_wp_loose_UL18")
-            elif year=="2016":
-                btagwpl = get_tc_param("btag_wp_loose_UL16")
-            elif year=="2016APV":
-                btagwpl = get_tc_param("btag_wp_loose_UL16APV")
-            elif year=="2022":
-                btagwpl = get_tc_param("btag_wp_loose_2022")
-            elif year=="2022EE":
-                btagwpl = get_tc_param("btag_wp_loose_2022EE")
-            elif year=="2023":
-                btagwpl = get_tc_param("btag_wp_loose_2023")
-            elif year=="2023BPix":
-                btagwpl = get_tc_param("btag_wp_loose_2023BPix")
-            else:
-                raise ValueError(f"Error: Unknown year \"{year}\".")
+            loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
+            btagwpl = get_tc_param(loose_tag)
             isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
             # Medium DeepJet WP
-            if year == "2017":
-                btagwpm = get_tc_param("btag_wp_medium_UL17")
-            elif year == "2018":
-                btagwpm = get_tc_param("btag_wp_medium_UL18")
-            elif year=="2016":
-                btagwpm = get_tc_param("btag_wp_medium_UL16")
-            elif year=="2016APV":
-                btagwpm = get_tc_param("btag_wp_medium_UL16APV")
-            elif year=="2022":
-                btagwpm = get_tc_param("btag_wp_medium_2022")
-            elif year=="2022EE":
-                btagwpm = get_tc_param("btag_wp_medium_2022EE")
-            elif year=="2023":
-                btagwpm = get_tc_param("btag_wp_medium_2023")
-            elif year=="2023BPix":
-                btagwpm = get_tc_param("btag_wp_medium_2023BPix")
-            else:
-                raise ValueError(f"Error: Unknown year \"{year}\".")
+            medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
+            btagwpm = get_tc_param(medium_tag)
             isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
             nbtagsm = ak.num(goodJets[isBtagJetsMedium])

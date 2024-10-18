@@ -40,9 +40,13 @@ class DataDrivenProducer:
             pattern=re.compile(name_regex)
 
             for process in histo.axes['process']:
-                match = pattern.search(process)
-                sampleName=match.group('process')
-                year=match.group('year')
+                try:
+                    match = pattern.search(process)
+                    sampleName=match.group('process')
+                    year=match.group('year')
+                except AttributeError as ae:
+                    print(f"The following exception occured due to missing match {ae} for process {process}")
+                    print("Moving to the next process")
                 if not match:
                     raise RuntimeError(f"Sample {process} does not match the naming convention.")
                 if year not in ['16APV','16','17','18']:
