@@ -410,7 +410,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Loop over the list of systematic variations we've constructed
         met_raw=met
         for syst_var in syst_var_list:
-            print("\n\n\n\n\n\n\n", syst_var)
+            #print("\n\n\n\n\n\n\n", syst_var)
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
             weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
@@ -435,13 +435,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             if not isData: #and dt_era == "Run2":
                 cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
             events_cache = events.caches[0]
-            print("before ApplyJetCorr:", ak.to_list(cleanedJets.pt)) 
+            #print("before ApplyJetCorr:", ak.to_list(cleanedJets.pt)) 
             cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
-            print("after ApplyJetCorr:", ak.to_list(cleanedJets.pt)) 
+            #print("after ApplyJetCorr:", ak.to_list(cleanedJets.pt)) 
             cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
-            print("after ApplyJetSysts:", ak.to_list(cleanedJets.pt)) 
+            #print("after ApplyJetSysts:", ak.to_list(cleanedJets.pt)) 
             met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era).build(met_raw, cleanedJets, lazy_cache=events_cache)
-            print("\n\n\n\n\n\n\n")
+            #print("\n\n\n\n\n\n\n")
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             goodJets = cleanedJets[cleanedJets.isGood]
             #print([field for field in goodJets.fields if (field.startswith("JE") or 'jec' in field)])
