@@ -61,7 +61,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, analysis='top22006', muonSyst='nominal', dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, analysis='top22006', muonSyst='nominal', dtype=np.float32, rebin=False):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -708,7 +708,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             lj0pt = ak.max(l_j_pairs_pt,axis=-1)
 
             # LT
-            lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + met.pt 
+            lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + met.pt
 
             # Define invariant mass hists
             mll_0_1 = (l0+l1).mass # Invmass for leading two leps
