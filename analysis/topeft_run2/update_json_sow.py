@@ -113,7 +113,7 @@ def main():
     for fpath in hist_paths:
         h = get_hist_from_pkl(fpath)
         h_sow_nom = h[wgt_name_dict['nom']['hist_name']] # Note, just using nom here (so we assume all histos include the same samples)
-        idents = h_sow_nom.identifiers('sample') # This is the list of identifiers for the sample axis
+        idents = h_sow_nom.axes['process'] # This is the list of identifiers for the sample axis
         for sname in idents:
             match = regex_match(json_fpaths,regex_lst=[f"{sname}\\.json$"])
             if len(match) != 1:
