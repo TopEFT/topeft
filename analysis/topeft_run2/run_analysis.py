@@ -259,7 +259,7 @@ if __name__ == '__main__':
             ),
             'extra_input_files': ["analysis_processor.py"],
 
-            'retries': 5,
+            'retries': 20,
 
             # use mid-range compression for chunks results. 9 is the default for work
             # queue in coffea. Valid values are 0 (minimum compression, less memory

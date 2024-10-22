@@ -242,7 +242,6 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
     padded_FOs = ak.pad_none(FOs,2)
-    print("padded_FOs", padded_FOs.fields) 
     # Filters and cleanups
     filter_flags = events.Flag
     filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & (((year == "2016")|(year == "2016APV")) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
@@ -291,12 +290,12 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
 
     # SFs
     # NEW - comment out
-    #events['sf_2l_muon'] = padded_FOs[:,0].sf_nom_2l_muon*padded_FOs[:,1].sf_nom_2l_muon
-    #events['sf_2l_elec'] = padded_FOs[:,0].sf_nom_2l_elec*padded_FOs[:,1].sf_nom_2l_elec
-    #events['sf_2l_hi_muon'] = padded_FOs[:,0].sf_hi_2l_muon*padded_FOs[:,1].sf_hi_2l_muon
-    #events['sf_2l_hi_elec'] = padded_FOs[:,0].sf_hi_2l_elec*padded_FOs[:,1].sf_hi_2l_elec
-    #events['sf_2l_lo_muon'] = padded_FOs[:,0].sf_lo_2l_muon*padded_FOs[:,1].sf_lo_2l_muon
-    #events['sf_2l_lo_elec'] = padded_FOs[:,0].sf_lo_2l_elec*padded_FOs[:,1].sf_lo_2l_elec
+    events['sf_2l_muon'] = padded_FOs[:,0].sf_nom_2l_muon*padded_FOs[:,1].sf_nom_2l_muon
+    events['sf_2l_elec'] = padded_FOs[:,0].sf_nom_2l_elec*padded_FOs[:,1].sf_nom_2l_elec
+    events['sf_2l_hi_muon'] = padded_FOs[:,0].sf_hi_2l_muon*padded_FOs[:,1].sf_hi_2l_muon
+    events['sf_2l_hi_elec'] = padded_FOs[:,0].sf_hi_2l_elec*padded_FOs[:,1].sf_hi_2l_elec
+    events['sf_2l_lo_muon'] = padded_FOs[:,0].sf_lo_2l_muon*padded_FOs[:,1].sf_lo_2l_muon
+    events['sf_2l_lo_elec'] = padded_FOs[:,0].sf_lo_2l_elec*padded_FOs[:,1].sf_lo_2l_elec
 
     # SR:
     events['is2l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
@@ -304,7 +303,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
 
     # FF:
     #NEW - comment out
-    #fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
+    fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
 
 
 # 3l selection
@@ -359,19 +358,19 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
 
     # SFs
     # NEW - comment out
-    #events['sf_3l_muon'] = padded_FOs[:,0].sf_nom_3l_muon*padded_FOs[:,1].sf_nom_3l_muon*padded_FOs[:,2].sf_nom_3l_muon
-    #events['sf_3l_elec'] = padded_FOs[:,0].sf_nom_3l_elec*padded_FOs[:,1].sf_nom_3l_elec*padded_FOs[:,2].sf_nom_3l_elec
-    #events['sf_3l_hi_muon'] = padded_FOs[:,0].sf_hi_3l_muon*padded_FOs[:,1].sf_hi_3l_muon*padded_FOs[:,2].sf_hi_3l_muon
-    #events['sf_3l_hi_elec'] = padded_FOs[:,0].sf_hi_3l_elec*padded_FOs[:,1].sf_hi_3l_elec*padded_FOs[:,2].sf_hi_3l_elec
-    #events['sf_3l_lo_muon'] = padded_FOs[:,0].sf_lo_3l_muon*padded_FOs[:,1].sf_lo_3l_muon*padded_FOs[:,2].sf_lo_3l_muon
-    #events['sf_3l_lo_elec'] = padded_FOs[:,0].sf_lo_3l_elec*padded_FOs[:,1].sf_lo_3l_elec*padded_FOs[:,2].sf_lo_3l_elec
+    events['sf_3l_muon'] = padded_FOs[:,0].sf_nom_3l_muon*padded_FOs[:,1].sf_nom_3l_muon*padded_FOs[:,2].sf_nom_3l_muon
+    events['sf_3l_elec'] = padded_FOs[:,0].sf_nom_3l_elec*padded_FOs[:,1].sf_nom_3l_elec*padded_FOs[:,2].sf_nom_3l_elec
+    events['sf_3l_hi_muon'] = padded_FOs[:,0].sf_hi_3l_muon*padded_FOs[:,1].sf_hi_3l_muon*padded_FOs[:,2].sf_hi_3l_muon
+    events['sf_3l_hi_elec'] = padded_FOs[:,0].sf_hi_3l_elec*padded_FOs[:,1].sf_hi_3l_elec*padded_FOs[:,2].sf_hi_3l_elec
+    events['sf_3l_lo_muon'] = padded_FOs[:,0].sf_lo_3l_muon*padded_FOs[:,1].sf_lo_3l_muon*padded_FOs[:,2].sf_lo_3l_muon
+    events['sf_3l_lo_elec'] = padded_FOs[:,0].sf_lo_3l_elec*padded_FOs[:,1].sf_lo_3l_elec*padded_FOs[:,2].sf_lo_3l_elec
 
     # SR:
     events['is3l_SR'] = (padded_FOs[:,0].isTightLep)  & (padded_FOs[:,1].isTightLep) & (padded_FOs[:,2].isTightLep)
     events['is3l_SR'] = ak.fill_none(events['is3l_SR'],False)
 
     # FF:
-    #fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
+    fakeRateWeight3l(events, padded_FOs[:,0], padded_FOs[:,1], padded_FOs[:,2])
 
 
 # 4l selection
@@ -405,12 +404,12 @@ def add4lMaskAndSFs(events, year, isData):
 
     # SFs:
     #NEW - comment out
-    #events['sf_4l_muon'] = padded_FOs[:,0].sf_nom_3l_muon*padded_FOs[:,1].sf_nom_3l_muon*padded_FOs[:,2].sf_nom_3l_muon*padded_FOs[:,3].sf_nom_3l_muon
-    #events['sf_4l_elec'] = padded_FOs[:,0].sf_nom_3l_elec*padded_FOs[:,1].sf_nom_3l_elec*padded_FOs[:,2].sf_nom_3l_elec*padded_FOs[:,3].sf_nom_3l_elec
-    #events['sf_4l_hi_muon'] = padded_FOs[:,0].sf_hi_3l_muon*padded_FOs[:,1].sf_hi_3l_muon*padded_FOs[:,2].sf_hi_3l_muon*padded_FOs[:,3].sf_hi_3l_muon
-    #events['sf_4l_hi_elec'] = padded_FOs[:,0].sf_hi_3l_elec*padded_FOs[:,1].sf_hi_3l_elec*padded_FOs[:,2].sf_hi_3l_elec*padded_FOs[:,3].sf_hi_3l_elec
-    #events['sf_4l_lo_muon'] = padded_FOs[:,0].sf_lo_3l_muon*padded_FOs[:,1].sf_lo_3l_muon*padded_FOs[:,2].sf_lo_3l_muon*padded_FOs[:,3].sf_lo_3l_muon
-    #events['sf_4l_lo_elec'] = padded_FOs[:,0].sf_lo_3l_elec*padded_FOs[:,1].sf_lo_3l_elec*padded_FOs[:,2].sf_lo_3l_elec*padded_FOs[:,3].sf_lo_3l_elec
+    events['sf_4l_muon'] = padded_FOs[:,0].sf_nom_3l_muon*padded_FOs[:,1].sf_nom_3l_muon*padded_FOs[:,2].sf_nom_3l_muon*padded_FOs[:,3].sf_nom_3l_muon
+    events['sf_4l_elec'] = padded_FOs[:,0].sf_nom_3l_elec*padded_FOs[:,1].sf_nom_3l_elec*padded_FOs[:,2].sf_nom_3l_elec*padded_FOs[:,3].sf_nom_3l_elec
+    events['sf_4l_hi_muon'] = padded_FOs[:,0].sf_hi_3l_muon*padded_FOs[:,1].sf_hi_3l_muon*padded_FOs[:,2].sf_hi_3l_muon*padded_FOs[:,3].sf_hi_3l_muon
+    events['sf_4l_hi_elec'] = padded_FOs[:,0].sf_hi_3l_elec*padded_FOs[:,1].sf_hi_3l_elec*padded_FOs[:,2].sf_hi_3l_elec*padded_FOs[:,3].sf_hi_3l_elec
+    events['sf_4l_lo_muon'] = padded_FOs[:,0].sf_lo_3l_muon*padded_FOs[:,1].sf_lo_3l_muon*padded_FOs[:,2].sf_lo_3l_muon*padded_FOs[:,3].sf_lo_3l_muon
+    events['sf_4l_lo_elec'] = padded_FOs[:,0].sf_lo_3l_elec*padded_FOs[:,1].sf_lo_3l_elec*padded_FOs[:,2].sf_lo_3l_elec*padded_FOs[:,3].sf_lo_3l_elec
 
     # SR: Don't really need this for 4l, but define it so we can treat 4l category similar to 2lss and 3l
     events['is4l_SR'] = tightleps
@@ -421,7 +420,6 @@ def addLepCatMasks(events):
 
     # FOs and padded FOs
     fo = events.l_fo_conept_sorted
-    print("fo fields", fo.fields)
     padded_fo = ak.pad_none(fo,4)
     padded_fo_id = padded_fo.pdgId
 

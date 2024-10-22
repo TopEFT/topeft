@@ -219,10 +219,24 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau  = events.Tau
         jets = events.Jet
 
-        # NEW
-        print("events fields", events.fields)
+        dt_era = None
+        if year[2] == "2":
+            dt_era = "Run3"
+        else:
+            dt_era = "Run2"
 
-        # NEW
+        if dt_era == "Run3":
+            elePresId = ele.mvaNoIso_WP90
+            eleFOId = ele.mvaNoIso_WP80
+            eleMVATTH = ele.mvaTTH
+            muMVATTH = mu.mvaTTH
+            jetsRho = events.Rho
+        elif dt_era == "Run2":
+            elePresId = ele.mvaFall17V2noIso_WPL
+            eleFOId = ele.mvaFall17V2noIso_WP90
+            eleMVATTH = ele.mvaTTHUL
+            muMVATTH = mu.mvaTTHUL
+            jetsRho = events.fixedGridRhoFastjetAll
 
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
@@ -332,12 +346,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
 
         # Attach the lepton SFs to the electron and muons collections
-        #AttachElectronSF(e_fo,year=year)
-        #AttachMuonSF(m_fo,year=year)
+        AttachElectronSF(e_fo,year=year)
+        AttachMuonSF(m_fo,year=year)
 
         # Attach per lepton fake rates
-        #AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
-        #AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
+        AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
+        AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
         m_fo['convVeto'] = ak.ones_like(m_fo.charge)
         m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
@@ -385,7 +399,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_obj_base.add('renorm', events.nom, events.renormUp*(sow/sow_renormUp), events.renormDown*(sow/sow_renormDown))
             weights_obj_base.add('fact', events.nom, events.factUp*(sow/sow_factUp), events.factDown*(sow/sow_factDown))
             # Prefiring and PU (note prefire weights only available in nanoAODv9)
-            weights_obj_base.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
+            weights_obj_base.add('PreFiring', ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom))
             weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down'))
 
 
@@ -415,11 +429,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
             # Jet energy corrections
-            if not isData:
+            if not isData and dt_era == "Run2":
                 cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
                 cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
                 cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-                cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
+                cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
                 events_cache = events.caches[0]
                 cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
                 cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
@@ -588,23 +602,23 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
-                #if ch_name.startswith("2l"):
-                    #weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
-                    #weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
-                    #weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
-                    #weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
-                    #weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
-                #elif ch_name.startswith("3l"):
-                    #weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
-                    #weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
-                    #weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
-                    #weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
-                    #weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
+                if ch_name.startswith("2l"):
+                    weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
+                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
+                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
+                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
+                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
+                elif ch_name.startswith("3l"):
+                    weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
+                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
+                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
+                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
+                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
 
-                # For data only
-                #if isData:
-                    #if ch_name in ["2l","2l_4t","2l_CR","2l_CRflip"]:
-                        #weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
+                #For data only
+                if isData:
+                      if ch_name in ["2l","2l_4t","2l_CR","2l_CRflip"]:
+                         weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
 
                 # For MC only
                 if not isData:
@@ -630,6 +644,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Pass trigger mask
             # NEW - comment out
+            full_dataset = events.metadata["dataset"]
+            dataset = full_dataset.split("_")[0]
             pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),te_es.dataset_dict_top22006,te_es.exclude_dict_top22006)
 
             # b jet masks

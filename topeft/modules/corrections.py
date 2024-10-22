@@ -13,7 +13,9 @@ import scipy
 import gzip
 import pickle
 import correctionlib
-from coffea.jetmet_tools import JECStack, CorrectedJetsFactory, CorrectedMETFactory
+from coffea.jetmet_tools import JECStack, CorrectedMETFactory
+### workaround while waiting the correcion-lib integration will be provided in the coffea package
+from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
 
@@ -39,6 +41,29 @@ clib_year_map = {
     "2022EE": "2022_Summer22EE",
     "2023": "2022_Summer23",
     "2023BPix": "2022_Summer23BPix",
+}
+
+jerc_tag_map = {
+    '2016': [
+        '16_V7',
+        'Summer20UL16_JRV3',
+    ],
+    '2016APV': [
+        '16APV_V7',
+        'Summer20UL16APV_JRV3',
+    ],
+    '2017': [
+        '17_V5',
+        'Summer19UL17_JRV2',
+    ],
+    '2018': [
+        '18_V5',
+        'Summer19UL18_JRV2',
+    ],
+    "2022": [],
+    "2022EE": [],
+    "2023": [],
+    "2023BPix": [],
 }
 
 # New UL Lepton SFs
@@ -294,13 +319,12 @@ for year in ['2016APV_2016', 2017, 2018]:
     for syst in ['','_up','_down','_be1','_be2','_pt1','_pt2']:
         extLepSF.add_weight_sets([("MuonFR_{year}{syst} FR_mva085_mu_data_comb_recorrected{syst} %s" % topcoffea_path(basepathFromTTH + 'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
         extLepSF.add_weight_sets([("ElecFR_{year}{syst} FR_mva090_el_data_comb_NC_recorrected{syst} %s" % topcoffea_path(basepathFromTTH + 'fakerate/fr_{year}_recorrected.root')).format(year=year,syst=syst)])
-
 extLepSF.finalize()
 SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
-def ApplyTES(year, Taus, isData):
+def ApplyTES(year, Taus, isData, tagger, syst_name, vsJetWP):
     if isData:
         return (Taus.pt, Taus.mass)
     pt  = Taus.pt
@@ -311,6 +335,93 @@ def ApplyTES(year, Taus, isData):
     dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
     whereFlag = kinFlag & dmFlag #((pt>20) & (pt<205) & (gen==5) & (dm==0 | dm==1 | dm==10 | dm==11))
     tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
+
+    ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
+    padded_Taus = ak.pad_none(Taus,1)
+    padded_Taus = ak.with_name(padded_Taus, "TauCandidate")
+
+    clib_year = clib_year_map[year]
+    json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
+    ceval = correctionlib.CorrectionSet.from_file(json_path)
+
+    pt  = padded_Taus.pt
+    dm  = padded_Taus.decayMode
+    wp  = padded_Taus.idDeepTau2017v2p1VSjet
+    eta = padded_Taus.eta
+    gen = padded_Taus.genPartFlav
+    mass= padded_Taus.mass
+
+    arg_tau = ["pt", "eta", "decayMode", "genPartFlav"]
+    pt_mask_flat = ak.flatten((pt>0) & (pt<1000))
+
+    ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
+    DeepTaus = [
+        ("DeepTau2017v2p1VSjet", ak.flatten(padded_Taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
+        ("DeepTau2017v2p1VSe", ak.flatten(padded_Taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
+        ("DeepTau2017v2p1VSmu", ak.flatten(padded_Taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
+    ]
+
+    DT_sf_list = []
+    DT_up_list = []
+    DT_do_list = []
+
+    for DeepTau in DeepTaus:
+        discr = DeepTau[0]
+        id_mask = DeepTau[1]
+        arg_list = DeepTau[2]
+        args = []
+        for ttag in arg_list:
+            args.append(
+                ak.flatten(padded_Taus[ttag])
+            )
+        tau_mask = id_mask & pt_mask_flat
+
+        args_sf = args + ["sf"]
+        DT_sf_list.append(
+            ak.where(
+                ~tau_mask,
+                1,
+                ceval[discr].evaluate(*args_sf)
+            )
+        )
+        args_up = args + ["up"]
+        DT_up_list.append(
+            ak.where(
+                ~tau_mask,
+                1,
+                ceval[discr].evaluate(*args_up)
+            )
+        )
+        args_down = args + ["down"]
+        DT_do_list.append(
+            ak.where(
+                ~tau_mask,
+                1,
+                ceval[discr].evaluate(*args_down)
+            )
+        )
+
+    DT_sf_flat = None
+    DT_up_flat = None
+    DT_do_flat = None
+    for idr, DT_sf_discr in enumerate(DT_sf_list):
+        DT_sf_discr = ak.to_numpy(DT_sf_discr)
+        DT_up_discr = ak.to_numpy(DT_up_list[idr])
+        DT_do_discr = ak.to_numpy(DT_do_list[idr])
+        if idr == 0:
+            DT_sf_flat = DT_sf_discr
+            DT_up_flat = DT_up_discr
+            DT_do_flat = DT_do_discr
+        else:
+            DT_sf_flat *= DT_sf_discr
+            DT_up_flat *= DT_up_discr
+            DT_do_flat *= DT_do_discr
+
+    DT_sf = ak.unflatten(DT_sf_flat, ak.num(pt))
+    DT_up = ak.unflatten(DT_up_flat, ak.num(pt))
+    DT_do = ak.unflatten(DT_do_flat, ak.num(pt))
+    ## end of correction-lib implementation
+
     return (Taus.pt*tes, Taus.mass*tes)
 
 def ApplyFES(year, Taus, isData):
@@ -390,18 +501,18 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     gen = padded_Taus.genPartFlav
     mass= padded_Taus.mass
 
+    DT_sf_list = []
+    DT_up_list = []
+    DT_do_list = []
+
+    pt_mask_flat = ak.flatten((pt>20) & (pt<205))
+
     ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
     DeepTaus = [
         ("DeepTau2017v2p1VSjet", ak.flatten(padded_Taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
         ("DeepTau2017v2p1VSe", ak.flatten(padded_Taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
         ("DeepTau2017v2p1VSmu", ak.flatten(padded_Taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
     ]
-
-    DT_sf_list = []
-    DT_up_list = []
-    DT_do_list = []
-
-    pt_mask_flat = ak.flatten((pt>20) & (pt<205))
 
     for DeepTau in DeepTaus:
         discr = DeepTau[0]
@@ -495,13 +606,17 @@ def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     events["sf_2l_taus"] = padded_Taus.sf_tau[:,0]
     events["sf_2l_taus_hi"] = padded_Taus.sf_tau_up[:,0]
     events["sf_2l_taus_lo"] = padded_Taus.sf_tau_down[:,0]
+
 def AttachPerLeptonFR(leps, flavor, year):
     # Get the flip rates lookup object
+    if year not in clib_year_map.keys():
+        raise Exception(f"Error: Unknown year \"{year}\"\n"".")
+
     if year == "2016APV": flip_year_name = "UL16APV"
     elif year == "2016": flip_year_name = "UL16"
     elif year == "2017": flip_year_name = "UL17"
     elif year == "2018": flip_year_name = "UL18"
-    else: raise Exception(f"Not a known year: {year}")
+    else: flip_year_name = "UL18" #TO READAPT when fakefactors are ready #raise Exception(f"Not a known year: {year}")
     with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
         flip_hist = pickle.load(fin)
         flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
@@ -512,6 +627,8 @@ def AttachPerLeptonFR(leps, flavor, year):
     # For FR filepath naming conventions
     if '2016' in year:
         year = '2016APV_2016'
+    elif year[2] == "2":
+        year = '2018'
 
     # Add the flip/fake info into the leps opject
     for syst in ffSysts:
@@ -575,11 +692,33 @@ def AttachMuonSF(muons, year):
     - Use reco from TOP-22-006
     - use loose from correction-lib
     '''
+    dt_era = None
+    if year[2] == "2":
+        dt_era = "Run3"
+    else:
+        dt_era = "Run2"
 
     eta = np.abs(muons.eta)
     pt = muons.pt
-    if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
+    if year not in clib_year_map.keys():
+        raise Exception(f"Error: Unknown year \"{year}\"\n"".")
 
+    #temporary Run3 implementation
+    if dt_era == "Run3":
+        muons['sf_nom_2l_muon'] = ak.ones_like(pt)
+        muons['sf_hi_2l_muon']  = ak.ones_like(pt)
+        muons['sf_lo_2l_muon']  = ak.ones_like(pt)
+        muons['sf_nom_3l_muon'] = ak.ones_like(pt)
+        muons['sf_hi_3l_muon']  = ak.ones_like(pt)
+        muons['sf_lo_3l_muon']  = ak.ones_like(pt)
+        muons['sf_nom_2l_elec'] = ak.ones_like(pt)
+        muons['sf_hi_2l_elec']  = ak.ones_like(pt)
+        muons['sf_lo_2l_elec']  = ak.ones_like(pt)
+        muons['sf_nom_3l_elec'] = ak.ones_like(pt)
+        muons['sf_hi_3l_elec']  = ak.ones_like(pt)
+        muons['sf_lo_3l_elec']  = ak.ones_like(pt)
+        return None
+    
     ## Run2:
     ## only loose_sf can be consistently used with correction-lib, for the other we use the TOP-22-006 original SFs
     ## Run3:
@@ -683,12 +822,36 @@ def AttachElectronSF(electrons, year):
           Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the electrons array passed to this function. These
           values correspond to the nominal, up, and down electron scalefactor values respectively.
     '''
+
+    dt_era = None
+    if year[2] == "2":
+        dt_era = "Run3"
+    else:
+        dt_era = "Run2"
+
     eta = electrons.eta
     pt = electrons.pt
-
-    if year not in ['2016','2016APV','2017','2018']:
+    
+    if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
 
+    if dt_era == "Run3":
+        electrons['sf_nom_2l_elec'] = ak.ones_like(pt)
+        electrons['sf_hi_2l_elec']  = ak.ones_like(pt)
+        electrons['sf_lo_2l_elec']  = ak.ones_like(pt)
+        electrons['sf_nom_3l_elec'] = ak.ones_like(pt)
+        electrons['sf_hi_3l_elec']  = ak.ones_like(pt)
+        electrons['sf_lo_3l_elec']  = ak.ones_like(pt)
+        electrons['sf_nom_2l_muon'] = ak.ones_like(pt)
+        electrons['sf_hi_2l_muon']  = ak.ones_like(pt)
+        electrons['sf_lo_2l_muon']  = ak.ones_like(pt)
+        electrons['sf_nom_3l_muon'] = ak.ones_like(pt)
+        electrons['sf_hi_3l_muon']  = ak.ones_like(pt)
+        electrons['sf_lo_3l_muon']  = ak.ones_like(pt)
+        return None
+    
+
+    
     new_sf_2l  = SFevaluator['ElecSF_{year}_2lss'.format(year=year)](np.abs(eta),pt)
     new_err_2l = SFevaluator['ElecSF_{year}_2lss_er'.format(year=year)](np.abs(eta),pt)
     new_sf_3l  = SFevaluator['ElecSF_{year}_3l'.format(year=year)](np.abs(eta),pt)
@@ -785,7 +948,7 @@ def AttachElectronSF(electrons, year):
 
 # MC efficiencies
 def GetMCeffFunc(year, wp='medium', flav='b'):
-    if year not in ['2016','2016APV','2017','2018']:
+    if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
     pathToBtagMCeff = topeft_path('data/btagSF/UL/btagMCeff_%s.pkl.gz'%year)
     hists = {}
@@ -818,12 +981,14 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
     values = hnum.values(flow=True)[1:,1:,1:]
     edges = [hnum.axes['pt'].edges, hnum.axes['abseta'].edges, hnum.axes['flav'].edges]
     fun = lambda pt, abseta, flav: getnum(pt,abseta,flav)/getden(pt,abseta,flav)
+
     return fun
 
 def GetBtagEff(jets, year, wp='medium'):
-    if year not in ['2016','2016APV','2017','2018']:
+    if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
-    return GetMCeffFunc(year,wp)(jets.pt, np.abs(jets.eta), jets.hadronFlavour)
+    result = GetMCeffFunc(year,wp)(jets.pt, np.abs(jets.eta), jets.hadronFlavour) if year[2] != "2" else ak.ones_like(jets.pt)
+    return result
 
 def GetBTagSF(jets, year, wp='MEDIUM', syst='central'):
     if   year == '2016': SFevaluatorBtag = BTagScaleFactor(topeft_path("data/btagSF/UL/DeepJet_106XUL16postVFPSF_v2.csv"),wp)
@@ -921,47 +1086,85 @@ def AttachPdfWeights(events):
 ##############################################
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
 # JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC
+def ApplyJetCorrections(year, corr_type, useclib=True):
+    usejecstack = not useclib
 
-def ApplyJetCorrections(year, corr_type):
-    if year == '2016':
-        jec_tag = '16_V7'
-        jer_tag = 'Summer20UL16_JRV3'
-    elif year == '2016APV':
-        jec_tag = '16APV_V7'
-        jer_tag = 'Summer20UL16APV_JRV3'
-    elif year == '2017':
-        jec_tag = '17_V5'
-        jer_tag = 'Summer19UL17_JRV2'
-    elif year == '2018':
-        jec_tag = '18_V5'
-        jer_tag = 'Summer19UL18_JRV2'
-    else:
+    if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
-    extJEC = lookup_tools.extractor()
-    extJEC.add_weight_sets([
-        "* * " + topcoffea_path('data/JER/%s_MC_SF_AK4PFchs.jersf.txt' % jer_tag),
-        "* * " + topcoffea_path('data/JER/%s_MC_PtResolution_AK4PFchs.jr.txt' % jer_tag),
-        "* * " + topcoffea_path('data/JEC/Summer19UL%s_MC_L1FastJet_AK4PFchs.txt' % jec_tag),
-        "* * " + topcoffea_path('data/JEC/Summer19UL%s_MC_L2Relative_AK4PFchs.txt' % jec_tag),
-        "* * " + topcoffea_path('data/JEC/Quad_Summer19UL%s_MC_UncertaintySources_AK4PFchs.junc.txt' % jec_tag)
-    ])
-    jec_types = [
-        'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
-        'BBEC1', 'Absolute', 'RelativeBal', 'RelativeSample'
-    ]
-    jec_regroup = ["Quad_Summer19UL%s_MC_UncertaintySources_AK4PFchs_%s" % (jec_tag,jec_type) for jec_type in jec_types]
-    jec_names = [
-        "%s_MC_SF_AK4PFchs" % jer_tag,
-        "%s_MC_PtResolution_AK4PFchs" % jer_tag,
-        "Summer19UL%s_MC_L1FastJet_AK4PFchs" % jec_tag,
-        "Summer19UL%s_MC_L2Relative_AK4PFchs" % jec_tag
-    ]
-    jec_names.extend(jec_regroup)
-    extJEC.finalize()
-    JECevaluator = extJEC.make_evaluator()
-    jec_inputs = {name: JECevaluator[name] for name in jec_names}
-    jec_stack = JECStack(jec_inputs)
-    name_map = jec_stack.blank_name_map
+
+    #if year == '2016':
+    #    jec_tag = '16_V7'
+    #    jer_tag = 'Summer20UL16_JRV3'
+    #elif year == '2016APV':
+    #    jec_tag = '16APV_V7'
+    #    jer_tag = 'Summer20UL16APV_JRV3'
+    #elif year == '2017':
+    #    jec_tag = '17_V5'
+    #    jer_tag = 'Summer19UL17_JRV2'
+    #elif year == '2018':
+    #    jec_tag = '18_V5'
+    #    jer_tag = 'Summer19UL18_JRV2'
+    #else:
+    #    raise Exception(f"Error: Unknown year \"{year}\".")
+
+    #jec_year = year
+    #if year.startswith("2016"):
+    #    jec_year = "2016preVFP" if year == "2016APV" else "2016postVFP"
+    #if int(year.replace("APV", "")) < 2020:
+    #    jec_year += "_UL"
+
+    jec_year = clib_year_map[year]
+    jec_tag = jerc_tag_map[year][0]
+    jer_tag = jerc_tag_map[year][1]
+    jet_algo = "AK4PFchs"
+    #jet_algo = "AK8PFPuppi"
+    if usejecstack:
+        extJEC = lookup_tools.extractor()
+        extJEC.add_weight_sets([
+            "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_SF_{jet_algo}.jersf.txt'),
+            "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_PtResolution_{jet_algo}.jr.txt'),
+            "* * " + topcoffea_path(f'data/JEC/Summer19UL{jec_tag}_MC_L1FastJet_{jet_algo}.txt'),
+            "* * " + topcoffea_path(f'data/JEC/Summer19UL{jec_tag}_MC_L2Relative_{jet_algo}.txt'),
+            "* * " + topcoffea_path(f'data/JEC/Quad_Summer19UL{jec_tag}_MC_UncertaintySources_{jet_algo}.junc.txt')
+        ])
+        jec_types = [
+            'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
+            'BBEC1', 'Absolute', 'RelativeBal', 'RelativeSample'
+        ]
+        jec_regroup = ["Quad_Summer19UL%s_MC_UncertaintySources_{jet_algo}_%s" % (jec_tag,jec_type) for jec_type in jec_types]
+        jec_names = [
+            f"{jer_tag}_MC_SF_{jet_algo}",
+            f"{jer_tag}_MC_PtResolution_{jet_algo}",
+            f"Summer19UL{jec_tag}_MC_L1FastJet_{jet_algo}",
+            f"Summer19UL{jec_tag}_MC_L2Relative_{jet_algo}",
+        ]
+        jec_names.extend(jec_regroup)
+
+        extJEC.finalize()
+        JECevaluator = extJEC.make_evaluator()
+        jec_inputs = {name: JECevaluator[name.replace("Regrouped_", "")] for name in jec_names}
+        jec_stack = JECStack(jec_inputs)
+
+    elif useclib:
+        json_path = topcoffea_path(f"data/POG/JME/{jec_year}/jet_jerc.json.gz")
+        #json_path = topcoffea_path(f"data/POG/JME/{jec_year}/fatJet_jerc.json.gz")
+        jec_types_clib = [
+            'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
+            'Regrouped_BBEC1', 'Regrouped_Absolute', 'Regrouped_RelativeBal', 'RelativeSample'
+        ]
+        jec_regroup_clib = [f"Quad_Summer19UL{jec_tag}_MC_UncertaintySources_{jet_algo}_{jec_type}" for jec_type in jec_types_clib]
+        jec_names_clib = [
+            f"{jer_tag}_MC_SF_{jet_algo}",
+            f"{jer_tag}_MC_PtResolution_{jet_algo}",
+            f"Summer19UL{jec_tag}_MC_L1FastJet_{jet_algo}",
+            f"Summer19UL{jec_tag}_MC_L2Relative_{jet_algo}",
+        ]
+        jec_names_clib.extend(jec_regroup_clib)
+        jec_names_clib.append(json_path)
+        jec_names_clib.append(True) ## This boolean will be used to realize if the user wants to save the different level corrections or not
+        jec_stack = jec_names_clib
+
+    name_map = {}
     name_map['JetPt'] = 'pt'
     name_map['JetMass'] = 'mass'
     name_map['JetEta'] = 'eta'
@@ -1164,12 +1367,18 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     return [GetTrig, GetTrigDo, GetTrigUp]
 
 def GetTriggerSF(year, events, lep0, lep1):
+    dt_era = "Run3" if year[2] == "2" else "Run2"
     ls = []
     for syst in [0,1]:
         #2l
-        SF_ee = np.where((events.is2l & events.is_ee), LoadTriggerSF(year,ch='2l',flav='ee')[syst](lep0.pt,lep1.pt), 1.0)
-        SF_em = np.where((events.is2l & events.is_em), LoadTriggerSF(year,ch='2l',flav='em')[syst](lep0.pt,lep1.pt), 1.0)
-        SF_mm = np.where((events.is2l & events.is_mm), LoadTriggerSF(year,ch='2l',flav='mm')[syst](lep0.pt,lep1.pt), 1.0)
+        if dt_era == "Run2":
+            SF_ee = np.where((events.is2l & events.is_ee), LoadTriggerSF(year,ch='2l',flav='ee')[syst](lep0.pt,lep1.pt), 1.0)
+            SF_em = np.where((events.is2l & events.is_em), LoadTriggerSF(year,ch='2l',flav='em')[syst](lep0.pt,lep1.pt), 1.0)
+            SF_mm = np.where((events.is2l & events.is_mm), LoadTriggerSF(year,ch='2l',flav='mm')[syst](lep0.pt,lep1.pt), 1.0)
+        elif dt_era == "Run3":
+            SF_ee = ak.ones_like(events.is2l)
+            SF_em = ak.ones_like(events.is2l)
+            SF_mm = ak.ones_like(events.is2l)
         #3l
         '''
         SF_eee=np.where((events.is3l & events.is_eee),LoadTriggerSF(year,ch='3l',flav='eee')[syst](lep0.pt,lep0.eta),1.0)
