@@ -120,7 +120,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Otherwise, just fill the specified subset of hists
             for hist_to_include in hist_lst:
                 if hist_to_include not in self._accumulator.keys():
-<                    raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
+                    raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
             self._hist_lst = hist_lst # Which hists to fill
 
         # Set the energy threshold to cut on
