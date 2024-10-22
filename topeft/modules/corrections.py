@@ -1494,40 +1494,45 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
 # https://gitlab.cern.ch/akhukhun/roccor
 # https://github.com/CoffeaTeam/coffea/blob/master/coffea/lookup_tools/rochester_lookup.py
 def ApplyRochesterCorrections(year, mu, is_data):
-    if year == '2016':
-        rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2016bUL.txt"), loaduncs=True)
-    elif year == '2016APV':
-        rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2016aUL.txt"), loaduncs=True)
-    elif year == '2017':
-        rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2017UL.txt"), loaduncs=True)
-    elif year == '2018':
-        rochester_data = txt_converters.convert_rochester_file(topcoffea_path("data/MuonScale/RoccoR2018UL.txt"), loaduncs=True)
-    rochester = rochester_lookup.rochester_lookup(rochester_data)
-    if not is_data:
-        hasgen = ~np.isnan(ak.fill_none(mu.matched_gen.pt, np.nan))
-        mc_rand = np.random.rand(*ak.to_numpy(ak.flatten(mu.pt)).shape)
-        mc_rand = ak.unflatten(mc_rand, ak.num(mu.pt, axis=1))
-        corrections = np.array(ak.flatten(ak.ones_like(mu.pt)))
-        mc_kspread = rochester.kSpreadMC(
-            mu.charge[hasgen],mu.pt[hasgen],
-            mu.eta[hasgen],
-            mu.phi[hasgen],
-            mu.matched_gen.pt[hasgen]
-        )
-        mc_ksmear = rochester.kSmearMC(
-            mu.charge[~hasgen],
-            mu.pt[~hasgen],
-            mu.eta[~hasgen],
-            mu.phi[~hasgen],
-            mu.nTrackerLayers[~hasgen],
-            mc_rand[~hasgen]
-        )
-        hasgen_flat = np.array(ak.flatten(hasgen))
-        corrections[hasgen_flat] = np.array(ak.flatten(mc_kspread))
-        corrections[~hasgen_flat] = np.array(ak.flatten(mc_ksmear))
-        corrections = ak.unflatten(corrections, ak.num(mu.pt, axis=1))
+    if year.startswith('201'): #Run2 scenario
+        rocco_tag = None
+        if year == '2016':
+            rocco_tag = "2016bUL"
+        elif year == '2016APV':
+            rocco_tag = "2016aUL"
+        elif year == '2017':
+            rocco_tag = "2017UL"
+        elif year == '2018':
+            rocco_tag = "2018UL"
+        rochester_data = txt_converters.convert_rochester_file(topcoffea_path(f"data/MuonScale/RoccoR{rocco_tag}.txt"), loaduncs=True)
+        rochester = rochester_lookup.rochester_lookup(rochester_data)
+        if not is_data:
+            hasgen = ~np.isnan(ak.fill_none(mu.matched_gen.pt, np.nan))
+            mc_rand = np.random.rand(*ak.to_numpy(ak.flatten(mu.pt)).shape)
+            mc_rand = ak.unflatten(mc_rand, ak.num(mu.pt, axis=1))
+            corrections = np.array(ak.flatten(ak.ones_like(mu.pt)))
+            mc_kspread = rochester.kSpreadMC(
+                mu.charge[hasgen],mu.pt[hasgen],
+                mu.eta[hasgen],
+                mu.phi[hasgen],
+                mu.matched_gen.pt[hasgen]
+            )
+            mc_ksmear = rochester.kSmearMC(
+                mu.charge[~hasgen],
+                mu.pt[~hasgen],
+                mu.eta[~hasgen],
+                mu.phi[~hasgen],
+                mu.nTrackerLayers[~hasgen],
+                mc_rand[~hasgen]
+            )
+            hasgen_flat = np.array(ak.flatten(hasgen))
+            corrections[hasgen_flat] = np.array(ak.flatten(mc_kspread))
+            corrections[~hasgen_flat] = np.array(ak.flatten(mc_ksmear))
+            corrections = ak.unflatten(corrections, ak.num(mu.pt, axis=1))
+        else:
+            corrections = rochester.kScaleDT(mu.charge, mu.pt, mu.eta, mu.phi)
     else:
-        corrections = rochester.kScaleDT(mu.charge, mu.pt, mu.eta, mu.phi)
+        corrections = ak.ones_like(mu.pt)
     return (mu.pt * corrections)
 
 ###### Trigger SFs

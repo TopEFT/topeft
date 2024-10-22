@@ -120,7 +120,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Otherwise, just fill the specified subset of hists
             for hist_to_include in hist_lst:
                 if hist_to_include not in self._accumulator.keys():
-                    raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
+<                    raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
             self._hist_lst = hist_lst # Which hists to fill
 
         # Set the energy threshold to cut on
@@ -293,7 +293,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Muon selection ####################
 
-        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
+        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Run3 ready
         mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
         mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
         mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, muMVATTH, mu.jetRelIso, year)
@@ -911,9 +911,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 for k in sr_cat_dict:
                     if k in cr_cat_dict:
                         raise Exception(f"The key {k} is in both CR and SR dictionaries.")
-
-
-
 
             # Loop over the hists we want to fill
             varnames = {k:v for k,v in varnames.items() if k in self._hist_lst}
