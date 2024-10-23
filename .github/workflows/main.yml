@@ -89,6 +89,7 @@ jobs:
           cd dir_for_topcoffea
           git clone https://github.com/TopEFT/topcoffea.git
           cd topcoffea
+          git checkout e8d8053
           conda run -n coffea-env pip install -e .
           cd ../..
           conda run -n coffea-env pip install -e .
