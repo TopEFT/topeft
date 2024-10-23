@@ -17,6 +17,7 @@ import json
 from coffea.jetmet_tools import CorrectedMETFactory
 ### workaround while waiting the correcion-lib integration will be provided in the coffea package
 from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
+#from topcoffea.modules.CorrectedMETFactory import CorrectedMETFactory
 from topcoffea.modules.JECStack import JECStack
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
@@ -1375,11 +1376,16 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True):
         raise Exception(f"Error: Unknown year \"{year}\".")
 
     jec_year = clib_year_map[year]
+
     if usejecstack:
+        # Extract JEC and JER tags for the year and algorithm
         jec_tag = jerc_tag_map[year][0]
         jer_tag = jerc_tag_map[year][1]
         jet_algo = "AK4PFchs"
-        #jet_algo = "AK8PFPuppi"
+        # Option to use AK8PFPuppi can be enabled by uncommenting the following line
+        # jet_algo = "AK8PFPuppi"
+        
+        # Initialize the lookup tool's extractor for non-clib corrections
         extJEC = lookup_tools.extractor()
         extJEC.add_weight_sets([
             "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_SF_{jet_algo}.jersf.txt'),
@@ -1388,12 +1394,13 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True):
             "* * " + topcoffea_path(f'data/JEC/Summer19UL{jec_tag}_MC_L2Relative_{jet_algo}.txt'),
             "* * " + topcoffea_path(f'data/JEC/Quad_Summer19UL{jec_tag}_MC_UncertaintySources_{jet_algo}.junc.txt')
         ])
-        ##TO ADD THE RUN3 JUNC sources
+
+        # Additional sources can be added here for Run 3 JEC uncertainty sources
         jec_types = [
             'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
             'BBEC1', 'Absolute', 'RelativeBal', 'RelativeSample'
         ]
-        jec_regroup = ["Quad_Summer19UL%s_MC_UncertaintySources_{jet_algo}_%s" % (jec_tag,jec_type) for jec_type in jec_types]
+        jec_regroup = [f"Quad_Summer19UL{jec_tag}_MC_UncertaintySources_{jet_algo}_{jec_type}" for jec_type in jec_types]
         jec_names = [
             f"{jer_tag}_MC_SF_{jet_algo}",
             f"{jer_tag}_MC_PtResolution_{jet_algo}",
@@ -1402,44 +1409,59 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True):
         ]
         jec_names.extend(jec_regroup)
 
+        # Finalize the extractor
         extJEC.finalize()
+
+        # Create an evaluator from the extractor
         JECevaluator = extJEC.make_evaluator()
+        # Map the inputs to JECStack
         jec_inputs = {name: JECevaluator[name.replace("Regrouped_", "")] for name in jec_names}
-        jec_stack = JECStack(jec_inputs)
-
+        # Create JECStack for non-clib scenario
+        jec_stack = JECStack(corrections=jec_inputs, use_clib=False)
+        
     elif useclib:
+        # Handle clib case
         jet_algo, jec_tag, jec_levels, jer_tag = get_jerc_keys(year, isData, era)
-        savecorr = False
         json_path = topcoffea_path(f"data/POG/JME/{jec_year}/jet_jerc.json.gz")
-        jec_names_clib = [f"{jec_tag}_{jec_level}_{jet_algo}" for jec_level in jec_levels]
-        if not isData:
-            jer_names_clib = [
-                f"{jer_tag}_SF_{jet_algo}",
-                f"{jer_tag}_PtResolution_{jet_algo}",
-            ]
-            jec_types_clib = jerc_dict[year]['junc']
-            jec_regroup_clib = [f"{jec_tag}_UncertaintySources_{jec_type}_{jet_algo}" for jec_type in jec_types_clib]
-            savecorr = False
-            jec_names_clib.extend(jer_names_clib)
-            jec_names_clib.extend(jec_regroup_clib)
-        jec_names_clib.append(json_path)
-        jec_names_clib.append(savecorr) ## This boolean will be used to realize if the user wants to save the different level corrections or not
-        jec_stack = jec_names_clib
 
-    name_map = {}
-    name_map['JetPt'] = 'pt'
-    name_map['JetMass'] = 'mass'
-    name_map['JetEta'] = 'eta'
-    name_map['JetPhi'] = 'phi'
-    name_map['JetA'] = 'area'
-    name_map['ptGenJet'] = 'pt_gen'
-    name_map['ptRaw'] = 'pt_raw'
-    name_map['massRaw'] = 'mass_raw'
-    name_map['Rho'] = 'rho'
-    name_map['METpt'] = 'pt'
-    name_map['METphi'] = 'phi'
-    name_map['UnClusteredEnergyDeltaX'] = 'MetUnclustEnUpDeltaX'
-    name_map['UnClusteredEnergyDeltaY'] = 'MetUnclustEnUpDeltaY'
+        # Define the jec_names_clib, jer_names_clib, and jec_uncsources_clib based on levels and tags
+        jec_names_clib = [f"{jec_tag}_{level}_{jet_algo}" for level in jec_levels]
+        #jer_names_clib = [f"{jer_tag}_SF_{jet_algo}", f"{jer_tag}_PtResolution_{jet_algo}"]
+        jer_names_clib = [f"{jer_tag}_ScaleFactor_{jet_algo}", f"{jer_tag}_PtResolution_{jet_algo}"]
+        #jec_uncsources_clib = [f"{jec_tag}_UncertaintySources_{type}_{jet_algo}" for type in jerc_dict[year]['junc']]
+        jec_uncsources_clib = [f"{jec_tag}_{type}_{jet_algo}" for type in jerc_dict[year]['junc']]
+        
+        # Create JECStack for clib scenario
+        jec_stack = JECStack(
+            jec_tag=jec_tag,
+            jec_levels=jec_levels,
+            jer_tag=jer_tag,
+            jet_algo=jet_algo,
+            json_path=json_path,
+            jec_names_clib=jec_names_clib,
+            jer_names_clib=jer_names_clib,
+            jec_uncsources_clib=jec_uncsources_clib,
+            use_clib=True  # Use clib logic
+        )
+        
+    # Name map for jet or MET corrections
+    name_map = {
+        'JetPt': 'pt',
+        'JetMass': 'mass',
+        'JetEta': 'eta',
+        'JetPhi': 'phi',
+        'JetA': 'area',
+        'ptGenJet': 'pt_gen',
+        'ptRaw': 'pt_raw',
+        'massRaw': 'mass_raw',
+        'Rho': 'rho',
+        'METpt': 'pt',
+        'METphi': 'phi',
+        'UnClusteredEnergyDeltaX': 'MetUnclustEnUpDeltaX',
+        'UnClusteredEnergyDeltaY': 'MetUnclustEnUpDeltaY'
+    }
+
+    # Return appropriate factory based on correction type
     if corr_type == 'met':
         return CorrectedMETFactory(name_map)
     return CorrectedJetsFactory(name_map, jec_stack)
@@ -1457,7 +1479,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
         return cleanedJets
     elif (syst_var in ['nominal','MuonESUp','MuonESDown']):
         return cleanedJets
-    elif ('JES_FlavorQCD' in syst_var in syst_var):# and (('Up' in syst_var and syst_var.replace('Up', '') in cleanedJets.fields) or ('Down' in syst_var and syst_var.replace('Down', '') in cleanedJets.fields))):
+    elif ('JES_FlavorQCD' in syst_var in syst_var):
         # Overwrite FlavorQCD with the proper jet flavor uncertainty
         bmask = np.array(ak.flatten(abs(cleanedJets.partonFlavour)==5))
         cmask = abs(cleanedJets.partonFlavour)==4
@@ -1484,7 +1506,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
             cleanedJets['JES_FlavorQCD']['down']['pt'] = corrections
             return cleanedJets.JES_FlavorQCD.down
     # Save `2016APV` as `2016APV` but look up `2016` corrections (no separate APV corrections available)
-    elif ('Up' in syst_var and syst_var[:-2].replace('APV', '') in cleanedJets.fields):#syst_var.replace('Up', '').replace('APV', '') in cleanedJets.fields):
+    elif ('Up' in syst_var and syst_var[:-2].replace('APV', '') in cleanedJets.fields):
         return cleanedJets[syst_var.replace('Up', '').replace("Pile", "PileUp").replace('APV', '')].up
     elif ('Down' in syst_var and syst_var[:-4].replace('APV', '') in cleanedJets.fields):
         return cleanedJets[syst_var.replace('Down', '').replace('APV', '')].down
