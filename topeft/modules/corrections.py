@@ -280,7 +280,7 @@ def get_jerc_keys(year, isdata, era=None):
     return jet_algo, jec_key, jec_levels, jer_key
 
 def get_corr_inputs(objs, corr_obj, name_map):
-    """                                                   
+    """
     Helper function for getting values of input variables
     given a dictionary and a correction object.
     """
@@ -1384,7 +1384,7 @@ def ApplyJetCorrections(year, corr_type, isData, era, savecorr=False, useclib=Tr
             weight_sets += [
                 "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_SF_{jet_algo}.jersf.txt'),
                 "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_PtResolution_{jet_algo}.jr.txt'),
-            ] 
+            ]
         weight_sets += [
             "* * " + topcoffea_path(f'data/JEC/Summer19UL{jec_tag}_MC_L1FastJet_{jet_algo}.txt'),
             "* * " + topcoffea_path(f'data/JEC/Summer19UL{jec_tag}_MC_L2Relative_{jet_algo}.txt'),
