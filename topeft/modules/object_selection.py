@@ -67,7 +67,7 @@ def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
     elif (year == "2023BPix"):
         wploose = get_tc_param("btag_wp_loose_2023BPix")
         wpmedium = get_tc_param("btag_wp_medium_2023BPix")
-     #NEW
+    #NEW
     else:
         raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
 

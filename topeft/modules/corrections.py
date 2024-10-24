@@ -117,7 +117,7 @@ jerc_dict = {
         "jec_levels": [
             "L1FastJet",
             "L2Relative",
-                ],
+        ],
         "jer": "Summer20UL16APV_JRV3_MC",
         "junc"    : [
             'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
@@ -265,7 +265,7 @@ def get_jerc_keys(year, isdata, era=None):
 
     #jec levels
     jec_levels = jerc_dict[year]['jec_levels']
-        
+
     # jerc keys
     if not isdata:
         jec_key    = jerc_dict[year]['jec_mc']
@@ -284,7 +284,7 @@ def get_corr_inputs(objs, corr_obj, name_map):
     Helper function for getting values of input variables
     given a dictionary and a correction object.
     """
-    input_values = [awkward.flatten(jets[inp.name]) for inp in corr_obj.inputs if inp.name != "systematic"]
+    input_values = [ak.flatten(objs[inp.name]) for inp in corr_obj.inputs if inp.name != "systematic"]
     return input_values
 
 # New UL Lepton SFs
@@ -944,7 +944,7 @@ def AttachMuonSF(muons, year):
     reco_loose_sf = ak.ones_like(pt)
     reco_loose_up = ak.ones_like(pt)
     reco_loose_do = ak.ones_like(pt)
-        
+
     ## Run2:
     ## only loose_sf can be consistently used with correction-lib, for the other we use the TOP-22-006 original SFs
     ## Run3:
@@ -990,13 +990,13 @@ def AttachMuonSF(muons, year):
         reco_loose_sf = reco_sf * loose_sf
         reco_loose_up = reco_up * loose_up
         reco_loose_do = reco_do * loose_do
-        
+
         ## ad-hoc from TOP-22-006 for Run2 (not clib ready)
         iso_sf  = SFevaluator['MuonIsoSF_{year}'.format(year=year)](eta,pt)
         iso_err = SFevaluator['MuonIsoSF_{year}_er'.format(year=year)](eta,pt)
         iso_up  = iso_sf + iso_err
         iso_do  = iso_sf - iso_err
-        
+
         new_sf  = SFevaluator['MuonSF_{year}'.format(year=year)](eta,pt)
         new_err = SFevaluator['MuonSF_{year}_er'.format(year=year)](eta,pt)
         new_up = new_sf + new_err
@@ -1040,7 +1040,7 @@ def AttachMuonSF(muons, year):
         #reco_loose_err = ak.unflatten(reco_loose_err_flat, ak.num(pt))
         #reco_loose_up = reco_loose_sf + reco_loose_err
         #reco_loose_do = reco_loose_sf - reco_loose_err
-        
+
     #Run2+Run3 implementation
     muons['sf_nom_2l_muon'] = new_sf * reco_loose_sf * iso_sf
     muons['sf_hi_2l_muon']  = new_up * reco_loose_up * iso_up
@@ -1090,7 +1090,7 @@ def AttachElectronSF(electrons, year, looseWP="wp90noiso"):
     iso_sf = ak.ones_like(pt)
     iso_up = ak.ones_like(pt)
     iso_do = ak.ones_like(pt)
-    
+
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
 
@@ -1194,7 +1194,7 @@ def AttachElectronSF(electrons, year, looseWP="wp90noiso"):
         loose_err = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](np.abs(eta),pt)
         loose_up = loose_sf + loose_err
         loose_do = loose_sf - loose_err
-        
+
         new_sf_2l  = SFevaluator['ElecSF_{year}_2lss'.format(year=year)](np.abs(eta),pt)
         new_err_2l = SFevaluator['ElecSF_{year}_2lss_er'.format(year=year)](np.abs(eta),pt)
         new_up_2l = new_sf_2l + new_err_2l
@@ -1203,12 +1203,12 @@ def AttachElectronSF(electrons, year, looseWP="wp90noiso"):
         new_err_3l = SFevaluator['ElecSF_{year}_3l_er'.format(year=year)](np.abs(eta),pt)
         new_up_3l = new_sf_3l + new_err_3l
         new_do_3l = new_sf_3l - new_err_3l
-        
+
         iso_sf  = SFevaluator['ElecIsoSF_{year}'.format(year=year)](np.abs(eta),pt)
         iso_err = SFevaluator['ElecIsoSF_{year}_er'.format(year=year)](np.abs(eta),pt)
         iso_up = iso_sf + iso_err
         iso_do = iso_sf - iso_err
-        
+
     electrons['sf_nom_2l_elec'] = reco_sf * new_sf_2l * loose_sf * iso_sf
     electrons['sf_hi_2l_elec']  = (reco_up) * new_up_2l * loose_up * iso_up
     electrons['sf_lo_2l_elec']  = (reco_do) * new_do_2l * loose_do * iso_do
@@ -1221,7 +1221,7 @@ def AttachElectronSF(electrons, year, looseWP="wp90noiso"):
     electrons['sf_nom_3l_muon'] = ak.ones_like(reco_sf)
     electrons['sf_hi_3l_muon']  = ak.ones_like(reco_sf)
     electrons['sf_lo_3l_muon']  = ak.ones_like(reco_sf)
-    
+
 ###### Btag scale factors
 ################################################################
 # Hard-coded to DeepJet algorithm, loose and medium WPs
@@ -1411,7 +1411,7 @@ def ApplyJetCorrections(year, corr_type, isData, era, savecorr=False, useclib=Tr
         ]
         if not isData:
             jec_names.extend(jec_regroup)
-            
+
         extJEC.finalize()
         JECevaluator = extJEC.make_evaluator()
         jec_inputs = {name: JECevaluator[name.replace("Regrouped_", "")] for name in jec_names}
