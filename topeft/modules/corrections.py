@@ -1366,7 +1366,7 @@ def AttachPdfWeights(events):
 ##############################################
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution
 # JES: https://twiki.cern.ch/twiki/bin/view/CMS/JECDataMC
-def ApplyJetCorrections(year, corr_type, isData, era, useclib=True):
+def ApplyJetCorrections(year, corr_type, isData, era, savecorr=False, useclib=True):
     usejecstack = not useclib
 
     if year not in clib_year_map.keys():
@@ -1379,27 +1379,39 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True):
         jet_algo = "AK4PFchs"
         #jet_algo = "AK8PFPuppi"
         extJEC = lookup_tools.extractor()
-        extJEC.add_weight_sets([
-            "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_SF_{jet_algo}.jersf.txt'),
-            "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_PtResolution_{jet_algo}.jr.txt'),
+        weight_sets = []
+        if not isData:
+            weight_sets += [
+                "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_SF_{jet_algo}.jersf.txt'),
+                "* * " + topcoffea_path(f'data/JER/{jer_tag}_MC_PtResolution_{jet_algo}.jr.txt'),
+            ] 
+        weight_sets += [
             "* * " + topcoffea_path(f'data/JEC/Summer19UL{jec_tag}_MC_L1FastJet_{jet_algo}.txt'),
             "* * " + topcoffea_path(f'data/JEC/Summer19UL{jec_tag}_MC_L2Relative_{jet_algo}.txt'),
-            "* * " + topcoffea_path(f'data/JEC/Quad_Summer19UL{jec_tag}_MC_UncertaintySources_{jet_algo}.junc.txt')
-        ])
-        ##TO ADD THE RUN3 JUNC sources
+        ]
+        if not isData:
+            weight_sets += [
+                "* * " + topcoffea_path(f'data/JEC/Quad_Summer19UL{jec_tag}_MC_UncertaintySources_{jet_algo}.junc.txt')
+            ]
+        extJEC.add_weight_sets(weight_sets)
         jec_types = [
             'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
             'BBEC1', 'Absolute', 'RelativeBal', 'RelativeSample'
         ]
-        jec_regroup = ["Quad_Summer19UL%s_MC_UncertaintySources_{jet_algo}_%s" % (jec_tag,jec_type) for jec_type in jec_types]
-        jec_names = [
-            f"{jer_tag}_MC_SF_{jet_algo}",
-            f"{jer_tag}_MC_PtResolution_{jet_algo}",
+        jec_regroup = [f"Quad_Summer19UL%s_MC_UncertaintySources_{jet_algo}_%s" % (jec_tag,jec_type) for jec_type in jec_types]
+        jec_names = []
+        if not isData:
+            jec_names += [
+                f"{jer_tag}_MC_SF_{jet_algo}",
+                f"{jer_tag}_MC_PtResolution_{jet_algo}",
+            ]
+        jec_names += [
             f"Summer19UL{jec_tag}_MC_L1FastJet_{jet_algo}",
             f"Summer19UL{jec_tag}_MC_L2Relative_{jet_algo}",
         ]
-        jec_names.extend(jec_regroup)
-
+        if not isData:
+            jec_names.extend(jec_regroup)
+            
         extJEC.finalize()
         JECevaluator = extJEC.make_evaluator()
         jec_inputs = {name: JECevaluator[name.replace("Regrouped_", "")] for name in jec_names}
@@ -1407,7 +1419,6 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True):
 
     elif useclib:
         jet_algo, jec_tag, jec_levels, jer_tag = get_jerc_keys(year, isData, era)
-        savecorr = False
         json_path = topcoffea_path(f"data/POG/JME/{jec_year}/jet_jerc.json.gz")
         jec_names_clib = [f"{jec_tag}_{jec_level}_{jet_algo}" for jec_level in jec_levels]
         if not isData:
@@ -1417,7 +1428,6 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True):
             ]
             jec_types_clib = jerc_dict[year]['junc']
             jec_regroup_clib = [f"{jec_tag}_UncertaintySources_{jec_type}_{jet_algo}" for jec_type in jec_types_clib]
-            savecorr = False
             jec_names_clib.extend(jer_names_clib)
             jec_names_clib.extend(jec_regroup_clib)
         jec_names_clib.append(json_path)
