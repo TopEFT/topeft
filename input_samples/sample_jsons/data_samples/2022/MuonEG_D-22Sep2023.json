@@ -1,0 +1,31 @@
+{
+    "xsec": 1.0,
+    "year": "2022",
+    "treeName": "Events",
+    "histAxisName": "data2022",
+    "options": "",
+    "WCnames": [],
+    "files": [
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/a74255fa-4b70-4ef0-9d47-1ee2651ac525.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/73fc2757-5d10-4835-b7a0-03eaf208aa4a.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/f84ea3df-28a3-46d4-a999-d76309826592.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/44183ea8-8843-455c-8cb3-3831a03106e8.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/3af87944-1b7d-408a-a809-806b00a7d561.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/42803125-9b57-417b-bba1-4217bb983489.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/dcd5fd93-5c65-4483-8f22-c9a2e284ff75.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/f370bcdb-1bb6-4df3-9c6f-c86f733f79b4.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/405c5f48-2581-4aa3-a547-ea2a690a56b4.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/27453cd2-36d5-4b34-9cf6-1303480b5dcf.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/7a7b7510-00a8-46e1-b456-8ac4f443cd05.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/ba818ba7-3867-4041-9fc8-645a088637e4.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/6a93dde7-3b91-4bc4-93db-b59fc2c3f6b6.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/685d399d-2a05-42c1-bb0f-119951424112.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/3bf393d1-985b-45ab-863d-589b05b6e50c.root",
+        "/store/data/Run2022D/MuonEG/NANOAOD/22Sep2023-v1/40000/b01af2f6-9d7a-4ea1-815a-6386d6842bca.root"
+    ],
+    "nEvents": 8007031.0,
+    "nGenEvents": 8007031.0,
+    "nSumOfWeights": 8007031.0,
+    "isData": true,
+    "path": "/MuonEG/Run2022D-22Sep2023-v1/NANOAOD"
+}
