@@ -268,7 +268,7 @@ def get_jerc_keys(year, isdata, era=None):
 
     #jec levels
     jec_levels = jerc_dict[year]['jec_levels']
-        
+
     # jerc keys and junc types
     if not isdata:
         jec_key    = jerc_dict[year]['jec_mc']
@@ -1421,7 +1421,7 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True, savelevels=F
         JECevaluator = extJEC.make_evaluator()
         jec_inputs = {name: JECevaluator[name.replace("Regrouped_", "")] for name in jec_names}
         jec_stack = JECStack(jec_inputs)
-            
+
     elif useclib:
         # Handle clib case
         jet_algo, jec_tag, jec_levels, jer_tag, junc_types = get_jerc_keys(year, isData, era)
@@ -1438,7 +1438,7 @@ def ApplyJetCorrections(year, corr_type, isData, era, useclib=True, savelevels=F
             use_clib=useclib,
             savecorr=savelevels
         )
-        
+
     # Name map for jet or MET corrections
     name_map = {
         'JetPt': 'pt',
