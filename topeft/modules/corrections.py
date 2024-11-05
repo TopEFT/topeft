@@ -1069,7 +1069,7 @@ def AttachElectronSF(electrons, year, looseWP="wp90noiso"):
         is_run3 = True
     is_run2 = not is_run3
     dt_era = "Run3" if is_run3 else "Run2"
-    
+
     eta = electrons.eta
     pt = electrons.pt
     phi = electrons.phi
