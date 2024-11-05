@@ -154,11 +154,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
 
-        dt_era = None
-        if year[2] == "2":
-            dt_era = "Run3"
-        else:
-            dt_era = "Run2"
+        is_run3 = False
+        if year.startswith("202"):
+            is_run3 = True
+        is_run2 = not is_run3
 
         run_era = None
         if isData:
@@ -229,13 +228,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         jets = events.Jet
 
 
-        if dt_era == "Run3":
+        if is_run3:
             elePresId = ele.mvaNoIso_WP90
             eleFOId = ele.mvaNoIso_WP80
             eleMVATTH = ele.mvaTTH
             muMVATTH = mu.mvaTTH
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-        elif dt_era == "Run2":
+        elif is_run2:
             elePresId = ele.mvaFall17V2noIso_WPL
             eleFOId = ele.mvaFall17V2noIso_WP90
             eleMVATTH = ele.mvaTTHUL
@@ -370,9 +369,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             lumi = 1000.0*get_tc_param(f"lumi_{year}")
             weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
 
-            if dt_era == "Run2":
+            if is_run2:
                 l1prefiring_args = [events.L1PreFiringWeight.Nom, events.L1PreFiringWeight.Up, events.L1PreFiringWeight.Dn]
-            elif dt_era == "Run3":
+            elif is_run3:
                 l1prefiring_args = [ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom)]
 
             # Attach PS weights (ISR/FSR) and scale weights (renormalization/factorization) and PDF weights
@@ -420,7 +419,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
 
             # Jet energy corrections
-            if not isData: #and dt_era == "Run2":
+            if not isData:
                 cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
             events_cache = events.caches[0]
             cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready

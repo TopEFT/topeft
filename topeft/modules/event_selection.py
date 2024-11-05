@@ -166,7 +166,6 @@ exclude_dict_top22006 = {
         "MuonEG"         : dataset_dict_top22006["2018"]["DoubleMuon"] + dataset_dict_top22006["2018"]["EGamma"],
         "SingleMuon"     : dataset_dict_top22006["2018"]["DoubleMuon"] + dataset_dict_top22006["2018"]["EGamma"] + dataset_dict_top22006["2018"]["MuonEG"],
     },
-    #NEW - Placeholders
     "2022": {
         "Muon"           : [],
         "EGamma"         : dataset_dict_top22006["2022"]["Muon"],
@@ -239,7 +238,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
     padded_FOs = ak.pad_none(FOs,2)
-    #print("padded_FOs", padded_FOs.fields)
+
     # Filters and cleanups
     filter_flags = events.Flag
     filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & (((year == "2016")|(year == "2016APV")) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
@@ -287,7 +286,6 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     events['is2l_nozeeveto'] = ak.fill_none(mask_nozeeveto,False)
 
     # SFs
-    # NEW - comment out
     events['sf_2l_muon'] = padded_FOs[:,0].sf_nom_2l_muon*padded_FOs[:,1].sf_nom_2l_muon
     events['sf_2l_elec'] = padded_FOs[:,0].sf_nom_2l_elec*padded_FOs[:,1].sf_nom_2l_elec
     events['sf_2l_hi_muon'] = padded_FOs[:,0].sf_hi_2l_muon*padded_FOs[:,1].sf_hi_2l_muon
@@ -300,7 +298,6 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     events['is2l_SR'] = ak.fill_none(events['is2l_SR'],False)
 
     # FF:
-    #NEW - comment out
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
 
 
@@ -355,7 +352,6 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     events['is3l'] = ak.fill_none(mask,False)
 
     # SFs
-    # NEW - comment out
     events['sf_3l_muon'] = padded_FOs[:,0].sf_nom_3l_muon*padded_FOs[:,1].sf_nom_3l_muon*padded_FOs[:,2].sf_nom_3l_muon
     events['sf_3l_elec'] = padded_FOs[:,0].sf_nom_3l_elec*padded_FOs[:,1].sf_nom_3l_elec*padded_FOs[:,2].sf_nom_3l_elec
     events['sf_3l_hi_muon'] = padded_FOs[:,0].sf_hi_3l_muon*padded_FOs[:,1].sf_hi_3l_muon*padded_FOs[:,2].sf_hi_3l_muon
@@ -401,7 +397,6 @@ def add4lMaskAndSFs(events, year, isData):
     events['is4l'] = ak.fill_none(mask,False)
 
     # SFs:
-    #NEW - comment out
     events['sf_4l_muon'] = padded_FOs[:,0].sf_nom_3l_muon*padded_FOs[:,1].sf_nom_3l_muon*padded_FOs[:,2].sf_nom_3l_muon*padded_FOs[:,3].sf_nom_3l_muon
     events['sf_4l_elec'] = padded_FOs[:,0].sf_nom_3l_elec*padded_FOs[:,1].sf_nom_3l_elec*padded_FOs[:,2].sf_nom_3l_elec*padded_FOs[:,3].sf_nom_3l_elec
     events['sf_4l_hi_muon'] = padded_FOs[:,0].sf_hi_3l_muon*padded_FOs[:,1].sf_hi_3l_muon*padded_FOs[:,2].sf_hi_3l_muon*padded_FOs[:,3].sf_hi_3l_muon
@@ -418,7 +413,6 @@ def addLepCatMasks(events):
 
     # FOs and padded FOs
     fo = events.l_fo_conept_sorted
-    #print("fo fields", fo.fields)
     padded_fo = ak.pad_none(fo,4)
     padded_fo_id = padded_fo.pdgId
 
