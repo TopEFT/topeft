@@ -1064,11 +1064,10 @@ def AttachElectronSF(electrons, year, looseWP="wp90noiso"):
           values correspond to the nominal, up, and down electron scalefactor values respectively.
     '''
 
-    dt_era = None
-    if year[2] == "2":
-        dt_era = "Run3"
-    else:
-        dt_era = "Run2"
+    is_run3 = False
+    if year.startswith("202"):
+        is_run3 = True
+    is_run2 = not is_run3
 
     eta = electrons.eta
     pt = electrons.pt
