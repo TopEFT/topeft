@@ -1066,7 +1066,7 @@ def AttachElectronSF(electrons, year, looseWP):
 
     if looseWP is None:
         raise ValueError('when calling AttachElectronSF, a looseWP value must be provided according to the ele ID isPres selection')
-    
+
     is_run3 = False
     if year.startswith("202"):
         is_run3 = True
