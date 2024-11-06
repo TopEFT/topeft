@@ -6,8 +6,10 @@ import argparse
 import matplotlib.pyplot as plt
 from cycler import cycler
 
-from coffea import hist
-#from topcoffea.modules.HistEFT import HistEFT
+import mplhep as hep
+import hist
+from topcoffea.modules.histEFT import HistEFT
+from topeft.modules.axes import info as axes_info
 
 from topcoffea.scripts.make_html import make_html
 import topcoffea.modules.utils as utils
@@ -82,6 +84,15 @@ SR_CHAN_DICT = {
     ],
     "4l_SR" : [
         "4l_2j", "4l_3j", "4l_4j",
+    ],
+    "4l_2j" : [
+        "4l_2j",
+    ],
+    "4l_3j" : [
+        "4l_3j",
+    ],
+    "4l_4j" : [
+        "4l_4j",
     ]
 }
 
@@ -105,6 +116,7 @@ CR_GRP_MAP = {
 SR_GRP_MAP = {
     "Data": [],
     "Conv": [],
+    "Diboson" : [],
     "Multiboson" : [],
     "Nonprompt" : [],
     "Flips" : [],
@@ -172,8 +184,21 @@ def get_dict_with_stripped_bin_names(in_chan_dict,type_of_info_to_strip):
                 out_chan_dict[cat].append(bin_name_no_njet)
     return (out_chan_dict)
 
+def group(h: HistEFT, oldname: str, newname: str, grouping: dict[str, list[str]]):
+    hnew = HistEFT(
+        hist.axis.StrCategory(grouping, name=newname),
+        *(ax for ax in h.axes if ax.name != oldname),
+        wc_names=h.wc_names,
+    )
+    for i, indices in enumerate(grouping.values()):
+        print(f'{indices=} {h.axes[0]}')
+        ind = [c for c in indices if c in h.axes[0]]
+        print(f'{i=} {indices=} {ind=} {oldname=} {oldname=} {h[{oldname: ind}][{oldname: sum}].view(flow=True)=}')
+        hnew.view(flow=True)[i] = h[{oldname: ind}][{oldname: sum}].view(flow=True)
+
+    return hnew
 # Group bins in a hist, returns a new hist
-def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
+def group_bins(histo,bin_map,axis_name="process",drop_unspecified=False):
 
     bin_map = copy.deepcopy(bin_map) # Don't want to edit the original
 
@@ -185,11 +210,13 @@ def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=False):
         for bin_name in yt.get_cat_lables(histo,axis_name):
             if bin_name not in bins_to_remap_lst:
                 bin_map[bin_name] = bin_name
+    bin_map = {m:bin_map[m] for m in bin_map if any(a in list(histo.axes[axis_name]) for a in bin_map[m])}
 
     # Remap the bins
-    old_ax = histo.axis(axis_name)
-    new_ax = hist.Cat(old_ax.name,old_ax.label)
-    new_histo = histo.group(old_ax,new_ax,bin_map,overflow="over")
+    old_ax = histo.axes[axis_name]
+    #new_ax = hist.axis.StrCategory([], name=old_ax.name, label=old_ax.label, growth=True)
+    new_histo = group(histo, axis_name, axis_name, bin_map)
+    #new_histo = histo.group(axis_name, bin_map)
 
     return new_histo
 
@@ -278,11 +305,11 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
     rate_syst_arr_dict = {}
     for rate_sys_type in grs.get_syst_lst():
         rate_syst_arr_dict[rate_sys_type] = {}
-        for sample_name in yt.get_cat_lables(base_histo,"sample"):
+        for sample_name in yt.get_cat_lables(base_histo,"process"):
 
             # Build the plus and minus arrays from the rate uncertainty number and the nominal arr
             rate_syst_dict = get_rate_systs(sample_name,proc_group_map)
-            thissample_nom_arr = base_histo.integrate("sample",sample_name).integrate("systematic","nominal").values()[()]
+            thissample_nom_arr = base_histo.integrate("process",sample_name).integrate("systematic","nominal").eval({})[()]
             p_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][1]) - thissample_nom_arr # Difference between positive fluctuation and nominal
             m_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][0]) - thissample_nom_arr # Difference between positive fluctuation and nominal
 
@@ -327,8 +354,8 @@ def get_shape_syst_arrs(base_histo):
         # Skip the variation of renorm and fact together, since we're treating as independent
         if syst_name == "renormfact": continue
 
-        relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "sample") # The samples relevant to this syst
-        n_arr = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic","nominal").values()[()] # Sum of all samples for nominal variation
+        relevant_samples_lst = yt.get_cat_lables(base_histo.integrate("systematic",syst_name+"Up"), "process") # The samples relevant to this syst
+        n_arr = base_histo.integrate("process",relevant_samples_lst).integrate("systematic","nominal").eval({})[()] # Sum of all samples for nominal variation
 
         # Special handling of renorm and fact
         # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
@@ -337,8 +364,8 @@ def get_shape_syst_arrs(base_histo):
 
         # If the syst is not renorm or fact, just treat it normally (correlate across all processes)
         else:
-            u_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Up").values()[()]   # Sum of all samples for up variation
-            d_arr_sum = base_histo.integrate("sample",relevant_samples_lst).integrate("systematic",syst_name+"Down").values()[()] # Sum of all samples for down variation
+            u_arr_sum = base_histo.integrate("process",relevant_samples_lst).integrate("systematic",syst_name+"Up").eval({})[()]   # Sum of all samples for up variation
+            d_arr_sum = base_histo.integrate("process",relevant_samples_lst).integrate("systematic",syst_name+"Down").eval({})[()] # Sum of all samples for down variation
 
             u_arr_rel = u_arr_sum - n_arr # Diff with respect to nominal
             d_arr_rel = d_arr_sum - n_arr # Diff with respect to nominal
@@ -382,9 +409,9 @@ def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,tem
             for proc_name in proc_lst:
                 if proc_name not in relevant_samples_lst: continue
 
-                n_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic","nominal").values()[()]
-                u_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Up").values()[()]
-                d_arr_proc = base_histo.integrate("sample",proc_name).integrate("systematic",syst_name+"Down").values()[()]
+                n_arr_proc = base_histo.integrate("process",proc_name).integrate("systematic","nominal").eval({})[()]
+                u_arr_proc = base_histo.integrate("process",proc_name).integrate("systematic",syst_name+"Up").eval({})[()]
+                d_arr_proc = base_histo.integrate("process",proc_name).integrate("systematic",syst_name+"Down").eval({})[()]
 
                 u_arr_proc_rel = u_arr_proc - n_arr_proc
                 d_arr_proc_rel = d_arr_proc - n_arr_proc
@@ -394,9 +421,9 @@ def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,tem
 
         # Otherwise corrleated across groups (e.g. ZZ and WZ, as datacard maker does in SR)
         else:
-            n_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic","nominal").values()[()]
-            u_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Up").values()[()]
-            d_arr_grp = base_histo.integrate("sample",proc_lst).integrate("systematic",syst_name+"Down").values()[()]
+            n_arr_grp = base_histo.integrate("process",proc_lst).integrate("systematic","nominal").eval({})[()]
+            u_arr_grp = base_histo.integrate("process",proc_lst).integrate("systematic",syst_name+"Up").eval({})[()]
+            d_arr_grp = base_histo.integrate("process",proc_lst).integrate("systematic",syst_name+"Down").eval({})[()]
             u_arr_grp_rel = u_arr_grp - n_arr_grp
             d_arr_grp_rel = d_arr_grp - n_arr_grp
             a_arr_grp_rel = (abs(u_arr_grp_rel) + abs(d_arr_grp_rel))/2.0
@@ -444,8 +471,8 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 
 ######### Plotting functions #########
 
-# Takes two histograms and makes a plot (with only one sparse axis, whihc should be "sample"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
+# Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
+def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',bins=[],group=[],set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
 
     colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown"]
 
@@ -462,7 +489,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,
     fig, (ax, rax) = plt.subplots(
         nrows=2,
         ncols=1,
-        figsize=(7,7),
+        figsize=(10,10),
         gridspec_kw={"height_ratios": (3, 1)},
         sharex=True
     )
@@ -475,84 +502,135 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,set_x_lim=None,err_p=None,err_m=None,
     if unit_norm_bool:
         sum_mc = 0
         sum_data = 0
-        for sample in h_mc.values():
-            sum_mc = sum_mc + sum(h_mc.values()[sample])
-        for sample in h_data.values():
-            sum_data = sum_data + sum(h_data.values()[sample])
+        for sample in h_mc.eval({}):
+            sum_mc = sum_mc + sum(h_mc.eval({})[sample])
+        for sample in h_data.eval({}):
+            sum_data = sum_data + sum(h_data.eval({})[sample])
         h_mc.scale(1.0/sum_mc)
         h_data.scale(1.0/sum_data)
 
     # Plot the MC
-    hist.plot1d(
-        h_mc,
+    years = {}
+    for axis_name in h_mc.axes[axis]:
+        name = axis_name.split('UL')[0].replace('_private', '').replace('_central', '')
+        if name in years:
+            years[name].append(axis_name)
+        else:
+            years[name] = [axis_name]
+    hep.style.use("CMS")
+    plt.sca(ax)
+    hep.cms.label(lumi='138')
+    # Hack for grouping until fixed
+    grouping = {}
+    grouping = {proc: [good_proc for good_proc in group[proc] if good_proc in h_mc.axes['process']] for proc in group if any(p in h_mc.axes['process'] for p in group[proc])}
+    vals = [h_mc[{'process': grouping[proc]}][{'process': sum}].eval({})[()][1:-1] for proc in grouping]
+    mc_vals = {proc: h_mc[{'process': grouping[proc]}][{'process': sum}].as_hist({}).values(flow=True)[1:] for proc in grouping}
+    bins = h_data[{'process': sum}].as_hist({}).axes[0].edges
+    bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2])*0.3])
+    hep.histplot(
+        list(mc_vals.values()),
         ax=ax,
+        bins=bins,
         stack=True,
-        line_opts=None,
-        fill_opts=FILL_OPS,
-        error_opts=mc_err_ops,
-        clear=False,
+        density=unit_norm_bool,
+        label=list(mc_vals.keys()),
+        histtype='fill',
     )
 
     # Plot the data
-    hist.plot1d(
-        h_data,
+    hep.histplot(
+        h_data[{'process':sum}].as_hist({}).values(flow=True)[1:],
+        #error_opts = DATA_ERR_OPS,
         ax=ax,
-        error_opts = DATA_ERR_OPS,
+        bins=bins,
         stack=False,
-        clear=False,
+        density=unit_norm_bool,
+        label='Data',
+        #flow='show',
+        histtype='errorbar',
+        **DATA_ERR_OPS,
     )
 
     # Make the ratio plot
-    hist.plotratio(
-        num = h_data.sum("sample"),
-        denom = h_mc.sum("sample"),
-        ax = rax,
-        error_opts = DATA_ERR_OPS,
-        denom_fill_opts = {},
-        guide_opts = {},
-        unc = 'num',
-        clear = False,
+    hep.histplot(
+        (h_data[{'process':sum}].as_hist({}).values(flow=True)[()]/h_mc[{axis: sum}].as_hist({}).values(flow=True)[()])[1:],
+        yerr=(np.sqrt(h_data[{'process':sum}].as_hist({}).values(flow=True)[()]) / h_data[{'process':sum}].as_hist({}).values(flow=True)[()])[1:],
+        #error_opts = DATA_ERR_OPS,
+        ax=rax,
+        bins=bins,
+        stack=False,
+        density=unit_norm_bool,
+        #flow='show',
+        histtype='errorbar',
+        **DATA_ERR_OPS,
     )
 
     # Plot the syst error
     if plot_syst_err:
         dense_axes = h_mc.dense_axes()
-        bin_edges_arr = h_mc.axis(dense_axes[0]).edges()
+        bin_edges_arr = h_mc.axes[dense_axes[0]].edges()
         err_p = np.append(err_p,0) # Work around off by one error
         err_m = np.append(err_m,0) # Work around off by one error
         err_ratio_p = np.append(err_ratio_p,0) # Work around off by one error
         err_ratio_m = np.append(err_ratio_m,0) # Work around off by one error
         ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
         rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
+    err_m = np.append(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]-np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
+    err_p = np.append(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]+np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
+    err_ratio_m = np.append(1-1/np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
+    err_ratio_p = np.append(1+1/np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
+    rax.fill_between(bins,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Stat err', hatch='////')
 
     # Scale the y axis and labels
     ax.autoscale(axis='y')
     ax.set_xlabel(None)
-    rax.set_ylabel('Ratio')
+    rax.set_ylabel('Ratio', loc='center')
     rax.set_ylim(0.5,1.5)
+    labels = [item.get_text() for item in rax.get_xticklabels()]
+    labels[-1] = '>500'
+    rax.set_xticklabels(labels)
 
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
 
+    ax.legend(ncol=3)
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
-def make_single_fig(histo,unit_norm_bool):
-    #print("\nPlotting values:",histo.values())
-    fig, ax = plt.subplots(1, 1, figsize=(7,7))
-    hist.plot1d(
-        histo,
-        stack=False,
-        density=unit_norm_bool,
-        clear=False,
-    )
+def make_single_fig(histo,unit_norm_bool,axis=None,bins=[],group=[]):
+    #print("\nPlotting values:",histo.eval({}))
+    fig, ax = plt.subplots(1, 1, figsize=(10,10))
+    hep.style.use("CMS")
+    plt.sca(ax)
+    hep.cms.label(lumi='138')
+    if axis is None:
+        hep.histplot(
+            histo.eval({})[()][1:-1],
+            ax=ax,
+            bins=bins,
+            stack=False,
+            density=unit_norm_bool,
+            #clear=False,
+            histtype='fill',
+        )
+    else:
+        for axis_name in histo.axes[axis]:
+            print(axis_name)
+            hep.histplot(
+                histo[{axis: axis_name}].eval({})[()][1:-1],
+                bins=bins,
+                stack=True,
+                density=unit_norm_bool,
+                label=axis_name,
+            )
+    plt.legend()
     ax.autoscale(axis='y')
     return fig
 
 # Takes a hist with one sparse axis (axis_name) and one dense axis, overlays everything on the sparse axis
 # Makes a ratio of each cateogory on the sparse axis with respect to ref_cat
 def make_single_fig_with_ratio(histo,axis_name,cat_ref,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
-    #print("\nPlotting values:",histo.values())
+    #print("\nPlotting values:",histo.eval({}))
 
     # Create the figure
     fig, (ax, rax) = plt.subplots(
@@ -565,7 +643,7 @@ def make_single_fig_with_ratio(histo,axis_name,cat_ref,err_p=None,err_m=None,err
     fig.subplots_adjust(hspace=.07)
 
     # Make the main plot
-    hist.plot1d(
+    hep.histplot(
         histo,
         ax=ax,
         stack=False,
@@ -573,22 +651,23 @@ def make_single_fig_with_ratio(histo,axis_name,cat_ref,err_p=None,err_m=None,err
     )
 
     # Make the ratio plot
-    for cat_name in yt.get_cat_lables(histo,axis_name):
-        hist.plotratio(
-            num = histo.integrate(axis_name,cat_name),
-            denom = histo.integrate(axis_name,cat_ref),
-            ax = rax,
-            unc = 'num',
-            error_opts= {'linestyle': 'none','marker': '.', 'markersize': 10, 'elinewidth': 0},
-            clear = False,
-        )
+    # TODO similar to L554
+    #for cat_name in yt.get_cat_lables(histo,axis_name):
+    #    hist.plotratio(
+    #        num = histo.integrate(axis_name,cat_name),
+    #        denom = histo.integrate(axis_name,cat_ref),
+    #        ax = rax,
+    #        unc = 'num',
+    #        error_opts= {'linestyle': 'none','marker': '.', 'markersize': 10, 'elinewidth': 0},
+    #        clear = False,
+    #    )
 
     # Plot the syst error (if we have the necessary up/down variations)
     plot_syst_err = False
     if (err_p is not None) and (err_m is not None) and (err_ratio_p is not None) and (err_ratio_m is not None): plot_syst_err = True
     if plot_syst_err:
         dense_axes = histo.dense_axes()
-        bin_edges_arr = histo.axis(dense_axes[0]).edges()
+        bin_edges_arr = histo.axes[dense_axes[0]].edges()
         err_p = np.append(err_p,0) # Work around off by one error
         err_m = np.append(err_m,0) # Work around off by one error
         err_ratio_p = np.append(err_ratio_p,0) # Work around off by one error
@@ -622,7 +701,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
     else: raise Exception
 
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
-    all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name=yt.get_hist_list(dict_of_hists)[0])
+    all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name=yt.get_hist_list(dict_of_hists)[0])
     sig_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
     samples_to_rm_from_sig_hist = []
@@ -647,7 +726,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
         print("sr_cat_dict:",sr_cat_dict)
 
         # Extract the signal hists
-        hist_sig = dict_of_hists[var_name].remove(samples_to_rm_from_sig_hist,"sample")
+        hist_sig = dict_of_hists[var_name].remove("process", samples_to_rm_from_sig_hist)
 
         # If we only want to look at a subset of the systematics (Probably should be an option? For now, just uncomment if you want to use it)
         syst_subset_dict = {
@@ -673,7 +752,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
                 # Integrate
                 hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
                 hist_sig_grouped_tmp = yt.integrate_out_appl(hist_sig_grouped_tmp,grouped_hist_cat)
-                hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("sample",proc_name)
+                hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("process",proc_name)
                 hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("channel",grouped_hist_cat)
 
                 # Reweight (Probably should be an option? For now, just uncomment if you want to use it)
@@ -692,7 +771,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
 # Wrapper function to loop over categories and make plots for all variables
 def make_simple_plots(dict_of_hists,year,save_dir_path):
 
-    all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name="njets")
+    all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="njets")
 
     for idx,var_name in enumerate(dict_of_hists.keys()):
         #if var_name == "njets": continue
@@ -715,9 +794,9 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
             histo = histo.integrate("channel",chan_name)
 
             print("\n",chan_name)
-            print(histo.values())
-            summed_histo = histo.sum("sample")
-            print("sum:",sum(summed_histo.values()[()]))
+            print(histo.eval({}))
+            summed_histo = histo.sum("process")
+            print("sum:",sum(summed_histo.eval({})[()]))
             continue
 
             # Make a sub dir for this category
@@ -764,7 +843,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
-    all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name="lj0pt")
+    all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="lj0pt")
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
     data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
     for sample_name in all_samples:
@@ -789,34 +868,40 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             SR_GRP_MAP["ttH"].append(proc_name)
         elif ("ttlnu" in proc_name):
             SR_GRP_MAP["ttlnu"].append(proc_name)
-        elif ("ttll" in proc_name):
+        elif ("ttll" in proc_name) or ("TTZToLL_M1to10" in proc_name) or ("TTToSemiLeptonic" in proc_name) or ("TTTo2L2Nu" in proc_name):
+            CR_GRP_MAP["Signal"].append(proc_name)
             SR_GRP_MAP["ttll"].append(proc_name)
         elif (("tllq" in proc_name) or ("tHq" in proc_name)):
             SR_GRP_MAP["tXq"].append(proc_name)
         elif ("tttt" in proc_name):
             SR_GRP_MAP["tttt"].append(proc_name)
+        elif "TTTo" in proc_name:
+            CR_GRP_MAP["Ttbar"].append(proc_name)
         elif "TTG" in proc_name:
             SR_GRP_MAP["Conv"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             SR_GRP_MAP["Multiboson"].append(proc_name)
         elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
+            SR_GRP_MAP["Diboson"].append(proc_name)
+        elif "TWZ" in proc_name:
             SR_GRP_MAP["Multiboson"].append(proc_name)
         else:
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
     # The analysis bins
-    analysis_bins = {
-        'njets': {
-            '2l': [4,5,6,7,dict_of_hists['njets'].axis('njets').edges()[-1]], # Last bin in topeft.py is 10, this should grab the overflow
-            '3l': [2,3,4,5,dict_of_hists['njets'].axis('njets').edges()[-1]],
-            '4l': [2,3,4,dict_of_hists['njets'].axis('njets').edges()[-1]]
-        }
-    }
-    analysis_bins['ptz'] = [0, 200, 300, 400, 500, dict_of_hists['ptz'].axis('ptz').edges()[-1]]
-    analysis_bins['lj0pt'] = [0, 150, 250, 500, dict_of_hists['lj0pt'].axis('lj0pt').edges()[-1]]
+    analysis_bins = {}
+    # Skipping for now
+    #    'njets': {
+    #        '2l': [4,5,6,7,dict_of_hists['njets'].axis('njets').edges()[-1]], # Last bin in topeft.py is 10, this should grab the overflow
+    #        '3l': [2,3,4,5,dict_of_hists['njets'].axis('njets').edges()[-1]],
+    #        '4l': [2,3,4,dict_of_hists['njets'].axis('njets').edges()[-1]]
+    #    }
+    #}
+    analysis_bins['ptz'] = axes_info['ptz']['variable']
+    analysis_bins['lj0pt'] = axes_info['lj0pt']['variable']
 
     # Loop over hists and make plots
-    skip_lst = [] # Skip this hist
+    skip_lst = ['ptz', 'njets'] # Skip this hist
     #keep_lst = ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if (var_name in skip_lst): continue
@@ -824,22 +909,28 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         print("\nVariable:",var_name)
 
         # Extract the MC and data hists
-        hist_mc_orig = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
-        hist_data_orig = dict_of_hists[var_name].remove(samples_to_rm_from_data_hist,"sample")
+        hist_mc_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
+        hist_data_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
 
         # Loop over channels
         channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
         print("channels:",channels_lst)
         #for chan_name in channels_lst: # For each channel individually
         for chan_name in SR_CHAN_DICT.keys():
-
             #hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
             #hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
-            hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name],overflow="over")
-            hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",SR_CHAN_DICT[chan_name],overflow="over")
+            # Skip missing channels (histEFT throws an exception)
+            channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_mc_orig.axes['channel']]
+            if not channels:
+                continue
+            hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
+            channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_data_orig.axes['channel']]
+            hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
 
-            hist_mc = group_bins(hist_mc,SR_GRP_MAP)
-            hist_data = group_bins(hist_data,SR_GRP_MAP)
+            #print(var_name, chan_name, f'grouping {SR_GRP_MAP=}')
+            # Using new grouping approach in plot functions
+            #hist_mc = group_bins(hist_mc,SR_GRP_MAP,"process",drop_unspecified=False)
+            #hist_data = group_bins(hist_data,SR_GRP_MAP,"process",drop_unspecified=False)
 
             # Make a sub dir for this category
             save_dir_path_tmp = os.path.join(save_dir_path,chan_name)
@@ -849,21 +940,24 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             # Rebin into analysis bins
             if var_name in analysis_bins.keys():
                 lep_bin = chan_name[:2]
+                # histEFT doesn't support rebinning for now
+                '''
                 if var_name == "njets":
-                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axis(var_name).label, analysis_bins[var_name][lep_bin]))
-                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name][lep_bin]))
+                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name][lep_bin]))
+                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name][lep_bin]))
                 else:
-                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axis(var_name).label, analysis_bins[var_name]))
-                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axis(var_name).label, analysis_bins[var_name]))
+                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name]))
+                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name]))
+                '''
 
-            if hist_mc.values() == {}:
+            if not hist_mc.eval({}):
                 print("Warning: empty mc histo, continuing")
                 continue
-            if hist_data.values() == {}:
+            if not hist_data.eval({}):
                 print("Warning: empty data histo, continuing")
                 continue
 
-            fig = make_cr_fig(hist_mc, hist_data, unit_norm_bool=False)
+            fig = make_cr_fig(hist_mc, hist_data, unit_norm_bool=False, bins=axes_info[var_name]['variable'],group=SR_GRP_MAP)
             if year is not None: year_str = year
             else: year_str = "ULall"
             title = chan_name + "_" + var_name + "_" + year_str
@@ -891,7 +985,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     else: raise Exception
 
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
-    all_samples = yt.get_cat_lables(dict_of_hists,"sample",h_name=yt.get_hist_list(dict_of_hists)[0])
+    all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name=yt.get_hist_list(dict_of_hists)[0])
     sig_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=sig_wl)
     if len(sig_sample_lst) == 0: raise Exception("Error: No signal samples to plot.")
     samples_to_rm_from_sig_hist = []
@@ -908,6 +1002,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
         #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
+            continue
             # We do not keep track of jets in the sparse axis for the njets hists
             sr_cat_dict = get_dict_with_stripped_bin_names(SR_CHAN_DICT,"njets")
         else:
@@ -916,7 +1011,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
         print("sr_cat_dict:",sr_cat_dict)
 
         # Extract the signal hists, and integrate over systematic axis
-        hist_sig = dict_of_hists[var_name].remove(samples_to_rm_from_sig_hist,"sample")
+        hist_sig = dict_of_hists[var_name].remove("process", samples_to_rm_from_sig_hist)
         hist_sig = hist_sig.integrate("systematic","nominal")
 
         # Make plots for each SR category
@@ -931,10 +1026,19 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 
                 # Integrate to get the SR category we want to plot
                 hist_sig_integrated_ch = yt.integrate_out_appl(hist_sig,hist_cat)
-                hist_sig_integrated_ch = hist_sig_integrated_ch.integrate("channel",sr_cat_dict[hist_cat])
+                # Skip missing channels (histEFT throws an exception)
+                channels = [chan for chan in sr_cat_dict[hist_cat] if chan in hist_sig_integrated_ch.axes['channel']]
+                if not channels: # Skip empty channels
+                    continue
+                hist_sig_integrated_ch = hist_sig_integrated_ch.integrate("channel",channels)[{'channel': sum}]
+                hist_sig_integrated_ch = hist_sig_integrated_ch.integrate("process")
 
                 # Make the plots
-                fig = make_single_fig(hist_sig_integrated_ch,unit_norm_bool)
+                print(hist_sig_integrated_ch)
+                if not hist_sig_integrated_ch.eval({}):
+                    print("Warning: empty mc histo, continuing")
+                    continue
+                fig = make_single_fig(hist_sig_integrated_ch,unit_norm_bool,bins=axes_info[var_name]['variable'])
                 title = hist_cat+"_"+var_name
                 if unit_norm_bool: title = title + "_unitnorm"
                 fig.savefig(os.path.join(save_dir_path_tmp,title))
@@ -953,18 +1057,27 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                     os.mkdir(save_dir_path_tmp)
 
                 # Group categories
-                hist_sig_grouped = group_bins(hist_sig,sr_cat_dict,"channel",drop_unspecified=True)
+                # Using new grouping approach in plot functions
+                #hist_sig_grouped = group_bins(hist_sig,sr_cat_dict,"channel",drop_unspecified=True)
+                hist_sig_grouped = hist_sig
 
                 # Make the plots
-                for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,axis="channel",h_name=var_name):
+                # Using new grouping approach in plot functions
+                #for grouped_hist_cat in yt.get_cat_lables(hist_sig_grouped,axis="channel",h_name=var_name):
+                for grouped_hist_cat in sr_cat_dict:
+                    if not any(cat in hist_sig_grouped.axes['channel'] for cat in sr_cat_dict[grouped_hist_cat]):
+                        continue
 
                     # Integrate
                     hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
                     hist_sig_grouped_tmp = yt.integrate_out_appl(hist_sig_grouped_tmp,grouped_hist_cat)
-                    hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("sample",proc_name)
+                    hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("process",proc_name)
+                    if not hist_sig_grouped_tmp.eval({}):
+                        print("Warning: empty mc histo, continuing")
+                        continue
 
                     # Make plots
-                    fig = make_single_fig(hist_sig_grouped_tmp[grouped_hist_cat],unit_norm_bool)
+                    fig = make_single_fig(hist_sig_grouped_tmp[{'channel': sr_cat_dict[grouped_hist_cat]}][{'channel': sum}],unit_norm_bool,bins=axes_info[var_name]['variable'])
                     title = proc_name+"_"+grouped_hist_cat+"_"+var_name
                     if unit_norm_bool: title = title + "_unitnorm"
                     fig.savefig(os.path.join(save_dir_path_tmp,title))
@@ -1005,7 +1118,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
-    all_samples = yt.get_cat_lables(dict_of_hists,"sample")
+    all_samples = yt.get_cat_lables(dict_of_hists,"process")
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
     data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
     for sample_name in all_samples:
@@ -1064,8 +1177,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         print("cr_cat_dict:",cr_cat_dict)
 
         # Extract the MC and data hists
-        hist_mc = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
-        hist_data = dict_of_hists[var_name].remove(samples_to_rm_from_data_hist,"sample")
+        hist_mc = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
+        hist_data = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
@@ -1088,7 +1201,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             samples_to_rm = []
             if hist_cat == "cr_2los_tt":
                 samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
-            hist_mc_integrated = hist_mc_integrated.remove(samples_to_rm,"sample")
+            hist_mc_integrated = hist_mc_integrated.remove("process", samples_to_rm)
 
 
             # Calculate the syst errors
@@ -1102,11 +1215,11 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated)
                 if (var_name == "njets"):
                     # This is a special case for the diboson jet dependent systematic
-                    db_hist = hist_mc_integrated.integrate("sample",CR_GRP_MAP["Diboson"]).integrate("systematic","nominal").values()[()]
+                    db_hist = hist_mc_integrated.integrate("process",CR_GRP_MAP["Diboson"]).integrate("systematic","nominal").eval({})[()]
                     shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
                     shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
                 # Get the arrays we will actually put in the CR plot
-                nom_arr_all = hist_mc_integrated.sum("sample").integrate("systematic","nominal").values()[()]
+                nom_arr_all = hist_mc_integrated.sum("process").integrate("systematic","nominal").eval({})[()]
                 p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p) # This goes in the main plot
                 m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m) # This goes in the main plot
                 p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
@@ -1123,9 +1236,9 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             # For extracting the factors we apply to the flip contribution
             # Probably should be an option not just a commented block...
             #if hist_cat != "cr_2lss_flip": continue
-            #tot_data = sum(sum(hist_data_integrated.values().values()))
-            #tot_mc   = sum(sum(hist_mc_integrated.values().values()))
-            #flips    = sum(sum(hist_mc_integrated["Flips"].values().values()))
+            #tot_data = sum(sum(hist_data_integrated.eval({}).eval({})))
+            #tot_mc   = sum(sum(hist_mc_integrated.eval({}).eval({})))
+            #flips    = sum(sum(hist_mc_integrated["Flips"].eval({}).eval({})))
             #tot_mc_but_flips = tot_mc - flips
             #sf = (tot_data - tot_mc_but_flips)/flips
             #print(f"\nComp: data/pred = {tot_data}/{tot_mc} = {tot_data/tot_mc}")
@@ -1186,9 +1299,9 @@ def main():
     #exit()
 
     # Make the plots
-    make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
+    #make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
-    #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
+    make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
     #make_simple_plots(hin_dict,args.year,save_dir_path)
 
