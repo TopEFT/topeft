@@ -1057,13 +1057,16 @@ def AttachMuonSF(muons, year):
     muons['sf_hi_3l_elec']  = ak.ones_like(new_sf)
     muons['sf_lo_3l_elec']  = ak.ones_like(new_sf)
 
-def AttachElectronSF(electrons, year, looseWP="wp90noiso"):
+def AttachElectronSF(electrons, year, looseWP):
     '''
       Description:
           Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the electrons array passed to this function. These
           values correspond to the nominal, up, and down electron scalefactor values respectively.
     '''
 
+    if looseWP is None:
+        raise ValueError('when calling AttachElectronSF, a looseWP value must be provided according to the ele ID isPres selection')
+    
     is_run3 = False
     if year.startswith("202"):
         is_run3 = True

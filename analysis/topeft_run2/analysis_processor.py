@@ -230,12 +230,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         if is_run3:
             elePresId = ele.mvaNoIso_WP90
+            ele_pres_id_tag = "wp90noiso"
             eleFOId = ele.mvaNoIso_WP80
             eleMVATTH = ele.mvaTTH
             muMVATTH = mu.mvaTTH
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
         elif is_run2:
             elePresId = ele.mvaFall17V2noIso_WPL
+            ele_pres_id_tag = "wpLnoiso"
             eleFOId = ele.mvaFall17V2noIso_WP90
             eleMVATTH = ele.mvaTTHUL
             muMVATTH = mu.mvaTTHUL
@@ -320,7 +322,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
 
         # Attach the lepton SFs to the electron and muons collections
-        AttachElectronSF(e_fo,year=year) #Run3 ready
+        AttachElectronSF(e_fo, year=year, looseWP=ele_pres_id_tag) #Run3 ready
         AttachMuonSF(m_fo,year=year) #Run3 ready
 
         # Attach per lepton fake rates

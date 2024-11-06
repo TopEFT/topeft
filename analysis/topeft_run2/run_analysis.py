@@ -273,7 +273,7 @@ if __name__ == '__main__':
             # forever until a larger worker connects.
             'resource_monitor': True,
             'resources_mode': 'auto',
-            #'filepath': f'/project01/ndcms/{os.environ["USER"]}/tmp',
+            #'filepath': f'/tmp/{os.environ["USER"]}', ##Placeholder to comment out if you don't want to save wq-factory dirs in afs
 
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
