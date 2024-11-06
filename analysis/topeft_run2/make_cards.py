@@ -250,7 +250,6 @@ def main():
         selected_wcs = {}
         for km_dist in dists:
             all_chs = dc.channels(km_dist)
-            print(all_chs)
             matched_chs = regex_match(all_chs,ch_lst)
             if select_only and ch_lst:
                 print(f"Channels to process: {matched_chs}")
@@ -290,7 +289,8 @@ def main():
     else:
         run_local(dc,dists,ch_lst,selected_wcs, not args.keep_negative_bins, wcs_dict)
 
-    # make pre-selection scalings.json 
+    # make pre-selection scalings.json
+    print("Making scalings-preselect.json file...")
     with open(os.path.join(out_dir,"scalings-preselect.json"),"w") as f:
         json.dump(dc.scalings, f, indent=4)
 

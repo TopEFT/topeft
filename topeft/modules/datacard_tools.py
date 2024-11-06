@@ -299,6 +299,10 @@ class DatacardMaker():
         self.wc_scalings     = kwargs.pop("wc_scalings",[])
         self.scalings        = []
 
+        # get wc ranges from json
+        with open(topeft_path("params/wc_ranges.json"), "r") as wc_ranges_json:
+            self.wc_ranges = json.load(wc_ranges_json)
+
         if self.year_lst:
             for yr in self.year_lst:
                 if not yr in self.YEARS:
@@ -766,18 +770,23 @@ class DatacardMaker():
         return selected_wcs
 
     def make_scalings_json(self,scalings_json,ch,km_dist,p,wc_names,scalings):
+        scalings = scalings.tolist()
         scalings_json.append(
             {
                 "channel": ch + "_" + str(km_dist),
                 "process": p + "_sm",  # NOTE: needs to be in the datacard
                 "parameters": ["cSM[1]"]
-                + [ wc for wc in wc_names],
+                + [self.format_wc(wcname) for wcname in wc_names],
                 "scaling":
-                    scalings
+                    scalings[1:] # exclude underflow bin
                 ,
              }
         )
         return scalings_json
+
+    def format_wc(self,wcname):
+        lo, hi = self.wc_ranges[wcname]
+        return "%s[0,%.1f,%.1f]" % (wcname, lo, hi)
 
     def analyze(self,km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict):
         """ Handles the EFT decomposition and the actual writing of the ROOT and text datacard files."""
@@ -948,12 +957,12 @@ class DatacardMaker():
                             # Handle the 'missing_parton' uncertainty
                             pass
                 # obtain the scalings for scalings.json file
-                if p != "fakes":
+                if p in ("tHq", "tllq", "ttH", "ttll", "ttlnu", "tttt"):
                     if self.wc_scalings:
-                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scalings(self.wc_scalings)
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(self.wc_scalings)
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings)
                     else:
-                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scalings()
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling()
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings)
             f["data_obs"] = to_hist(data_obs,"data_obs")
 
