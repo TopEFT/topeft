@@ -26,6 +26,32 @@
                 "7"
             ]
         },
+        "2l_fwd": {
+            "lep_chan_lst": [
+                "2lss_p",
+                "2lss_m",
+                "2lss_4t_p",
+                "2lss_4t_m"
+            ],
+            "lep_flav_lst": [
+                "ee",
+                "em",
+                "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lSS",
+                "isAR_2lSS"
+            ],
+            "appl_lst_data": [
+                "isAR_2lSS_OS"
+            ],
+            "jet_lst": [
+                "4",
+                "5",
+                "6",
+                "7"
+            ]
+        },
         "3l": {
             "lep_chan_lst": [
                 "3l_p_offZ_1b",
