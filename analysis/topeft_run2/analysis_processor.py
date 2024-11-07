@@ -96,7 +96,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 dense_axis,
                 wc_names=wc_names_lst,
                 label=r"Events",
-                rebin=rebin
             )
             histograms[name+"_sumw2"] = HistEFT(
                 proc_axis,
@@ -106,7 +105,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sumw2_axis,
                 wc_names=wc_names_lst,
                 label=r"Events",
-                rebin=rebin
             )
         self._accumulator = histograms
 
