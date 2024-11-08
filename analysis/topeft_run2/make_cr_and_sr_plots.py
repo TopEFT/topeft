@@ -472,7 +472,7 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 ######### Plotting functions #########
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',bins=[],group=[],set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
+def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],group=[],set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
 
     colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown"]
 
@@ -957,7 +957,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                 print("Warning: empty data histo, continuing")
                 continue
 
-            fig = make_cr_fig(hist_mc, hist_data, unit_norm_bool=False, bins=axes_info[var_name]['variable'],group=SR_GRP_MAP)
+            fig = make_cr_fig(hist_mc, hist_data, var=var_name, unit_norm_bool=False, bins=axes_info[var_name]['variable'],group=SR_GRP_MAP)
             if year is not None: year_str = year
             else: year_str = "ULall"
             title = chan_name + "_" + var_name + "_" + year_str
@@ -1252,6 +1252,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 hist_mc_integrated,
                 hist_data_integrated,
                 unit_norm_bool,
+                var=var_name,
                 set_x_lim = x_range,
                 err_p = p_err_arr,
                 err_m = m_err_arr,
