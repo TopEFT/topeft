@@ -260,7 +260,7 @@ with open(topeft_path('modules/jerc_dict.json'), 'r') as f:
 
 def get_jerc_keys(year, isdata, era=None):
     # Jet Algorithm
-    if year in run_dict['Run3']:
+    if year in run_dict('Run3'):
         jet_algo = 'AK4PFPuppi'
     else:
         jet_algo = 'AK4PFchs'
@@ -852,7 +852,7 @@ def AttachPerLeptonFR(leps, flavor, year):
     # For FR filepath naming conventions
     if '2016' in year:
         year = '2016APV_2016'
-    elif year in run_dict['Run2']:
+    elif year in run_dict('Run2'):
         year = '2018'
 
     # Add the flip/fake info into the leps opject
@@ -921,7 +921,7 @@ def AttachMuonSF(muons, year):
     - reco not available yet, but MUO don't bother about that
     '''
     is_run3 = False
-    if year in run_dict['Run3']:
+    if year in run_dict('Run3'):
         is_run3 = True
     is_run2 = not is_run3
 
@@ -1069,7 +1069,7 @@ def AttachElectronSF(electrons, year, looseWP=None):
         raise ValueError('when calling AttachElectronSF, a looseWP value must be provided according to the ele ID isPres selection')
 
     is_run3 = False
-    if year in run_dict['Run3']:
+    if year in run_dict('Run3'):
         is_run3 = True
     is_run2 = not is_run3
     dt_era = "Run3" if is_run3 else "Run2"
@@ -1514,7 +1514,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
 # https://gitlab.cern.ch/akhukhun/roccor
 # https://github.com/CoffeaTeam/coffea/blob/master/coffea/lookup_tools/rochester_lookup.py
 def ApplyRochesterCorrections(year, mu, is_data):
-    if year in run_dict['Run2']: #Run2 scenario
+    if year in run_dict('Run2'): #Run2 scenario
         rocco_tag = None
         if year == '2016':
             rocco_tag = "2016bUL"
@@ -1653,7 +1653,7 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
 
 def GetTriggerSF(year, events, lep0, lep1):
     is_run3 = False
-    if year in run_dict['Run3']:
+    if year in run_dict('Run3'):
         is_run3 = True
     is_run2 = not is_run3
 
