@@ -88,7 +88,8 @@ jobs:
           mkdir dir_for_topcoffea
           cd dir_for_topcoffea
           git clone https://github.com/TopEFT/topcoffea.git --branch clib_run3
-          git pull run_dict -m Merging
+          git fetch origin run_dict
+          git merge run_dict -m Merging
           cd topcoffea
           conda run -n coffea-env pip install -e .
           cd ../..
