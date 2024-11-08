@@ -1057,7 +1057,7 @@ def AttachMuonSF(muons, year):
     muons['sf_hi_3l_elec']  = ak.ones_like(new_sf)
     muons['sf_lo_3l_elec']  = ak.ones_like(new_sf)
 
-def AttachElectronSF(electrons, year, looseWP):
+def AttachElectronSF(electrons, year, looseWP=None):
     '''
       Description:
           Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the electrons array passed to this function. These
