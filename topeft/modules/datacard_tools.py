@@ -296,6 +296,7 @@ class DatacardMaker():
         self.coeffs          = kwargs.pop("wcs",[])
         self.use_real_data   = kwargs.pop("unblind",False)
         self.verbose         = kwargs.pop("verbose",True)
+        self.use_AAC          = kwargs.pop("use_AAC",False)
         self.wc_scalings     = kwargs.pop("wc_scalings",[])
         self.scalings        = []
 
@@ -854,7 +855,8 @@ class DatacardMaker():
                             raise RuntimeError("filling obs data more than once!")
                         for sp_key,arr in data_sm.items():
                             data_obs += arr
-                decomposed_templates = {k: v for k, v in decomposed_templates.items() if k == 'sm'}
+                if not self.use_AAC:
+                    decomposed_templates = {k: v for k, v in decomposed_templates.items() if k == 'sm'}
                 for base,v in decomposed_templates.items():
                     proc_name = f"{p}_{base}"
                     col_width = max(len(proc_name),col_width)
