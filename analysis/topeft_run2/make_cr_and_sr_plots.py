@@ -3,6 +3,8 @@ import os
 import copy
 import datetime
 import argparse
+import matplotlib as mpl
+mpl.use('Agg')
 import matplotlib.pyplot as plt
 from cycler import cycler
 
