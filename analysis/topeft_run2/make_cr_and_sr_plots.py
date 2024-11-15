@@ -716,6 +716,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
     # Loop over hists and make plots
     skip_lst = [] # Skip this hist
     for idx,var_name in enumerate(dict_of_hists.keys()):
+        if 'sumw2' in var_name: continue
         if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
@@ -775,6 +776,7 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
     all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="njets")
 
     for idx,var_name in enumerate(dict_of_hists.keys()):
+        if 'sumw2' in var_name: continue
         #if var_name == "njets": continue
         #if "parton" in var_name: save_tag = "partonFlavour"
         #if "hadron" in var_name: save_tag = "hadronFlavour"
@@ -907,6 +909,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     skip_lst = ['ptz', 'njets'] # Skip this hist
     #keep_lst = ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
+        if 'sumw2' in var_name: continue
         if (var_name in skip_lst): continue
         #if (var_name not in keep_lst): continue
         print("\nVariable:",var_name)
@@ -1003,6 +1006,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     skip_lst = [] # Skip this hist
     for idx,var_name in enumerate(dict_of_hists.keys()):
         #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
+        if 'sumw2' in var_name: continue
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
             continue
@@ -1169,6 +1173,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     skip_lst = [] # Skip these hists
     #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
+        if 'sumw2' in var_name: continue
         if (var_name in skip_lst): continue
         #if (var_name not in skip_wlst): continue
         if (var_name == "njets"):
