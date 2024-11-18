@@ -1,6 +1,5 @@
 '''
  selection.py
-
  This script contains several functions that implement the some event selection.
  The functinos defined here can be used to define a selection, signal/control region, etc.
  The functions are called with (jagged)arrays as imputs plus some custom paramenters and return a boolean mask.
@@ -112,8 +111,34 @@ dataset_dict_top22006 = {
             "Mu8_DiEle12_CaloIdL_TrackIdL_DZ",
             "DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
         ]
-    }
+    },
 
+    #NEW TRIGGERS - Should pull from https://docs.google.com/document/d/1zm9EkFExonAO2upU1V7_lw8uKjHknFrnxNQMq75HWnw/edit?
+    #Currently placeholders
+    "2022" : {
+        "Muon" : [
+            "IsoMu24",
+            "IsoMu27",
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
+            "TripleMu_12_10_5",
+        ],
+        "EGamma" : [
+            "Ele32_WPTight_Gsf",
+            "Ele35_WPTight_Gsf",
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
+        ],
+        "MuonEG" : [
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_DiEle12_CaloIdL_TrackIdL",
+            "Mu8_DiEle12_CaloIdL_TrackIdL_DZ",
+            "DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
+        ],
+    },
 }
 
 
@@ -141,6 +166,11 @@ exclude_dict_top22006 = {
         "EGamma"         : dataset_dict_top22006["2018"]["DoubleMuon"],
         "MuonEG"         : dataset_dict_top22006["2018"]["DoubleMuon"] + dataset_dict_top22006["2018"]["EGamma"],
         "SingleMuon"     : dataset_dict_top22006["2018"]["DoubleMuon"] + dataset_dict_top22006["2018"]["EGamma"] + dataset_dict_top22006["2018"]["MuonEG"],
+    },
+    "2022": {
+        "Muon"           : [],
+        "EGamma"         : dataset_dict_top22006["2022"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["EGamma"],
     },
 }
 
@@ -206,7 +236,6 @@ def add1lMaskAndSFs(events, year, isData, sampleType):
 
 # 2l selection (we do not make the ss requirement here)
 def add2lMaskAndSFs(events, year, isData, sampleType):
-
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
     padded_FOs = ak.pad_none(FOs,2)
