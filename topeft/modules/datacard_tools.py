@@ -781,7 +781,7 @@ class DatacardMaker():
                 ],
                 "scaling":
                     scalings[1:], # exclude underflow bin
-             }
+            }
         )
         return scalings_json
 
