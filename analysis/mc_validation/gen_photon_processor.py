@@ -169,7 +169,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         #selections.add("2los_sf_ph", (retainedbyOverlap & events.is2l & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ttg_mask & events.mask_SF_Zllgamma & bmask_atleast1med & pass_trg & exactly_1ph))
         sfosz_2los_ttg_mask = tc_es.get_Z_peak_mask(gen_l[:,0:2],pt_window=15.0)
         Zllgamma_SF_mask = (abs( (gen_l[:,0] + gen_l[:,1] + gen_p[:,0]).mass -91.2) > 15)
-        selections.add("2los_sf_Zg_CR_ULttg", (is2lOS_em & ~sfosz_2los_ttg_mask & Zllgamma_SF_mask & (nbjets==2) & atleast_1ph))
+        selections.add("2los_sf_Zg_CR_ULttg", (is2lOS_em & ~sfosz_2los_ttg_mask & ~Zllgamma_SF_mask & (nbjets==2) & atleast_1ph))
         #selections.add("2los_sf_Zg_CR_ULttg", (retainedbyOverlap & events.is2l_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ttg_mask & ~events.mask_SF_Zllgamma & bmask_atleast1med & pass_trg & atleast_1ph))
 
 
