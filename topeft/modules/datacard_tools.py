@@ -776,11 +776,11 @@ class DatacardMaker():
             {
                 "channel": ch + "_" + str(km_dist),
                 "process": p + "_sm",  # NOTE: needs to be in the datacard
-                "parameters": ["cSM[1]"]
-                + [self.format_wc(wcname) for wcname in wc_names],
+                "parameters": ["cSM[1]"] + [
+                    self.format_wc(wcname) for wcname in wc_names
+                ],
                 "scaling":
-                    scalings[1:] # exclude underflow bin
-                ,
+                    scalings[1:], # exclude underflow bin
              }
         )
         return scalings_json
@@ -1163,7 +1163,7 @@ class DatacardMaker():
             print(f"\tDecompose Time: {dt:.2f} s")
             print(f"\tTotal terms: {terms}")
 
-        return r 
+        return r
 
 if __name__ == '__main__':
     fpath = topeft_path("../analysis/topEFT/histos/may18_fullRun2_withSys_anatest08_np.pkl.gz")

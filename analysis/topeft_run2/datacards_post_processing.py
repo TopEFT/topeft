@@ -157,7 +157,7 @@ def main():
         shutil.copyfile(os.path.join(args.datacards_path,"selectedWCs.txt"),os.path.join(ptzlj0pt_path,"selectedWCs.txt"))
 
         for item in scalings_content:
-            channel_name = item.get("channel") 
+            channel_name = item.get("channel")
             if channel_name in TOP22006_CATEGORIES:
                 ch_index = TOP22006_CATEGORIES.index(channel_name) + 1
                 item["channel"] = "ch" + str(ch_index)
@@ -165,7 +165,7 @@ def main():
                 scalings_content = [d for d in scalings_content if d != item]
 
         with open(os.path.join(ptzlj0pt_path, 'scalings.json'), 'w') as file:
-            json.dump(scalings_content, file, indent=4)            
+            json.dump(scalings_content, file, indent=4)
 
         # Check that we got the expected number and print what we learn
         print(f"\tNumber of text templates copied: {n_txt}")

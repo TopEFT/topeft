@@ -192,7 +192,7 @@ def main():
     use_AAC     = args.use_AAC
     wc_vals    = args.wc_vals
 
-    wc_scalings = args.wc_scalings 
+    wc_scalings = args.wc_scalings
     select_only = args.select_only
     use_selected = args.use_selected
 
