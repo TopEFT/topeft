@@ -959,7 +959,7 @@ class DatacardMaker():
                             # Handle the 'missing_parton' uncertainty
                             pass
                 # obtain the scalings for scalings.json file
-                if p in ("tHq", "tllq", "ttH", "ttll", "ttlnu", "tttt"):
+                if p in self.SIGNALS:
                     if self.wc_scalings:
                         scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(self.wc_scalings)
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings)
