@@ -10,6 +10,7 @@
 import awkward as ak
 
 from topeft.modules.corrections import fakeRateWeight1l, fakeRateWeight2l, fakeRateWeight3l
+from topeft.modules.genParentage import maxHistoryPDGID
 
 
 # The datasets we are using, and the triggers in them
@@ -451,6 +452,93 @@ def addLepCatMasks(events):
     events['is_emmm'] = ((n_e_4l==1) & (n_m_4l==3))
     events['is_mmmm'] = ((n_e_4l==0) & (n_m_4l==4))
     events['is_gr4l'] = ((n_e_4l+n_m_4l)>4)
+
+
+def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
+    """Filter generated events with overlapping phase space"""
+    genMotherIdx = events.GenPart.genPartIdxMother
+    genpdgId = events.GenPart.pdgId
+    #calculate maxparent pdgId of the event
+    idx = ak.to_numpy(ak.flatten(abs(events.GenPart.pdgId)))
+    par = ak.to_numpy(ak.flatten(events.GenPart.genPartIdxMother))
+    num = ak.to_numpy(ak.num(events.GenPart.pdgId))
+    maxParentFlatten = maxHistoryPDGID(idx,par,num)
+    events["GenPart","maxParent"] = ak.unflatten(maxParentFlatten, num)
+
+    #Only the photons that pass the kinematic cuts are potential candidates for overlapping photons
+    #If the overlap photon is actually from a non-prompt decay (maxParent > 37), it is not part of the phase space of the separate sample
+
+    overlapPhoSelect = ((events.GenPart.pt>=ptCut) & (events.GenPart.status==1) & (events.GenPart.hasFlags(['isLastCopy'])) &
+                        (abs(events.GenPart.eta) < etaCut) &
+                        (abs(events.GenPart.pdgId)==22) &
+                        (events.GenPart.maxParent < 37)
+                        )
+    overlapPhotons = events.GenPart[overlapPhoSelect]
+
+    #Also require that photons are separate from all other gen particles
+    #Need not consider neutrinos and don't have to calculate dR between the OverlapPhoton and itself
+    finalGen = events.GenPart[(events.GenPart.status==1) & (events.GenPart.pt > 5.0) &
+                              ~((abs(events.GenPart.pdgId)==12) | (abs(events.GenPart.pdgId)==14) | (abs(events.GenPart.pdgId)==16)) &
+                              ~(overlapPhoSelect)]
+
+    #calculate dR between overlap photons and each gen particle
+    phoGenDR = overlapPhotons.metric_table(finalGen)
+
+    ph_iso_mask = ak.any(phoGenDR < deltaRCut, axis=-1)
+
+    #the event is overlapping with the separate sample if there is an overlap photon passing the dR cut, kinematic cuts, and not coming from hadronic activity
+    isolated_overlapPhotons = overlapPhotons[~ph_iso_mask]
+
+    if ("TTTo" in dataset) or ("DY" in dataset):   #samples from which the events with well-isolated overlapping photons are to be vetoed
+        criteria = (ak.num(isolated_overlapPhotons)==0)
+        events["vetoedbyOverlap"] = ~criteria
+        events["retainedbyOverlap"] = criteria
+
+    elif ("TTGamma" in dataset) or ("ZGToLLG" in dataset):  #currently unused but still good to have the implementation
+        criteria = (ak.num(isolated_overlapPhotons) >= 1)
+        events["vetoedbyOverlap"] = ~criteria
+        events["retainedbyOverlap"] = criteria
+
+    else: #might not be necessary
+        events["vetoedbyOverlap"] = ak.ones_like(events.GenPart.pt, dtype=bool)
+        events["retainedbyOverlap"] = ak.ones_like(events.GenPart.pt, dtype=bool)
+
+
+def select_nonpromptphoton(events):
+    ph = events.photon
+
+    """Filter generated events with overlapping phase space"""
+    genMotherIdx = ph.matched_gen.genPartIdxMother
+    genpdgId = ph.matched_gen.pdgId
+    #calculate maxparent pdgId of the event
+    idx = ak.to_numpy(ak.flatten(abs(ph.matched_gen.pdgId)))
+    par = ak.to_numpy(ak.flatten(ph.matched_gen.genPartIdxMother))
+    num = ak.to_numpy(ak.num(ph.matched_gen.pdgId))
+    maxParentFlatten = maxHistoryPDGID(idx,par,num)
+    ph["matched_gen","maxParent"] = ak.unflatten(maxParentFlatten, num)
+
+    genmatchedPho = ak.fill_none(ph.matched_gen.pdgId == 22, False)
+
+    # reco photons really generated as electrons
+    matchedEle = ak.fill_none(abs(ph.matched_gen.pdgId) == 11, False)
+    # if the gen photon has a PDG ID > 25 in its history, it has a hadronic parent
+    hadronicParent = ak.fill_none(ph.matched_gen.maxParent > 25, False)
+
+    # define the photon categories for tight photon events
+    # a genuine photon is a reconstructed photon which is matched to a generator level photon, and does not have a hadronic parent
+    isGenPho = genmatchedPho & ~hadronicParent
+    # a hadronic photon is a reconstructed photon which is matched to a generator level photon, but has a hadronic parent
+    isHadPho = genmatchedPho & hadronicParent
+    # a misidentified electron is a reconstructed photon which is matched to a generator level electron
+    isMisIDele = matchedEle
+    # a hadronic/fake photon is a reconstructed photon that does not fall within any of the above categories
+    isHadFake = ~isMisIDele & ~isHadPho & ~isGenPho
+
+    #let's define a "nonprompt" photon mask
+    isNonPromptPho = ~isGenPho
+
+    events['isGenPho'] = isGenPho
+    events['isNonPromptPho'] = isNonPromptPho
 
 
 # Returns the pt of the l+l that form the Z peak

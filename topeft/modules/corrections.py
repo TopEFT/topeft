@@ -118,6 +118,7 @@ extLepSF.add_weight_sets(["ElecSF_2016APV_2lss EGamma_SF2D %s" % topcoffea_path(
 extLepSF.add_weight_sets(["ElecSF_2016APV_2lss_er EGamma_SF2D_error %s" % topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_2lss_EGM2D.root')])
 extLepSF.add_weight_sets(["ElecSF_2016APV_3l EGamma_SF2D %s" % topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_3l_EGM2D.root')])
 extLepSF.add_weight_sets(["ElecSF_2016APV_3l_er EGamma_SF2D_error %s" % topcoffea_path('data/leptonSF/elec/egammaEffi2016APV_3l_EGM2D.root')])
+
 #Tau SF
 extLepSF.add_weight_sets(["TauSF_2016APV_Loose Tau_SF/dm_pt_value %s"%topcoffea_path('data/TauSF/TauSFUL2016_preVFPLoose.json')])
 extLepSF.add_weight_sets(["TauSF_2016_Loose Tau_SF/dm_pt_value %s"%topcoffea_path('data/TauSF/TauSFUL2016_postVFPLoose.json')])
@@ -164,6 +165,21 @@ extLepSF.add_weight_sets(["TauSF_2016_Tight_down Tau_SF/dm_pt_down %s"%topcoffea
 extLepSF.add_weight_sets(["TauSF_2017_Tight_down Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2017Tight.json')])
 extLepSF.add_weight_sets(["TauSF_2018_Tight_down Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2018Tight.json')])
 
+extLepSF.add_weight_sets(["TauSF_2016APV_VTight_down Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2016_preVFPVTight.json')])
+extLepSF.add_weight_sets(["TauSF_2016_VTight_down Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2016_postVFPVTight.json')])
+extLepSF.add_weight_sets(["TauSF_2017_VTight_down Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2017VTight.json')])
+extLepSF.add_weight_sets(["TauSF_2018_VTight_down Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2018VTight.json')])
+
+extLepSF.add_weight_sets(["TauSF_2016APV_VTight_up Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2016_preVFPVTight.json')])
+extLepSF.add_weight_sets(["TauSF_2016_VTight_up Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2016_postVFPVTight.json')])
+extLepSF.add_weight_sets(["TauSF_2017_VTight_up Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2017VTight.json')])
+extLepSF.add_weight_sets(["TauSF_2018_VTight_up Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2018VTight.json')])
+
+extLepSF.add_weight_sets(["TauSF_2016APV_VTight Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2016_preVFPVTight.json')])
+extLepSF.add_weight_sets(["TauSF_2016_VTight Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2016_postVFPVTight.json')])
+extLepSF.add_weight_sets(["TauSF_2017_VTight Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2017VTight.json')])
+extLepSF.add_weight_sets(["TauSF_2018_VTight Tau_SF/dm_pt_down %s"%topcoffea_path('data/TauSF/TauSFUL2018VTight.json')])
+
 extLepSF.add_weight_sets(["TauTES_2016APV Tau_TES/dm_pt_value %s"%topcoffea_path('data/TauSF/TauTESUL2016_preVFP.json')])
 extLepSF.add_weight_sets(["TauTES_2016 Tau_TES/dm_pt_value %s"%topcoffea_path('data/TauSF/TauTESUL2016_postVFP.json')])
 extLepSF.add_weight_sets(["TauTES_2017 Tau_TES/dm_pt_value %s"%topcoffea_path('data/TauSF/TauTESUL2017.json')])
@@ -179,14 +195,83 @@ extLepSF.add_weight_sets(["TauTES_2016_down Tau_TES/dm_pt_down %s"%topcoffea_pat
 extLepSF.add_weight_sets(["TauTES_2017_down Tau_TES/dm_pt_down %s"%topcoffea_path('data/TauSF/TauTESUL2017.json')])
 extLepSF.add_weight_sets(["TauTES_2018_down Tau_TES/dm_pt_down %s"%topcoffea_path('data/TauSF/TauTESUL2018.json')])
 
+extLepSF.add_weight_sets(["TauFES_2016APV Tau_FES/eta_dm_value %s"%topcoffea_path('data/TauSF/TauFESUL2016_preVFP.json')])
+extLepSF.add_weight_sets(["TauFES_2016 Tau_FES/eta_dm_value %s"%topcoffea_path('data/TauSF/TauFESUL2016_postVFP.json')])
+extLepSF.add_weight_sets(["TauFES_2017 Tau_FES/eta_dm_value %s"%topcoffea_path('data/TauSF/TauFESUL2017.json')])
+extLepSF.add_weight_sets(["TauFES_2018 Tau_FES/eta_dm_value %s"%topcoffea_path('data/TauSF/TauFESUL2018.json')])
+
+extLepSF.add_weight_sets(["TauFES_2016APV_up Tau_FES/eta_dm_up %s"%topcoffea_path('data/TauSF/TauFESUL2016_preVFP.json')])
+extLepSF.add_weight_sets(["TauFES_2016_up Tau_FES/eta_dm_up %s"%topcoffea_path('data/TauSF/TauFESUL2016_postVFP.json')])
+extLepSF.add_weight_sets(["TauFES_2017_up Tau_FES/eta_dm_up %s"%topcoffea_path('data/TauSF/TauFESUL2017.json')])
+extLepSF.add_weight_sets(["TauFES_2018_up Tau_FES/eta_dm_up %s"%topcoffea_path('data/TauSF/TauFESUL2018.json')])
+
+extLepSF.add_weight_sets(["TauFES_2016APV_down Tau_FES/eta_dm_down %s"%topcoffea_path('data/TauSF/TauFESUL2016_preVFP.json')])
+extLepSF.add_weight_sets(["TauFES_2016_down Tau_FES/eta_dm_down %s"%topcoffea_path('data/TauSF/TauFESUL2016_postVFP.json')])
+extLepSF.add_weight_sets(["TauFES_2017_down Tau_FES/eta_dm_down %s"%topcoffea_path('data/TauSF/TauFESUL2017.json')])
+extLepSF.add_weight_sets(["TauFES_2018_down Tau_FES/eta_dm_down %s"%topcoffea_path('data/TauSF/TauFESUL2018.json')])
+
 extLepSF.add_weight_sets(["TauFakeSF_2016APV TauFake/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_2016APV.json')])
 extLepSF.add_weight_sets(["TauFakeSF_2016 TauFake/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_2016.json')])
 extLepSF.add_weight_sets(["TauFakeSF_2017 TauFake/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_2017.json')])
 extLepSF.add_weight_sets(["TauFakeSF_2018 TauFake/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF_2018.json')])
 
+extLepSF.add_weight_sets(["TauFakeSF_2016APV_up TauFake/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_2016APV.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2016_up TauFake/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_2016.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2017_up TauFake/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_2017.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2018_up TauFake/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF_2018.json')])
+
+extLepSF.add_weight_sets(["TauFakeSF_2016APV_down TauFake/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2016APV.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2016_down TauFake/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2016.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2017_down TauFake/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2017.json')])
+extLepSF.add_weight_sets(["TauFakeSF_2018_down TauFake/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF_2018.json')])
+
 extLepSF.add_weight_sets(["TauFake_2016 Tau_SF/eta_gen_value %s"%topcoffea_path('data/TauSF/TauFakeUL2016.json')])
 extLepSF.add_weight_sets(["TauFake_2017 Tau_SF/eta_gen_value %s"%topcoffea_path('data/TauSF/TauFakeUL2017.json')])
 extLepSF.add_weight_sets(["TauFake_2018 Tau_SF/eta_gen_value %s"%topcoffea_path('data/TauSF/TauFakeUL2018.json')])
+
+extLepSF.add_weight_sets(["Tau_muonFakeSF_2018 TauSF/eta_value %s"%topcoffea_path('data/TauSF/TauSF_muonfake_eta_UL2018.json')])
+extLepSF.add_weight_sets(["Tau_muonFakeSF_2017 TauSF/eta_value %s"%topcoffea_path('data/TauSF/TauSF_muonfake_eta_UL2017.json')])
+extLepSF.add_weight_sets(["Tau_muonFakeSF_2016 TauSF/eta_value %s"%topcoffea_path('data/TauSF/TauSF_muonfake_eta_UL2016_postVFP.json')])
+extLepSF.add_weight_sets(["Tau_muonFakeSF_2016APV TauSF/eta_value %s"%topcoffea_path('data/TauSF/TauSF_muonfake_eta_UL2016_preVFP.json')])
+
+extLepSF.add_weight_sets(["Tau_elecFakeSF_2018 TauSF/eta_value %s"%topcoffea_path('data/TauSF/TauSF_elecfake_eta_UL2018.json')])
+extLepSF.add_weight_sets(["Tau_elecFakeSF_2017 TauSF/eta_value %s"%topcoffea_path('data/TauSF/TauSF_elecfake_eta_UL2017.json')])
+extLepSF.add_weight_sets(["Tau_elecFakeSF_2016 TauSF/eta_value %s"%topcoffea_path('data/TauSF/TauSF_elecfake_eta_UL2016_postVFP.json')])
+extLepSF.add_weight_sets(["Tau_elecFakeSF_2016APV TauSF/eta_value %s"%topcoffea_path('data/TauSF/TauSF_elecfake_eta_UL2016_preVFP.json')])
+
+extLepSF.add_weight_sets(["Tau_muonFakeSF_2018_up TauSF/eta_up %s"%topcoffea_path('data/TauSF/TauSF_muonfake_eta_UL2018.json')])
+extLepSF.add_weight_sets(["Tau_muonFakeSF_2017_up TauSF/eta_up %s"%topcoffea_path('data/TauSF/TauSF_muonfake_eta_UL2017.json')])
+extLepSF.add_weight_sets(["Tau_muonFakeSF_2016_up TauSF/eta_up %s"%topcoffea_path('data/TauSF/TauSF_muonfake_eta_UL2016_postVFP.json')])
+extLepSF.add_weight_sets(["Tau_muonFakeSF_2016APV_up TauSF/eta_up %s"%topcoffea_path('data/TauSF/TauSF_muonfake_eta_UL2016_preVFP.json')])
+
+extLepSF.add_weight_sets(["Tau_elecFakeSF_2018_up TauSF/eta_up %s"%topcoffea_path('data/TauSF/TauSF_elecfake_eta_UL2018.json')])
+extLepSF.add_weight_sets(["Tau_elecFakeSF_2017_up TauSF/eta_up %s"%topcoffea_path('data/TauSF/TauSF_elecfake_eta_UL2017.json')])
+extLepSF.add_weight_sets(["Tau_elecFakeSF_2016_up TauSF/eta_up %s"%topcoffea_path('data/TauSF/TauSF_elecfake_eta_UL2016_postVFP.json')])
+extLepSF.add_weight_sets(["Tau_elecFakeSF_2016APV_up TauSF/eta_up %s"%topcoffea_path('data/TauSF/TauSF_elecfake_eta_UL2016_preVFP.json')])
+
+extLepSF.add_weight_sets(["Tau_muonFakeSF_2018_down TauSF/eta_down %s"%topcoffea_path('data/TauSF/TauSF_muonfake_eta_UL2018.json')])
+extLepSF.add_weight_sets(["Tau_muonFakeSF_2017_down TauSF/eta_down %s"%topcoffea_path('data/TauSF/TauSF_muonfake_eta_UL2017.json')])
+extLepSF.add_weight_sets(["Tau_muonFakeSF_2016_down TauSF/eta_down %s"%topcoffea_path('data/TauSF/TauSF_muonfake_eta_UL2016_postVFP.json')])
+extLepSF.add_weight_sets(["Tau_muonFakeSF_2016APV_down TauSF/eta_down %s"%topcoffea_path('data/TauSF/TauSF_muonfake_eta_UL2016_preVFP.json')])
+
+extLepSF.add_weight_sets(["Tau_elecFakeSF_2018_down TauSF/eta_down %s"%topcoffea_path('data/TauSF/TauSF_elecfake_eta_UL2018.json')])
+extLepSF.add_weight_sets(["Tau_elecFakeSF_2017_down TauSF/eta_down %s"%topcoffea_path('data/TauSF/TauSF_elecfake_eta_UL2017.json')])
+extLepSF.add_weight_sets(["Tau_elecFakeSF_2016_down TauSF/eta_down %s"%topcoffea_path('data/TauSF/TauSF_elecfake_eta_UL2016_postVFP.json')])
+extLepSF.add_weight_sets(["Tau_elecFakeSF_2016APV_down TauSF/eta_down %s"%topcoffea_path('data/TauSF/TauSF_elecfake_eta_UL2016_preVFP.json')])
+
+extLepSF.add_weight_sets(["TauSF_pt_2016APV TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauSF_pt_UL2016_preVFP.json')])
+extLepSF.add_weight_sets(["TauSF_pt_2016 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauSF_pt_UL2016_postVFP.json')])
+extLepSF.add_weight_sets(["TauSF_pt_2017 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauSF_pt_UL2017.json')])
+extLepSF.add_weight_sets(["TauSF_pt_2018 TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauSF_pt_UL2018.json')])
+
+extLepSF.add_weight_sets(["TauSF_dm_2016APV TauSF/dm_value %s"%topcoffea_path('data/TauSF/TauSF_dm_UL2016_preVFP.json')])
+extLepSF.add_weight_sets(["TauSF_dm_2016 TauSF/dm_value %s"%topcoffea_path('data/TauSF/TauSF_dm_UL2016_postVFP.json')])
+extLepSF.add_weight_sets(["TauSF_dm_2017 TauSF/dm_value %s"%topcoffea_path('data/TauSF/TauSF_dm_UL2017.json')])
+extLepSF.add_weight_sets(["TauSF_dm_2018 TauSF/dm_value %s"%topcoffea_path('data/TauSF/TauSF_dm_UL2018.json')])
+
+extLepSF.add_weight_sets(["TauFakeSF TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
+extLepSF.add_weight_sets(["TauFakeSF_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
+extLepSF.add_weight_sets(["TauFakeSF_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 
 # Fake rate
 for year in ['2016APV_2016', 2017, 2018]:
@@ -204,35 +289,126 @@ extPhoSF = lookup_tools.extractor()
 # New UL Photon SFs
 # Muon: reco
 # pT vs super cluster eta
-extPhoSF.add_weight_sets(["PhotonTightSF_2016 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2016_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2016APV EGamma_SF2D %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16_postVFP.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2016APV_err EGamma_SF2D_err %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL16_postVFP.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2017 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Tight_UL17.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2017_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Tight_UL17.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2018 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL18.root')])
-extPhoSF.add_weight_sets(["PhotonTightSF_2018_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Tight_UL18.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2016 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2016_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2016APV EGamma_SF2D %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2016APV_err EGamma_SF2D_err %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2017 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Medium_UL17.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2017_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Medium_UL17.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2018 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Med_UL18.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2018_statData statData %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Med_UL18.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2018_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Med_UL18.root')])
+extPhoSF.add_weight_sets(["SF_CSEV_Medium_2016_postVFP MediumID/SF_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["Staunc_CSEV_Medium_2016_postVFP MediumID/Staunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PUunc_CSEV_Medium_2016_postVFP MediumID/PUunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_postVFP.root')])
+#Model only in UL2017 and 18 extPhoSF.add_weight_sets(["Modelunc_CSEV_Medium_16_postVFP MediumID/Modelunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["SF_HasPix_Medium_2016_postVFP MediumID/SF_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["Staunc_HasPix_Medium_2016_postVFP MediumID/Staunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PUunc_HasPix_Medium_2016_postVFP MediumID/PUunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_postVFP.root')])
+#Model only in UL2017 and 18 extPhoSF.add_weight_sets(["Modelunc_HasPix_Medium_16_postVFP MediumID/Modelunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["SF_CSEV_Medium_2016_preVFP MediumID/SF_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["Staunc_CSEV_Medium_2016_preVFP MediumID/Staunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["PUunc_CSEV_Medium_2016_preVFP MediumID/PUunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_preVFP.root')])
+#Model only in UL2017 and 18 extPhoSF.add_weight_sets(["Modelunc_CSEV_Medium_16_preVFP MediumID/Modelunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["SF_HasPix_Medium_2016_preVFP MediumID/SF_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["Staunc_HasPix_Medium_2016_preVFP MediumID/Staunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["PUunc_HasPix_Medium_2016_preVFP MediumID/PUunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_preVFP.root')])
+#Model only in UL2017 and 18 extPhoSF.add_weight_sets(["Modelunc_HasPix_Medium_16_preVFP MediumID/Modelunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["SF_CSEV_Medium_2017 MediumID/SF_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["Staunc_CSEV_Medium_2017 MediumID/Staunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["PUunc_CSEV_Medium_2017 MediumID/PUunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["Modelunc_CSEV_Medium_2017 MediumID/Modelunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["SF_HasPix_Medium_2017 MediumID/SF_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["Staunc_HasPix_Medium_2017 MediumID/Staunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["PUunc_HasPix_Medium_2017 MediumID/PUunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["Modelunc_HasPix_Medium_2017 MediumID/Modelunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["SF_CSEV_Medium_2018 MediumID/SF_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["Staunc_CSEV_Medium_2018 MediumID/Staunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["PUunc_CSEV_Medium_2018 MediumID/PUunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["Modelunc_CSEV_Medium_2018 MediumID/Modelunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["SF_HasPix_Medium_2018 MediumID/SF_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["Staunc_HasPix_Medium_2018 MediumID/Staunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["PUunc_HasPix_Medium_2018 MediumID/PUunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["Modelunc_HasPix_Medium_2018 MediumID/Modelunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL18.root')])
 
 extPhoSF.finalize()
 PhoSFevaluator = extPhoSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
-def ApplyTES(events, Taus, isData):
+def ApplyTES(year, Taus, isData):
     if isData:
-        return Taus.pt
-    #padded_Taus = ak.pad_none(Taus,1)
-    #padded_Taus = ak.with_name(padded_Taus, "TauCandidate")
+        return (Taus.pt, Taus.mass)
     pt  = Taus.pt
     dm  = Taus.decayMode
     gen = Taus.genPartFlav
 
-    whereFlag = ((pt>20) & (pt<205) & (gen==5))
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
+    whereFlag = kinFlag & dmFlag #((pt>20) & (pt<205) & (gen==5) & (dm==0 | dm==1 | dm==10 | dm==11))
     tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
     return (Taus.pt*tes, Taus.mass*tes)
-    #return(Taus.pt*tes)
 
-def AttachTauSF(events, Taus, year):
+def ApplyFES(year, Taus, isData):
+    if isData:
+        return (Taus.pt, Taus.mass)
+
+    eta  = Taus.eta
+    pt  = Taus.pt
+    dm  = Taus.decayMode
+    gen = Taus.genPartFlav
+
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1))
+    whereFlag = kinFlag & dmFlag
+    fes = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1)
+    return (Taus.pt*fes, Taus.mass*fes)
+
+def ApplyTESSystematic(year, Taus, syst_name):
+    if not syst_name.startswith('TES'):
+        return (Taus.pt, Taus.mass)
+
+    pt  = Taus.pt
+    dm  = Taus.decayMode
+    gen = Taus.genPartFlav
+
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1) | (Taus.decayMode==10) | (Taus.decayMode==11))
+    whereFlag = kinFlag & dmFlag
+    syst_lab = f'TauTES_{year}'
+
+    if syst_name.endswith("Up"):
+        syst_lab += '_up'
+    elif syst_name.endswith("Down"):
+        syst_lab += '_down'
+
+    tes_syst = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
+    return (Taus.pt*tes_syst, Taus.mass*tes_syst)
+
+def ApplyFESSystematic(year, Taus, syst_name):
+    if not syst_name.startswith('FES'):
+        return (Taus.pt, Taus.mass)
+
+    pt  = Taus.pt
+    eta  = Taus.eta
+    dm  = Taus.decayMode
+    gen = Taus.genPartFlav
+
+    kinFlag = (pt>20) & (pt<205) & (gen==5)
+    dmFlag = ((Taus.decayMode==0) | (Taus.decayMode==1))
+    whereFlag = kinFlag & dmFlag
+
+    syst_lab = f'TauFES_{year}'
+
+    if syst_name.endswith("Up"):
+        syst_lab += '_up'
+    elif syst_name.endswith("Down"):
+        syst_lab += '_down'
+
+    fes_syst = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1)
+    return (Taus.pt*fes_syst, Taus.mass*fes_syst)
+
+def AttachTauSF(events, Taus, year, vsJetWP="Loose"):
     padded_Taus = ak.pad_none(Taus,1)
     padded_Taus = ak.with_name(padded_Taus, "TauCandidate")
     padded_Taus["sf_tau"] = 1.0
@@ -246,32 +422,35 @@ def AttachTauSF(events, Taus, year):
     gen = padded_Taus.genPartFlav
     mass= padded_Taus.mass
 
-    whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isLoose"]) & (~padded_Taus["isMedium"]))
-    real_sf_loose = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose'.format(year=year)](dm,pt), 1)
-    real_sf_loose_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose_up'.format(year=year)](dm,pt), 1)
-    real_sf_loose_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Loose_down'.format(year=year)](dm,pt), 1)
-    whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isMedium"]) & (~padded_Taus["isTight"]))
-    real_sf_medium = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium'.format(year=year)](dm,pt), 1)
-    real_sf_medium_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium_up'.format(year=year)](dm,pt), 1)
-    real_sf_medium_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Medium_down'.format(year=year)](dm,pt), 1)
-    whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus["isTight"]))
-    real_sf_tight = np.where(whereFlag, SFevaluator['TauSF_{year}_Tight'.format(year=year)](dm,pt), 1)
-    real_sf_tight_up = np.where(whereFlag, SFevaluator['TauSF_{year}_Tight_up'.format(year=year)](dm,pt), 1)
-    real_sf_tight_down = np.where(whereFlag, SFevaluator['TauSF_{year}_Tight_down'.format(year=year)](dm,pt), 1)
-    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=0) & (gen!=6))
-    if year == "2016APV":
-        year = "2016"
-    fake_sf = np.where(whereFlag, SFevaluator['TauFake_{year}'.format(year=year)](np.abs(eta),gen), 1)
-    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (~padded_Taus["isLoose"]) & (padded_Taus["isVLoose"]))
-    faker_sf = np.where(whereFlag, SFevaluator['TauFakeSF_{year}'.format(year=year)](pt), 1)
-    padded_Taus["sf_tau"] = real_sf_loose*real_sf_medium*real_sf_tight*fake_sf*faker_sf
-    padded_Taus["sf_tau_up"] = real_sf_loose_up*real_sf_medium_up*real_sf_tight_up
-    padded_Taus["sf_tau_down"] = real_sf_loose_down*real_sf_medium_down*real_sf_tight_down
+    whereFlag = ((pt>20) & (pt<205) & (gen==5) & (padded_Taus[f"is{vsJetWP}"]>0))
+    real_sf_loose = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}'](dm,pt), 1)
+    real_sf_loose_up = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}_up'](dm,pt), 1)
+    real_sf_loose_down = np.where(whereFlag, SFevaluator[f'TauSF_{year}_{vsJetWP}_down'](dm,pt), 1)
+
+    whereFlag = ((pt>20) & (pt<205) & ((gen==1)|(gen==3)) & (padded_Taus["iseTight"]>0))
+    fake_elec_sf = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}'](np.abs(eta)), 1)
+    fake_elec_sf_up = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}_up'](np.abs(eta)), 1)
+    fake_elec_sf_down = np.where(whereFlag, SFevaluator[f'Tau_elecFakeSF_{year}_down'](np.abs(eta)), 1)
+    whereFlag = ((pt>20) & (pt<205) & ((gen==2)|(gen==4))  & (padded_Taus["ismTight"]>0))
+    fake_muon_sf = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}'](np.abs(eta)), 1)
+    fake_muon_sf_up = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_up'](np.abs(eta)), 1)
+    fake_muon_sf_down = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_down'](np.abs(eta)), 1)
+
+    whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (padded_Taus["is{vsJetWP}"]>0))
+    new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF'](pt), 1)
+    new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_up'](pt), 1)
+    new_fake_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_down'](pt), 1)
+
+    real_sf = real_sf_loose
+    real_sf_up = real_sf_loose_up
+    real_sf_down = real_sf_loose_down
+    padded_Taus["sf_tau"] = real_sf*fake_elec_sf*fake_muon_sf*new_fake_sf
+    padded_Taus["sf_tau_up"] = real_sf_up*fake_elec_sf_up*fake_muon_sf_up*new_fake_sf_up
+    padded_Taus["sf_tau_down"] = real_sf_down*fake_elec_sf_down*fake_muon_sf_down*new_fake_sf_down
 
     events["sf_2l_taus"] = padded_Taus.sf_tau[:,0]
     events["sf_2l_taus_hi"] = padded_Taus.sf_tau_up[:,0]
     events["sf_2l_taus_lo"] = padded_Taus.sf_tau_down[:,0]
-
 def AttachPerLeptonFR(leps, flavor, year):
     # Get the flip rates lookup object
     if year == "2016APV": flip_year_name = "UL16APV"
@@ -429,13 +608,58 @@ def AttachPhotonSF(photons, year):
     '''
     sieie = np.abs(photons.sieie)
     pt = photons.pt
+    eta = photons.eta
+    aeta = np.abs(photons.eta)
+    r9 = photons.r9
     if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
-    tight_sf  = PhoSFevaluator['PhotonTightSF_{year}'.format(year=year)](sieie,pt)
-    tight_err = PhoSFevaluator['PhotonTightSF_{year}_err'.format(year=year)](sieie,pt)
+    photon_sf  = PhoSFevaluator['PhotonMediumSF_{year}'.format(year=year)](sieie,pt)
+    photon_err = np.power(PhoSFevaluator['PhotonMediumSF_{year}_err'.format(year=year)](sieie,pt), 2)
 
-    photons['sf_nom_photon'] = tight_sf
-    photons['sf_hi_photon']  = (tight_sf + tight_err)
-    photons['sf_lo_photon']  = (tight_sf - tight_err)
+    sf_year = year
+    if '2016APV' in year:
+        sf_year = '2016_preVFP'
+    elif '2016' in year:
+        sf_year = '2016_postVFP'
+    '''
+    High R9 [R9 > 0.96], Low R9 [R9 < 0.96]
+    EB: |eta| < 1.5
+    EE: 1.5 > |eta| > 2.5
+    '''
+    r9_cut  = 0.96
+    eta_cut = 1.5
+    EBhR9 = (1 * ak.ones_like(r9))
+    EBlR9 = (2 * ak.ones_like(r9))
+    EEhR9 = (4 * ak.ones_like(r9))
+    EElR9 = (5 * ak.ones_like(r9))
+    for sf_type in ['CSEV', 'HasPix']:
+        EBlR9_sf = PhoSFevaluator[f'SF_{sf_type}_Medium_{sf_year}'](EBlR9)
+        EBhR9_sf = PhoSFevaluator[f'SF_{sf_type}_Medium_{sf_year}'](EBhR9)
+        EElR9_sf = PhoSFevaluator[f'SF_{sf_type}_Medium_{sf_year}'](EElR9)
+        EEhR9_sf = PhoSFevaluator[f'SF_{sf_type}_Medium_{sf_year}'](EEhR9)
+        tmp_sf = ak.ones_like(photon_sf)
+        tmp_sf = ak.where((aeta < eta_cut) & (r9<r9_cut), EBlR9_sf[aeta<eta_cut], tmp_sf)
+        tmp_sf = ak.where((aeta < eta_cut) & (r9>r9_cut), EBhR9_sf[aeta<eta_cut], tmp_sf)
+        tmp_sf = ak.where((aeta > eta_cut) & (r9<r9_cut), EElR9_sf[aeta<eta_cut], tmp_sf)
+        tmp_sf = ak.where((aeta > eta_cut) & (r9>r9_cut), EEhR9_sf[aeta<eta_cut], tmp_sf)
+        photon_sf = photon_sf + tmp_sf
+        for syst_type in ['Staunc', 'PUunc', 'Modelunc']:
+            if '16' in sf_year and 'Model' in syst_type:
+                #Model only in UL17 and 18
+                continue
+            tmp_err = ak.ones_like(photon_err)
+            tmp_err  = ak.where((aeta < eta_cut) & (r9<r9_cut),
+                                PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EBlR9)[aeta<eta_cut], tmp_err)
+            tmp_err  = ak.where((aeta < eta_cut) & (r9>r9_cut),
+                                PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EBhR9)[aeta<eta_cut], tmp_err)
+            tmp_err  = ak.where((aeta > eta_cut) & (r9<r9_cut),
+                                PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EElR9)[aeta<eta_cut], tmp_err)
+            tmp_err  = ak.where((aeta > eta_cut) & (r9>r9_cut),
+                                PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EEhR9)[aeta<eta_cut], tmp_err)
+            photon_err = photon_err + np.power(tmp_err, 2)
+
+    photons['sf_nom_photon'] = photon_sf
+    photons['sf_hi_photon']  = photon_sf + np.sqrt(photon_err)
+    photons['sf_lo_photon']  = photon_sf - np.sqrt(photon_err)
 
 ###### Btag scale factors
 ################################################################

@@ -9,7 +9,7 @@ class YieldTools():
     def __init__(self):
 
         # The order of the categories in the TOP-19-001 AN yield tables
-        self.CAT_LST = ["2lss_p", "2lss_m", "2lss_4t_p", "2lss_4t_m", "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b", "4l"]
+        self.CAT_LST = ["2los_ph", "2lss_p", "2lss_m", "2lss_4t_p", "2lss_4t_m", "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b", "4l"]
         self.CAT_LST_TOP19001 = ["2lss_p", "2lss_m", "3l_p_offZ_1b", "3l_m_offZ_1b", "3l_p_offZ_2b", "3l_m_offZ_2b", "3l_onZ_1b", "3l_onZ_2b", "4l"]
 
         self.SIG      = ["ttH","ttlnu","ttll","tllq","tHq","tttt"]
