@@ -55,6 +55,18 @@ def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
     elif (year == "2018"):
         wploose  = get_tc_param("btag_wp_loose_UL18")
         wpmedium = get_tc_param("btag_wp_medium_UL18")
+    elif (year == "2022"):
+        wploose = get_tc_param("btag_wp_loose_2022")
+        wpmedium = get_tc_param("btag_wp_medium_2022")
+    elif (year == "2022EE"):
+        wploose = get_tc_param("btag_wp_loose_2022EE")
+        wpmedium = get_tc_param("btag_wp_medium_2022EE")
+    elif (year == "2023"):
+        wploose = get_tc_param("btag_wp_loose_2023")
+        wpmedium = get_tc_param("btag_wp_medium_2023")
+    elif (year == "2023BPix"):
+        wploose = get_tc_param("btag_wp_loose_2023BPix")
+        wpmedium = get_tc_param("btag_wp_medium_2023BPix")
     else:
         raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
 
@@ -104,6 +116,15 @@ def isFOElec(pt, conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits,
         bTagCut = get_tc_param("btag_wp_medium_UL17")
     elif (year == "2018"):
         bTagCut = get_tc_param("btag_wp_medium_UL18")
+    elif (year == "2022"):
+        bTagCut = get_tc_param("btag_wp_medium_2022")
+    elif (year == "2022EE"):
+        bTagCut = get_tc_param("btag_wp_medium_2022EE")
+    elif (year == "2023"):
+        bTagCut = get_tc_param("btag_wp_medium_2023")
+    elif (year == "2023BPix"):
+        bTagCut = get_tc_param("btag_wp_medium_2023BPix")
+
     else:
         raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
 
@@ -125,6 +146,14 @@ def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTHUL, jetRelIso, year):
         bTagCut = get_tc_param("btag_wp_medium_UL17")
     elif (year == "2018"):
         bTagCut = get_tc_param("btag_wp_medium_UL18")
+    elif (year == "2022"):
+        bTagCut = get_tc_param("btag_wp_medium_2022")
+    elif (year == "2022EE"):
+        bTagCut = get_tc_param("btag_wp_medium_2022EE")
+    elif (year == "2023"):
+        bTagCut = get_tc_param("btag_wp_medium_2023")
+    elif (year == "2023BPix"):
+        bTagCut = get_tc_param("btag_wp_medium_2023BPix")
     else:
         raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
 

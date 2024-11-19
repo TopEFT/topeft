@@ -1,0 +1,26 @@
+{
+  "xsec": 0.006115,
+  "year": "2022",
+  "treeName": "Events",
+  "histAxisName": "ggToZZTo2e2mu_central2022",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/Run3Summer22NanoAODv12/GluGlutoContinto2Zto2E2Mu_TuneCP5_13p6TeV_mcfm701-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v1/60000/d91c6914-8af6-40ba-bbf3-b3d8cee82620.root"
+  ],
+  "nEvents": 150000,
+  "nGenEvents": 150000,
+  "nSumOfWeights": 150000.0,
+  "isData": false,
+  "path": "/GluGlutoContinto2Zto2E2Mu_TuneCP5_13p6TeV_mcfm701-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v1/NANOAODSIM",
+  "nSumOfWeights_ISRUp": 150074.34481811523,
+  "nSumOfWeights_ISRDown": 149943.76399230957,
+  "nSumOfWeights_FSRUp": 149869.06296539307,
+  "nSumOfWeights_FSRDown": 150004.01455688477,
+  "nSumOfWeights_renormUp": 150000.0,
+  "nSumOfWeights_renormDown": 150000.0,
+  "nSumOfWeights_factUp": 150000.0,
+  "nSumOfWeights_factDown": 150000.0,
+  "nSumOfWeights_renormfactUp": 150000.0,
+  "nSumOfWeights_renormfactDown": 150000.0
+}
