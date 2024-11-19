@@ -147,7 +147,6 @@ class DatacardMaker():
         ],
         "tWZ": ["TWZToLL_"],
         #"convs": ["TTGamma_"],
-        "ttA": ["TTGamma_"],
         "fakes": ["nonprompt"],
         "charge_flips_": ["flips"],
         "data_obs": ["data"],
@@ -160,6 +159,7 @@ class DatacardMaker():
             "TTTo2L2Nu_",
         ],
         "ttlnu_": ["ttlnuJet_"],
+        "ttA_": ["TTGamma_"],
     }
 
     # Controls how we rebin the dense axis of the corresponding distribution
@@ -265,7 +265,9 @@ class DatacardMaker():
     @classmethod
     def get_lep_mult(cls,s):
         """ Returns the lepton multiplicity based on the string passed to it."""
-        if s.startswith("2l"):
+        if s.startswith("2los_"):
+            return 2.3 # Hack because photon 2los starts at 3 jets
+        if s.startswith("2lss_"):
             return 2
         elif s.startswith("3l_"):
             return 3
@@ -316,6 +318,7 @@ class DatacardMaker():
             "TTJets",
             "WJetsToLNu",
             "TTGJets",  # This is the old low stats convs process, new one should be TTGamma
+            "TTGamma_central",
 
             # "TTGamma",
             # "WWTo2L2Nu","ZZTo4L",#"WZTo3LNu",
@@ -786,6 +789,8 @@ class DatacardMaker():
         num_l = self.get_lep_mult(ch)
         if num_l == 2 or num_l == 4:
             num_b = 2
+        if num_l == 2.3:
+            num_b = 3
 
         outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="root")
 
