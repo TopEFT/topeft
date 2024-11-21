@@ -146,7 +146,7 @@ class DatacardMaker():
             "ZZZ_",
         ],
         "tWZ": ["TWZToLL_"],
-        "convs": ["TTGamma_"],
+        #"convs": ["TTGamma_"],
         "fakes": ["nonprompt"],
         "charge_flips_": ["flips"],
         "data_obs": ["data"],
@@ -159,6 +159,7 @@ class DatacardMaker():
             "TTTo2L2Nu_",
         ],
         "ttlnu_": ["ttlnuJet_"],
+        "ttA_": ["TTGamma_"],
     }
 
     # Controls how we rebin the dense axis of the corresponding distribution
@@ -174,7 +175,7 @@ class DatacardMaker():
     FNAME_TEMPLATE = "ttx_multileptons-{cat}_{kmvar}.{ext}"
     # FNAME_TEMPLATE = "TESTING_ttx_multileptons-{cat}.{ext}"
 
-    SIGNALS = set(["ttH","tllq","ttll","ttlnu","tHq","tttt"])
+    SIGNALS = set(["ttH","tllq","ttll","ttlnu","tHq","tttt","ttA"])
 
     @classmethod
     def get_year(cls,s):
@@ -264,6 +265,8 @@ class DatacardMaker():
     @classmethod
     def get_lep_mult(cls,s):
         """ Returns the lepton multiplicity based on the string passed to it."""
+        if s.startswith("2los_"):
+            return 2.3 # Hack because photon 2los starts at 3 jets
         if s.startswith("2lss_"):
             return 2
         elif s.startswith("3l_"):
@@ -315,6 +318,7 @@ class DatacardMaker():
             "TTJets",
             "WJetsToLNu",
             "TTGJets",  # This is the old low stats convs process, new one should be TTGamma
+            "TTGamma_central",
 
             # "TTGamma",
             # "WWTo2L2Nu","ZZTo4L",#"WZTo3LNu",
@@ -371,7 +375,7 @@ class DatacardMaker():
         self.syst_shape_decorrelate = {
             "ISR": [
                 {
-                    "matches": ["ttH","ttll","tttt","convs"],
+                    "matches": ["ttH","ttll","tttt","ttA"],
                     "group": "gg",
                 },
                 {
@@ -447,7 +451,7 @@ class DatacardMaker():
 
             if not self.do_nuisance:
                 # Remove all shape systematics
-                h.prune("systematic", ["nominal"])
+                h = h[{"systematic": ["nominal"]}]
 
             if self.drop_syst:
                 to_drop = set()
@@ -706,7 +710,7 @@ class DatacardMaker():
             # Only select from a subset of channels
             if self.verbose:
                 print(f"Selecting WCs from subset of channels: {ch_lst}")
-            h.prune("channel", ch_lst)
+            h = h[{"channel": ch_lst}]
 
         procs = list(h.axes["process"])
         selected_wcs = {p: set() for p in procs}
@@ -785,6 +789,8 @@ class DatacardMaker():
         num_l = self.get_lep_mult(ch)
         if num_l == 2 or num_l == 4:
             num_b = 2
+        if num_l == 2.3:
+            num_b = 3
 
         outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="root")
 
@@ -1028,6 +1034,9 @@ class DatacardMaker():
                         if num_l == 2:
                             njet_offset = 4
                             ch_key = f"{ch_key}_{num_b}b"
+                        elif num_l == 2.3:
+                            #FIXME skipping 2los 3j for now
+                            continue
                         elif num_l == 3:
                             njet_offset = 2
                             if "_onZ" in ch:
@@ -1082,7 +1091,9 @@ class DatacardMaker():
         tic = time.time()
 
         sm = h.eval({})
-        sm_w2 = sumw2.eval(vals)
+        if sumw2 is None:
+            print("No sumw2 histogram found! Setting errors to 0")
+        sm_w2 = sumw2.eval(vals) if sumw2 is not None else 0
         sm = add_sumw2_stub(sm,sm_w2)
 
         # Note: The keys of this dictionary are a pretty contrived, but are useful later on
