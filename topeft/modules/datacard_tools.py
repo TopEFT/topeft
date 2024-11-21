@@ -1034,6 +1034,9 @@ class DatacardMaker():
                         if num_l == 2:
                             njet_offset = 4
                             ch_key = f"{ch_key}_{num_b}b"
+                        elif num_l == 2.3:
+                            #FIXME skipping 2los 3j for now
+                            continue
                         elif num_l == 3:
                             njet_offset = 2
                             if "_onZ" in ch:
