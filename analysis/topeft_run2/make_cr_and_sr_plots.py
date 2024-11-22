@@ -1041,7 +1041,6 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                 hist_sig_integrated_ch = hist_sig_integrated_ch.integrate("process")
 
                 # Make the plots
-                print(hist_sig_integrated_ch)
                 if not hist_sig_integrated_ch.eval({}):
                     print("Warning: empty mc histo, continuing")
                     continue
