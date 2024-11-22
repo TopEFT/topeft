@@ -1078,6 +1078,9 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                     # Integrate
                     hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
                     hist_sig_grouped_tmp = yt.integrate_out_appl(hist_sig_grouped_tmp,grouped_hist_cat)
+                    if proc_name not in list(hist_sig_grouped_tmp.axes["process"]):
+                        print(f"Warning: mc histo missing {proc_name}, continuing")
+                        continue
                     hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("process",proc_name)
                     if not hist_sig_grouped_tmp.eval({}):
                         print("Warning: empty mc histo, continuing")
