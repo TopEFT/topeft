@@ -123,8 +123,9 @@ dataset_dict_top22006 = {
             "TripleMu_12_10_5",
         ],
         "EGamma" : [
-	        "Ele32_WPTight_Gsf",
-	        "Ele35_WPTight_Gsf",
+            "Ele30_WPTight_Gsf"
+            "Ele32_WPTight_Gsf",
+            "Ele35_WPTight_Gsf",
             "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
 	        "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
 	        "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",

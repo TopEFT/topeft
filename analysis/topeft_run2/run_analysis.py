@@ -258,7 +258,7 @@ if __name__ == '__main__':
                 extra_pip_local = {"topeft": ["topeft", "setup.py"]},
             ),
             'extra_input_files': ["analysis_processor.py"],
-
+            'filepath': f'/scratch365/{os.environ["USER"]}',
             'retries': 20,
 
             # use mid-range compression for chunks results. 9 is the default for work

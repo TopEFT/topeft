@@ -1000,6 +1000,9 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     elif year == "2016APV":
         mc_wl.append("UL16APV")
         data_wl.append("UL16APV")
+    elif year == "2022":
+        mc_wl.append("central2022")
+        data_wl.append("2022")
     else: raise Exception(f"Error: Unknown year \"{year}\".")
 
     # Get the list of samples we want to plot
@@ -1026,7 +1029,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             CR_GRP_MAP["Nonprompt"].append(proc_name)
         elif "flips" in proc_name:
             CR_GRP_MAP["Flips"].append(proc_name)
-        elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name) or ("TTZToLL_M1to10" in proc_name):
+        elif ("TZQB" in proc_name) or ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("TTLL" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name) or ("TTZToLL_M1to10" in proc_name) or ("TTTT" in proc_name) or ("ttLNu" in proc_name):
             CR_GRP_MAP["Signal"].append(proc_name)
         elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name or "TWZToLL" in proc_name:
             CR_GRP_MAP["Single top"].append(proc_name)
@@ -1040,17 +1043,18 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             CR_GRP_MAP["ZGamma"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             CR_GRP_MAP["Triboson"].append(proc_name)
-        elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
+        elif "ZZTo2e2mu" in proc_name or"ZZTo2e2tau" in proc_name or "ZZTo4tau" in proc_name or "ZZTo4e" in proc_name or "ZZTo4mu" in proc_name or "WWTo2L2Nu" in proc_name or "ZZTo2mu2tau" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
             CR_GRP_MAP["Diboson"].append(proc_name)
         elif "WJets" in proc_name:
             CR_GRP_MAP["Singleboson"].append(proc_name)
         else:
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
-
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
     #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
+        if 'sumw2' in var_name: continue
+        if 'j0' in var_name: continue
         if (var_name in skip_lst): continue
         #if (var_name not in skip_wlst): continue
         if (var_name == "njets"):
