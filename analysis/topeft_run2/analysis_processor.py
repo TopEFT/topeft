@@ -575,6 +575,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
             elif self.tau_h_analysis:
                 import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
+            elif self.fwd_analysis:
+                import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
             else:
                 import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
 
@@ -677,7 +679,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # 2lss selection
             preselections.add("chargedl0", (chargel0_p | chargel0_m))
-            preselections.add("2lss", (events.is2l & pass_trg))
             preselections.add("2l_nozeeveto", (events.is2l_nozeeveto & pass_trg))
             preselections.add("2los", charge2l_0)
             preselections.add("2lem", events.is_em)
@@ -689,13 +690,23 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("bmask_atleast1m2l", (bmask_atleast1med_atleast2loose))
             preselections.add("bmask_atmost2m", (bmask_atmost2med))
             preselections.add("fwdjet_mask", (fwdjet_mask))
-            preselections.add("2l_p", (chargel0_p))
-            preselections.add("2l_m", (chargel0_m))
+            preselections.add("~fwdjet_mask", (~fwdjet_mask))
             if self.tau_h_analysis:
                 preselections.add("1tau", (tau_L_mask))
                 preselections.add("0tau", (no_tau_mask))
                 preselections.add("onZ_tau", (tl_zpeak_mask))
                 preselections.add("offZ_tau", (~tl_zpeak_mask))
+            if self.fwd_analysis:
+                preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
+                preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
+                preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
+                preselections.add("2lss", (events.is2l & pass_trg & ~fwdjet_mask))
+                preselections.add("2l_p", (chargel0_p & ~fwdjet_mask))
+                preselections.add("2l_m", (chargel0_m & ~fwdjet_mask))
+            else: # Original selections if not using the fwd analysis flag
+                preselections.add("2lss", (events.is2l & pass_trg))
+                preselections.add("2l_p", (chargel0_p))
+                preselections.add("2l_m", (chargel0_m))
 
             # 3l selection
             preselections.add("3l", (events.is3l & pass_trg))
@@ -730,11 +741,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     for chcut in lep_ch[1:]:
                         if not tempmask is None:
-                            if chcut[0] == '~': tempmask = tempmask & preselections.any(~chcut[1:])
-                            else: tempmask = tempmask & preselections.any(chcut)
+                            tempmask = tempmask & preselections.any(chcut)
                         else:
-                            if chcut[0] == '~': tempmask = preselections.any(~chcut[1:])
-                            else: tempmask = preselections.any(chcut)
+                            tempmask = preselections.any(chcut)
                     selections.add(chtag, tempmask)
 
             #Filling selections according to the json specifications for CRs
