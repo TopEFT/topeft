@@ -133,21 +133,21 @@ class run2leptonselection:
     
     def isFOElec(self, ele, year):
     
-        btagCut=get_medium_btag_foryear(year)
+        bTagCut=get_medium_btag_foryear(year)
     
         btabReq    = (ele.jetBTagDeepFlav<bTagCut)
         ptReq      = (ele.conept>get_te_param("fo_pt_cut"))
         qualityReq = (ele.idEmu & ele.convVeto & (ele.lostHits==0))
-        mvaReq     = ((ele.mvaTTHUL>get_te_param("mva_TTH_e_cut")) | ((ele.mvaFall17V2noIso_WP90) & (ele.jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
+        mvaReq     = ((ele.mvaTTHUL>get_te_param("mva_TTH_e_cut")) | ((ele.mvaFall17V2noIso_WP90) & (ele.jetBTagDeepFlav<smoothBFlav(0.9*ele.pt*(1+ele.jetRelIso),20,45,year)) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
     
         return ptReq & btabReq & qualityReq & mvaReq
     
     def isFOMuon(self, muo, year):
-        btagCut=get_medium_btag_foryear(year)
+        bTagCut=get_medium_btag_foryear(year)
     
         btagReq = (muo.jetBTagDeepFlav<bTagCut)
         ptReq   = (muo.conept>get_te_param("fo_pt_cut"))
-        mvaReq  = ((muo.mvaTTHUL>get_te_param("mva_TTH_m_cut")) | ((muo.jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut"))))
+        mvaReq  = ((muo.mvaTTHUL>get_te_param("mva_TTH_m_cut")) | ((muo.jetBTagDeepFlav<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut"))))
         return ptReq & btagReq & mvaReq
     
     def tightSelElec(self, ele):
@@ -195,7 +195,7 @@ class run3leptonselection:
     
     def isFOElec(self, ele, year):
 
-        btagCut=get_medium_btag_foryear(year)
+        bTagCut=get_medium_btag_foryear(year)
     
         btabReq    = (ele.jetBTagDeepFlav<bTagCut)
         ptReq      = (ele.conept>get_te_param("fo_pt_cut"))
@@ -204,11 +204,11 @@ class run3leptonselection:
     
 
     def isFOMuon(self, muo, year):
-        btagCut=get_medium_btag_foryear(year)
+        bTagCut=get_medium_btag_foryear(year)
     
         btagReq = (muo.jetBTagDeepFlav<bTagCut)
         ptReq   = (muo.conept>get_te_param("fo_pt_cut"))
-        mvaReq  = ((muo.mvaTTH_Run3>get_te_param("mva_TTH_m_cut_run3")) | ((muo.jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*pt*(1+jetRelIso),2.5,8.,15,45))))
+        mvaReq  = ((muo.mvaTTH_Run3>get_te_param("mva_TTH_m_cut_run3")) | ((muo.jetBTagDeepFlav<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45))))
         return ptReq & btagReq & mvaReq
     
     def tightSelElec(self, ele):
