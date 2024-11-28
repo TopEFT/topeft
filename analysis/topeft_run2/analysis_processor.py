@@ -229,10 +229,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
         if is_run3:
-            leptonSelection = te_os.run3leptonselection
+            leptonSelection = te_os.run3leptonselection()
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
         elif is_run2:
-            leptonSelection = te_os.run2leptonselection
+            leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
 
         # An array of lenght events that is just 1 for each event

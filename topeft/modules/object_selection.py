@@ -99,6 +99,9 @@ def get_medium_btag_foryear(year):
 
 class run2leptonselection:
 
+    def __init__():
+        pass
+
     def coneptElec(self, ele):
         conePt = (0.90 * ele.pt * (1 + ele.jetRelIso))
         return ak.where((ele.mvaTTHUL>get_te_param("mva_TTH_e_cut")),ele.pt,ele.conePt)
@@ -154,6 +157,9 @@ class run2leptonselection:
         return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTHUL > get_te_param("mva_TTH_m_cut"))
 
 class run3leptonselection:
+
+    def __init__():
+        pass
 
     def coneptElec(self, ele):
         conePt = (0.90 * ele.pt * (1 + ele.jetRelIso))
