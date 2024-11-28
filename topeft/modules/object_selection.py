@@ -106,7 +106,7 @@ class run2leptonselection:
     def coneptMuon(self, muo):
         conePt = (0.90 * muo.pt * (1 + muo.jetRelIso))
         return ak.where(((muo.mvaTTHUL>get_te_param("mva_TTH_m_cut"))&(muo.mediumId>0)),muo.pt,muo.conePt)
-    
+
     def isPresElec(self, ele):
         pt_mask    = (ele.pt       > get_te_param("pres_e_pt_cut"))
         eta_mask   = (abs(ele.eta) < get_te_param("eta_e_cut"))
@@ -115,7 +115,7 @@ class run2leptonselection:
         iso_mask   = (ele.miniIso  < get_te_param("iso_cut"))
         sip3d_mask = (ele.sip3D    < get_te_param("sip3d_cut"))
         return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask & ele.mvaFall17V2noIso_WPL)
-    
+
     def isPresMuon(self, muon):
         pt_mask    = (muon.pt         > get_te_param("pres_m_pt_cut"))
         eta_mask   = (abs(muon.eta)   < get_te_param("eta_m_cut"))
@@ -124,35 +124,32 @@ class run2leptonselection:
         iso_mask   = (muon.miniRelIso < get_te_param("iso_cut"))
         sip3d_mask = (muon.sip3D      < get_te_param("sip3d_cut"))
         return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask)
-    
+
     def isLooseElec(self, ele):
         return (ele.miniPFRelIso_all<get_te_param("iso_cut")) & (ele.sip3d<get_te_param("sip3d_cut")) & (ele.lostHits<=1)
-    
+
     def isLooseMuon(self, muon):
         return (muon.miniPFRelIso_all<get_te_param("iso_cut")) & (muon.sip3d<get_te_param("sip3d_cut")) & (muon.looseId)
-    
+
     def isFOElec(self, ele, year):
-    
         bTagCut=get_medium_btag_foryear(year)
-    
         btabReq    = (ele.jetBTagDeepFlav<bTagCut)
         ptReq      = (ele.conept>get_te_param("fo_pt_cut"))
         qualityReq = (ele.idEmu & ele.convVeto & (ele.lostHits==0))
         mvaReq     = ((ele.mvaTTHUL>get_te_param("mva_TTH_e_cut")) | ((ele.mvaFall17V2noIso_WP90) & (ele.jetBTagDeepFlav<smoothBFlav(0.9*ele.pt*(1+ele.jetRelIso),20,45,year)) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
-    
+
         return ptReq & btabReq & qualityReq & mvaReq
-    
+
     def isFOMuon(self, muo, year):
         bTagCut=get_medium_btag_foryear(year)
-    
         btagReq = (muo.jetBTagDeepFlav<bTagCut)
         ptReq   = (muo.conept>get_te_param("fo_pt_cut"))
         mvaReq  = ((muo.mvaTTHUL>get_te_param("mva_TTH_m_cut")) | ((muo.jetBTagDeepFlav<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut"))))
         return ptReq & btagReq & mvaReq
-    
+
     def tightSelElec(self, ele):
         return (ele.isFO) & (ele.mvaTTHUL > get_te_param("mva_TTH_e_cut"))
-    
+
     def tightSelMuon(self, muo):
         return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTHUL > get_te_param("mva_TTH_m_cut"))
 
@@ -165,10 +162,8 @@ class run3leptonselection:
     def coneptMuon(self, muo):
         conePt = (0.90 * muo.pt * (1 + muo.jetRelIso))
         return ak.where(((muo.mvaTTH_Run3>get_te_param("mva_TTH_m_cut_run3"))&(muo.mediumId>0)),muo.pt,muo.conePt)
-    
+
     def isPresElec(self, ele):
-
-
         pt_mask    = (ele.pt       > get_te_param("pres_e_pt_cut"))
         eta_mask   = (abs(ele.eta) < get_te_param("eta_e_cut"))
         dxy_mask   = (abs(ele.dxy) < get_te_param("dxy_cut"))
@@ -177,7 +172,7 @@ class run3leptonselection:
         sip3d_mask = (ele.sip3D    < get_te_param("sip3d_cut"))
         ecal_crack_mask = (((abs(ele.etaSC) < 1.4442) | (abs(ele.etaSC) > 1.566)))
         return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask & ecal_crack_mask)
-    
+
     def isPresMuon(self, muon):
         pt_mask    = (muon.pt         > get_te_param("pres_m_pt_cut"))
         eta_mask   = (abs(muon.eta)   < get_te_param("eta_m_cut"))
@@ -186,34 +181,30 @@ class run3leptonselection:
         iso_mask   = (muon.miniRelIso < get_te_param("iso_cut"))
         sip3d_mask = (muon.sip3D      < get_te_param("sip3d_cut"))
         return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask)
-    
+
     def isLooseElec(self, ele):
         return (ele.miniPFRelIso_all<get_te_param("iso_cut")) & (ele.sip3d<get_te_param("sip3d_cut")) & (ele.lostHits<=1)
-    
+
     def isLooseMuon(self, muon):
         return (muon.miniPFRelIso_all<get_te_param("iso_cut")) & (muon.sip3d<get_te_param("sip3d_cut")) & (muon.mediumId)
-    
-    def isFOElec(self, ele, year):
 
+    def isFOElec(self, ele, year):
         bTagCut=get_medium_btag_foryear(year)
-    
         btabReq    = (ele.jetBTagDeepFlav<bTagCut)
         ptReq      = (ele.conept>get_te_param("fo_pt_cut"))
         qualityReq = (ele.idEmu & ele.convVeto & (ele.lostHits==0))
         mvaReq     = ((ele.mvaTTH_Run3>get_te_param("mva_TTH_e_cut_run3")) | ((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3"))  & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
-    
 
     def isFOMuon(self, muo, year):
         bTagCut=get_medium_btag_foryear(year)
-    
         btagReq = (muo.jetBTagDeepFlav<bTagCut)
         ptReq   = (muo.conept>get_te_param("fo_pt_cut"))
         mvaReq  = ((muo.mvaTTH_Run3>get_te_param("mva_TTH_m_cut_run3")) | ((muo.jetBTagDeepFlav<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45))))
         return ptReq & btagReq & mvaReq
-    
+
     def tightSelElec(self, ele):
         return (ele.isFO) & (ele.mvaTTH_Run3 > get_te_param("mva_TTH_e_cut_run3"))
-    
+
     def tightSelMuon(self, muo):
         return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTH_Run3 > get_te_param("mva_TTH_m_cut_run3"))
 
