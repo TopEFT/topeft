@@ -103,7 +103,7 @@ class run2leptonselection:
         conePt = (0.90 * ele.pt * (1 + ele.jetRelIso))
         return ak.where((ele.mvaTTHUL>get_te_param("mva_TTH_e_cut")),ele.pt,ele.conePt)
 
-    def coneptMuon(self, muo):o
+    def coneptMuon(self, muo):
         conePt = (0.90 * muo.pt * (1 + muo.jetRelIso))
         return ak.where(((muo.mvaTTHUL>get_te_param("mva_TTH_m_cut"))&(muo.mediumId>0)),muo.pt,muo.conePt)
     

@@ -314,7 +314,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
 
         # Attach the lepton SFs to the electron and muons collections
-        AttachElectronSF(e_fo, year=year, looseWP="wpLnoiso" else "none") #Run3 ready
+        AttachElectronSF(e_fo, year=year, looseWP="wpLnoiso" if is_run3 else "none") #Run3 ready
         AttachMuonSF(m_fo,year=year) #Run3 ready
 
         # Attach per lepton fake rates
