@@ -99,7 +99,7 @@ def get_medium_btag_foryear(year):
 
 class run2leptonselection:
 
-    def __init__():
+    def __init__(self):
         pass
 
     def coneptElec(self, ele):
@@ -158,7 +158,7 @@ class run2leptonselection:
 
 class run3leptonselection:
 
-    def __init__():
+    def __init__(self):
         pass
 
     def coneptElec(self, ele):
