@@ -116,7 +116,7 @@ class run2leptonselection:
         dxy_mask   = (abs(ele.dxy) < get_te_param("dxy_cut"))
         dz_mask    = (abs(ele.dz)  < get_te_param("dz_cut"))
         iso_mask   = (ele.miniPFRelIso_all  < get_te_param("iso_cut"))
-        sip3d_mask = (ele.sip3D    < get_te_param("sip3d_cut"))
+        sip3d_mask = (ele.sip3d    < get_te_param("sip3d_cut"))
         return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask & ele.mvaFall17V2noIso_WPL)
 
     def isPresMuon(self, muon):
@@ -125,7 +125,7 @@ class run2leptonselection:
         dxy_mask   = (abs(muon.dxy)   < get_te_param("dxy_cut"))
         dz_mask    = (abs(muon.dz)    < get_te_param("dz_cut"))
         iso_mask   = (muon.miniPFRelIso_all < get_te_param("iso_cut"))
-        sip3d_mask = (muon.sip3D      < get_te_param("sip3d_cut"))
+        sip3d_mask = (muon.sip3d      < get_te_param("sip3d_cut"))
         return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask)
 
     def isLooseElec(self, ele):
@@ -175,7 +175,7 @@ class run3leptonselection:
         dxy_mask   = (abs(ele.dxy) < get_te_param("dxy_cut"))
         dz_mask    = (abs(ele.dz)  < get_te_param("dz_cut"))
         iso_mask   = (ele.miniPFRelIso_all  < get_te_param("iso_cut"))
-        sip3d_mask = (ele.sip3D    < get_te_param("sip3d_cut"))
+        sip3d_mask = (ele.sip3d    < get_te_param("sip3d_cut"))
         ecal_crack_mask = (((abs(ele.etaSC) < 1.4442) | (abs(ele.etaSC) > 1.566)))
         return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask & ecal_crack_mask)
 
@@ -185,7 +185,7 @@ class run3leptonselection:
         dxy_mask   = (abs(muon.dxy)   < get_te_param("dxy_cut"))
         dz_mask    = (abs(muon.dz)    < get_te_param("dz_cut"))
         iso_mask   = (muon.miniPFRelIso_all < get_te_param("iso_cut"))
-        sip3d_mask = (muon.sip3D      < get_te_param("sip3d_cut"))
+        sip3d_mask = (muon.sip3d      < get_te_param("sip3d_cut"))
         return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask)
 
     def isLooseElec(self, ele):
