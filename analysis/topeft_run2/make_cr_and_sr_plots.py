@@ -1120,6 +1120,9 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     elif year == "2016APV":
         mc_wl.append("UL16APV")
         data_wl.append("UL16APV")
+    elif year == "2022":
+        mc_wl.append("central2022")
+        data_wl.append("2022")
     else: raise Exception(f"Error: Unknown year \"{year}\".")
 
     # Get the list of samples we want to plot
@@ -1174,6 +1177,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
+        if 'j0' in var_name: continue
         if (var_name in skip_lst): continue
         #if (var_name not in skip_wlst): continue
         if (var_name == "njets"):
