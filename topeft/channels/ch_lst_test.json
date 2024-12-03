@@ -1,7 +1,6 @@
 {
     "TOP22_006_CH_LST_SR": {
         "2l": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
             "2lss_p",
@@ -52,7 +51,6 @@
             ]
         },
     "3l": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
                     "3l_onZ_1b",
@@ -109,7 +107,6 @@
             ]
     },
     "4l": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
                     "4l",
@@ -132,7 +129,6 @@
     },
     "TAU_CH_LST_SR": {
         "2lss": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
             "2lss_p",
@@ -187,7 +183,6 @@
             ]
         },
     "2lss_1tau": {
-            "var_ignore": ["lt"],
         "lep_chan_lst": [
         [
                     "2lss_m_1tau_onZ",
@@ -235,7 +230,6 @@
             ]
     },
     "2los_1tau": {
-            "var_ignore": ["lt"],
         "lep_chan_lst": [
          [
                     "2los_onZ_1tau",
@@ -259,7 +253,6 @@
             ]
     },
     "3l": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
                     "3l_onZ_1b",
@@ -332,7 +325,6 @@
             ]
     },
     "4l": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
                     "4l",
@@ -355,7 +347,6 @@
     },
     "OFFZ_SPLIT_CH_LST_SR":{
         "2l": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
             "2lss_p",
@@ -406,7 +397,6 @@
             ]
         },
     "3l": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
                     "3l_onZ_1b",
@@ -511,7 +501,6 @@
             ]
     },
     "4l": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
                     "4l",
@@ -534,7 +523,6 @@
     },
     "CH_LST_CR": {
     "2l_CR": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
                     "2lss_CR",
@@ -562,7 +550,6 @@
             ]
         },
     "2l_CRflip": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
                     "2lss_CRflip",
@@ -586,7 +573,6 @@
             ]
         },
     "2los_CRZ": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
                     "2los_CRZ",
@@ -609,7 +595,6 @@
             ]
         },
     "2los_CRtt": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
                     "2los_CRtt",
@@ -631,7 +616,6 @@
             ]
         },
     "3l_CR": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
             [
                     "3l_CR",
@@ -657,7 +641,6 @@
     },
     "FWD_CH_LST_SR": {
         "2l": {
-            "var_ignore": [],
             "lep_chan_lst": [
                 [
                     "2lss_p",
@@ -744,7 +727,6 @@
             ]
         },
     "3l": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
                     "3l_onZ_1b",
@@ -801,7 +783,6 @@
             ]
     },
     "4l": {
-            "var_ignore": ["lt"],
             "lep_chan_lst": [
                 [
                     "4l",
