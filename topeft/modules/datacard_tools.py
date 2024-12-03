@@ -326,6 +326,10 @@ class DatacardMaker():
             # "TTTo2L2Nu", "TTToSemiLeptonic",
             # "data",
         ]
+        self.var_ignore = {
+            "3l": ["lt"],
+            "4l": ["lt"],
+        }
 
         if not self.use_real_data:
             # Since we're just going to generate Asimov data, this lets us drop the real data histograms
@@ -773,6 +777,11 @@ class DatacardMaker():
         elif ch not in self.hists[km_dist].axes["channel"]:
             print(f"[ERROR] Unknown channel {ch}")
             return None
+
+        for lep_chan,var_ignore in self.var_ignore.items():
+            if lep_chan in ch and km_dist in var_ignore:
+                print(f"Ignoring {km_dist} for {ch}")
+                return
 
         print(f"Analyzing {km_dist} in {ch}")
 
