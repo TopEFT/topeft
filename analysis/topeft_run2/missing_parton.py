@@ -7,23 +7,27 @@ To create these, run the datacard maker (tllq `with` systematics, tZq without)
 import numpy as np
 import matplotlib.pyplot as plt
 import uproot
+import matplotlib as mpl
+mpl.use('Agg')
 import mplhep as hep
 import math
 import json
 from topeft.modules.comp_datacard import strip
 import re
 
+from topeft.modules.paths import topeft_path
 from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 
 files = ['2lss_4t_m', '2lss_4t_p', '2lss_fwd_m', '2lss_fwd_p', '2lss_m', '2lss_p', '3l_m_offZ_1b', '3l_m_offZ_2b', '3l_onZ_1b', '3l_onZ_2b', '3l_p_offZ_1b', '3l_p_offZ_2b', '4l']
+files = ['2lss_fwd_m', '2lss_fwd_p']
 files_diff = ['2lss_4t_m_4j_2b', '2lss_4t_m_5j_2b', '2lss_4t_m_6j_2b', '2lss_4t_m_7j_2b', '2lss_4t_p_4j_2b', '2lss_4t_p_5j_2b', '2lss_4t_p_6j_2b', '2lss_4t_p_7j_2b', '2lss_m_4j_2b', '2lss_m_5j_2b', '2lss_m_6j_2b', '2lss_m_7j_2b', '2lss_p_4j_2b', '2lss_p_5j_2b', '2lss_p_6j_2b', '2lss_p_7j_2b', '3l_m_offZ_1b_2j', '3l_m_offZ_1b_3j', '3l_m_offZ_1b_4j', '3l_m_offZ_1b_5j', '3l_m_offZ_2b_2j', '3l_m_offZ_2b_3j', '3l_m_offZ_2b_4j', '3l_m_offZ_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
 files_ptz = ['3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j']
 
 def get_hists(fname, path, process):
-    fin = uproot.open('histos/'+path+'/ttx_multileptons-'+fname+'.root')
-    card = strip('histos/'+path+'/ttx_multileptons-'+fname+'.txt')
+    fin = uproot.open('histos/'+path+'/2lss_fwd/ttx_multileptons-'+fname+'.root')
+    card = strip('histos/'+path+'/2lss_fwd/ttx_multileptons-'+fname+'.txt')
     sm = [k.split(';')[0] for k in fin.keys() if 'sm' in k]
 
     nom = {}; up = {}; down = {}
@@ -112,7 +116,7 @@ if __name__ == '__main__':
         print(f'Overwriting contents in {outdir_name}\nUse the `-t` flag to make unique directories')
     save_dir_path = os.path.join(args.output_path,outdir_name)
 
-    fout = 'histos/missing_parton.root'
+    fout = topeft_path('data/missing_parton/missing_parton.root')
     if var == 'njets':
         if not os.path.exists(fout):
             fout = uproot.create(fout)
@@ -151,7 +155,7 @@ if __name__ == '__main__':
                 else:
                     if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
                     else: parton[n] = np.sqrt(np.square(total_private[n] - total_central[n]) - np.square(err[1][n]))
-            if var == 'njets': fout[fname] = {proc : parton/total_private}
+            if var == 'njets': fout[fname.replace('njets', '2b')] = {proc : np.nan_to_num(parton/total_private, 0)}
             else:
                 lep_bin = re.sub('_'+var, '', fname)
                 lep_bin = re.sub('_\wj', '', lep_bin)
