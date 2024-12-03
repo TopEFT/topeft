@@ -1041,7 +1041,6 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                 hist_sig_integrated_ch = hist_sig_integrated_ch.integrate("process")
 
                 # Make the plots
-                print(hist_sig_integrated_ch)
                 if not hist_sig_integrated_ch.eval({}):
                     print("Warning: empty mc histo, continuing")
                     continue
@@ -1078,7 +1077,10 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                     # Integrate
                     hist_sig_grouped_tmp = copy.deepcopy(hist_sig_grouped)
                     hist_sig_grouped_tmp = yt.integrate_out_appl(hist_sig_grouped_tmp,grouped_hist_cat)
-                    hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("process",proc_name[{'process': sum}])
+                    if proc_name not in list(hist_sig_grouped_tmp.axes["process"]):
+                        print(f"Warning: mc histo missing {proc_name}, continuing")
+                        continue
+                    hist_sig_grouped_tmp = hist_sig_grouped_tmp.integrate("process",proc_name)
                     if not hist_sig_grouped_tmp.eval({}):
                         print("Warning: empty mc histo, continuing")
                         continue
@@ -1120,9 +1122,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     elif year == "2016APV":
         mc_wl.append("UL16APV")
         data_wl.append("UL16APV")
-    elif year == "2022":
-        mc_wl.append("central2022")
-        data_wl.append("2022")
     else: raise Exception(f"Error: Unknown year \"{year}\".")
 
     # Get the list of samples we want to plot
@@ -1177,7 +1176,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
-        if 'j0' in var_name: continue
         if (var_name in skip_lst): continue
         #if (var_name not in skip_wlst): continue
         if (var_name == "njets"):
