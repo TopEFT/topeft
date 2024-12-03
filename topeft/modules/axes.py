@@ -70,4 +70,9 @@ info = {
         "variable": [0, 150, 250, 500],
         "label": r"pt of leading hadronic tau (GeV) ",
     },
+    "lt": {
+        "regular": (12, 0, 600),
+        "variable": [0,150,250,500],
+        "label": r"Scalar sum of met at leading leptons (GeV)",
+    },
 }

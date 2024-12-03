@@ -43,6 +43,7 @@ def main():
     parser.add_argument("-s", "--set-up-top22006", action="store_true", help = "Copy the ptz and lj0pt cards used in TOP-22-006 into their own directory.")
     parser.add_argument("-z", "--set-up-offZdivision", action="store_true", help = "Copy the ptz and lj0pt cards with 3l offZ division.")
     parser.add_argument("-t", "--tau-flag", action="store_true", help = "Copy the ptz, lj0pt, and ptz_wtau cards for tau channels.")
+    parser.add_argument(      "--fwd-flag", action="store_true", help = "Copy the ptz, lj0pt, and lt cards for forward channels.")
     args = parser.parse_args()
 
     ###### Print out general info ######
@@ -106,6 +107,8 @@ def main():
             import_sr_ch_lst = select_ch_lst["OFFZ_SPLIT_CH_LST_SR"]
         if args.tau_flag:
             import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
+        if args.fwd_flag:
+            import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
 
         CATSELECTED = []
 
@@ -127,6 +130,8 @@ def main():
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif args.tau_flag and ("1tau_onZ" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
+                    elif args.fwd_flag and ("2lss_fwd" in lep_ch_name):
+                        channelname = lep_ch_name + "_" + jet + "j_lt"
                     else:
                         channelname = lep_ch_name + "_" + jet + "j_lj0pt"
                     CATSELECTED.append(channelname)

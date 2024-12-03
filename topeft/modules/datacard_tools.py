@@ -111,6 +111,8 @@ class MissingParton(RateSystematic):
         "2lss_4t_p": "2lss_4t_p_2b",
         "2lss_m": "2lss_m_2b",
         "2lss_p": "2lss_p_2b",
+        "2lss_fwd_m": "2lss_fwd_m_2b",
+        "2lss_fwd_p": "2lss_fwd_p_2b",
         "3l_onZ_1b": "3l_sfz_1b",
         "3l_onZ_2b": "3l_sfz_2b",
         "3l_p_offZ_1b": "3l1b_p",
@@ -324,6 +326,10 @@ class DatacardMaker():
             # "TTTo2L2Nu", "TTToSemiLeptonic",
             # "data",
         ]
+        self.var_ignore = {
+            "3l": ["lt"],
+            "4l": ["lt"],
+        }
 
         if not self.use_real_data:
             # Since we're just going to generate Asimov data, this lets us drop the real data histograms
@@ -771,6 +777,11 @@ class DatacardMaker():
         elif ch not in self.hists[km_dist].axes["channel"]:
             print(f"[ERROR] Unknown channel {ch}")
             return None
+
+        for lep_chan,var_ignore in self.var_ignore.items():
+            if lep_chan in ch and km_dist in var_ignore:
+                print(f"Ignoring {km_dist} for {ch}")
+                return
 
         print(f"Analyzing {km_dist} in {ch}")
 

@@ -58,13 +58,14 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
         self._offZ_split = offZ_split
         self.tau_h_analysis = tau_h_analysis
+        self.fwd_analysis = fwd_analysis
 
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
@@ -95,7 +96,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 dense_axis,
                 wc_names=wc_names_lst,
                 label=r"Events",
-                rebin=rebin
             )
             histograms[name+"_sumw2"] = HistEFT(
                 proc_axis,
@@ -105,7 +105,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sumw2_axis,
                 wc_names=wc_names_lst,
                 label=r"Events",
-                rebin=rebin
             )
         self._accumulator = histograms
 
@@ -424,10 +423,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                     tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var)
 
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
+            cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=40.)
             goodJets = cleanedJets[cleanedJets.isGood]
+            fwdJets  = cleanedJets[cleanedJets.isFwd]
 
             # Count jets
             njets = ak.num(goodJets)
+            nfwdj = ak.num(fwdJets)
             ht = ak.sum(goodJets.pt,axis=-1)
             j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
 
@@ -573,6 +575,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
             elif self.tau_h_analysis:
                 import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
+            elif self.fwd_analysis:
+                import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
             else:
                 import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
 
@@ -651,6 +655,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
             bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
+            fwdjet_mask       = (nfwdj > 0)  # Used for ttW EWK enriched regions
 
             # Charge masks
             chargel0_p = ak.fill_none(((l0.charge)>0),False)
@@ -674,7 +679,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # 2lss selection
             preselections.add("chargedl0", (chargel0_p | chargel0_m))
-            preselections.add("2lss", (events.is2l & pass_trg))
             preselections.add("2l_nozeeveto", (events.is2l_nozeeveto & pass_trg))
             preselections.add("2los", charge2l_0)
             preselections.add("2lem", events.is_em)
@@ -685,13 +689,24 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("bmask_atleast3m", (bmask_atleast3med))
             preselections.add("bmask_atleast1m2l", (bmask_atleast1med_atleast2loose))
             preselections.add("bmask_atmost2m", (bmask_atmost2med))
-            preselections.add("2l_p", (chargel0_p))
-            preselections.add("2l_m", (chargel0_m))
+            preselections.add("fwdjet_mask", (fwdjet_mask))
+            preselections.add("~fwdjet_mask", (~fwdjet_mask))
             if self.tau_h_analysis:
                 preselections.add("1tau", (tau_L_mask))
                 preselections.add("0tau", (no_tau_mask))
                 preselections.add("onZ_tau", (tl_zpeak_mask))
                 preselections.add("offZ_tau", (~tl_zpeak_mask))
+            if self.fwd_analysis:
+                preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
+                preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
+                preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
+                preselections.add("2lss", (events.is2l & pass_trg & ~fwdjet_mask))
+                preselections.add("2l_p", (chargel0_p & ~fwdjet_mask))
+                preselections.add("2l_m", (chargel0_m & ~fwdjet_mask))
+            else: # Original selections if not using the fwd analysis flag
+                preselections.add("2lss", (events.is2l & pass_trg))
+                preselections.add("2l_p", (chargel0_p))
+                preselections.add("2l_m", (chargel0_m))
 
             # 3l selection
             preselections.add("3l", (events.is3l & pass_trg))
@@ -824,6 +839,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
             lj0pt = ak.max(l_j_pairs_pt,axis=-1)
 
+            # LT
+            lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + met.pt
+
             # Define invariant mass hists
             mll_0_1 = (l0+l1).mass # Invmass for leading two leps
 
@@ -855,6 +873,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
+            varnames["lt"]      = lt
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
