@@ -968,6 +968,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Loop over nlep categories "2l", "3l", "4l"
                     for nlep_cat in cat_dict.keys():
+                        if any(dense_axis_name in var for var in import_sr_cat_dict[nlelp_cat]["var_ignore"]):
+                            continue
                         # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                         # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                         weights_object = weights_dict[nlep_cat]
