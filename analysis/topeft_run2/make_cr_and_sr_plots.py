@@ -699,6 +699,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
     elif year == "2017": sig_wl.append("UL17")
     elif year == "2018": sig_wl.append("UL18")
     elif year == "2016": sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
+    elif year == "2022": sig_wl.append("central2022")
     else: raise Exception
 
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
@@ -841,7 +842,11 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     elif year == "2016APV":
         mc_wl.append("UL16APV")
         data_wl.append("UL16APV")
-    else: raise Exception(f"Error: Unknown year \"{year}\".")
+    elif year == "2022":
+        mc_wl.append("central2022")
+        data_wl.append("2022")
+    else:
+        raise Exception(f"Error: Unknown year \"{year}\".")
 
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
@@ -988,6 +993,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     elif year == "2017": sig_wl.append("UL17")
     elif year == "2018": sig_wl.append("UL18")
     elif year == "2016": sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
+    elif year == "2022": sig_wl.append("central2022")
     else: raise Exception
 
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
@@ -1122,7 +1128,11 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     elif year == "2016APV":
         mc_wl.append("UL16APV")
         data_wl.append("UL16APV")
-    else: raise Exception(f"Error: Unknown year \"{year}\".")
+    elif year == "2022":
+        mc_wl.append("central2022")
+        data_wl.append("2022")
+    else:
+        raise Exception(f"Error: Unknown year \"{year}\".")
 
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
