@@ -11,7 +11,6 @@ import matplotlib as mpl
 mpl.use('Agg')
 import mplhep as hep
 import math
-import json
 from topeft.modules.comp_datacard import strip
 import re
 
