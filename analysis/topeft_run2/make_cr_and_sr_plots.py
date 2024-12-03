@@ -1130,8 +1130,9 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         data_wl.append("UL16APV")
     elif year == "2022":
         mc_wl.append("central2022")
-	data_wl.append("2022")
-    else: raise Exception(f"Error: Unknown year \"{year}\".")
+        data_wl.append("2022")
+    else:
+        raise Exception(f"Error: Unknown year \"{year}\".")
 
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
