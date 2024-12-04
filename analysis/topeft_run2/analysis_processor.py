@@ -229,18 +229,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
         if is_run3:
-            elePresId = ele.mvaNoIso_WP90
-            ele_pres_id_tag = "wp90noiso"
-            eleFOId = ele.mvaNoIso_WP80
-            eleMVATTH = ele.mvaTTH
-            muMVATTH = mu.mvaTTH
+            leptonSelection = te_os.run3leptonselection()
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
         elif is_run2:
-            elePresId = ele.mvaFall17V2noIso_WPL
-            ele_pres_id_tag = "wpLnoiso"
-            eleFOId = ele.mvaFall17V2noIso_WP90
-            eleMVATTH = ele.mvaTTHUL
-            muMVATTH = mu.mvaTTHUL
+            leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
 
         # An array of lenght events that is just 1 for each event
@@ -248,8 +240,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         events.nom = ak.ones_like(events.MET.pt)
 
         ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
-        ele["conept"] = te_os.coneptElec(ele.pt, eleMVATTH, ele.jetRelIso)
-        mu["conept"] = te_os.coneptMuon(mu.pt, muMVATTH, mu.jetRelIso, mu.mediumId)
+        ele["conept"] = leptonSelection.coneptElec(ele)
+        mu["conept"] = leptonSelection.coneptMuon(mu)
         ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
         if not isData:
@@ -286,18 +278,18 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Electron selection ####################
 
-        ele["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, elePresId)
-        ele["isLooseE"] = te_os.isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
-        ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, eleMVATTH, ele.jetRelIso, eleFOId, year)
-        ele["isTightLep"] = te_os.tightSelElec(ele.isFO, eleMVATTH)
+        ele["isPres"] = leptonSelection.isPresElec(ele)
+        ele["isLooseE"] = leptonSelection.isLooseElec(ele)
+        ele["isFO"] = leptonSelection.isFOElec(ele, year)
+        ele["isTightLep"] = leptonSelection.tightSelElec(ele)
 
         ################### Muon selection ####################
 
         mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Run3 ready
-        mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-        mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
-        mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, muMVATTH, mu.jetRelIso, year)
-        mu["isTightLep"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, muMVATTH)
+        mu["isPres"] = leptonSelection.isPresMuon(mu)
+        mu["isLooseM"] = leptonSelection.isLooseMuon(mu)
+        mu["isFO"] = leptonSelection.isFOMuon(mu, year)
+        mu["isTightLep"]= leptonSelection.tightSelMuon(mu)
 
         ################### Loose selection ####################
 
@@ -322,7 +314,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
 
         # Attach the lepton SFs to the electron and muons collections
-        AttachElectronSF(e_fo, year=year, looseWP=ele_pres_id_tag) #Run3 ready
+        AttachElectronSF(e_fo, year=year, looseWP="wpLnoiso" if is_run3 else "none") #Run3 ready
         AttachMuonSF(m_fo,year=year) #Run3 ready
 
         # Attach per lepton fake rates
