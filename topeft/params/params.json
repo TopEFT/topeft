@@ -8,17 +8,10 @@
     "pres_e_pt_cut" : 7.0,
     "pres_m_pt_cut" : 5.0,
 
-    "mva_TTH_e_cut" : 0.90,
-    "mva_TTH_m_cut" : 0.85,
-    "mva_TTH_e_cut_run3" : 0.90,
-    "mva_TTH_m_cut_run3" : 0.64,
-
     "iso_cut" : 0.4,
 
     "fo_m_jetRelIso_cut" : 0.5,
     "fo_e_jetRelIso_cut" : 1.0,
-
-    "fo_e_mvaiso_cut_run3" : 0.6,
 
     "jet_id_cut" : 0,
 
