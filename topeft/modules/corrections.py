@@ -5,6 +5,7 @@
 
 from coffea import lookup_tools
 from topcoffea.modules.paths import topcoffea_path
+from topcoffea.modules.run_dict import is_run2, is_run3
 from topeft.modules.paths import topeft_path
 import numpy as np
 import awkward as ak
@@ -259,7 +260,7 @@ with open(topeft_path('modules/jerc_dict.json'), 'r') as f:
 
 def get_jerc_keys(year, isdata, era=None):
     # Jet Algorithm
-    if year.startswith("202"):
+    if is_run3(year):
         jet_algo = 'AK4PFPuppi'
     else:
         jet_algo = 'AK4PFchs'
@@ -851,7 +852,7 @@ def AttachPerLeptonFR(leps, flavor, year):
     # For FR filepath naming conventions
     if '2016' in year:
         year = '2016APV_2016'
-    elif year.startswith("202"):
+    elif is_run2(year):
         year = '2018'
 
     # Add the flip/fake info into the leps opject
@@ -919,10 +920,6 @@ def AttachMuonSF(muons, year):
     - use loose from correction-lib
     - reco not available yet, but MUO don't bother about that
     '''
-    is_run3 = False
-    if year.startswith("202"):
-        is_run3 = True
-    is_run2 = not is_run3
 
     eta = np.abs(muons.eta)
     pt = muons.pt
@@ -963,7 +960,7 @@ def AttachMuonSF(muons, year):
     pt_flat_reco = ak.where(~pt_mask_reco, 40., pt_flat)
     pt_flat_loose = ak.where(~pt_mask, 15., pt_flat)
 
-    if is_run2:
+    if is_run2(year):
         ## The only one to be actually got from clib for Run2<
         loose_sf_flat = ak.where(
             ~pt_mask,
@@ -1004,7 +1001,7 @@ def AttachMuonSF(muons, year):
         new_up = new_sf + new_err
         new_do = new_sf - new_err
 
-    elif is_run3:
+    elif is_run3(year):
         loose_sf_flat = ak.where(
             ~pt_mask,
             1,
@@ -1067,11 +1064,7 @@ def AttachElectronSF(electrons, year, looseWP=None):
     if looseWP is None:
         raise ValueError('when calling AttachElectronSF, a looseWP value must be provided according to the ele ID isPres selection')
 
-    is_run3 = False
-    if year.startswith("202"):
-        is_run3 = True
-    is_run2 = not is_run3
-    dt_era = "Run3" if is_run3 else "Run2"
+    dt_era = "Run3" if is_run3(year) else "Run2"
 
     eta = electrons.eta
     pt = electrons.pt
@@ -1115,7 +1108,7 @@ def AttachElectronSF(electrons, year, looseWP=None):
 
     egm_year = egm_tag_map[clib_year]
     egm_tag = "Electron-ID-SF"
-    if is_run2:
+    if is_run2(year):
         egm_tag = "UL-" + "Electron-ID-SF"
 
     for bintag, bin_edges in pt_bins.items():
@@ -1168,7 +1161,7 @@ def AttachElectronSF(electrons, year, looseWP=None):
     reco_up = ak.unflatten(reco_up_flat, ak.num(pt))
     reco_do = ak.unflatten(reco_do_flat, ak.num(pt))
 
-    if is_run3:
+    if is_run3(year):
         loose_sf_flat = None
         loose_up_flat = None
         loose_do_flat = None
@@ -1513,7 +1506,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
 # https://gitlab.cern.ch/akhukhun/roccor
 # https://github.com/CoffeaTeam/coffea/blob/master/coffea/lookup_tools/rochester_lookup.py
 def ApplyRochesterCorrections(year, mu, is_data):
-    if year.startswith('201'): #Run2 scenario
+    if is_run2(year): #Run2 scenario
         rocco_tag = None
         if year == '2016':
             rocco_tag = "2016bUL"
@@ -1651,19 +1644,14 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     return [GetTrig, GetTrigDo, GetTrigUp]
 
 def GetTriggerSF(year, events, lep0, lep1):
-    is_run3 = False
-    if year.startswith("202"):
-        is_run3 = True
-    is_run2 = not is_run3
-
     ls = []
     for syst in [0,1]:
         #2l
-        if is_run2:
+        if is_run2(year):
             SF_ee = np.where((events.is2l & events.is_ee), LoadTriggerSF(year,ch='2l',flav='ee')[syst](lep0.pt,lep1.pt), 1.0)
             SF_em = np.where((events.is2l & events.is_em), LoadTriggerSF(year,ch='2l',flav='em')[syst](lep0.pt,lep1.pt), 1.0)
             SF_mm = np.where((events.is2l & events.is_mm), LoadTriggerSF(year,ch='2l',flav='mm')[syst](lep0.pt,lep1.pt), 1.0)
-        elif is_run3:
+        elif is_run3(year):
             SF_ee = ak.ones_like(events.is2l)
             SF_em = ak.ones_like(events.is2l)
             SF_mm = ak.ones_like(events.is2l)
