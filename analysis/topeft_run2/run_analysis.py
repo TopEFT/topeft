@@ -7,8 +7,7 @@ import cloudpickle
 import gzip
 import os
 
-import numpy as np
-from coffea import hist, processor
+from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
 import topcoffea.modules.utils as utils
@@ -258,11 +257,11 @@ if __name__ == '__main__':
             'tasks_accum_log': 'tasks.log',
 
             'environment_file': remote_environment.get_environment(
-                extra_pip_local = {"topeft": ["topeft", "setup.py"],"coffea": ["coffea"]},
+                extra_pip_local = {"topeft": ["topeft", "setup.py"]},
             ),
             'extra_input_files': ["analysis_processor.py"],
 
-            'retries': 5,
+            'retries': 20,
 
             # use mid-range compression for chunks results. 9 is the default for work
             # queue in coffea. Valid values are 0 (minimum compression, less memory
@@ -276,6 +275,7 @@ if __name__ == '__main__':
             # forever until a larger worker connects.
             'resource_monitor': True,
             'resources_mode': 'auto',
+            #'filepath': f'/tmp/{os.environ["USER"]}', ##Placeholder to comment out if you don't want to save wq-factory dirs in afs
 
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
@@ -323,7 +323,7 @@ if __name__ == '__main__':
     tstart = time.time()
 
     if executor == "futures":
-        exec_instance = processor.FuturesExecutor(workers=nworkers)
+        exec_instance = processor.futures_executor(workers=nworkers)
         runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
     elif executor ==  "work_queue":
         executor = processor.WorkQueueExecutor(**executor_args)
@@ -336,9 +336,9 @@ if __name__ == '__main__':
     if executor == "work_queue":
         print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
 
-    nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
+    #nbins = sum(sum(arr.size for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
+    #nfilled = sum(sum(np.sum(arr > 0) for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
+    #print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
     if executor == "futures":
         print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
