@@ -1,6 +1,5 @@
 '''
  selection.py
-
  This script contains several functions that implement the some event selection.
  The functinos defined here can be used to define a selection, signal/control region, etc.
  The functions are called with (jagged)arrays as imputs plus some custom paramenters and return a boolean mask.
@@ -123,24 +122,22 @@ dataset_dict_top22006 = {
             "TripleMu_12_10_5",
         ],
         "EGamma" : [
-            "Ele30_WPTight_Gsf"
             "Ele32_WPTight_Gsf",
             "Ele35_WPTight_Gsf",
             "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
-	        "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
-	        "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
-         ],
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
+        ],
         "MuonEG" : [
-	        "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
-	        "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
-	        "Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
-	        "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
-	        "Mu8_DiEle12_CaloIdL_TrackIdL",
-	        "Mu8_DiEle12_CaloIdL_TrackIdL_DZ",
-        	"DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_DiEle12_CaloIdL_TrackIdL",
+            "Mu8_DiEle12_CaloIdL_TrackIdL_DZ",
+            "DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
         ],
     },
-
 }
 
 
@@ -169,7 +166,6 @@ exclude_dict_top22006 = {
         "MuonEG"         : dataset_dict_top22006["2018"]["DoubleMuon"] + dataset_dict_top22006["2018"]["EGamma"],
         "SingleMuon"     : dataset_dict_top22006["2018"]["DoubleMuon"] + dataset_dict_top22006["2018"]["EGamma"] + dataset_dict_top22006["2018"]["MuonEG"],
     },
-    #NEW - Placeholders
     "2022": {
         "Muon"           : [],
         "EGamma"         : dataset_dict_top22006["2022"]["Muon"],
@@ -239,10 +235,10 @@ def add1lMaskAndSFs(events, year, isData, sampleType):
 
 # 2l selection (we do not make the ss requirement here)
 def add2lMaskAndSFs(events, year, isData, sampleType):
-
     # FOs and padded FOs
     FOs = events.l_fo_conept_sorted
     padded_FOs = ak.pad_none(FOs,2)
+
     # Filters and cleanups
     filter_flags = events.Flag
     filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & (((year == "2016")|(year == "2016APV")) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
@@ -290,7 +286,6 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     events['is2l_nozeeveto'] = ak.fill_none(mask_nozeeveto,False)
 
     # SFs
-    # NEW - comment out
     events['sf_2l_muon'] = padded_FOs[:,0].sf_nom_2l_muon*padded_FOs[:,1].sf_nom_2l_muon
     events['sf_2l_elec'] = padded_FOs[:,0].sf_nom_2l_elec*padded_FOs[:,1].sf_nom_2l_elec
     events['sf_2l_hi_muon'] = padded_FOs[:,0].sf_hi_2l_muon*padded_FOs[:,1].sf_hi_2l_muon
@@ -303,7 +298,6 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     events['is2l_SR'] = ak.fill_none(events['is2l_SR'],False)
 
     # FF:
-    #NEW - comment out
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
 
 
@@ -358,7 +352,6 @@ def add3lMaskAndSFs(events, year, isData, sampleType):
     events['is3l'] = ak.fill_none(mask,False)
 
     # SFs
-    # NEW - comment out
     events['sf_3l_muon'] = padded_FOs[:,0].sf_nom_3l_muon*padded_FOs[:,1].sf_nom_3l_muon*padded_FOs[:,2].sf_nom_3l_muon
     events['sf_3l_elec'] = padded_FOs[:,0].sf_nom_3l_elec*padded_FOs[:,1].sf_nom_3l_elec*padded_FOs[:,2].sf_nom_3l_elec
     events['sf_3l_hi_muon'] = padded_FOs[:,0].sf_hi_3l_muon*padded_FOs[:,1].sf_hi_3l_muon*padded_FOs[:,2].sf_hi_3l_muon
@@ -404,7 +397,6 @@ def add4lMaskAndSFs(events, year, isData):
     events['is4l'] = ak.fill_none(mask,False)
 
     # SFs:
-    #NEW - comment out
     events['sf_4l_muon'] = padded_FOs[:,0].sf_nom_3l_muon*padded_FOs[:,1].sf_nom_3l_muon*padded_FOs[:,2].sf_nom_3l_muon*padded_FOs[:,3].sf_nom_3l_muon
     events['sf_4l_elec'] = padded_FOs[:,0].sf_nom_3l_elec*padded_FOs[:,1].sf_nom_3l_elec*padded_FOs[:,2].sf_nom_3l_elec*padded_FOs[:,3].sf_nom_3l_elec
     events['sf_4l_hi_muon'] = padded_FOs[:,0].sf_hi_3l_muon*padded_FOs[:,1].sf_hi_3l_muon*padded_FOs[:,2].sf_hi_3l_muon*padded_FOs[:,3].sf_hi_3l_muon

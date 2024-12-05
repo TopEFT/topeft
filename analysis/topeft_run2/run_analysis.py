@@ -258,7 +258,7 @@ if __name__ == '__main__':
                 extra_pip_local = {"topeft": ["topeft", "setup.py"]},
             ),
             'extra_input_files': ["analysis_processor.py"],
-            'filepath': f'/scratch365/{os.environ["USER"]}',
+
             'retries': 20,
 
             # use mid-range compression for chunks results. 9 is the default for work
@@ -273,6 +273,7 @@ if __name__ == '__main__':
             # forever until a larger worker connects.
             'resource_monitor': True,
             'resources_mode': 'auto',
+            #'filepath': f'/tmp/{os.environ["USER"]}', ##Placeholder to comment out if you don't want to save wq-factory dirs in afs
 
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
