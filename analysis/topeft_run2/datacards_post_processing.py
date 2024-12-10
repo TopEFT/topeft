@@ -1,7 +1,7 @@
 import os
 import shutil
 import argparse
-
+import json
 # This script does some basic checks of the cards and templates produced by the `make_cards.py` script.
 #   - It also can parse the condor log files and dump a summary of the contents
 #   - Additionally, it can also grab the right set of ptz and lj0pt templates (for the right categories) used in TOP-22-006
@@ -17,50 +17,49 @@ IGNORE_LINES = [
 # The list of ptz and lj0pt we choose to use in each category for TOP-22-006
 TOP22006_CATEGORIES = [
 
-    "ttx_multileptons-3l_onZ_1b_2j_ptz",
-    "ttx_multileptons-3l_onZ_1b_3j_ptz",
-    "ttx_multileptons-3l_onZ_1b_4j_ptz",
-    "ttx_multileptons-3l_onZ_1b_5j_ptz",
-    "ttx_multileptons-3l_onZ_2b_4j_ptz",
-    "ttx_multileptons-3l_onZ_2b_5j_ptz",
-
-    "ttx_multileptons-2lss_4t_m_4j_lj0pt",
-    "ttx_multileptons-2lss_4t_m_5j_lj0pt",
-    "ttx_multileptons-2lss_4t_m_6j_lj0pt",
-    "ttx_multileptons-2lss_4t_m_7j_lj0pt",
-    "ttx_multileptons-2lss_4t_p_4j_lj0pt",
-    "ttx_multileptons-2lss_4t_p_5j_lj0pt",
-    "ttx_multileptons-2lss_4t_p_6j_lj0pt",
-    "ttx_multileptons-2lss_4t_p_7j_lj0pt",
-    "ttx_multileptons-2lss_m_4j_lj0pt",
-    "ttx_multileptons-2lss_m_5j_lj0pt",
-    "ttx_multileptons-2lss_m_6j_lj0pt",
-    "ttx_multileptons-2lss_m_7j_lj0pt",
-    "ttx_multileptons-2lss_p_4j_lj0pt",
-    "ttx_multileptons-2lss_p_5j_lj0pt",
-    "ttx_multileptons-2lss_p_6j_lj0pt",
-    "ttx_multileptons-2lss_p_7j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_1b_2j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_1b_3j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_1b_4j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_1b_5j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_2b_2j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_2b_3j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_2b_4j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_2b_5j_lj0pt",
-    "ttx_multileptons-3l_onZ_2b_2j_lj0pt",
-    "ttx_multileptons-3l_onZ_2b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_1b_2j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_1b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_1b_4j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_1b_5j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_2b_2j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_2b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_2b_4j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_2b_5j_lj0pt",
-    "ttx_multileptons-4l_2j_lj0pt",
-    "ttx_multileptons-4l_3j_lj0pt",
-    "ttx_multileptons-4l_4j_lj0pt",
+    "2lss_4t_m_4j_lj0pt",
+    "2lss_4t_m_5j_lj0pt",
+    "2lss_4t_m_6j_lj0pt",
+    "2lss_4t_m_7j_lj0pt",
+    "2lss_4t_p_4j_lj0pt",
+    "2lss_4t_p_5j_lj0pt",
+    "2lss_4t_p_6j_lj0pt",
+    "2lss_4t_p_7j_lj0pt",
+    "2lss_m_4j_lj0pt",
+    "2lss_m_5j_lj0pt",
+    "2lss_m_6j_lj0pt",
+    "2lss_m_7j_lj0pt",
+    "2lss_p_4j_lj0pt",
+    "2lss_p_5j_lj0pt",
+    "2lss_p_6j_lj0pt",
+    "2lss_p_7j_lj0pt",
+    "3l_m_offZ_1b_2j_lj0pt",
+    "3l_m_offZ_1b_3j_lj0pt",
+    "3l_m_offZ_1b_4j_lj0pt",
+    "3l_m_offZ_1b_5j_lj0pt",
+    "3l_m_offZ_2b_2j_lj0pt",
+    "3l_m_offZ_2b_3j_lj0pt",
+    "3l_m_offZ_2b_4j_lj0pt",
+    "3l_m_offZ_2b_5j_lj0pt",
+    "3l_onZ_1b_2j_ptz",
+    "3l_onZ_1b_3j_ptz",
+    "3l_onZ_1b_4j_ptz",
+    "3l_onZ_1b_5j_ptz",
+    "3l_onZ_2b_2j_lj0pt",
+    "3l_onZ_2b_3j_lj0pt",
+    "3l_onZ_2b_4j_ptz",
+    "3l_onZ_2b_5j_ptz",
+    "3l_p_offZ_1b_2j_lj0pt",
+    "3l_p_offZ_1b_3j_lj0pt",
+    "3l_p_offZ_1b_4j_lj0pt",
+    "3l_p_offZ_1b_5j_lj0pt",
+    "3l_p_offZ_2b_2j_lj0pt",
+    "3l_p_offZ_2b_3j_lj0pt",
+    "3l_p_offZ_2b_4j_lj0pt",
+    "3l_p_offZ_2b_5j_lj0pt",
+    "4l_2j_lj0pt",
+    "4l_3j_lj0pt",
+    "4l_4j_lj0pt",
 ]
 
 # Return list of lines in a file
@@ -89,6 +88,9 @@ def main():
     args = parser.parse_args()
 
     ###### Print out general info ######
+
+    with open(os.path.join(args.datacards_path,'scalings-preselect.json'), 'r') as file:
+        scalings_content = json.load(file)
 
     # Count the number of text data cards and root templates
     n_text_cards = 0
@@ -135,8 +137,6 @@ def main():
         for line in lines_from_condor_out_to_print:
             print(f"\t\t* In {line[0]}: {line[1]}")
 
-
-
     ####### Copy the TOP-22-006 relevant files to their own dir ######
 
     # Grab the ptz-lj0pt cards we want for TOP-22-006, copy into a dir
@@ -148,12 +148,24 @@ def main():
         print(f"\nCopying TOP-22-006 relevant files to {ptzlj0pt_path}...")
         for fname in datacard_files:
             file_name_strip_ext = os.path.splitext(fname)[0]
-            if file_name_strip_ext in TOP22006_CATEGORIES:
-                shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
-                if fname.endswith(".txt"): n_txt += 1
-                if fname.endswith(".root"): n_root += 1
+            for file in TOP22006_CATEGORIES:
+                if file in file_name_strip_ext:
+                    shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
+                    if fname.endswith(".txt"): n_txt += 1
+                    if fname.endswith(".root"): n_root += 1
         #also copy the selectedWCs.txt file
         shutil.copyfile(os.path.join(args.datacards_path,"selectedWCs.txt"),os.path.join(ptzlj0pt_path,"selectedWCs.txt"))
+
+        for item in scalings_content:
+            channel_name = item.get("channel")
+            if channel_name in TOP22006_CATEGORIES:
+                ch_index = TOP22006_CATEGORIES.index(channel_name) + 1
+                item["channel"] = "ch" + str(ch_index)
+            else:
+                scalings_content = [d for d in scalings_content if d != item]
+
+        with open(os.path.join(ptzlj0pt_path, 'scalings.json'), 'w') as file:
+            json.dump(scalings_content, file, indent=4)
 
         # Check that we got the expected number and print what we learn
         print(f"\tNumber of text templates copied: {n_txt}")
