@@ -223,7 +223,6 @@ if __name__ == '__main__':
 
     # Extract the list of all WCs, as long as we haven't already specified one.
     if len(wc_lst) == 0:
-        print("WARNING: specify an ordered list of wcs for scalings, otherwise the order would be arbitrary.")
         for k in samplesdict.keys():
             for wc in samplesdict[k]['WCnames']:
                 if wc not in wc_lst:
