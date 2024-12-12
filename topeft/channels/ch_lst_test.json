@@ -689,22 +689,6 @@
                     "bmask_atleast1m2l",
                     "bmask_atmost2m",
                     "fwdjet_mask"
-                ],
-                [
-                    "2lss_4t_fwd_p",
-                    "2lss",
-                    "2l_p",
-                    "bmask_atleast1m2l",
-                    "bmask_atleast3m",
-                    "fwdjet_mask"
-                ],
-                [
-                    "2lss_4t_fwd_m",
-                    "2lss",
-                    "2l_m",
-                    "bmask_atleast1m2l",
-                    "bmask_atleast3m",
-                    "fwdjet_mask"
                 ]
             ],
             "lep_flav_lst": [
