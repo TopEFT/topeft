@@ -794,7 +794,7 @@
                     "3l_offZ",
                     "bmask_atleast2m",
                     "fwdjet_mask"
-                ],
+                ]
             ],
             "lep_flav_lst": [
                 "eee",
