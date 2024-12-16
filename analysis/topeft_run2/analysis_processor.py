@@ -895,10 +895,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sr_cat_dict[lep_cat] = {}
                 for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
                     jettag = None
-                    if 'fwd' in jettag and not self.fwd_analysis:
+                    if 'fwd' in jet_cat and not self.fwd_analysis:
                         continue
-                    if 'fwd' in jettag and self.fwd_analysis:
-                        jettag = jettag.replace('fwd', '')
+                    if 'fwd' in jet_cat and self.fwd_analysis:
+                        jet_cat = jet_cat.replace('fwd', '')
                     if jet_cat.startswith("="):
                         jettag = "exactly_"
                     elif jet_cat.startswith("<"):
