@@ -121,9 +121,9 @@ def main():
             for lep_ch in lep_ch_list:
                 lep_ch_name = lep_ch[0]
                 for jet in jet_list:
-                    if 'fwd' in jet and not self.fwd_flag:
-                        conitnue
-                    if 'fwd' in jet and self.fwd_flag:
+                    if 'fwd' in jet and not fwd_flag:
+                        continue
+                    if 'fwd' in jet and fwd_flag:
                         jet = jet.replace('fwd', '')
                     # special channels to be binned by ptz instead of lj0pt
                     if lep_ch_name == "3l_onZ_1b" or (lep_ch_name == "3l_onZ_2b" and (int(jet) == 4 or int(jet) == 5)):

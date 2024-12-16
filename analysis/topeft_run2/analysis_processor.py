@@ -896,7 +896,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
                     jettag = None
                     if 'fwd' in jettag and not self.fwd_analysis:
-                        conitnue
+                        continue
                     if 'fwd' in jettag and self.fwd_analysis:
                         jettag = jettag.replace('fwd', '')
                     if jet_cat.startswith("="):
