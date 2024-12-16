@@ -1168,33 +1168,7 @@ def AttachElectronSF(electrons, year, looseWP=None):
     reco_up = ak.unflatten(reco_up_flat, ak.num(pt))
     reco_do = ak.unflatten(reco_do_flat, ak.num(pt))
 
-    if is_run3:
-        loose_sf_flat = None
-        loose_up_flat = None
-        loose_do_flat = None
-        pt_mask = ak.flatten((pt >= 10))
-        egm_args = [eta_flat, pt_bin_flat]
-        if "2023" in year:
-            egm_args.append(phi_flat)
-        loose_sf_flat = ak.where(
-            ~pt_mask,
-            1,
-            ceval[egm_tag].evaluate(egm_year, "sf", looseWP, *egm_args)
-        )
-        loose_up_flat = ak.where(
-            ~pt_mask,
-            1,
-            ceval[egm_tag].evaluate(egm_year, "sfup", looseWP, *egm_args)
-        )
-        loose_do_flat = ak.where(
-            ~pt_mask,
-            1,
-            ceval[egm_tag].evaluate(egm_year, "sfdown", looseWP, *egm_args)
-        )
-        loose_sf = ak.unflatten(loose_sf_flat, ak.num(pt))
-        loose_up = ak.unflatten(loose_up_flat, ak.num(pt))
-        loose_do = ak.unflatten(loose_do_flat, ak.num(pt))
-    else:
+    if not is_run3: # run 3 dont need loose for the id because we dont have ID working point (to be checked!!)
         loose_sf  = SFevaluator['ElecLooseSF_{year}'.format(year=year)](np.abs(eta),pt)
         loose_err = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](np.abs(eta),pt)
         loose_up = loose_sf + loose_err
