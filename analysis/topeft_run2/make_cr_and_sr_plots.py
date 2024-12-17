@@ -75,8 +75,8 @@ SR_CHAN_DICT = {
         "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
     ],
     "2lss_fwd_SR": [
-        "2lss_m_fwd_4j", "2lss_m_fwd_5j", "2lss_m_fwd_6j", "2lss_m_fwd_7j",
-        "2lss_p_fwd_4j", "2lss_p_fwd_5j", "2lss_p_fwd_6j", "2lss_p_fwd_7j",
+        "2lss_fwd_m_4j", "2lss_fwd_m_5j", "2lss_fwd_m_6j", "2lss_fwd_m_7j",
+        "2lss_fwd_p_4j", "2lss_fwd_p_5j", "2lss_fwd_p_6j", "2lss_fwd_p_7j",
     ],
     "3l_offZ_SR" : [
         "3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_m_offZ_1b_5j",
