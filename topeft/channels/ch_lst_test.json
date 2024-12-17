@@ -716,7 +716,8 @@
                     "3l_onZ_1b",
                     "3l",
                     "3l_onZ",
-                    "bmask_exactly1m"
+                    "bmask_exactly1m",
+                    "~fwdjet_mask"
                 ],
                 [
                     "3l_onZ_2b",
@@ -757,7 +758,8 @@
                     "3l_onZ_1b_fwd",
                     "3l",
                     "3l_onZ",
-                    "bmask_exactly1m"
+                    "bmask_exactly1m",
+                    "fwdjet_mask"
                 ],
                 [
                     "3l_onZ_2b_fwd",
