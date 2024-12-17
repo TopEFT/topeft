@@ -964,17 +964,17 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False):
                 os.mkdir(save_dir_path_tmp)
 
             # Rebin into analysis bins
+            '''
             if var_name in analysis_bins.keys():
                 lep_bin = chan_name[:2]
                 # histEFT doesn't support rebinning for now
-                '''
                 if var_name == "njets":
                     hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name][lep_bin]))
                     hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name][lep_bin]))
                 else:
                     hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name]))
                     hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name]))
-                '''
+            '''
 
             if not hist_mc.eval({}):
                 print("Warning: empty mc histo, continuing")
