@@ -40,14 +40,16 @@
   "nSumOfWeights": 34637.37839584,
   "isData": false,
   "path": "/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
-  "nSumOfWeights_ISRUp": 34616.93188950696,
-  "nSumOfWeights_ISRDown": 34657.956368075545,
-  "nSumOfWeights_FSRUp": 34611.76777008246,
-  "nSumOfWeights_FSRDown": 34661.65248035174,
+  "nSumOfWeights_ISRUp": 34657.956368075545,
+  "nSumOfWeights_ISRDown": 34616.93188950696,
+  "nSumOfWeights_FSRUp": 34661.65248035174,
+  "nSumOfWeights_FSRDown": 34611.76777008246,
   "nSumOfWeights_renormUp": 31775.359922526717,
   "nSumOfWeights_renormDown": 37386.27729659824,
   "nSumOfWeights_factUp": 33892.353730655086,
-  "nSumOfWeights_factDown": 35556.8216806938,
-  "nSumOfWeights_renormfactUp": 30854.217935501023,
-  "nSumOfWeights_renormfactDown": 37935.58083296582
+  "nSumOfWeights_factDown": 35556.82168069379,
+  "nSumOfWeights_renormUp_factDown": 32879.66805861878,
+  "nSumOfWeights_renormDown_factUp": 36986.232373410065,
+  "nSumOfWeights_renormfactDown": 32879.66805861878,
+  "nSumOfWeights_renormfactUp": 36986.232373410065
 }
