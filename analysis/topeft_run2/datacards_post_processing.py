@@ -144,7 +144,7 @@ def main():
     os.mkdir(ptzlj0pt_path)
     if args.set_up_top22006:
         print(f"\nCopying TOP-22-006 relevant files to {ptzlj0pt_path}...")
-        
+
     if args.set_up_offZdivision:
         print(f"\nCopying 3l-offZ-division relevant files to {ptzlj0pt_path}...")
     for fname in datacard_files:
