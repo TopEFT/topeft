@@ -578,7 +578,7 @@ def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
         eta = padded_taus.eta
         gen = padded_taus.genPartFlav
         mass= padded_taus.mass
-        
+
         clib_year = clib_year_map[year]
         json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
         ceval = correctionlib.CorrectionSet.from_file(json_path)
@@ -591,11 +591,11 @@ def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
             ("DeepTau2017v2p1VSe", ak.flatten(padded_taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
             ("DeepTau2017v2p1VSmu", ak.flatten(padded_taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
         ]
-        
+
         DT_sf_list = []
         DT_up_list = []
         DT_do_list = []
-        
+
         for deep_tau_cut in deep_tau_cuts:
             discr = deep_tau_cut[0]
             id_mask = deep_tau_cut[1]
@@ -631,7 +631,7 @@ def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
                     ceval[discr].evaluate(*args_down)
                 )
             )
-            
+
         DT_sf_flat = None
         DT_up_flat = None
         DT_do_flat = None
@@ -647,12 +647,12 @@ def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
                 DT_sf_flat *= DT_sf_discr
                 DT_up_flat *= DT_up_discr
                 DT_do_flat *= DT_do_discr
-                
+
         DT_sf = ak.unflatten(DT_sf_flat, ak.num(pt))
         DT_up = ak.unflatten(DT_up_flat, ak.num(pt))
         DT_do = ak.unflatten(DT_do_flat, ak.num(pt))
         ## end of correction-lib implementation
-      
+
     return (taus.pt*tes*fes, taus.mass*tes*fes)
 
 def ApplyTESSystematic(year, taus, isData, syst_name):
@@ -763,11 +763,11 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
         padded_taus["sf_tau"] = 1.0
         padded_taus["sf_tau_up"] = 1.0
         padded_taus["sf_tau_down"] = 1.0
-        
+
         clib_year = clib_year_map[year]
         json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
         ceval = correctionlib.CorrectionSet.from_file(json_path)
-        
+
         DT_sf_list = []
         DT_up_list = []
         DT_do_list = []
@@ -835,7 +835,7 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
         DT_sf = ak.unflatten(DT_sf_flat, ak.num(pt))
         DT_up = ak.unflatten(DT_up_flat, ak.num(pt))
         DT_do = ak.unflatten(DT_do_flat, ak.num(pt))
-        
+
         DT_sf *= new_fake_sf
         DT_up *= new_fake_sf_up
         DT_do *= new_fake_sf_down
