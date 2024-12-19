@@ -5,7 +5,7 @@
 
 from coffea import lookup_tools
 from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.run_dict import is_run2, is_run3
+from topcoffea.modules.run_id import is_run2, is_run3
 from topeft.modules.paths import topeft_path
 import numpy as np
 import awkward as ak
