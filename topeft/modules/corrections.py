@@ -569,6 +569,16 @@ def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
 
     if False:
         ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
+        padded_taus = ak.pad_none(taus,1)
+        padded_taus = ak.with_name(padded_taus, "TauCandidate")
+
+        pt  = padded_taus.pt
+        dm  = padded_taus.decayMode
+        wp  = padded_taus.idDeepTau2017v2p1VSjet
+        eta = padded_taus.eta
+        gen = padded_taus.genPartFlav
+        mass= padded_taus.mass
+        
         clib_year = clib_year_map[year]
         json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
         ceval = correctionlib.CorrectionSet.from_file(json_path)
