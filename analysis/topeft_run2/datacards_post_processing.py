@@ -48,6 +48,9 @@ def main():
 
     ###### Print out general info ######
 
+    with open(os.path.join(args.datacards_path,'scalings-preselect.json'), 'r') as file:
+        scalings_content = json.load(file)
+
     # Count the number of text data cards and root templates
     n_text_cards = 0
     n_root_templates = 0
@@ -92,8 +95,6 @@ def main():
         print(f"\tNumber of ERROR lines in condor out files: {len(lines_from_condor_out_to_print)}")
         for line in lines_from_condor_out_to_print:
             print(f"\t\t* In {line[0]}: {line[1]}")
-
-
 
     ####### Copy the TOP-22-006 relevant files to their own dir ######
 
@@ -143,6 +144,7 @@ def main():
     os.mkdir(ptzlj0pt_path)
     if args.set_up_top22006:
         print(f"\nCopying TOP-22-006 relevant files to {ptzlj0pt_path}...")
+        
     if args.set_up_offZdivision:
         print(f"\nCopying 3l-offZ-division relevant files to {ptzlj0pt_path}...")
     for fname in datacard_files:
@@ -161,7 +163,6 @@ def main():
     if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))):
         raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
     print("Done.\n")
-
 
 
 main()
