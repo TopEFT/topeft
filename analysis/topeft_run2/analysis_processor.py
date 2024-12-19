@@ -723,13 +723,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
                 preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
                 preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
-                preselections.add("2lss", (events.is2l & pass_trg & ~fwdjet_mask))
-                preselections.add("2l_p", (chargel0_p & ~fwdjet_mask))
-                preselections.add("2l_m", (chargel0_m & ~fwdjet_mask))
-            else: # Original selections if not using the fwd analysis flag
-                preselections.add("2lss", (events.is2l & pass_trg))
-                preselections.add("2l_p", (chargel0_p))
-                preselections.add("2l_m", (chargel0_m))
+
+            # 2lss selection
+            preselections.add("2lss", (events.is2l & pass_trg))
+            preselections.add("2l_p", (chargel0_p))
+            preselections.add("2l_m", (chargel0_m))
 
             # 3l selection
             preselections.add("3l", (events.is3l & pass_trg))

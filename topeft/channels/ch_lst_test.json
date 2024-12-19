@@ -663,32 +663,28 @@
                     "2lss",
                     "2l_p",
                     "bmask_atleast1m2l",
-                    "bmask_atleast3m",
-                    "~fwdjet_mask"
+                    "bmask_atleast3m"
                 ],
                 [
                     "2lss_4t_m",
                     "2lss",
                     "2l_m",
                     "bmask_atleast1m2l",
-                    "bmask_atleast3m",
-                    "~fwdjet_mask"
+                    "bmask_atleast3m"
                 ],
                 [
                     "2lss_fwd_p",
                     "2lss_fwd",
                     "2l_fwd_p",
                     "bmask_atleast1m2l",
-                    "bmask_atmost2m",
-                    "fwdjet_mask"
+                    "bmask_atmost2m"
                 ],
                 [
                     "2lss_fwd_m",
                     "2lss_fwd",
                     "2l_fwd_m",
                     "bmask_atleast1m2l",
-                    "bmask_atmost2m",
-                    "fwdjet_mask"
+                    "bmask_atmost2m"
                 ]
             ],
             "lep_flav_lst": [
