@@ -15,29 +15,39 @@ get_te_param = GetParam(topeft_path("params/params.json"))
 
 ### These functions have been synchronized with ttH ###
 
-def isPresTau(pt, eta, dxy, dz, idDeepTau2017v2p1VSjet, minpt=20.0):
-    return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTau2017v2p1VSjet>>1 & 1 ==1)
+def isPresTau(pt, eta, dxy, dz, idDeepTauVSjet, idDeepTauVSe, idDeepTauVSmu, minpt=20.0):
+    return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTauVSjet>>3 & 1 ==1)&(idDeepTauVSe>>1 & 1 ==1)&(idDeepTauVSmu>>1 & 1 ==1)
 
-def isVLooseTau(idDeepTau2017v2p1VSjet):
-    return (idDeepTau2017v2p1VSjet>>2 & 1)
+def isVLooseTau(idDeepTauVSjet):
+    return (idDeepTauVSjet>>2 & 1)
 
-def isLooseTau(idDeepTau2017v2p1VSjet):
-    return (idDeepTau2017v2p1VSjet>>3 & 1)
+def isLooseTau(idDeepTauVSjet):
+    return (idDeepTauVSjet>>3 & 1)
 
-def isMediumTau(idDeepTau2017v2p1VSjet):
-    return (idDeepTau2017v2p1VSjet>>4 & 1)
+def isMediumTau(idDeepTauVSjet):
+    return (idDeepTauVSjet>>4 & 1)
 
-def isTightTau(idDeepTau2017v2p1VSjet):
-    return (idDeepTau2017v2p1VSjet>>5 & 1)
+def isTightTau(idDeepTauVSjet):
+    return (idDeepTauVSjet>>5 & 1)
 
-def isVTightTau(idDeepTau2017v2p1VSjet):
-    return (idDeepTau2017v2p1VSjet>>6 & 1)
+def isVTightTau(idDeepTauVSjet):
+    return (idDeepTauVSjet>>6 & 1)
 
-def isVVTightTau(idDeepTau2017v2p1VSjet):
-    return (idDeepTau2017v2p1VSjet>>7 & 1)
+def isVVTightTau(idDeepTauVSjet):
+    return (idDeepTauVSjet>>7 & 1)
+
+def iseTightTau(idDeepTauVSe):
+    return (idDeepTauVSe>>1 & 1)
+
+def ismTightTau(idDeepTauVSmu):
+    return (idDeepTauVSmu>>1 & 1)
 
 def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
     return (hoe<(0.10-0.00*(abs(eta+deltaEtaSC)>1.479))) & (eInvMinusPInv>-0.04) & (sieie<(0.011+0.019*(abs(eta+deltaEtaSC)>1.479)))
+
+def isFwdJet(pt, eta, jet_id, jetPtCut=25.0):
+    mask = ((pt>jetPtCut) & (abs(eta)>get_te_param("eta_j_cut")) & (jet_id>get_te_param("jet_id_cut")))
+    return mask
 
 def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
 
