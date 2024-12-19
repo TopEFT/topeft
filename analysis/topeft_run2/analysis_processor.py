@@ -63,7 +63,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
-        self._offZ_split = offZ_split
+        self.3l_offZ_split = offZ_split
         self.tau_h_analysis = tau_h_analysis
         self.fwd_analysis = fwd_analysis
 
@@ -592,7 +592,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 select_cat_dict = json.load(ch_json_test)
 
             # This dictionary keeps track of which selections go with which SR categories
-            if self._offZ_split:
+            if self.3l_offZ_split:
                 import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
             elif self.tau_h_analysis:
                 import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
@@ -657,9 +657,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Get mask for events that have two sf os leps close to z peak
             sfosz_3l_OnZ_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
-            sfosz_3l_OffZ_mask = ~sfosz_3l_OnZ_mask
-            sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
-            sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
+            if self.3l_offZ_split:
+                sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
+                sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
+            else:
+                sfosz_3l_OffZ_mask = ~sfosz_3l_OnZ_mask
             sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
             sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
             if self.tau_h_analysis:
@@ -739,7 +741,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
             preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
 
-            if self._offZ_split:
+            if self.3l_offZ_split:
                 preselections.add("3l_offZ_low", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask))
                 preselections.add("3l_offZ_high", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask))
                 preselections.add("3l_offZ_none", (sfosz_3l_OffZ_mask & ~sfosz_3l_OffZ_any_mask))
@@ -837,7 +839,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             if self.tau_h_analysis:
                 ptz_wtau = (l0+tau0).pt
-            if self._offZ_split:
+            if self.3l_offZ_split:
                 ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
@@ -1072,7 +1074,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Skip histos that are not defined (or not relevant) to given categories
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
-                                        if self._offZ_split:
+                                        if self.3l_offZ_split:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
                                         elif self.tau_h_analysis:
                                             if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
