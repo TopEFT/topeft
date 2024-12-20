@@ -74,15 +74,29 @@ SR_CHAN_DICT = {
         "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
         "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
     ],
+    "2lss_fwd_SR": [
+        "2lss_fwd_m_4j", "2lss_fwd_m_5j", "2lss_fwd_m_6j", "2lss_fwd_m_7j",
+        "2lss_fwd_p_4j", "2lss_fwd_p_5j", "2lss_fwd_p_6j", "2lss_fwd_p_7j",
+    ],
     "3l_offZ_SR" : [
         "3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_m_offZ_1b_5j",
         "3l_m_offZ_2b_2j", "3l_m_offZ_2b_3j", "3l_m_offZ_2b_4j", "3l_m_offZ_2b_5j",
         "3l_p_offZ_1b_2j", "3l_p_offZ_1b_3j", "3l_p_offZ_1b_4j", "3l_p_offZ_1b_5j",
         "3l_p_offZ_2b_2j", "3l_p_offZ_2b_3j", "3l_p_offZ_2b_4j", "3l_p_offZ_2b_5j",
     ],
+    "3l_offZ_fwd_SR" : [
+        "3l_m_offZ_1b_fwd_2j","3l_m_offZ_1b_fwd_3j", "3l_m_offZ_1b_fwd_4j", "3l_m_offZ_1b_fwd_5j",
+        "3l_m_offZ_2b_fwd_2j","3l_m_offZ_2b_fwd_3j", "3l_m_offZ_2b_fwd_4j", "3l_m_offZ_2b_fwd_5j",
+        "3l_p_offZ_1b_fwd_2j","3l_p_offZ_1b_fwd_3j", "3l_p_offZ_1b_fwd_4j", "3l_p_offZ_1b_fwd_5j",
+        "3l_p_offZ_2b_fwd_2j","3l_p_offZ_2b_fwd_3j", "3l_p_offZ_2b_fwd_4j", "3l_p_offZ_2b_fwd_5j",
+    ],
     "3l_onZ_SR" : [
         "3l_onZ_1b_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
         "3l_onZ_2b_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
+    ],
+    "3l_onZ_fwd_SR" : [
+        "3l_onZ_1b_fwd_2j"   ,"3l_onZ_1b_fwd_3j"   , "3l_onZ_1b_fwd_4j"   , "3l_onZ_1b_fwd_5j",
+        "3l_onZ_2b_fwd_2j"   ,"3l_onZ_2b_fwd_3j"   , "3l_onZ_2b_fwd_4j"   , "3l_onZ_2b_fwd_5j",
     ],
     "4l_SR" : [
         "4l_2j", "4l_3j", "4l_4j",
@@ -819,7 +833,7 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
 
 ###################### Wrapper function for SR data and mc plots (unblind!) ######################
 # Wrapper function to loop over all SR categories and make plots for all variables
-def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
+def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False):
 
     # Construct list of MC samples
     mc_wl = []
@@ -922,6 +936,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         # Extract the MC and data hists
         hist_mc_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_data_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
+        if not unblind: hist_data_orig = hist_mc_orig
 
         # Loop over channels
         channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
@@ -949,17 +964,17 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                 os.mkdir(save_dir_path_tmp)
 
             # Rebin into analysis bins
+            '''
             if var_name in analysis_bins.keys():
                 lep_bin = chan_name[:2]
                 # histEFT doesn't support rebinning for now
-                '''
                 if var_name == "njets":
                     hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name][lep_bin]))
                     hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name][lep_bin]))
                 else:
                     hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name]))
                     hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name]))
-                '''
+            '''
 
             if not hist_mc.eval({}):
                 print("Warning: empty mc histo, continuing")
@@ -1332,7 +1347,10 @@ def main():
     # Make the plots
     make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    # Blinded plots (Asimov data)
     #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
+    # Unblinded plots (real data)
+    #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,unblid=True)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
     #make_simple_plots(hin_dict,args.year,save_dir_path)
 

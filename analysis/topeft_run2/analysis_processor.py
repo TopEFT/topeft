@@ -718,24 +718,37 @@ class AnalysisProcessor(processor.ProcessorABC):
                 preselections.add("onZ_tau", (tl_zpeak_mask))
                 preselections.add("offZ_tau", (~tl_zpeak_mask))
             if self.fwd_analysis:
+                preselections.add("2lss_fwd", (events.is2l & pass_trg))
+                preselections.add("2l_fwd_p", (chargel0_p))
+                preselections.add("2l_fwd_m", (chargel0_m))
+                preselections.add("2lss", (events.is2l & pass_trg))
+                preselections.add("2l_p", (chargel0_p))
+                preselections.add("2l_m", (chargel0_m))
+                preselections.add("3l_fwd", (events.is3l & pass_trg))
+                preselections.add("3l_p_fwd", (events.is3l & pass_trg & charge3l_p))
+                preselections.add("3l_m_fwd", (events.is3l & pass_trg & charge3l_m))
+                preselections.add("3l_onZ_fwd", (sfosz_3l_OnZ_mask))
+                preselections.add("3l", (events.is3l & pass_trg))
+                preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
+                preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
+                preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
+            else: # Original selections if not using the fwd analysis flag
+                preselections.add("2lss", (events.is2l & pass_trg))
+                preselections.add("2l_p", (chargel0_p))
+                preselections.add("2l_m", (chargel0_m))
+                preselections.add("3l", (events.is3l & pass_trg))
+                preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
+                preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
+                preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
                 preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
                 preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
                 preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
 
-            # 2lss selection
-            preselections.add("2lss", (events.is2l & pass_trg))
-            preselections.add("2l_p", (chargel0_p))
-            preselections.add("2l_m", (chargel0_m))
-
             # 3l selection
-            preselections.add("3l", (events.is3l & pass_trg))
             preselections.add("bmask_exactly0m", (bmask_exactly0med))
             preselections.add("bmask_exactly1m", (bmask_exactly1med))
             preselections.add("bmask_exactly2m", (bmask_exactly2med))
             preselections.add("bmask_atleast2m", (bmask_atleast2med))
-            preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
-            preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
-            preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
 
             if self.offZ_3l_split:
                 preselections.add("3l_offZ_low", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask))
@@ -906,6 +919,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sr_cat_dict[lep_cat] = {}
                 for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
                     jettag = None
+                    if 'fwd' in jet_cat and not self.fwd_analysis:
+                        continue
+                    if 'fwd' in jet_cat and self.fwd_analysis:
+                        jet_cat = jet_cat.replace('fwd', '')
                     if jet_cat.startswith("="):
                         jettag = "exactly_"
                     elif jet_cat.startswith("<"):
