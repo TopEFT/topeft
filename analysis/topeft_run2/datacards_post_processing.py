@@ -131,12 +131,13 @@ def main():
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif args.tau_flag and ("1tau_onZ" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
-                    elif args.fwd_flag and ("fwd" in lep_ch_name):
+                    elif args.fwd_flag and ("2lss" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_lt"
                     else:
                         channelname = lep_ch_name + "_" + jet + "j_lj0pt"
                     CATSELECTED.append(channelname)
 
+    CATSELECTED = sorted(CATSELECTED)
     # Grab the ptz-lj0pt cards we want for TOP-22-006, copy into a dir
     n_txt = 0
     n_root = 0
@@ -156,6 +157,17 @@ def main():
                 if fname.endswith(".root"): n_root += 1
     #also copy the selectedWCs.txt file
     shutil.copyfile(os.path.join(args.datacards_path,"selectedWCs.txt"),os.path.join(ptzlj0pt_path,"selectedWCs.txt"))
+
+    for item in scalings_content:
+        channel_name = item.get("channel")
+        if channel_name in CATSELECTED:
+            ch_index = CATSELECTED.index(channel_name) + 1
+            item["channel"] = "ch" + str(ch_index)
+        else:
+            scalings_content = [d for d in scalings_content if d != item]
+
+    with open(os.path.join(ptzlj0pt_path, 'scalings.json'), 'w') as file:
+        json.dump(scalings_content, file, indent=4)
 
     # Check that we got the expected number and print what we learn
     print(f"\tNumber of text templates copied: {n_txt}")
