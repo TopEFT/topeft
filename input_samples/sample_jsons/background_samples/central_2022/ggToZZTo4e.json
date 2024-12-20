@@ -42,14 +42,16 @@
   "nSumOfWeights": 298185.0,
   "isData": false,
   "path": "/GluGlutoContinto2Zto4E_TuneCP5_13p6TeV_mcfm-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
-  "nSumOfWeights_ISRUp": 298235.4057006836,
-  "nSumOfWeights_ISRDown": 298161.70108032227,
-  "nSumOfWeights_FSRUp": 298166.7347955704,
-  "nSumOfWeights_FSRDown": 298205.58155059814,
+  "nSumOfWeights_ISRUp": 298161.70108032227,
+  "nSumOfWeights_ISRDown": 298235.4057006836,
+  "nSumOfWeights_FSRUp": 298205.58155059814,
+  "nSumOfWeights_FSRDown": 298166.7347955704,
   "nSumOfWeights_renormUp": 298185.0,
   "nSumOfWeights_renormDown": 298185.0,
   "nSumOfWeights_factUp": 298185.0,
   "nSumOfWeights_factDown": 298185.0,
-  "nSumOfWeights_renormfactUp": 298185.0,
-  "nSumOfWeights_renormfactDown": 298185.0
+  "nSumOfWeights_renormUp_factDown": 298185.0,
+  "nSumOfWeights_renormDown_factUp": 298185.0,
+  "nSumOfWeights_renormfactDown": 298185.0,
+  "nSumOfWeights_renormfactUp": 298185.0
 }
