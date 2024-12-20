@@ -1,4 +1,4 @@
-name: chupdate-env
+name: coffea-env
 channels:
   - conda-forge
 dependencies:
