@@ -63,7 +63,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
-        self._offZ_split = offZ_split
+        self.offZ_3l_split = offZ_split
         self.tau_h_analysis = tau_h_analysis
         self.fwd_analysis = fwd_analysis
 
@@ -152,6 +152,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
 
+        is_run3 = False
+        if year.startswith("202"):
+            is_run3 = True
+        is_run2 = not is_run3
+
+        run_era = None
+        if isData:
+            run_era = self._samples[dataset]["path"].split("/")[2].split("-")[0][-1]
+
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
             if histAxisName in get_te_param("lo_xsec_samples"):
@@ -194,9 +203,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_renormfactUp   = -1
             sow_renormfactDown = -1
 
-        datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
+        datasets = ["Muon", "SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets:
-            if d in dataset: dataset = dataset.split('_')[0]
+            if dataset.startswith(d):
+                dataset = dataset.split('_')[0]
 
         # Set the sampleType (used for MC matching requirement)
         sampleType = "prompt"
@@ -215,13 +225,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau  = events.Tau
         jets = events.Jet
 
+
+        if is_run3:
+            leptonSelection = te_os.run3leptonselection()
+            jetsRho = events.Rho["fixedGridRhoFastjetAll"]
+        elif is_run2:
+            leptonSelection = te_os.run2leptonselection()
+            jetsRho = events.fixedGridRhoFastjetAll
+
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
         events.nom = ak.ones_like(events.MET.pt)
 
         ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
-        ele["conept"] = te_os.coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
-        mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
+        ele["conept"] = leptonSelection.coneptElec(ele)
+        mu["conept"] = leptonSelection.coneptMuon(mu)
         ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
         if not isData:
@@ -235,6 +253,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             golden_json_path = topcoffea_path("data/goldenJsons/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt")
         elif year == "2018":
             golden_json_path = topcoffea_path("data/goldenJsons/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt")
+        elif year == "2022":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_Collisions2022_355100_362760_Golden.txt")
+        elif year == "2023":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_Collisions2023_366442_370790_Golden.txt")
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
@@ -254,18 +276,18 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Electron selection ####################
 
-        ele["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
-        ele["isLooseE"] = te_os.isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
-        ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTHUL, ele.jetRelIso, ele.mvaFall17V2noIso_WP90, year)
-        ele["isTightLep"] = te_os.tightSelElec(ele.isFO, ele.mvaTTHUL)
+        ele["isPres"] = leptonSelection.isPresElec(ele)
+        ele["isLooseE"] = leptonSelection.isLooseElec(ele)
+        ele["isFO"] = leptonSelection.isFOElec(ele, year)
+        ele["isTightLep"] = leptonSelection.tightSelElec(ele)
 
         ################### Muon selection ####################
 
-        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
-        mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-        mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
-        mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
-        mu["isTightLep"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
+        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Run3 ready
+        mu["isPres"] = leptonSelection.isPresMuon(mu)
+        mu["isLooseM"] = leptonSelection.isLooseMuon(mu)
+        mu["isFO"] = leptonSelection.isFOMuon(mu, year)
+        mu["isTightLep"]= leptonSelection.tightSelMuon(mu)
 
         ################### Loose selection ####################
 
@@ -282,7 +304,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
 
         # Attach the lepton SFs to the electron and muons collections
-        AttachElectronSF(e_fo,year=year)
+        AttachElectronSF(e_fo,year=year, looseWP="none" if is_run3 else "wpLnoiso") #Run3 ready
         AttachMuonSF(m_fo,year=year)
 
         # Attach per lepton fake rates
@@ -326,15 +348,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######### Systematics ###########
 
         # Define the lists of systematics we include
+        obj_jes_entries = []
+        with open(topeft_path('modules/jerc_dict.json'), 'r') as f:
+            jerc_dict = json.load(f)
+            for junc in jerc_dict[year]['junc']:
+                junc = junc.replace("Regrouped_", "")
+                obj_jes_entries.append(f'JES_{junc}Up')
+                obj_jes_entries.append(f'JES_{junc}Down')
         obj_correction_syst_lst = [
-            f'JER_{year}Up',f'JER_{year}Down', # Systs that affect the kinematics of objects
-            'JES_FlavorQCDUp', 'JES_AbsoluteUp', 'JES_RelativeBalUp', 'JES_BBEC1Up', 'JES_RelativeSampleUp', 'JES_FlavorQCDDown', 'JES_AbsoluteDown', 'JES_RelativeBalDown', 'JES_BBEC1Down', 'JES_RelativeSampleDown'
-        ]
+            f'JER_{year}Up', f'JER_{year}Down'
+        ] + obj_jes_entries
         if self.tau_h_analysis:
             obj_correction_syst_lst.append("TESUp")
             obj_correction_syst_lst.append("TESDown")
             obj_correction_syst_lst.append("FESUp")
             obj_correction_syst_lst.append("FESDown")
+
         wgt_correction_syst_lst = [
             "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown", # Theory systs
@@ -355,29 +384,35 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Note: Here we will to the weights object the SFs that do not depend on any of the forthcoming loops
         weights_obj_base = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         if not isData:
-
             # If this is no an eft sample, get the genWeight
-            if eft_coeffs is None: genw = events["genWeight"]
-            else: genw= np.ones_like(events["event"])
+            if eft_coeffs is None:
+                genw = events["genWeight"]
+            else:
+                genw= np.ones_like(events["event"])
 
             # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
             lumi = 1000.0*get_tc_param(f"lumi_{year}")
             weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
 
+            if is_run2:
+                l1prefiring_args = [events.L1PreFiringWeight.Nom, events.L1PreFiringWeight.Up, events.L1PreFiringWeight.Dn]
+            elif is_run3:
+                l1prefiring_args = [ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom)]
+
             # Attach PS weights (ISR/FSR) and scale weights (renormalization/factorization) and PDF weights
-            tc_cor.AttachPSWeights(events)
-            tc_cor.AttachScaleWeights(events)
-            #AttachPdfWeights(events) # TODO
-            # FSR/ISR weights
+            tc_cor.AttachPSWeights(events) #Run3 ready
+            tc_cor.AttachScaleWeights(events) #Run3 ready (with caveat on "nominal")
+            #AttachPdfWeights(events) #TODO
+            # FSR/ISR weights -- corrections come from AttachPSWeights
             weights_obj_base.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown))
             weights_obj_base.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown))
-            # renorm/fact scale
+            # renorm/fact scale  -- corrections come from AttachScaleWeights
             weights_obj_base.add('renorm', events.nom, events.renormUp*(sow/sow_renormUp), events.renormDown*(sow/sow_renormDown))
             weights_obj_base.add('fact', events.nom, events.factUp*(sow/sow_factUp), events.factDown*(sow/sow_factDown))
-            # Prefiring and PU (note prefire weights only available in nanoAODv9)
-            weights_obj_base.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
-            weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down'))
+            # Prefiring and PU (note prefire weights only available in nanoAODv9 and for Run2)
+            weights_obj_base.add('PreFiring', *l1prefiring_args) #Run3 ready
+            weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down')) #Run3 ready
 
 
         ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
@@ -408,19 +443,21 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
+            cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
+            cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
+            cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
+
             # Jet energy corrections
             if not isData:
-                cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
-                cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
-                cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-                cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
-                events_cache = events.caches[0]
-                cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
-                cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
-                met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
+                cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
                 if self.tau_h_analysis:
                     tau["pt"], tau["mass"]      = ApplyTESSystematic(year, tau, isData, syst_var)
                     tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var)
+
+            events_cache = events.caches[0]
+            cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
+            cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
+            met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era).build(met_raw, cleanedJets, lazy_cache=events_cache)
 
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=40.)
@@ -434,31 +471,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
 
             # Loose DeepJet WP
-            if year == "2017":
-                btagwpl = get_tc_param("btag_wp_loose_UL17")
-            elif year == "2018":
-                btagwpl = get_tc_param("btag_wp_loose_UL18")
-            elif year=="2016":
-                btagwpl = get_tc_param("btag_wp_loose_UL16")
-            elif year=="2016APV":
-                btagwpl = get_tc_param("btag_wp_loose_UL16APV")
-            else:
-                raise ValueError(f"Error: Unknown year \"{year}\".")
+            loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
+            btagwpl = get_tc_param(loose_tag)
             isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
             # Medium DeepJet WP
-            if year == "2017":
-                btagwpm = get_tc_param("btag_wp_medium_UL17")
-            elif year == "2018":
-                btagwpm = get_tc_param("btag_wp_medium_UL18")
-            elif year=="2016":
-                btagwpm = get_tc_param("btag_wp_medium_UL16")
-            elif year=="2016APV":
-                btagwpm = get_tc_param("btag_wp_medium_UL16APV")
-            else:
-                raise ValueError(f"Error: Unknown year \"{year}\".")
+            medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
+            btagwpm = get_tc_param(medium_tag)
             isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
             nbtagsm = ak.num(goodJets[isBtagJetsMedium])
@@ -571,7 +592,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 select_cat_dict = json.load(ch_json_test)
 
             # This dictionary keeps track of which selections go with which SR categories
-            if self._offZ_split:
+            if self.offZ_3l_split:
                 import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
             elif self.tau_h_analysis:
                 import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
@@ -636,9 +657,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Get mask for events that have two sf os leps close to z peak
             sfosz_3l_OnZ_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
-            sfosz_3l_OffZ_mask = ~sfosz_3l_OnZ_mask
-            sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
-            sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
+            if self.offZ_3l_split:
+                sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
+                sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
+            else:
+                sfosz_3l_OffZ_mask = ~sfosz_3l_OnZ_mask
             sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
             sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
             if self.tau_h_analysis:
@@ -719,6 +742,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
                 preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
                 preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
+                preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
+                preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
+                preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
 
             # 3l selection
             preselections.add("bmask_exactly0m", (bmask_exactly0med))
@@ -726,7 +752,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("bmask_exactly2m", (bmask_exactly2med))
             preselections.add("bmask_atleast2m", (bmask_atleast2med))
 
-            if self._offZ_split:
+            if self.offZ_3l_split:
                 preselections.add("3l_offZ_low", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask))
                 preselections.add("3l_offZ_high", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask))
                 preselections.add("3l_offZ_none", (sfosz_3l_OffZ_mask & ~sfosz_3l_OffZ_any_mask))
@@ -824,7 +850,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             if self.tau_h_analysis:
                 ptz_wtau = (l0+tau0).pt
-            if self._offZ_split:
+            if self.offZ_3l_split:
                 ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
@@ -1063,12 +1089,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Skip histos that are not defined (or not relevant) to given categories
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
-                                        if self._offZ_split:
+                                        if self.offZ_3l_split:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
                                         elif self.tau_h_analysis:
                                             if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
                                             if (("ptz" in dense_axis_name) and ("2lss" not in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
                                             if (("ptz_wtau" in dense_axis_name) and ("1tau" not in lep_chan)): continue
+                                        elif self.fwd_analysis:
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                            if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
                                         else:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue

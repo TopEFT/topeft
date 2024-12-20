@@ -48,6 +48,9 @@ def main():
 
     ###### Print out general info ######
 
+    with open(os.path.join(args.datacards_path,'scalings-preselect.json'), 'r') as file:
+        scalings_content = json.load(file)
+
     # Count the number of text data cards and root templates
     n_text_cards = 0
     n_root_templates = 0
@@ -93,8 +96,6 @@ def main():
         for line in lines_from_condor_out_to_print:
             print(f"\t\t* In {line[0]}: {line[1]}")
 
-
-
     ####### Copy the TOP-22-006 relevant files to their own dir ######
 
 
@@ -134,12 +135,13 @@ def main():
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif args.tau_flag and ("1tau_onZ" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
-                    elif args.fwd_flag and ("fwd" in lep_ch_name):
+                    elif args.fwd_flag and ("2lss" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_lt"
                     else:
                         channelname = lep_ch_name + "_" + jet + "j_lj0pt"
                     CATSELECTED.append(channelname)
 
+    CATSELECTED = sorted(CATSELECTED)
     # Grab the ptz-lj0pt cards we want for TOP-22-006, copy into a dir
     n_txt = 0
     n_root = 0
@@ -147,6 +149,7 @@ def main():
     os.mkdir(ptzlj0pt_path)
     if args.set_up_top22006:
         print(f"\nCopying TOP-22-006 relevant files to {ptzlj0pt_path}...")
+
     if args.set_up_offZdivision:
         print(f"\nCopying 3l-offZ-division relevant files to {ptzlj0pt_path}...")
     for fname in datacard_files:
@@ -159,13 +162,23 @@ def main():
     #also copy the selectedWCs.txt file
     shutil.copyfile(os.path.join(args.datacards_path,"selectedWCs.txt"),os.path.join(ptzlj0pt_path,"selectedWCs.txt"))
 
+    for item in scalings_content:
+        channel_name = item.get("channel")
+        if channel_name in CATSELECTED:
+            ch_index = CATSELECTED.index(channel_name) + 1
+            item["channel"] = "ch" + str(ch_index)
+        else:
+            scalings_content = [d for d in scalings_content if d != item]
+
+    with open(os.path.join(ptzlj0pt_path, 'scalings.json'), 'w') as file:
+        json.dump(scalings_content, file, indent=4)
+
     # Check that we got the expected number and print what we learn
     print(f"\tNumber of text templates copied: {n_txt}")
     print(f"\tNumber of root templates copied: {n_txt}")
     if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))):
         raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
     print("Done.\n")
-
 
 
 main()
