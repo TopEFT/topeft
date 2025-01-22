@@ -4,8 +4,6 @@
 #"weights" and "eft_coeffs" should be arrays without any cuts applied
 
 import numpy as np
-import hist
-from topcoffea.modules.histEFT import HistEFT
 
 def fill_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weights, eft_coeffs, all_mask, suffix=""):
     """Helper function to fill histograms with appropriate parameters."""
