@@ -782,14 +782,14 @@
         ">4"
             ]
         }
-    }
+    },
     "TTA_CH_LST_SR": {
         "2l": {
             "lep_chan_lst": [
                 [
                     "2los_ph",
                     "bmask_atleast1med"
-                ],
+                ]
             ],
             "lep_flav_lst": [
                 "ee",
