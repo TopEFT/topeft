@@ -125,7 +125,6 @@ if __name__ == '__main__':
     if args.hist_list == ["ana"]:
         # Here we hardcode a list of hists used for the analysis
         hist_lst = ["njets","lj0pt","ptz"]
-        hist_lst = ['njet_bjet','photon_pt','invmass','l0pt','l1pt','njets','nbjetsm']
         if tau_h_analysis:
             hist_lst.append("ptz_wtau")
         if fwd_analysis:
