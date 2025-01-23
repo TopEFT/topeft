@@ -783,4 +783,31 @@
             ]
         }
     }
+    "TTA_CH_LST_SR": {
+        "2l": {
+            "lep_chan_lst": [
+                [
+                    "2los_ph",
+                    "bmask_atleast1med"
+                ],
+            ],
+            "lep_flav_lst": [
+                "ee",
+                "em",
+                "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lOS",
+                "isAR_2lOS"
+            ],
+            "appl_lst_data": [
+                "isAR_2lOS_OS"
+            ],
+            "jet_lst": [
+                "=1",
+                "=2",
+                ">3"
+            ]
+        }
+    }
 }
