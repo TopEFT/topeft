@@ -111,6 +111,8 @@ class MissingParton(RateSystematic):
         "2lss_4t_p": "2lss_4t_p_2b",
         "2lss_m": "2lss_m_2b",
         "2lss_p": "2lss_p_2b",
+        "2lss_fwd_m": "2lss_fwd_m_2b",
+        "2lss_fwd_p": "2lss_fwd_p_2b",
         "3l_onZ_1b": "3l_sfz_1b",
         "3l_onZ_2b": "3l_sfz_2b",
         "3l_p_offZ_1b": "3l1b_p",
@@ -296,6 +298,13 @@ class DatacardMaker():
         self.coeffs          = kwargs.pop("wcs",[])
         self.use_real_data   = kwargs.pop("unblind",False)
         self.verbose         = kwargs.pop("verbose",True)
+        self.use_AAC          = kwargs.pop("use_AAC",False)
+        self.wc_scalings     = kwargs.pop("wc_scalings",[])
+        self.scalings        = []
+
+        # get wc ranges from json
+        with open(topeft_path("params/wc_ranges.json"), "r") as wc_ranges_json:
+            self.wc_ranges = json.load(wc_ranges_json)
 
         if self.year_lst:
             for yr in self.year_lst:
@@ -763,6 +772,25 @@ class DatacardMaker():
             print(f"WC Selection Time: {dt:.2f} s")
         return selected_wcs
 
+    def make_scalings_json(self,scalings_json,ch,km_dist,p,wc_names,scalings):
+        scalings = scalings.tolist()
+        scalings_json.append(
+            {
+                "channel": ch + "_" + str(km_dist),
+                "process": p + "_sm",  # NOTE: needs to be in the datacard
+                "parameters": ["cSM[1]"] + [
+                    self.format_wc(wcname) for wcname in wc_names
+                ],
+                "scaling":
+                    scalings[1:], # exclude underflow bin
+            }
+        )
+        return scalings_json
+
+    def format_wc(self,wcname):
+        lo, hi = self.wc_ranges[wcname]
+        return "%s[0,%.1f,%.1f]" % (wcname, lo, hi)
+
     def analyze(self,km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict):
         """ Handles the EFT decomposition and the actual writing of the ROOT and text datacard files."""
         if not km_dist in self.hists:
@@ -829,6 +857,8 @@ class DatacardMaker():
                             raise RuntimeError("filling obs data more than once!")
                         for sp_key,arr in data_sm.items():
                             data_obs += arr
+                if not self.use_AAC:
+                    decomposed_templates = {k: v for k, v in decomposed_templates.items() if k == 'sm'}
                 for base,v in decomposed_templates.items():
                     proc_name = f"{p}_{base}"
                     col_width = max(len(proc_name),col_width)
@@ -930,6 +960,14 @@ class DatacardMaker():
                         if p == "tllq" or p == "tHq":
                             # Handle the 'missing_parton' uncertainty
                             pass
+                # obtain the scalings for scalings.json file
+                if p in self.SIGNALS:
+                    if self.wc_scalings:
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(self.wc_scalings)
+                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings)
+                    else:
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling()
+                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings)
             f["data_obs"] = to_hist(data_obs,"data_obs")
 
         line_break = "##----------------------------------\n"
@@ -1128,7 +1166,6 @@ class DatacardMaker():
             print(f"\tTotal terms: {terms}")
 
         return r
-
 
 if __name__ == '__main__':
     fpath = topeft_path("../analysis/topEFT/histos/may18_fullRun2_withSys_anatest08_np.pkl.gz")
