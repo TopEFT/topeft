@@ -148,7 +148,7 @@ class DatacardMaker():
             "ZZZ_",
         ],
         "tWZ": ["TWZToLL_"],
-        #"convs": ["TTGamma_"],
+        "convs": ["TTGamma_"],
         "fakes": ["nonprompt"],
         "charge_flips_": ["flips"],
         "data_obs": ["data"],
@@ -161,7 +161,7 @@ class DatacardMaker():
             "TTTo2L2Nu_",
         ],
         "ttlnu_": ["ttlnuJet_"],
-        "ttA_": ["TTGamma_"],
+        "ttA_": ["TTGamma_dilept_"],
     }
 
     # Controls how we rebin the dense axis of the corresponding distribution
@@ -404,6 +404,10 @@ class DatacardMaker():
                 "matches": [".*"],
                 "group": "",
             }]
+        }
+
+        self.syst_to_skip = {
+            "ttA": "charge_flips"
         }
 
         if extra_ignore:
@@ -843,6 +847,8 @@ class DatacardMaker():
             for p,wcs in selected_wcs.items():
                 # TODO This is a hack for now, track this upstream
                 if 'charge_flip' in p and '2l' not in ch:
+                    continue
+                if 'charge_flip' in p and '2los' in ch:
                     continue
                 # TODO This is a hack for now, track this upstream
                 if 'fakes' in p and '4l' in ch:
