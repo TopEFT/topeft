@@ -350,6 +350,8 @@ class YieldTools():
         h_ret = h.copy()
         for axis_name,cat_lst in cuts_dict.items():
             h_ret = h_ret.integrate(axis_name,cat_lst)
+            if isinstance(cat_lst, list):
+                h_ret[{axis_name: sum}]
         return h_ret
 
 
