@@ -786,7 +786,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
             if self.ttA_analysis:
                 #final SR categories with photons
-                preselections.add("2los_ph", (retainedbyOverlap & events.is2l & charge2l_0 & ~sfosz_2los_ttg_mask & events.mask_SF_Zllgamma & pass_trg & exactly_1ph))
+                preselections.add("2los_ph", (retainedbyOverlap & events.is2l & ~sfosz_2los_ttg_mask & events.mask_SF_Zllgamma & pass_trg))
+                preselections.add("exactly_1ph", (exactly_1ph))
                 #preselections.add("2los_ph", (retainedbyOverlap & events.is2l & charge2l_0 & ~sfosz_2los_ttg_mask & events.mask_SF_Zllgamma & pass_trg & exactly_1ph))
                 preselections.add("2los_sf_ph", (retainedbyOverlap & events.is2l & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ttg_mask & events.mask_SF_Zllgamma & pass_trg & exactly_1ph))
                 preselections.add("2los_of_ph", (retainedbyOverlap & events.is2l & charge2l_0 & events.is_em & pass_trg & exactly_1ph))

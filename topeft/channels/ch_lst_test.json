@@ -788,6 +788,9 @@
             "lep_chan_lst": [
                 [
                     "2los_ph",
+                    "2los_ph",
+                    "2los",
+                    "exactly_1ph",
                     "bmask_atleast1med"
                 ]
             ],
@@ -801,12 +804,10 @@
                 "isAR_2lOS"
             ],
             "appl_lst_data": [
-                "isAR_2lOS_OS"
+                "isAR_2lSS_OS"
             ],
             "jet_lst": [
-                "=1",
-                "=2",
-                ">3"
+                "<3"
             ]
         }
     }
