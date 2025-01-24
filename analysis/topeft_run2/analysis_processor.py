@@ -57,7 +57,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, all_analysis=False):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -65,6 +65,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.offZ_3l_split = offZ_split
         self.tau_h_analysis = tau_h_analysis
         self.fwd_analysis = fwd_analysis
+        self.all_analysis = all_analysis
 
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
@@ -597,6 +598,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
             elif self.fwd_analysis:
                 import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
+            elif self.all_analysis:
+                import_sr_cat_dict = select_cat_dict["ALL_CH_LST_SR"]
             else:
                 import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
 
@@ -717,13 +720,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 preselections.add("0tau", (no_tau_mask))
                 preselections.add("onZ_tau", (tl_zpeak_mask))
                 preselections.add("offZ_tau", (~tl_zpeak_mask))
-            if self.fwd_analysis:
+            if self.fwd_analysis or self.all_analysis:
                 preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
-                preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
-                preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
+                preselections.add("2lss_ctr", (events.is2l & pass_trg & ~fwdjet_mask))
+            else:
+                preselections.add("2lss", (events.is2l & pass_trg))
 
             # 2lss selection
-            preselections.add("2lss", (events.is2l & pass_trg))
             preselections.add("2l_p", (chargel0_p))
             preselections.add("2l_m", (chargel0_m))
 
@@ -892,7 +895,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
-            varnames["lt"]      = lt
+            if self.fwd_analysis:
+                varnames["lt"]      = lt
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
@@ -1071,13 +1075,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
                                         if self.offZ_3l_split:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
+                                            if (("ptz" in dense_axis_name) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
+                                            if (("lj0pt" in dense_axis_name) & ("offZ_none" not in lep_chan)):continue
                                         elif self.tau_h_analysis:
                                             if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
                                             if (("ptz" in dense_axis_name) and ("2lss" not in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
                                             if (("ptz_wtau" in dense_axis_name) and ("1tau" not in lep_chan)): continue
                                         elif self.fwd_analysis:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                            if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
+                                        elif self.all_analysis:
+                                            if (("lj0pt" in dense_axis_name) & ("2lss_fwd" in lep_chan) & ("onZ" not in lep_chan)& ("offZ_none" not in lep_chan) & ("4l" not in lep_chan)):continue
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
                                             if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
                                         else:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
