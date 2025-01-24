@@ -122,10 +122,6 @@ def main():
             for lep_ch in lep_ch_list:
                 lep_ch_name = lep_ch[0]
                 for jet in jet_list:
-                    if 'fwd' in jet and not args.fwd_flag:
-                        continue
-                    if 'fwd' in jet and args.fwd_flag:
-                        jet = jet.replace('fwd', '')
                     # special channels to be binned by ptz instead of lj0pt
                     if lep_ch_name == "3l_onZ_1b" or (lep_ch_name == "3l_onZ_2b" and (int(jet) == 4 or int(jet) == 5)):
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
@@ -135,7 +131,7 @@ def main():
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif args.tau_flag and ("1tau_onZ" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
-                    elif args.fwd_flag and ("2lss" in lep_ch_name):
+                    elif args.fwd_flag and ("fwd" in lep_ch_name or "2lss_p" in lep_ch_name or "2lss_m" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_lt"
                     else:
                         channelname = lep_ch_name + "_" + jet + "j_lj0pt"
