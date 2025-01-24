@@ -1,9 +1,10 @@
 {
     "xsec": 1.0,
-    "year": "2022",
+    "year": "2022EE",
     "treeName": "Events",
-    "histAxisName": "data2022",
+    "histAxisName": "2022EE_data",
     "options": "",
+    "era": "E",
     "WCnames": [],
     "files": [
         "/store/data/Run2022E/MuonEG/NANOAOD/22Sep2023-v1/2520000/0152de5e-691e-4ef9-b575-395dedf9d75f.root",

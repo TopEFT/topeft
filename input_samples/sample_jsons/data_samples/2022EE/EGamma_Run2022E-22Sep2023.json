@@ -1,9 +1,10 @@
 {
     "xsec": 1.0,
-    "year": "2022",
+    "year": "2022EE",
     "treeName": "Events",
-    "histAxisName": "data2022",
+    "histAxisName": "2022EE_data",
     "options": "",
+    "era": "E",
     "WCnames": [],
     "files": [
         "/store/data/Run2022E/EGamma/NANOAOD/22Sep2023-v1/50000/a2c2a0c9-b83e-4e96-b9e0-4ee52b136d86.root",
