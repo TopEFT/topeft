@@ -77,6 +77,35 @@
         "tttt_central"
     ],
 
+    "prompt_photon_subtraction_samples": [
+        "TTGamma_central",
+        "ZGToLLG_central",
+        "ZGFSR_central",
+        "ZGISR_central",
+        "TTTo2L2Nu_central",
+        "TTToSemiLeptonic_central",
+        "WWW_central",
+        "WZZ_central",
+        "ZZZ_central",
+        "WWZ_central",
+        "WWW_4F_central",
+        "WWZ_4F_central",
+        "WWTo2L2Nu_central",
+        "WZTo3LNu_central",
+        "ZZTo4L_central",
+        "ST_antitop_t-channel_central",
+        "ST_top_s-channel_central",
+        "ST_top_t-channel_central",
+        "tW_central",
+        "tbarW_central",
+        "DY10to50_central",
+        "DY50_central",
+        "DYJetsToLL_central",
+        "TWZToLL_central",
+        "WJetsToLNu_central",
+        "TTZToLL_M1to10_central"
+    ],
+
     "chargeflip_sf_dict" : {
         "UL16APV" : 0.79,
         "UL16"    : 0.81,
