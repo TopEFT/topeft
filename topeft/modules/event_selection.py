@@ -7,6 +7,7 @@
 '''
 
 import awkward as ak
+import numpy as np
 
 from topeft.modules.corrections import fakeRateWeight1l, fakeRateWeight2l, fakeRateWeight3l, additional_nonprompt_ph_unc
 from topeft.modules.genParentage import maxHistoryPDGID
