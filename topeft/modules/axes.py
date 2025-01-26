@@ -34,16 +34,37 @@ info = {
     "b0pt": {"regular": (10, 0, 500), "label": r"Leading b jet  $p_{T}$ (GeV) "},
     "l0eta": {"regular": (20, -2.5, 2.5), "label": r"Leading lep $\eta$ "},
     "j0eta": {"regular": (30, -3, 3), "label": r"Leading jet  $\eta$ "},
+    "photon_pt_eta": {
+        "pt": {
+            "variable": [20,30,45,70,120],
+            "label": "$p_{T}$ $\gamma$ (GeV)"
+        },
+        "abseta": {
+            "variable" : [0,0.435,0.783,1.13,1.50],
+            "label": "Photon abs. $\eta$"
+        }
+    },
     "photon_pt": {
         "regular": (20, 0, 400),
         "variable": [20,35,50,70,100,170,200,250,300],
         "label": "$p_{T}$ $\gamma$ (GeV)"
     },
+    "photon_pt2": {
+        "variable": [20,30,45,70,120],
+        "label": "$p_{T}$ $\gamma$ (GeV)"
+    },
+    "nPV":  {
+        #"variable":[0,20,40,60,80,100,120],
+        "regular": (60, 0, 120),
+        "label": "nPV"
+    },
+    "photon_eta": { "regular": (15, -1.5, 1.5), "label": "Photon $\eta$"},
+    "photon_eta2": { "variable" : [0,0.435,0.783,1.13,1.50], "label": "Photon abs. $\eta$"},
     "nPhoton": {"regular": (7, 0, 7), "label": "Photon multiplicity"},
-    "photon_relPFchIso": {"regular": (50,0,7), "label": "PF relative ch. had. isolation (GeV)"},
-    "photon_PFchIso": {"regular": (100,0,15), "label": "PF ch. had. isolation (GeV)"},
-    "cutBased": {"regular": (6, 0, 6), "label": "$p_{T}$ $\gamma$ (GeV)"},
-    "pp_mass": {"regular": (60, 0, 600), "label": "$m_{\gamma\gamma}$ (GeV)"},
+    #"photon_relPFchIso": {"regular": (50,0,7), "label": "PF relative ch. had. isolation (GeV)"},
+    #"photon_PFchIso": {"regular": (100,0,15), "label": "PF ch. had. isolation (GeV)"},
+    #"cutBased": {"regular": (6, 0, 6), "label": "$p_{T}$ $\gamma$ (GeV)"},
+    #"pp_mass": {"regular": (60, 0, 600), "label": "$m_{\gamma\gamma}$ (GeV)"},
     "invmass_llgamma": {"regular": (28,60,200), "label": "$m_{\ell\ell\gamma}$ (GeV)"},
     "ht": {
         "regular": (20, 0, 1000),
