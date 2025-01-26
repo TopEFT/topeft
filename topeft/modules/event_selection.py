@@ -575,7 +575,7 @@ def get_Z_peak_mask_llg(lep_collection,photon_collection,pt_window,flavor="os",z
     #ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
     l0 = lep_collection[:,0]
     l1 = lep_collection[:,1]
-    mediumcleanphotons_padded = ak.pad_none(photon_collection,1) #pads empty array with a single None value 
+    mediumcleanphotons_padded = ak.pad_none(photon_collection,1) #pads empty array with a single None value
     llg_Zmass_mask = (abs((l0+l1+mediumcleanphotons_padded[:,0]).mass - zmass) < pt_window)
     sf_lep_mask = (l0.pdgId == -l1.pdgId)
     sfosz_mask_llg = ak.fill_none((llg_Zmass_mask & sf_lep_mask),False)
