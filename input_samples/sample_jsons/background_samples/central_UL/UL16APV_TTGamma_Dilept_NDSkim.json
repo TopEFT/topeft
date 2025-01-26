@@ -6,6 +6,10 @@
   "options": "",
   "WCnames": [],
   "files": [
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p6/jsons_for_lo_ttgamma/v1/UL16APV_TTGamma_Dilept/output_112.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p6/jsons_for_lo_ttgamma/v1/UL16APV_TTGamma_Dilept/output_162.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p6/jsons_for_lo_ttgamma/v1/UL16APV_TTGamma_Dilept/output_24.root",
+    "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p6/jsons_for_lo_ttgamma/v1/UL16APV_TTGamma_Dilept/output_70.root",
     "/store/user/awightma/skims/mc/new-lepMVA-v2/central_bkgd_p6/jsons_for_lo_ttgamma/v1/UL16APV_TTGamma_Dilept/output_71.root"
   ],
   "nEvents": 4298000,
