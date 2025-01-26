@@ -8,7 +8,7 @@
 
 import awkward as ak
 
-from topeft.modules.corrections import fakeRateWeight1l, fakeRateWeight2l, fakeRateWeight3l
+from topeft.modules.corrections import fakeRateWeight1l, fakeRateWeight2l, fakeRateWeight3l, additional_nonprompt_ph_unc
 from topeft.modules.genParentage import maxHistoryPDGID
 
 
@@ -250,14 +250,6 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # Zee veto
     Zee_veto = (abs(padded_FOs[:,0].pdgId) != 11) | (abs(padded_FOs[:,1].pdgId) != 11) | ( abs ( (padded_FOs[:,0]+padded_FOs[:,1]).mass -91.2) > 10)
 
-    #Zll mask if the 2 leptons are of same flavor(for photon work)
-    ll_is_SF = (abs(l0.pdgId) == abs(l1.pdgId))
-    Zll_SF_mask = (abs( (l0+l1).mass -91.2) > 15)             #this mask rejects any event with abs(m(ll) - m (Z)) < 15 GeV. Used for photon studies for 2los_sf cat
-
-    #Zllgamma mask if the 2 leptons are of same flavor(for photon work)
-    mediumcleanphotons_padded = ak.pad_none(events.photon,1) #pads empty array with a single None value
-    Zllgamma_SF_mask = (abs( (l0 + l1 + mediumcleanphotons_padded[:,0]).mass -91.2) > 15)
-
     # IDs
     eleID1 = (abs(padded_FOs[:,0].pdgId)!=11) | ((padded_FOs[:,0].convVeto != 0) & (padded_FOs[:,0].lostHits==0) & (padded_FOs[:,0].tightCharge>=2))
     eleID2 = (abs(padded_FOs[:,1].pdgId)!=11) | ((padded_FOs[:,1].convVeto != 0) & (padded_FOs[:,1].lostHits==0) & (padded_FOs[:,1].tightCharge>=2))
@@ -271,8 +263,6 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     ptl0 = ak.any(FOs[:,0:1].conept > 25.0, axis=1)
     ptl1 = ak.any(abs(FOs[:,1:2].conept-12.5) < 2.5, axis=1) #the sub-leading lepton 10 GeV < l1pT < 15 GeV
     ptl0l1  = ptl0 & ptl1
-
-    mask_2l_lowptlep = (filters & dilep & ptl0l1 & exclusive & eleID1 & eleID2 & muTightCharge)
 
     # MC matching requirement (already passed for data)
     if sampleType == "data":
@@ -299,15 +289,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     mask_nozeeveto = mask
     mask = mask & (  Zee_veto )
     events['is2l'] = ak.fill_none(mask,False)
-    #the following masks (next 4 lines) are relevant to 2los CR with low lepton pT
-    mask_2l_lowptlep_nozeeveto = mask_2l_lowptlep
-    mask_2l_lowptlep = mask_2l_lowptlep & (Zee_veto)
-    events['is2l_lowptlep'] = ak.fill_none(mask_2l_lowptlep, False)
-    events['is2l_lowptlep_nozeeveto'] = ak.fill_none(mask_2l_lowptlep_nozeeveto, False)
-
-    events['mask_SF_Zll'] = ak.fill_none(Zll_SF_mask,False)      #used for photon work for 2los_sf category
-    events['mask_SF_Zllgamma'] = ak.fill_none(Zllgamma_SF_mask, False) #used for photon work for 2los_sf category
-    events['mll_20'] = ak.fill_none(cleanup,False)   #this is same thing as cleanups. Only implemented this separately for cutflow studies
+    events['mll_12'] = ak.fill_none(cleanup,False)   #this is same thing as cleanups. Only implemented this separately for cutflow studies
     events['is2l_nozeeveto'] = ak.fill_none(mask_nozeeveto,False)
 
     # SFs
@@ -321,7 +303,7 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # SR:
     events['is2l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
     events['is2l_SR'] = ak.fill_none(events['is2l_SR'],False)
-    padded_photon = ak.pad_none(events.photon, 1)
+    padded_photon = ak.pad_none(events.ph_fo_pt_sorted, 1)
 
     # SFs
     events['sf_2l_photon']    = padded_photon.sf_nom_photon[:,0]
@@ -500,7 +482,7 @@ def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
     overlapPhoSelect = ((events.GenPart.pt>=ptCut) & (events.GenPart.status==1) & (events.GenPart.hasFlags(['isLastCopy'])) &
                         (abs(events.GenPart.eta) < etaCut) &
                         (abs(events.GenPart.pdgId)==22) &
-                        (events.GenPart.maxParent < 37)
+                        ((events.GenPart.maxParent < 37) | (events.GenPart.maxParent == 2212))
                         )
     overlapPhotons = events.GenPart[overlapPhoSelect]
 
@@ -518,19 +500,19 @@ def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
     #the event is overlapping with the separate sample if there is an overlap photon passing the dR cut, kinematic cuts, and not coming from hadronic activity
     isolated_overlapPhotons = overlapPhotons[~ph_iso_mask]
 
-    if ("TTTo" in dataset) or ("DY" in dataset):   #samples from which the events with well-isolated overlapping photons are to be vetoed
+    if any(x in dataset for x in ["TTTo","DY10to50","DY50"]):   #samples from which the events with well-isolated overlapping photons are to be vetoed
         criteria = (ak.num(isolated_overlapPhotons)==0)
         events["vetoedbyOverlap"] = ~criteria
         events["retainedbyOverlap"] = criteria
 
-    elif ("TTGamma" in dataset) or ("ZGToLLG" in dataset):  #currently unused but still good to have the implementation
+    elif any(x in dataset for x in ["TTGamma","ZGToLLG","DYGto2LG-1Jets"]):  #if these samples do not have well-isolated photon, then we remove such events from them
         criteria = (ak.num(isolated_overlapPhotons) >= 1)
         events["vetoedbyOverlap"] = ~criteria
         events["retainedbyOverlap"] = criteria
 
     else: #might not be necessary
-        events["vetoedbyOverlap"] = ak.ones_like(events.GenPart.pt, dtype=bool)
-        events["retainedbyOverlap"] = ak.ones_like(events.GenPart.pt, dtype=bool)
+        events["vetoedbyOverlap"] = np.ones(len(events), dtype=bool)
+        events["retainedbyOverlap"] = np.ones(len(events), dtype=bool)
 
 
 def select_nonpromptphoton(events):
@@ -587,3 +569,99 @@ def get_Z_pt(lep_collection,pt_window):
     pt_of_sfosz = pair_pt_with_sfosz_mask[zpeak_idx]
 
     return ak.flatten(pt_of_sfosz)
+
+def get_Z_peak_mask_llg(lep_collection,photon_collection,pt_window,flavor="os",zmass=91.2):
+    #ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
+    l0 = lep_collection[:,0]
+    l1 = lep_collection[:,1]
+    mediumcleanphotons_padded = ak.pad_none(photon_collection,1) #pads empty array with a single None value 
+    llg_Zmass_mask = (abs((l0+l1+mediumcleanphotons_padded[:,0]).mass - zmass) < pt_window)
+    sf_lep_mask = (l0.pdgId == -l1.pdgId)
+    sfosz_mask_llg = ak.fill_none((llg_Zmass_mask & sf_lep_mask),False)
+
+    return sfosz_mask_llg
+
+def addPhotonSelection(events, sampleType, last_pt_bin, closureTest):
+
+    fo_ph = events.ph_fo_pt_sorted
+    padded_fo_ph = ak.pad_none(fo_ph,1)
+    a0 = padded_fo_ph[:,0]
+
+    if not closureTest:
+        SR_exclusive = (a0.inA_ABCD)
+        AR_exclusive = (a0.inB_ABCD)
+
+    else:
+        SR_exclusive = (a0.inL_ABCD)
+        AR_exclusive = (a0.inR_ABCD)
+
+    #if MC, let's select prompt photons and if Data, do nothing
+    if sampleType == "data":
+        pass
+
+    else:
+        a0_prompt_match = (a0.genPartFlav == 1)
+
+        SR_exclusive = SR_exclusive & a0_prompt_match
+        AR_exclusive = AR_exclusive & a0_prompt_match
+
+    events['isSR_ph'] = ak.fill_none(SR_exclusive,False)
+    events['isAR_ph'] = ak.fill_none(AR_exclusive,False)
+
+    #additional nonprompt photon uncertainty in the last bin
+    unc_in_last_bin = (a0.pt >= last_pt_bin)
+
+    additional_nonprompt_ph_unc(events, unc_in_last_bin)
+
+#For Fake rate extraction for main non-prompt estimation, we want to identify prompt MC contribution. Plus, we don't care about Regions A and B
+def categorizePhotonsInABCD_FR(events,sampleType):
+    fo_ph = events.ph_fo_pt_sorted
+    padded_fo_ph = ak.pad_none(fo_ph,1)
+    a0 = padded_fo_ph[:,0]
+
+    #if data, just categorize into C and D
+    if sampleType=="data":
+        C_exclusive = (a0.inC_ABCD)
+        D_exclusive = (a0.inD_ABCD)
+
+    #if MC, take the prompt piece only
+    else:
+        a0_prompt_match = (a0.genPartFlav == 1)
+
+        C_exclusive = (a0.inC_ABCD) & a0_prompt_match
+        D_exclusive = (a0.inD_ABCD) & a0_prompt_match
+
+    events['isC_FR_ABCD'] = ak.fill_none(C_exclusive,False)
+    events['isD_FR_ABCD'] = ak.fill_none(D_exclusive,False)
+    #the following 2 masks are useful if we want to do Data-MC agreement study in the MRs
+    events['isC_allph_ABCD'] = ak.fill_none((a0.inC_ABCD),False)
+    events['isD_allph_ABCD'] = ak.fill_none((a0.inD_ABCD),False)
+
+def categorize_into_ISRFSR_photon(events):
+    ph_collection = events.ph_fo_pt_sorted
+
+    #first make sure we are looking at true photon
+    photon_is_true_ph = ak.fill_none(abs(ph_collection.matched_gen.pdgId)==22,False)
+    true_ph = ph_collection[photon_is_true_ph]
+
+    #look at the genPartIdx of the true photon and then find the mother of the particle at the genPartIdx
+    genpartidx_of_true_ph = true_ph.genPartIdx
+    genparticles_at_genpartidx = events.GenPart[genpartidx_of_true_ph]
+    mother_of_gen_particle = genparticles_at_genpartidx.distinctParent
+
+    #is the mother lepton, Z, W
+    mother_is_lepton = ((abs(mother_of_gen_particle.pdgId)==11) | (abs(mother_of_gen_particle.pdgId)==13) | (abs(mother_of_gen_particle.pdgId)==15))
+    mother_is_photon = (abs((mother_of_gen_particle.pdgId)==22)) #sometimes the parent of the photon is itself
+    mother_is_Z_or_W = ((abs(mother_of_gen_particle.pdgId)==24) | (abs(mother_of_gen_particle.pdgId)==23))
+
+    has_FSR_photon = ((mother_is_lepton) | (mother_is_Z_or_W))
+    has_ISR_photon = ~(has_FSR_photon)
+
+    has_FSR_photon = ak.fill_none(ak.pad_none(has_FSR_photon,1),False)
+    has_FSR_photon = has_FSR_photon[:,0]
+
+    has_ISR_photon = ak.fill_none(ak.pad_none(has_ISR_photon,1),False)
+    has_ISR_photon = has_ISR_photon[:,0]
+
+    return has_ISR_photon, has_FSR_photon
+
