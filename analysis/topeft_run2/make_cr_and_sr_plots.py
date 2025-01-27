@@ -120,12 +120,6 @@ SR_CHAN_DICT = {
         "3l_p_offZ_1b_fwd_5j",
         "3l_p_offZ_2b_fwd_5j",
     ],
-    "3l_offZ_fwd_SR" : [
-        "3l_m_offZ_1b_fwd_2j","3l_m_offZ_1b_fwd_3j", "3l_m_offZ_1b_fwd_4j", "3l_m_offZ_1b_fwd_5j",
-        "3l_m_offZ_2b_fwd_2j","3l_m_offZ_2b_fwd_3j", "3l_m_offZ_2b_fwd_4j", "3l_m_offZ_2b_fwd_5j",
-        "3l_p_offZ_1b_fwd_2j","3l_p_offZ_1b_fwd_3j", "3l_p_offZ_1b_fwd_4j", "3l_p_offZ_1b_fwd_5j",
-        "3l_p_offZ_2b_fwd_2j","3l_p_offZ_2b_fwd_3j", "3l_p_offZ_2b_fwd_4j", "3l_p_offZ_2b_fwd_5j",
-    ],
     "3l_onZ_SR" : [
         "3l_onZ_1b_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
         "3l_onZ_2b_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
