@@ -34,11 +34,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         Flav_axis = hist.axis.StrCategory([], name="Flav", growth=True)
         flav_axis = hist.axis.IntCategory([], name="flav", growth=True)
         wp_axis = hist.axis.StrCategory([], name="WP", growth=True)
+        genjet_n_axis = hist.axis.StrCategory([], name="genjet_n", growth=True)
+        recojet_n_axis = hist.axis.StrCategory([], name="recojet_n", growth=True)
+        misstag_n_axis = hist.axis.StrCategory([], name="misstag_n", growth=True)
+        misstag_rate_axis = hist.axis.StrCategory([], name="misstag_rate", growth=True)
+        btag_efficiency_axis = hist.axis.StrCategory([], name="btag_efficiency", growth=True)
+
         self._accumulator = {
             'jetpt'  : hist.Hist(wp_axis, Flav_axis, jpt_axis),
             'jeteta'  : hist.Hist(wp_axis, Flav_axis, jeta_axis),
             'jetpteta'  : hist.Hist(wp_axis, Flav_axis, jpt_axis, jaeta_axis),
             'jetptetaflav'  : hist.Hist(wp_axis, jetpt_axis, jaeta_axis, flav_axis),
+            'DeepJet' : hist.Hist(genjet_n_axis, recojet_n_axis, misstag_n_axis, misstag_rate_axis, btag_efficiency_axis),
+            'PNet': hist.Hist(genjet_n_axis, recojet_n_axis, misstag_n_axis, misstag_rate_axis, btag_efficiency_axis)
         }
 
     @property
@@ -51,6 +59,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
     # Main function: run on a given dataset
     def process(self, events):
+
         # Dataset parameters
         dataset = events.metadata['dataset']
         year   = self._samples[dataset]['year']
@@ -61,18 +70,30 @@ class AnalysisProcessor(processor.ProcessorABC):
         for d in datasets:
             if d in dataset: dataset = dataset.split('_')[0]
 
+        is_run3 = False
+        if year.startswith("202"):
+            is_run3 = True
+        is_run2 = not is_run3
+
         # Initialize objects
         met = events.MET
         e   = events.Electron
         mu  = events.Muon
         j   = events.Jet
 
+        if is_run3:
+            leptonSelection = te_os.run3leptonselection()
+            jetsRho = events.Rho["fixedGridRhoFastjetAll"]
+        elif is_run2:
+            leptonSelection = te_os.run2leptonselection()
+            jetsRho = events.fixedGridRhoFastjetAll
+
         # Muon selection
-        mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
+        mu["conept"] = leptonSelection.coneptMuon(mu)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
-        mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-        mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
-        mu["isTight"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
+        mu["isPres"] = leptonSelection.isPresMuon(mu)
+        mu["isFO"] = leptonSelection.isFOMuon(mu, year)
+        mu["isTight"]= leptonSelection.tightSelMuon(mu)
         mu['isGood'] = mu['isPres'] & mu['isTight']
 
         leading_mu = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
@@ -83,11 +104,12 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Electron selection
         e["idEmu"] = te_os.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
-        e["conept"] = te_os.coneptElec(e.pt, e.mvaTTHUL, e.jetRelIso)
+        e["conept"] = leptonSelection.coneptElec(e)
         e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
-        e["isPres"] = te_os.isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
-        e["isFO"] = te_os.isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
-        e["isTight"] = te_os.tightSelElec(e.isFO, e.mvaTTHUL)
+        e["isPres"] = leptonSelection.isPresElec(e)
+        e["isFO"] = leptonSelection.isFOElec(e, year)
+        e["isTight"] = leptonSelection.tightSelElec(e)
+        e["isLooseE"] = leptonSelection.isLooseElec(e)
         e['isClean'] = te_os.isClean(e, mu, drmin=0.05)
         e['isGood']  = e['isPres'] & e['isTight'] & e['isClean']
 
@@ -110,9 +132,48 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Jet selection
 
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
-        j["isGood"] = tc_os.is_tight_jet(getattr(j, jetptname), j.eta, j.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
+        j["isGood"] = tc_os.is_tight_jet(getattr(j, jetptname), j.eta, j.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=0)
         j['isClean'] = te_os.isClean(j, e, drmin=0.4)& te_os.isClean(j, mu, drmin=0.4)
         goodJets = j[(j.isClean)&(j.isGood)]
+
+        # Jet btag genmatch
+        DeepJet_btagcut = 0.3086
+        PNet_btagcut    = 0.245
+        Genjet_pflavor  = events.GenJet.partonFlavour
+        Gen_matched_jet = goodJets.genJetIdx
+        Gen_matched_partonFlavour = events.GenJet[Gen_matched_jet].partonFlavour
+        jet_partonFlavour = goodJets.partonFlavour
+        Deeptag_jet     = goodJets.btagDeepFlavB
+        PNet_jet        = goodJets.btagPNetB
+
+        maskDeepJet     = Deeptag_jet>DeepJet_btagcut
+        maskPNetB       = PNet_jet>PNet_btagcut
+        Deeptag_jet     = Gen_matched_partonFlavour[maskDeepJet]
+        PNet_jet        = Gen_matched_partonFlavour[maskPNetB]
+
+        # Count correctly identified b-jet by DeepJet
+        gen_jet_total      = list(np.concatenate(Gen_matched_partonFlavour)).count(5) + list(np.concatenate(Gen_matched_partonFlavour)).count(-5)
+        Deeptag_jet_total  = len(np.concatenate(Deeptag_jet))
+        Deeptag_jet_correct = list(np.concatenate(Deeptag_jet)).count(5) + list(np.concatenate(Deeptag_jet)).count(-5)
+        PNet_jet_total     = len(np.concatenate(PNet_jet))
+        PNet_jet_correct   = list(np.concatenate(PNet_jet)).count(5) + list(np.concatenate(PNet_jet)).count(-5)
+
+        missmaskDeepJet    = [[(a == 5 or a == -5) and b == False for a, b in zip(sublist_a, sublist_b)] for sublist_a, sublist_b in zip(Gen_matched_partonFlavour, maskDeepJet)]
+        missmaskPNet       = [[(a == 5 or a == -5) and b == False for a, b in zip(sublist_a, sublist_b)] for sublist_a, sublist_b in zip(Gen_matched_partonFlavour, maskPNetB)]
+        missDeepJet        = list(np.concatenate(missmaskDeepJet)).count(True)
+        missPNet           = list(np.concatenate(missmaskPNet)).count(True)
+
+        genjet_count           = Deeptag_jet_correct + missDeepJet
+        Deepmiss_count         = Deeptag_jet_total - Deeptag_jet_correct
+        PNetmiss_count         = PNet_jet_total - PNet_jet_correct
+        Deepmisstag_rate       = Deepmiss_count/Deeptag_jet_total
+        Deep_btagefficiency    = Deeptag_jet_total/genjet_count
+        PNetmisstag_rate       = PNetmiss_count/PNet_jet_total
+        PNet_btagefficiency    = PNet_jet_total/genjet_count
+
+        range_i = 0
+        range_f = 10
+
         njets = ak.num(goodJets)
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
@@ -146,10 +207,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 hout['jetpt'].fill(WP=wp, Flav=jetype,  pt=pts, weight=weights)
                 hout['jeteta'].fill(WP=wp, Flav=jetype,  eta=etas, weight=weights)
                 hout['jetpteta'].fill(WP=wp, Flav=jetype,  pt=pts, abseta=absetas, weight=weights)
-                hout['jetptetaflav'].fill(WP=wp, pt=pts, abseta=absetas, flav=flavarray, weight=weights)
-
+                #hout['jetptetaflav'].fill(WP=wp, pt=pts, abseta=absetas, flav=flavarray, weight=weights)
+        hout['Deepjet'].fill(genjet_n=genjet_count, recojet_n=Deeptag_jet_total, misstag_n=Deepmiss_count, misstag_rate=Deepmisstag_rate, btag_efficiency=Deep_btagefficiency)
+        hout['PNet'].fill(genjet_n=genjet_count, recojet_n=PNet_jet_total, misstag_n=PNetmiss_count, misstag_rate=PNetmisstag_rate, btag_efficiency=PNet_btagefficiency)
         return hout
-
 
     def postprocess(self, accumulator):
         return accumulator
@@ -159,4 +220,5 @@ if __name__ == '__main__':
     outpath= './coffeaFiles/'
     samples     = load(outpath+'samples.coffea')
     topprocessor = AnalysisProcessor(samples)
+
 
