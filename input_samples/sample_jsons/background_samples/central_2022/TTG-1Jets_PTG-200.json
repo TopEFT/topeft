@@ -29,8 +29,8 @@
     "/store/mc/Run3Summer22NanoAODv12/TTG-1Jets_PTG-200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v3/2560000/44b9d16d-f6d3-479b-b7d8-2bb7462edd66.root",
     "/store/mc/Run3Summer22NanoAODv12/TTG-1Jets_PTG-200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v3/2560000/e7665d77-6645-48e6-96c4-b147f14151bb.root",
     "/store/mc/Run3Summer22NanoAODv12/TTG-1Jets_PTG-200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v3/2560000/6598387c-c1f4-41a3-8819-f4db04033411.root",
-    "/store/mc/Run3Summer22NanoAODv12/TTG-1Jets_PTG-200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v3/2560000/a41a77fe-caa9-410a-929d-7c56d5fa4166.root",
     "/store/mc/Run3Summer22NanoAODv12/TTG-1Jets_PTG-200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v3/2560000/cedea89b-1d79-4a97-b503-d6cfb844e087.root",
+    "/store/mc/Run3Summer22NanoAODv12/TTG-1Jets_PTG-200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v3/2560000/a41a77fe-caa9-410a-929d-7c56d5fa4166.root",
     "/store/mc/Run3Summer22NanoAODv12/TTG-1Jets_PTG-200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v3/2560000/52b7ecb9-ab2f-4024-9c52-8f09b57be581.root",
     "/store/mc/Run3Summer22NanoAODv12/TTG-1Jets_PTG-200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v3/2560000/e428eed4-fb51-412b-a53d-119087f59163.root",
     "/store/mc/Run3Summer22NanoAODv12/TTG-1Jets_PTG-200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v3/2560000/42e43c08-d09b-4112-8a7f-ac614b149a1f.root"
@@ -40,14 +40,16 @@
   "nSumOfWeights": 105009.28944679997,
   "isData": false,
   "path": "/TTG-1Jets_PTG-200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v3/NANOAODSIM",
-  "nSumOfWeights_ISRUp": 102737.21741218743,
-  "nSumOfWeights_ISRDown": 106830.98502032776,
-  "nSumOfWeights_FSRUp": 104308.78426135611,
-  "nSumOfWeights_FSRDown": 105560.99969668686,
+  "nSumOfWeights_ISRUp": 106830.98502032776,
+  "nSumOfWeights_ISRDown": 102737.21741218743,
+  "nSumOfWeights_FSRUp": 105560.99969668686,
+  "nSumOfWeights_FSRDown": 104308.78426135611,
   "nSumOfWeights_renormUp": 95892.21063555813,
   "nSumOfWeights_renormDown": 110546.41160831072,
   "nSumOfWeights_factUp": 102748.5622298097,
-  "nSumOfWeights_factDown": 107509.5391916322,
-  "nSumOfWeights_renormfactUp": 92202.07914243345,
-  "nSumOfWeights_renormfactDown": 109082.5666685291
+  "nSumOfWeights_factDown": 107509.53919163221,
+  "nSumOfWeights_renormUp_factDown": 100203.35767700785,
+  "nSumOfWeights_renormDown_factUp": 111445.18434560683,
+  "nSumOfWeights_renormfactDown": 100203.35767700788,
+  "nSumOfWeights_renormfactUp": 111445.18434560683
 }
