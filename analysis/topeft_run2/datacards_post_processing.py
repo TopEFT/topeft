@@ -123,7 +123,7 @@ def main():
                 lep_ch_name = lep_ch[0]
                 for jet in jet_list:
                     # special channels to be binned by ptz instead of lj0pt
-                    if lep_ch_name == "3l_onZ_1b" or (lep_ch_name == "3l_onZ_2b" and (int(jet) == 4 or int(jet) == 5)):
+                    if "3l_onZ_1b" in lep_ch_name or ("3l_onZ_2b" in lep_ch_name and (int(jet) == 4 or int(jet) == 5)):
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif args.set_up_offZdivision and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
