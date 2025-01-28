@@ -23,7 +23,7 @@ import topcoffea.modules.corrections as tc_cor
 from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
 import topeft.modules.plotting_helper as plot_help
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPhotonSF, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
+from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPhotonSF, AttachPerLeptonFR, AddPerPhotonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 import topeft.modules.jetbJetMultiplicity as jbM
@@ -77,11 +77,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         histograms = {}
         for name, info in axes_info.items():
-            print(f"rebin: {rebin}, name: {name}")
             if name == 'photon_pt_eta': continue #skip for now
             else:
                 if not rebin and "variable" in info:
-                    print("We are inside if not rebin and variable in info block")
                     dense_axis = hist.axis.Variable(
                         info["variable"], name=name, label=info["label"]
                     )
@@ -89,7 +87,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                         info["variable"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
                     )
                 else:
-                    print("\n we are inside else block.")
                     dense_axis = hist.axis.Regular(
                         *info["regular"], name=name, label=info["label"]
                     )
@@ -353,7 +350,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ph_fo['inA_ABCD'] = ph_fo.mediumPhoton
         ph_fo['inB_ABCD'] = ph_fo.mediumPhoton_regB
 
-        #Attach photon SFs
+        #Attach per photon fake rates and photon SFs
+        AddPerPhotonFR(events, ph_fo, year=year, closureTest=False)
         AttachPhotonSF(ph_fo,year=year)
 
         #pT sort the photon collection
@@ -1083,10 +1081,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Loop over the hists we want to fill
             varnames = {k:v for k,v in varnames.items() if k in self._hist_lst}
             for dense_axis_name, dense_axis_vals in varnames.items():
-                print("")
-                print(f"WOrking with hist: {dense_axis_name}")
-                print(dense_axis_vals)
-                print("")
                 if dense_axis_name not in self._hist_lst:
                     print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
                     continue
@@ -1144,9 +1138,12 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                             # Loop over the appropriate AR and SR for this channel
                             for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
-
+                                weight_tmp = weight
                                 # We don't want or need to fill SR histos with the FF variations
                                 if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
+
+                                # We only want the photon fakerate weight if we are considering the AR with explicit photon requirement
+                                if appl == "isAR_B_ABCD": weight_tmp = weight_tmp * events.fakerate_ph_val
 
                                 # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
                                 for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
@@ -1189,9 +1186,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
                                         # Fill the histos (first regular and then sumw2 hist)
-                                        plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight, eft_coeffs, all_cuts_mask, suffix="")
+                                        plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="")
 
-                                        plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight, eft_coeffs, all_cuts_mask, suffix="_sumw2")
+                                        plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="_sumw2")
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
