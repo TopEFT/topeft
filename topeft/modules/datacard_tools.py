@@ -243,9 +243,9 @@ class DatacardMaker():
             For the regular expression, group 1 matches 'njet_bjet', group 2 matches 'bjet_njet'
             group 3 matches '_njet'.
         """
-        rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[2-7]j)|(_[2-7]j$)")
+        rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[1-7]j)|(_[1-7]j$)")
 
-        m = rgx.search(s)
+        m = rgx.search(s.replace('_fwd', ''))
         if m.group(1) and m.group(2) is None and m.group(3) is None:
             # The order is '_Nj_Mb'
             _,j,b = m.group(1).split("_")
@@ -1054,7 +1054,7 @@ class DatacardMaker():
                     proc_name = self.get_process(p) # Strips off any "_sm" or "_lin_*" junk
                     # Need to handle certain systematics in a special way
                     if syst_name == "diboson_njets":
-                        v = rate_syst.get_process(proc_name,num_j)
+                        v = rate_syst.get_process(proc_name,min(num_j + (1 if 'fwd' in outf_root_name else 0), 7)) # fwd jet is an extra jet
                         # v = rate_syst.get_process(proc_name)
                         # if isinstance(v,dict):
                         #     v = v[str(num_j)]
