@@ -289,27 +289,40 @@ def group_bins(histo,bin_map,axis_name="process",drop_unspecified=False):
 
 # Match a given sample name to whatever it is called in the json
 # Will return None if a match is not found
-def get_scale_name(sample_name,sample_group_map):
+def get_scale_name(sample_name,sample_group_map,group_type="CR"):
     scale_name_for_json = None
-    if sample_name in sample_group_map["Conv"]:
-        scale_name_for_json = "convs"
-    elif sample_name in sample_group_map["Diboson"]:
-        scale_name_for_json = "Diboson"
-    elif sample_name in sample_group_map["Triboson"]:
-        scale_name_for_json = "Triboson"
-    elif sample_name in sample_group_map["Signal"]:
-        for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
-            if proc_str in sample_name:
-                # This should only match once, but maybe we should put a check to enforce this
-                scale_name_for_json = proc_str
+    if group_type == "CR":
+        if sample_name in sample_group_map["Conv"]:
+            scale_name_for_json = "convs"
+        elif sample_name in sample_group_map["Diboson"]:
+            scale_name_for_json = "Diboson"
+        elif sample_name in sample_group_map["Triboson"]:
+            scale_name_for_json = "Triboson"
+        elif sample_name in sample_group_map["Signal"]:
+            for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
+                if proc_str in sample_name:
+                    # This should only match once, but maybe we should put a check to enforce this
+                    scale_name_for_json = proc_str
+    else:
+        if sample_name in sample_group_map["Conv"]:
+            scale_name_for_json = "convs"
+        elif sample_name in sample_group_map["Diboson"]:
+            scale_name_for_json = "Diboson"
+        #elif "Multiboson" in sample_group_map and sample_name in sample_group_map["Multiboson"]:
+        #    scale_name_for_json = "Multiboson"
+        else:
+            for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
+                if proc_str in sample_name:
+                    # This should only match once, but maybe we should put a check to enforce this
+                    scale_name_for_json = proc_str
     return scale_name_for_json
 
 # This function gets the tag that indicates how a particualr systematic is correlated
 #   - For pdf_scale this corresponds to the initial state (e.g. gg)
 #   - For qcd_scale this corresponds to the process type (e.g. VV)
 # For any systemaitc or process that is not included in the correlations json we return None
-def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
-    proc_name_in_json = get_scale_name(proc_name,sample_group_map)
+def get_correlation_tag(uncertainty_name,proc_name,sample_group_map,group_type):
+    proc_name_in_json = get_scale_name(proc_name,sample_group_map,group_type)
     corr_tag = None
     # Right now we only have two types of uncorrelated rate systematics
     if uncertainty_name in ["qcd_scale","pdf_scale"]:
@@ -325,10 +338,10 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
 # This function gets all of the the rate systematics from the json file
 # Returns a dictionary with all of the uncertainties
 # If the sample does not have an uncertainty in the json, an uncertainty of 0 is returned for that category
-def get_rate_systs(sample_name,sample_group_map):
+def get_rate_systs(sample_name,sample_group_map,group_type):
 
     # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
-    scale_name_for_json = get_scale_name(sample_name,sample_group_map)
+    scale_name_for_json = get_scale_name(sample_name,sample_group_map,group_type)
 
     # Get the lumi uncty for this sample (same for all samles)
     lumi_uncty = grs.get_syst("lumi")
@@ -363,7 +376,7 @@ def get_rate_systs(sample_name,sample_group_map):
 
 
 # Wrapper for getting plus and minus rate arrs
-def get_rate_syst_arrs(base_histo,proc_group_map):
+def get_rate_syst_arrs(base_histo,proc_group_map,group_type="CR"):
 
     # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
     rate_syst_arr_dict = {}
@@ -372,13 +385,13 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
         for sample_name in yt.get_cat_lables(base_histo,"process"):
 
             # Build the plus and minus arrays from the rate uncertainty number and the nominal arr
-            rate_syst_dict = get_rate_systs(sample_name,proc_group_map)
+            rate_syst_dict = get_rate_systs(sample_name,proc_group_map,group_type)
             thissample_nom_arr = base_histo.integrate("process",sample_name).integrate("systematic","nominal").eval({})[()]
             p_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][1]) - thissample_nom_arr # Difference between positive fluctuation and nominal
             m_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][0]) - thissample_nom_arr # Difference between positive fluctuation and nominal
 
             # Put the arrays into the correlation dict (organizing correlated ones together)
-            correlation_tag = get_correlation_tag(rate_sys_type,sample_name,proc_group_map)
+            correlation_tag = get_correlation_tag(rate_sys_type,sample_name,proc_group_map,group_type)
             out_key_name = rate_sys_type
             if correlation_tag is not None: out_key_name += "_"+correlation_tag
             if out_key_name not in rate_syst_arr_dict[rate_sys_type]:
@@ -473,9 +486,9 @@ def get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,tem
             for proc_name in proc_lst:
                 if proc_name not in relevant_samples_lst: continue
 
-                n_arr_proc = base_histo.integrate("process",proc_name)[{"process": sum}].integrate("systematic","nominal").eval({})[()]
-                u_arr_proc = base_histo.integrate("process",proc_name)[{"process": sum}].integrate("systematic",syst_name+"Up").eval({})[()]
-                d_arr_proc = base_histo.integrate("process",proc_name)[{"process": sum}].integrate("systematic",syst_name+"Down").eval({})[()]
+                n_arr_proc = base_histo.integrate("process",proc_name).integrate("systematic","nominal").eval({})[()]
+                u_arr_proc = base_histo.integrate("process",proc_name).integrate("systematic",syst_name+"Up").eval({})[()]
+                d_arr_proc = base_histo.integrate("process",proc_name).integrate("systematic",syst_name+"Down").eval({})[()]
 
                 u_arr_proc_rel = u_arr_proc - n_arr_proc
                 d_arr_proc_rel = d_arr_proc - n_arr_proc
@@ -536,7 +549,7 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 ######### Plotting functions #########
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],group=[],set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
+def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],group=[],set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None,unblind=False):
 
     colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown"]
 
@@ -612,7 +625,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
         bins=bins,
         stack=False,
         density=unit_norm_bool,
-        label='Data',
+        label=('Data' if unblind else 'Asimov Data'),
         #flow='show',
         histtype='errorbar',
         **DATA_ERR_OPS,
@@ -883,7 +896,7 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
 
 ###################### Wrapper function for SR data and mc plots (unblind!) ######################
 # Wrapper function to loop over all SR categories and make plots for all variables
-def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False):
+def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,skip_syst_errs=False):
 
     # Construct list of MC samples
     mc_wl = []
@@ -1003,6 +1016,27 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False):
             channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_data_orig.axes['channel']]
             hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
 
+            # Calculate the syst errors
+            p_err_arr = None
+            m_err_arr = None
+            p_err_arr_ratio = None
+            m_err_arr_ratio = None
+            if not skip_syst_errs:
+                # Get plus and minus rate and shape arrs
+                rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_orig[{"channel": channels}][{"channel": sum}], SR_GRP_MAP, group_type="SR")
+                shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_orig[{"channel": channels}][{"channel": sum}])
+                if (var_name == "njets"):
+                    # This is a special case for the diboson jet dependent systematic
+                    db_hist = hist_mc_orig[{"process": SR_GRP_MAP["Diboson"], "channel": channels, "systematic": "nominal"}][{"process":  sum, "channel":  sum}].eval({})[()]
+                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in proc_name else 0)) # Njets histos are assumed to start at njets=0
+                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in proc_name else 0)) # Njets histos are assumed to start at njets=0
+                # Get the arrays we will actually put in the CR plot
+                nom_arr_all = hist_mc_orig[{"process": sum, "channel":channels, "systematic": "nominal"}][{"channel": sum}].eval({})[()][1:]
+                p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:] # This goes in the main plot
+                m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m)[1:] # This goes in the main plot
+                p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
+                m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
+
             #print(var_name, chan_name, f'grouping {SR_GRP_MAP=}')
             # Using new grouping approach in plot functions
             #hist_mc = group_bins(hist_mc,SR_GRP_MAP,"process",drop_unspecified=False)
@@ -1033,7 +1067,18 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False):
                 print("Warning: empty data histo, continuing")
                 continue
 
-            fig = make_cr_fig(hist_mc, hist_data, var=var_name, unit_norm_bool=False, bins=axes_info[var_name]['variable'],group=SR_GRP_MAP)
+            fig = make_cr_fig(hist_mc,
+                  hist_data,
+                  var=var_name,
+                  unit_norm_bool=False,
+                  bins=axes_info[var_name]['variable'],
+                  group=SR_GRP_MAP,
+                  unblind=unblind,
+                  err_p = p_err_arr,
+                  err_m = m_err_arr,
+                  err_ratio_p = p_err_arr_ratio,
+                  err_ratio_m = m_err_arr_ratio
+            )
             if year is not None: year_str = year
             else: year_str = "ULall"
             title = chan_name + "_" + var_name + "_" + year_str
@@ -1095,6 +1140,28 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
         # Make plots for each SR category
         if split_by_chan:
             for hist_cat in SR_CHAN_DICT.keys():
+
+                # Calculate the syst errors
+                p_err_arr = None
+                m_err_arr = None
+                p_err_arr_ratio = None
+                m_err_arr_ratio = None
+                if not skip_syst_errs:
+                    # Get plus and minus rate and shape arrs
+                    rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
+                    shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated)
+                    if (var_name == "njets"):
+                        # This is a special case for the diboson jet dependent systematic
+                        db_hist = hist_mc_integrated.integrate("process",CR_GRP_MAP["Diboson"])[{"process": sum}].integrate("systematic","nominal").eval({})[()]
+                        shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in proc_name else 0)) # Njets histos are assumed to start at njets=0
+                        shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in proc_name else 0)) # Njets histos are assumed to start at njets=0
+                    # Get the arrays we will actually put in the CR plot
+                    nom_arr_all = hist_mc_integrated[{"process": sum}].integrate("systematic","nominal").eval({})[()][1:]
+                    p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:] # This goes in the main plot
+                    m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m)[1:] # This goes in the main plot
+                    p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
+                    m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
+
                 if ((var_name == "ptz") and ("3l" not in hist_cat)): continue
 
                 # Make a sub dir for this category
@@ -1115,7 +1182,20 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                 if not hist_sig_integrated_ch.eval({}):
                     print("Warning: empty mc histo, continuing")
                     continue
-                fig = make_single_fig(hist_sig_integrated_ch,unit_norm_bool,bins=axes_info[var_name]['variable'])
+                #fig = make_single_fig(hist_sig_integrated_ch,unit_norm_bool,bins=axes_info[var_name]['variable'])
+                fig = make_cr_fig(
+                    hist_mc_integrated,
+                    hist_data_integrated,
+                    unit_norm_bool,
+                    var=var_name,
+                    group=group,#CR_GRP_MAP,
+                    bins=axes_info[var_name]['variable'],
+                    set_x_lim = x_range,
+                    err_p = p_err_arr,
+                    err_m = m_err_arr,
+                    err_ratio_p = p_err_arr_ratio,
+                    err_ratio_m = m_err_arr_ratio
+                )
                 title = hist_cat+"_"+var_name
                 if unit_norm_bool: title = title + "_unitnorm"
                 fig.savefig(os.path.join(save_dir_path_tmp,title))
@@ -1157,7 +1237,20 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                         continue
 
                     # Make plots
-                    fig = make_single_fig(hist_sig_grouped_tmp[{'channel': sr_cat_dict[grouped_hist_cat]}][{'channel': sum}],unit_norm_bool,bins=axes_info[var_name]['variable'])
+                    #fig = make_single_fig(hist_sig_grouped_tmp[{'channel': sr_cat_dict[grouped_hist_cat]}][{'channel': sum}],unit_norm_bool,bins=axes_info[var_name]['variable'])
+                    fig = make_cr_fig(
+                        hist_mc_integrated,
+                        hist_data_integrated,
+                        unit_norm_bool,
+                        var=var_name,
+                        group=group,#CR_GRP_MAP,
+                        bins=axes_info[var_name]['variable'],
+                        set_x_lim = x_range,
+                        err_p = p_err_arr,
+                        err_m = m_err_arr,
+                        err_ratio_p = p_err_arr_ratio,
+                        err_ratio_m = m_err_arr_ratio
+                    )
                     title = proc_name+"_"+grouped_hist_cat+"_"+var_name
                     if unit_norm_bool: title = title + "_unitnorm"
                     fig.savefig(os.path.join(save_dir_path_tmp,title))
@@ -1303,8 +1396,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 if (var_name == "njets"):
                     # This is a special case for the diboson jet dependent systematic
                     db_hist = hist_mc_integrated.integrate("process",CR_GRP_MAP["Diboson"])[{"process": sum}].integrate("systematic","nominal").eval({})[()]
-                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
-                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
+                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in proc_name else 0)) # Njets histos are assumed to start at njets=0
+                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in proc_name else 0)) # Njets histos are assumed to start at njets=0
                 # Get the arrays we will actually put in the CR plot
                 nom_arr_all = hist_mc_integrated[{"process": sum}].integrate("systematic","nominal").eval({})[()][1:]
                 p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:] # This goes in the main plot
