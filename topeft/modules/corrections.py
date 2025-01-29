@@ -16,6 +16,8 @@ import json
 from coffea.jetmet_tools import CorrectedMETFactory
 ### workaround while waiting the correcion-lib integration will be provided in the coffea package
 from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
+from coffea.jetmet_tools import JECStack as OldJECStack
+from coffea.jetmet_tools import CorrectedJetsFactory as OldCorrectedJetsFactory
 from topcoffea.modules.JECStack import JECStack
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
@@ -1355,6 +1357,64 @@ def AttachPdfWeights(events):
     pdf_weight = ak.Array(events.LHEPdfWeight)
     #events['Pdf'] = ak.Array(events.nLHEPdfWeight) # FIXME not working
 
+def OldApplyJetCorrections(year, corr_type):
+    if year == '2016':
+        jec_tag = '16_V7'
+        jer_tag = 'Summer20UL16_JRV3'
+    elif year == '2016APV':
+        jec_tag = '16APV_V7'
+        jer_tag = 'Summer20UL16APV_JRV3'
+    elif year == '2017':
+        jec_tag = '17_V5'
+        jer_tag = 'Summer19UL17_JRV2'
+    elif year == '2018':
+        jec_tag = '18_V5'
+        jer_tag = 'Summer19UL18_JRV2'
+    else:
+        raise Exception(f"Error: Unknown year \"{year}\".")
+    extJEC = lookup_tools.extractor()
+    extJEC.add_weight_sets([
+        #"* * " + topcoffea_path('data/JER/%s_MC_SF_AK4PFchs.jersf.txt' % jer_tag),
+        #"* * " + topcoffea_path('data/JER/%s_MC_PtResolution_AK4PFchs.jr.txt' % jer_tag),
+        "* * " + topcoffea_path('data/JEC/Summer19UL%s_MC_L1FastJet_AK4PFchs.txt' % jec_tag),
+        "* * " + topcoffea_path('data/JEC/Summer19UL%s_MC_L2Relative_AK4PFchs.txt' % jec_tag),
+        "* * " + topcoffea_path('data/JEC/Quad_Summer19UL%s_MC_UncertaintySources_AK4PFchs.junc.txt' % jec_tag)
+    ])
+    jec_types = [
+        'FlavorQCD', 'FlavorPureBottom', 'FlavorPureQuark', 'FlavorPureGluon', 'FlavorPureCharm',
+        'BBEC1', 'Absolute', 'RelativeBal', 'RelativeSample'
+    ]
+    jec_regroup = ["Quad_Summer19UL%s_MC_UncertaintySources_AK4PFchs_%s" % (jec_tag,jec_type) for jec_type in jec_types]
+    jec_names = [
+        "%s_MC_SF_AK4PFchs" % jer_tag,
+        "%s_MC_PtResolution_AK4PFchs" % jer_tag,
+        "Summer19UL%s_MC_L1FastJet_AK4PFchs" % jec_tag,
+        "Summer19UL%s_MC_L2Relative_AK4PFchs" % jec_tag
+    ]
+    jec_names.extend(jec_regroup)
+    extJEC.finalize()
+    JECevaluator = extJEC.make_evaluator()
+    jec_inputs = {name: JECevaluator[name] for name in jec_names}
+    jec_stack = OldJECStack(jec_inputs)
+    name_map = jec_stack.blank_name_map
+    name_map['JetPt'] = 'pt'
+    name_map['JetMass'] = 'mass'
+    name_map['JetEta'] = 'eta'
+    name_map['JetPhi'] = 'phi'
+    name_map['JetA'] = 'area'
+    name_map['ptGenJet'] = 'pt_gen'
+    name_map['ptRaw'] = 'pt_raw'
+    name_map['massRaw'] = 'mass_raw'
+    name_map['Rho'] = 'rho'
+    name_map['METpt'] = 'pt'
+    name_map['METphi'] = 'phi'
+    name_map['UnClusteredEnergyDeltaX'] = 'MetUnclustEnUpDeltaX'
+    name_map['UnClusteredEnergyDeltaY'] = 'MetUnclustEnUpDeltaY'
+    if corr_type == 'met':
+        return CorrectedMETFactory(name_map)
+    return OldCorrectedJetsFactory(name_map, jec_stack)
+
+    
 ####### JEC
 ##############################################
 # JER: https://twiki.cern.ch/twiki/bin/viewauth/CMS/JetResolution

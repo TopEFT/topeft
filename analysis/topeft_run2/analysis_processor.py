@@ -16,11 +16,12 @@ from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
 import topcoffea.modules.event_selection as tc_es
 import topcoffea.modules.object_selection as tc_os
-import topcoffea.modules.corrections as tc_cor
+#import topcoffea.modules.corrections as tc_cor
+import topcoffea.modules.corrections_temp as tc_cor
 
 from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
+from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, OldApplyJetCorrections
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -223,8 +224,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu   = events.Muon
         tau  = events.Tau
         jets = events.Jet
+        PV = events.PV
 
-
+        print("\n\n\n\n\n\n\n\n")
+        print("PV fields:", PV.fields) 
+        print("\n\n\n\n\n\n\n\n")
+        
         if is_run3:
             leptonSelection = te_os.run3leptonselection()
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
@@ -413,7 +418,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_obj_base.add('PreFiring', *l1prefiring_args) #Run3 ready
             weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down')) #Run3 ready
 
-
+            print("\n\n\n\n\n\n\n\n\n\n")
+            print("legacy PUSF", ak.to_list(tc_cor.OldGetPUSF((events.Pileup.nTrueInt), year)))
+            print("clib PUSF", ak.to_list(tc_cor.GetPUSF((events.Pileup.nTrueInt), year)))
+            print("\n\n\n\n\n\n\n\n\n\n")
+            
         ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
 
         # If we're doing systematics and this isn't data, we will loop over the obj_correction_syst_lst list
@@ -454,7 +463,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                     tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var)
 
             events_cache = events.caches[0]
+            oldcleanedJets = OldApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
             cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
+
             cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
             met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era).build(met_raw, cleanedJets, lazy_cache=events_cache)
 
