@@ -1,6 +1,8 @@
 import os
 import shutil
 import argparse
+import json
+from topeft.modules.paths import topeft_path
 
 # This script does some basic checks of the cards and templates produced by the `make_cards.py` script.
 #   - It also can parse the condor log files and dump a summary of the contents
@@ -12,55 +14,6 @@ IGNORE_LINES = [
     "(Set coffea.deprecations_as_errors = True to get a stack trace now.)",
     "ImportError: coffea.hist is deprecated",
     "warnings.warn(message, FutureWarning)",
-]
-
-# The list of ptz and lj0pt we choose to use in each category for TOP-22-006
-TOP22006_CATEGORIES = [
-
-    "ttx_multileptons-3l_onZ_1b_2j_ptz",
-    "ttx_multileptons-3l_onZ_1b_3j_ptz",
-    "ttx_multileptons-3l_onZ_1b_4j_ptz",
-    "ttx_multileptons-3l_onZ_1b_5j_ptz",
-    "ttx_multileptons-3l_onZ_2b_4j_ptz",
-    "ttx_multileptons-3l_onZ_2b_5j_ptz",
-
-    "ttx_multileptons-2lss_4t_m_4j_lj0pt",
-    "ttx_multileptons-2lss_4t_m_5j_lj0pt",
-    "ttx_multileptons-2lss_4t_m_6j_lj0pt",
-    "ttx_multileptons-2lss_4t_m_7j_lj0pt",
-    "ttx_multileptons-2lss_4t_p_4j_lj0pt",
-    "ttx_multileptons-2lss_4t_p_5j_lj0pt",
-    "ttx_multileptons-2lss_4t_p_6j_lj0pt",
-    "ttx_multileptons-2lss_4t_p_7j_lj0pt",
-    "ttx_multileptons-2lss_m_4j_lj0pt",
-    "ttx_multileptons-2lss_m_5j_lj0pt",
-    "ttx_multileptons-2lss_m_6j_lj0pt",
-    "ttx_multileptons-2lss_m_7j_lj0pt",
-    "ttx_multileptons-2lss_p_4j_lj0pt",
-    "ttx_multileptons-2lss_p_5j_lj0pt",
-    "ttx_multileptons-2lss_p_6j_lj0pt",
-    "ttx_multileptons-2lss_p_7j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_1b_2j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_1b_3j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_1b_4j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_1b_5j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_2b_2j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_2b_3j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_2b_4j_lj0pt",
-    "ttx_multileptons-3l_m_offZ_2b_5j_lj0pt",
-    "ttx_multileptons-3l_onZ_2b_2j_lj0pt",
-    "ttx_multileptons-3l_onZ_2b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_1b_2j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_1b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_1b_4j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_1b_5j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_2b_2j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_2b_3j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_2b_4j_lj0pt",
-    "ttx_multileptons-3l_p_offZ_2b_5j_lj0pt",
-    "ttx_multileptons-4l_2j_lj0pt",
-    "ttx_multileptons-4l_3j_lj0pt",
-    "ttx_multileptons-4l_4j_lj0pt",
 ]
 
 # Return list of lines in a file
@@ -78,6 +31,8 @@ def ignore_line(line_to_check,list_of_str_to_ignore=IGNORE_LINES):
             ignore = True
     return ignore
 
+def extract_number(item):
+    return str(''.join(char for char in item if char.isdigit()))
 
 # Check the output of the datacard maekr
 def main():
@@ -86,9 +41,15 @@ def main():
     parser.add_argument("datacards_path", help = "The path to the directory with the datacards in it.")
     parser.add_argument("-c", "--check-condor-logs", action="store_true", help = "Check the contents of the condor err files.")
     parser.add_argument("-s", "--set-up-top22006", action="store_true", help = "Copy the ptz and lj0pt cards used in TOP-22-006 into their own directory.")
+    parser.add_argument("-z", "--set-up-offZdivision", action="store_true", help = "Copy the ptz and lj0pt cards with 3l offZ division.")
+    parser.add_argument("-t", "--tau-flag", action="store_true", help = "Copy the ptz, lj0pt, and ptz_wtau cards for tau channels.")
+    parser.add_argument("-f", "--fwd-flag", action="store_true", help = "Copy the ptz, lj0pt, and lt cards for forward channels.")
     args = parser.parse_args()
 
     ###### Print out general info ######
+
+    with open(os.path.join(args.datacards_path,'scalings-preselect.json'), 'r') as file:
+        scalings_content = json.load(file)
 
     # Count the number of text data cards and root templates
     n_text_cards = 0
@@ -135,35 +96,85 @@ def main():
         for line in lines_from_condor_out_to_print:
             print(f"\t\t* In {line[0]}: {line[1]}")
 
-
-
     ####### Copy the TOP-22-006 relevant files to their own dir ######
 
+
+    with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json:
+        select_ch_lst = json.load(ch_json)
+        #reading the macro analysis setup
+        if args.set_up_top22006:
+            import_sr_ch_lst = select_ch_lst["TOP22_006_CH_LST_SR"]
+        if args.set_up_offZdivision:
+            import_sr_ch_lst = select_ch_lst["OFFZ_SPLIT_CH_LST_SR"]
+        if args.tau_flag:
+            import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
+        if args.fwd_flag:
+            import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
+
+        CATSELECTED = []
+
+        #looping over 2l, 3l and 4l
+        for lep_cat, lep_cat_dict in import_sr_ch_lst.items():
+            lep_ch_list = lep_cat_dict['lep_chan_lst']
+            jet_list = lep_cat_dict['jet_lst']
+            jet_list = [extract_number(item) for item in jet_list]
+            #looping over each region within the lep category
+            for lep_ch in lep_ch_list:
+                lep_ch_name = lep_ch[0]
+                for jet in jet_list:
+                    # special channels to be binned by ptz instead of lj0pt
+                    if lep_ch_name == "3l_onZ_1b" or (lep_ch_name == "3l_onZ_2b" and (int(jet) == 4 or int(jet) == 5)):
+                        channelname = lep_ch_name + "_" + jet + "j_ptz"
+                    elif args.set_up_offZdivision and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
+                        channelname = lep_ch_name + "_" + jet + "j_ptz"
+                    elif args.tau_flag and ("2los" in lep_ch_name):
+                        channelname = lep_ch_name + "_" + jet + "j_ptz"
+                    elif args.tau_flag and ("1tau_onZ" in lep_ch_name):
+                        channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
+                    elif args.fwd_flag and ("fwd" in lep_ch_name or "2lss_p" in lep_ch_name or "2lss_m" in lep_ch_name):
+                        channelname = lep_ch_name + "_" + jet + "j_lt"
+                    else:
+                        channelname = lep_ch_name + "_" + jet + "j_lj0pt"
+                    CATSELECTED.append(channelname)
+
+    CATSELECTED = sorted(CATSELECTED)
     # Grab the ptz-lj0pt cards we want for TOP-22-006, copy into a dir
     n_txt = 0
     n_root = 0
+    ptzlj0pt_path = os.path.join(args.datacards_path,"ptz-lj0pt_withSys")
+    os.mkdir(ptzlj0pt_path)
     if args.set_up_top22006:
-        ptzlj0pt_path = os.path.join(args.datacards_path,"ptz-lj0pt_withSys")
-        os.mkdir(ptzlj0pt_path)
         print(f"\nCopying TOP-22-006 relevant files to {ptzlj0pt_path}...")
-        for fname in datacard_files:
-            file_name_strip_ext = os.path.splitext(fname)[0]
-            if file_name_strip_ext in TOP22006_CATEGORIES:
+
+    if args.set_up_offZdivision:
+        print(f"\nCopying 3l-offZ-division relevant files to {ptzlj0pt_path}...")
+    for fname in datacard_files:
+        file_name_strip_ext = os.path.splitext(fname)[0]
+        for file in CATSELECTED:
+            if file in file_name_strip_ext:
                 shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
                 if fname.endswith(".txt"): n_txt += 1
                 if fname.endswith(".root"): n_root += 1
-        #also copy the selectedWCs.txt file
-        shutil.copyfile(os.path.join(args.datacards_path,"selectedWCs.txt"),os.path.join(ptzlj0pt_path,"selectedWCs.txt"))
+    #also copy the selectedWCs.txt file
+    shutil.copyfile(os.path.join(args.datacards_path,"selectedWCs.txt"),os.path.join(ptzlj0pt_path,"selectedWCs.txt"))
 
-        # Check that we got the expected number and print what we learn
-        print(f"\tNumber of text templates copied: {n_txt}")
-        print(f"\tNumber of root templates copied: {n_txt}")
-        if ((n_txt != 43) or (n_root != 43)):
-            raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
-        print("Done.\n")
+    for item in scalings_content:
+        channel_name = item.get("channel")
+        if channel_name in CATSELECTED:
+            ch_index = CATSELECTED.index(channel_name) + 1
+            item["channel"] = "ch" + str(ch_index)
+        else:
+            scalings_content = [d for d in scalings_content if d != item]
 
+    with open(os.path.join(ptzlj0pt_path, 'scalings.json'), 'w') as file:
+        json.dump(scalings_content, file, indent=4)
+
+    # Check that we got the expected number and print what we learn
+    print(f"\tNumber of text templates copied: {n_txt}")
+    print(f"\tNumber of root templates copied: {n_txt}")
+    if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))):
+        raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
+    print("Done.\n")
 
 
 main()
-
-
