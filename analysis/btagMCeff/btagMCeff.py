@@ -60,6 +60,7 @@ class AnalysisProcessor(processor.ProcessorABC):
     # Main function: run on a given dataset
     def process(self, events):
 
+        events = events[0:100]
         # Dataset parameters
         dataset = events.metadata['dataset']
         year   = self._samples[dataset]['year']
@@ -151,28 +152,29 @@ class AnalysisProcessor(processor.ProcessorABC):
         Deeptag_jet     = Gen_matched_partonFlavour[maskDeepJet]
         PNet_jet        = Gen_matched_partonFlavour[maskPNetB]
 
+        gen_jet_total   = ak.count(Gen_matched_partonFlavour == 5, axis=None) + ak.count(Gen_matched_partonFlavour == -5, axis=None)
+        Deeptag_jet_total = ak.count(Deeptag_jet, axis=None)
+        PNet_jet_total    = ak.count(PNet_jet, axis=None)
+
+        uniden_maskDeepJet = ((Gen_matched_partonFlavour == 5) | (Gen_matched_partonFlavour == -5)) & (maskDeepJet == False)
+        uniden_maskPNet = ((Gen_matched_partonFlavour == 5) | (Gen_matched_partonFlavour == -5)) & (maskPNetB == False)
+        uniden_Deepjet = ak.count(uniden_maskDeepJet == True, axis=None)
+        uniden_PNet = ak.count(uniden_maskPNet == True, axis=None)
+
+        missmaskDeepjet = ((maskDeepJet == True) & (Gen_matched_partonFlavour != abs(5)))
+        miss_Deepjet = ak.count(missmaskDeepjet == True, axis=None)
+        missmaskPNet   = ((maskPNetB == True) & (Gen_matched_partonFlavour != abs(5)))
+        miss_PNet    = ak.count(missmaskPNet == True, axis=None)
+
         # Count correctly identified b-jet by DeepJet
-        gen_jet_total      = list(np.concatenate(Gen_matched_partonFlavour)).count(5) + list(np.concatenate(Gen_matched_partonFlavour)).count(-5)
-        Deeptag_jet_total  = len(np.concatenate(Deeptag_jet))
-        Deeptag_jet_correct = list(np.concatenate(Deeptag_jet)).count(5) + list(np.concatenate(Deeptag_jet)).count(-5)
-        PNet_jet_total     = len(np.concatenate(PNet_jet))
-        PNet_jet_correct   = list(np.concatenate(PNet_jet)).count(5) + list(np.concatenate(PNet_jet)).count(-5)
-
-        missmaskDeepJet    = [[(a == 5 or a == -5) and b == False for a, b in zip(sublist_a, sublist_b)] for sublist_a, sublist_b in zip(Gen_matched_partonFlavour, maskDeepJet)]
-        missmaskPNet       = [[(a == 5 or a == -5) and b == False for a, b in zip(sublist_a, sublist_b)] for sublist_a, sublist_b in zip(Gen_matched_partonFlavour, maskPNetB)]
-        missDeepJet        = list(np.concatenate(missmaskDeepJet)).count(True)
-        missPNet           = list(np.concatenate(missmaskPNet)).count(True)
-
-        genjet_count           = Deeptag_jet_correct + missDeepJet
-        Deepmiss_count         = Deeptag_jet_total - Deeptag_jet_correct
-        PNetmiss_count         = PNet_jet_total - PNet_jet_correct
-        Deepmisstag_rate       = Deepmiss_count/Deeptag_jet_total
+        genjet_count           = Deeptag_jet_total + miss_Deepjet
+        Deepmiss_count         = miss_Deepjet
+        PNetmiss_count         = miss_PNet
+        Deepmisstag_rate       = miss_Deepjet/Deeptag_jet_total
         Deep_btagefficiency    = Deeptag_jet_total/genjet_count
-        PNetmisstag_rate       = PNetmiss_count/PNet_jet_total
+        PNetmisstag_rate       = miss_PNet/PNet_jet_total
         PNet_btagefficiency    = PNet_jet_total/genjet_count
 
-        range_i = 0
-        range_f = 10
 
         njets = ak.num(goodJets)
         ht = ak.sum(goodJets.pt,axis=-1)
@@ -208,8 +210,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 hout['jeteta'].fill(WP=wp, Flav=jetype,  eta=etas, weight=weights)
                 hout['jetpteta'].fill(WP=wp, Flav=jetype,  pt=pts, abseta=absetas, weight=weights)
                 #hout['jetptetaflav'].fill(WP=wp, pt=pts, abseta=absetas, flav=flavarray, weight=weights)
-        hout['Deepjet'].fill(genjet_n=genjet_count, recojet_n=Deeptag_jet_total, misstag_n=Deepmiss_count, misstag_rate=Deepmisstag_rate, btag_efficiency=Deep_btagefficiency)
-        hout['PNet'].fill(genjet_n=genjet_count, recojet_n=PNet_jet_total, misstag_n=PNetmiss_count, misstag_rate=PNetmisstag_rate, btag_efficiency=PNet_btagefficiency)
+        #hout['DeepJet'].fill(genjet_n=genjet_count, recojet_n=Deeptag_jet_total, misstag_n=Deepmiss_count, misstag_rate=Deepmisstag_rate, btag_efficiency=Deep_btagefficiency)
+        #hout['PNet'].fill(genjet_n=genjet_count, recojet_n=PNet_jet_total, misstag_n=PNetmiss_count, misstag_rate=PNetmisstag_rate, btag_efficiency=PNet_btagefficiency)
         return hout
 
     def postprocess(self, accumulator):
