@@ -673,6 +673,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                     vetoedbyOverlap = events.vetoedbyOverlap
                     retainedbyOverlap = events.retainedbyOverlap
 
+            #Splitting ZGamma events based on whether is ISR or FSR origin
+            has_FSR_photon = np.ones(len(events),dtype=bool)
+            has_ISR_photon = np.ones(len(events),dtype=bool)
+
+            if not isData and 'ZGToLLG' in dataset:
+                has_ISR_photon, has_FSR_photon=te_es.categorize_into_ISRFSR_photon(events)
+
             ######### Store boolean masks with PackedSelection ##########
 
             selections = PackedSelection(dtype='uint64')
@@ -1185,10 +1192,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
-                                        # Fill the histos (first regular and then sumw2 hist)
-                                        plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="")
+                                        if "ZGToLLG" in dataset:  # ZGamma samples require ISR/FSR photons splitting
+                                            #For ISR and FSR cases, first fill regular histogram and then fill sumw2 histogram
+                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon))
+                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon), suffix="_sumw2")
+                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon))
+                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon), suffix="_sumw2")
 
-                                        plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="_sumw2")
+                                        else: #Non-ZGamma samples do not need to split into ISR/FSR photons pieces
+                                        # Fill the histos (first regular and then sumw2 hist)
+                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="")
+
+                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="_sumw2")
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
