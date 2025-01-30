@@ -13,7 +13,10 @@ setuptools.setup(
             "data/triggerSF/*.pkl.gz",
             "data/btagSF/UL/*.pkl.gz",
             "data/btagSF/UL/*.csv",
-            "modules/*.json"
+            "modules/*.json",
+            "data/photon_fakerates_gB29WFMqFb/*.npz",
+            "data/photon_fakerates_jeJHI2cDh5/*.npz",
+            "data/photon_fakerates_gyR6uGhvfy/*.npz"
         ],
     }
 )
