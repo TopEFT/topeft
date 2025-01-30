@@ -1200,7 +1200,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon), suffix="_sumw2")
 
                                         else: #Non-ZGamma samples do not need to split into ISR/FSR photons pieces
-                                        # Fill the histos (first regular and then sumw2 hist)
+                                            #Fill the histos (first regular and then sumw2 hist)
                                             plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="")
 
                                             plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="_sumw2")
