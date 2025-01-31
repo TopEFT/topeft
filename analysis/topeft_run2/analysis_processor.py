@@ -8,6 +8,7 @@ import json
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.sparseHist import SparseHist
 
 from coffea import processor
 from coffea.util import load
@@ -77,7 +78,32 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         histograms = {}
         for name, info in axes_info.items():
-            if name == 'photon_pt_eta': continue #skip for now
+            if name == 'photon_pt_eta':
+                pt_axis = hist.axis.Variable(info["pt"]["variable"],name="pt",label=info["pt"]["label"])
+                abseta_axis = hist.axis.Variable(info["abseta"]["variable"],name="abseta",label=info["abseta"]["label"])
+                pt_sumw2_axis = hist.axis.Variable(info["pt"]["variable"],name="pt_sumw2",label=info["pt"]["label"] + " sum of w^2")
+                abseta_sumw2_axis= hist.axis.Variable(info["abseta"]["variable"],name="abseta_sumw2",label=info["abseta"]["label"] + " sum of w^2")
+
+                histograms[name] = SparseHist(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    pt_axis,
+                    abseta_axis,
+                    label=r"Events"
+                )
+
+                histograms[name+"_sumw2"] = SparseHist(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    pt_sumw2_axis,
+                    abseta_sumw2_axis,
+                    label=r"Events"
+                )
+
             else:
                 if not rebin and "variable" in info:
                     dense_axis = hist.axis.Variable(
@@ -378,7 +404,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown", # Theory systs
         ]
         data_syst_lst = [
-            "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
+            "nonpromptPhUp","nonpromptPhDown","FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
         ]
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
@@ -590,6 +616,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
                 if ch_name.startswith("2l"):
+                    if "_ph" in ch_name:
+                        weights_dict[ch_name].add("nonpromptPh", events.nom, copy.deepcopy(events.np_ph_up), copy.deepcopy(events.np_ph_down))
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
                     weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
                     weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
@@ -853,6 +881,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["photon_eta2"] = photon_abseta
             varnames["invmass_llgamma"] = invmass_llg
             varnames["njet_bjet"] = jets_bjets_multiplicity
+            varnames["photon_pt_eta"] = ak.Array([])
 
 
             ########## Fill the histograms ##########
@@ -1186,24 +1215,34 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
-                                        # Skip histos that are not defined (or not relevant) to given categories
-                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
-                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
-                                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                        if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
+                                        if dense_axis_name != "photon_pt_eta":
+                                            # Skip histos that are not defined (or not relevant) to given categories
+                                            if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
+                                            if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                            if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
+                                            if (("photon" in dense_axis_name) & ("ph" not in ch_name)): continue
 
-                                        if "ZGToLLG" in dataset:  # ZGamma samples require ISR/FSR photons splitting
-                                            #For ISR and FSR cases, first fill regular histogram and then fill sumw2 histogram
-                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon))
-                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon), suffix="_sumw2")
-                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon))
-                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon), suffix="_sumw2")
+                                            if "ZGToLLG" in dataset:  # ZGamma samples require ISR/FSR photons splitting
+                                                #For ISR and FSR cases, first fill regular histogram and then fill sumw2 histogram
+                                                plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon))
+                                                plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon), suffix="_sumw2")
+                                                plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon))
+                                                plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon), suffix="_sumw2")
 
-                                        else: #Non-ZGamma samples do not need to split into ISR/FSR photons pieces
-                                            #Fill the histos (first regular and then sumw2 hist)
-                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="")
+                                            else: #Non-ZGamma samples do not need to split into ISR/FSR photons pieces
+                                                #Fill the histos (first regular and then sumw2 hist)
+                                                plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="")
 
-                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="_sumw2")
+                                                plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="_sumw2")
+
+                                        else:
+                                            #the photon_pt_eta histogram does not need to have ZGamma split based on ISR/FSR origin of photon
+                                            #also skip if the channel is not photon related
+                                            #also note that we are passing "weight" here and not "weight_tmp" because we don't want the photons be weighed by fakerate
+                                            if "ph" not in ch_name: continue
+                                            plot_help.fill_2d_histogram(hout, "photon_pt_eta", "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, weight, eft_coeffs, all_cuts_mask, suffix="")
+                                            plot_help.fill_2d_histogram(hout, "photon_pt_eta", "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, weight, eft_coeffs, all_cuts_mask, suffix="_sumw2")
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break

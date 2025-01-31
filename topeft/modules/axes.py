@@ -35,16 +35,16 @@ info = {
     "l0eta": {"regular": (20, -2.5, 2.5), "label": r"Leading lep $\eta$ "},
     "j0eta": {"regular": (30, -3, 3), "label": r"Leading jet  $\eta$ "},
     "njet_bjet": {"regular": (15, 0, 15), "label": "(njets,nbjets)"},
-    #"photon_pt_eta": {
-    #    "pt": {
-    #        "variable": [20,30,45,70,120],
-    #        "label": "$p_{T}$ $\gamma$ (GeV)"
-    #    },
-    #    "abseta": {
-    #        "variable" : [0,0.435,0.783,1.13,1.50],
-    #        "label": "Photon abs. $\eta$"
-    #    }
-    #},
+    "photon_pt_eta": {
+        "pt": {
+            "variable": [20,30,45,70,120],
+            "label": "$p_{T}$ $\gamma$ (GeV)"
+        },
+        "abseta": {
+            "variable" : [0,0.435,0.783,1.13,1.50],
+            "label": "Photon abs. $\eta$"
+        }
+    },
     "photon_pt": {
         "regular": (20, 0, 400),
         "variable": [20,35,50,70,100,170,200,250,300],

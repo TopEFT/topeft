@@ -981,11 +981,13 @@ def AddPerPhotonFR(events,ph,year,closureTest=False):
     events['fakerate_ph_val'] = fakerate_ph_val
     events['fakerate_ph_err'] = fakerate_ph_err
 
-def additional_nonprompt_ph_unc(events, last_bin_mask):
+#this is where we assign an additional 67% systematic uncertainty on the non-prompt photon yield in the photon pT distribution
+#the 67% uncertainty was determined using a dedicated data-driven closure test for ABCD method (summed over all years)
+def additional_nonprompt_ph_unc(events, last_bin_pt_mask):
     nominal = np.ones(len(events))
     #If last bin, scale the yield up/down by 15% and if other bins, keep nominal yield
-    up_variation = ak.where(last_bin_mask, nominal * 1.15, nominal)
-    down_variation = ak.where(last_bin_mask, nominal * 0.85, nominal)
+    up_variation = ak.where(last_bin_pt_mask, nominal * 1.67, nominal)
+    down_variation = ak.where(last_bin_pt_mask, nominal * 0.33, nominal)
 
     events['np_ph_up'] = up_variation
     events['np_ph_down'] = down_variation

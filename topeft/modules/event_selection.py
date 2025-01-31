@@ -610,9 +610,9 @@ def addPhotonSelection(events, sampleType, last_pt_bin, closureTest):
     events['isAR_ph'] = ak.fill_none(AR_exclusive,False)
 
     #additional nonprompt photon uncertainty in the last bin
-    unc_in_last_bin = (a0.pt >= last_pt_bin)
+    last_bin_pt_mask = (a0.pt >= last_pt_bin)
 
-    additional_nonprompt_ph_unc(events, unc_in_last_bin)
+    additional_nonprompt_ph_unc(events, last_bin_pt_mask)
 
 #For Fake rate extraction for main non-prompt estimation, we want to identify prompt MC contribution. Plus, we don't care about Regions A and B
 def categorizePhotonsInABCD_FR(events,sampleType):
