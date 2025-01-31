@@ -1,11 +1,10 @@
-#Where is it used?: This script is used in dataDrivenEstimation script. 
+#Where is it used?: This script is used in dataDrivenEstimation script.
 #What is the purpose?: The main purpose of this is to correctly handle the non-prompt photon uncertainty in the photon_pt histogram. This script makes sure that the FR and kMC uncertainties are included in the photon_pt histograms
 #What does it take?: It takes the photon_pt_eta and photon_pt_eta_sumw2 histograms and uses it to modify the values in the photon_pt2_sumw2 histogram
 #Future modifications: Potential places with pitfalls in the future are commented with "CAUTION" tag
 
 import re
 import numpy as np
-from coffea import hist
 
 from topeft.modules.paths import topeft_path
 
@@ -16,11 +15,11 @@ def get_desired_array_shape(original_arr, target_arr):
     #first make it a column matrix
     original_arr = original_arr.T
 
-    #create an array of all zeros with shape of target_arr    
+    #create an array of all zeros with shape of target_arr
     desired_arr = np.zeros_like(target_arr)
-    
+
     desired_arr[:,1] = original_arr.flatten()
-    
+
     return desired_arr
 
 def load_numpy_files(file_path):
@@ -32,7 +31,7 @@ def load_numpy_files(file_path):
     return val, err
 
 #This function takes a dictionary that has two histograms: photon_pt_eta and photon_pt_eta_sumw2. At this point, both of these histograms should only have a single process axis "nonpromptPhUL<year>" and the yield here will be with non-prompt photon estimation done. i.e. Data - Prompt MC in region B or R
-#CAUTION: The fr_file_path and kmc_file_path are hardcoded right now. 
+#CAUTION: The fr_file_path and kmc_file_path are hardcoded right now.
 def modify_NP_photon_pt_eta_variance(dict_of_hists_for_NP_uncertainty, closure=False):
     print("Inside NP variance calculation block")
     photon_pt_eta = dict_of_hists_for_NP_uncertainty["photon_pt_eta"]
@@ -74,7 +73,7 @@ def modify_NP_photon_pt_eta_variance(dict_of_hists_for_NP_uncertainty, closure=F
             np_var = ((sumw2_pt_eta_hist*pow(ff_val_padded,2)))+(pow(sumw_pt_eta_hist*ff_err_padded,2))
             np_var = np.nan_to_num(np_var,0)
 
-            #this is how we modify the values of sumw2 and sumw. After this point the photon_pt_eta and and photon_pt_eta_sumw2 hists values will be modified by new values 
+            #this is how we modify the values of sumw2 and sumw. After this point the photon_pt_eta and and photon_pt_eta_sumw2 hists values will be modified by new value.
             sumw2_pt_eta_hist[:] = np_var
             sumw_pt_eta_hist[:] = ff_val_padded*sumw_pt_eta_hist
 
@@ -97,4 +96,4 @@ def modify_photon_pt_variance(outputHist,year):
             desired_sumw2_summed_over_eta = get_desired_array_shape(new_sumw2_summed_over_eta, np.zeros((new_sumw2_summed_over_eta.shape[0], 3)))
 
             #We are now ready to modify the values of the photon_pt2_sumw2 histogram
-            photon_pt2_sumw2[:] = desired_sumw2_summed_over_eta        
+            photon_pt2_sumw2[:] = desired_sumw2_summed_over_eta
