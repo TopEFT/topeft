@@ -1221,7 +1221,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                             if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-                                            if (("photon" in dense_axis_name) & ("ph" not in ch_name)): continue
+                                            if not (("photon" in dense_axis_name) == ("ph" in ch_name)): continue
 
                                             if "ZGToLLG" in dataset:  # ZGamma samples require ISR/FSR photons splitting
                                                 #For ISR and FSR cases, first fill regular histogram and then fill sumw2 histogram
