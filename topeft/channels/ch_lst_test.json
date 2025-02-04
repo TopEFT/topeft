@@ -810,26 +810,6 @@
                 "=4",
                 ">5"
             ]
-    },
-    "4l": {
-            "lep_chan_lst": [
-                [
-                    "4l",
-            "4l",
-            "bmask_atleast1m2l"
-        ]
-            ],
-            "lep_flav_lst": [
-        "llll"
-            ],
-            "appl_lst": [
-        "isSR_4l"
-            ],
-            "jet_lst": [
-        "=2",
-        "=3",
-        ">4"
-            ]
         }
     }
 }
