@@ -86,39 +86,39 @@ SR_CHAN_DICT = {
     ],
     "3l_offZ_fwd_SR" : [
         "3l_m_offZ_1b_fwd_2j","3l_m_offZ_1b_fwd_3j", "3l_m_offZ_1b_fwd_4j", "3l_m_offZ_1b_fwd_5j",
-        "3l_m_offZ_2b_fwd_2j","3l_m_offZ_2b_fwd_3j", "3l_m_offZ_2b_fwd_4j", "3l_m_offZ_2b_fwd_5j",
+        #"3l_m_offZ_2b_fwd_2j","3l_m_offZ_2b_fwd_3j", "3l_m_offZ_2b_fwd_4j", "3l_m_offZ_2b_fwd_5j",
         "3l_p_offZ_1b_fwd_2j","3l_p_offZ_1b_fwd_3j", "3l_p_offZ_1b_fwd_4j", "3l_p_offZ_1b_fwd_5j",
-        "3l_p_offZ_2b_fwd_2j","3l_p_offZ_2b_fwd_3j", "3l_p_offZ_2b_fwd_4j", "3l_p_offZ_2b_fwd_5j",
+        #"3l_p_offZ_2b_fwd_2j","3l_p_offZ_2b_fwd_3j", "3l_p_offZ_2b_fwd_4j", "3l_p_offZ_2b_fwd_5j",
     ],
     "3l_offZ_fwd_1j_SR" : [
         "3l_m_offZ_1b_fwd_1j",
-        "3l_m_offZ_2b_fwd_1j",
+        #"3l_m_offZ_2b_fwd_1j",
         "3l_p_offZ_1b_fwd_1j",
-        "3l_p_offZ_2b_fwd_1j",
+        #"3l_p_offZ_2b_fwd_1j",
     ],
     "3l_offZ_fwd_2j_SR" : [
         "3l_m_offZ_1b_fwd_2j",
-        "3l_m_offZ_2b_fwd_2j",
+        #"3l_m_offZ_2b_fwd_2j",
         "3l_p_offZ_1b_fwd_2j",
-        "3l_p_offZ_2b_fwd_2j",
+        #"3l_p_offZ_2b_fwd_2j",
     ],
     "3l_offZ_fwd_3j_SR" : [
         "3l_m_offZ_1b_fwd_3j",
-        "3l_m_offZ_2b_fwd_3j",
+        #"3l_m_offZ_2b_fwd_3j",
         "3l_p_offZ_1b_fwd_3j",
-        "3l_p_offZ_2b_fwd_3j",
+        #"3l_p_offZ_2b_fwd_3j",
     ],
     "3l_offZ_fwd_4j_SR" : [
         "3l_m_offZ_1b_fwd_4j",
-        "3l_m_offZ_2b_fwd_4j",
+        #"3l_m_offZ_2b_fwd_4j",
         "3l_p_offZ_1b_fwd_4j",
-        "3l_p_offZ_2b_fwd_4j",
+        #"3l_p_offZ_2b_fwd_4j",
     ],
     "3l_offZ_fwd_5j_SR" : [
         "3l_m_offZ_1b_fwd_5j",
-        "3l_m_offZ_2b_fwd_5j",
+        #"3l_m_offZ_2b_fwd_5j",
         "3l_p_offZ_1b_fwd_5j",
-        "3l_p_offZ_2b_fwd_5j",
+        #"3l_p_offZ_2b_fwd_5j",
     ],
     "3l_onZ_SR" : [
         "3l_onZ_1b_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
@@ -126,27 +126,27 @@ SR_CHAN_DICT = {
     ],
     "3l_onZ_fwd_SR" : [
         "3l_onZ_1b_fwd_1j"   , "3l_onZ_1b_fwd_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
-        "3l_onZ_2b_fwd_1j"   , "3l_onZ_2b_fwd_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
+        #"3l_onZ_2b_fwd_1j"   , "3l_onZ_2b_fwd_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
     ],
     "3l_onZ_fwd_1j_SR" : [
         "3l_onZ_1b_fwd_1j"  ,
-        "3l_onZ_2b_fwd_1j"  ,
+        #"3l_onZ_2b_fwd_1j"  ,
     ],
     "3l_onZ_fwd_2j_SR" : [
         "3l_onZ_1b_fwd_2j"  ,
-        "3l_onZ_2b_fwd_2j"  ,
+        #"3l_onZ_2b_fwd_2j"  ,
     ],
     "3l_onZ_fwd_3j_SR" : [
         "3l_onZ_1b_fwd_3j"  ,
-        "3l_onZ_2b_fwd_3j"  ,
+        #"3l_onZ_2b_fwd_3j"  ,
     ],
     "3l_onZ_fwd_4j_SR" : [
         "3l_onZ_1b_fwd_4j"  ,
-        "3l_onZ_2b_fwd_4j"  ,
+        #"3l_onZ_2b_fwd_4j"  ,
     ],
     "3l_onZ_fwd_5j_SR" : [
         "3l_onZ_1b_fwd_5j"  ,
-        "3l_onZ_2b_fwd_5j"  ,
+        #"3l_onZ_2b_fwd_5j"  ,
     ],
     "4l_SR" : [
         "4l_2j", "4l_3j", "4l_4j",
@@ -1068,17 +1068,17 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
                 continue
 
             fig = make_cr_fig(hist_mc,
-                      hist_data,
-                      var=var_name,
-                      unit_norm_bool=False,
-                      bins=axes_info[var_name]['variable'],
-                      group=SR_GRP_MAP,
-                      unblind=unblind,
-                      err_p = p_err_arr,
-                      err_m = m_err_arr,
-                      err_ratio_p = p_err_arr_ratio,
-                      err_ratio_m = m_err_arr_ratio
-                    )
+                              hist_data,
+                              var=var_name,
+                              unit_norm_bool=False,
+                              bins=axes_info[var_name]['variable'],
+                              group=SR_GRP_MAP,
+                              unblind=unblind,
+                              err_p = p_err_arr,
+                              err_m = m_err_arr,
+                              err_ratio_p = p_err_arr_ratio,
+                              err_ratio_m = m_err_arr_ratio
+                             )
             if year is not None: year_str = year
             else: year_str = "ULall"
             title = chan_name + "_" + var_name + "_" + year_str
@@ -1095,7 +1095,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
 # Wrapper function to loop over all SR categories and make plots for all variables
 # Right now this function will only plot the signal samples
 # By default, will make two sets of plots: One with process overlay, one with channel overlay
-def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True,skip_syst=False):
+def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True,skip_syst_errs=False):
 
     # If selecting a year, append that year to the wight list
     sig_wl = ["private"]
