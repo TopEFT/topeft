@@ -1068,17 +1068,17 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
                 continue
 
             fig = make_cr_fig(hist_mc,
-                  hist_data,
-                  var=var_name,
-                  unit_norm_bool=False,
-                  bins=axes_info[var_name]['variable'],
-                  group=SR_GRP_MAP,
-                  unblind=unblind,
-                  err_p = p_err_arr,
-                  err_m = m_err_arr,
-                  err_ratio_p = p_err_arr_ratio,
-                  err_ratio_m = m_err_arr_ratio
-            )
+                      hist_data,
+                      var=var_name,
+                      unit_norm_bool=False,
+                      bins=axes_info[var_name]['variable'],
+                      group=SR_GRP_MAP,
+                      unblind=unblind,
+                      err_p = p_err_arr,
+                      err_m = m_err_arr,
+                      err_ratio_p = p_err_arr_ratio,
+                      err_ratio_m = m_err_arr_ratio
+                    )
             if year is not None: year_str = year
             else: year_str = "ULall"
             title = chan_name + "_" + var_name + "_" + year_str
@@ -1095,7 +1095,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
 # Wrapper function to loop over all SR categories and make plots for all variables
 # Right now this function will only plot the signal samples
 # By default, will make two sets of plots: One with process overlay, one with channel overlay
-def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True):
+def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_chan=True,split_by_proc=True,skip_syst=False):
 
     # If selecting a year, append that year to the wight list
     sig_wl = ["private"]
@@ -1148,15 +1148,15 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                 m_err_arr_ratio = None
                 if not skip_syst_errs:
                     # Get plus and minus rate and shape arrs
-                    rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
-                    shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated)
+                    rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_sig, CR_GRP_MAP)
+                    shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_sig)
                     if (var_name == "njets"):
                         # This is a special case for the diboson jet dependent systematic
-                        db_hist = hist_mc_integrated.integrate("process",CR_GRP_MAP["Diboson"])[{"process": sum}].integrate("systematic","nominal").eval({})[()]
-                        shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in proc_name else 0)) # Njets histos are assumed to start at njets=0
-                        shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in proc_name else 0)) # Njets histos are assumed to start at njets=0
+                        db_hist = hist_sig.integrate("process",CR_GRP_MAP["Diboson"])[{"process": sum}].integrate("systematic","nominal").eval({})[()]
+                        shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in hist_cat else 0)) # Njets histos are assumed to start at njets=0
+                        shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0 + (1 if 'fwd' in hist_cat else 0)) # Njets histos are assumed to start at njets=0
                     # Get the arrays we will actually put in the CR plot
-                    nom_arr_all = hist_mc_integrated[{"process": sum}].integrate("systematic","nominal").eval({})[()][1:]
+                    nom_arr_all = hist_sig[{"process": sum}].integrate("systematic","nominal").eval({})[()][1:]
                     p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:] # This goes in the main plot
                     m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m)[1:] # This goes in the main plot
                     p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
@@ -1182,20 +1182,20 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                 if not hist_sig_integrated_ch.eval({}):
                     print("Warning: empty mc histo, continuing")
                     continue
-                #fig = make_single_fig(hist_sig_integrated_ch,unit_norm_bool,bins=axes_info[var_name]['variable'])
-                fig = make_cr_fig(
-                    hist_mc_integrated,
-                    hist_data_integrated,
-                    unit_norm_bool,
-                    var=var_name,
-                    group=group,#CR_GRP_MAP,
-                    bins=axes_info[var_name]['variable'],
-                    set_x_lim = x_range,
-                    err_p = p_err_arr,
-                    err_m = m_err_arr,
-                    err_ratio_p = p_err_arr_ratio,
-                    err_ratio_m = m_err_arr_ratio
-                )
+                fig = make_single_fig(hist_sig_integrated_ch,unit_norm_bool,bins=axes_info[var_name]['variable'])
+                #fig = make_cr_fig(
+                #    hist_sig_integrated_ch,
+                #    hist_data_integrated,
+                #    unit_norm_bool,
+                #    var=var_name,
+                #    group=group,#CR_GRP_MAP,
+                #    bins=axes_info[var_name]['variable'],
+                #    set_x_lim = x_range,
+                #    err_p = p_err_arr,
+                #    err_m = m_err_arr,
+                #    err_ratio_p = p_err_arr_ratio,
+                #    err_ratio_m = m_err_arr_ratio
+                #)
                 title = hist_cat+"_"+var_name
                 if unit_norm_bool: title = title + "_unitnorm"
                 fig.savefig(os.path.join(save_dir_path_tmp,title))
@@ -1237,20 +1237,20 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                         continue
 
                     # Make plots
-                    #fig = make_single_fig(hist_sig_grouped_tmp[{'channel': sr_cat_dict[grouped_hist_cat]}][{'channel': sum}],unit_norm_bool,bins=axes_info[var_name]['variable'])
-                    fig = make_cr_fig(
-                        hist_mc_integrated,
-                        hist_data_integrated,
-                        unit_norm_bool,
-                        var=var_name,
-                        group=group,#CR_GRP_MAP,
-                        bins=axes_info[var_name]['variable'],
-                        set_x_lim = x_range,
-                        err_p = p_err_arr,
-                        err_m = m_err_arr,
-                        err_ratio_p = p_err_arr_ratio,
-                        err_ratio_m = m_err_arr_ratio
-                    )
+                    fig = make_single_fig(hist_sig_grouped_tmp[{'channel': sr_cat_dict[grouped_hist_cat]}][{'channel': sum}],unit_norm_bool,bins=axes_info[var_name]['variable'])
+                    #fig = make_cr_fig(
+                    #    hist_mc_integrated,
+                    #    hist_data_integrated,
+                    #    unit_norm_bool,
+                    #    var=var_name,
+                    #    group=group,#CR_GRP_MAP,
+                    #    bins=axes_info[var_name]['variable'],
+                    #    set_x_lim = x_range,
+                    #    err_p = p_err_arr,
+                    #    err_m = m_err_arr,
+                    #    err_ratio_p = p_err_arr_ratio,
+                    #    err_ratio_m = m_err_arr_ratio
+                    #)
                     title = proc_name+"_"+grouped_hist_cat+"_"+var_name
                     if unit_norm_bool: title = title + "_unitnorm"
                     fig.savefig(os.path.join(save_dir_path_tmp,title))
