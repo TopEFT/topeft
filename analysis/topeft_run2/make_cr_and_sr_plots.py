@@ -1077,8 +1077,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
                               err_p = p_err_arr,
                               err_m = m_err_arr,
                               err_ratio_p = p_err_arr_ratio,
-                              err_ratio_m = m_err_arr_ratio
-            )
+                              err_ratio_m = m_err_arr_ratio)
             if year is not None: year_str = year
             else: year_str = "ULall"
             title = chan_name + "_" + var_name + "_" + year_str
