@@ -35,18 +35,38 @@ class AnalysisProcessor(processor.ProcessorABC):
         flav_axis = hist.axis.IntCategory([], name="flav", growth=True)
         wp_axis = hist.axis.StrCategory([], name="WP", growth=True)
         genjet_n_axis = hist.axis.StrCategory([], name="genjet_n", growth=True)
-        recojet_n_axis = hist.axis.StrCategory([], name="recojet_n", growth=True)
-        misstag_n_axis = hist.axis.StrCategory([], name="misstag_n", growth=True)
-        misstag_rate_axis = hist.axis.StrCategory([], name="misstag_rate", growth=True)
-        btag_efficiency_axis = hist.axis.StrCategory([], name="btag_efficiency", growth=True)
+        DeepJet_n_axis = hist.axis.StrCategory([], name="DeepJet_n",growth=True)
+        DeepJet_misstag_n_axis = hist.axis.StrCategory([], name="DeepJet_misstag_n",growth=True)
+        DeepJet_misstag_rate_axis = hist.axis.StrCategory([], name="DeepJet_misstag_rate", growth=True)
+        DeepJet_lightmisstag_rate_axis = hist.axis.StrCategory([], name="DeepJet_lightmisstag_rate", growth=True)
+        DeepJet_charmmisstag_rate_axis = hist.axis.StrCategory([], name="DeepJet_charmmisstag_rate", growth=True)
+        DeepJet_eff_axis = hist.axis.StrCategory([], name="DeepJet_eff", growth=True)
+        PNet_n_axis = hist.axis.StrCategory([], name="PNet_n",growth=True)
+        PNet_misstag_n_axis = hist.axis.StrCategory([], name="PNet_misstag_n",  growth=True)
+        PNet_misstag_rate_axis = hist.axis.StrCategory([], name="PNet_misstag_rate", growth=True)
+        PNet_lightmisstag_rate_axis = hist.axis.StrCategory([], name="PNet_lightmisstag_rate", growth=True)
+        PNet_charmmisstag_rate_axis = hist.axis.StrCategory([], name="PNet_charmmisstag_rate", growth=True)
+        PNet_eff_axis   = hist.axis.StrCategory([], name="PNet_eff", growth=True)
 
         self._accumulator = {
             'jetpt'  : hist.Hist(wp_axis, Flav_axis, jpt_axis),
             'jeteta'  : hist.Hist(wp_axis, Flav_axis, jeta_axis),
             'jetpteta'  : hist.Hist(wp_axis, Flav_axis, jpt_axis, jaeta_axis),
             'jetptetaflav'  : hist.Hist(wp_axis, jetpt_axis, jaeta_axis, flav_axis),
-            'DeepJet' : hist.Hist(genjet_n_axis, recojet_n_axis, misstag_n_axis, misstag_rate_axis, btag_efficiency_axis),
-            'PNet': hist.Hist(genjet_n_axis, recojet_n_axis, misstag_n_axis, misstag_rate_axis, btag_efficiency_axis)
+            'gen_n'                 : hist.Hist(genjet_n_axis),
+            'DeepJet_n'             : hist.Hist(DeepJet_n_axis),
+            'DeepJet_misstag_n'     : hist.Hist(DeepJet_misstag_n_axis),
+            'DeepJet_lightmisstag_rate' :hist.Hist(DeepJet_lightmisstag_rate_axis),
+            'DeepJet_charmmisstag_rate' : hist.Hist(DeepJet_charmmisstag_rate_axis),
+            'DeepJet_misstag_rate'  : hist.Hist(DeepJet_misstag_rate_axis),
+            'DeepJet_eff'           : hist.Hist(DeepJet_eff_axis),
+            'PNet_n'                : hist.Hist(PNet_n_axis),
+            'PNet_misstag_n'        : hist.Hist(PNet_misstag_n_axis),
+            'PNet_misstag_rate'     : hist.Hist(PNet_misstag_rate_axis),
+            'PNet_lightmisstag_rate': hist.Hist(PNet_lightmisstag_rate_axis),
+            'PNet_charmmisstag_rate': hist.Hist(PNet_charmmisstag_rate_axis),
+            'PNet_eff'              : hist.Hist(PNet_eff_axis)
+
         }
 
     @property
@@ -60,7 +80,7 @@ class AnalysisProcessor(processor.ProcessorABC):
     # Main function: run on a given dataset
     def process(self, events):
 
-        events = events[0:10]
+        #events = events[0:10]
         # Dataset parameters
         dataset = events.metadata['dataset']
         year   = self._samples[dataset]['year']
@@ -143,39 +163,52 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Define masks for b-jets and tagged jets using goodJets.partonFlavour
         bjet_mask = (goodJets.partonFlavour == 5) | (goodJets.partonFlavour == -5)
+        light_mask = (goodJets.partonFlavour == 3) | (goodJets.partonFlavour == -3) | (goodJets.partonFlavour == 2) |(goodJets.partonFlavour == -2) | (goodJets.partonFlavour == 1) | (goodJets.partonFlavour == -1)
+        charm_mask = (goodJets.partonFlavour == 4) | (goodJets.partonFlavour == -4)
         maskDeepJet = goodJets.btagDeepFlavB > DeepJet_btagcut
         maskPNetB   = goodJets.btagPNetB > PNet_btagcut
 
-        # Count total b-jets per event                                                                                              
-        gen_jet_total = ak.sum(bjet_mask)
+        # Count total b-jets per event at gen level
+        gen_jet_total = ak.sum(ak.flatten(bjet_mask))
 
-        Deeptag_jet_total = ak.sum(maskDeepJet & bjet_mask)
-        PNet_jet_total    = ak.sum(maskPNetB & bjet_mask)
+        # Count the correctly tagged b-jets across all events
+        Deeptag_jet_total = ak.sum(ak.flatten(maskDeepJet & bjet_mask))
+        PNet_jet_total    = ak.sum(ak.flatten(maskPNetB & bjet_mask))
 
-        # Count untagged b-jets (b-jets that were missed)                                                                           
-        uniden_Deepjet = ak.sum(bjet_mask & ~maskDeepJet)
-        uniden_PNet    = ak.sum(bjet_mask & ~maskPNetB)
+        # Count missed b-jets (b-jets that were not tagged) across all events
+        uniden_Deepjet = ak.sum(ak.flatten(bjet_mask & ~maskDeepJet))
+        uniden_PNet    = ak.sum(ak.flatten(bjet_mask & ~maskPNetB))
 
-        # Count mistagged jets (jets that are NOT b-jets but are tagged)                                                            
+        # Count mistagged jets (jets that are not b-jets but are tagged as b) across all events
         mistagDeepJet_mask = maskDeepJet & ~bjet_mask
         mistagPNet_mask    = maskPNetB & ~bjet_mask
 
-        miss_Deepjet = ak.sum(mistagDeepJet_mask)
-        miss_PNet    = ak.sum(mistagPNet_mask)
+        mistagDeepJetlight_mask = mistagDeepJet_mask & light_mask
+        mistagDeepJetcharm_mask    = mistagDeepJet_mask & charm_mask
+        mistagPNetlight_mask   = mistagPNet_mask & light_mask
+        mistagPNetcharm_mask   = mistagPNet_mask & charm_mask
+        
+        miss_Deepjet = ak.sum(ak.flatten(mistagDeepJet_mask))
+        miss_Deepjet_light = ak.sum(ak.flatten(mistagDeepJetlight_mask))
+        miss_Deepjet_charm = ak.sum(ak.flatten(mistagDeepJetcharm_mask))
+        miss_PNet    = ak.sum(ak.flatten(mistagPNet_mask))
+        miss_PNet_light = ak.sum(ak.flatten(mistagPNetlight_mask))
+        miss_PNet_charm = ak.sum(ak.flatten(mistagPNetcharm_mask))
 
-        # Compute rates per event (handling division by zero)                                                                       
+        # Count the total number of non-b jets across all events
+        non_bjet_total = ak.sum(ak.flatten(~bjet_mask))
+
+        # Compute the mistag rate as the fraction of non-b jets tagged as b-jets
+        Deepmistag_rate = miss_Deepjet / non_bjet_total if non_bjet_total > 0 else 0
+        PNetmistag_rate = miss_PNet / non_bjet_total if non_bjet_total > 0 else 0
+
+        Deepmistaglight_rate = miss_Deepjet_light / non_bjet_total if non_bjet_total > 0 else 0
+        Deepmistagcharm_rate = miss_Deepjet_charm / non_bjet_total if non_bjet_total > 0 else 0
+        PNetmistaglight_rate = miss_PNet_light / non_bjet_total if non_bjet_total > 0 else 0
+        PNetmistagcharm_rate = miss_PNet_charm / non_bjet_total if non_bjet_total > 0 else 0
+
         Deep_btagefficiency = Deeptag_jet_total / gen_jet_total
         PNet_btagefficiency = PNet_jet_total / gen_jet_total
-
-        Deepmisstag_rate = miss_Deepjet / Deeptag_jet_total
-        PNetmisstag_rate = miss_PNet / PNet_jet_total
-
-        # Print results per event if you want to check runs with future, but comment out these lines when running with work_queue_factory!                                                                                                 
-        #print(f"Total b-jets: {gen_jet_total}")
-        #print(f"DeepJet: Tagged {Deeptag_jet_total}, Missed {uniden_Deepjet}, Mistagged {miss_Deepjet}")
-        #print(f"PNet: Tagged {PNet_jet_total}, Missed {uniden_PNet}, Mistagged {miss_PNet}")
-        #print(f"DeepJet Efficiency: {Deep_btagefficiency:.4f}, Mistag Rate: {Deepmisstag_rate:.4f}")
-        #print(f"PNet Efficiency: {PNet_btagefficiency:.4f}, Mistag Rate: {PNetmisstag_rate:.4f}")
 
         njets = ak.num(goodJets)
         ht = ak.sum(goodJets.pt,axis=-1)
@@ -211,8 +244,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                 hout['jeteta'].fill(WP=wp, Flav=jetype,  eta=etas, weight=weights)
                 hout['jetpteta'].fill(WP=wp, Flav=jetype,  pt=pts, abseta=absetas, weight=weights)
                 #hout['jetptetaflav'].fill(WP=wp, pt=pts, abseta=absetas, flav=flavarray, weight=weights)
-        hout['DeepJet'].fill(genjet_n=gen_jet_total, recojet_n=Deeptag_jet_total, misstag_n=miss_Deepjet, misstag_rate=Deepmisstag_rate, btag_efficiency=Deep_btagefficiency)
-        hout['PNet'].fill(genjet_n=gen_jet_total, recojet_n=PNet_jet_total, misstag_n=miss_PNet, misstag_rate=PNetmisstag_rate, btag_efficiency=PNet_btagefficiency)
+        hout['gen_n'].fill(genjet_n=gen_jet_total)
+        hout['DeepJet_n'].fill(DeepJet_n=Deeptag_jet_total)
+        hout['DeepJet_misstag_n'].fill(DeepJet_misstag_n=miss_Deepjet)
+        hout['DeepJet_misstag_rate'].fill(DeepJet_misstag_rate=Deepmistag_rate)
+        hout['DeepJet_lightmisstag_rate'].fill(DeepJet_lightmisstag_rate=Deepmistaglight_rate)
+        hout['DeepJet_charmmisstag_rate'].fill(DeepJet_charmmisstag_rate=Deepmistagcharm_rate)
+        hout['DeepJet_eff'].fill(DeepJet_eff=Deep_btagefficiency)
+        hout['PNet_n'].fill(PNet_n=PNet_jet_total)
+        hout['PNet_misstag_n'].fill(PNet_misstag_n=miss_PNet)
+        hout['PNet_misstag_rate'].fill(PNet_misstag_rate=PNetmistag_rate)
+        hout['PNet_lightmisstag_rate'].fill(PNet_lightmisstag_rate=PNetmistaglight_rate)
+        hout['PNet_charmmisstag_rate'].fill(PNet_charmmisstag_rate=PNetmistagcharm_rate)
+        hout['PNet_eff'].fill(PNet_eff=PNet_btagefficiency)
+
         return hout
 
     def postprocess(self, accumulator):
