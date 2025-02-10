@@ -5,6 +5,7 @@
 
 from coffea import lookup_tools
 from topcoffea.modules.paths import topcoffea_path
+from topcoffea.modules.run_id import is_run2, is_run3
 from topeft.modules.paths import topeft_path
 import numpy as np
 import awkward as ak
@@ -933,10 +934,6 @@ def AttachMuonSF(muons, year):
     - use loose from correction-lib
     - reco not available yet, but MUO don't bother about that
     '''
-    is_run3 = False
-    if year.startswith("202"):
-        is_run3 = True
-    is_run2 = not is_run3
 
     eta = np.abs(muons.eta)
     pt = muons.pt
@@ -977,7 +974,7 @@ def AttachMuonSF(muons, year):
     pt_flat_reco = ak.where(~pt_mask_reco, 40., pt_flat)
     pt_flat_loose = ak.where(~pt_mask, 15., pt_flat)
 
-    if is_run2:
+    if is_run2(year):
         ## The only one to be actually got from clib for Run2<
         loose_sf_flat = ak.where(
             ~pt_mask,
@@ -1018,7 +1015,7 @@ def AttachMuonSF(muons, year):
         new_up = new_sf + new_err
         new_do = new_sf - new_err
 
-    elif is_run3:
+    elif is_run3(year):
         loose_sf_flat = ak.where(
             ~pt_mask,
             1,
@@ -1081,11 +1078,7 @@ def AttachElectronSF(electrons, year, looseWP=None):
     if looseWP is None:
         raise ValueError('when calling AttachElectronSF, a looseWP value must be provided according to the ele ID isPres selection')
 
-    is_run3 = False
-    if year.startswith("202"):
-        is_run3 = True
-    is_run2 = not is_run3
-    dt_era = "Run3" if is_run3 else "Run2"
+    dt_era = "Run3" if is_run3(year) else "Run2"
 
     eta = electrons.eta
     pt = electrons.pt
@@ -1129,7 +1122,7 @@ def AttachElectronSF(electrons, year, looseWP=None):
 
     egm_year = egm_tag_map[clib_year]
     egm_tag = "Electron-ID-SF"
-    if is_run2:
+    if is_run2(year):
         egm_tag = "UL-" + "Electron-ID-SF"
 
     for bintag, bin_edges in pt_bins.items():
@@ -1182,7 +1175,7 @@ def AttachElectronSF(electrons, year, looseWP=None):
     reco_up = ak.unflatten(reco_up_flat, ak.num(pt))
     reco_do = ak.unflatten(reco_do_flat, ak.num(pt))
 
-    if not is_run3: # run 3 dont need loose for the id because we dont have ID working point (to be checked!!)
+    if not is_run3(year): # run 3 dont need loose for the id because we dont have ID working point (to be checked!!)
         loose_sf  = SFevaluator['ElecLooseSF_{year}'.format(year=year)](np.abs(eta),pt)
         loose_err = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](np.abs(eta),pt)
         loose_up = loose_sf + loose_err
@@ -1639,19 +1632,15 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     return [GetTrig, GetTrigDo, GetTrigUp]
 
 def GetTriggerSF(year, events, lep0, lep1):
-    is_run3 = False
-    if year.startswith("202"):
-        is_run3 = True
-    is_run2 = not is_run3
 
     ls = []
     for syst in [0,1]:
         #2l
-        if is_run2:
+        if is_run2(year):
             SF_ee = np.where((events.is2l & events.is_ee), LoadTriggerSF(year,ch='2l',flav='ee')[syst](lep0.pt,lep1.pt), 1.0)
             SF_em = np.where((events.is2l & events.is_em), LoadTriggerSF(year,ch='2l',flav='em')[syst](lep0.pt,lep1.pt), 1.0)
             SF_mm = np.where((events.is2l & events.is_mm), LoadTriggerSF(year,ch='2l',flav='mm')[syst](lep0.pt,lep1.pt), 1.0)
-        elif is_run3:
+        elif is_run3(year):
             SF_ee = ak.ones_like(events.is2l)
             SF_em = ak.ones_like(events.is2l)
             SF_mm = ak.ones_like(events.is2l)
