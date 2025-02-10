@@ -16,5 +16,8 @@ This directory contains scripts from the validation studies of the FullR2 privat
     - Should be run on the output of the topeft processor
     - Was used during the June 2022 MC validation studies (for TOP-22-006 pre approval checks)
 
+* `gen_photon_rocessor.py`:
+    - This script produces a pkl file compatible with the datacard maker using nanoGEN files.
+
 
 
