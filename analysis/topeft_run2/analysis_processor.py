@@ -479,6 +479,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Jet energy corrections
             if not isData:
                 cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
+                #cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
+                #cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
+                #cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
             events_cache = events.caches[0]
             cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
             cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
@@ -1141,7 +1144,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     # Loop over nlep categories "2l", "3l", "4l"
                     for nlep_cat in cat_dict.keys():
-
+                        if not "Zg" in nlep_cat: continue
                         # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                         # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                         weights_object = weights_dict[nlep_cat]
@@ -1215,7 +1218,24 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
-                                        if dense_axis_name != "photon_pt_eta":
+                                        #First fill the photon_pt_eta whose only usage is in deriving nonprompt photon contribution
+                                        if dense_axis_name == "photon_pt_eta":
+                                            #the photon_pt_eta histogram does not need to have ZGamma split based on ISR/FSR origin of photon
+                                            #also skip if the channel is not photon related
+                                            #also note that we need to pass "weight" here and not "weight_tmp" because we don't want the photons be weighed by fakerate
+                                            if "ph" not in ch_name: continue
+
+                                            no_eft_weight = weight
+                                            #This is needed because SparseHist doesn't handle EFT weights and so what we have to do is evaluate at SM point first and then modify the event weight
+                                            if eft_coeffs is not None:
+                                                wc_vals = np.zeros(len(max(self._samples[dataset]["WCnames"], self._wc_names_lst, key=len)))
+                                                eft_wgt_array_at_zero_wc_vals = efth.calc_eft_weights(eft_coeffs,wc_vals)
+
+                                                no_eft_weight = no_eft_weight * eft_wgt_array_at_zero_wc_vals
+                                            plot_help.fill_2d_histogram(hout, dense_axis_name, "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, no_eft_weight, eft_coeffs, all_cuts_mask, suffix="")
+                                            plot_help.fill_2d_histogram(hout, dense_axis_name, "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, no_eft_weight, eft_coeffs, all_cuts_mask, suffix="_sumw2")
+
+                                        else:
                                             # Skip histos that are not defined (or not relevant) to given categories
                                             if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
                                             if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
