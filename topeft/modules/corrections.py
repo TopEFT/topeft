@@ -548,7 +548,8 @@ SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
-def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
+#def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
+def ApplyTES(year, taus, isData):
     if isData:
         return (taus.pt, taus.mass)
 
@@ -657,9 +658,9 @@ def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
 
 def ApplyTESSystematic(year, taus, isData, syst_name):
     if not syst_name.startswith('TES'):
-        return (taus.pt)
+        return (taus.pt, taus.mass)
     if isData:
-        return (taus.pt)
+        return (taus.pt, taus.mass)
 
     pt  = taus.pt
     dm  = taus.decayMode
@@ -680,9 +681,9 @@ def ApplyTESSystematic(year, taus, isData, syst_name):
 
 def ApplyFESSystematic(year, taus, isData, syst_name):
     if not syst_name.startswith('FES'):
-        return (taus.pt)
+        return (taus.pt, taus.mass)
     if isData:
-        return (taus.pt)
+        return (taus.pt, taus.mass)
 
     pt  = taus.pt
     eta  = taus.eta

@@ -199,7 +199,7 @@
                     "bmask_atleast1m2l",
                     "1tau",
                     "offZ_tau"
-        ],
+		],
                 [
                     "2lss_m_1tau_offZ",
                     "2lss",
@@ -207,7 +207,16 @@
                     "bmask_atleast1m2l",
                     "1tau",
                     "offZ_tau"
+                ],
+	        [
+                    "2lss_p_1tau_onZ",
+                    "2lss",
+                    "2l_p",
+                    "bmask_atleast1m2l",
+                    "1tau",
+                    "onZ_tau"
                 ]
+	        
         ],
         "lep_flav_lst": [
                 "ee",

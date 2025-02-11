@@ -496,3 +496,19 @@ def lt_Z_mask(lep0, lep1, tau, pt_window):
     sfosz_mask = (sfosz_mask0 | sfosz_mask1)
 
     return sfosz_mask
+
+def get_Zlt_pt(lep0, lep1, tau0):
+    lt0_pt = (lep0+tau0).pt
+    lt1_pt = (lep1+tau0).pt
+    sfosz_l0t_mask = ((lep0.pdgId/abs(lep0.pdgId)) == tau0.charge)
+    zpeak_mask0 = (abs((lep0+tau0).mass - 70.0)<20.0)
+    sfosz_l1t_mask = ((lep1.pdgId/abs(lep1.pdgId)) == tau0.charge)
+    zpeak_mask1 = (abs((lep1+tau0).mass - 70.0)<15.0)
+    sfosz_mask0 = (sfosz_l0t_mask & zpeak_mask0)
+    sfosz_mask1 = (sfosz_l1t_mask & zpeak_mask1)
+    #lt0_pt = lt0_pt[sfosz_mask0]
+    #lt1_pt = lt1_pt[sfosz_mask1]
+    lt_pt = ak.where(sfosz_mask0, lt0_pt, lt1_pt)
+    lt_pt = lt_pt[(sfosz_mask0 | sfosz_mask1)]
+    return lt_pt
+    
