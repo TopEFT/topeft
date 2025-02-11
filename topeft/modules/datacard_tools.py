@@ -1100,6 +1100,12 @@ class DatacardMaker():
                 f.write("* autoMCStats 10\n")
             else:
                 f.write("* autoMCStats -1\n")
+
+        outf_json_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="json")
+        with open(os.path.join(self.out_dir,f"{outf_json_name}"),"w") as f:
+            print('making', os.path.join(self.out_dir,f"{outf_json_name}"))
+            json.dump(self.scalings_json, f, indent=4)
+
         dt = time.time() - tic
         print(f"File Write Time: {dt:.2f} s")
         print(f"Total Hists Written: {num_h}")
