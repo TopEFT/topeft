@@ -120,6 +120,14 @@ dataset_dict_top22006 = {
             "IsoMu27",
             "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
             "TripleMu_12_10_5",
+        ],  
+        "SingleMuon" : [
+            "IsoMu24",
+            "IsoMu27",
+        ],
+        "DoubleMuon" : [
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
+            "TripleMu_12_10_5",
         ],
         "EGamma" : [
             "Ele32_WPTight_Gsf",
@@ -137,6 +145,29 @@ dataset_dict_top22006 = {
             "Mu8_DiEle12_CaloIdL_TrackIdL_DZ",
             "DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
         ],
+    },
+    "2023" : {
+         "Muon" : [
+            "IsoMu24",
+            "IsoMu27",
+            "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
+            "TripleMu_12_10_5",
+        ],
+        "EGamma" : [
+            "Ele32_WPTight_Gsf",
+            "Ele35_WPTight_Gsf",
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
+            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
+        ],
+        "MuonEG" : [
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
+            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
+            "Mu8_DiEle12_CaloIdL_TrackIdL",
+            "Mu8_DiEle12_CaloIdL_TrackIdL_DZ",
+            "DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
     },
 }
 
@@ -166,10 +197,62 @@ exclude_dict_top22006 = {
         "MuonEG"         : dataset_dict_top22006["2018"]["DoubleMuon"] + dataset_dict_top22006["2018"]["EGamma"],
         "SingleMuon"     : dataset_dict_top22006["2018"]["DoubleMuon"] + dataset_dict_top22006["2018"]["EGamma"] + dataset_dict_top22006["2018"]["MuonEG"],
     },
-    "2022": {
+     "C": {
+        "SingleMuon"     : [],
+        "DoubleMuon"     : [],
         "Muon"           : [],
-        "EGamma"         : dataset_dict_top22006["2022"]["Muon"],
-        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["EGamma"],
+        "EGamma"         : dataset_dict["2022"]["Muon"] + dataset_dict["2022"]["DoubleMuon"] + dataset_dict["2022"]["SingleMuon"],
+        "MuonEG"         : dataset_dict["2022"]["Muon"] + dataset_dict["2022"]["DoubleMuon"] + dataset_dict["2022"]["SingleMuon"] + dataset_dict["2022"]["EGamma"],
+    },
+    "D": {
+        "Muon"     : [],
+        "EGamma"         : dataset_dict["2022"]["Muon"],
+        "MuonEG"         : dataset_dict["2022"]["Muon"] + dataset_dict["2022"]["EGamma"],
+    },
+    "E": {
+        "Muon"     : [],
+        "EGamma"         : dataset_dict["2022"]["Muon"],
+        "MuonEG"         : dataset_dict["2022"]["Muon"] + dataset_dict["2022"]["EGamma"],
+    },
+    "F": {
+        "Muon"     : [],
+        "EGamma"         : dataset_dict["2022"]["Muon"],
+        "MuonEG"         : dataset_dict["2022"]["Muon"] + dataset_dict["2022"]["EGamma"],
+    },
+    "G": {
+        "Muon"     : [],
+        "EGamma"         : dataset_dict["2022"]["Muon"],
+        "MuonEG"         : dataset_dict["2022"]["Muon"] + dataset_dict["2022"]["EGamma"],
+    },
+    "C1": {
+        "Muon"           : [],
+        "EGamma"         : dataset_dict["2023"]["Muon"],
+        "MuonEG"         : dataset_dict["2023"]["Muon"] + dataset_dict["2023"]["EGamma"],
+    },
+    "C2": {
+        "Muon"           : [],
+        "EGamma"         : dataset_dict["2023"]["Muon"],
+        "MuonEG"         : dataset_dict["2023"]["Muon"] + dataset_dict["2023"]["EGamma"],
+    },
+    "C3": {
+        "Muon"           : [],
+        "EGamma"         : dataset_dict["2023"]["Muon"],
+        "MuonEG"         : dataset_dict["2023"]["Muon"] + dataset_dict["2023"]["EGamma"],
+    },
+    "C4": {
+        "Muon"           : [],
+        "EGamma"         : dataset_dict["2023"]["Muon"],
+        "MuonEG"         : dataset_dict["2023"]["Muon"] + dataset_dict["2023"]["EGamma"],
+    },
+    "D1": {
+        "Muon"           : [],
+        "EGamma"         : dataset_dict["2023"]["Muon"],
+        "MuonEG"         : dataset_dict["2023"]["Muon"] + dataset_dict["2023"]["EGamma"],
+    },
+    "D2": {
+        "Muon"           : [],
+        "EGamma"         : dataset_dict["2023"]["Muon"],
+        "MuonEG"         : dataset_dict["2023"]["Muon"] + dataset_dict["2023"]["EGamma"],
     },
 }
 

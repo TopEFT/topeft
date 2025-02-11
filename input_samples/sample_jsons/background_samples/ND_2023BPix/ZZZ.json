@@ -1,0 +1,33 @@
+{
+  "xsec": 0.01591,
+  "year": "2023BPix",
+  "treeName": "Events",
+  "histAxisName": "ZZZ_central2023BPix",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/Run3Summer23BPixNanoAODv12/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v2/50000/685e2e8e-6e04-4076-a441-4ef526540bdd.root",
+    "/store/mc/Run3Summer23BPixNanoAODv12/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v2/50000/051355ff-165d-447e-b18d-727cb9cad004.root",
+    "/store/mc/Run3Summer23BPixNanoAODv12/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v2/50000/e12797f5-c242-49d3-a15a-b0654159285e.root",
+    "/store/mc/Run3Summer23BPixNanoAODv12/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v2/50000/4b688f10-2d62-4f5c-823b-da9b7f86c84c.root",
+    "/store/mc/Run3Summer23BPixNanoAODv12/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v2/50000/38c51a3b-3128-4c67-9050-bb258c83571d.root",
+    "/store/mc/Run3Summer23BPixNanoAODv12/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v2/50000/7245c782-f098-49da-a9f6-1a38f94a7ae1.root",
+    "/store/mc/Run3Summer23BPixNanoAODv12/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v2/50000/ab1dbe2c-596c-4de4-9b3f-770697c88d42.root",
+    "/store/mc/Run3Summer23BPixNanoAODv12/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v2/50000/aea4f3d8-6f73-4723-8922-0f4a1200954b.root"
+  ],
+  "nEvents": 1788000,
+  "nGenEvents": 1788000,
+  "nSumOfWeights": 28486.11953943601,
+  "isData": false,
+  "path": "/store/mc/Run3Summer23BPixNanoAODv12/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v2",
+  "nSumOfWeights_ISRUp": 28486.528666783266,
+  "nSumOfWeights_ISRDown": 28483.243953917194,
+  "nSumOfWeights_FSRUp": 28475.103265348822,
+  "nSumOfWeights_FSRDown": 28522.081940193253,
+  "nSumOfWeights_renormUp": 27938.946030544772,
+  "nSumOfWeights_renormDown": 29141.001963558694,
+  "nSumOfWeights_factUp": 28451.93011398387,
+  "nSumOfWeights_factDown": 28586.100608659006,
+  "nSumOfWeights_renormDown_factUp": 29114.980333205618,
+  "nSumOfWeights_renormUp_factDown": 28031.659580058513
+}

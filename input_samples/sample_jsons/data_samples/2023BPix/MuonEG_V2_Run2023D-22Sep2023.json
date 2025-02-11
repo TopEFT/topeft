@@ -1,0 +1,27 @@
+{
+    "xsec": 1.0,
+    "year": "2023BPix",
+    "treeName": "Events",
+    "histAxisName": "2023BPix_data",
+    "options": "",
+    "era": "D2",
+    "WCnames": [],
+    "files": [
+        "/store/data/Run2023D/MuonEG/NANOAOD/22Sep2023_v2-v1/2540000/151650f9-284c-43ce-8ce4-44c34983aa2b.root",
+        "/store/data/Run2023D/MuonEG/NANOAOD/22Sep2023_v2-v1/2540000/2b1baeec-bc24-4a11-b7ae-220dd5987884.root",
+        "/store/data/Run2023D/MuonEG/NANOAOD/22Sep2023_v2-v1/2540000/147f175b-11f1-4d49-a3ad-9942de41dbf8.root",
+        "/store/data/Run2023D/MuonEG/NANOAOD/22Sep2023_v2-v1/2540000/a6958a7a-3aae-431d-a29d-fef9f82cb604.root",
+        "/store/data/Run2023D/MuonEG/NANOAOD/22Sep2023_v2-v1/2540000/525938c8-bf88-458d-89d1-5e4b8284dee4.root",
+        "/store/data/Run2023D/MuonEG/NANOAOD/22Sep2023_v2-v1/2540000/b42c8637-34d5-494e-a2af-22842a819ad4.root",
+        "/store/data/Run2023D/MuonEG/NANOAOD/22Sep2023_v2-v1/2540000/c6caff5e-8140-4130-abbd-340ae9dd67f7.root",
+        "/store/data/Run2023D/MuonEG/NANOAOD/22Sep2023_v2-v1/2540000/7cc8469f-062f-4907-9a5f-3919f8df463d.root",
+        "/store/data/Run2023D/MuonEG/NANOAOD/22Sep2023_v2-v1/2540000/d1f0ad50-0bb5-4823-a32b-9d1116b563d1.root",
+        "/store/data/Run2023D/MuonEG/NANOAOD/22Sep2023_v2-v1/2540000/45483072-d6ac-464e-8949-60e62e6c195c.root",
+        "/store/data/Run2023D/MuonEG/NANOAOD/22Sep2023_v2-v1/60000/7bec6d26-fd8a-42f5-875b-e4bb666eae1e.root"
+    ],
+    "nEvents": 3751587.0,
+    "nGenEvents": 3751587.0,
+    "nSumOfWeights": 3751587.0,
+    "isData": true,
+    "path": "/MuonEG/Run2023D-22Sep2023_v2-v1/NANOAOD"
+}

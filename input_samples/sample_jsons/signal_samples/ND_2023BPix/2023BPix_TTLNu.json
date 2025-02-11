@@ -1,0 +1,26 @@
+{
+  "xsec": 0.2505,
+  "year": "2023BPix",
+  "treeName": "Events",
+  "histAxisName": "ttLNu_cental2023BPix",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/Run3Summer23BPixNanoAODv12/TTLNu-1Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v2/140000/04f6fc4d-7bf9-46b8-a65b-092e58c55f82.root"
+  ],
+  "nEvents": 256078,
+  "nGenEvents": 256078,
+  "nSumOfWeights": 113950.95813868,
+  "isData": false,
+  "path": "/store/mc/Run3Summer23BPixNanoAODv12/TTLNu-1Jets_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v2",
+  "nSumOfWeights_ISRUp": 115050.16028405975,
+  "nSumOfWeights_ISRDown": 112544.63620159606,
+  "nSumOfWeights_FSRUp": 113912.92855914682,
+  "nSumOfWeights_FSRDown": 114514.72407642193,
+  "nSumOfWeights_renormUp": 103601.08282140829,
+  "nSumOfWeights_renormDown": 122126.86241397307,
+  "nSumOfWeights_factUp": 112529.07791213499,
+  "nSumOfWeights_factDown": 116004.20337105842,
+  "nSumOfWeights_renormDown_factUp": 121884.91042034149,
+  "nSumOfWeights_renormUp_factDown": 106064.78572876217
+}
