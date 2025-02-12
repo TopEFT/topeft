@@ -164,12 +164,20 @@ class DataDrivenProducer:
 
                         # remove the up/down variations (if any) from the prompt photon subtraction histo
                         # but keep nonPromptPhUp and nonPromptPhDown, as these are the nonprompt photon up and down variations
-                        syst_var_idet_rm_lst = []
+                        syst_var_idet_rm_lst_PromptPhSub = []
                         syst_var_idet_lst = list(hPromptPhSub.axes["systematic"])
                         for syst_var_idet in syst_var_idet_lst:
                             if (syst_var_idet != "nominal") and (not syst_var_idet.startswith("nonpromptPh")):
-                                syst_var_idet_rm_lst.append(syst_var_idet)
-                        hPromptPhSub = hPromptPhSub.remove("systematic", syst_var_idet_rm_lst)
+                                syst_var_idet_rm_lst_PromptPhSub.append(syst_var_idet)
+                        hPromptPhSub = hPromptPhSub.remove("systematic", syst_var_idet_rm_lst_PromptPhSub)
+
+                        #Also remove the up/down variations from the hPhFakes histo cause we will use this again later when we modify the photon pt MC stat uncertainty
+                        syst_var_idet_rm_lst_PhFakes = []
+                        syst_var_idet_lst = list(hPhFakes.axes["systematic"])
+                        for syst_var_idet in syst_var_idet_lst:
+                            if (syst_var_idet != "nominal") and (not syst_var_idet.startswith("nonpromptPh")):
+                                syst_var_idet_rm_lst_PhFakes.append(syst_var_idet)
+                        hPhFakes = hPhFakes.remove("systematic", syst_var_idet_rm_lst_PhFakes)
 
                         # now we actually make the subtraction
                         if not key.endswith("_sumw2"):
