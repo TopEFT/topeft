@@ -1255,15 +1255,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                 plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="")
 
                                                 plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="_sumw2")
-
-                                        else:
-                                            #the photon_pt_eta histogram does not need to have ZGamma split based on ISR/FSR origin of photon
-                                            #also skip if the channel is not photon related
-                                            #also note that we are passing "weight" here and not "weight_tmp" because we don't want the photons be weighed by fakerate
-                                            if "ph" not in ch_name: continue
-                                            plot_help.fill_2d_histogram(hout, "photon_pt_eta", "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, weight, eft_coeffs, all_cuts_mask, suffix="")
-                                            plot_help.fill_2d_histogram(hout, "photon_pt_eta", "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, weight, eft_coeffs, all_cuts_mask, suffix="_sumw2")
-
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
 
