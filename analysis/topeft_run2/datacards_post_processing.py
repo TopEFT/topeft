@@ -156,7 +156,7 @@ def main():
         for file in CATSELECTED:
             if file in file_name_strip_ext:
                 if fname.endswith(".txt"):
-                    bad = subprocess.call([f'grep "observation 0.00" {os.path.join(args.datacards_path,fname)}'], shell=True, stderr=subprocess.STDOUT)
+                    bad = subprocess.call([f'grep "observation 0.00" {os.path.join(args.datacards_path,fname)}'], shell=True, stdout=subprocess.DEVNULL)
                     if bad == 0:
                         raise Exception(f"Warning: {file} has 0 observation!")
                 shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
