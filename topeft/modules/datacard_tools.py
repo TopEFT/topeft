@@ -120,6 +120,7 @@ class MissingParton(RateSystematic):
         "3l_p_offZ_2b": "3l2b_p",
         "3l_m_offZ_2b": "3l2b_m",
         "4l_2b": "4l",
+        "2los_ph_CR_sf_Zg": "2lss_4t_p_2b",  #CAUTION: temporary
     }
 
     def __init__(self,name,**kwargs):
@@ -150,6 +151,7 @@ class DatacardMaker():
         "tWZ": ["TWZToLL_"],
         "convs": ["TTGamma_"],
         "fakes": ["nonprompt"],
+        "fakePh": ["nonpromptPh"],
         "charge_flips_": ["flips"],
         "data_obs": ["data"],
 
@@ -268,7 +270,7 @@ class DatacardMaker():
     def get_lep_mult(cls,s):
         """ Returns the lepton multiplicity based on the string passed to it."""
         if s.startswith("2los_"):
-            return 2.3 # Hack because photon 2los starts at 3 jets
+            return 2.1 # Hack because photon 2los starts at 1 jet
         if s.startswith("2lss_"):
             return 2
         elif s.startswith("3l_"):
@@ -327,7 +329,7 @@ class DatacardMaker():
             "TTJets",
             "WJetsToLNu",
             "TTGJets",  # This is the old low stats convs process, new one should be TTGamma
-            "TTGamma_central",
+            #"TTGamma_central",
 
             # "TTGamma",
             # "WWTo2L2Nu","ZZTo4L",#"WZTo3LNu",
@@ -821,8 +823,8 @@ class DatacardMaker():
         num_l = self.get_lep_mult(ch)
         if num_l == 2 or num_l == 4:
             num_b = 2
-        if num_l == 2.3:
-            num_b = 3
+        if num_l == 2.1:  #corresponds to the photon specific channels
+            num_b = 1
 
         outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="root")
 
@@ -852,6 +854,8 @@ class DatacardMaker():
                     continue
                 # TODO This is a hack for now, track this upstream
                 if 'fakes' in p and '4l' in ch:
+                    continue
+                if 'nonpromptPh' in p and '_ph' not in ch:
                     continue
                 proc_hist = ch_hist.integrate("process",[p])
                 proc_sumw2 = ch_sumw2 if ch_sumw2 is None else ch_sumw2.integrate("process",[p])
@@ -1078,9 +1082,9 @@ class DatacardMaker():
                         if num_l == 2:
                             njet_offset = 4
                             ch_key = f"{ch_key}_{num_b}b"
-                        elif num_l == 2.3:
-                            #FIXME skipping 2los 3j for now
-                            continue
+                        #elif num_l == 2.1:
+                        #    #FIXME skipping 2los 3j for now
+                        #    continue
                         elif num_l == 3:
                             njet_offset = 2
                             if "_onZ" in ch:
