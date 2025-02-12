@@ -103,7 +103,13 @@
         "DYJetsToLL_central",
         "TWZToLL_central",
         "WJetsToLNu_central",
-        "TTZToLL_M1to10_central"
+        "TTZToLL_M1to10_central",
+        "tllq_private",
+        "tHq_private",
+        "ttHJet_private",
+        "ttllJet_private",
+        "ttlnuJet_private",
+        "tttt_private"
     ],
 
     "chargeflip_sf_dict" : {
