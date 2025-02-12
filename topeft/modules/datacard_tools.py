@@ -111,6 +111,8 @@ class MissingParton(RateSystematic):
         "2lss_4t_p": "2lss_4t_p_2b",
         "2lss_m": "2lss_m_2b",
         "2lss_p": "2lss_p_2b",
+        "2lss_fwd_m": "2lss_fwd_m_2b",
+        "2lss_fwd_p": "2lss_fwd_p_2b",
         "3l_onZ_1b": "3l_sfz_1b",
         "3l_onZ_2b": "3l_sfz_2b",
         "3l_p_offZ_1b": "3l1b_p",
@@ -159,6 +161,7 @@ class DatacardMaker():
             "TTTo2L2Nu_",
         ],
         "ttlnu_": ["ttlnuJet_"],
+        "ttA_": ["TTGamma_dilept_"],
     }
 
     # Controls how we rebin the dense axis of the corresponding distribution
@@ -174,7 +177,7 @@ class DatacardMaker():
     FNAME_TEMPLATE = "ttx_multileptons-{cat}_{kmvar}.{ext}"
     # FNAME_TEMPLATE = "TESTING_ttx_multileptons-{cat}.{ext}"
 
-    SIGNALS = set(["ttH","tllq","ttll","ttlnu","tHq","tttt"])
+    SIGNALS = set(["ttH","tllq","ttll","ttlnu","tHq","tttt","ttA"])
 
     @classmethod
     def get_year(cls,s):
@@ -264,6 +267,8 @@ class DatacardMaker():
     @classmethod
     def get_lep_mult(cls,s):
         """ Returns the lepton multiplicity based on the string passed to it."""
+        if s.startswith("2los_"):
+            return 2.3 # Hack because photon 2los starts at 3 jets
         if s.startswith("2lss_"):
             return 2
         elif s.startswith("3l_"):
@@ -296,6 +301,13 @@ class DatacardMaker():
         self.coeffs          = kwargs.pop("wcs",[])
         self.use_real_data   = kwargs.pop("unblind",False)
         self.verbose         = kwargs.pop("verbose",True)
+        self.use_AAC          = kwargs.pop("use_AAC",False)
+        self.wc_scalings     = kwargs.pop("wc_scalings",[])
+        self.scalings        = []
+
+        # get wc ranges from json
+        with open(topeft_path("params/wc_ranges.json"), "r") as wc_ranges_json:
+            self.wc_ranges = json.load(wc_ranges_json)
 
         if self.year_lst:
             for yr in self.year_lst:
@@ -315,6 +327,7 @@ class DatacardMaker():
             "TTJets",
             "WJetsToLNu",
             "TTGJets",  # This is the old low stats convs process, new one should be TTGamma
+            "TTGamma_central",
 
             # "TTGamma",
             # "WWTo2L2Nu","ZZTo4L",#"WZTo3LNu",
@@ -371,7 +384,7 @@ class DatacardMaker():
         self.syst_shape_decorrelate = {
             "ISR": [
                 {
-                    "matches": ["ttH","ttll","tttt","convs"],
+                    "matches": ["ttH","ttll","tttt","ttA"],
                     "group": "gg",
                 },
                 {
@@ -391,6 +404,10 @@ class DatacardMaker():
                 "matches": [".*"],
                 "group": "",
             }]
+        }
+
+        self.syst_to_skip = {
+            "ttA": "charge_flips"
         }
 
         if extra_ignore:
@@ -763,6 +780,25 @@ class DatacardMaker():
             print(f"WC Selection Time: {dt:.2f} s")
         return selected_wcs
 
+    def make_scalings_json(self,scalings_json,ch,km_dist,p,wc_names,scalings):
+        scalings = scalings.tolist()
+        scalings_json.append(
+            {
+                "channel": ch + "_" + str(km_dist),
+                "process": p + "_sm",  # NOTE: needs to be in the datacard
+                "parameters": ["cSM[1]"] + [
+                    self.format_wc(wcname) for wcname in wc_names
+                ],
+                "scaling":
+                    scalings[1:], # exclude underflow bin
+            }
+        )
+        return scalings_json
+
+    def format_wc(self,wcname):
+        lo, hi = self.wc_ranges[wcname]
+        return "%s[0,%.1f,%.1f]" % (wcname, lo, hi)
+
     def analyze(self,km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict):
         """ Handles the EFT decomposition and the actual writing of the ROOT and text datacard files."""
         if not km_dist in self.hists:
@@ -785,6 +821,8 @@ class DatacardMaker():
         num_l = self.get_lep_mult(ch)
         if num_l == 2 or num_l == 4:
             num_b = 2
+        if num_l == 2.3:
+            num_b = 3
 
         outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="root")
 
@@ -810,6 +848,8 @@ class DatacardMaker():
                 # TODO This is a hack for now, track this upstream
                 if 'charge_flip' in p and '2l' not in ch:
                     continue
+                if 'charge_flip' in p and '2los' in ch:
+                    continue
                 # TODO This is a hack for now, track this upstream
                 if 'fakes' in p and '4l' in ch:
                     continue
@@ -829,6 +869,8 @@ class DatacardMaker():
                             raise RuntimeError("filling obs data more than once!")
                         for sp_key,arr in data_sm.items():
                             data_obs += arr
+                if not self.use_AAC:
+                    decomposed_templates = {k: v for k, v in decomposed_templates.items() if k == 'sm'}
                 for base,v in decomposed_templates.items():
                     proc_name = f"{p}_{base}"
                     col_width = max(len(proc_name),col_width)
@@ -930,6 +972,14 @@ class DatacardMaker():
                         if p == "tllq" or p == "tHq":
                             # Handle the 'missing_parton' uncertainty
                             pass
+                # obtain the scalings for scalings.json file
+                if p in self.SIGNALS:
+                    if self.wc_scalings:
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(self.wc_scalings)
+                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings)
+                    else:
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling()
+                        self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings)
             f["data_obs"] = to_hist(data_obs,"data_obs")
 
         line_break = "##----------------------------------\n"
@@ -1028,6 +1078,9 @@ class DatacardMaker():
                         if num_l == 2:
                             njet_offset = 4
                             ch_key = f"{ch_key}_{num_b}b"
+                        elif num_l == 2.3:
+                            #FIXME skipping 2los 3j for now
+                            continue
                         elif num_l == 3:
                             njet_offset = 2
                             if "_onZ" in ch:
@@ -1062,6 +1115,12 @@ class DatacardMaker():
                 f.write("* autoMCStats 10\n")
             else:
                 f.write("* autoMCStats -1\n")
+
+        outf_json_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="json")
+        with open(os.path.join(self.out_dir,f"{outf_json_name}"),"w") as f:
+            print('making', os.path.join(self.out_dir,f"{outf_json_name}"))
+            json.dump(self.scalings_json, f, indent=4)
+
         dt = time.time() - tic
         print(f"File Write Time: {dt:.2f} s")
         print(f"Total Hists Written: {num_h}")
@@ -1082,7 +1141,9 @@ class DatacardMaker():
         tic = time.time()
 
         sm = h.eval({})
-        sm_w2 = sumw2.eval(vals)
+        if sumw2 is None:
+            print("No sumw2 histogram found! Setting errors to 0")
+        sm_w2 = sumw2.eval(vals) if sumw2 is not None else 0
         sm = add_sumw2_stub(sm,sm_w2)
 
         # Note: The keys of this dictionary are a pretty contrived, but are useful later on
