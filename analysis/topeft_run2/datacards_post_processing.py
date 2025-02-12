@@ -1,4 +1,5 @@
 import os
+import subprocess
 import shutil
 import argparse
 import json
@@ -14,6 +15,8 @@ IGNORE_LINES = [
     "(Set coffea.deprecations_as_errors = True to get a stack trace now.)",
     "ImportError: coffea.hist is deprecated",
     "warnings.warn(message, FutureWarning)",
+    "UserWarning: Numba extension module 'awkward.numba' failed to load due to 'AttributeError(module 'awkward.numba' has no attribute '_register')",
+    "entrypoints.init_all()",
 ]
 
 # Return list of lines in a file
@@ -152,6 +155,10 @@ def main():
         file_name_strip_ext = os.path.splitext(fname)[0]
         for file in CATSELECTED:
             if file in file_name_strip_ext:
+                if fname.endswith(".txt"):
+                    bad = subprocess.call([f'grep "observation 0.00" {os.path.join(args.datacards_path,fname)}'], shell=True, stderr=subprocess.STDOUT)
+                    if bad == 0:
+                        raise Exception(f"Warning: {b} has 0 observation!")
                 shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
                 if fname.endswith(".txt"): n_txt += 1
                 if fname.endswith(".root"): n_root += 1
