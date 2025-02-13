@@ -41,7 +41,7 @@ if __name__ == '__main__':
     parser.add_argument('--test','-t'       , action='store_true'  , help = 'To perform a test, run over a few events in a couple of chunks')
     parser.add_argument('--pretend'        , action='store_true', help = 'Read json files but, not execute the analysis')
     parser.add_argument('--nworkers','-n'   , default=8  , help = 'Number of workers')
-    parser.add_argument('--chunksize','-s' , default=100000, help = 'Number of events per chunk')
+    parser.add_argument('--chunksize','-s' , default=10000, help = 'Number of events per chunk')
     parser.add_argument('--nchunks','-c'   , default=None, help = 'You can choose to run only a number of chunks')
     parser.add_argument('--outname','-o'   , default='plotsTopEFT', help = 'Name of the output file with histograms')
     parser.add_argument('--outpath','-p'   , default='histos', help = 'Name of the output directory')
@@ -52,6 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--offZ-split'      , action='store_true', help = 'Split up 3l offZ categories')
     parser.add_argument('--tau_h_analysis'  , action='store_true', help = 'Add tau channels')
     parser.add_argument('--fwd-analysis'    , action='store_true', help = 'Add fwd channels')
+    parser.add_argument('--all-analysis'    , action='store_true', help = 'Add all channels from 3loffZ and fwd analysis')
     parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
     parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
     parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
@@ -80,6 +81,7 @@ if __name__ == '__main__':
     offZ_split = args.offZ_split
     tau_h_analysis = args.tau_h_analysis
     fwd_analysis = args.fwd_analysis
+    all_analysis = args.all_analysis
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
@@ -125,7 +127,7 @@ if __name__ == '__main__':
         hist_lst = ["njets","lj0pt","ptz"]
         if tau_h_analysis:
             hist_lst.append("ptz_wtau")
-        if fwd_analysis:
+        if fwd_analysis or all_analysis:
             hist_lst.append("lt")
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
@@ -252,7 +254,7 @@ if __name__ == '__main__':
     else:
         print('No Wilson coefficients specified')
 
-    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr,offZ_split=offZ_split,tau_h_analysis=tau_h_analysis,fwd_analysis=fwd_analysis)
+    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr,offZ_split=offZ_split,tau_h_analysis=tau_h_analysis,fwd_analysis=fwd_analysis,all_analysis=all_analysis)
 
     if executor == "work_queue":
         executor_args = {

@@ -722,7 +722,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 preselections.add("offZ_tau", (~tl_zpeak_mask))
             if self.fwd_analysis or self.all_analysis:
                 preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
-                preselections.add("2lss_ctr", (events.is2l & pass_trg & ~fwdjet_mask))
+                preselections.add("2lss", (events.is2l & pass_trg & ~fwdjet_mask))
             else:
                 preselections.add("2lss", (events.is2l & pass_trg))
 
