@@ -35,7 +35,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         flav_axis = hist.axis.IntCategory([], name="flav", growth=True)
         wp_axis = hist.axis.StrCategory([], name="WP", growth=True)
         genjet_n_axis = hist.axis.Regular(8,0,8, name="genjet_n", label="number of gen b-jets")
-        non_bjet_n_axis = hist.axis.Regular(7,0,7, name="nonbjet_n", label="number of gen non b-jets")
+        non_bjet_n_axis = hist.axis.Regular(15,0,15, name="nonbjet_n", label="number of gen non b-jets")
         DeepJet_n_axis = hist.axis.Regular(7,0,7, name="DeepJet_n",label="number of DeepJet b-jets")
         DeepJet_misstag_n_axis = hist.axis.Regular(7,0,7, name="DeepJet_misstag_n", label="number of DeepJet misstag")
         DeepJet_lightmisstag_n_axis = hist.axis.Regular(7,0,7, name="DeepJet_lightmisstag_rate", label="DeepJet light miss b-tag number")
@@ -150,6 +150,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         j["isGood"] = tc_os.is_tight_jet(getattr(j, jetptname), j.eta, j.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=0)
         j['isClean'] = te_os.isClean(j, e, drmin=0.4)& te_os.isClean(j, mu, drmin=0.4)
         goodJets = j[(j.isClean)&(j.isGood)]
+        goodJets = goodJets[(goodJets.partonFlavour != 0)]
 
         # Define b-tagging thresholds
         DeepJet_btagcut = 0.3086
@@ -157,7 +158,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Define masks for b-jets and tagged jets using goodJets.partonFlavour
         bjet_mask = (goodJets.partonFlavour == 5) | (goodJets.partonFlavour == -5)
-        light_mask = (goodJets.partonFlavour == 3) | (goodJets.partonFlavour == -3) | (goodJets.partonFlavour == 2) |(goodJets.partonFlavour == -2) | (goodJets.partonFlavour == 1) | (goodJets.partonFlavour == -1)
+        light_mask = (goodJets.partonFlavour == 3) | (goodJets.partonFlavour == -3) | (goodJets.partonFlavour == 2) |(goodJets.partonFlavour == -2) | (goodJets.partonFlavour == 1) | (goodJets.partonFlavour == -1) | (goodJets.partonFlavour == 21) | (goodJets.partonFlavour == -21)
         charm_mask = (goodJets.partonFlavour == 4) | (goodJets.partonFlavour == -4)
         maskDeepJet = goodJets.btagDeepFlavB > DeepJet_btagcut
         maskPNetB   = goodJets.btagPNetB > PNet_btagcut
