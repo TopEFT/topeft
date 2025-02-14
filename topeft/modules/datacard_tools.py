@@ -1098,6 +1098,9 @@ class DatacardMaker():
                         elif num_l == 4:
                             njet_offset = 2
                             ch_key = f"{ch_key}_{num_b}b"
+                        elif num_l == 2.1:
+                            njet_offset = 1
+                            ch_key = f"{ch_key}_{num_b}b"
                         else:
                             raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
                         # The bins in the missing_parton root files start indexing from 0

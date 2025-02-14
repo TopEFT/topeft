@@ -28,13 +28,40 @@ info = {
         "variable": [0, 50, 100, 200],
         "label": r"Leading lep $p_{T}$ (GeV) ",
     },
-    "l1pt": {"regular": (10, 0, 100), "label": r"Subleading lep $p_{T}$ (GeV) "},
-    "l1eta": {"regular": (20, -2.5, 2.5), "label": r"Subleading $\eta$ "},
-    "j0pt": {"regular": (10, 0, 500), "label": r"Leading jet  $p_{T}$ (GeV) "},
-    "b0pt": {"regular": (10, 0, 500), "label": r"Leading b jet  $p_{T}$ (GeV) "},
-    "l0eta": {"regular": (20, -2.5, 2.5), "label": r"Leading lep $\eta$ "},
-    "j0eta": {"regular": (30, -3, 3), "label": r"Leading jet  $\eta$ "},
-    "njet_bjet": {"regular": (15, 0, 15), "label": "(njets,nbjets)"},
+    "l1pt": {
+        "regular": (10, 0, 100), 
+        "variable": [0, 50, 100, 200],
+        "label": r"Subleading lep $p_{T}$ (GeV) "
+    },
+    "l1eta": {
+        "regular": (20, -2.5, 2.5), 
+        "variable": [-2.4, -1.44, -0.8, 0, 0.8, 1.44, 2.4],
+        "label": r"Subleading $\eta$ "
+    },
+    "j0pt": {
+        "regular": (10, 0, 500), 
+        "variable": [0, 50, 100, 200],
+        "label": r"Leading jet  $p_{T}$ (GeV) "
+    },
+    "b0pt": {
+        "regular": (10, 0, 500), 
+        "variable": [0, 50, 100, 200],
+        "label": r"Leading b jet  $p_{T}$ (GeV) "
+    },
+    "l0eta": {
+        "regular": (20, -2.5, 2.5), 
+        "variable": [-2.4, -1.44, -0.8, 0, 0.8, 1.44, 2.4],
+        "label": r"Leading lep $\eta$ "
+    },
+    "j0eta": {
+        "regular": (30, -3, 3), 
+        "variable": [-2.4, -1.44, -0.8, 0, 0.8, 1.44, 2.4],
+        "label": r"Leading jet  $\eta$ "
+    },
+    "njet_bjet": {
+        "regular": (15, 0, 15), 
+        "label": "(njets,nbjets)"
+    },
     "photon_pt_eta": {
         "pt": {
             "variable": [20,30,45,70,120],
