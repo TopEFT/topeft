@@ -7,8 +7,7 @@ import cloudpickle
 import gzip
 import os
 
-import numpy as np
-from coffea import hist, processor
+from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
 import topcoffea.modules.utils as utils
@@ -50,9 +49,14 @@ if __name__ == '__main__':
     parser.add_argument('--do-errors'      , action='store_true', help = 'Save the w**2 coefficients')
     parser.add_argument('--do-systs', action='store_true', help = 'Compute systematic variations')
     parser.add_argument('--split-lep-flavor', action='store_true', help = 'Split up categories by lepton flavor')
+    parser.add_argument('--offZ-split'      , action='store_true', help = 'Split up 3l offZ categories')
+    parser.add_argument('--tau_h_analysis'  , action='store_true', help = 'Add tau channels')
+    parser.add_argument('--fwd-analysis'    , action='store_true', help = 'Add fwd channels')
+    parser.add_argument('--ttA-analysis'    , action='store_true', help = 'Add ttA channels')
     parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
     parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
     parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
+    parser.add_argument('--do_np_ph', action='store_true', help='Perform photon non-prompt estimation')
     parser.add_argument('--do-renormfact-envelope', action='store_true', help = 'Perform renorm/fact envelope calculation on the output hist (saves the modified with the the same name as the original.')
     parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
     parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
@@ -75,9 +79,14 @@ if __name__ == '__main__':
     do_errors  = args.do_errors
     do_systs   = args.do_systs
     split_lep_flavor = args.split_lep_flavor
+    offZ_split = args.offZ_split
+    tau_h_analysis = args.tau_h_analysis
+    fwd_analysis = args.fwd_analysis
+    ttA_analysis = args.ttA_analysis
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
+    do_np_ph   = args.do_np_ph
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
 
@@ -118,11 +127,17 @@ if __name__ == '__main__':
     if args.hist_list == ["ana"]:
         # Here we hardcode a list of hists used for the analysis
         hist_lst = ["njets","lj0pt","ptz"]
-    elif args.hist_list == ["photon"]:
-        hist_lst = ['njet_bjet','photon_pt','invmass','l0pt','l1pt','njets','nbjetsm']
+        if tau_h_analysis:
+            hist_lst.append("ptz_wtau")
+        if fwd_analysis:
+            hist_lst.append("lt")
+        if ttA_analysis:
+            hist_lst.extend(['photon_pt','photon_eta','photon_eta2','photon_pt2','photon_pt_eta'])
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass"]
+        if tau_h_analysis:
+            hist_lst.append("tau0pt")
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists
@@ -243,7 +258,7 @@ if __name__ == '__main__':
     else:
         print('No Wilson coefficients specified')
 
-    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
+    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr,offZ_split=offZ_split,tau_h_analysis=tau_h_analysis,fwd_analysis=fwd_analysis,ttA_analysis=ttA_analysis)
 
     if executor == "work_queue":
         executor_args = {
@@ -258,11 +273,11 @@ if __name__ == '__main__':
             'tasks_accum_log': 'tasks.log',
 
             'environment_file': remote_environment.get_environment(
-                extra_pip_local = {"topeft": ["topeft", "setup.py"],"coffea": ["coffea"]},
+                extra_pip_local = {"topeft": ["topeft", "setup.py"]},
             ),
             'extra_input_files': ["analysis_processor.py"],
 
-            'retries': 5,
+            'retries': 20,
 
             # use mid-range compression for chunks results. 9 is the default for work
             # queue in coffea. Valid values are 0 (minimum compression, less memory
@@ -276,6 +291,7 @@ if __name__ == '__main__':
             # forever until a larger worker connects.
             'resource_monitor': True,
             'resources_mode': 'auto',
+            #'filepath': f'/tmp/{os.environ["USER"]}', ##Placeholder to comment out if you don't want to save wq-factory dirs in afs
 
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
@@ -323,7 +339,7 @@ if __name__ == '__main__':
     tstart = time.time()
 
     if executor == "futures":
-        exec_instance = processor.FuturesExecutor(workers=nworkers)
+        exec_instance = processor.futures_executor(workers=nworkers)
         runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
     elif executor ==  "work_queue":
         executor = processor.WorkQueueExecutor(**executor_args)
@@ -336,9 +352,9 @@ if __name__ == '__main__':
     if executor == "work_queue":
         print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
 
-    nbins = sum(sum(arr.size for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    nfilled = sum(sum(np.sum(arr > 0) for arr in h._sumw.values()) for h in output.values() if isinstance(h, hist.Hist))
-    print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
+    #nbins = sum(sum(arr.size for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
+    #nfilled = sum(sum(np.sum(arr > 0) for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
+    #print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
     if executor == "futures":
         print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
@@ -353,9 +369,12 @@ if __name__ == '__main__':
 
     # Run the data driven estimation, save the output
     if do_np:
-        print("\nDoing the nonprompt estimation...")
+        if not do_np_ph:
+            print("\nDoing the nonprompt lepton estimation...")
+        else:
+            print("\nDoing the nonprompt estimation of lepton and photon......")
         out_pkl_file_name_np = os.path.join(outpath,outname+"_np.pkl.gz")
-        ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np)
+        ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np, do_np_ph=args.do_np_ph)
         print(f"Saving output in {out_pkl_file_name_np}...")
         ddp.dumpToPickle()
         print("Done!")

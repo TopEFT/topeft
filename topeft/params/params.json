@@ -8,10 +8,17 @@
     "pres_e_pt_cut" : 7.0,
     "pres_m_pt_cut" : 5.0,
 
+    "mva_TTH_e_cut" : 0.90,
+    "mva_TTH_m_cut" : 0.85,
+    "mva_TTH_e_cut_run3" : 0.90,
+    "mva_TTH_m_cut_run3" : 0.64,
+
     "iso_cut" : 0.4,
 
     "fo_m_jetRelIso_cut" : 0.5,
     "fo_e_jetRelIso_cut" : 1.0,
+
+    "fo_e_mvaiso_cut_run3" : 0.6,
 
     "jet_id_cut" : 0,
 
@@ -63,6 +70,7 @@
         "WWW_4F_central",
         "WWZ_central",
         "WZZ_ext_central",
+        "TTGamma_private",
         "tHq_private",
         "tllq_private",
         "ttHJet_private",
@@ -75,6 +83,41 @@
         "ttW_central",
         "ttZ_central",
         "tttt_central"
+    ],
+
+    "prompt_photon_subtraction_samples": [
+        "TTGamma_central",
+        "ZGToLLG_central",
+        "ZGFSR_central",
+        "ZGISR_central",
+        "TTTo2L2Nu_central",
+        "TTToSemiLeptonic_central",
+        "WWW_central",
+        "WZZ_central",
+        "ZZZ_central",
+        "WWZ_central",
+        "WWW_4F_central",
+        "WWZ_4F_central",
+        "WWTo2L2Nu_central",
+        "WZTo3LNu_central",
+        "ZZTo4L_central",
+        "ST_antitop_t-channel_central",
+        "ST_top_s-channel_central",
+        "ST_top_t-channel_central",
+        "tW_central",
+        "tbarW_central",
+        "DY10to50_central",
+        "DY50_central",
+        "DYJetsToLL_central",
+        "TWZToLL_central",
+        "WJetsToLNu_central",
+        "TTZToLL_M1to10_central",
+        "tllq_private",
+        "tHq_private",
+        "ttHJet_private",
+        "ttllJet_private",
+        "ttlnuJet_private",
+        "tttt_private"
     ],
 
     "chargeflip_sf_dict" : {

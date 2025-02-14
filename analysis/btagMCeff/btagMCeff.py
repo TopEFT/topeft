@@ -4,11 +4,17 @@ import numpy as np
 import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 #from coffea.arrays import Initialize # Not used and gives error
-from coffea import hist, processor
+from coffea import processor
+import hist
 from coffea.util import load
+import coffea.analysis_tools
 
-from topcoffea.modules.objects import *
-from topcoffea.modules.selection import *
+import topeft.modules.object_selection as te_os
+import topcoffea.modules.object_selection as tc_os
+from topeft.modules.paths import topeft_path
+
+from topcoffea.modules.get_param_from_jsons import GetParam
+get_te_param = GetParam(topeft_path("params/params.json"))
 
 #coffea.deprecations_as_errors = True
 
@@ -20,12 +26,20 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Create the histograms
         # In general, histograms depend on 'sample', 'channel' (final state) and 'cut' (level of selection)
-        self._accumulator = processor.dict_accumulator({
-            'jetpt'  : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("pt",  "Jet p_{T} (GeV) ", 40, 0, 800)),
-            'jeteta' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("eta", "Jet eta", 25, -2.5, 2.5)),
-            'jetpteta' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Cat("Flav", "Flav"), hist.Bin("pt",  "Jet p_{T} (GeV) ", [20, 30, 60, 120]), hist.Bin("abseta", "Jet eta", [0, 1, 1.8, 2.4])),
-            'jetptetaflav' : hist.Hist("Events", hist.Cat("WP", "WP"), hist.Bin("pt",  "Jet p_{T} (GeV) ", [20, 30, 60, 120]), hist.Bin("abseta", "Jet eta", [0, 1, 1.8, 2.4]), hist.Bin("flav", "Flavor", [0, 4, 5]) ),
-        })
+        jpt_axis = hist.axis.Variable([20, 30, 60, 120], name="pt", label="Jet p_{T} (GeV)")
+        jetpt_axis = hist.axis.Regular(40, 0, 800, name="pt", label="Jet p_{T} (GeV)")
+        jeta_axis = hist.axis.Regular(25, -2.5, 2.5, name="eta", label=r"Jet \eta (GeV)")
+        jeta_axis = hist.axis.Regular(25, -2.5, 2.5, name="eta", label=r"Jet \eta (GeV)")
+        jaeta_axis = hist.axis.Variable([0, 1, 1.8, 2.4], name="abseta", label=r"Jet \eta (GeV)")
+        Flav_axis = hist.axis.StrCategory([], name="Flav", growth=True)
+        flav_axis = hist.axis.IntCategory([], name="flav", growth=True)
+        wp_axis = hist.axis.StrCategory([], name="WP", growth=True)
+        self._accumulator = {
+            'jetpt'  : hist.Hist(wp_axis, Flav_axis, jpt_axis),
+            'jeteta'  : hist.Hist(wp_axis, Flav_axis, jeta_axis),
+            'jetpteta'  : hist.Hist(wp_axis, Flav_axis, jpt_axis, jaeta_axis),
+            'jetptetaflav'  : hist.Hist(wp_axis, jetpt_axis, jaeta_axis, flav_axis),
+        }
 
     @property
     def accumulator(self):
@@ -54,8 +68,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         j   = events.Jet
 
         # Muon selection
-        mu['isPres'] = isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.looseId)
-        mu['isTight']= isTightMuon(mu.pt, mu.eta, mu.dxy, mu.dz, mu.pfRelIso03_all, mu.sip3d, mu.mvaTTH, mu.mediumPromptId, mu.tightCharge, mu.looseId, minpt=10)
+        mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
+        mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+        mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
+        mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
+        mu["isTight"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
         mu['isGood'] = mu['isPres'] & mu['isTight']
 
         leading_mu = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
@@ -65,9 +82,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu_pres = mu[mu.isPres]
 
         # Electron selection
-        e['isPres']  = isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.lostHits, minpt=15)
-        e['isTight'] = isTightElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, e.mvaTTH, e.mvaFall17V2Iso, e.lostHits, e.convVeto, e.tightCharge, e.sieie, e.hoe, e.eInvMinusPInv, minpt=15)
-        e['isClean'] = isClean(e, mu, drmin=0.05)
+        e["idEmu"] = te_os.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
+        e["conept"] = te_os.coneptElec(e.pt, e.mvaTTHUL, e.jetRelIso)
+        e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
+        e["isPres"] = te_os.isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
+        e["isFO"] = te_os.isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
+        e["isTight"] = te_os.tightSelElec(e.isFO, e.mvaTTHUL)
+        e['isClean'] = te_os.isClean(e, mu, drmin=0.05)
         e['isGood']  = e['isPres'] & e['isTight'] & e['isClean']
 
         leading_e = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
@@ -89,20 +110,20 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Jet selection
 
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
-        j['isGood']  = isTightJet(getattr(j, jetptname), j.eta, j.jetId, j.neHEF, j.neEmEF, j.chHEF, j.chEmEF, j.nConstituents)
-        j['isClean'] = isClean(j, e, drmin=0.4)& isClean(j, mu, drmin=0.4)
+        j["isGood"] = tc_os.is_tight_jet(getattr(j, jetptname), j.eta, j.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
+        j['isClean'] = te_os.isClean(j, e, drmin=0.4)& te_os.isClean(j, mu, drmin=0.4)
         goodJets = j[(j.isClean)&(j.isGood)]
         njets = ak.num(goodJets)
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
 
         ### We need weights for: normalization, lepSF, triggerSF, pileup, btagSF...
-        weights = coffea.analysis_tools.Weights(len(events))
+        weights = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         weights.add('norm', np.ones_like(met.pt))
 
         eftweights = events['EFTfitCoefficients'] if hasattr(events, "EFTfitCoefficients") else []
 
-        hout = self.accumulator.identity()
+        hout = self.accumulator
         normweights = weights.weight().flatten()
         #hout['SumOfEFTweights'].fill(eftweights, sample=dataset, SumOfEFTweights=varnames['counts'], weight=normweights)
 

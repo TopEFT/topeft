@@ -3,21 +3,27 @@ import copy
 import coffea
 import numpy as np
 import awkward as ak
-np.seterr(divide='ignore', invalid='ignore', over='ignore')
-from coffea import hist, processor
+import json
+
+import hist
+from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.sparseHist import SparseHist
+
+from coffea import processor
 from coffea.util import load
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
 from topcoffea.modules.paths import topcoffea_path
-from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
 import topcoffea.modules.event_selection as tc_es
 import topcoffea.modules.object_selection as tc_os
+import topcoffea.modules.corrections as tc_cor
 
-
+from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import GetBTagSF, ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPhotonSF, AttachPerLeptonFR, GetPUSF, ApplyRochesterCorrections, ApplyJetSystematics, AttachPSWeights, AttachScaleWeights, GetTriggerSF
+import topeft.modules.plotting_helper as plot_help
+from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPhotonSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, AddPerPhotonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 import topeft.modules.jetbJetMultiplicity as jbM
@@ -26,7 +32,7 @@ from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 
-
+np.seterr(divide='ignore', invalid='ignore', over='ignore')
 
 # Takes strings as inputs, constructs a string for the full channel name
 # Try to construct a channel name like this: [n leptons]_[lepton flavors]_[p or m charge]_[on or off Z]_[n b jets]_[n jets]
@@ -34,7 +40,6 @@ get_te_param = GetParam(topeft_path("params/params.json"))
     # njet_str should look something like "atleast_5j",   NOTE: This function assumes njets comes last
     # flav_str should look something like "emm"
 def construct_cat_name(chan_str,njet_str=None,flav_str=None):
-
     # Get the component strings
     nlep_str = chan_str.split("_")[0] # Assumes n leps comes first in the str
     chan_str = "_".join(chan_str.split("_")[1:]) # The rest of the channel name is everything that comes after nlep
@@ -54,46 +59,88 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
         ret_str = "_".join([ret_str,component])
     return ret_str
 
+
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, ttA_analysis=False):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
+        self.offZ_3l_split = offZ_split
+        self.tau_h_analysis = tau_h_analysis
+        self.fwd_analysis = fwd_analysis
+        self.ttA_analysis = ttA_analysis
 
-        # Create the histograms
-        self._accumulator = processor.dict_accumulator({
-            "invmass" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass", "$m_{\ell\ell}$ (GeV) ", 36, 20,200)),
-            "ptbl"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptbl",    "$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ", 40, 0, 1000)),
-            "ptz"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ptz",     "$p_{T}$ Z (GeV)", 12, 0, 600)),
-            "njets"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njets",   "Jet multiplicity ", 7, 0, 7)),
-            "nbjetsm" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbjetsm", "medium btag multiplicity ", 5, 0, 5)),
-            "nbtagsl" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nbtagsl", "Loose btag multiplicity ", 5, 0, 5)),
-            "l0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0pt",    "Leading lep $p_{T}$ (GeV)", 20, 0, 500)),
-            "l1pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l1pt",    "Subleading lep $p_{T}$ (GeV)", 10, 0, 100)),
-            "l1eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l1eta",   "Subleading $\eta$", 20, -2.5, 2.5)),
-            "j0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0pt",    "Leading jet  $p_{T}$ (GeV)", 10, 0, 500)),
-            "b0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("b0pt",    "Leading b jet  $p_{T}$ (GeV)", 10, 0, 500)),
-            "l0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("l0eta",   "Leading lep $\eta$", 20, -2.5, 2.5)),
-            "j0eta"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("j0eta",   "Leading jet  $\eta$", 30, -3.0, 3.0)),
-            "ht"      : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ht",      "H$_{T}$ (GeV)", 20, 0, 1000)),
-            "met"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("met",     "MET (GeV)", 20, 0, 400)),
-            "ljptsum" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("ljptsum", "S$_{T}$ (GeV)", 11, 0, 1100)),
-            "o0pt"    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("o0pt",    "Leading l or b jet $p_{T}$ (GeV)", 10, 0, 500)),
-            "bl0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("bl0pt",   "Leading (b+l) $p_{T}$ (GeV)", 10, 0, 500)),
-            "lj0pt"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("lj0pt",   "Leading pt of pair from l+j collection (GeV)", 12, 0, 600)),
-            #"photon_pt"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("photon_pt",     "$p_{T}$ $\gamma$ (GeV)", 20, 0, 400)),
-            #"photon_pt"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("photon_pt",     "$p_{T}$ $\gamma$ (GeV)", [20,35,50,70,100,130,170,200,250,300])),
-            "photon_pt"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("photon_pt",     "$p_{T}$ $\gamma$ (GeV)", [20,35,50,70,100,170,200,250,300])),
-            "nPhoton"   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("nPhoton", "Photon multiplicity", 7, 0, 7)),
-            "photon_relPFchIso" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("photon_relPFchIso", "PF relative ch. had. isolation (GeV)",50,0,7)),
-            "photon_PFchIso" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("photon_PFchIso", "PF ch. had. isolation (GeV)",100,0,15)),
-            "cutBased"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("cutBased",     "$p_{T}$ $\gamma$ (GeV)", 6, 0, 6)),
-            "pp_mass"     : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("pp_mass",     "$m_{\gamma\gamma}$ (GeV)", 60, 0, 600)),
-            "invmass_llgamma" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("invmass_llgamma", "$m_{\ell\ell\gamma}$ (GeV)", 28,60,200)),
-            "njet_bjet" : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("systematic", "Systematic Uncertainty"),hist.Cat("appl", "AR/SR"), hist.Bin("njet_bjet", "(njets,nbjets)", [1,2,3,4,5,6,7,8,9]))
-        })
+        proc_axis = hist.axis.StrCategory([], name="process", growth=True)
+        chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
+        syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
+        appl_axis = hist.axis.StrCategory([], name="appl", label=r"AR/SR", growth=True)
+
+        histograms = {}
+        for name, info in axes_info.items():
+            if name == 'photon_pt_eta':
+                pt_axis = hist.axis.Variable(info["pt"]["variable"],name="pt",label=info["pt"]["label"])
+                abseta_axis = hist.axis.Variable(info["abseta"]["variable"],name="abseta",label=info["abseta"]["label"])
+                pt_sumw2_axis = hist.axis.Variable(info["pt"]["variable"],name="pt_sumw2",label=info["pt"]["label"] + " sum of w^2")
+                abseta_sumw2_axis= hist.axis.Variable(info["abseta"]["variable"],name="abseta_sumw2",label=info["abseta"]["label"] + " sum of w^2")
+
+                histograms[name] = SparseHist(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    pt_axis,
+                    abseta_axis,
+                    label=r"Events"
+                )
+
+                histograms[name+"_sumw2"] = SparseHist(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    pt_sumw2_axis,
+                    abseta_sumw2_axis,
+                    label=r"Events"
+                )
+
+            else:
+                if not rebin and "variable" in info:
+                    dense_axis = hist.axis.Variable(
+                        info["variable"], name=name, label=info["label"]
+                    )
+                    sumw2_axis = hist.axis.Variable(
+                        info["variable"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
+                    )
+                else:
+                    dense_axis = hist.axis.Regular(
+                        *info["regular"], name=name, label=info["label"]
+                    )
+                    sumw2_axis = hist.axis.Regular(
+                        *info["regular"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
+                    )
+                histograms[name] = HistEFT(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    dense_axis,
+                    wc_names=wc_names_lst,
+                    label=r"Events",
+                    rebin=rebin
+                )
+                histograms[name+"_sumw2"] = HistEFT(
+                    proc_axis,
+                    chan_axis,
+                    syst_axis,
+                    appl_axis,
+                    sumw2_axis,
+                    wc_names=wc_names_lst,
+                    label=r"Events",
+                    rebin=rebin
+                )
+        self._accumulator = histograms
 
         # Set the list of hists to fill
         if hist_lst is None:
@@ -117,6 +164,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
 
 
+
     @property
     def accumulator(self):
         return self._accumulator
@@ -130,12 +178,22 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Dataset parameters
         dataset = events.metadata["dataset"]
+        isEFT   = self._samples[dataset]["WCnames"] != []
 
         isData             = self._samples[dataset]["isData"]
         histAxisName       = self._samples[dataset]["histAxisName"]
         year               = self._samples[dataset]["year"]
         xsec               = self._samples[dataset]["xsec"]
         sow                = self._samples[dataset]["nSumOfWeights"]
+
+        is_run3 = False
+        if year.startswith("202"):
+            is_run3 = True
+        is_run2 = not is_run3
+
+        run_era = None
+        if isData:
+            run_era = self._samples[dataset]["path"].split("/")[2].split("-")[0][-1]
 
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
@@ -179,9 +237,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_renormfactUp   = -1
             sow_renormfactDown = -1
 
-        datasets = ["SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
+        datasets = ["Muon", "SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets:
-            if d in dataset: dataset = dataset.split('_')[0]
+            if dataset.startswith(d):
+                dataset = dataset.split('_')[0]
 
         # Set the sampleType (used for MC matching requirement)
         sampleType = "prompt"
@@ -201,13 +260,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau  = events.Tau
         jets = events.Jet
 
+
+        if is_run3:
+            leptonSelection = te_os.run3leptonselection()
+            jetsRho = events.Rho["fixedGridRhoFastjetAll"]
+        elif is_run2:
+            leptonSelection = te_os.run2leptonselection()
+            jetsRho = events.fixedGridRhoFastjetAll
+
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
         events.nom = ak.ones_like(events.MET.pt)
 
         ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
-        ele["conept"] = te_os.coneptElec(ele.pt, ele.mvaTTHUL, ele.jetRelIso)
-        mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
+        ele["conept"] = leptonSelection.coneptElec(ele)
+        mu["conept"] = leptonSelection.coneptMuon(mu)
         ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
         if not isData:
@@ -221,6 +288,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             golden_json_path = topcoffea_path("data/goldenJsons/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt")
         elif year == "2018":
             golden_json_path = topcoffea_path("data/goldenJsons/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt")
+        elif year == "2022":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_Collisions2022_355100_362760_Golden.txt")
+        elif year == "2023":
+            golden_json_path = topcoffea_path("data/goldenJsons/Cert_Collisions2023_366442_370790_Golden.txt")
         else:
             raise ValueError(f"Error: Unknown year \"{year}\".")
         lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
@@ -236,22 +307,22 @@ class AnalysisProcessor(processor.ProcessorABC):
                 eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
         # Initialize the out object
-        hout = self.accumulator.identity()
+        hout = self.accumulator
 
         ################### Electron selection ####################
 
-        ele["isPres"] = te_os.isPresElec(ele.pt, ele.eta, ele.dxy, ele.dz, ele.miniPFRelIso_all, ele.sip3d, getattr(ele,"mvaFall17V2noIso_WPL"))
-        ele["isLooseE"] = te_os.isLooseElec(ele.miniPFRelIso_all,ele.sip3d,ele.lostHits)
-        ele["isFO"] = te_os.isFOElec(ele.pt, ele.conept, ele.btagDeepFlavB, ele.idEmu, ele.convVeto, ele.lostHits, ele.mvaTTHUL, ele.jetRelIso, ele.mvaFall17V2noIso_WP90, year)
-        ele["isTightLep"] = te_os.tightSelElec(ele.isFO, ele.mvaTTHUL)
+        ele["isPres"] = leptonSelection.isPresElec(ele)
+        ele["isLooseE"] = leptonSelection.isLooseElec(ele)
+        ele["isFO"] = leptonSelection.isFOElec(ele, year)
+        ele["isTightLep"] = leptonSelection.tightSelElec(ele)
 
         ################### Muon selection ####################
 
-        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Need to apply corrections before doing muon selection
-        mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-        mu["isLooseM"] = te_os.isLooseMuon(mu.miniPFRelIso_all,mu.sip3d,mu.looseId)
-        mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
-        mu["isTightLep"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
+        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Run3 ready
+        mu["isPres"] = leptonSelection.isPresMuon(mu)
+        mu["isLooseM"] = leptonSelection.isLooseMuon(mu)
+        mu["isFO"] = leptonSelection.isFOMuon(mu, year)
+        mu["isTightLep"]= leptonSelection.tightSelMuon(mu)
 
         ################### Loose selection ####################
 
@@ -259,52 +330,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         e_loose = ele[ele.isPres & ele.isLooseE]
         l_loose = ak.with_name(ak.concatenate([e_loose, m_loose], axis=1), 'PtEtaPhiMCandidate')
 
-        ################### Tau selection ####################
-
-        tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, minpt=20)
-        tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
-        tau["isGood"]  =  tau["isClean"] & tau["isPres"]
-        tau = tau[tau.isGood] # use these to clean jets
-        tau["isTight"] = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
-
-        ################### Photon selection ###################
-        #clean photons collection if there is an overlap with lepton collection
-        ph["isClean"] = te_os.isClean(ph, l_loose, drmin=0.4)
-
-        #We select photons that are already cleaned against leptons
-        cleanPh = ph[ph.isClean]
-        te_os.selectPhoton(cleanPh)
-        mediumcleanPhoton = cleanPh[cleanPh.mediumPhoton]
-        #Also pt sort the mediumcleanPhoton collection 
-        mediumcleanPhoton = mediumcleanPhoton[ak.argsort(mediumcleanPhoton.pt,axis=-1,ascending=False)]
-
-        #If MC, also use the mediumcleanPhoton collection to define prompt photon mask. We don't apply it to the photon collection right away.
-        if not isData:
-            genPart = events.GenPart
-            is_prompt_photon = te_os.is_prompt_photon(genPart,mediumcleanPhoton)
-        else:
-            is_prompt_photon = np.ones(len(events), dtype=bool)
-
-        #mediumPromptcleanPhoton = cleanPh[cleanPh.mediumPromptPhoton]
-        mediumcleanPhoton_noChIso = cleanPh[cleanPh.mediumPhoton_noChIso]
-
         # Compute pair invariant masses, for all flavors all signes
         llpairs = ak.combinations(l_loose, 2, fields=["l0","l1"])
         events["minMllAFAS"] = ak.min( (llpairs.l0+llpairs.l1).mass, axis=-1)
-
-        # Photon pairs
-        pppairs = ak.combinations(mediumcleanPhoton, 2, fields=["p0","p1"])
 
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
 
         # Attach the lepton SFs to the electron and muons collections
-        AttachElectronSF(e_fo,year=year)
+        AttachElectronSF(e_fo,year=year, looseWP="none" if is_run3 else "wpLnoiso") #Run3 ready
         AttachMuonSF(m_fo,year=year)
-        AttachPhotonSF(mediumcleanPhoton,year=year)
 
-        # Attach per leptovetoedbyOverlaps
+        # Attach per lepton fake rates
         AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
         AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
         m_fo['convVeto'] = ak.ones_like(m_fo.charge)
@@ -312,24 +350,95 @@ class AnalysisProcessor(processor.ProcessorABC):
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
+        ################### Tau selection ####################
+
+        if self.tau_h_analysis:
+            tau["pt"], tau["mass"] = ApplyTES(year, tau, isData)
+            tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
+            tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.3)
+            tau["isGood"]  =  tau["isClean"] & tau["isPres"]
+            tau = tau[tau.isGood]
+
+            tau['DMflag'] = ((tau.decayMode==0) | (tau.decayMode==1) | (tau.decayMode==10) | (tau.decayMode==11))
+            tau = tau[tau['DMflag']]
+            tau["isVLoose"]  = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet)
+            tau["isLoose"]   = te_os.isLooseTau(tau.idDeepTau2017v2p1VSjet)
+            tau["iseTight"]  = te_os.iseTightTau(tau.idDeepTau2017v2p1VSe)
+            tau["ismTight"]  = te_os.ismTightTau(tau.idDeepTau2017v2p1VSmu)
+
+            cleaning_taus = tau[tau["isLoose"]>0]
+            nLtau  = ak.num(tau[tau["isLoose"]>0] )
+            if not isData:
+                AttachTauSF(events,tau,year=year)
+            tau_padded = ak.pad_none(tau, 1)
+            tau0 = tau_padded[:,0]
+
+        else:
+            tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
+            tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
+            tau["isGood"]  =  tau["isClean"] & tau["isPres"]
+            tau = tau[tau.isGood] # use these to clean jets
+            tau["isTight"] = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+
+        ################### Photon selection ###################
+        #clean photons collection if there is an overlap with lepton collection
+
+        if self.ttA_analysis:
+            ph["isClean"] = te_os.isClean(ph, l_fo, drmin=0.4)
+
+            #We select photons that are already cleaned against leptons
+            cleanPh = ph[ph.isClean]
+            te_os.selectPhoton(cleanPh, pt_val=20.0, eta_val=1.44)
+            cleanPh['isFakeablePh'] = cleanPh.fakeablePhoton_AR_SR
+            ph_fo = cleanPh[cleanPh.isFakeablePh]
+            ph_fo['inA_ABCD'] = ph_fo.mediumPhoton
+            ph_fo['inB_ABCD'] = ph_fo.mediumPhoton_regB
+
+            #Attach per photon fake rates and photon SFs
+            AddPerPhotonFR(events, ph_fo, year=year, closureTest=False)
+            AttachPhotonSF(ph_fo,year=year)
+
+            #pT sort the photon collection
+            ph_fo_pt_sorted = ph_fo[ak.argsort(ph_fo.pt,axis=-1,ascending=False)]
+
+            # Photon pairs
+            pppairs = ak.combinations(ph_fo, 2, fields=["p0","p1"])
+
         ######### Systematics ###########
 
         # Define the lists of systematics we include
+        obj_jes_entries = []
+        with open(topeft_path('modules/jerc_dict.json'), 'r') as f:
+            jerc_dict = json.load(f)
+            for junc in jerc_dict[year]['junc']:
+                junc = junc.replace("Regrouped_", "")
+                obj_jes_entries.append(f'JES_{junc}Up')
+                obj_jes_entries.append(f'JES_{junc}Down')
         obj_correction_syst_lst = [
-            f'JER_{year}Up',f'JER_{year}Down', # Systs that affect the kinematics of objects
-            'JES_FlavorQCDUp', 'JES_AbsoluteUp', 'JES_RelativeBalUp', 'JES_BBEC1Up', 'JES_RelativeSampleUp', 'JES_FlavorQCDDown', 'JES_AbsoluteDown', 'JES_RelativeBalDown', 'JES_BBEC1Down', 'JES_RelativeSampleDown'
-        ]
-        wgt_correction_syst_lst = [
-            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown","phoSF_Up","phoSF_Down",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
-            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown", # Theory systs
-        ]
+            f'JER_{year}Up', f'JER_{year}Down'
+        ] + obj_jes_entries
+        if self.tau_h_analysis:
+            obj_correction_syst_lst.append("TESUp")
+            obj_correction_syst_lst.append("TESDown")
+            obj_correction_syst_lst.append("FESUp")
+            obj_correction_syst_lst.append("FESDown")
 
         wgt_correction_syst_lst = [
-            "FSRUp","FSRDown","ISRUp","ISRDown", #,"renormUp","renormDown","factUp","factDown", # Theory systs
+            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
+            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown", # Theory systs
         ]
+        if self.tau_h_analysis:
+            wgt_correction_syst_lst.append("lepSF_taus_realUp")
+            wgt_correction_syst_lst.append("lepSF_taus_realDown")
+            wgt_correction_syst_lst.append("lepSF_taus_fakeUp")
+            wgt_correction_syst_lst.append("lepSF_taus_fakeDown")
+
         data_syst_lst = [
             "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
         ]
+        if self.ttA_analysis:
+            wgt_correction_syst_lst.extend(["phoSFUp","phoSFDown"])
+            data_syst_lst.extend(["nonpromptPhUp","nonpromptPhDown"])
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
@@ -337,29 +446,35 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Note: Here we will to the weights object the SFs that do not depend on any of the forthcoming loops
         weights_obj_base = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         if not isData:
-
             # If this is no an eft sample, get the genWeight
-            if eft_coeffs is None: genw = events["genWeight"]
-            else: genw= np.ones_like(events["event"])
+            if eft_coeffs is None:
+                genw = events["genWeight"]
+            else:
+                genw= np.ones_like(events["event"])
 
             # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
             lumi = 1000.0*get_tc_param(f"lumi_{year}")
             weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
 
-            #Attach PS weights (ISR/FSR) and scale weights (renormalization/factorization) and PDF weights
-            AttachPSWeights(events)
-            #AttachScaleWeights(events)
-            #AttachPdfWeights(events) # TODO
-            # FSR/ISR weights
+            if is_run2:
+                l1prefiring_args = [events.L1PreFiringWeight.Nom, events.L1PreFiringWeight.Up, events.L1PreFiringWeight.Dn]
+            elif is_run3:
+                l1prefiring_args = [ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom)]
+
+            # Attach PS weights (ISR/FSR) and scale weights (renormalization/factorization) and PDF weights
+            tc_cor.AttachPSWeights(events) #Run3 ready
+            tc_cor.AttachScaleWeights(events) #Run3 ready (with caveat on "nominal")
+            #AttachPdfWeights(events) #TODO
+            # FSR/ISR weights -- corrections come from AttachPSWeights
             weights_obj_base.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown))
             weights_obj_base.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown))
-            # renorm/fact scale
-            #weights_obj_base.add('renorm', events.nom, events.renormUp*(sow/sow_renormUp), events.renormDown*(sow/sow_renormDown))
-            #weights_obj_base.add('fact', events.nom, events.factUp*(sow/sow_factUp), events.factDown*(sow/sow_factDown))
-            # Prefiring and PU (note prefire weights only available in nanoAODv9)
-            #weights_obj_base.add('PreFiring', events.L1PreFiringWeight.Nom,  events.L1PreFiringWeight.Up,  events.L1PreFiringWeight.Dn)
-            #weights_obj_base.add('PU', GetPUSF((events.Pileup.nTrueInt), year), GetPUSF(events.Pileup.nTrueInt, year, 'up'), GetPUSF(events.Pileup.nTrueInt, year, 'down'))
+            # renorm/fact scale  -- corrections come from AttachScaleWeights
+            weights_obj_base.add('renorm', events.nom, events.renormUp*(sow/sow_renormUp), events.renormDown*(sow/sow_renormDown))
+            weights_obj_base.add('fact', events.nom, events.factUp*(sow/sow_factUp), events.factDown*(sow/sow_factDown))
+            # Prefiring and PU (note prefire weights only available in nanoAODv9 and for Run2)
+            weights_obj_base.add('PreFiring', *l1prefiring_args) #Run3 ready
+            weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down')) #Run3 ready
 
 
         ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
@@ -380,84 +495,78 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Jet cleaning, before any jet selection
             #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
-            vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
+            if self.tau_h_analysis:
+                vetos_tocleanjets = ak.with_name( ak.concatenate([cleaning_taus, l_fo], axis=1), "PtEtaPhiMCandidate")
+            else:
+                vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
             tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
             cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
-
-            #Let's also clean jets against photon collection
-            cleanedJets = cleanedJets[te_os.isClean(cleanedJets, mediumcleanPhoton, drmin=0.1)]
-            #cleanedJets = cleanedJets[te_os.isClean(cleanedJets, mediumPromptcleanPhoton, drmin=0.1)]
 
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
+            cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
+            cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
+            cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
+
             # Jet energy corrections
             if not isData:
-                cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
-                cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
-                cleanedJets["pt_gen"] =ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-                cleanedJets["rho"] = ak.broadcast_arrays(events.fixedGridRhoFastjetAll, cleanedJets.pt)[0]
-                events_cache = events.caches[0]
-                cleanedJets = ApplyJetCorrections(year, corr_type='jets').build(cleanedJets, lazy_cache=events_cache)
-                # SYSTEMATICS
-                cleanedJets=ApplyJetSystematics(year,cleanedJets,syst_var)
-                met=ApplyJetCorrections(year, corr_type='met').build(met_raw, cleanedJets, lazy_cache=events_cache)
+                cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
+                if self.tau_h_analysis:
+                    tau["pt"], tau["mass"]      = ApplyTESSystematic(year, tau, isData, syst_var)
+                    tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var)
+
+            events_cache = events.caches[0]
+            cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
+            cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
+            met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era).build(met_raw, cleanedJets, lazy_cache=events_cache)
+
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
+            cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=40.)
+
+            #Let's also clean jets against photon collection
+            if self.ttA_analysis:
+                cleanedJets = cleanedJets[te_os.isClean(cleanedJets, ph_fo, drmin=0.4)]
+
             goodJets = cleanedJets[cleanedJets.isGood]
+            fwdJets  = cleanedJets[cleanedJets.isFwd]
 
             # Count jets
             njets = ak.num(goodJets)
+            nfwdj = ak.num(fwdJets)
             ht = ak.sum(goodJets.pt,axis=-1)
-            j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
+            j0 = ak.firsts(goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)])
 
             # Loose DeepJet WP
-            if year == "2017":
-                btagwpl = get_tc_param("btag_wp_loose_UL17")
-            elif year == "2018":
-                btagwpl = get_tc_param("btag_wp_loose_UL18")
-            elif year=="2016":
-                btagwpl = get_tc_param("btag_wp_loose_UL16")
-            elif year=="2016APV":
-                btagwpl = get_tc_param("btag_wp_loose_UL16APV")
-            else:
-                raise ValueError(f"Error: Unknown year \"{year}\".")
+            loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
+            btagwpl = get_tc_param(loose_tag)
             isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
             # Medium DeepJet WP
-            if year == "2017":
-                btagwpm = get_tc_param("btag_wp_medium_UL17")
-            elif year == "2018":
-                btagwpm = get_tc_param("btag_wp_medium_UL18")
-            elif year=="2016":
-                btagwpm = get_tc_param("btag_wp_medium_UL16")
-            elif year=="2016APV":
-                btagwpm = get_tc_param("btag_wp_medium_UL16APV")
-            else:
-                raise ValueError(f"Error: Unknown year \"{year}\".")
+            medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
+            btagwpm = get_tc_param(medium_tag)
             isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
-            btagsm = goodJets[isBtagJetsMedium]
-            nbtagsm = ak.num(btagsm)
+            nbtagsm = ak.num(goodJets[isBtagJetsMedium])
 
 
             #################### Add variables into event object so that they persist ####################
 
-            # Put njets, l_fo_conept_sorted, and medium cutBasedID photons into events
+            # Put njets and l_fo_conept_sorted into events
             events["njets"] = njets
             events["l_fo_conept_sorted"] = l_fo_conept_sorted
-            # Veto for "relaxed" ID (medium plus a differnt sigma_nn and and charged iso)
-            #relaxed_veto = ak.any(ak.full_like(events.Photon.pt>=0, False), axis=-1)
-            # Keep events failing the veto (i.e. events _without_ a relaxed photon
-
-            events["photon"] = mediumcleanPhoton #_noChIso_NOsigmaetaeta
+            if self.ttA_analysis:
+                events["ph_fo_pt_sorted"] = ph_fo_pt_sorted
 
             # The event selection
             te_es.add2lMaskAndSFs(events, year, isData, sampleType)
             te_es.add3lMaskAndSFs(events, year, isData, sampleType)
             te_es.add4lMaskAndSFs(events, year, isData)
             te_es.addLepCatMasks(events)
+            if self.ttA_analysis:
+                te_es.addPhotonSelection(events, sampleType, last_pt_bin=120.0 ,closureTest=False) #CAUTION: Revisit the "last_pt_bin" if photon_pt binning is changed
 
             # Convenient to have l0, l1, l2 on hand
             l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
@@ -465,48 +574,121 @@ class AnalysisProcessor(processor.ProcessorABC):
             l1 = l_fo_conept_sorted_padded[:,1]
             l2 = l_fo_conept_sorted_padded[:,2]
 
-
             ######### Event weights that do not depend on the lep cat ##########
 
             if not isData:
+                # Workaround to use UL16APV SFs for UL16 for light jets
+                if year == "2016":
+                    year_light = "2016APV"
+                else:
+                    year_light = year
 
-                # Btag SF following 1a) in https://twiki.cern.ch/twiki/bin/viewauth/CMS/BTagSFMethods
                 isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
-                bJetSF   = [GetBTagSF(goodJets, year, 'LOOSE'),GetBTagSF(goodJets, year, 'MEDIUM')]
-                bJetEff  = [GetBtagEff(goodJets, year, 'loose'),GetBtagEff(goodJets, year, 'medium')]
-                bJetEff_data   = [bJetEff[0]*bJetSF[0],bJetEff[1]*bJetSF[1]]
-                pMC     = ak.prod(bJetEff[1]       [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff[0]       [isBtagJetsLooseNotMedium] - bJetEff[1]       [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff[0]       [isNotBtagJetsLoose]), axis=-1)
-                pMC     = ak.where(pMC==0,1,pMC) # removeing zeroes from denominator...
-                pData   = ak.prod(bJetEff_data[1]  [isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_data[0]  [isBtagJetsLooseNotMedium] - bJetEff_data[1]  [isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_data[0]  [isNotBtagJetsLoose]), axis=-1)
-                #weights_obj_base_for_kinematic_syst.add("btagSF", pData/pMC)
+
+                light_mask = goodJets.hadronFlavour==0
+                bc_mask = goodJets.hadronFlavour>0
+
+                jets_light = goodJets[light_mask]
+                jets_bc    = goodJets[bc_mask]
+
+                btag_effM_light = GetBtagEff(jets_light, year, 'medium')
+                btag_effM_bc = GetBtagEff(jets_bc, year, 'medium')
+                btag_effL_light = GetBtagEff(jets_light, year, 'loose')
+                btag_effL_bc = GetBtagEff(jets_bc, year, 'loose')
+                btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M",year_light,"deepJet_incl","central")
+                btag_sfM_bc    = tc_cor.btag_sf_eval(jets_bc,    "M",year,      "deepJet_comb","central")
+                btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L",year_light,"deepJet_incl","central")
+                btag_sfL_bc    = tc_cor.btag_sf_eval(jets_bc,    "L",year,      "deepJet_comb","central")
+
+                pData_light, pMC_light = tc_cor.get_method1a_wgt_doublewp(btag_effM_light, btag_effL_light, btag_sfM_light, btag_sfL_light, isBtagJetsMedium[light_mask], isBtagJetsLooseNotMedium[light_mask], isNotBtagJetsLoose[light_mask])
+                btag_w_light = pData_light/pMC_light
+                pData_bc, pMC_bc = tc_cor.get_method1a_wgt_doublewp(btag_effM_bc, btag_effL_bc, btag_sfM_bc, btag_sfL_bc, isBtagJetsMedium[bc_mask], isBtagJetsLooseNotMedium[bc_mask], isNotBtagJetsLoose[bc_mask])
+                btag_w_bc = pData_bc/pMC_bc
+                btag_w = btag_w_light*btag_w_bc
+                weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
 
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
-                        bJetSFUp = [GetBTagSF(goodJets, year, 'LOOSE', syst=b_syst)[0],GetBTagSF(goodJets, year, 'MEDIUM', syst=b_syst)[0]]
-                        bJetSFDo = [GetBTagSF(goodJets, year, 'LOOSE', syst=b_syst)[1],GetBTagSF(goodJets, year, 'MEDIUM', syst=b_syst)[1]]
-                        bJetEff_dataUp = [bJetEff[0]*bJetSFUp[0],bJetEff[1]*bJetSFUp[1]]
-                        bJetEff_dataDo = [bJetEff[0]*bJetSFDo[0],bJetEff[1]*bJetSFDo[1]]
-                        pDataUp = ak.prod(bJetEff_dataUp[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataUp[0][isBtagJetsLooseNotMedium] - bJetEff_dataUp[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataUp[0][isNotBtagJetsLoose]), axis=-1)
-                        pDataDo = ak.prod(bJetEff_dataDo[1][isBtagJetsMedium], axis=-1) * ak.prod((bJetEff_dataDo[0][isBtagJetsLooseNotMedium] - bJetEff_dataDo[1][isBtagJetsLooseNotMedium]), axis=-1) * ak.prod((1-bJetEff_dataDo[0][isNotBtagJetsLoose]), axis=-1)
-                        #weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, (pDataUp/pMC)/(pData/pMC),(pDataDo/pMC)/(pData/pMC))
+                        if b_syst.endswith("_corr"):
+                            corrtype = "correlated"
+                        else:
+                            corrtype = "uncorrelated"
+
+                        if b_syst.startswith("light_"):
+                            jets_flav = jets_light
+                            flav_mask = light_mask
+                            sys_year = year_light
+                            dJ_tag = "incl"
+                            btag_effM = btag_effM_light
+                            btag_effL = btag_effL_light
+                            pMC_flav = pMC_light
+                            fixed_btag_w = btag_w_bc
+                        elif b_syst.startswith("bc_"):
+                            jets_flav = jets_bc
+                            flav_mask = bc_mask
+                            sys_year = year
+                            dJ_tag = "comb"
+                            btag_effM = btag_effM_bc
+                            btag_effL = btag_effL_bc
+                            pMC_flav = pMC_bc
+                            fixed_btag_w = btag_w_light
+                        else:
+                            raise ValueError("btag systematics should be divided in flavor (bc or light)!")
+
+                        btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L",sys_year,f"deepJet_{dJ_tag}",f"up_{corrtype}")
+                        btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L",sys_year,f"deepJet_{dJ_tag}",f"down_{corrtype}")
+                        btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M",sys_year,f"deepJet_{dJ_tag}",f"up_{corrtype}")
+                        btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M",sys_year,f"deepJet_{dJ_tag}",f"down_{corrtype}")
+
+                        pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_up, btag_sfL_up, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
+                        pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_down, btag_sfL_down, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
+
+                        btag_w_up = (pData_up/pMC_flav)
+                        btag_w_down = (pData_down/pMC_flav)
+
+                        btag_w_up = fixed_btag_w*btag_w_up/btag_w
+                        btag_w_down = fixed_btag_w*btag_w_down/btag_w
+
+                        weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
 
                 # Trigger SFs
                 GetTriggerSF(year,events,l0,l1)
-                #weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+                weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
 
 
             ######### Event weights that do depend on the lep cat ###########
+            select_cat_dict = None
+            with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json_test:
+                select_cat_dict = json.load(ch_json_test)
 
-            # Loop over categories and fill the dict
+            # This dictionary keeps track of which selections go with which SR categories
+            if self.offZ_3l_split:
+                import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
+            elif self.tau_h_analysis:
+                import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
+            elif self.fwd_analysis:
+                import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
+            elif self.ttA_analysis:
+                import_sr_cat_dict = select_cat_dict["TTA_CH_LST_SR"]
+            else:
+                import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
+
+            # This dictionary keeps track of which selections go with which CR categories
+            import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+
+            #This list keeps track of the lepton categories
+            lep_cats = list(import_sr_cat_dict.keys()) + list(import_cr_cat_dict.keys())
+            lep_cats += ["2l_4t"]
+            lep_cats_data = [lep_cat for lep_cat in lep_cats if (lep_cat.startswith("2l") and not "os" in lep_cat)]
+
             weights_dict = {}
-            for ch_name in ["2l", "2l_4t", "3l", "4l", "2l_CR", "2l_CRflip", "3l_CR", "2los_CRtt", "2los_CRZ", "ttgamma", "photon","2los_sf_ph","2los_of_ph","2los_sf_cr_ph","2los_CRZ_noph","2los_CRZ_ph","2los_CR_Zg_ULttg","2los_lowpTlep_CR","2los_newCRs"]:
 
+            for ch_name in lep_cats:
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
                 if ch_name.startswith("2l"):
-                    #if "ph" in ch_name: pass     #skip for now if the channel is photon related
-
-                    #else:
+                    if "_ph" in ch_name:
+                        weights_dict[ch_name].add("nonpromptPh", events.nom, copy.deepcopy(events.np_ph_up), copy.deepcopy(events.np_ph_down))
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
                     weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
                     weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
@@ -521,26 +703,28 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For data only
                 if isData:
-                    if ch_name in ["2l","2l_4t","2l_CR","2l_CRflip"]:
+                    if ch_name in lep_cats_data:
                         weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
 
                 # For MC only
                 if not isData:
                     if ch_name.startswith("2l"):
-                        if "ph" in ch_name:
-                            pass     #skip for now if the channel is photon related
+                        if self.ttA_analysis and "_ph" in ch_name:
                             weights_dict[ch_name].add("phoSF", events.sf_2l_photon, copy.deepcopy(events.sf_2l_hi_photon), copy.deepcopy(events.sf_2l_lo_photon))
-                        else:
-                            weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
-                            weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
+                        if self.tau_h_analysis:
+                            weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
+                            weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
                     elif ch_name.startswith("3l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
+                        if self.tau_h_analysis:
+                            weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
+                            weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
                     elif ch_name.startswith("4l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
-                    elif ch_name.startswith("photon") or ch_name.startswith("ttgamma"):
-                        pass
                     else:
                         raise Exception(f"Unknown channel name: {ch_name}")
 
@@ -548,10 +732,19 @@ class AnalysisProcessor(processor.ProcessorABC):
             ######### Masks we need for the selection ##########
 
             # Get mask for events that have two sf os leps close to z peak
-            sfosz_3l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
+            sfosz_3l_OnZ_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
+            sfosz_3l_OffZ_mask = ~sfosz_3l_OnZ_mask
+            if self.offZ_3l_split:
+                sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
+                sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
             sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
             sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
-            sfosz_2los_ttg_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=15.0) 
+            sfosz_2los_ttg_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=15.0)
+            sfosz_2los_ll_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=15.0)
+            if self.ttA_analysis:
+                sfosz_2los_llg_mask_medph = te_es.get_Z_peak_mask_llg(l_fo_conept_sorted_padded[:,0:2],ph_fo_pt_sorted,pt_window=15.0)
+            if self.tau_h_analysis:
+                tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0, 30.0)
 
             # Pass trigger mask
             pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),te_es.dataset_dict_top22006,te_es.exclude_dict_top22006)
@@ -566,6 +759,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
             bmask_atleast1med = (nbtagsm>=1) # Used for 2los cats with photons
             bmask_atleast0med = (nbtagsm>=0)
+            fwdjet_mask       = (nfwdj > 0)  # Used for ttW EWK enriched regions
 
             # Charge masks
             chargel0_p = ak.fill_none(((l0.charge)>0),False)
@@ -574,80 +768,142 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
             charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
+            if self.tau_h_analysis:
+                tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) ==1)
+                no_tau_mask = (ak.num(tau[tau["isLoose"]>0])==0)
 
-            #photon multiplicity mask
-            exactly_1ph = (ak.num(mediumcleanPhoton)==1) 
-            exactly_0ph = (ak.num(mediumcleanPhoton)==0)
-            atleast_1ph = (ak.num(mediumcleanPhoton)>=1)
-            atleast_2ph = (ak.num(mediumcleanPhoton)>=2)
+            if self.ttA_analysis:
+                #photon multiplicity mask
+                exactly_1ph = (ak.num(ph_fo)==1)
+                exactly_0ph = (ak.num(ph_fo)==0)
+                atleast_1ph = (ak.num(ph_fo)>=1)
 
-            #Overlap removal
-            if not isData:
-                if ("TTTo" in dataset) or ("TTGamma" in dataset):
-                    te_es.generatorOverlapRemoval(dataset, events,ptCut=10, etaCut=5, deltaRCut=0.1)
-                    vetoedbyOverlap = events.vetoedbyOverlap
-                    retainedbyOverlap = events.retainedbyOverlap
-                elif ("ZGToLLG" in dataset) or ("DY" in dataset):
-                    te_es.generatorOverlapRemoval(dataset, events,ptCut=15, etaCut=2.6, deltaRCut=0.05)
-                    vetoedbyOverlap = events.vetoedbyOverlap
-                    retainedbyOverlap = events.retainedbyOverlap
-                else:
-                    vetoedbyOverlap = True
-                    retainedbyOverlap = True
-            else:              #if we are looking at data, set the two masks to be all True
-                vetoedbyOverlap = True
-                retainedbyOverlap = True
+                #Overlap removal
+                vetoedbyOverlap = np.ones(len(events), dtype=bool)
+                retainedbyOverlap = np.ones(len(events), dtype=bool)
+                if not isData:
+                    if ("TTTo" in dataset) or ("TTGamma" in dataset):
+                        te_es.generatorOverlapRemoval(dataset, events,ptCut=10, etaCut=5, deltaRCut=0.1)
+                        vetoedbyOverlap = events.vetoedbyOverlap
+                        retainedbyOverlap = events.retainedbyOverlap
+                    elif ("ZGToLLG" in dataset) or ("DY" in dataset):
+                        te_es.generatorOverlapRemoval(dataset, events,ptCut=15, etaCut=2.6, deltaRCut=0.05)
+                        vetoedbyOverlap = events.vetoedbyOverlap
+                        retainedbyOverlap = events.retainedbyOverlap
+
+                #Splitting ZGamma events based on whether is ISR or FSR origin
+                has_FSR_photon = np.ones(len(events),dtype=bool)
+                has_ISR_photon = np.ones(len(events),dtype=bool)
+
+                if not isData and 'ZGToLLG' in dataset:
+                    has_ISR_photon, has_FSR_photon=te_es.categorize_into_ISRFSR_photon(events)
 
             ######### Store boolean masks with PackedSelection ##########
 
             selections = PackedSelection(dtype='uint64')
-
+            preselections = PackedSelection(dtype='uint64')
             # Lumi mask (for data)
             selections.add("is_good_lumi",lumi_mask)
+            preselections.add("is_good_lumi",lumi_mask)
 
-            # 2lss selection (drained of 4 top)
-            selections.add("2lss_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atmost2med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
+            # 2lss selection
+            preselections.add("chargedl0", (chargel0_p | chargel0_m))
+            preselections.add("2l_nozeeveto", (events.is2l_nozeeveto & pass_trg))
+            preselections.add("2los", charge2l_0)
+            preselections.add("2lem", events.is_em)
+            preselections.add("2lee", events.is_ee)
+            preselections.add("2lee", events.is_mm)
+            preselections.add("2l_onZ_as", sfasz_2l_mask)
+            preselections.add("2l_onZ", sfosz_2l_mask)
+            preselections.add("bmask_atleast3m", (bmask_atleast3med))
+            preselections.add("bmask_atleast1med", (bmask_atleast1med))
+            preselections.add("bmask_atleast1m2l", (bmask_atleast1med_atleast2loose))
+            preselections.add("bmask_atmost2m", (bmask_atmost2med))
+            preselections.add("fwdjet_mask", (fwdjet_mask))
+            preselections.add("~fwdjet_mask", (~fwdjet_mask))
+            if self.tau_h_analysis:
+                preselections.add("1tau", (tau_L_mask))
+                preselections.add("0tau", (no_tau_mask))
+                preselections.add("onZ_tau", (tl_zpeak_mask))
+                preselections.add("offZ_tau", (~tl_zpeak_mask))
+            if self.fwd_analysis:
+                preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
+                preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
+                preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
+            if self.ttA_analysis:
+                #final SR categories with photons
+                preselections.add("exactly_1ph", (exactly_1ph))
+                preselections.add("2los_ph", (retainedbyOverlap & events.is2l & charge2l_0 & ~sfosz_2los_ll_mask & ~sfosz_2los_llg_mask_medph & pass_trg))
+                preselections.add("2los_sf_ph", (retainedbyOverlap & events.is2l & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ll_mask & ~sfosz_2los_llg_mask_medph & bmask_atleast1med & pass_trg))
+                preselections.add("2los_of_ph", (retainedbyOverlap & events.is2l & charge2l_0 & events.is_em & bmask_atleast1med & pass_trg))
 
-            # 2lss selection (enriched in 4 top)
-            selections.add("2lss_4t_p", (events.is2l & chargel0_p & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_4t_m", (events.is2l & chargel0_m & bmask_atleast1med_atleast2loose & pass_trg & bmask_atleast3med))  # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-
-            # 2lss selection for CR
-            selections.add("2lss_CR", (events.is2l & (chargel0_p | chargel0_m) & bmask_exactly1med & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis
-            selections.add("2lss_CRflip", (events.is2l_nozeeveto & events.is_ee & sfasz_2l_mask & pass_trg)) # Note: The ss requirement has NOT yet been made at this point! We take care of it later with the appl axis, also note explicitly include the ee requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
-
-            # 2los selection
-            selections.add("2los_CRtt", (events.is2l_nozeeveto & charge2l_0 & events.is_em & bmask_exactly2med & pass_trg)) # Explicitly add the em requirement here, so we don't have to rely on running with _split_by_lepton_flavor turned on to enforce this requirement
-            #selections.add("2los_CRZ", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg))
-            selections.add("2los_CRZ_noPh", (events.is2l_nozeeveto & charge2l_0 & sfosz_2l_mask & bmask_exactly0med & pass_trg & exactly_0ph)) #same as "2los_CRZ_withPh" except that we require 0 photon explicitly
-
-            #final SR categories with photons
-            selections.add("2los_sf_ph", (retainedbyOverlap & events.is2l & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ttg_mask & events.mask_SF_Zllgamma & bmask_atleast1med & pass_trg & exactly_1ph))
-            selections.add("2los_of_ph", (retainedbyOverlap & events.is2l & charge2l_0 & events.is_em & bmask_atleast1med & pass_trg & exactly_1ph))
-
-            #Categories for CR studies
-            selections.add("2los_sf_Zg_CR", (retainedbyOverlap & events.is2l_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ttg_mask  & ~events.mask_SF_Zllgamma & bmask_atleast0med & pass_trg & exactly_1ph))    #our CR for ZGamma background estimation
-            #the following selection was designed to make comparison with UL ttgamma analysis
-            selections.add("2los_sf_Zg_CR_ULttg", (retainedbyOverlap & events.is2l_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ttg_mask & ~events.mask_SF_Zllgamma & bmask_atleast1med & pass_trg & atleast_1ph))
+                #Categories for CR studies
+                preselections.add("2los_ph_CR_sf_Zg", (retainedbyOverlap & events.is2l_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ll_mask  & sfosz_2los_llg_mask_medph & pass_trg))
+                #the following preselection was designed to make comparison with UL ttgamma analysis
 
 
-            selections.add("2los_CRZ_withPh",(retainedbyOverlap & events.is2l_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & sfosz_2los_ttg_mask & events.mask_SF_Zllgamma & bmask_atleast0med & pass_trg & exactly_1ph))       #same as "2los_CRZ_noPh" except that we require photons explicitly
-            selections.add("2los_CR_sf_lowpTlep", (retainedbyOverlap & events.is2l_lowptlep_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ttg_mask & events.mask_SF_Zllgamma &bmask_atleast1med & pass_trg & exactly_1ph))
-            selections.add("2los_CR_of_lowpTlep", (retainedbyOverlap & events.is2l_lowptlep_nozeeveto & charge2l_0 & events.is_em & bmask_atleast1med & pass_trg & exactly_1ph))
-            selections.add("2los_CR_of_lowJet", (retainedbyOverlap & events.is2l & charge2l_0 & events.is_em & bmask_exactly0med & pass_trg & exactly_1ph))
- 
+            # 2lss selection
+            preselections.add("2lss", (events.is2l & pass_trg))
+            preselections.add("2l_p", (chargel0_p))
+            preselections.add("2l_m", (chargel0_m))
+
             # 3l selection
-            selections.add("3l_p_offZ_1b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast1med & pass_trg))
-            selections.add("3l_m_offZ_1b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_p_offZ_2b", (events.is3l & charge3l_p & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_m_offZ_2b", (events.is3l & charge3l_m & ~sfosz_3l_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_onZ_1b", (events.is3l & sfosz_3l_mask & bmask_exactly1med & pass_trg))
-            selections.add("3l_onZ_2b", (events.is3l & sfosz_3l_mask & bmask_atleast2med & pass_trg))
-            selections.add("3l_CR", (events.is3l & bmask_exactly0med & pass_trg))
+            preselections.add("3l", (events.is3l & pass_trg))
+            preselections.add("bmask_exactly0m", (bmask_exactly0med))
+            preselections.add("bmask_exactly1m", (bmask_exactly1med))
+            preselections.add("bmask_exactly2m", (bmask_exactly2med))
+            preselections.add("bmask_atleast2m", (bmask_atleast2med))
+            preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
+            preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
+            preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
+
+            if self.offZ_3l_split:
+                preselections.add("3l_offZ_low", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask))
+                preselections.add("3l_offZ_high", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask))
+                preselections.add("3l_offZ_none", (sfosz_3l_OffZ_mask & ~sfosz_3l_OffZ_any_mask))
+            else:
+                preselections.add("3l_offZ", (sfosz_3l_OffZ_mask))
 
             # 4l selection
-            selections.add("4l", (events.is4l & bmask_atleast1med_atleast2loose & pass_trg))
+            preselections.add("4l", (events.is4l & pass_trg))
+
+            #Filling selections according to the json specifications for SRs
+            for lep_cat, lep_cat_dict in import_sr_cat_dict.items():
+                lep_ch_list = lep_cat_dict['lep_chan_lst']
+                chtag = None
+
+                #looping over each region within the lep category
+                for lep_ch in lep_ch_list:
+                    tempmask = None
+                    #the first entry of the list is the region name to add in "selections"
+                    chtag = lep_ch[0]
+
+                    for chcut in lep_ch[1:]:
+                        if not tempmask is None:
+                            tempmask = tempmask & preselections.any(chcut)
+                        else:
+                            tempmask = preselections.any(chcut)
+                    selections.add(chtag, tempmask)
+
+            #Filling selections according to the json specifications for CRs
+            for lep_cat, lep_cat_dict in import_cr_cat_dict.items():
+                lep_ch_list = lep_cat_dict['lep_chan_lst']
+                chtag = None
+
+                #looping over each region within the lep category
+                for lep_ch in lep_ch_list:
+                    tempmask = None
+                    #the first entry of the list is the region name to add in "selections"
+                    chtag = lep_ch[0]
+
+                    for chcut in lep_ch[1:]:
+                        if not tempmask is None:
+                            tempmask = tempmask & preselections.any(chcut)
+                        else:
+                            tempmask = preselections.any(chcut)
+                    selections.add(chtag, tempmask)
+
+            del preselections
 
             # Lep flavor selection
             selections.add("ee",  events.is_ee)
@@ -676,7 +932,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("atleast_0j", (njets>=0))
             selections.add("atmost_1j" , (njets<=1))
             selections.add("atmost_3j" , (njets<=3))
-            
+
 
             # AR/SR categories
             selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1)
@@ -684,6 +940,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
             selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0)
             selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0)
+            if self.ttA_analysis:
+                selections.add("isSR_A_ABCD",  ( events.is2l_SR) & charge2l_0 & events.isSR_ph)
+                selections.add("isAR_B_ABCD",  ( events.is2l_SR) & charge2l_0 & events.isAR_ph)
 
             selections.add("isSR_3l",  events.is3l_SR)
             selections.add("isAR_3l", ~events.is3l_SR)
@@ -701,20 +960,27 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
 
-            # Photon variables
-            pp_pt = (pppairs.p0 + pppairs.p1).pt
-            pp_mass = (pppairs.p0 + pppairs.p1).mass
-            pp_mass = ak.fill_none(pp_mass[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1)
-            pp_pt = pp_pt[ak.argmax(pp_pt, axis=-1, keepdims=True)]
-            pp_mass = ak.flatten(ak.fill_none(pp_mass, -1))
-            pp_pt = ak.flatten(ak.fill_none(pp_pt, -1))
-            cutBased = ak.fill_none(ak.firsts(mediumcleanPhoton_noChIso.cutBased), -1)
-            photon_pt = ak.fill_none(ak.firsts(mediumcleanPhoton.pt), -1)
-            nPhoton = ak.num(mediumcleanPhoton)
-            photon_relPFchIso = ak.fill_none(ak.pad_none(mediumcleanPhoton_noChIso.pfRelIso03_chg,1),-1)
-            photon_PFchIso = ak.fill_none(ak.pad_none(mediumcleanPhoton_noChIso.pfRelIso03_chg * mediumcleanPhoton_noChIso.pt,1), -1)
-            invmass_llg = ak.fill_none(((l0 + l1 + ak.firsts(mediumcleanPhoton)).mass),-1)    #Invmass of leading two leps and photon 
+            if self.ttA_analysis:
+                # Photon variables
+                #pp_pt = (pppairs.p0 + pppairs.p1).pt
+                #pp_mass = (pppairs.p0 + pppairs.p1).mass
+                #pp_mass = ak.fill_none(pp_mass[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1)
+                #pp_pt = pp_pt[ak.argmax(pp_pt, axis=-1, keepdims=True)]
+                #pp_mass = ak.flatten(ak.fill_none(pp_mass, -1))
+                #pp_pt = ak.flatten(ak.fill_none(pp_pt, -1))
+                #cutBased = ak.fill_none(ak.firsts(ph_fo_noChIso.cutBased), -1)
+                photon_pt = ak.fill_none(ak.firsts(ph_fo.pt), -1)
+                nPhoton = ak.num(ph_fo)
+                photon_eta = ak.fill_none(ak.firsts(ph_fo.eta),-5) #just set it to some value that we won't need to worry about
+                photon_abseta = ak.fill_none(abs(photon_eta),-1)
+                #photon_relPFchIso = ak.fill_none(ak.pad_none(ph_fo_noChIso.pfRelIso03_chg,1),-1)
+                #photon_PFchIso = ak.fill_none(ak.pad_none(ph_fo_noChIso.pfRelIso03_chg * ph_fo_noChIso.pt,1), -1)
+                invmass_llg = ak.fill_none(((l0 + l1 + ak.firsts(ph_fo)).mass),-1)    #Invmass of leading two leps and photon
 
+            if self.tau_h_analysis:
+                ptz_wtau = (l0+tau0).pt
+            if self.offZ_3l_split:
+                ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
             bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
@@ -722,7 +988,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             bl0pt = ak.flatten(blpt[ak.argmax(blpt,axis=-1,keepdims=True)])
 
             # Collection of all objects (leptons and jets)
-            l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
+            if self.tau_h_analysis:
+                l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets,cleaning_taus], axis=1),"PtEtaPhiMCollection")
+            else:
+                l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
 
             # Leading object (j or l) pt
             o0pt = ak.max(l_j_collection.pt,axis=-1)
@@ -732,6 +1001,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
             l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
             lj0pt = ak.max(l_j_pairs_pt,axis=-1)
+
+            # LT
+            lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + met.pt
 
             # Define invariant mass hists
             mll_0_1 = (l0+l1).mass # Invmass for leading two leps
@@ -744,8 +1016,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Counts
             counts = np.ones_like(events['event'])
 
-            #(jets,bjets) for njet_bjet histogram
-            jets_bjets_multiplicity = jbM.multiplicityOfJetsAndbJets(njets,nbtagsm) 
+            jets_bjets_multiplicity = jbM.multiplicityOfJetsAndbJets(njets,nbtagsm)
 
             # Variables we will loop over when filling hists
             varnames = {}
@@ -756,220 +1027,85 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["l0eta"]   = l0.eta
             varnames["l1pt"]    = l1.conept
             varnames["l1eta"]   = l1.eta
-            varnames["j0pt"]    = ak.flatten(j0.pt)
-            varnames["j0eta"]   = ak.flatten(j0.eta)
+            varnames["j0pt"]    = ak.fill_none(j0.pt, 0)
+            varnames["j0eta"]   = ak.fill_none(j0.eta, 0)
             varnames["njets"]   = njets
             varnames["nbtagsl"] = nbtagsl
-            varnames["nbjetsm"] = nbtagsm
             varnames["invmass"] = mll_0_1
-            varnames["ptbl"]    = ak.flatten(ptbl)
+            varnames["ptbl"]    = ak.firsts(ptbl)
             varnames["ptz"]     = ptz
-            varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
+            varnames["b0pt"]    = ak.firsts(ptbl_bjet.pt)
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
-            varnames["photon_pt"]     = photon_pt
-            varnames["nPhoton"] = nPhoton
-            varnames["photon_relPFchIso"] = ak.flatten(photon_relPFchIso)
-            varnames["photon_PFchIso"] = ak.flatten(photon_PFchIso)
-            varnames["cutBased"]    = cutBased
-            varnames["pp_mass"]     = pp_mass
-            varnames["invmass_llgamma"] = invmass_llg
-            varnames["njet_bjet"] = jets_bjets_multiplicity 
+            varnames["lt"]      = lt
+            if self.tau_h_analysis:
+                varnames["ptz_wtau"] = ptz_wtau
+                varnames["tau0pt"] = tau0.pt
+            if self.ttA_analysis:
+                varnames["photon_pt"]     = photon_pt
+                varnames["photon_pt2"]     = photon_pt
+                varnames["photon_eta"]     = photon_eta
+                varnames["photon_eta2"] = photon_abseta
+                #varnames["invmass_llgamma"] = invmass_llg
+                #varnames["njet_bjet"] = jets_bjets_multiplicity
+                varnames["photon_pt_eta"] = ak.Array(ak.ones_like(photon_pt))
 
             ########## Fill the histograms ##########
 
-            # This dictionary keeps track of which selections go with which SR categories
-            sr_cat_dict = {
-                "2l" : {
-                    "exactly_4j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "exactly_5j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "exactly_6j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "atleast_7j" : {
-                        "lep_chan_lst" : ["2lss_p" , "2lss_m", "2lss_4t_p", "2lss_4t_m"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                },
-                "3l" : {
-                    "exactly_2j" : {
-                        "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                        ],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                    },
-                    "exactly_3j" : {
-                        "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                        ],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                    },
-                    "exactly_4j" : {
-                        "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                        ],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                    },
-                    "atleast_5j" : {
-                        "lep_chan_lst" : [
-                            "3l_p_offZ_1b" , "3l_m_offZ_1b" , "3l_p_offZ_2b" , "3l_m_offZ_2b" , "3l_onZ_1b" , "3l_onZ_2b",
-                        ],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l", "isAR_3l"],
-                    },
-                },
-                "4l" : {
-                    "exactly_2j" : {
-                        "lep_chan_lst" : ["4l"],
-                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                        "appl_lst"     : ["isSR_4l"],
-                    },
-                    "exactly_3j" : {
-                        "lep_chan_lst" : ["4l"],
-                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                        "appl_lst"     : ["isSR_4l"],
-                    },
-                    "atleast_4j" : {
-                        "lep_chan_lst" : ["4l"],
-                        "lep_flav_lst" : ["llll"], # Not keeping track of these separately
-                        "appl_lst"     : ["isSR_4l"],
-                    },
-                },
-            }
+            sr_cat_dict = {}
+            cr_cat_dict = {}
 
-            # This dictionary keeps track of which selections go with which CR categories
-            cr_cat_dict = {
-                "2l_CRflip" : {
-                    "atmost_3j" : {
-                        "lep_chan_lst" : ["2lss_CRflip"],
-                        "lep_flav_lst" : ["ee"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                },
-                "2l_CR" : {
-                    "exactly_1j" : {
-                        "lep_chan_lst" : ["2lss_CR"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "exactly_2j" : {
-                        "lep_chan_lst" : ["2lss_CR"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                    "exactly_3j" : {
-                        "lep_chan_lst" : ["2lss_CR"],
-                        "lep_flav_lst" : ["ee" , "em" , "mm"],
-                        "appl_lst"     : ["isSR_2lSS" , "isAR_2lSS"] + (["isAR_2lSS_OS"] if isData else []),
-                    },
-                },
-                "3l_CR" : {
-                    "exactly_0j" : {
-                        "lep_chan_lst" : ["3l_CR"],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l" , "isAR_3l"],
-                    },
-                    "atleast_1j" : {
-                        "lep_chan_lst" : ["3l_CR"],
-                        "lep_flav_lst" : ["eee" , "eem" , "emm", "mmm"],
-                        "appl_lst"     : ["isSR_3l" , "isAR_3l"],
-                    },
-                },
-                "ttgamma" : {
-                    "atleast_1j"   : {
-                        "lep_chan_lst" : ["ttgamma"],
-                        "lep_flav_lst" : ["ee", "mm", "em"],
-                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                    },
-                },
-                "2los_CRtt" : {
-                    "atmost_3j"   : {
-                        "lep_chan_lst" : ["2los_CRtt_photon"],
-                        "lep_flav_lst" : ["em"],
-                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                    },
-                },
-                "2los_CRZ" : {
-                    "atleast_0j"   : {
-                        "lep_chan_lst" : ["2los_CRZ_photon"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_2lOS" , "isAR_2lOS"],
-                    },
-                },
-                "2los_sf_ph" : {
-                    "atleast_1j"   : {
-                        "lep_chan_lst" : ["2los_sf_ph"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
-                    },
-                },
-                "2los_of_ph" : {
-                    "atleast_1j"   : {
-                        "lep_chan_lst" : ["2los_of_ph"],
-                        "lep_flav_lst" : ["em"],
-                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
-                    },
-                },
-                "2los_sf_cr_ph" : {
-                    "atleast_0j"   : {
-                        "lep_chan_lst" : ["2los_sf_Zg_CR"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
-                    },
-                },
-                "2los_CRZ_ph" : {
-                    "atleast_0j"   : {
-                        "lep_chan_lst" : ["2los_CRZ_withPh"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
-                    },
-                },
-                "2los_CRZ_noph" : {
-                    "atleast_0j"   : {
-                        "lep_chan_lst" : ["2los_CRZ_noPh"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
-                    },
-                },
-                "2los_CR_Zg_ULttg" : {
-                    "atleast_2j"   : {
-                        "lep_chan_lst" : ["2los_sf_Zg_CR_ULttg"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
-                    },
-                },
-                "2los_lowpTlep_CR" : {
-                    "atleast_1j"   : {
-                        "lep_chan_lst" : ["2los_CR_sf_lowpTlep","2los_CR_of_lowpTlep"],
-                        "lep_flav_lst" : ["ee", "mm","em"],
-                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
-                    },
-                },
-                "2los_newCRs" : {
-                    "atmost_1j" : {
-                        "lep_chan_lst" : ["2los_CR_of_lowJet"],
-                        "lep_flav_lst" : ["em"], 
-                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
-                    },
-                },
-            }
+            for lep_cat in import_sr_cat_dict.keys():
+                sr_cat_dict[lep_cat] = {}
+                for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
+                    jettag = None
+                    if jet_cat.startswith("="):
+                        jettag = "exactly_"
+                    elif jet_cat.startswith("<"):
+                        jettag = "atmost_"
+                    elif jet_cat.startswith(">"):
+                        jettag = "atleast_"
+                    else:
+                        raise RuntimeError(f"jet_cat {jet_cat} in {lep_cat} misses =,<,> !")
+                    jet_key = jettag + str(jet_cat).replace("=", "").replace("<", "").replace(">", "") + "j"
 
-            # Include SRs and CRs unless we asked to skip them
+                    sr_cat_dict[lep_cat][jet_key] = {}
+                    sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
+                    for lep_chan_def in import_sr_cat_dict[lep_cat]["lep_chan_lst"]:
+                        sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0])
+                    sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
+                    if isData and "appl_lst_data" in import_sr_cat_dict[lep_cat].keys():
+                        sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
+                    else:
+                        sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"]
+
+            for lep_cat in import_cr_cat_dict.keys():
+                cr_cat_dict[lep_cat] = {}
+                for jet_cat in import_cr_cat_dict[lep_cat]["jet_lst"]:
+                    jettag = None
+                    if jet_cat.startswith("="):
+                        jettag = "exactly_"
+                    elif jet_cat.startswith("<"):
+                        jettag = "atmost_"
+                    elif jet_cat.startswith(">"):
+                        jettag = "atleast_"
+                    else:
+                        raise RuntimeError(f"jet_cat {jet_cat} in {lep_cat} misses =,<,> !")
+                    jet_key = jettag + str(jet_cat).replace("=", "").replace("<", "").replace(">", "") + "j"
+
+                    cr_cat_dict[lep_cat][jet_key] = {}
+                    cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
+                    for lep_chan_def in import_cr_cat_dict[lep_cat]["lep_chan_lst"]:
+                        cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0])
+                    cr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_cr_cat_dict[lep_cat]["lep_flav_lst"]
+                    if isData and "appl_lst_data" in import_cr_cat_dict[lep_cat].keys():
+                        cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"] + import_cr_cat_dict[lep_cat]["appl_lst_data"]
+                    else:
+                        cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
+
+            del import_sr_cat_dict, import_cr_cat_dict
+
             cat_dict = {}
             if not self._skip_signal_regions:
                 cat_dict.update(sr_cat_dict)
@@ -980,14 +1116,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if k in cr_cat_dict:
                         raise Exception(f"The key {k} is in both CR and SR dictionaries.")
 
-
-            #edit this list if you want to select only few cat_dict keys.
-            cat_interest =['2los_CR_Zg_ULttg']
-
             # Loop over the hists we want to fill
             for dense_axis_name, dense_axis_vals in varnames.items():
                 if dense_axis_name not in self._hist_lst:
-                    print(f"Skipping \"{dense_axis_name}\", it is not in the list of hists to include.")
                     continue
 
                 # Set up the list of syst wgt variations to loop over
@@ -1008,10 +1139,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Loop over the systematics
                 for wgt_fluct in wgt_var_lst:
 
-                    #Loop over nlep categories "2l", "3l", "4l"
-                    #for nlep_cat in cat_dict.keys():
-                    for nlep_cat in cat_interest:
-
+                    # Loop over nlep categories "2l", "3l", "4l"
+                    for nlep_cat in cat_dict.keys():
                         # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                         # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                         weights_object = weights_dict[nlep_cat]
@@ -1044,20 +1173,22 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                             # Loop over the appropriate AR and SR for this channel
                             for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
-
+                                weight_tmp = weight
                                 # We don't want or need to fill SR histos with the FF variations
                                 if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
 
+                                # We only want the photon fakerate weight if we are considering the AR with explicit photon requirement
+                                if appl == "isAR_B_ABCD": weight_tmp = weight_tmp * events.fakerate_ph_val
+
                                 # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
                                 for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
-
                                     # Loop over the lep flavor list for each channel
                                     for lep_flav in cat_dict[nlep_cat][njet_val]["lep_flav_lst"]:
-
                                         # Construct the hist name
                                         flav_ch = None
                                         njet_ch = None
                                         cuts_lst = [appl,lep_chan]
+
                                         if isData:
                                             cuts_lst.append("is_good_lumi")
                                         if self._split_by_lepton_flavor:
@@ -1078,63 +1209,60 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if self._ecut_threshold is not None:
                                             all_cuts_mask = (all_cuts_mask & ecut_mask)
 
-                                        # Weights and eft coeffs for prompt photon category
-                                        weights_flat_prompt = weight[is_prompt_photon & all_cuts_mask]
-                                        #weights_flat = counts[all_cuts_mask]
-                                        eft_coeffs_prompt_cut = eft_coeffs[is_prompt_photon & all_cuts_mask] if eft_coeffs is not None else None
-                                        eft_w2_coeffs_prompt_cut = eft_w2_coeffs[is_prompt_photon & all_cuts_mask] if eft_w2_coeffs is not None else None
-                                        # Weights and eft coeffs for non-prompt photon category
-                                        weights_flat_nonprompt = weight[~is_prompt_photon & all_cuts_mask]
-                                        #weights_flat = counts[all_cuts_mask]
-                                        eft_coeffs_nonprompt_cut = eft_coeffs[~is_prompt_photon & all_cuts_mask] if eft_coeffs is not None else None
-                                        eft_w2_coeffs_nonprompt_cut = eft_w2_coeffs[~is_prompt_photon & all_cuts_mask] if eft_w2_coeffs is not None else None
-                                        #eft coeffs when no prompt/non-prompt categorization is made
+                                        # Weights and eft coeffs
+                                        weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
-                                        eft_w2_coeffs_cut = eft_w2_coeffs[all_cuts_mask] if eft_w2_coeffs is not None else None
 
-                                        # Fill the histos
-                                        axes_fill_info_dict_prompt_photon = {
-                                            dense_axis_name : dense_axis_vals[is_prompt_photon & all_cuts_mask],
-                                            "channel"       : ch_name,
-                                            "appl"          : appl,
-                                            "sample"        : histAxisName,
-                                            "systematic"    : wgt_fluct,
-                                            "weight"        : weights_flat_prompt,
-                                            "eft_coeff"     : eft_coeffs_prompt_cut,
-                                            "eft_err_coeff" : eft_w2_coeffs_prompt_cut,
-                                        }
+                                        #First fill the photon_pt_eta whose only usage is in deriving nonprompt photon contribution
+                                        if self.offZ_3l_split:
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
+                                        elif self.tau_h_analysis:
+                                            if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
+                                            if (("ptz" in dense_axis_name) and ("2lss" not in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
+                                            if (("ptz_wtau" in dense_axis_name) and ("1tau" not in lep_chan)): continue
+                                        elif self.fwd_analysis:
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                            if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
+                                        else:
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                        if self.ttA_analysis:
+                                            if "photon_pt_eta" in dense_axis_name:# and "2los_ph" in nlep_cat:
+                                                #the photon_pt_eta histogram does not need to have ZGamma split based on ISR/FSR origin of photon
+                                                #also skip if the channel is not photon related
+                                                #also note that we need to pass "weight" here and not "weight_tmp" because we don't want the photons be weighed by fakerate
+                                                if "ph" not in ch_name: continue
 
-                                        axes_fill_info_dict_nonprompt_photon = {
-                                            dense_axis_name : dense_axis_vals[~is_prompt_photon & all_cuts_mask],
-                                            "channel"       : ch_name,
-                                            "appl"          : appl,
-                                            "sample"        : 'Non-prompt',
-                                            "systematic"    : wgt_fluct,
-                                            "weight"        : weights_flat_nonprompt,
-                                            "eft_coeff"     : eft_coeffs_nonprompt_cut,
-                                            "eft_err_coeff" : eft_w2_coeffs_nonprompt_cut,
-                                        }
-                                        axes_fill_info_dict = {
-                                            dense_axis_name : dense_axis_vals[all_cuts_mask],
-                                            "channel"       : ch_name,
-                                            "appl"          : appl,
-                                            "sample"        : histAxisName,
-                                            "systematic"    : wgt_fluct,
-                                            "weight"        : weight[all_cuts_mask],
-                                            "eft_coeff"     : eft_coeffs_cut,
-                                            "eft_err_coeff" : eft_w2_coeffs_cut,
-                                        }
+                                                no_eft_weight = weight
+                                                #This is needed because SparseHist doesn't handle EFT weights and so what we have to do is evaluate at SM point first and then modify the event weight
+                                                if eft_coeffs is not None:
+                                                    wc_vals = np.zeros(len(max(self._samples[dataset]["WCnames"], self._wc_names_lst, key=len)))
+                                                    eft_wgt_array_at_zero_wc_vals = efth.calc_eft_weights(eft_coeffs,wc_vals)
+                                                    no_eft_weight = no_eft_weight * eft_wgt_array_at_zero_wc_vals
+                                                plot_help.fill_2d_histogram(hout, dense_axis_name, "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, no_eft_weight, eft_coeffs, all_cuts_mask, suffix="")
+                                                plot_help.fill_2d_histogram(hout, dense_axis_name, "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, no_eft_weight, eft_coeffs, all_cuts_mask, suffix="_sumw2")
+                                            # Fill the histos
 
-                                        # Skip histos that are not defined (or not relevant) to given categories
-                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
-                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
-                                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                            else:
+                                                # Skip histos that are not defined (or not relevant) to given categories
+                                                if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
+                                                if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
+                                                if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                                if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
+                                                if not (("photon" in dense_axis_name) == ("ph" in ch_name)): continue
+
+                                                if self.ttA_analysis and "ZGToLLG" in dataset:  # ZGamma samples require ISR/FSR photons splitting
+                                                    #For ISR and FSR cases, first fill regular histogram and then fill sumw2 histogram
+                                                    plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon))
+                                                    plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon), suffix="_sumw2")
+                                                    plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon))
+                                                    plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon), suffix="_sumw2")
+
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
+                                        if "ZGToLLG" not in dataset and "photon_pt_eta" not in dense_axis_name: #Non-ZGamma samples do not need to split into ISR/FSR photons pieces
+                                            #Fill the histos (first regular and then sumw2 hist)
+                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="")
 
-                                        #hout[dense_axis_name].fill(**axes_fill_info_dict_prompt_photon)
-                                        #hout[dense_axis_name].fill(**axes_fill_info_dict_nonprompt_photon)
-                                        hout[dense_axis_name].fill(**axes_fill_info_dict)
-
+                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="_sumw2")
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
 

@@ -26,7 +26,7 @@ error  = {condor_dir}/job_{idx}.err
 log    = {condor_dir}/job_{idx}.log
 
 request_cpus = 1
-request_memory = 4096
+request_memory = 8192
 request_disk = 1024
 
 transfer_input_files = make_cards.py,selectedWCs.txt
@@ -59,14 +59,14 @@ conda activate ${CONDA_DEFAULT_ENV}
 python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${VAR_LST} --ch-lst ${CH_LST} --use-selected "selectedWCs.txt" ${OTHER}
 """
 
-def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins):
+def run_local(dc,km_dists,channels,selected_wcs, crop_negative_bins, wcs_dict):
     for km_dist in km_dists:
         all_chs = dc.channels(km_dist)
         matched_chs = regex_match(all_chs,channels)
         if channels:
             print(f"Channels to process: {matched_chs}")
         for ch in matched_chs:
-            r = dc.analyze(km_dist,ch,selected_wcs, crop_negative_bins)
+            r = dc.analyze(km_dist,ch,selected_wcs, crop_negative_bins, wcs_dict)
 
 # VERY IMPORTANT:
 #   This setup assumes the output directory is mounted on the remote condor machines
@@ -170,6 +170,9 @@ def main():
     parser.add_argument("--condor","-C",action="store_true",help="Split up the channels into multiple condor jobs")
     parser.add_argument("--chunks","-n",default=1,help="The number of channels each condor job should process")
     parser.add_argument("--keep-negative-bins",action="store_true",help="Don't crop negative bins")
+    parser.add_argument("--use-AAC","-A",action="store_true",help="Include all EFT templates in datacards for AAC model")
+    parser.add_argument("--wc-vals", default="",action="store", nargs="+", help="Specify the corresponding wc values to set for the wc list")
+    parser.add_argument("--wc-scalings", default=[],action="extend",nargs="+",help="Specify a list of wc ordering for scalings.json")
 
     args = parser.parse_args()
     pkl_file   = args.pkl_file
@@ -186,8 +189,10 @@ def main():
     drop_syst  = args.drop_syst
     unblind    = args.unblind
     verbose    = args.verbose
+    use_AAC     = args.use_AAC
+    wc_vals    = args.wc_vals
 
-
+    wc_scalings = args.wc_scalings
     select_only = args.select_only
     use_selected = args.use_selected
 
@@ -210,6 +215,9 @@ def main():
         "unblind": unblind,
         "verbose": verbose,
         "year_lst": years,
+        "use_AAC":  use_AAC,
+        "wc_vals": wc_vals,
+        "wc_scalings": wc_scalings,
     }
 
     if out_dir != "." and not os.path.exists(out_dir):
@@ -221,6 +229,10 @@ def main():
 
     tic = time.time()
     dc = DatacardMaker(pkl_file,**kwargs)
+
+    # convert wc_vals string to a dictionary
+    wc_vals = ''.join(wc_vals)
+    wcs_dict = eval("dict({})".format(wc_vals))
 
     dists = var_lst if len(var_lst) else dc.hists.keys()
     if use_selected:
@@ -278,7 +290,13 @@ def main():
     if use_condor:
         run_condor(dc,pkl_file,out_dir,dists,ch_lst,chunks)
     else:
-        run_local(dc,dists,ch_lst,selected_wcs, not args.keep_negative_bins)
+        run_local(dc,dists,ch_lst,selected_wcs, not args.keep_negative_bins, wcs_dict)
+
+    # make pre-selection scalings.json
+    print("Making scalings-preselect.json file...")
+    with open(os.path.join(out_dir,"scalings-preselect.json"),"w") as f:
+        json.dump(dc.scalings, f, indent=4)
+
     dt = time.time() - tic
     print(f"Total Time: {dt:.2f} s")
     print("Finished!")

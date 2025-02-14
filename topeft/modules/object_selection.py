@@ -16,29 +16,39 @@ get_te_param = GetParam(topeft_path("params/params.json"))
 
 ### These functions have been synchronized with ttH ###
 
-def isPresTau(pt, eta, dxy, dz, idDeepTau2017v2p1VSjet, minpt=20.0):
-    return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTau2017v2p1VSjet>>1 & 1 ==1)
+def isPresTau(pt, eta, dxy, dz, idDeepTauVSjet, idDeepTauVSe, idDeepTauVSmu, minpt=20.0):
+    return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTauVSjet>>3 & 1 ==1)&(idDeepTauVSe>>1 & 1 ==1)&(idDeepTauVSmu>>1 & 1 ==1)
 
-def isVLooseTau(idDeepTau2017v2p1VSjet):
-    return (idDeepTau2017v2p1VSjet>>2 & 1)
+def isVLooseTau(idDeepTauVSjet):
+    return (idDeepTauVSjet>>2 & 1)
 
-def isLooseTau(idDeepTau2017v2p1VSjet):
-    return (idDeepTau2017v2p1VSjet>>3 & 1)
+def isLooseTau(idDeepTauVSjet):
+    return (idDeepTauVSjet>>3 & 1)
 
-def isMediumTau(idDeepTau2017v2p1VSjet):
-    return (idDeepTau2017v2p1VSjet>>4 & 1)
+def isMediumTau(idDeepTauVSjet):
+    return (idDeepTauVSjet>>4 & 1)
 
-def isTightTau(idDeepTau2017v2p1VSjet):
-    return (idDeepTau2017v2p1VSjet>>5 & 1)
+def isTightTau(idDeepTauVSjet):
+    return (idDeepTauVSjet>>5 & 1)
 
-def isVTightTau(idDeepTau2017v2p1VSjet):
-    return (idDeepTau2017v2p1VSjet>>6 & 1)
+def isVTightTau(idDeepTauVSjet):
+    return (idDeepTauVSjet>>6 & 1)
 
-def isVVTightTau(idDeepTau2017v2p1VSjet):
-    return (idDeepTau2017v2p1VSjet>>7 & 1)
+def isVVTightTau(idDeepTauVSjet):
+    return (idDeepTauVSjet>>7 & 1)
+
+def iseTightTau(idDeepTauVSe):
+    return (idDeepTauVSe>>1 & 1)
+
+def ismTightTau(idDeepTauVSmu):
+    return (idDeepTauVSmu>>1 & 1)
 
 def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
     return (hoe<(0.10-0.00*(abs(eta+deltaEtaSC)>1.479))) & (eInvMinusPInv>-0.04) & (sieie<(0.011+0.019*(abs(eta+deltaEtaSC)>1.479)))
+
+def isFwdJet(pt, eta, jet_id, jetPtCut=25.0):
+    mask = ((pt>jetPtCut) & (abs(eta)>get_te_param("eta_j_cut")) & (jet_id>get_te_param("jet_id_cut")))
+    return mask
 
 def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
 
@@ -55,89 +65,165 @@ def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
     elif (year == "2018"):
         wploose  = get_tc_param("btag_wp_loose_UL18")
         wpmedium = get_tc_param("btag_wp_medium_UL18")
+    elif (year == "2022"):
+        wploose = get_tc_param("btag_wp_loose_2022")
+        wpmedium = get_tc_param("btag_wp_medium_2022")
+    elif (year == "2022EE"):
+        wploose = get_tc_param("btag_wp_loose_2022EE")
+        wpmedium = get_tc_param("btag_wp_medium_2022EE")
+    elif (year == "2023"):
+        wploose = get_tc_param("btag_wp_loose_2023")
+        wpmedium = get_tc_param("btag_wp_medium_2023")
+    elif (year == "2023BPix"):
+        wploose = get_tc_param("btag_wp_loose_2023BPix")
+        wpmedium = get_tc_param("btag_wp_medium_2023BPix")
     else:
         raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
 
     x = np.minimum(np.maximum(0, jetpt - ptmin)/(ptmax-ptmin), 1.0)
     return x*wploose*scale_loose + (1-x)*wpmedium
 
-def coneptElec(pt, mvaTTHUL, jetRelIso):
-    conePt = (0.90 * pt * (1 + jetRelIso))
-    return ak.where((mvaTTHUL>get_tc_param("mva_TTH_e_cut")),pt,conePt)
+def smoothSip3D(jetpt, sipmin, sipmax, ptmin, ptmax):
+    x = np.minimum(np.maximum(0, jetpt - ptmin)/(ptmax-ptmin), 1.0)
+    return x*sipmax+(1-x)*sipmin
 
-def coneptMuon(pt, mvaTTHUL, jetRelIso, mediumId):
-    conePt = (0.90 * pt * (1 + jetRelIso))
-    return ak.where(((mvaTTHUL>get_tc_param("mva_TTH_m_cut"))&(mediumId>0)),pt,conePt)
-
-def isPresElec(pt, eta, dxy, dz, miniIso, sip3D, eleId):
-    pt_mask    = (pt       > get_te_param("pres_e_pt_cut"))
-    eta_mask   = (abs(eta) < get_te_param("eta_e_cut"))
-    dxy_mask   = (abs(dxy) < get_te_param("dxy_cut"))
-    dz_mask    = (abs(dz)  < get_te_param("dz_cut"))
-    iso_mask   = (miniIso  < get_te_param("iso_cut"))
-    sip3d_mask = (sip3D    < get_te_param("sip3d_cut"))
-    return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask & eleId)
-
-def isPresMuon(dxy, dz, sip3D, eta, pt, miniRelIso):
-    pt_mask    = (pt         > get_te_param("pres_m_pt_cut"))
-    eta_mask   = (abs(eta)   < get_te_param("eta_m_cut"))
-    dxy_mask   = (abs(dxy)   < get_te_param("dxy_cut"))
-    dz_mask    = (abs(dz)    < get_te_param("dz_cut"))
-    iso_mask   = (miniRelIso < get_te_param("iso_cut"))
-    sip3d_mask = (sip3D      < get_te_param("sip3d_cut"))
-    return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask)
-
-def isLooseElec(miniPFRelIso_all,sip3d,lostHits):
-    return (miniPFRelIso_all<get_te_param("iso_cut")) & (sip3d<get_te_param("sip3d_cut")) & (lostHits<=1)
-
-def isLooseMuon(miniPFRelIso_all,sip3d,looseId):
-    return (miniPFRelIso_all<get_te_param("iso_cut")) & (sip3d<get_te_param("sip3d_cut")) & (looseId)
-
-def isFOElec(pt, conept, jetBTagDeepFlav, ttH_idEmu_cuts_E3, convVeto, lostHits, mvaTTHUL, jetRelIso, mvaFall17V2noIso_WP90, year):
-
+def get_medium_btag_foryear(year):
     # Get the btag cut for the year
     if (year == "2016"):
-        bTagCut = get_tc_param("btag_wp_medium_UL16")
+        return get_tc_param("btag_wp_medium_UL16")
     elif (year == "2016APV"):
-        bTagCut = get_tc_param("btag_wp_medium_UL16APV")
+        return get_tc_param("btag_wp_medium_UL16APV")
     elif (year == "2017"):
-        bTagCut = get_tc_param("btag_wp_medium_UL17")
+        return get_tc_param("btag_wp_medium_UL17")
     elif (year == "2018"):
-        bTagCut = get_tc_param("btag_wp_medium_UL18")
+        return get_tc_param("btag_wp_medium_UL18")
+    elif (year == "2022"):
+        return get_tc_param("btag_wp_medium_2022")
+    elif (year == "2022EE"):
+        return get_tc_param("btag_wp_medium_2022EE")
+    elif (year == "2023"):
+        return get_tc_param("btag_wp_medium_2023")
+    elif (year == "2023BPix"):
+        return get_tc_param("btag_wp_medium_2023BPix")
     else:
         raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
 
-    btabReq    = (jetBTagDeepFlav<bTagCut)
-    ptReq      = (conept>get_te_param("fo_pt_cut"))
-    qualityReq = (ttH_idEmu_cuts_E3 & convVeto & (lostHits==0))
-    mvaReq     = ((mvaTTHUL>get_tc_param("mva_TTH_e_cut")) | ((mvaFall17V2noIso_WP90) & (jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
+class run2leptonselection:
 
-    return ptReq & btabReq & qualityReq & mvaReq
+    def __init__(self):
+        pass
 
-def isFOMuon(pt, conept, jetBTagDeepFlav, mvaTTHUL, jetRelIso, year):
+    def coneptElec(self, ele):
+        conePt = (0.90 * ele.pt * (1 + ele.jetRelIso))
+        return ak.where((ele.mvaTTHUL>get_te_param("mva_TTH_e_cut")),ele.pt,conePt)
 
-    # Get the btag cut for the year
-    if (year == "2016"):
-        bTagCut = get_tc_param("btag_wp_medium_UL16")
-    elif (year == "2016APV"):
-        bTagCut = get_tc_param("btag_wp_medium_UL16APV")
-    elif (year == "2017"):
-        bTagCut = get_tc_param("btag_wp_medium_UL17")
-    elif (year == "2018"):
-        bTagCut = get_tc_param("btag_wp_medium_UL18")
-    else:
-        raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
+    def coneptMuon(self, muo):
+        conePt = (0.90 * muo.pt * (1 + muo.jetRelIso))
+        return ak.where(((muo.mvaTTHUL>get_te_param("mva_TTH_m_cut"))&(muo.mediumId>0)),muo.pt,conePt)
 
-    btagReq = (jetBTagDeepFlav<bTagCut)
-    ptReq   = (conept>get_te_param("fo_pt_cut"))
-    mvaReq  = ((mvaTTHUL>get_tc_param("mva_TTH_m_cut")) | ((jetBTagDeepFlav<smoothBFlav(0.9*pt*(1+jetRelIso),20,45,year)) & (jetRelIso < get_te_param("fo_m_jetRelIso_cut"))))
-    return ptReq & btagReq & mvaReq
+    def isPresElec(self, ele):
+        pt_mask    = (ele.pt       > get_te_param("pres_e_pt_cut"))
+        eta_mask   = (abs(ele.eta) < get_te_param("eta_e_cut"))
+        dxy_mask   = (abs(ele.dxy) < get_te_param("dxy_cut"))
+        dz_mask    = (abs(ele.dz)  < get_te_param("dz_cut"))
+        iso_mask   = (ele.miniPFRelIso_all  < get_te_param("iso_cut"))
+        sip3d_mask = (ele.sip3d    < get_te_param("sip3d_cut"))
+        return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask & ele.mvaFall17V2noIso_WPL)
 
-def tightSelElec(clean_and_FO_selection_TTH, mvaTTHUL):
-    return (clean_and_FO_selection_TTH) & (mvaTTHUL > get_tc_param("mva_TTH_e_cut"))
+    def isPresMuon(self, muon):
+        pt_mask    = (muon.pt         > get_te_param("pres_m_pt_cut"))
+        eta_mask   = (abs(muon.eta)   < get_te_param("eta_m_cut"))
+        dxy_mask   = (abs(muon.dxy)   < get_te_param("dxy_cut"))
+        dz_mask    = (abs(muon.dz)    < get_te_param("dz_cut"))
+        iso_mask   = (muon.miniPFRelIso_all < get_te_param("iso_cut"))
+        sip3d_mask = (muon.sip3d      < get_te_param("sip3d_cut"))
+        return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask)
 
-def tightSelMuon(clean_and_FO_selection_TTH, mediumId, mvaTTHUL):
-    return (clean_and_FO_selection_TTH) & (mediumId>0) & (mvaTTHUL > get_tc_param("mva_TTH_m_cut"))
+    def isLooseElec(self, ele):
+        return (ele.miniPFRelIso_all<get_te_param("iso_cut")) & (ele.sip3d<get_te_param("sip3d_cut")) & (ele.lostHits<=1)
+
+    def isLooseMuon(self, muon):
+        return (muon.miniPFRelIso_all<get_te_param("iso_cut")) & (muon.sip3d<get_te_param("sip3d_cut")) & (muon.looseId)
+
+    def isFOElec(self, ele, year):
+        bTagCut=get_medium_btag_foryear(year)
+        btabReq    = (ele.jetBTagDeepFlav<bTagCut)
+        ptReq      = (ele.conept>get_te_param("fo_pt_cut"))
+        qualityReq = (ele.idEmu & ele.convVeto & (ele.lostHits==0))
+        mvaReq     = ((ele.mvaTTHUL>get_te_param("mva_TTH_e_cut")) | ((ele.mvaFall17V2noIso_WP90) & (ele.jetBTagDeepFlav<smoothBFlav(0.9*ele.pt*(1+ele.jetRelIso),20,45,year)) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
+
+        return ptReq & btabReq & qualityReq & mvaReq
+
+    def isFOMuon(self, muo, year):
+        bTagCut=get_medium_btag_foryear(year)
+        btagReq = (muo.jetBTagDeepFlav<bTagCut)
+        ptReq   = (muo.conept>get_te_param("fo_pt_cut"))
+        mvaReq  = ((muo.mvaTTHUL>get_te_param("mva_TTH_m_cut")) | ((muo.jetBTagDeepFlav<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut"))))
+        return ptReq & btagReq & mvaReq
+
+    def tightSelElec(self, ele):
+        return (ele.isFO) & (ele.mvaTTHUL > get_te_param("mva_TTH_e_cut"))
+
+    def tightSelMuon(self, muo):
+        return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTHUL > get_te_param("mva_TTH_m_cut"))
+
+class run3leptonselection:
+
+    def __init__(self):
+        pass
+
+    def coneptElec(self, ele):
+        conePt = (0.90 * ele.pt * (1 + ele.jetRelIso))
+        return ak.where((ele.mvaTTH_Run3>get_te_param("mva_TTH_e_cut_run3")),ele.pt,conePt)
+
+    def coneptMuon(self, muo):
+        conePt = (0.90 * muo.pt * (1 + muo.jetRelIso))
+        return ak.where(((muo.mvaTTH_Run3>get_te_param("mva_TTH_m_cut_run3"))&(muo.mediumId>0)),muo.pt,conePt)
+
+    def isPresElec(self, ele):
+        pt_mask    = (ele.pt       > get_te_param("pres_e_pt_cut"))
+        eta_mask   = (abs(ele.eta) < get_te_param("eta_e_cut"))
+        dxy_mask   = (abs(ele.dxy) < get_te_param("dxy_cut"))
+        dz_mask    = (abs(ele.dz)  < get_te_param("dz_cut"))
+        iso_mask   = (ele.miniPFRelIso_all  < get_te_param("iso_cut"))
+        sip3d_mask = (ele.sip3d    < get_te_param("sip3d_cut"))
+        ecal_crack_mask = (((abs(ele.etaSC) < 1.4442) | (abs(ele.etaSC) > 1.566)))
+        return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask & ecal_crack_mask)
+
+    def isPresMuon(self, muon):
+        pt_mask    = (muon.pt         > get_te_param("pres_m_pt_cut"))
+        eta_mask   = (abs(muon.eta)   < get_te_param("eta_m_cut"))
+        dxy_mask   = (abs(muon.dxy)   < get_te_param("dxy_cut"))
+        dz_mask    = (abs(muon.dz)    < get_te_param("dz_cut"))
+        iso_mask   = (muon.miniPFRelIso_all < get_te_param("iso_cut"))
+        sip3d_mask = (muon.sip3d      < get_te_param("sip3d_cut"))
+        return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask)
+
+    def isLooseElec(self, ele):
+        return (ele.miniPFRelIso_all<get_te_param("iso_cut")) & (ele.sip3d<get_te_param("sip3d_cut")) & (ele.lostHits<=1)
+
+    def isLooseMuon(self, muon):
+        return (muon.miniPFRelIso_all<get_te_param("iso_cut")) & (muon.sip3d<get_te_param("sip3d_cut")) & (muon.mediumId)
+
+    def isFOElec(self, ele, year):
+        bTagCut=get_medium_btag_foryear(year)
+        btabReq    = (ele.jetBTagDeepFlav<bTagCut)
+        ptReq      = (ele.conept>get_te_param("fo_pt_cut"))
+        qualityReq = (ele.idEmu & ele.convVeto & (ele.lostHits==0))
+        mvaReq     = ((ele.mvaTTH_Run3>get_te_param("mva_TTH_e_cut_run3")) | ((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3"))  & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
+
+    def isFOMuon(self, muo, year):
+        bTagCut=get_medium_btag_foryear(year)
+        btagReq = (muo.jetBTagDeepFlav<bTagCut)
+        ptReq   = (muo.conept>get_te_param("fo_pt_cut"))
+        mvaReq  = ((muo.mvaTTH_Run3>get_te_param("mva_TTH_m_cut_run3")) | ((muo.jetBTagDeepFlav<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45))))
+        return ptReq & btagReq & mvaReq
+
+    def tightSelElec(self, ele):
+        return (ele.isFO) & (ele.mvaTTH_Run3 > get_te_param("mva_TTH_e_cut_run3"))
+
+    def tightSelMuon(self, muo):
+        return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTH_Run3 > get_te_param("mva_TTH_m_cut_run3"))
 
 def pt_eta_cut_genMatched_objects(gen_matched_object,pt_threshold,eta_threshold):
     pt_mask = gen_matched_object.pt > pt_threshold
@@ -184,12 +270,12 @@ def maxParentage(genPart):
 
     return non_hadronic_parentage
 
-def selectPhoton(photons):
-    photon_pt_eta_mask = (photons.pt > 20) & (abs(photons.eta)<1.44) #this is what we want for our SR
+def selectPhoton(photons, pt_val, eta_val):
+    photon_pt_eta_mask = (photons.pt > pt_val) & (abs(photons.eta) < eta_val) #this is what we want for our SR
 
-    photon_pixelSeed_electronVeto_mask = (np.invert(photons.pixelSeed) & (photons.electronVeto))  #We invert the pixel seed cause we want to veto events with photons that have pixelSeed cause they are misid electrons
+    photon_pixelSeed_electronVeto_mask = (np.invert(photons.pixelSeed) & (photons.electronVeto))  #We invert the pixel seed cause we want to veto events with photons that have pixelSeed cause they are misid electrons. They help in suppressing ele->ph backgrounds
     photon_mediumID = (photons.cutBased >= 2) #At least medium
-    #photon_loose_notmedium = 
+
     #Let's relax two components from medium cutBasedID -- 1. charged isolation and 2. sigmaetaeta
     #split out the ID requirement using the vid (versioned ID) bitmap
     #"(x & 3) >= 2" makes sure each component passes medium threshold
@@ -204,36 +290,150 @@ def selectPhoton(photons):
     #also define the charged hadron isolation for photons
     photon_chIso = ((photons.pfRelIso03_chg) * (photons.pt))
 
-    # photons passing all ID requirements, without the charged hadron isolation cut applied
-    mediumPhoton_noSieie_noChIso = (
-        photon_MinPtCut
-        & photon_PhoSCEtaMultiRangeCut
-        & photon_PhoSingleTowerHadOverEmCut
-        #& photon_sieieCut
-        #& (photons.sieie < 0.010)
-        #& (photons.pfRelIso03_chg < 1.141)
-        #& (photon_chIso < 1.141)
-        & photon_NeuIsoCut
-        & photon_PhoIsoCut
+    #Future Note: There are a bunch of "fakeable photon" objects defined below. Some are used in derivation of fake rates, others in derivation of kMC factors and others in the main analysis processor. This could be cleaned up in the future.
+
+    #define medium photon mask with relaxed sieie and chIso cut. In lack of better name, calling it "fakeablePhoton" for now. This will be used in determination of FR and kMC factors in nonprompt_fakerate.py
+    fakeablePhoton = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &        #we also want to avoid the gap along the sieie axis
+        (photon_chIso < 15) &
+        ~((photon_chIso >= 1.141) & (photon_chIso <= 4.0)) &          #we also want to avoid the gap along the pf chIso axis
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
     )
 
-    mediumPhoton_noChIso = (
-        photon_MinPtCut
-        & photon_PhoSCEtaMultiRangeCut
-        & photon_PhoSingleTowerHadOverEmCut
-        & photon_sieieCut
-        #& (photons.sieie < 0.010)
-        #& (photons.pfRelIso03_chg < 1.141)
-        #& (photon_chIso < 1.141)
-        & photon_NeuIsoCut
-        & photon_PhoIsoCut
+    #define fakeable photon collection to be used only in MR. This is useful in defining photon fake-rate (FR)
+    fakeablePhoton_MR = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &         #we also want to avoid the gap along the sieie axis
+        (photon_chIso < 15) &
+        (4.0 < photon_chIso) &     #For MR, we are only considered with 4 < ch. Iso. < 15
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
     )
 
-    #mediumPhotons_relaxed = photons[photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photonID_relaxed]
-    photons['mediumPhoton'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photon_mediumID)
-    photons['mediumPhoton_noSieie_noChIso'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_noSieie_noChIso)
-    photons['mediumPhoton_noChIso'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_noChIso)
-    mediumPhotons = photons[photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photon_mediumID]
+    #define fakeable photon collection to be used only in AR/SR. This is what we will use in the main analysis processor of the analysis
+    fakeablePhoton_AR_SR = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &    #we also want to avoid the gap along the sieie axis
+        photon_ChIsoCut &      #For SR and AR, we are only concerned with ch. Iso. < 1.141
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #the mediumPhoton_relaxedchIso_relaxedsieie is for Region D of ABCD non-prompt photon estimation
+    mediumPhoton_regD = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        ((photons.sieie > 0.012) & (photons.sieie < 0.022)) &
+        (photon_chIso < 15) &
+        (4.0 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #the mediumPhoton_relaxedchIso is for Region C of ABCD non-prompt photon estimation
+    mediumPhoton_regC = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        photon_sieieCut &   #same as medium cutBased ID
+        (photon_chIso < 15) &
+        (4.0 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #the mediumPhoton_relaxedsieie is for Region B of ABCD non-prompt photon estimation
+    mediumPhoton_regB = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        ((photons.sieie > 0.012) & (photons.sieie < 0.022)) &
+        photon_ChIsoCut &      #same as medium cutBased ID
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #this is relevant for studying at what value can we cut on ch. Iso in region C to reduce nonprompt contribution in that region but isn't actively used in analysis processors
+    mediumPhoton_nochIso = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        photon_sieieCut &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #this is relevant for closure test. This region fails the sieie cut and 1.141 < pf chIso < 4
+    mediumPhoton_regR = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        ((photons.sieie > 0.012) & (photons.sieie < 0.022)) &
+        (photon_chIso < 4.0) &
+        (1.141 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    mediumPhoton_regL = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        photon_sieieCut &
+        (photon_chIso < 4) &
+        (1.141 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    fakeablePhoton_L_R = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &    #we also want to avoid the gap along the sieie axis
+        (photon_chIso < 4) &
+        (1.141 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    fakeablePhoton_LRCD_kMC = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &    #we also want to avoid the gap along the sieie axis
+        (photon_chIso < 15) &
+        (1.141 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    photons['mediumPhoton'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photon_mediumID)   #this is the SR photon
+    photons['mediumPhoton_regD'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regD) #Region D in ABCD
+    photons['mediumPhoton_regC'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regC) #Region C in ABCD
+    photons['mediumPhoton_regB'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regB) #Region B in ABCD
+    photons['mediumPhoton_nochIso'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_nochIso)
+    photons['fakeablePhoton'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton)
+    photons['fakeablePhoton_MR'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton_MR)
+    photons['fakeablePhoton_AR_SR'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton_AR_SR)
+    photons['mediumPhoton_regL'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regL)
+    photons['mediumPhoton_regR'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regR)
+    photons['fakeablePhoton_L_R'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton_L_R)
+    photons['fakeablePhoton_LRCD_kMC'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton_LRCD_kMC)
 
 def categorizeGenPhoton(photons):    #currently unused
     """A helper function to categorize MC reconstructed photons
@@ -267,32 +467,32 @@ def categorizeGenPhoton(photons):    #currently unused
     return 1 * isGenPho + 2 * isMisIDele + 3 * isHadPho + 4 * isHadFake
 
 def isClean(obj_A, obj_B, drmin=0.4):
-    objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
+    objB_near_any_in_A, objB_DR = obj_A.nearest(obj_B, return_metric=True)
     mask = ak.fill_none(objB_DR > drmin, True)
     return (mask)
 
 def is_prompt_photon(genpart_collection,photon_obj):
 
     #let's first define a mask to make sure our reco photon is matched to a true gen level photon
-    is_true_photon = ak.fill_none(abs(photon_obj.matched_gen.pdgId)==22,False) 
+    is_true_photon = ak.fill_none(abs(photon_obj.matched_gen.pdgId)==22,False)
 
     true_photon = photon_obj[is_true_photon]  #collection of reco photon that is matched to a true gen photon
 
-    #first use genPartFlav 
+    #first use genPartFlav
     ph_prompt_match = (true_photon.genPartFlav == 1)
 
     #Next, let's look at genPartIdx of true_photon collection
     genpartidx_of_true_photon = true_photon.genPartIdx
     genparticles_at_genpartidx = genpart_collection[genpartidx_of_true_photon]
     mother_of_gen_particle = genparticles_at_genpartidx.parent
-    
+
     #Now let's loop over the parentage history of the genparticles_at_genpartidx collection and see if there is a hadron in the chain. If there is one, it is non-prompt photon
     mother_is_not_hadron = True
     while not ak.all(ak.is_none(mother_of_gen_particle, axis=1)):
         mother_is_not_hadron = (mother_is_not_hadron & ( (ak.fill_none(abs(mother_of_gen_particle.pdgId), 0) < 37) ))
         mother_of_gen_particle = mother_of_gen_particle.parent
- 
+
     is_prompt_photon = (ph_prompt_match & mother_is_not_hadron)
     has_prompt_photon = ak.any(is_prompt_photon,axis=1) #WARNING: The reason this is probably fine is cause we eventually require that the event has exactly 1 photon
 
-    return has_prompt_photon 
+    return has_prompt_photon

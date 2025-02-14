@@ -1,4 +1,4 @@
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/TopEFT/topcoffea/analysis/training?filepath=master%2Fintro_coffea.hist.ipynb)<br>
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/TopEFT/topeft/master?labpath=analysis%2Ftraining%2Fintro_coffea.hist.ipynb)<br>
 
 ## training
 This directory contains example scripts that may be useful for learning to run coffea and topcoffea. 
