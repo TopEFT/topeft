@@ -99,7 +99,7 @@ class DataDrivenProducer:
                             newhist += hFlips
 
 
-                    elif "isAR_2lOS"==ident:
+                    elif "isAR_2lSS"==ident:
                         # if we are in the nonprompt application region, we also integrate the application region axis
                         # and construct the new process 'nonprompt'
                         # we look at data only, and rename it to fakes
