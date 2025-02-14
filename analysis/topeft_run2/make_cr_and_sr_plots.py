@@ -648,17 +648,19 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     # Plot the syst error
     if plot_syst_err:
         bin_edges_arr = h_mc.axes[var].edges
-        #err_p = np.append(err_p,0) # Work around off by one error
-        #err_m = np.append(err_m,0) # Work around off by one error
-        #err_ratio_p = np.append(err_ratio_p,0) # Work around off by one error
-        #err_ratio_m = np.append(err_ratio_m,0) # Work around off by one error
         ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
         rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
-    err_m = np.append(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]-np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    err_p = np.append(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]+np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    err_ratio_m = np.append(1-1/np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    err_ratio_p = np.append(1+1/np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    rax.fill_between(bins,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Stat err', hatch='////')
+    bin_edges_arr = h_mc.axes[var].edges
+    err_m = h_mc[{'process': sum}].eval({})[()][1:]-np.sqrt(h_mc[{'process': sum}].eval({})[()][1:])
+    err_p = h_mc[{'process': sum}].eval({})[()][1:]+np.sqrt(h_mc[{'process': sum}].eval({})[()][1:])
+    err_ratio_m = h_data[{'process':sum}].as_hist({}).values(flow=True)[1:] / err_m
+    err_ratio_p = h_data[{'process':sum}].as_hist({}).values(flow=True)[1:] / err_p
+    err_ratio_m = np.append(err_ratio_m, err_ratio_m[-1])
+    err_ratio_p = np.append(err_ratio_p, err_ratio_p[-1])
+    err_m = np.append(err_m, err_m[-1])
+    err_p = np.append(err_p, err_p[-1])
+    ax.fill_between(bins,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Total err', hatch='\\\\')
+    rax.fill_between(bins,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Stat err', hatch='\\\\')
 
     # Scale the y axis and labels
     ax.autoscale(axis='y')
@@ -928,7 +930,14 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
-    all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="lj0pt")
+    var = "lj0pt"
+    if var not in dict_of_hists:
+        for hist_var in dict_of_hists:
+            if not dict_of_hists[hist_var].empty():
+                var = hist_var
+                break
+    all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name=var)
+    #all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="lj0pt")
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
     data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
     for sample_name in all_samples:
@@ -966,6 +975,8 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
             CR_GRP_MAP["Ttbar"].append(proc_name)
         elif "TTG" in proc_name:
             SR_GRP_MAP["Conv"].append(proc_name)
+        elif "ttg" in proc_name:
+            SR_GRP_MAP["Conv"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             SR_GRP_MAP["Multiboson"].append(proc_name)
         elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
@@ -988,12 +999,10 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
     analysis_bins['lj0pt'] = axes_info['lj0pt']['variable']
 
     # Loop over hists and make plots
-    skip_lst = ['ptz', 'njets'] # Skip this hist
-    #keep_lst = ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"] # Skip all but these hists
+    skip_lst = ['njets'] # Skip this hist
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
         if (var_name in skip_lst): continue
-        #if (var_name not in keep_lst): continue
         print("\nVariable:",var_name)
 
         # Extract the MC and data hists
@@ -1490,9 +1499,9 @@ def main():
     #make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     # Blinded plots (Asimov data)
-    make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
+    make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,unblind=False)
     # Unblinded plots (real data)
-    #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,unblid=True)
+    #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,unblind=True)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
     #make_simple_plots(hin_dict,args.year,save_dir_path)
 
