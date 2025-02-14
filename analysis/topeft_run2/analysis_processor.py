@@ -721,6 +721,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
                 preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
                 preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
+                preselections.add("3l_fwd", (events.is3l & pass_trg))
+                preselections.add("3l_p_fwd", (events.is3l & pass_trg & charge3l_p))
+                preselections.add("3l_m_fwd", (events.is3l & pass_trg & charge3l_m))
+                preselections.add("3l_onZ_fwd", (sfosz_3l_OnZ_mask))
 
             # 2lss selection
             preselections.add("2lss", (events.is2l & pass_trg))
@@ -1078,7 +1082,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if (("ptz_wtau" in dense_axis_name) and ("1tau" not in lep_chan)): continue
                                         elif self.fwd_analysis:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                            if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
+                                            if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)): continue
                                         else:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue

@@ -706,43 +706,67 @@
                 ">7"
             ]
         },
-    "3l": {
+        "3l": {
             "lep_chan_lst": [
                 [
                     "3l_onZ_1b",
-            "3l",
-            "3l_onZ",
-            "bmask_exactly1m"
+                    "3l",
+                    "3l_onZ",
+                    "bmask_exactly1m",
+                    "~fwdjet_mask"
                 ],
-        [
+                [
                     "3l_onZ_2b",
                     "3l",
                     "3l_onZ",
                     "bmask_atleast2m"
                 ],
-        [
+                [
                     "3l_m_offZ_1b",
                     "3l_m",
                     "3l_offZ",
-                    "bmask_exactly1m"
+                    "bmask_exactly1m",
+                    "~fwdjet_mask"
                 ],
-        [
+                [
                     "3l_m_offZ_2b",
                     "3l_m",
                     "3l_offZ",
                     "bmask_atleast2m"
                 ],
-        [
+                [
                     "3l_p_offZ_1b",
                     "3l_p",
                     "3l_offZ",
-                    "bmask_exactly1m"
+                    "bmask_exactly1m",
+                    "~fwdjet_mask"
                 ],
                 [
                     "3l_p_offZ_2b",
                     "3l_p",
                     "3l_offZ",
                     "bmask_atleast2m"
+                ],
+                [
+                    "3l_onZ_1b_fwd",
+                    "3l",
+                    "3l_onZ",
+                    "bmask_exactly1m",
+                    "fwdjet_mask"
+                ],
+                [
+                    "3l_m_offZ_1b_fwd",
+                    "3l_m",
+                    "3l_offZ",
+                    "bmask_exactly1m",
+                    "fwdjet_mask"
+                ],
+                [
+                    "3l_p_offZ_1b_fwd",
+                    "3l_p",
+                    "3l_offZ",
+                    "bmask_exactly1m",
+                    "fwdjet_mask"
                 ]
             ],
             "lep_flav_lst": [
@@ -756,30 +780,11 @@
                 "isAR_3l"
             ],
             "jet_lst": [
+                "=1",
                 "=2",
                 "=3",
                 "=4",
                 ">5"
-            ]
-    },
-    "4l": {
-            "lep_chan_lst": [
-                [
-                    "4l",
-            "4l",
-            "bmask_atleast1m2l"
-        ]
-            ],
-            "lep_flav_lst": [
-        "llll"
-            ],
-            "appl_lst": [
-        "isSR_4l"
-            ],
-            "jet_lst": [
-        "=2",
-        "=3",
-        ">4"
             ]
         }
     }
