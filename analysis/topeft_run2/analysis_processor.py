@@ -861,19 +861,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("2l_p", (chargel0_p))
             preselections.add("2l_m", (chargel0_m))
 
-            if self.ttA_analysis:
-                #final SR categories with photons
-                preselections.add("2los_sf_ph", (retainedbyOverlap & events.is2l & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ll_mask & ~sfosz_2los_llg_mask_medph & bmask_atleast1med & pass_trg & exactly_1ph))
-                preselections.add("2los_of_ph", (retainedbyOverlap & events.is2l & charge2l_0 & events.is_em & bmask_atleast1med & pass_trg & exactly_1ph))
-
-                #Categories for CR studies
-                #ZGamma background estimation CR
-                preselections.add("2los_ph_CR_sf_Zg", (retainedbyOverlap & events.is2l_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ll_mask  & sfosz_2los_llg_mask_medph & bmask_atleast1med & pass_trg & exactly_1ph))
-
-                #Following 2 categories are for data-MC agreement study
-                preselections.add("2los_ph_CR_sf_lowJet",(retainedbyOverlap & events.is2l_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & sfosz_2los_ll_mask & ~sfosz_2los_llg_mask_medph & bmask_exactly0med & pass_trg & exactly_1ph))       #same as "2los_CRZ_noPh" except that we require photons explicitly
-                preselections.add("2los_ph_CR_of_lowJet", (retainedbyOverlap & events.is2l & charge2l_0 & events.is_em & bmask_exactly0med & pass_trg & exactly_1ph))
-
             # 3l selection
             preselections.add("3l", (events.is3l & pass_trg))
             preselections.add("bmask_exactly0m", (bmask_exactly0med))
@@ -1310,6 +1297,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                 no_eft_weight = no_eft_weight * eft_wgt_array_at_zero_wc_vals
                                             plot_help.fill_2d_histogram(hout, dense_axis_name, "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, no_eft_weight, eft_coeffs, all_cuts_mask, suffix="")
                                             plot_help.fill_2d_histogram(hout, dense_axis_name, "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, no_eft_weight, eft_coeffs, all_cuts_mask, suffix="_sumw2")
+                                        # Fill the histos
+                                        axes_fill_info_dict = {
+                                            dense_axis_name : dense_axis_vals[all_cuts_mask],
+                                            "channel"       : ch_name,
+                                            "appl"          : appl,
+                                            "process"       : histAxisName,
+                                            "systematic"    : wgt_fluct,
+                                            "weight"        : weights_flat,
+                                            "eft_coeff"     : eft_coeffs_cut,
+                                        }
 
                                         # Skip histos that are not defined (or not relevant) to given categories
                                         if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
