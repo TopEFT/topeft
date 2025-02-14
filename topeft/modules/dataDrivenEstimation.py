@@ -103,7 +103,6 @@ class DataDrivenProducer:
                         # if we are in the nonprompt application region, we also integrate the application region axis
                         # and construct the new process 'nonprompt'
                         # we look at data only, and rename it to fakes
-                        print(f"\n\nWe are inside {ident} appl axis")
                         newNameDictData=defaultdict(list); newNameDictNoData=defaultdict(list)
                         for process in hAR.axes['process']:
                             match = pattern.search(process)
@@ -143,7 +142,6 @@ class DataDrivenProducer:
                     #isAR_B_ABCD is the regular AR using which we estimate non-prompt photon in our signal region A
                     #isAR_R_LRCD is the "AR" corresponding to the "SR" L in the ABCD closure test
                     elif ident in ["isAR_R_LRCD", "isAR_B_ABCD"] and self.do_np_ph:
-                        print(f"\n\nWe are inside {ident} appl axis")
                         newDataDict=defaultdict(list); newNonDataDict=defaultdict(list)
                         for process in hAR.axes['process']:
                             match = pattern.search(process)
