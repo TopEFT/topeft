@@ -7,10 +7,11 @@ import gzip
 
 from topeft.modules.paths import topeft_path
 from topcoffea.modules.get_param_from_jsons import GetParam
+from topeft.modules.nonprompt_unc_propagation_helper import modify_NP_photon_pt_eta_variance,modify_photon_pt_variance
 get_te_param = GetParam(topeft_path("params/params.json"))
 
 class DataDrivenProducer:
-    def __init__(self, inputHist, outputName):
+    def __init__(self, inputHist, outputName, do_np_ph=False):
         if isinstance(inputHist, str) and inputHist.endswith('.pkl.gz'): # we are plugging a pickle file
             self.inhist=utils.get_hist_from_pkl(inputHist)
         else: # we already have the histogram
@@ -19,7 +20,10 @@ class DataDrivenProducer:
         self.verbose=False
         self.dataName='data'
         self.outHist=None
+        self.closure=False #a boolean to indicate whether we are doing closure test for nonprompt photon estimation
+        self.do_np_ph=do_np_ph #this controls whether we will do non-prompt photon estimation or not
         self.promptSubtractionSamples=get_te_param('prompt_subtraction_samples')
+        self.promptPhSubtractionSamples=get_te_param('prompt_photon_subtraction_samples')
         self.DDFakes()
 
     def DDFakes(self):
@@ -28,8 +32,11 @@ class DataDrivenProducer:
 
         self.outHist={}
 
-        for key,histo in self.inhist.items():
+        #This dictionary collects photon_pt_eta and photon_pt_eta_sumw2 hists needed for FR/kMC stat uncertainty propagation
+        required_hists_for_nonprompt_ph={}
+        np_uncertainty_propagation_done = False
 
+        for key,histo in self.inhist.items():
             if histo.empty(): # histo is empty, so we just integrate over appl and keep an empty histo
                 print(f'[W]: Histogram {key} is empty, returning an empty histo')
                 self.outHist[key]=histo.integrate('appl')
@@ -92,10 +99,11 @@ class DataDrivenProducer:
                             newhist += hFlips
 
 
-                    else:
+                    elif "isAR_2lOS"==ident:
                         # if we are in the nonprompt application region, we also integrate the application region axis
                         # and construct the new process 'nonprompt'
                         # we look at data only, and rename it to fakes
+                        print(f"\n\nWe are inside {ident} appl axis")
                         newNameDictData=defaultdict(list); newNameDictNoData=defaultdict(list)
                         for process in hAR.axes['process']:
                             match = pattern.search(process)
@@ -132,7 +140,80 @@ class DataDrivenProducer:
                         else:
                             newhist += hFakes
 
-            self.outHist[key]=newhist
+                    #isAR_B_ABCD is the regular AR using which we estimate non-prompt photon in our signal region A
+                    #isAR_R_LRCD is the "AR" corresponding to the "SR" L in the ABCD closure test
+                    elif ident in ["isAR_R_LRCD", "isAR_B_ABCD"] and self.do_np_ph:
+                        print(f"\n\nWe are inside {ident} appl axis")
+                        newDataDict=defaultdict(list); newNonDataDict=defaultdict(list)
+                        for process in hAR.axes['process']:
+                            match = pattern.search(process)
+                            sampleName=match.group('process')
+                            year=match.group('year')
+                            nonPromptPhName='nonpromptPhUL%s'%year
+                            if self.dataName==sampleName:
+                                newDataDict[nonPromptPhName].append(process)
+                            elif sampleName in self.promptPhSubtractionSamples:
+                                newNonDataDict[nonPromptPhName].append(process)
+                            elif sampleName.startswith(("ZGToLLGISR", "ZGToLLGFSR")):
+                                newNonDataDict[nonPromptPhName].append(process)
+                            else:
+                                print(f"We won't consider {sampleName} for the prompt photon subtraction in the appl. region")
+                        hPhFakes=hAR.group('process', newDataDict)
+                        # now we take all the stuff that is not data in the AR to make the prompt photon subtraction and assign them to nonprompt.
+                        hPromptPhSub=hAR.group('process', newNonDataDict)
+
+                        # remove the up/down variations (if any) from the prompt photon subtraction histo
+                        # but keep nonPromptPhUp and nonPromptPhDown, as these are the nonprompt photon up and down variations
+                        syst_var_idet_rm_lst_PromptPhSub = []
+                        syst_var_idet_lst = list(hPromptPhSub.axes["systematic"])
+                        for syst_var_idet in syst_var_idet_lst:
+                            if (syst_var_idet != "nominal") and (not syst_var_idet.startswith("nonpromptPh")):
+                                syst_var_idet_rm_lst_PromptPhSub.append(syst_var_idet)
+                        hPromptPhSub = hPromptPhSub.remove("systematic", syst_var_idet_rm_lst_PromptPhSub)
+
+                        #Also remove the up/down variations from the hPhFakes histo cause we will use this again later when we modify the photon pt MC stat uncertainty
+                        syst_var_idet_rm_lst_PhFakes = []
+                        syst_var_idet_lst = list(hPhFakes.axes["systematic"])
+                        for syst_var_idet in syst_var_idet_lst:
+                            if (syst_var_idet != "nominal") and (not syst_var_idet.startswith("nonpromptPh")):
+                                syst_var_idet_rm_lst_PhFakes.append(syst_var_idet)
+                        hPhFakes = hPhFakes.remove("systematic", syst_var_idet_rm_lst_PhFakes)
+
+                        # now we actually make the subtraction
+                        if not key.endswith("_sumw2"):
+                            hPromptPhSub.scale(-1)
+                        hPhFakes += hPromptPhSub
+                        if key == "photon_pt_eta":
+                            required_hists_for_nonprompt_ph["photon_pt_eta"] = hPhFakes
+                        elif key == "photon_pt_eta_sumw2":
+                            required_hists_for_nonprompt_ph["photon_pt_eta_sumw2"] = hPhFakes
+                        if not np_uncertainty_propagation_done and "photon_pt_eta" in required_hists_for_nonprompt_ph and "photon_pt_eta_sumw2" in required_hists_for_nonprompt_ph:
+                            modify_NP_photon_pt_eta_variance(required_hists_for_nonprompt_ph,closure=self.closure)
+                            np_uncertainty_propagation_done = True
+                            # Update newhist with the modified histogram. We only need the sumw2 histogram!
+                            if newhist is None:
+                                newhist = required_hists_for_nonprompt_ph["photon_pt_eta_sumw2"]
+                            else:
+                                newhist += required_hists_for_nonprompt_ph["photon_pt_eta_sumw2"]
+
+                        # now adding them to the list of processes. We cannot add the sumw2 histogram yet:
+                        if key not in ["photon_pt_eta_sumw2"]:
+                            if newhist==None:
+                                newhist=hPhFakes
+                            else:
+                                newhist += hPhFakes
+
+            #For the sumw2 2D histogram, only dump it to the outHist dict if we have done the non-prompt uncertainty propagation
+            if self.do_np_ph and key == "photon_pt_eta_sumw2":
+                if np_uncertainty_propagation_done:
+                    self.outHist[key]=newhist
+            else:
+                self.outHist[key]=newhist
+
+        #This is where we modify the photon_pt2 histogram's variance for the nonpromptPhUL{year} contribution
+        if self.do_np_ph:
+            for year in ['16','16APV','17','18']:
+                modify_photon_pt_variance(self.outHist,year)
 
     def dumpToPickle(self):
         if not self.outputName.endswith(".pkl.gz"):

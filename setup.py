@@ -14,7 +14,8 @@ setuptools.setup(
             "data/triggerSF/*.pkl.gz",
             "data/btagSF/UL/*.pkl.gz",
             "data/btagSF/UL/*.csv",
-            "modules/*.json"
+            "modules/*.json",
+            "data/photon_fakerates_*/*.npz"
         ],
     }
 )

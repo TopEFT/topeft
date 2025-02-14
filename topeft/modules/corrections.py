@@ -944,6 +944,78 @@ def AttachPerLeptonFR(leps, flavor, year):
     else:
         leps['fliprate'] = np.zeros_like(leps.pt)
 
+
+def AddPerPhotonFR(events,ph,year,closureTest=False):
+    # Get the fake rates lookup object
+    if year == "2016APV": year_name = "UL16APV"
+    elif year == "2016": year_name = "UL16"
+    elif year == "2017": year_name = "UL17"
+    elif year == "2018": year_name = "UL18"
+    else: raise Exception(f"Not a known year: {year}")
+
+    pt_edges = np.array([20,30,45,70,120])
+    eta_edges = np.array([0,0.435,0.783,1.13,1.50])
+
+    #NOTE for future: The FR and kMC numpy files will change in the future. The alphanumeric code in the path is also temporary and will eventually be removed.
+    #We just need a single fake-rate file
+    #fr_file = np.load(topeft_path(f"data/photon_fakerates_gyR6uGhvfy/fr_ph_{year_name}.npz"))
+    fr_file = np.load(topeft_path(f"data/photon_fakerates_o7cANdcK3j/fr_ph_{year_name}.npz"))
+
+    fr_value = fr_file[fr_file.files[0]]
+    #We need to clip the underflow bins along both axes.
+    fr_value = fr_value[1:,1:]
+    fr_val_lookup = lookup_tools.dense_lookup.dense_lookup(fr_value,[pt_edges, eta_edges])
+    ph['fr_val'] = (fr_val_lookup(ph.pt,abs(ph.eta)))
+
+    fr_error = fr_file[fr_file.files[1]]
+    fr_error = fr_error[1:,1:]
+    fr_err_lookup = lookup_tools.dense_lookup.dense_lookup(fr_error,[pt_edges, eta_edges])
+    ph['fr_err'] = (fr_err_lookup(ph.pt,abs(ph.eta)))
+
+    #Depending on whether we are doing closure test or not, we need different kmc files
+    if not closureTest:
+        #kmc_file = np.load(topeft_path(f"data/photon_fakerates_gB29WFMqFb/kmc_ph_{year_name}.npz"))
+        kmc_file = np.load(topeft_path(f"data/photon_fakerates_ZxY8lNRB2E/kmc_ph_{year_name}.npz"))
+
+    else:
+        #kmc_file = np.load(topeft_path(f"data/photon_fakerates_jeJHI2cDh5/kmc_ph_{year_name}.npz"))
+        kmc_file = np.load(topeft_path(f"data/photon_fakerates_5QFHsLhmPF/kmc_ph_{year_name}.npz"))
+
+    kmc_value = kmc_file[kmc_file.files[0]]
+    #We need to clip the underflow bins along both axes.
+    kmc_value = kmc_value[1:,1:]
+    kmc_val_lookup = lookup_tools.dense_lookup.dense_lookup(kmc_value, [pt_edges, eta_edges])
+    ph['kmc_val'] = (kmc_val_lookup(ph.pt,abs(ph.eta)))
+
+    kmc_error = kmc_file[kmc_file.files[1]]
+    #We need to clip the underflow bins along both axes.
+    kmc_error = kmc_error[1:,1:]
+    kmc_err_lookup = lookup_tools.dense_lookup.dense_lookup(kmc_error, [pt_edges, eta_edges])
+    ph['kmc_err'] = (kmc_err_lookup(ph.pt,abs(ph.eta)))
+
+    fakerate_val = (ph.fr_val * ph.kmc_val)
+    fakerate_ph_val = ak.pad_none(fakerate_val, 1)
+
+    fakerate_err = fakerate_val * np.sqrt(pow((ph.fr_err/ph.fr_val),2)+pow((ph.kmc_err/ph.kmc_val),2))
+    fakerate_ph_err = ak.pad_none(fakerate_err, 1)
+
+    fakerate_ph_val = fakerate_ph_val[:,0]  #ALERT: Fine for our case since we need exactly 1 photon but need to revisit this if we relax photon multiplicity cut in the future
+    fakerate_ph_err = fakerate_ph_err[:,0]
+
+    events['fakerate_ph_val'] = fakerate_ph_val
+    events['fakerate_ph_err'] = fakerate_ph_err
+
+#this is where we assign an additional 67% systematic uncertainty on the non-prompt photon yield in the photon pT distribution
+#the 67% uncertainty was determined using a dedicated data-driven closure test for ABCD method (summed over all years)
+def additional_nonprompt_ph_unc(events, last_bin_pt_mask):
+    nominal = np.ones(len(events))
+    #If last bin, scale the yield up/down by 15% and if other bins, keep nominal yield
+    up_variation = ak.where(last_bin_pt_mask, nominal * 1.67, nominal)
+    down_variation = ak.where(last_bin_pt_mask, nominal * 0.33, nominal)
+
+    events['np_ph_up'] = up_variation
+    events['np_ph_down'] = down_variation
+
 def fakeRateWeight1l(events, lep1):
     for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown']:
         fakefactor_2l =  (~lep1.isTightLep + (1)*(lep1.isTightLep)) # if all are tight the FF is 1 because events are in the SR
@@ -1308,7 +1380,7 @@ def AttachPhotonSF(photons, year):
         tmp_sf = ak.where((aeta < eta_cut) & (r9>r9_cut), EBhR9_sf[aeta<eta_cut], tmp_sf)
         tmp_sf = ak.where((aeta > eta_cut) & (r9<r9_cut), EElR9_sf[aeta<eta_cut], tmp_sf)
         tmp_sf = ak.where((aeta > eta_cut) & (r9>r9_cut), EEhR9_sf[aeta<eta_cut], tmp_sf)
-        photon_sf = photon_sf + tmp_sf
+        photon_sf = photon_sf * tmp_sf
         for syst_type in ['Staunc', 'PUunc', 'Modelunc']:
             if '16' in sf_year and 'Model' in syst_type:
                 #Model only in UL17 and 18

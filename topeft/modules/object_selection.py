@@ -270,11 +270,12 @@ def maxParentage(genPart):
 
     return non_hadronic_parentage
 
-def selectPhoton(photons):
-    photon_pt_eta_mask = (photons.pt > 20) & (abs(photons.eta)<1.44) #this is what we want for our SR
+def selectPhoton(photons, pt_val, eta_val):
+    photon_pt_eta_mask = (photons.pt > pt_val) & (abs(photons.eta) < eta_val) #this is what we want for our SR
 
-    photon_pixelSeed_electronVeto_mask = (np.invert(photons.pixelSeed) & (photons.electronVeto))  #We invert the pixel seed cause we want to veto events with photons that have pixelSeed cause they are misid electrons
+    photon_pixelSeed_electronVeto_mask = (np.invert(photons.pixelSeed) & (photons.electronVeto))  #We invert the pixel seed cause we want to veto events with photons that have pixelSeed cause they are misid electrons. They help in suppressing ele->ph backgrounds
     photon_mediumID = (photons.cutBased >= 2) #At least medium
+
     #Let's relax two components from medium cutBasedID -- 1. charged isolation and 2. sigmaetaeta
     #split out the ID requirement using the vid (versioned ID) bitmap
     #"(x & 3) >= 2" makes sure each component passes medium threshold
@@ -289,36 +290,150 @@ def selectPhoton(photons):
     #also define the charged hadron isolation for photons
     photon_chIso = ((photons.pfRelIso03_chg) * (photons.pt))
 
-    # photons passing all ID requirements, without the charged hadron isolation cut applied
-    mediumPhoton_noSieie_noChIso = (
+    #Future Note: There are a bunch of "fakeable photon" objects defined below. Some are used in derivation of fake rates, others in derivation of kMC factors and others in the main analysis processor. This could be cleaned up in the future.
+
+    #define medium photon mask with relaxed sieie and chIso cut. In lack of better name, calling it "fakeablePhoton" for now. This will be used in determination of FR and kMC factors in nonprompt_fakerate.py
+    fakeablePhoton = (
         photon_MinPtCut &
         photon_PhoSCEtaMultiRangeCut &
         photon_PhoSingleTowerHadOverEmCut &
-        #& photon_sieieCut
-        #& (photons.sieie < 0.010)
-        #& (photons.pfRelIso03_chg < 1.141)
-        #& (photon_chIso < 1.141) &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &        #we also want to avoid the gap along the sieie axis
+        (photon_chIso < 15) &
+        ~((photon_chIso >= 1.141) & (photon_chIso <= 4.0)) &          #we also want to avoid the gap along the pf chIso axis
         photon_NeuIsoCut &
         photon_PhoIsoCut
     )
 
-    mediumPhoton_noChIso = (
+    #define fakeable photon collection to be used only in MR. This is useful in defining photon fake-rate (FR)
+    fakeablePhoton_MR = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &         #we also want to avoid the gap along the sieie axis
+        (photon_chIso < 15) &
+        (4.0 < photon_chIso) &     #For MR, we are only considered with 4 < ch. Iso. < 15
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #define fakeable photon collection to be used only in AR/SR. This is what we will use in the main analysis processor of the analysis
+    fakeablePhoton_AR_SR = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &    #we also want to avoid the gap along the sieie axis
+        photon_ChIsoCut &      #For SR and AR, we are only concerned with ch. Iso. < 1.141
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #the mediumPhoton_relaxedchIso_relaxedsieie is for Region D of ABCD non-prompt photon estimation
+    mediumPhoton_regD = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        ((photons.sieie > 0.012) & (photons.sieie < 0.022)) &
+        (photon_chIso < 15) &
+        (4.0 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #the mediumPhoton_relaxedchIso is for Region C of ABCD non-prompt photon estimation
+    mediumPhoton_regC = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        photon_sieieCut &   #same as medium cutBased ID
+        (photon_chIso < 15) &
+        (4.0 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #the mediumPhoton_relaxedsieie is for Region B of ABCD non-prompt photon estimation
+    mediumPhoton_regB = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        ((photons.sieie > 0.012) & (photons.sieie < 0.022)) &
+        photon_ChIsoCut &      #same as medium cutBased ID
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #this is relevant for studying at what value can we cut on ch. Iso in region C to reduce nonprompt contribution in that region but isn't actively used in analysis processors
+    mediumPhoton_nochIso = (
         photon_MinPtCut &
         photon_PhoSCEtaMultiRangeCut &
         photon_PhoSingleTowerHadOverEmCut &
         photon_sieieCut &
-        #& (photons.sieie < 0.010)
-        #& (photons.pfRelIso03_chg < 1.141)
-        #& (photon_chIso < 1.141) &
         photon_NeuIsoCut &
         photon_PhoIsoCut
     )
 
-    #mediumPhotons_relaxed = photons[photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photonID_relaxed]
-    photons['mediumPhoton'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photon_mediumID)
-    photons['mediumPhoton_noSieie_noChIso'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_noSieie_noChIso)
-    photons['mediumPhoton_noChIso'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_noChIso)
-    mediumPhotons = photons[photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photon_mediumID]
+    #this is relevant for closure test. This region fails the sieie cut and 1.141 < pf chIso < 4
+    mediumPhoton_regR = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        ((photons.sieie > 0.012) & (photons.sieie < 0.022)) &
+        (photon_chIso < 4.0) &
+        (1.141 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    mediumPhoton_regL = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        photon_sieieCut &
+        (photon_chIso < 4) &
+        (1.141 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    fakeablePhoton_L_R = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &    #we also want to avoid the gap along the sieie axis
+        (photon_chIso < 4) &
+        (1.141 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    fakeablePhoton_LRCD_kMC = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &    #we also want to avoid the gap along the sieie axis
+        (photon_chIso < 15) &
+        (1.141 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    photons['mediumPhoton'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photon_mediumID)   #this is the SR photon
+    photons['mediumPhoton_regD'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regD) #Region D in ABCD
+    photons['mediumPhoton_regC'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regC) #Region C in ABCD
+    photons['mediumPhoton_regB'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regB) #Region B in ABCD
+    photons['mediumPhoton_nochIso'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_nochIso)
+    photons['fakeablePhoton'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton)
+    photons['fakeablePhoton_MR'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton_MR)
+    photons['fakeablePhoton_AR_SR'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton_AR_SR)
+    photons['mediumPhoton_regL'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regL)
+    photons['mediumPhoton_regR'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regR)
+    photons['fakeablePhoton_L_R'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton_L_R)
+    photons['fakeablePhoton_LRCD_kMC'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton_LRCD_kMC)
 
 def categorizeGenPhoton(photons):    #currently unused
     """A helper function to categorize MC reconstructed photons
@@ -352,7 +467,7 @@ def categorizeGenPhoton(photons):    #currently unused
     return 1 * isGenPho + 2 * isMisIDele + 3 * isHadPho + 4 * isHadFake
 
 def isClean(obj_A, obj_B, drmin=0.4):
-    objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
+    objB_near_any_in_A, objB_DR = obj_A.nearest(obj_B, return_metric=True)
     mask = ak.fill_none(objB_DR > drmin, True)
     return (mask)
 
