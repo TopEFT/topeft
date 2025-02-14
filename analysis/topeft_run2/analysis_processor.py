@@ -1227,7 +1227,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if self.ttA_analysis:
                                             if "photon_pt_eta" in dense_axis_name:# and "2los_ph" in nlep_cat:
-                                            #if self.ttA_analysis and "photon_pt_eta" in dense_axis_name and "2los_ph" in nlep_cat:
                                                 #the photon_pt_eta histogram does not need to have ZGamma split based on ISR/FSR origin of photon
                                                 #also skip if the channel is not photon related
                                                 #also note that we need to pass "weight" here and not "weight_tmp" because we don't want the photons be weighed by fakerate
