@@ -23,7 +23,7 @@ import topcoffea.modules.corrections as tc_cor
 from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
 import topeft.modules.plotting_helper as plot_help
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPhotonSF, AttachPerLeptonFR, AddPerPhotonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
+from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPhotonSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, AddPerPhotonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 import topeft.modules.jetbJetMultiplicity as jbM
@@ -359,7 +359,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Attach the lepton SFs to the electron and muons collections
         AttachElectronSF(e_fo,year=year, looseWP="none" if is_run3 else "wpLnoiso") #Run3 ready
         AttachMuonSF(m_fo,year=year)
-        AttachElectronSF(e_fo, year=year, looseWP=ele_pres_id_tag) #Run3 ready
 
         # Attach per lepton fake rates
         AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
