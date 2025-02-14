@@ -304,12 +304,6 @@ def add2lMaskAndSFs(events, year, isData, sampleType):
     # SR:
     events['is2l_SR'] = (padded_FOs[:,0].isTightLep) & (padded_FOs[:,1].isTightLep)
     events['is2l_SR'] = ak.fill_none(events['is2l_SR'],False)
-    padded_photon = ak.pad_none(events.ph_fo_pt_sorted, 1)
-
-    # SFs
-    events['sf_2l_photon']    = padded_photon.sf_nom_photon[:,0]
-    events['sf_2l_hi_photon'] = padded_photon.sf_hi_photon[:,0]
-    events['sf_2l_lo_photon'] = padded_photon.sf_lo_photon[:,0]
 
     # FF:
     fakeRateWeight2l(events, padded_FOs[:,0], padded_FOs[:,1])
@@ -610,6 +604,12 @@ def get_Z_peak_mask_llg(lep_collection,photon_collection,pt_window,flavor="os",z
     return sfosz_mask_llg
 
 def addPhotonSelection(events, sampleType, last_pt_bin, closureTest):
+    padded_photon = ak.pad_none(events.ph_fo_pt_sorted, 1)
+
+    # SFs
+    events['sf_2l_photon']    = padded_photon.sf_nom_photon[:,0]
+    events['sf_2l_hi_photon'] = padded_photon.sf_hi_photon[:,0]
+    events['sf_2l_lo_photon'] = padded_photon.sf_lo_photon[:,0]
 
     fo_ph = events.ph_fo_pt_sorted
     padded_fo_ph = ak.pad_none(fo_ph,1)

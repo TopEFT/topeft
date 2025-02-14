@@ -400,25 +400,27 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Photon selection ###################
         #clean photons collection if there is an overlap with lepton collection
-        ph["isClean"] = te_os.isClean(ph, l_fo, drmin=0.4)
 
-        #We select photons that are already cleaned against leptons
-        cleanPh = ph[ph.isClean]
-        te_os.selectPhoton(cleanPh, pt_val=20.0, eta_val=1.44)
-        cleanPh['isFakeablePh'] = cleanPh.fakeablePhoton_AR_SR
-        ph_fo = cleanPh[cleanPh.isFakeablePh]
-        ph_fo['inA_ABCD'] = ph_fo.mediumPhoton
-        ph_fo['inB_ABCD'] = ph_fo.mediumPhoton_regB
+        if self.ttA_analysis:
+            ph["isClean"] = te_os.isClean(ph, l_fo, drmin=0.4)
 
-        #Attach per photon fake rates and photon SFs
-        AddPerPhotonFR(events, ph_fo, year=year, closureTest=False)
-        AttachPhotonSF(ph_fo,year=year)
+            #We select photons that are already cleaned against leptons
+            cleanPh = ph[ph.isClean]
+            te_os.selectPhoton(cleanPh, pt_val=20.0, eta_val=1.44)
+            cleanPh['isFakeablePh'] = cleanPh.fakeablePhoton_AR_SR
+            ph_fo = cleanPh[cleanPh.isFakeablePh]
+            ph_fo['inA_ABCD'] = ph_fo.mediumPhoton
+            ph_fo['inB_ABCD'] = ph_fo.mediumPhoton_regB
 
-        #pT sort the photon collection
-        ph_fo_pt_sorted = ph_fo[ak.argsort(ph_fo.pt,axis=-1,ascending=False)]
+            #Attach per photon fake rates and photon SFs
+            AddPerPhotonFR(events, ph_fo, year=year, closureTest=False)
+            AttachPhotonSF(ph_fo,year=year)
 
-        # Photon pairs
-        pppairs = ak.combinations(ph_fo, 2, fields=["p0","p1"])
+            #pT sort the photon collection
+            ph_fo_pt_sorted = ph_fo[ak.argsort(ph_fo.pt,axis=-1,ascending=False)]
+
+            # Photon pairs
+            pppairs = ak.combinations(ph_fo, 2, fields=["p0","p1"])
 
         ######### Systematics ###########
 
@@ -519,7 +521,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
             #Let's also clean jets against photon collection
-            cleanedJets = cleanedJets[te_os.isClean(cleanedJets, ph_fo, drmin=0.4)]
+            if self.ttA_analysis:
+                cleanedJets = cleanedJets[te_os.isClean(cleanedJets, ph_fo, drmin=0.4)]
 
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
@@ -571,14 +574,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Put njets and l_fo_conept_sorted into events
             events["njets"] = njets
             events["l_fo_conept_sorted"] = l_fo_conept_sorted
-            events["ph_fo_pt_sorted"] = ph_fo_pt_sorted
+            if self.ttA_analysis:
+                events["ph_fo_pt_sorted"] = ph_fo_pt_sorted
 
             # The event selection
             te_es.add2lMaskAndSFs(events, year, isData, sampleType)
             te_es.add3lMaskAndSFs(events, year, isData, sampleType)
             te_es.add4lMaskAndSFs(events, year, isData)
             te_es.addLepCatMasks(events)
-            te_es.addPhotonSelection(events, sampleType, last_pt_bin=120.0 ,closureTest=False) #CAUTION: Revisit the "last_pt_bin" if photon_pt binning is changed
+            if self.ttA_analysis:
+                te_es.addPhotonSelection(events, sampleType, last_pt_bin=120.0 ,closureTest=False) #CAUTION: Revisit the "last_pt_bin" if photon_pt binning is changed
 
             # Convenient to have l0, l1, l2 on hand
             l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
@@ -721,7 +726,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # For MC only
                 if not isData:
                     if ch_name.startswith("2l"):
-                        if "_ph" in ch_name:
+                        if self.ttA_analysis and "_ph" in ch_name:
                             weights_dict[ch_name].add("phoSF", events.sf_2l_photon, copy.deepcopy(events.sf_2l_hi_photon), copy.deepcopy(events.sf_2l_lo_photon))
                         weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
@@ -753,7 +758,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
             sfosz_2los_ttg_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=15.0)
             sfosz_2los_ll_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=15.0)
-            sfosz_2los_llg_mask_medph = te_es.get_Z_peak_mask_llg(l_fo_conept_sorted_padded[:,0:2],ph_fo_pt_sorted,pt_window=15.0)
+            if self.ttA_analysis:
+                sfosz_2los_llg_mask_medph = te_es.get_Z_peak_mask_llg(l_fo_conept_sorted_padded[:,0:2],ph_fo_pt_sorted,pt_window=15.0)
             if self.tau_h_analysis:
                 tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0, 30.0)
 
@@ -783,30 +789,31 @@ class AnalysisProcessor(processor.ProcessorABC):
                 tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) ==1)
                 no_tau_mask = (ak.num(tau[tau["isLoose"]>0])==0)
 
-            #photon multiplicity mask
-            exactly_1ph = (ak.num(ph_fo)==1)
-            exactly_0ph = (ak.num(ph_fo)==0)
-            atleast_1ph = (ak.num(ph_fo)>=1)
+            if self.ttA_analysis:
+                #photon multiplicity mask
+                exactly_1ph = (ak.num(ph_fo)==1)
+                exactly_0ph = (ak.num(ph_fo)==0)
+                atleast_1ph = (ak.num(ph_fo)>=1)
 
-            #Overlap removal
-            vetoedbyOverlap = np.ones(len(events), dtype=bool)
-            retainedbyOverlap = np.ones(len(events), dtype=bool)
-            if not isData:
-                if ("TTTo" in dataset) or ("TTGamma" in dataset):
-                    te_es.generatorOverlapRemoval(dataset, events,ptCut=10, etaCut=5, deltaRCut=0.1)
-                    vetoedbyOverlap = events.vetoedbyOverlap
-                    retainedbyOverlap = events.retainedbyOverlap
-                elif ("ZGToLLG" in dataset) or ("DY" in dataset):
-                    te_es.generatorOverlapRemoval(dataset, events,ptCut=15, etaCut=2.6, deltaRCut=0.05)
-                    vetoedbyOverlap = events.vetoedbyOverlap
-                    retainedbyOverlap = events.retainedbyOverlap
+                #Overlap removal
+                vetoedbyOverlap = np.ones(len(events), dtype=bool)
+                retainedbyOverlap = np.ones(len(events), dtype=bool)
+                if not isData:
+                    if ("TTTo" in dataset) or ("TTGamma" in dataset):
+                        te_es.generatorOverlapRemoval(dataset, events,ptCut=10, etaCut=5, deltaRCut=0.1)
+                        vetoedbyOverlap = events.vetoedbyOverlap
+                        retainedbyOverlap = events.retainedbyOverlap
+                    elif ("ZGToLLG" in dataset) or ("DY" in dataset):
+                        te_es.generatorOverlapRemoval(dataset, events,ptCut=15, etaCut=2.6, deltaRCut=0.05)
+                        vetoedbyOverlap = events.vetoedbyOverlap
+                        retainedbyOverlap = events.retainedbyOverlap
 
-            #Splitting ZGamma events based on whether is ISR or FSR origin
-            has_FSR_photon = np.ones(len(events),dtype=bool)
-            has_ISR_photon = np.ones(len(events),dtype=bool)
+                #Splitting ZGamma events based on whether is ISR or FSR origin
+                has_FSR_photon = np.ones(len(events),dtype=bool)
+                has_ISR_photon = np.ones(len(events),dtype=bool)
 
-            if not isData and 'ZGToLLG' in dataset:
-                has_ISR_photon, has_FSR_photon=te_es.categorize_into_ISRFSR_photon(events)
+                if not isData and 'ZGToLLG' in dataset:
+                    has_ISR_photon, has_FSR_photon=te_es.categorize_into_ISRFSR_photon(events)
 
             ######### Store boolean masks with PackedSelection ##########
 
@@ -956,9 +963,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1)
             selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
             selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0)
-            selections.add("isSR_A_ABCD",  ( events.is2l_SR) & charge2l_0 & events.isSR_ph)
-            selections.add("isAR_B_ABCD",  ( events.is2l_SR) & charge2l_0 & events.isAR_ph)
-            selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0 & events.isSR_ph)
+            selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0)
+            if self.ttA_analysis:
+                selections.add("isSR_A_ABCD",  ( events.is2l_SR) & charge2l_0 & events.isSR_ph)
+                selections.add("isAR_B_ABCD",  ( events.is2l_SR) & charge2l_0 & events.isAR_ph)
 
             selections.add("isSR_3l",  events.is3l_SR)
             selections.add("isAR_3l", ~events.is3l_SR)
@@ -976,21 +984,22 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
 
-            # Photon variables
-            #pp_pt = (pppairs.p0 + pppairs.p1).pt
-            #pp_mass = (pppairs.p0 + pppairs.p1).mass
-            #pp_mass = ak.fill_none(pp_mass[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1)
-            #pp_pt = pp_pt[ak.argmax(pp_pt, axis=-1, keepdims=True)]
-            #pp_mass = ak.flatten(ak.fill_none(pp_mass, -1))
-            #pp_pt = ak.flatten(ak.fill_none(pp_pt, -1))
-            #cutBased = ak.fill_none(ak.firsts(ph_fo_noChIso.cutBased), -1)
-            photon_pt = ak.fill_none(ak.firsts(ph_fo.pt), -1)
-            nPhoton = ak.num(ph_fo)
-            photon_eta = ak.fill_none(ak.firsts(ph_fo.eta),-5) #just set it to some value that we won't need to worry about
-            photon_abseta = ak.fill_none(abs(photon_eta),-1)
-            #photon_relPFchIso = ak.fill_none(ak.pad_none(ph_fo_noChIso.pfRelIso03_chg,1),-1)
-            #photon_PFchIso = ak.fill_none(ak.pad_none(ph_fo_noChIso.pfRelIso03_chg * ph_fo_noChIso.pt,1), -1)
-            invmass_llg = ak.fill_none(((l0 + l1 + ak.firsts(ph_fo)).mass),-1)    #Invmass of leading two leps and photon
+            if self.ttA_analysis:
+                # Photon variables
+                #pp_pt = (pppairs.p0 + pppairs.p1).pt
+                #pp_mass = (pppairs.p0 + pppairs.p1).mass
+                #pp_mass = ak.fill_none(pp_mass[ak.argmax(pp_pt, axis=-1, keepdims=True)], -1)
+                #pp_pt = pp_pt[ak.argmax(pp_pt, axis=-1, keepdims=True)]
+                #pp_mass = ak.flatten(ak.fill_none(pp_mass, -1))
+                #pp_pt = ak.flatten(ak.fill_none(pp_pt, -1))
+                #cutBased = ak.fill_none(ak.firsts(ph_fo_noChIso.cutBased), -1)
+                photon_pt = ak.fill_none(ak.firsts(ph_fo.pt), -1)
+                nPhoton = ak.num(ph_fo)
+                photon_eta = ak.fill_none(ak.firsts(ph_fo.eta),-5) #just set it to some value that we won't need to worry about
+                photon_abseta = ak.fill_none(abs(photon_eta),-1)
+                #photon_relPFchIso = ak.fill_none(ak.pad_none(ph_fo_noChIso.pfRelIso03_chg,1),-1)
+                #photon_PFchIso = ak.fill_none(ak.pad_none(ph_fo_noChIso.pfRelIso03_chg * ph_fo_noChIso.pt,1), -1)
+                invmass_llg = ak.fill_none(((l0 + l1 + ak.firsts(ph_fo)).mass),-1)    #Invmass of leading two leps and photon
 
             if self.tau_h_analysis:
                 ptz_wtau = (l0+tau0).pt
@@ -1287,7 +1296,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
                                         #First fill the photon_pt_eta whose only usage is in deriving nonprompt photon contribution
-                                        if dense_axis_name == "photon_pt_eta":
+                                        if self.ttA_analysis and dense_axis_name == "photon_pt_eta":
                                             #the photon_pt_eta histogram does not need to have ZGamma split based on ISR/FSR origin of photon
                                             #also skip if the channel is not photon related
                                             #also note that we need to pass "weight" here and not "weight_tmp" because we don't want the photons be weighed by fakerate
@@ -1336,7 +1345,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
                                             if not (("photon" in dense_axis_name) == ("ph" in ch_name)): continue
 
-                                            if "ZGToLLG" in dataset:  # ZGamma samples require ISR/FSR photons splitting
+                                            if self.ttA_analysis and "ZGToLLG" in dataset:  # ZGamma samples require ISR/FSR photons splitting
                                                 #For ISR and FSR cases, first fill regular histogram and then fill sumw2 histogram
                                                 plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon))
                                                 plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon), suffix="_sumw2")
