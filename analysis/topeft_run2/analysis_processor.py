@@ -1119,61 +1119,62 @@ class AnalysisProcessor(processor.ProcessorABC):
             del import_sr_cat_dict, import_cr_cat_dict
 
             #FIXME Hack until we get these into the channel json
-            sr_cat_dict.update({
-                "2los_ph_CR_sf_Zg" : {
-                    "exactly_1j"   : {
-                        "lep_chan_lst" : ["2los_ph_CR_sf_Zg"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_A_ABCD","isAR_B_ABCD","isAR_2lOS"],
+            if self.ttA_analysis:
+                sr_cat_dict.update({
+                    "2los_ph_CR_sf_Zg" : {
+                        "exactly_1j"   : {
+                            "lep_chan_lst" : ["2los_ph_CR_sf_Zg"],
+                            "lep_flav_lst" : ["ee", "mm"],
+                            "appl_lst"     : ["isSR_A_ABCD","isAR_B_ABCD","isAR_2lOS"],
+                        },
+                        "exactly_2j"   : {
+                            "lep_chan_lst" : ["2los_ph_CR_sf_Zg"],
+                            "lep_flav_lst" : ["ee", "mm"],
+                            "appl_lst"     : ["isSR_A_ABCD","isAR_B_ABCD","isAR_2lOS"],
+                        },
+                        "exactly_3j"   : {
+                            "lep_chan_lst" : ["2los_ph_CR_sf_Zg"],
+                            "lep_flav_lst" : ["ee", "mm"],
+                            "appl_lst"     : ["isSR_A_ABCD","isAR_B_ABCD","isAR_2lOS"],
+                        },
+                        "atleast_4j"   : {
+                            "lep_chan_lst" : ["2los_ph_CR_sf_Zg"],
+                            "lep_flav_lst" : ["ee", "mm"],
+                            "appl_lst"     : ["isSR_A_ABCD","isAR_B_ABCD","isAR_2lOS"],
+                        },
                     },
-                    "exactly_2j"   : {
-                        "lep_chan_lst" : ["2los_ph_CR_sf_Zg"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_A_ABCD","isAR_B_ABCD","isAR_2lOS"],
+                    "2los_CRZ_noPh" : {
+                        "atleast_0j"   : {
+                            "lep_chan_lst" : ["2los_CRZ_noPh"],
+                            "lep_flav_lst" : ["ee", "mm"],
+                            "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
+                        },
                     },
-                    "exactly_3j"   : {
-                        "lep_chan_lst" : ["2los_ph_CR_sf_Zg"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_A_ABCD","isAR_B_ABCD","isAR_2lOS"],
+                    "2los_ph_CR_sf_lowJet" : {
+                        "exactly_0j"   : {
+                            "lep_chan_lst" : ["2los_ph_CR_sf_lowJet"],
+                            "lep_flav_lst" : ["ee", "mm"],
+                            "appl_lst"     : ["isSR_A_ABCD","isAR_B_ABCD","isAR_2lOS"],
+                        },
+                        "exactly_1j"   : {
+                            "lep_chan_lst" : ["2los_ph_CR_sf_lowJet"],
+                            "lep_flav_lst" : ["ee", "mm"],
+                            "appl_lst"     : ["isSR_A_ABCD","isAR_B_ABCD","isAR_2lOS"],
+                        },
                     },
-                    "atleast_4j"   : {
-                        "lep_chan_lst" : ["2los_ph_CR_sf_Zg"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_A_ABCD","isAR_B_ABCD","isAR_2lOS"],
+                    "2los_ph_CR_of_lowJet" : {
+                        "exactly_0j" : {
+                            "lep_chan_lst" : ["2los_ph_CR_of_lowJet"],
+                            "lep_flav_lst" : ["em"],
+                            "appl_lst"     : ["isSR_A_ABCD", "isAR_B_ABCD","isAR_2lOS"],
+                        },
+                        "exactly_1j" : {
+                            "lep_chan_lst" : ["2los_ph_CR_of_lowJet"],
+                            "lep_flav_lst" : ["em"],
+                            "appl_lst"     : ["isSR_A_ABCD", "isAR_B_ABCD","isAR_2lOS"],
+                        },
                     },
-                },
-                "2los_CRZ_noPh" : {
-                    "atleast_0j"   : {
-                        "lep_chan_lst" : ["2los_CRZ_noPh"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_2lOS", "isAR_2lOS"],
-                    },
-                },
-                "2los_ph_CR_sf_lowJet" : {
-                    "exactly_0j"   : {
-                        "lep_chan_lst" : ["2los_ph_CR_sf_lowJet"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_A_ABCD","isAR_B_ABCD","isAR_2lOS"],
-                    },
-                    "exactly_1j"   : {
-                        "lep_chan_lst" : ["2los_ph_CR_sf_lowJet"],
-                        "lep_flav_lst" : ["ee", "mm"],
-                        "appl_lst"     : ["isSR_A_ABCD","isAR_B_ABCD","isAR_2lOS"],
-                    },
-                },
-                "2los_ph_CR_of_lowJet" : {
-                    "exactly_0j" : {
-                        "lep_chan_lst" : ["2los_ph_CR_of_lowJet"],
-                        "lep_flav_lst" : ["em"],
-                        "appl_lst"     : ["isSR_A_ABCD", "isAR_B_ABCD","isAR_2lOS"],
-                    },
-                    "exactly_1j" : {
-                        "lep_chan_lst" : ["2los_ph_CR_of_lowJet"],
-                        "lep_flav_lst" : ["em"],
-                        "appl_lst"     : ["isSR_A_ABCD", "isAR_B_ABCD","isAR_2lOS"],
-                    },
-                },
-            })
+                })
 
             cat_dict = {}
             if not self._skip_signal_regions:
