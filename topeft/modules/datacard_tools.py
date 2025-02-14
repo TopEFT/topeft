@@ -1194,7 +1194,6 @@ class DatacardMaker():
 
         return r
 
-
 if __name__ == '__main__':
     fpath = topeft_path("../analysis/topEFT/histos/may18_fullRun2_withSys_anatest08_np.pkl.gz")
 

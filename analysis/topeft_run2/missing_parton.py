@@ -7,19 +7,26 @@ To create these, run the datacard maker (tllq `with` systematics, tZq without)
 import numpy as np
 import matplotlib.pyplot as plt
 import uproot
+import matplotlib as mpl
+mpl.use('Agg')
 import mplhep as hep
 import math
-import json
 from topeft.modules.comp_datacard import strip
 import re
 
-files = ['2lss_m_2b',  '2lss_p_2b',  '2lss_4t_m_2b', '2lss_4t_p_2b', '3l1b_m',  '3l1b_p',  '3l2b_m',  '3l2b_p',  '3l_sfz_1b',  '3l_sfz_2b',  '4l_2b']
+from topeft.modules.paths import topeft_path
+from topcoffea.modules.paths import topcoffea_path
+from topcoffea.modules.get_param_from_jsons import GetParam
+get_tc_param = GetParam(topcoffea_path("params/params.json"))
+
+files = ['2lss_4t_m', '2lss_4t_p', '2lss_fwd_m', '2lss_fwd_p', '2lss_m', '2lss_p', '3l_m_offZ_1b', '3l_m_offZ_2b', '3l_onZ_1b', '3l_onZ_2b', '3l_p_offZ_1b', '3l_p_offZ_2b', '4l']
+files = ['2lss_fwd_m', '2lss_fwd_p']
 files_diff = ['2lss_4t_m_4j_2b', '2lss_4t_m_5j_2b', '2lss_4t_m_6j_2b', '2lss_4t_m_7j_2b', '2lss_4t_p_4j_2b', '2lss_4t_p_5j_2b', '2lss_4t_p_6j_2b', '2lss_4t_p_7j_2b', '2lss_m_4j_2b', '2lss_m_5j_2b', '2lss_m_6j_2b', '2lss_m_7j_2b', '2lss_p_4j_2b', '2lss_p_5j_2b', '2lss_p_6j_2b', '2lss_p_7j_2b', '3l_m_offZ_1b_2j', '3l_m_offZ_1b_3j', '3l_m_offZ_1b_4j', '3l_m_offZ_1b_5j', '3l_m_offZ_2b_2j', '3l_m_offZ_2b_3j', '3l_m_offZ_2b_4j', '3l_m_offZ_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
 files_ptz = ['3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j']
 
 def get_hists(fname, path, process):
-    fin = uproot.open('histos/'+path+'/ttx_multileptons-'+fname+'.root')
-    card = strip('histos/'+path+'/ttx_multileptons-'+fname+'.txt')
+    fin = uproot.open('histos/'+path+'/2lss_fwd/ttx_multileptons-'+fname+'.root')
+    card = strip('histos/'+path+'/2lss_fwd/ttx_multileptons-'+fname+'.txt')
     sm = [k.split(';')[0] for k in fin.keys() if 'sm' in k]
 
     nom = {}; up = {}; down = {}
@@ -77,14 +84,12 @@ if __name__ == '__main__':
     from topcoffea.scripts.make_html import make_html
 
     parser = argparse.ArgumentParser(description='You can select which file to run over')
-    parser.add_argument('--lumiJson', '-l', default='topcoffea/json/lumi.json'    , help = 'Lumi json file')
     parser.add_argument('--years',          default=[], action='extend', nargs='+', help = 'Specify a list of years')
     parser.add_argument('--time', '-t',     action='store_true', help = 'Append time to dir')
     parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
     parser.add_argument('--var',            default='njets', help = 'Specify variable to run over')
 
     args = parser.parse_args()
-    lumiJson = args.lumiJson
     years    = args.years
     var      = args.var
     if var != 'njets':
@@ -92,10 +97,9 @@ if __name__ == '__main__':
     if var == 'ptz':
         files = files_ptz
     if len(years)==0: years = ['2016APV', '2016', '2017', '2018']
-    with open(lumiJson) as jf:
-        lumi = json.load(jf)
-        lumi = lumi
-        lumi = {year : lumi for year,lumi in lumi.items() if year in years}
+    lumi = {}
+    for year in years:
+        lumi[year] = get_tc_param(f"lumi_{year}")
     print(f'Running over: {", ".join(list(lumi.keys()))} (%0.3g fb^-1)' % sum(lumi.values()))
 
     # Make a tmp output directory in curren dir a different dir is not specified
@@ -111,7 +115,7 @@ if __name__ == '__main__':
         print(f'Overwriting contents in {outdir_name}\nUse the `-t` flag to make unique directories')
     save_dir_path = os.path.join(args.output_path,outdir_name)
 
-    fout = 'histos/missing_parton.root'
+    fout = topeft_path('data/missing_parton/missing_parton.root')
     if var == 'njets':
         if not os.path.exists(fout):
             fout = uproot.create(fout)
@@ -122,9 +126,10 @@ if __name__ == '__main__':
         fout = uproot.open(fout)
 
     rename = {'tllq': 'tZq', 'ttZ': 'ttll', 'ttW': 'ttlnu'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
+    rename = {} #Used to rename things like ttZ to ttll and ttHnobb to ttH
     for proc in ['tllq']:
         for fname in files:
-            if var != 'njets': fname += '_' + var
+            fname += '_' + var
             total_private, nom_private, err, bins, label = get_hists(fname, 'private_sm', proc)
             rproc = rename[proc] if proc in rename else proc
             total_central, nom_central, _, _, _ = get_hists(fname, 'central_sm', rproc)
@@ -149,7 +154,7 @@ if __name__ == '__main__':
                 else:
                     if err_high[n]>total_central[n]: parton[n] = 0 # Error larger than central value
                     else: parton[n] = np.sqrt(np.square(total_private[n] - total_central[n]) - np.square(err[1][n]))
-            if var == 'njets': fout[fname] = {proc : parton/total_private}
+            if var == 'njets': fout[fname.replace('njets', '2b')] = {proc : np.nan_to_num(parton/total_private, 0)}
             else:
                 lep_bin = re.sub('_'+var, '', fname)
                 lep_bin = re.sub('_\wj', '', lep_bin)

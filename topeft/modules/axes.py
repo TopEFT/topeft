@@ -57,10 +57,6 @@ info = {
     "photon_eta": { "regular": (15, -1.5, 1.5), "label": "Photon $\eta$"},
     "photon_eta2": { "variable" : [0,0.435,0.783,1.13,1.50], "label": "Photon abs. $\eta$"},
     "nPhoton": {"regular": (7, 0, 7), "label": "Photon multiplicity"},
-    #"photon_relPFchIso": {"regular": (50,0,7), "label": "PF relative ch. had. isolation (GeV)"},
-    #"photon_PFchIso": {"regular": (100,0,15), "label": "PF ch. had. isolation (GeV)"},
-    #"cutBased": {"regular": (6, 0, 6), "label": "$p_{T}$ $\gamma$ (GeV)"},
-    #"pp_mass": {"regular": (60, 0, 600), "label": "$m_{\gamma\gamma}$ (GeV)"},
     "invmass_llgamma": {"regular": (28,60,200), "label": "$m_{\ell\ell\gamma}$ (GeV)"},
     "ht": {
         "regular": (20, 0, 1000),
@@ -87,5 +83,20 @@ info = {
         "regular": (12, 0, 600),
         "variable": [0, 150, 250, 500],
         "label": r"Leading pt of pair from l+j collection (GeV) ",
+    },
+    "ptz_wtau": {
+        "regular": (12, 0, 600),
+        "variable": [0, 150, 250, 500],
+        "label": r"pt of lepton hadronic tau pair (GeV) ",
+    },
+    "tau0pt": {
+        "regular": (12, 0, 600),
+        "variable": [0, 150, 250, 500],
+        "label": r"pt of leading hadronic tau (GeV) ",
+    },
+    "lt": {
+        "regular": (12, 0, 600),
+        "variable": [0,150,250,500],
+        "label": r"Scalar sum of met at leading leptons (GeV)",
     },
 }
