@@ -440,7 +440,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             obj_correction_syst_lst.append("FESDown")
 
         wgt_correction_syst_lst = [
-            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown","phoSFUp","phoSFDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
+            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown", # Theory systs
         ]
         if self.tau_h_analysis:
@@ -450,8 +450,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             wgt_correction_syst_lst.append("lepSF_taus_fakeDown")
 
         data_syst_lst = [
-            "nonpromptPhUp","nonpromptPhDown","FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
+            "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
         ]
+        if self.ttA_analysis:
+            wgt_correction_syst_lst.extend(["phoSFUp","phoSFDown"])
+            data_syst_lst.extend(["nonpromptPhUp","nonpromptPhDown"])
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
