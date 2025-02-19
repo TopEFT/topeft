@@ -245,7 +245,7 @@ if __name__ == '__main__':
     if executor == "work_queue":
         executor_args = {
             'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
-
+            'filepath': f'/scratch365/{os.environ["USER"]}',
             # find a port to run work queue in this range:
             'port': port,
 

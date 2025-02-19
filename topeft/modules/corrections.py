@@ -1124,7 +1124,10 @@ def AttachElectronSF(electrons, year, looseWP=None):
         egm_args = [bintag, eta_flat, pt_bin_flat]
         if "2023" in year:
             egm_args.append(phi_flat)
-
+        print("\n\n\n\n\n\n\n\n")
+        print(*egm_args)
+        print(egm_args)
+        print("\n\n\n\n\n\n\n\n")
         reco_sf_perbin.append(
             ak.where(
                 ~pt_mask,
