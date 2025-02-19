@@ -519,7 +519,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
             years[name] = [axis_name]
     hep.style.use("CMS")
     plt.sca(ax)
-    hep.cms.label(lumi='138')
+    hep.cms.label(lumi='7.9804', com='13.6', fontsize=10.0)
     # Hack for grouping until fixed
     grouping = {proc: [good_proc for good_proc in group[proc] if good_proc in h_mc.axes['process']] for proc in group if any(p in h_mc.axes['process'] for p in group[proc])}
     if group:
@@ -604,7 +604,7 @@ def make_single_fig(histo,unit_norm_bool,axis=None,bins=[],group=[]):
     fig, ax = plt.subplots(1, 1, figsize=(10,10))
     hep.style.use("CMS")
     plt.sca(ax)
-    hep.cms.label(lumi='138')
+    hep.cms.label(lumi='7.9804', com='13.6', fontsize=10.0)
     if axis is None:
         hep.histplot(
             histo.eval({})[()][1:-1],
@@ -625,7 +625,8 @@ def make_single_fig(histo,unit_norm_bool,axis=None,bins=[],group=[]):
                 density=unit_norm_bool,
                 label=axis_name,
             )
-    plt.legend()
+    plt.subplots_adjust(right=0.7)
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     ax.autoscale(axis='y')
     return fig
 
@@ -1158,9 +1159,9 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             CR_GRP_MAP["Nonprompt"].append(proc_name)
         elif "flips" in proc_name:
             CR_GRP_MAP["Flips"].append(proc_name)
-        elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name) or ("TTZToLL_M1to10" in proc_name):
+        elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("TTLL" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name) or ("TTZToLL_M1to10" in proc_name) or ("TTTT" in proc_name) or ("ttLNu" in proc_name):
             CR_GRP_MAP["Signal"].append(proc_name)
-        elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name or "TWZToLL" in proc_name:
+        elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name or "TWZToLL" in proc_name or "TZQB-Zto2L" in proc_name:
             CR_GRP_MAP["Single top"].append(proc_name)
         elif "DY" in proc_name:
             CR_GRP_MAP["DY"].append(proc_name)
@@ -1172,7 +1173,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             CR_GRP_MAP["ZGamma"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             CR_GRP_MAP["Triboson"].append(proc_name)
-        elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
+        elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name or "ZZTo4mu" in proc_name or "ZZTo4tau" in proc_name or "ZZTo4e" in proc_name or "ZZTo2mu2tau" in proc_name or "ZZTo2e2tau" in proc_name or "ZZTo2e2mu" in proc_name:
             CR_GRP_MAP["Diboson"].append(proc_name)
         elif "TWZ" in proc_name:
             CR_GRP_MAP["Diboson"].append(proc_name)
@@ -1206,6 +1207,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         for hist_cat in cr_cat_dict.keys():
             if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The 2los Z category does not require jets (so leading jet plots do not make sense)
             if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The flip category does not require jets (so leading jet plots do not make sense)
+            if (hist_cat == "cr_3l" and ("j0" in var_name)): continue #Having an error with this category 
             print("\n\tCategory:",hist_cat)
 
             # Make a sub dir for this category

@@ -168,6 +168,7 @@ dataset_dict_top22006 = {
             "Mu8_DiEle12_CaloIdL_TrackIdL",
             "Mu8_DiEle12_CaloIdL_TrackIdL_DZ",
             "DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
+        ],
     },
 }
 
@@ -201,58 +202,58 @@ exclude_dict_top22006 = {
         "SingleMuon"     : [],
         "DoubleMuon"     : [],
         "Muon"           : [],
-        "EGamma"         : dataset_dict["2022"]["Muon"] + dataset_dict["2022"]["DoubleMuon"] + dataset_dict["2022"]["SingleMuon"],
-        "MuonEG"         : dataset_dict["2022"]["Muon"] + dataset_dict["2022"]["DoubleMuon"] + dataset_dict["2022"]["SingleMuon"] + dataset_dict["2022"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["DoubleMuon"] + dataset_dict_top22006["2022"]["SingleMuon"],
+        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["DoubleMuon"] + dataset_dict_top22006["2022"]["SingleMuon"] + dataset_dict_top22006    ["2022"]["EGamma"],
     },
     "D": {
         "Muon"     : [],
-        "EGamma"         : dataset_dict["2022"]["Muon"],
-        "MuonEG"         : dataset_dict["2022"]["Muon"] + dataset_dict["2022"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2022"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["EGamma"],
     },
     "E": {
         "Muon"     : [],
-        "EGamma"         : dataset_dict["2022"]["Muon"],
-        "MuonEG"         : dataset_dict["2022"]["Muon"] + dataset_dict["2022"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2022"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["EGamma"],
     },
     "F": {
         "Muon"     : [],
-        "EGamma"         : dataset_dict["2022"]["Muon"],
-        "MuonEG"         : dataset_dict["2022"]["Muon"] + dataset_dict["2022"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2022"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["EGamma"],
     },
     "G": {
         "Muon"     : [],
-        "EGamma"         : dataset_dict["2022"]["Muon"],
-        "MuonEG"         : dataset_dict["2022"]["Muon"] + dataset_dict["2022"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2022"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["EGamma"],
     },
     "C1": {
         "Muon"           : [],
-        "EGamma"         : dataset_dict["2023"]["Muon"],
-        "MuonEG"         : dataset_dict["2023"]["Muon"] + dataset_dict["2023"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2023"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2023"]["Muon"] + dataset_dict_top22006["2023"]["EGamma"],
     },
     "C2": {
         "Muon"           : [],
-        "EGamma"         : dataset_dict["2023"]["Muon"],
-        "MuonEG"         : dataset_dict["2023"]["Muon"] + dataset_dict["2023"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2023"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2023"]["Muon"] + dataset_dict_top22006["2023"]["EGamma"],
     },
     "C3": {
         "Muon"           : [],
-        "EGamma"         : dataset_dict["2023"]["Muon"],
-        "MuonEG"         : dataset_dict["2023"]["Muon"] + dataset_dict["2023"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2023"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2023"]["Muon"] + dataset_dict_top22006["2023"]["EGamma"],
     },
     "C4": {
         "Muon"           : [],
-        "EGamma"         : dataset_dict["2023"]["Muon"],
-        "MuonEG"         : dataset_dict["2023"]["Muon"] + dataset_dict["2023"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2023"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2023"]["Muon"] + dataset_dict_top22006["2023"]["EGamma"],
     },
     "D1": {
         "Muon"           : [],
-        "EGamma"         : dataset_dict["2023"]["Muon"],
-        "MuonEG"         : dataset_dict["2023"]["Muon"] + dataset_dict["2023"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2023"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2023"]["Muon"] + dataset_dict_top22006["2023"]["EGamma"],
     },
     "D2": {
         "Muon"           : [],
-        "EGamma"         : dataset_dict["2023"]["Muon"],
-        "MuonEG"         : dataset_dict["2023"]["Muon"] + dataset_dict["2023"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2023"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2023"]["Muon"] + dataset_dict_top22006["2023"]["EGamma"],
     },
 }
 
@@ -552,30 +553,3 @@ def get_Z_pt(lep_collection,pt_window):
     pt_of_sfosz = pair_pt_with_sfosz_mask[zpeak_idx]
 
     return ak.flatten(pt_of_sfosz)
-
-def get_ll_pt(lep_collection,pt_window):
-
-    ll_pairs = ak.combinations(lep_collection, 2, fields=["l0","l1"])
-    sfos_mask = (ll_pairs.l0.pdgId == -ll_pairs.l1.pdgId)
-    sfosz_mask = ak.fill_none((sfos_mask),False)
-
-    pair_invmass = (ll_pairs.l0 + ll_pairs.l1).mass
-    pair_invmass_with_sfosz_mask = pair_invmass[sfosz_mask]
-    pair_pt = (ll_pairs.l0 + ll_pairs.l1).pt
-    pair_pt_with_sfosz_mask = pair_pt[sfosz_mask]
-
-    zpeak_idx = ak.argmin(abs(pair_invmass_with_sfosz_mask - 91.2),keepdims=True,axis=1)
-    pt_of_sfosz = pair_pt_with_sfosz_mask[zpeak_idx]
-
-    return ak.flatten(pt_of_sfosz)
-
-def lt_Z_mask(lep0, lep1, tau, pt_window):
-    sfosz_l0t_mask = ((lep0.pdgId/abs(lep0.pdgId)) == tau.charge)
-    zpeak_mask0 = (abs((lep0+tau).mass - 70.0)<20.0)
-    sfosz_l1t_mask = ((lep1.pdgId/abs(lep1.pdgId)) == tau.charge)
-    zpeak_mask1 = (abs((lep1+tau).mass - 70.0)<15.0)
-    sfosz_mask0 = (sfosz_l0t_mask & zpeak_mask0)
-    sfosz_mask1 = (sfosz_l1t_mask & zpeak_mask1)
-    sfosz_mask = (sfosz_mask0 | sfosz_mask1)
-
-    return sfosz_mask
