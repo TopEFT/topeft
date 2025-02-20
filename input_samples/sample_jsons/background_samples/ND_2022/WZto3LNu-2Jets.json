@@ -1,0 +1,29 @@
+{
+  "xsec": 0.0592,
+  "year": "2022",
+  "treeName": "Events",
+  "histAxisName": "WZto3LNu-2Jets_central2022",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/Run3Summer22NanoAODv12/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/2520000/39d0f3a8-6e64-4140-b7d0-334e436ef822.root",
+    "/store/mc/Run3Summer22NanoAODv12/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/2520000/5151282a-902c-4740-8dcf-9d7b48d302f1.root",
+    "/store/mc/Run3Summer22NanoAODv12/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/2520000/88748c55-8e22-40c4-8aa6-5d4b7865f709.root",
+    "/store/mc/Run3Summer22NanoAODv12/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/2520000/fe07c9de-054a-4333-8582-b21fb87beb18.root"
+  ],
+  "nEvents": 98630,
+  "nGenEvents": 98630,
+  "nSumOfWeights": 98630.0,
+  "isData": false,
+  "path": "/store/mc/Run3Summer22NanoAODv12/WZto3LNu-2Jets_EW_TuneCP5_13p6TeV_madgraph-madspin-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2",
+  "nSumOfWeights_ISRUp": 98628.96638020291,
+  "nSumOfWeights_ISRDown": 98592.42931829795,
+  "nSumOfWeights_FSRUp": 98748.09550094604,
+  "nSumOfWeights_FSRDown": 98381.50917816162,
+  "nSumOfWeights_renormUp": 98630.0,
+  "nSumOfWeights_renormDown": 98630.0,
+  "nSumOfWeights_factUp": 100446.79574584961,
+  "nSumOfWeights_factDown": 94880.59415817261,
+  "nSumOfWeights_renormDown_factUp": 100446.79574584961,
+  "nSumOfWeights_renormUp_factDown": 94880.59415817261
+}
