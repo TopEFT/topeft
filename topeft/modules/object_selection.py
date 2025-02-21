@@ -222,8 +222,11 @@ class run3leptonselection:
         return ptReq & btagReq & mvaReq
 
     def tightSelElec(self, ele):
+        #return (ele.isFO) & (ele.mvaTTH_Run3 > get_te_param("mva_TTH_e_cut_run3")) #original cut from Sergio
         return ((ele.isFO) & (ele.miniPFRelIso_all<0.1))
+    
     def tightSelMuon(self, muo):
+        #return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTH_Run3 > get_te_param("mva_TTH_m_cut_run3")) #original cut from Sergio
         return ((muo.isFO) & (muo.mediumId>0) & (muo.miniPFRelIso_all<0.1))
 
 def isClean(obj_A, obj_B, drmin=0.4):
