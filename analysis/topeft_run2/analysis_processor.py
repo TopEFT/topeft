@@ -505,7 +505,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Event weights that do not depend on the lep cat ##########
 
-            if not isData:
+            if not isData and is_run2:
                 # Workaround to use UL16APV SFs for UL16 for light jets
                 if year == "2016":
                     year_light = "2016APV"
@@ -583,6 +583,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Trigger SFs
                 GetTriggerSF(year,events,l0,l1)
                 weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+            elif is_run3: #to finalize after Wynona's study
+                btag_w = ak.ones_like(events.MET.pt)
+                weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
+                for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
+                    btag_w_up = ak.ones_like(events.MET.pt)
+                    btag_w_down = ak.ones_like(events.MET.pt)
+                    weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
 
 
             ######### Event weights that do depend on the lep cat ###########
