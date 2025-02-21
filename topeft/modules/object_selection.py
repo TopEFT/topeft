@@ -205,17 +205,20 @@ class run3leptonselection:
         return (muon.miniPFRelIso_all<get_te_param("iso_cut")) & (muon.sip3d<get_te_param("sip3d_cut")) & (muon.mediumId)
 
     def isFOElec(self, ele, year):
-        bTagCut=get_medium_btag_foryear(year)
-        btabReq    = (ele.btagDeepFlavB<bTagCut)
+        bTagCut    = get_medium_btag_foryear(year)
+        btagReq    = (ele.btagDeepFlavB<bTagCut)
         ptReq      = (ele.conept>get_te_param("fo_pt_cut"))
         qualityReq = (ele.idEmu & ele.convVeto & (ele.lostHits==0))
         mvaReq     = (((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3"))  & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
-
+        #mvaReq     = ((ele.mvaTTH_Run3>get_te_param("mva_TTH_e_cut_run3")) | ((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3"))  & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut")))) ##original cut from Sergio
+        return ptReq & btagReq & qualityReq & mvaReq
+        
     def isFOMuon(self, muo, year):
         bTagCut=get_medium_btag_foryear(year)
         btagReq = (muo.btagDeepFlavB<bTagCut)
         ptReq   = (muo.conept>get_te_param("fo_pt_cut"))
         mvaReq  = (((muo.btagDeepFlavB<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45))))
+        #mvaReq  = ((muo.mvaTTH_Run3>get_te_param("mva_TTH_m_cut_run3")) | ((muo.jetBTagDeepFlav<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45)))) #original cut from Sergio
         return ptReq & btagReq & mvaReq
 
     def tightSelElec(self, ele):
