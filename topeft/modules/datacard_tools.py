@@ -7,7 +7,7 @@ import hist
 import os
 import re
 import json
-import yaml 
+import yaml
 import time
 
 from collections import defaultdict
