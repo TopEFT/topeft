@@ -7,6 +7,7 @@ import hist
 import os
 import re
 import json
+import yaml
 import time
 
 from collections import defaultdict
@@ -305,6 +306,30 @@ class DatacardMaker():
         # get wc ranges from json
         with open(topeft_path("params/wc_ranges.json"), "r") as wc_ranges_json:
             self.wc_ranges = json.load(wc_ranges_json)
+
+        with open(topeft_path("params/SMEFTsim-topU3l_dim6top.yml")) as f:
+            self.rotate = yaml.load(f,Loader=yaml.CLoader)
+
+        for k,v in self.rotate.items():
+            if isinstance(v, str):
+                if "CW" in v or "SW" in v:
+                    v = eval(v.replace("{CW}", str(self.rotate["CW"])).replace("{SW}", str(self.rotate["SW"])))
+                    self.rotate[k] = v
+            elif isinstance(v, list):
+                for i,vv in enumerate(v):
+                    if "CW" in vv or "SW" in vv:
+                        v[i] = vv.replace("{CW}", str(self.rotate["CW"])).replace("{SW}", str(self.rotate["SW"]))
+                wcs = {}
+                for wc in v[1]:
+                    lo,hi = self.wc_ranges[wc]
+                    wcs[wc] = f"{wc}[0,{lo},{hi}]"
+                v = v[0]
+                v = v.format(**wcs)
+                self.rotate[k] = v
+            if isinstance(v, str) and v in self.wc_ranges:
+                lo,hi = self.wc_ranges[v]
+                v = v.replace(v,f"{v}[0,{lo},{hi}]")
+                self.rotate[k] = v
 
         if self.year_lst:
             for yr in self.year_lst:
@@ -788,6 +813,8 @@ class DatacardMaker():
         return scalings_json
 
     def format_wc(self,wcname):
+        if wcname in self.rotate:
+            return self.rotate[wcname]
         lo, hi = self.wc_ranges[wcname]
         return "%s[0,%.1f,%.1f]" % (wcname, lo, hi)
 
