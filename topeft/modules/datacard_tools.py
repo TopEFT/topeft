@@ -326,7 +326,8 @@ class DatacardMaker():
                 v = v[0]
                 self.rotate[k] = v
             if isinstance(v, str) and v in self.wc_ranges:
-                v = v.replace(v, v+"[0, " + str(self.wc_ranges[v][0]) + ", " + str(self.wc_ranges[v][1]) + "]")
+                lo,hi = self.wc_ranges[v]
+                v = v.replace(v,f"{v}[0,{lo},{hi}]")
                 self.rotate[k] = v
 
         if self.year_lst:
