@@ -319,10 +319,11 @@ class DatacardMaker():
                 for i,vv in enumerate(v):
                     if "CW" in vv or "SW" in vv:
                         v[i] = vv.replace("{CW}", str(self.rotate["CW"])).replace("{SW}", str(self.rotate["SW"]))
-                wcs = v[1]
-                v   = v[0]
-                wcs = {wc: wc+"[0, " + str(self.wc_ranges[wc][0]) + ", " + str(self.wc_ranges[wc][1]) + "]" for wc in wcs}
-                v = v.format(**wcs)
+                wcs = {}
+                for wc in v[1]:
+                    lo,hi = self.wc_ranges[wc]
+                    wcs[wc] = f"{wc}[0,{lo},{hi}]"
+                v = v[0]
                 self.rotate[k] = v
             if isinstance(v, str) and v in self.wc_ranges:
                 v = v.replace(v, v+"[0, " + str(self.wc_ranges[v][0]) + ", " + str(self.wc_ranges[v][1]) + "]")
