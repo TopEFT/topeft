@@ -324,6 +324,7 @@ class DatacardMaker():
                     lo,hi = self.wc_ranges[wc]
                     wcs[wc] = f"{wc}[0,{lo},{hi}]"
                 v = v[0]
+                v = v.format(**wcs)
                 self.rotate[k] = v
             if isinstance(v, str) and v in self.wc_ranges:
                 lo,hi = self.wc_ranges[v]
