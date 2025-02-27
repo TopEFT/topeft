@@ -15,7 +15,7 @@
 
 # ctG relative minus sign
 "ctGRe": ["expr::ctGRe('-1 * @0', {ctG})", ["ctG"]]
-"ctGIm": ["expr::ctGIm('-1 * @0', {ctG})", ["ctG"]]
+"ctGIm": ["expr::ctGIm('-1 * @0', {ctG})", ["ctGI"]]
 
 # ctW,ctB <-> ctW,ctZ
 "ctWRe": ["expr::ctWRe('-1 * @0', {ctW})", ["ctW"]]
