@@ -808,6 +808,54 @@
                 ">4"
             ]
         },
+        "2los_of_ph": {
+            "lep_chan_lst": [
+                [
+                    "2los_of_ph",
+                    "2los",
+                    "exactly_1ph",
+                    "bmask_atleast1med"
+                ]
+            ],
+            "lep_flav_lst": [
+                "ee",
+                "em",
+                "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lOS"
+            ],
+            "jet_lst": [
+                "=1",
+                "=2",
+                "=3",
+                ">4"
+            ]
+        },
+        "2los_sf_ph": {
+            "lep_chan_lst": [
+                [
+                    "2los_sf_ph",
+                    "2los",
+                    "exactly_1ph",
+                    "bmask_atleast1med"
+                ]
+            ],
+            "lep_flav_lst": [
+                "ee",
+                "em",
+                "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lOS"
+            ],
+            "jet_lst": [
+                "=1",
+                "=2",
+                "=3",
+                ">4"
+            ]
+        },
         "2los_ph_CR_sf_Zg": {
             "lep_chan_lst": [
                 [
