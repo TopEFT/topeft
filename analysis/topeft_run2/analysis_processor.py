@@ -816,6 +816,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("2l_onZ_as", sfasz_2l_mask)
             preselections.add("2l_onZ", sfosz_2l_mask)
             preselections.add("bmask_atleast3m", (bmask_atleast3med))
+            preselections.add("bmask_atleast0med", (bmask_atleast0med))
             preselections.add("bmask_atleast1med", (bmask_atleast1med))
             preselections.add("bmask_atleast1m2l", (bmask_atleast1med_atleast2loose))
             preselections.add("bmask_atmost2m", (bmask_atmost2med))
