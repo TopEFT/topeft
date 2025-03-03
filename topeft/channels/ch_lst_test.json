@@ -811,8 +811,8 @@
         "2los_ph_CR_sf_Zg": {
             "lep_chan_lst": [
                 [
-                    "2los_sf_Zg_CR",
-                    "2los_sf_Zg_CR",
+                    "2los_ph_CR_sf_Zg",
+                    "2los_ph_CR_sf_Zg",
                     "bmask_atleast0med"
                 ]
             ],
