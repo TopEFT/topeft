@@ -812,7 +812,7 @@
             "lep_chan_lst": [
                 [
                     "2los_of_ph",
-                    "2los",
+                    "2los_of_ph",
                     "exactly_1ph",
                     "bmask_atleast1med"
                 ]
@@ -836,7 +836,7 @@
             "lep_chan_lst": [
                 [
                     "2los_sf_ph",
-                    "2los",
+                    "2los_sf_ph",
                     "exactly_1ph",
                     "bmask_atleast1med"
                 ]
@@ -861,7 +861,7 @@
                 [
                     "2los_ph_CR_sf_Zg",
                     "2los_ph_CR_sf_Zg",
-                    "bmask_atleast0med"
+                    "bmask_atleast1med"
                 ]
             ],
             "lep_flav_lst": [
