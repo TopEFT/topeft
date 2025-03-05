@@ -1093,8 +1093,8 @@ class DatacardMaker():
                             njet_offset = 4
                             ch_key = f"{ch_key}_{num_b}b"
                         elif num_l == 2.1:
-                             njet_offset = 1
-                             ch_key = "2lss_m_2b"   #CAUTION: Temporary! Fix this later!
+                            njet_offset = 1
+                            ch_key = "2lss_m_2b"   #CAUTION: Temporary! Fix this later!
                         elif num_l == 3:
                             njet_offset = 2
                             if "_onZ" in ch:
