@@ -98,8 +98,7 @@ class DataDrivenProducer:
                         else:
                             newhist += hFlips
 
-
-                    elif "isAR_2lSS"==ident:
+                    elif ident in ["isAR_2lSS","isAR_3l","isAR_2lOS_medph"]:
                         # if we are in the nonprompt application region, we also integrate the application region axis
                         # and construct the new process 'nonprompt'
                         # we look at data only, and rename it to fakes
@@ -133,15 +132,20 @@ class DataDrivenProducer:
                         if not key.endswith("_sumw2"):
                             hPromptSub.scale(-1)
                         hFakes += hPromptSub
+
+                        #Also make sure to remove nonpromptPh systematic uncertainty (if it exists) from hFakes cause it is not relevant
+                        hFakes = hFakes.remove("systematic",["nonpromptPhUp","nonpromptPhDown"])
+
                         # now adding them to the list of processes:
                         if newhist==None:
                             newhist=hFakes
                         else:
                             newhist += hFakes
 
-                    #isAR_B_ABCD is the regular AR using which we estimate non-prompt photon in our signal region A
-                    #isAR_R_LRCD is the "AR" corresponding to the "SR" L in the ABCD closure test
-                    elif ident in ["isAR_R_LRCD", "isAR_B_ABCD"] and self.do_np_ph:
+                    #isAR_2lOS_ph is the regular AR using which we estimate non-prompt photon in our signal region A
+                    #isAR_R_LRCD is the "AR" corresponding to the "SR" L in the LRCD closure test
+                    elif ident in ["isAR_2lOS_ph", "isAR_B_ABCD"] and self.do_np_ph:
+                        print(f"\n\nWe are inside {ident} appl axis and we will do nonprompt photon estimation here")
                         newDataDict=defaultdict(list); newNonDataDict=defaultdict(list)
                         for process in hAR.axes['process']:
                             match = pattern.search(process)

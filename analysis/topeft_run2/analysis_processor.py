@@ -687,7 +687,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
                 if ch_name.startswith("2l"):
-                    if "_ph" in ch_name:
+                    if self.ttA_analysis and "_ph" in ch_name:
                         weights_dict[ch_name].add("nonpromptPh", events.nom, copy.deepcopy(events.np_ph_up), copy.deepcopy(events.np_ph_down))
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
                     weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
@@ -940,8 +940,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0)
             selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0)
             if self.ttA_analysis:
-                selections.add("isSR_A_ABCD",  ( events.is2l_SR) & charge2l_0 & events.isSR_ph)
-                selections.add("isAR_B_ABCD",  ( events.is2l_SR) & charge2l_0 & events.isAR_ph)
+                selections.add("isSR_2lOS_ph",  ( events.is2l_SR) & charge2l_0 & events.isSR_ph)
+                selections.add("isAR_2lOS_ph",  ( events.is2l_SR) & charge2l_0 & events.isAR_ph)
+                selections.add("isAR_2lOS_medph",    (~events.is2l_SR) & charge2l_0 & events.isSR_ph)
 
             selections.add("isSR_3l",  events.is3l_SR)
             selections.add("isAR_3l", ~events.is3l_SR)
@@ -1142,6 +1143,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                     for nlep_cat in cat_dict.keys():
                         # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                         # Need to do this inside of nlep cat loop since some wgts depend on lep cat
+                        #Let's first make sure that we strip off that are not relevant to some lepton categories
+                        if "_ph" not in nlep_cat and wgt_fluct in ['nonpromptPhUp','nonpromptPhDown']: continue
                         weights_object = weights_dict[nlep_cat]
                         if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                             # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
@@ -1161,7 +1164,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                                 if weights_object.variations != set([]): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{[]}\" but have \"{weights_object.variations}\".")
                             # In all other cases, the up/down variations should correspond to only the ones in the data list
                             else:
-                                if weights_object.variations != set(data_syst_lst): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst)}\" but have \"{weights_object.variations}\".")
+                                #if the lepton category is not photon related, we need to edit data_syst_lst
+                                if "_ph" not in nlep_cat:
+                                    data_syst_lst_non_photon = [syst for syst in data_syst_lst if syst not in ['nonpromptPhUp', 'nonpromptPhDown']]
+                                    if weights_object.variations != set(data_syst_lst_non_photon): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst_non_photon)}\" but have \"{weights_object.variations}\".")
+                                else:
+                                    if weights_object.variations != set(data_syst_lst): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst)}\" but have \"{weights_object.variations}\".")
 
                         # Get a mask for events that pass any of the njet requiremens in this nlep cat
                         # Useful in cases like njets hist where we don't store njets in a sparse axis
@@ -1177,7 +1185,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                 if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
 
                                 # We only want the photon fakerate weight if we are considering the AR with explicit photon requirement
-                                if appl == "isAR_B_ABCD": weight_tmp = weight_tmp * events.fakerate_ph_val
+                                if appl == "isAR_2lOS_ph": weight_tmp = weight_tmp * events.fakerate_ph_val
 
                                 # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
                                 for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
@@ -1231,8 +1239,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                 #also note that we need to pass "weight" here and not "weight_tmp" because we don't want the photons be weighed by fakerate
                                                 if "ph" not in ch_name: continue
 
-                                                no_eft_weight = weight
                                                 #This is needed because SparseHist doesn't handle EFT weights and so what we have to do is evaluate at SM point first and then modify the event weight
+                                                no_eft_weight = weight
                                                 if eft_coeffs is not None:
                                                     wc_vals = np.zeros(len(max(self._samples[dataset]["WCnames"], self._wc_names_lst, key=len)))
                                                     eft_wgt_array_at_zero_wc_vals = efth.calc_eft_weights(eft_coeffs,wc_vals)

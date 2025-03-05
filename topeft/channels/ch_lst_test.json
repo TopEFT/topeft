@@ -784,30 +784,6 @@
         }
     },
     "TTA_CH_LST_SR": {
-        "2los_ph": {
-            "lep_chan_lst": [
-                [
-                    "2los_ph",
-                    "2los",
-                    "exactly_1ph",
-                    "bmask_atleast1med"
-                ]
-            ],
-            "lep_flav_lst": [
-                "ee",
-                "em",
-                "mm"
-            ],
-            "appl_lst": [
-                "isSR_2lOS"
-            ],
-            "jet_lst": [
-                "=1",
-                "=2",
-                "=3",
-                ">4"
-            ]
-        },
         "2los_of_ph": {
             "lep_chan_lst": [
                 [
@@ -821,7 +797,9 @@
                 "em"
             ],
             "appl_lst": [
-                "isSR_2lOS", "isSR_A_ABCD", "isAR_B_ABCD"
+                "isSR_2lOS_ph",
+                "isAR_2lOS_ph",
+                "isAR_2lOS_medph"
             ],
             "jet_lst": [
                 "=1",
@@ -844,7 +822,9 @@
                 "mm"
             ],
             "appl_lst": [
-                "isSR_2lOS", "isSR_A_ABCD", "isAR_B_ABCD"
+                "isSR_2lOS_ph",
+                "isAR_2lOS_ph",
+                "isAR_2lOS_medph"
             ],
             "jet_lst": [
                 "=1",
@@ -866,9 +846,9 @@
                 "mm"
             ],
             "appl_lst": [
-                "isSR_A_ABCD",
-                "isAR_B_ABCD",
-                "isAR_2lOS"
+                "isSR_2lOS_ph",
+                "isAR_2lOS_ph",
+                "isAR_2lOS_medph"
             ],
             "jet_lst": [
                 "=1",
