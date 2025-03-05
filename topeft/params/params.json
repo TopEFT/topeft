@@ -104,6 +104,7 @@
         "ST_antitop_t-channel_central",
         "ST_top_s-channel_central",
         "ST_top_t-channel_central",
+        "ST_TWGToLL_central",
         "tW_central",
         "tbarW_central",
         "DY10to50_central",
