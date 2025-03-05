@@ -120,7 +120,9 @@ class MissingParton(RateSystematic):
         "3l_p_offZ_2b": "3l2b_p",
         "3l_m_offZ_2b": "3l2b_m",
         "4l_2b": "4l",
-        "2los_ph_CR_sf_Zg": "2lss_4t_p_2b",  #CAUTION: temporary
+        "2los_ph_CR_sf_Zg": "2lss_m_2b",  #CAUTION: temporary
+        "2los_sf_ph": "2lss_m_2b", #CAUTION: temporary
+        "2los_of_ph": "2lss_m_2b", #CAUTION: temporary
     }
 
     def __init__(self,name,**kwargs):
@@ -149,7 +151,7 @@ class DatacardMaker():
             "ZZZ_",
         ],
         "tWZ": ["TWZToLL_"],
-        "convs": ["TTGamma_"],
+        #"convs": ["TTGamma_"],
         "fakes": ["nonprompt"],
         "fakePh": ["nonpromptPh"],
         "charge_flips_": ["flips"],
@@ -163,7 +165,7 @@ class DatacardMaker():
             "TTTo2L2Nu_",
         ],
         "ttlnu_": ["ttlnuJet_"],
-        "ttA_": ["TTGamma_dilept_"],
+        "ttA_": ["TTGamma_Dilept_","TTGamma_"],
     }
 
     # Controls how we rebin the dense axis of the corresponding distribution
@@ -246,7 +248,7 @@ class DatacardMaker():
             For the regular expression, group 1 matches 'njet_bjet', group 2 matches 'bjet_njet'
             group 3 matches '_njet'.
         """
-        rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[2-7]j)|(_[2-7]j$)")
+        rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[2-7]j)|(_[1-7]j$)")
 
         m = rgx.search(s)
         if m.group(1) and m.group(2) is None and m.group(3) is None:
@@ -855,7 +857,7 @@ class DatacardMaker():
                 # TODO This is a hack for now, track this upstream
                 if 'fakes' in p and '4l' in ch:
                     continue
-                if 'nonpromptPh' in p and '_ph' not in ch:
+                if 'fakePh' in p and '_ph' not in ch:
                     continue
                 proc_hist = ch_hist.integrate("process",[p])
                 proc_sumw2 = ch_sumw2 if ch_sumw2 is None else ch_sumw2.integrate("process",[p])
@@ -905,6 +907,14 @@ class DatacardMaker():
                                 raise Warning("Systematics Error arr[0]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
                             if check_zero_arr1 and sum(arr[1]) != 0:
                                 raise Warning("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
+
+                        #CAUTION: Not sure if we want this to be permanent. Employing this hack to handle bins with 0 sum
+                        if not check_zero_arr0 and sum(arr[0]) == 0:
+                            arr[0] = np.ones_like(arr[0]) * 0.01
+                            print("Systematics Error arr[0]:Zero values in '%s' but non-zero in 'nominal'" % (syst))
+                        if not check_zero_arr1 and sum(arr[1]) == 0:
+                            arr[1] = np.ones_like(arr[1]) * 0.01
+                            print("Systematics Error arr[1]:Zero values in '%s' but non-zero in 'nominal'" % (syst))
 
                         sum_arr = sum(arr[0])
                         if sum_arr == 0: continue #TODO find a more elegant solution
@@ -1082,9 +1092,9 @@ class DatacardMaker():
                         if num_l == 2:
                             njet_offset = 4
                             ch_key = f"{ch_key}_{num_b}b"
-                        #elif num_l == 2.1:
-                        #    #FIXME skipping 2los 3j for now
-                        #    continue
+                        elif num_l == 2.1:
+                             njet_offset = 1
+                             ch_key = "2lss_m_2b"   #CAUTION: Temporary! Fix this later!
                         elif num_l == 3:
                             njet_offset = 2
                             if "_onZ" in ch:
