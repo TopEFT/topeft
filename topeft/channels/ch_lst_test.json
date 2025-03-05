@@ -818,12 +818,10 @@
                 ]
             ],
             "lep_flav_lst": [
-                "ee",
-                "em",
-                "mm"
+                "em"
             ],
             "appl_lst": [
-                "isSR_2lOS"
+                "isSR_2lOS", "isSR_A_ABCD", "isAR_B_ABCD"
             ],
             "jet_lst": [
                 "=1",
@@ -843,11 +841,10 @@
             ],
             "lep_flav_lst": [
                 "ee",
-                "em",
                 "mm"
             ],
             "appl_lst": [
-                "isSR_2lOS"
+                "isSR_2lOS", "isSR_A_ABCD", "isAR_B_ABCD"
             ],
             "jet_lst": [
                 "=1",
