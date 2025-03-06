@@ -1,6 +1,6 @@
 info = {
     "invmass": {
-        "regular": (20, 0, 1000),
+        "regular": (50, 0, 1000),
         "label": r"$m_{\ell\ell}$ (GeV) ",
     },
     "ptbl": {
@@ -22,18 +22,37 @@ info = {
         },
         "label": r"Jet multiplicity ",
     },
-    "nbtagsl": {"regular": (5, 0, 5), "label": r"Loose btag multiplicity "},
+    "nbtagsl": {
+        "regular": (5, 0, 5),
+        "label": r"Loose btag multiplicity "},
     "l0pt": {
-        "regular": (10, 0, 500),
-        "variable": [0, 50, 100, 200],
+        "regular": (50, 0, 500),
         "label": r"Leading lep $p_{T}$ (GeV) ",
     },
-    "l1pt": {"regular": (10, 0, 100), "label": r"Subleading lep $p_{T}$ (GeV) "},
-    "l1eta": {"regular": (20, -2.5, 2.5), "label": r"Subleading $\eta$ "},
-    "j0pt": {"regular": (10, 0, 500), "label": r"Leading jet  $p_{T}$ (GeV) "},
-    "b0pt": {"regular": (10, 0, 500), "label": r"Leading b jet  $p_{T}$ (GeV) "},
-    "l0eta": {"regular": (20, -2.5, 2.5), "label": r"Leading lep $\eta$ "},
-    "j0eta": {"regular": (30, -3, 3), "label": r"Leading jet  $\eta$ "},
+    "l1pt": {
+        "regular": (10, 0, 100),
+        "label": r"Subleading lep $p_{T}$ (GeV) "
+    },
+    "l1eta": {
+        "regular": (20, -2.5, 2.5),
+        "label": r"Subleading $\eta$ "
+    },
+    "j0pt": {
+        "regular": (10, 0, 500),
+        "label": r"Leading jet  $p_{T}$ (GeV) "
+    },
+    "b0pt": {
+        "regular": (10, 0, 500),
+        "label": r"Leading b jet  $p_{T}$ (GeV) "
+    },
+    "l0eta": {
+        "regular": (20, -2.5, 2.5),
+        "label": r"Leading lep $\eta$ "
+    },
+    "j0eta": {
+        "regular": (30, -3, 3),
+        "label": r"Leading jet  $\eta$ "
+    },
     "ht": {
         "regular": (20, 0, 1000),
         "variable": [0, 300, 500, 800],
