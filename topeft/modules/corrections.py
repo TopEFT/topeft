@@ -40,8 +40,8 @@ clib_year_map = {
     "2018": "2018_UL",
     "2022": "2022_Summer22",
     "2022EE": "2022_Summer22EE",
-    "2023": "2022_Summer23",
-    "2023BPix": "2022_Summer23BPix",
+    "2023": "2023_Summer23",
+    "2023BPix": "2023_Summer23BPix",
 }
 
 egm_tag_map = {
@@ -51,8 +51,8 @@ egm_tag_map = {
     "2018_UL": "2018",
     "2022_Summer22": "2022Re-recoBCD",
     "2022_Summer22EE": "2022Re-recoE+PromptFG",
-    "2022_Summer23": "2023PromptC",
-    "2022_Summer23BPix": "2023PromptD",
+    "2023_Summer23": "2023PromptC",
+    "2023_Summer23BPix": "2023PromptD",
 }
 
 egm_pt_bins = {
@@ -956,8 +956,21 @@ def AttachMuonSF(muons, year):
     json_path = topcoffea_path(f"data/POG/MUO/{clib_year}/muon_Z.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
 
+    '''
+    #clib integration of the lepMVA Run3 SFs
+    if year.startswith("2022"):
+        lepmva_json_path = topeft_path(f"data/lepMVASF/leptonSF_{year}.json.gz")
+    elif year.startswith("2023"):
+        lepmva_json_path = topeft_path(f"data/lepMVASF/muon_mvaTTH_{year}.json.gz")
+    else:
+        raise ValueError(f"{year} is not supported for the lepMVA SFs.")
+    lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
+    '''
+    
     pt_flat = ak.flatten(pt)
     abseta_flat = ak.flatten(eta)
+    pdgid_flat = ak.flatten(muons.pdgId)
+    
     pt_mask = ak.flatten((pt >= 15))
     pt_mask_reco = ak.flatten((pt >= 40))
     pt_flat_reco = ak.where(~pt_mask_reco, 40., pt_flat)
@@ -1022,6 +1035,42 @@ def AttachMuonSF(muons, year):
         loose_up = loose_sf + loose_err
         loose_do = loose_sf - loose_err
 
+        '''
+        #lep mva SFs in clib format
+        pt_lepmva_mask = ak.flatten((pt >= 15.0))
+        pt_lepmva_flat = ak.where(~pt_lepmva_mask, 15.0, pt_flat)
+
+        if year.startswith("2022"):
+            muo_tag  = "mu_allflavor"
+            lepmva_vals_nom= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "", pdgid_flat)
+            lepmva_vals_up= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "_muup", pdgid_flat)
+            lepmva_vals_down= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "_mudo", pdgid_flat)
+        elif year.startswith("2023"):
+            muo_tag = "NUM_TightmvaTTH_DEN_LooseMuons"
+            lepmva_vals_nom = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "nominal")
+            lepmva_vals_up = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "systup")
+            lepmva_vals_down = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "systdown")
+
+        new_sf_flat = ak.where(
+            ~pt_lepmva_mask,
+            1,
+            lepmva_vals_nom,
+        )
+        new_up_flat = ak.where(
+            ~pt_lepmva_mask,
+            1,
+            lepmva_vals_up,
+        )
+        new_do_flat = ak.where(
+            ~pt_lepmva_mask,
+            1,
+            lepmva_vals_down,
+        )
+        new_sf = ak.unflatten(new_sf_flat, ak.num(pt))
+        new_up = ak.unflatten(new_up_flat, ak.num(pt))
+        new_do = ak.unflatten(new_do_flat, ak.num(pt))
+        '''
+        
         ##Not available yet for Run3
         #reco_loose_sf_flat = ak.where(
         #    ~pt_mask,
@@ -1076,6 +1125,7 @@ def AttachElectronSF(electrons, year, looseWP=None):
     eta = electrons.eta
     pt = electrons.pt
     phi = electrons.phi
+    pdgid = abs(electrons.pdgId)
 
     #initializing the sf and up/down array to 1, so they are fixed to unit values if the a given SF is not available yet
     ## Run2 and Run3
@@ -1085,7 +1135,6 @@ def AttachElectronSF(electrons, year, looseWP=None):
     loose_sf = ak.ones_like(pt)
     loose_up = ak.ones_like(pt)
     loose_do = ak.ones_like(pt)
-    ## Only Run2 for now
     new_sf_2l = ak.ones_like(pt)
     new_up_2l = ak.ones_like(pt)
     new_do_2l = ak.ones_like(pt)
@@ -1103,10 +1152,22 @@ def AttachElectronSF(electrons, year, looseWP=None):
     json_path = topcoffea_path(f"data/POG/EGM/{clib_year}/electron.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
 
-    eta_flat = ak.flatten(eta)
-    pt_flat = ak.flatten(pt)
-    phi_flat = ak.flatten(phi)
-
+    '''
+    #clib integration of the lepMVA Run3 SFs
+    if year.startswith("2022"):
+        lepmva_json_path = topeft_path(f"data/lepMVASF/leptonSF_{year}.json.gz")
+    elif year.startswith("2023"):
+        lepmva_json_path = topeft_path(f"data/lepMVASF/electron_mvaTTH_{year}.json.gz")
+    else:
+        raise ValueError(f"{year} is not supported for the lepMVA SFs.")
+    lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
+    '''
+    
+    eta_flat   = ak.flatten(eta)
+    pt_flat    = ak.flatten(pt)
+    phi_flat   = ak.flatten(phi)
+    pdgid_flat = ak.flatten(pdgid)
+    
     pt_bins = egm_pt_bins[dt_era]
 
     reco_sf_perbin = []
@@ -1124,10 +1185,6 @@ def AttachElectronSF(electrons, year, looseWP=None):
         egm_args = [bintag, eta_flat, pt_bin_flat]
         if "2023" in year:
             egm_args.append(phi_flat)
-        print("\n\n\n\n\n\n\n\n")
-        print(*egm_args)
-        print(egm_args)
-        print("\n\n\n\n\n\n\n\n")
         reco_sf_perbin.append(
             ak.where(
                 ~pt_mask,
@@ -1202,6 +1259,43 @@ def AttachElectronSF(electrons, year, looseWP=None):
             loose_sf = ak.ones_like(reco_sf)
             loose_up = ak.ones_like(reco_sf)
             loose_do = ak.ones_like(reco_sf)
+
+        '''
+        #lep mva SFs in clib format
+        pt_lepmva_mask = ak.flatten((pt >= 15.0))
+        pt_lepmva_flat = ak.where(~pt_lepmva_mask, 15.0, pt_flat)
+
+        if year.startswith("2022"):
+            egm_tag  = "el_allflavor"
+            lepmva_vals_nom= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "", pdgid_flat)
+            lepmva_vals_up= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "_elup", pdgid_flat)
+            lepmva_vals_down= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "_eldo", pdgid_flat)
+        elif year.startswith("2023"):
+            egm_tag = "NUM_TightmvaTTH_DEN_LooseElectrons"
+            lepmva_vals_nom = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "nominal")
+            lepmva_vals_up = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "systup")
+            lepmva_vals_down = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "systdown")
+
+        new_sf_flat = ak.where(
+            ~pt_lepmva_mask,
+            1,
+            lepmva_vals_nom,
+        )
+        new_up_flat = ak.where(
+            ~pt_lepmva_mask,
+            1,
+            lepmva_vals_up,
+        )
+        new_do_flat = ak.where(
+            ~pt_lepmva_mask,
+            1,
+            lepmva_vals_down,
+        )
+        new_sf = ak.unflatten(new_sf_flat, ak.num(pt))
+        new_up = ak.unflatten(new_up_flat, ak.num(pt))
+        new_do = ak.unflatten(new_do_flat, ak.num(pt))
+        '''
+        
     else:
         loose_sf  = SFevaluator['ElecLooseSF_{year}'.format(year=year)](np.abs(eta),pt)
         loose_err = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](np.abs(eta),pt)
