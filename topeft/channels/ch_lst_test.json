@@ -838,6 +838,7 @@
                 [
                     "2los_ph_CR_sf_Zg",
                     "2los_ph_CR_sf_Zg",
+                    "exactly_1ph",
                     "bmask_atleast1med"
                 ]
             ],
