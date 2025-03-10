@@ -28,8 +28,8 @@ WGT_VAR_LST = [
     "nSumOfWeights_renormDown",
     "nSumOfWeights_factUp",
     "nSumOfWeights_factDown",
-    "nSumOfWeights_renormfactUp",
-    "nSumOfWeights_renormfactDown",
+    "nSumOfWeights_renormDown_factUp",
+    "nSumOfWeights_renormUp_factDown",    
 ]
 
 if __name__ == '__main__':
