@@ -174,8 +174,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sow_renormDown     = self._samples[dataset]["nSumOfWeights"]
                 sow_factUp         = self._samples[dataset]["nSumOfWeights"]
                 sow_factDown       = self._samples[dataset]["nSumOfWeights"]
-                sow_renormfactUp   = self._samples[dataset]["nSumOfWeights"]
-                sow_renormfactDown = self._samples[dataset]["nSumOfWeights"]
+                sow_renormDown_factUp = self._samples[dataset]["nSumOfWeights"]
+                sow_renormUp_factDown = self._samples[dataset]["nSumOfWeights"]
             else:
                 # Otherwise we have an NLO xsec, so for these systs we will have e.g. xsec_NLO*(N_pass_up/N_gen_up)
                 # Thus these systs should only affect acceptance and effeciency and shape
@@ -188,8 +188,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"     ]
                 sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"         ]
                 sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"       ]
-                sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"   ]
-                sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown" ]
+                sow_renormDown_factUp   = self._samples[dataset]["nSumOfWeights_renormDown_factUp"   ]
+                sow_renormUp_factDown = self._samples[dataset]["nSumOfWeights_renormUp_factDown" ]
         else:
             sow_ISRUp          = -1
             sow_ISRDown        = -1
@@ -199,8 +199,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_renormDown     = -1
             sow_factUp         = -1
             sow_factDown       = -1
-            sow_renormfactUp   = -1
-            sow_renormfactDown = -1
+            sow_renormfactDown_factUp   = -1
+            sow_renormfactUp_factDown = -1
 
         datasets = ["Muon", "SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets:
