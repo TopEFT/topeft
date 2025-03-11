@@ -273,10 +273,10 @@ def get_jerc_keys(year, isdata, era=None):
         jer_key    = jerc_dict[year]['jer']
         junc_types = jerc_dict[year]['junc']
     else:
-        if year in ['2016','2022','2023BPix']:
-            jec_key = jerc_dict[year]['jec_data']
-        else:
-            jec_key = jerc_dict[year]['jec_data'][era]
+        #if year in ['2016','2022','2023BPix']:
+        #    jec_key = jerc_dict[year]['jec_data']
+        #else:
+        jec_key = jerc_dict[year]['jec_data'][era]
         jer_key     = None
         junc_types  = None
 

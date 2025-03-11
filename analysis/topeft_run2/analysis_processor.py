@@ -158,7 +158,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         run_era = None
         if isData:
-            run_era = self._samples[dataset]["path"].split("/")[2].split("-")[0][-1]
+            if is_run3:
+                run_era = self._samples[dataset]["era"]
+            else:
+                run_era = self._samples["path"].split("/")[2].split("-")[0][-1]
 
         # Get up down weights from input dict
         if (self._do_systematics and not isData):

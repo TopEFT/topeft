@@ -1,7 +1,11 @@
 {
     "2016": {
         "jec_mc": "Summer19UL16_V7_MC",
-        "jec_data": "Summer19UL16_RunFGH_V7_DATA",
+        "jec_data": {
+	    "F": "Summer19UL16_RunFGH_V7_DATA",
+	    "G": "Summer19UL16_RunFGH_V7_DATA",
+	    "H": "Summer19UL16_RunFGH_V7_DATA"
+	},
         "jec_levels": ["L1FastJet", "L2Relative"],
         "jer": "Summer20UL16_JRV3_MC",
         "junc": ["FlavorQCD", "FlavorPureBottom", "FlavorPureQuark", "FlavorPureGluon", "FlavorPureCharm", "Regrouped_BBEC1", "Regrouped_Absolute", "Regrouped_RelativeBal", "RelativeSample"]
@@ -46,7 +50,10 @@
     },
     "2022": {
         "jec_mc": "Summer22_22Sep2023_V2_MC",
-        "jec_data": "Summer22_22Sep2023_RunCD_V2_DATA",
+        "jec_data": {
+	    "C": "Summer22_22Sep2023_RunCD_V2_DATA",
+	    "D": "Summer22_22Sep2023_RunCD_V2_DATA"
+	},
         "jec_levels": ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"],
         "jer": "Summer22_22Sep2023_JRV1_MC",
         "junc": ["AbsoluteMPFBias", "AbsoluteScale", "FlavorQCD", "Fragmentation", "PileUpDataMC", "PileUpPtBB", "PileUpPtEC1", "PileUpPtEC2", "PileUpPtHF", "PileUpPtRef", "RelativeFSR", "RelativeJERHF", "RelativePtBB", "RelativePtHF", "RelativeBal", "SinglePionECAL", "SinglePionHCAL", "AbsoluteStat", "RelativeJEREC1", "RelativeJEREC2", "RelativePtEC1", "RelativePtEC2", "TimePtEta", "RelativeSample", "RelativeStatEC", "RelativeStatFSR", "RelativeStatHF", "Total"]
@@ -76,8 +83,11 @@
     },
     "2023BPix": {
         "jec_mc": "Summer23BPixPrompt23_V1_MC",
-        "jec_data": "Summer23BPixPrompt23_RunD_V1_DATA",
-        "jec_levels": ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"],
+        "jec_data": {
+	    "D1": "Summer23BPixPrompt23_RunD_V1_DATA",
+	    "D2": "Summer23BPixPrompt23_RunD_V1_DATA"
+	},
+	"jec_levels": ["L1FastJet", "L2Relative", "L3Absolute", "L2L3Residual"],
         "jer": "Summer23BPixPrompt23_RunD_JRV1_MC",
         "junc": ["AbsoluteMPFBias", "AbsoluteScale", "FlavorQCD", "Fragmentation", "PileUpDataMC", "PileUpPtBB", "PileUpPtEC1", "PileUpPtEC2", "PileUpPtHF", "PileUpPtRef", "RelativeFSR", "RelativeJERHF", "RelativePtBB", "RelativePtHF", "RelativeBal", "SinglePionECAL", "SinglePionHCAL", "AbsoluteStat", "RelativeJEREC1", "RelativeJEREC2", "RelativePtEC1", "RelativePtEC2", "TimePtEta", "RelativeSample", "RelativeStatEC", "RelativeStatFSR", "RelativeStatHF", "Total"]
     }
