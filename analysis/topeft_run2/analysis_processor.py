@@ -557,7 +557,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                             jets_flav = jets_light
                             flav_mask = light_mask
                             sys_year = year_light
-                            dJ_tag = "incl"
+                            if is_run2:
+                                dJ_tag = "incl"
+                            if is_run3:
+                                dJ_tag = "light"
                             btag_effM = btag_effM_light
                             btag_effL = btag_effL_light
                             pMC_flav = pMC_light
@@ -574,10 +577,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                         else:
                             raise ValueError("btag systematics should be divided in flavor (bc or light)!")
 
-                        btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L",sys_year,f"deepJet_{dJ_tag}",f"up_{corrtype}")
-                        btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L",sys_year,f"deepJet_{dJ_tag}",f"down_{corrtype}")
-                        btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M",sys_year,f"deepJet_{dJ_tag}",f"up_{corrtype}")
-                        btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M",sys_year,f"deepJet_{dJ_tag}",f"down_{corrtype}")
+                        btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}")
+                        btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}")
+                        btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}")
+                        btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}")
 
                         pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_up, btag_sfL_up, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
                         pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_down, btag_sfL_down, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
