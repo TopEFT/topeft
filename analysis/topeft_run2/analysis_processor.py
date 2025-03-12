@@ -739,9 +739,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
             sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
             sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
-            sfosz_2los_ttg_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=15.0)
-            sfosz_2los_ll_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=15.0)
             if self.ttA_analysis:
+                sfosz_2los_ll_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=15.0)
                 sfosz_2los_llg_mask_medph = te_es.get_Z_peak_mask_llg(l_fo_conept_sorted_padded[:,0:2],ph_fo_pt_sorted,pt_window=15.0)
             if self.tau_h_analysis:
                 tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0, 30.0)
@@ -1185,7 +1184,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                 if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
 
                                 # We only want the photon fakerate weight if we are considering the AR with explicit photon requirement
-                                if appl == "isAR_2lOS_ph": weight_tmp = weight_tmp * events.fakerate_ph_val
+                                if self.ttA_analysis and appl == "isAR_2lOS_ph": weight_tmp = weight_tmp * events.fakerate_ph_val
 
                                 # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
                                 for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
@@ -1233,7 +1232,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         else:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if self.ttA_analysis:
-                                            if "photon_pt_eta" in dense_axis_name:# and "2los_ph" in nlep_cat:
+                                            if "photon_pt_eta" in dense_axis_name:
                                                 #the photon_pt_eta histogram does not need to have ZGamma split based on ISR/FSR origin of photon
                                                 #also skip if the channel is not photon related
                                                 #also note that we need to pass "weight" here and not "weight_tmp" because we don't want the photons be weighed by fakerate
