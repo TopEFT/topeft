@@ -1219,19 +1219,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
-                                        #First fill the photon_pt_eta whose only usage is in deriving nonprompt photon contribution
-                                        if self.offZ_3l_split:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
-                                        elif self.tau_h_analysis:
-                                            if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
-                                            if (("ptz" in dense_axis_name) and ("2lss" not in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
-                                            if (("ptz_wtau" in dense_axis_name) and ("1tau" not in lep_chan)): continue
-                                        elif self.fwd_analysis:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                            if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
-                                        else:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                        #Let's handle ttA analysis histograms first
                                         if self.ttA_analysis:
+                                            #First fill the photon_pt_eta whose only usage is in deriving nonprompt photon contribution
                                             if "photon_pt_eta" in dense_axis_name:
                                                 #the photon_pt_eta histogram does not need to have ZGamma split based on ISR/FSR origin of photon
                                                 #also skip if the channel is not photon related
@@ -1244,27 +1234,39 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                     wc_vals = np.zeros(len(max(self._samples[dataset]["WCnames"], self._wc_names_lst, key=len)))
                                                     eft_wgt_array_at_zero_wc_vals = efth.calc_eft_weights(eft_coeffs,wc_vals)
                                                     no_eft_weight = no_eft_weight * eft_wgt_array_at_zero_wc_vals
+
                                                 plot_help.fill_2d_histogram(hout, dense_axis_name, "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, no_eft_weight, eft_coeffs, all_cuts_mask, suffix="")
                                                 plot_help.fill_2d_histogram(hout, dense_axis_name, "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, no_eft_weight, eft_coeffs, all_cuts_mask, suffix="_sumw2")
-                                            # Fill the histos
 
                                             else:
-                                                # Skip histos that are not defined (or not relevant) to given categories
-                                                if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
-                                                if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
-                                                if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                                if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
                                                 if not (("photon" in dense_axis_name) == ("ph" in ch_name)): continue
-
-                                                if self.ttA_analysis and "ZGToLLG" in dataset:  # ZGamma samples require ISR/FSR photons splitting
+                                                if "ZGToLLG" in dataset: # ZGamma samples require ISR/FSR photons splitting
                                                     #For ISR and FSR cases, first fill regular histogram and then fill sumw2 histogram
                                                     plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon))
                                                     plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon), suffix="_sumw2")
                                                     plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon))
                                                     plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon), suffix="_sumw2")
 
-                                        if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-                                        if "ZGToLLG" not in dataset and "photon_pt_eta" not in dense_axis_name: #Non-ZGamma samples do not need to split into ISR/FSR photons pieces
+                                                else:
+                                                    plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="")
+                                                    plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="_sumw2")
+                                        #Let's handle all other histograms
+                                        else:
+                                            if self.offZ_3l_split:
+                                                if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
+                                            elif self.tau_h_analysis:
+                                                if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
+                                                if (("ptz" in dense_axis_name) and ("2lss" not in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
+                                                if (("ptz_wtau" in dense_axis_name) and ("1tau" not in lep_chan)): continue
+                                            elif self.fwd_analysis:
+                                                if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
+
+                                            # Skip histos that are not defined (or not relevant) to given categories
+                                            if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
+                                            if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                            if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
+
                                             #Fill the histos (first regular and then sumw2 hist)
                                             plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="")
 
