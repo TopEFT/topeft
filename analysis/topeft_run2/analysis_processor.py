@@ -508,7 +508,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Event weights that do not depend on the lep cat ##########
 
-            if not isData and is_run2:
+            if not isData: # and is_run2:
                 # Workaround to use UL16APV SFs for UL16 for light jets
                 if year == "2016":
                     year_light = "2016APV"
@@ -523,14 +523,21 @@ class AnalysisProcessor(processor.ProcessorABC):
                 jets_light = goodJets[light_mask]
                 jets_bc    = goodJets[bc_mask]
 
+                if is_run2:
+                    btag_method_bc    = "deepJet_comb"
+                    btag_method_light = "deepJet_incl"
+                elif is_run3:
+                    btag_method_bc    = "deepJet_comb"
+                    btag_method_light = "deepJet_light"
+                
                 btag_effM_light = GetBtagEff(jets_light, year, 'medium')
                 btag_effM_bc = GetBtagEff(jets_bc, year, 'medium')
                 btag_effL_light = GetBtagEff(jets_light, year, 'loose')
                 btag_effL_bc = GetBtagEff(jets_bc, year, 'loose')
-                btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M",year_light,"deepJet_incl","central")
-                btag_sfM_bc    = tc_cor.btag_sf_eval(jets_bc,    "M",year,      "deepJet_comb","central")
-                btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L",year_light,"deepJet_incl","central")
-                btag_sfL_bc    = tc_cor.btag_sf_eval(jets_bc,    "L",year,      "deepJet_comb","central")
+                btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M", year_light, btag_method_light, "central")
+                btag_sfM_bc    = tc_cor.btag_sf_eval(jets_bc,    "M", year, btag_method_bc, "central")
+                btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L", year_light, btag_method_light, "central")
+                btag_sfL_bc    = tc_cor.btag_sf_eval(jets_bc,    "L", year, btag_method_bc, "central")
 
                 pData_light, pMC_light = tc_cor.get_method1a_wgt_doublewp(btag_effM_light, btag_effL_light, btag_sfM_light, btag_sfL_light, isBtagJetsMedium[light_mask], isBtagJetsLooseNotMedium[light_mask], isNotBtagJetsLoose[light_mask])
                 btag_w_light = pData_light/pMC_light
