@@ -216,6 +216,8 @@ class DataDrivenProducer:
         if self.do_np_ph:
             for year in ['16','16APV','17','18']:
                 modify_photon_pt_variance(self.outHist,year)
+            #At this point, we don't need to store photon_pt_eta and photon_pt_eta_sumw2 histograms anymore
+            del self.outHist['photon_pt_eta'], self.outHist['photon_pt_eta_sumw2'] 
 
     def dumpToPickle(self):
         if not self.outputName.endswith(".pkl.gz"):
