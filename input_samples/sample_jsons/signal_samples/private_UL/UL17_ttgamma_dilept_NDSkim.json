@@ -58,8 +58,8 @@
         "/store/user/abasnet/skims/mc/new-lepMVA/private_UL/UL2017/FullR2/ttgamma_private/v241121/output_1707.root",
         "/store/user/abasnet/skims/mc/new-lepMVA/private_UL/UL2017/FullR2/ttgamma_private/v241223/output_8353.root"
     ],
-    "nEvents": 1,
-    "nGenEvents": 1,
+    "nEvents": 5084773,
+    "nGenEvents": 12247035,
     "nSumOfWeights": 143723.62086377045,
     "isData": false,
     "path":"/store/user/abasnet/skims/mc/new-lepMVA/private_UL/UL2017/FullR2/ttgamma_private/",

@@ -13247,8 +13247,8 @@
     "/store/user/apiccine/FullProduction/FullR2/UL17/Round2/Batch1/postLHE_step/v241223/nAOD_step_ttgamma_0180_run0/NAOD-00000_651284.root",
     "/store/user/apiccine/FullProduction/FullR2/UL17/Round2/Batch1/postLHE_step/v241223/nAOD_step_ttgamma_0180_run0/NAOD-00000_651503.root"
   ],
-  "nEvents": 1,
-  "nGenEvents": 1,
+  "nEvents": 12247035,
+  "nGenEvents": 12247035,
   "nSumOfWeights": 143723.62086377045,
   "isData": false,
   "path": [
