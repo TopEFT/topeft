@@ -963,10 +963,10 @@ class DatacardMaker():
                 # obtain the scalings for scalings.json file
                 if p in self.SIGNALS:
                     if self.wc_scalings:
-                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(self.wc_scalings)
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(flow='show', wc_list=self.wc_scalings)
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings)
                     else:
-                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling()
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(flow='show')
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings)
             f["data_obs"] = to_hist(data_obs,"data_obs")
 
