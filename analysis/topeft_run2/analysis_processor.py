@@ -672,6 +672,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
             bmask_exactly0med = (nbtagsm==0) # Used for 3l CR and 2los Z CR
             bmask_exactly1med = (nbtagsm==1) # Used for 3l SR and 2lss CR
+            bmask_atleast1med = (nbtagsm>=1) # Used for 3l fwd SR
             bmask_exactly2med = (nbtagsm==2) # Used for CRtt
             bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
             bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
@@ -721,10 +722,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
                 preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
                 preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
-                preselections.add("3l_fwd", (events.is3l & pass_trg))
-                preselections.add("3l_p_fwd", (events.is3l & pass_trg & charge3l_p))
-                preselections.add("3l_m_fwd", (events.is3l & pass_trg & charge3l_m))
-                preselections.add("3l_onZ_fwd", (sfosz_3l_OnZ_mask))
 
             # 2lss selection
             preselections.add("2lss", (events.is2l & pass_trg))
@@ -740,6 +737,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
             preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
             preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
+            if self.fwd_analysis:
+                preselections.add("bmask_atleast1m", (bmask_atleast1med))
 
             if self.offZ_3l_split:
                 preselections.add("3l_offZ_low", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask))
