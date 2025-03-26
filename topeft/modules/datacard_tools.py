@@ -1082,6 +1082,8 @@ class DatacardMaker():
                                 ch_key = f"{num_l}l{num_b}b_p"
                             elif "_m_offZ" in ch:
                                 ch_key = f"{num_l}l{num_b}b_m"
+                            elif "tau" in ch:
+                                ch_key = f"{num_l}l_sfz_{num_b}b"
                             else:
                                 raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
                         elif num_l == 4:
