@@ -718,12 +718,12 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
     json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
 
-    pt  = padded_taus.pt
-    dm  = padded_taus.decayMode
-    wp  = padded_taus.idDeepTau2017v2p1VSjet
-    eta = padded_taus.eta
-    gen = padded_taus.genPartFlav
-    mass= padded_taus.mass
+    pt   = padded_taus.pt
+    dm   = padded_taus.decayMode
+    wp   = padded_taus.idDeepTau2017v2p1VSjet
+    eta  = padded_taus.eta
+    gen  = padded_taus.genPartFlav
+    mass = padded_taus.mass
 
     DT_sf_list = []
     DT_up_list = []
@@ -836,48 +836,82 @@ def AttachPerLeptonFR(leps, flavor, year):
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\"\n"".")
 
-    if year == "2016APV": flip_year_name = "UL16APV"
-    elif year == "2016": flip_year_name = "UL16"
-    elif year == "2017": flip_year_name = "UL17"
-    elif year == "2018": flip_year_name = "UL18"
-    else: flip_year_name = "UL18" #TO READAPT when fakefactors are ready #raise Exception(f"Not a known year: {year}")
-    with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
-        flip_hist = pickle.load(fin)
-        flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
+    #if year == "2016APV": flip_year_name = "UL16APV"
+    #elif year == "2016": flip_year_name = "UL16"
+    #elif year == "2017": flip_year_name = "UL17"
+    #elif year == "2018": flip_year_name = "UL18"
+    is_run2 = False
+    if year.startswith("201"):
+        flip_year_name = year.replace("20", "UL")
+        is_run2 = True
 
-    # Get the fliprate scaling factor for the given year
-    chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
+    is_run3 = not is_run2
+    #else: flip_year_name = "UL18" #TO READAPT when fakefactors are ready #raise Exception(f"Not a known year: {year}")
+    #Run2 is not implemented with correction_lib
+    if is_run2:
+        with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
+            flip_hist = pickle.load(fin)
+            flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
 
-    # For FR filepath naming conventions
-    if '2016' in year:
-        year = '2016APV_2016'
-    elif year.startswith("202"):
-        year = '2018'
+        # Get the fliprate scaling factor for the given year
+        chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
 
-    # Add the flip/fake info into the leps opject
-    for syst in ffSysts:
-        fr = SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](leps.conept, np.abs(leps.eta) )
-        leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
+        if flavor == "Elec":
+            leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
+        else:
+            leps['fliprate'] = np.zeros_like(leps.pt)
 
-    if year == '2016APV_2016':
-        leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11) * ((np.abs(leps.eta) > 1.5)*0.5 + (np.abs(leps.eta) < 1.5)*0.1) + 1.0
-        leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.05 + 1.0
-    if year == '2017':
-        leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.2 + 1.0
-        leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.2 + 1.0
-    if year == '2018':
-        leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11) * ((np.abs(leps.eta) > 1.5)*0.5 + (np.abs(leps.eta) < 1.5)*0.1) + 1.0
-        leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.05 + 1.0
+        # For FR filepath naming conventions
+        if '2016' in year:
+            year = '2016APV_2016'
 
+        # Add the flip/fake info into the leps opject
+        for syst in ffSysts:
+            fr = SFevaluator['{flavor}FR_{year}{syst}'.format(flavor=flavor,year=year,syst=syst)](leps.conept, np.abs(leps.eta) )
+            leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0) # this is the factor that actually enters the expressions
+
+        if year == '2016APV_2016':
+            leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11) * ((np.abs(leps.eta) > 1.5)*0.5 + (np.abs(leps.eta) < 1.5)*0.1) + 1.0
+            leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.05 + 1.0
+        elif year == '2017':
+            leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.2 + 1.0
+            leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.2 + 1.0
+        elif year == '2018':
+            leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11) * ((np.abs(leps.eta) > 1.5)*0.5 + (np.abs(leps.eta) < 1.5)*0.1) + 1.0
+            leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.05 + 1.0
+
+    #Run3 is implemented with correction_lib
+    if is_run3:
+        json_path = topeft_path("data/fakerates/fake_rates_Run3.json")
+        ceval = correctionlib.CorrectionSet.from_file(json_path)
+        pt = ak.flatten(leps.pt)
+        abseta = ak.flatten(abs(leps.eta))
+        abspdgid = ak.flatten(abs(leps.pdgId))
+        
+        pt_mask_low = (pt >= 10)
+        pt_mask_hi = (pt <= 100)
+        pt_masked = ak.where(~pt_mask_low, 10.1, pt)
+        pt_masked = ak.where(~pt_mask_hi, 99.9, pt)
+        
+        chargeflip_sf = ak.ones_like(leps.pdgId, dtype=np.float64) #get_te_param("chargeflip_sf_dict")[flip_year_name]
+
+        for syst in ffSysts:
+            fr = ak.unflatten(ceval["fakeRate_2022_2022EE"].evaluate(pt_masked, abseta, syst, abspdgid), ak.num(leps.pt))
+            leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0)
+            leps['fakefactor%s' % syst] = fr
+            leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.0 + 1.0
+            leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.0 + 1.0
+
+            if flavor == "Elec":
+                leps['fliprate'] = (chargeflip_sf) #*(flip_lookup(leps.pt,abs(leps.eta)))
+            else:
+                leps['fliprate'] = np.zeros_like(leps.pt)
+   
+    #Common part
     for flav in ['el','mu']:
         leps['fakefactor_%sclosuredown' % flav] = leps['fakefactor'] / leps['fakefactor_%sclosurefactor' % flav]
         leps['fakefactor_%sclosureup' % flav]   = leps['fakefactor'] * leps['fakefactor_%sclosurefactor' % flav]
-
-    if flavor == "Elec":
-        leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
-    else:
-        leps['fliprate'] = np.zeros_like(leps.pt)
-
+    
 def fakeRateWeight1l(events, lep1):
     for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown']:
         fakefactor_2l =  (~lep1.isTightLep + (1)*(lep1.isTightLep)) # if all are tight the FF is 1 because events are in the SR
