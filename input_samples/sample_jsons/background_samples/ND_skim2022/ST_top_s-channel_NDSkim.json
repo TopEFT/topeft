@@ -1,0 +1,26 @@
+{
+  "xsec": 3.7,
+  "year": "2022",
+  "treeName": "Events",
+  "histAxisName": "ST_top_s-channel_central2022",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022/Full/v250305/ST_top_s_channel/output_449.root"
+  ],
+  "nEvents": 1271280,
+  "nGenEvents": 1271280,
+  "nSumOfWeights": 2891578.6485762005,
+  "isData": false,
+  "path": "/store/mc/Run3Summer22NanoAODv12/TBbartoLplusNuBbar-s-channel-4FS_TuneCP5_13p6TeV_amcatnlo-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2",
+  "nSumOfWeights_ISRUp": 2891246.75623596,
+  "nSumOfWeights_ISRDown": 2891789.2454572055,
+  "nSumOfWeights_FSRUp": 2892587.5534095764,
+  "nSumOfWeights_FSRDown": 2890702.2220721915,
+  "nSumOfWeights_renormUp": 2826284.311116716,
+  "nSumOfWeights_renormDown": 2971340.360297313,
+  "nSumOfWeights_factUp": 2927531.596071199,
+  "nSumOfWeights_factDown": 2845341.9847645676,
+  "nSumOfWeights_renormDown_factUp": 3002815.658886495,
+  "nSumOfWeights_renormUp_factDown": 2775649.8698511003
+}

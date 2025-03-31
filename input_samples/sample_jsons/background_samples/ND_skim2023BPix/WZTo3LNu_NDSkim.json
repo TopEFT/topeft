@@ -1,0 +1,29 @@
+{
+  "xsec": 5.31,
+  "year": "2023BPix",
+  "treeName": "Events",
+  "histAxisName": "WZTo3LNu_central2023BPix",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250305/WZTo3LNu/output_1807.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250305/WZTo3LNu/output_2123.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250305/WZTo3LNu/output_1922.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250305/WZTo3LNu/output_2062.root"
+  ],
+  "nEvents": 2713000,
+  "nGenEvents": 2713000,
+  "nSumOfWeights": 13359294.7816,
+  "isData": false,
+  "path": "/store/mc/Run3Summer23BPixNanoAODv12/WZto3LNu_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v2-v2",
+  "nSumOfWeights_ISRUp": 13359696.130614439,
+  "nSumOfWeights_ISRDown": 13358305.476974694,
+  "nSumOfWeights_FSRUp": 13361368.319096029,
+  "nSumOfWeights_FSRDown": 13353106.1967168,
+  "nSumOfWeights_renormUp": 13069348.565787777,
+  "nSumOfWeights_renormDown": 13712088.108314348,
+  "nSumOfWeights_factUp": 13673751.631646711,
+  "nSumOfWeights_factDown": 12889788.499370122,
+  "nSumOfWeights_renormDown_factUp": 13966090.089333858,
+  "nSumOfWeights_renormUp_factDown": 12557120.378975045
+}

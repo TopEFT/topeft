@@ -1,0 +1,26 @@
+{
+  "xsec": 0.2328,
+  "year": "2023",
+  "treeName": "Events",
+  "histAxisName": "WWW_central2023",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250305/WWW/output_1953.root"
+  ],
+  "nEvents": 936000,
+  "nGenEvents": 936000,
+  "nSumOfWeights": 217858.26284972005,
+  "isData": false,
+  "path": "/store/mc/Run3Summer23NanoAODv12/WWW_4F_TuneCP5_13p6TeV_amcatnlo-madspin-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v14-v2",
+  "nSumOfWeights_ISRUp": 217875.24605502863,
+  "nSumOfWeights_ISRDown": 217816.1617511225,
+  "nSumOfWeights_FSRUp": 217897.1109611215,
+  "nSumOfWeights_FSRDown": 217742.42691724468,
+  "nSumOfWeights_renormUp": 210893.151616082,
+  "nSumOfWeights_renormDown": 226278.3066944566,
+  "nSumOfWeights_factUp": 215948.631986454,
+  "nSumOfWeights_factDown": 220135.92046829907,
+  "nSumOfWeights_renormDown_factUp": 224195.62665955076,
+  "nSumOfWeights_renormUp_factDown": 212940.980976435
+}

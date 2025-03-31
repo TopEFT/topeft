@@ -1,0 +1,26 @@
+{
+  "xsec": 0.1284,
+  "year": "2022",
+  "treeName": "Events",
+  "histAxisName": "TTG-1Jets_PTG-200_central2022",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022/Full/v250305/TTG_1Jets_PTG_200/output_1145.root"
+  ],
+  "nEvents": 286306,
+  "nGenEvents": 286306,
+  "nSumOfWeights": 105009.28944679996,
+  "isData": false,
+  "path": "/store/mc/Run3Summer22NanoAODv12/TTG-1Jets_PTG-200_TuneCP5_13p6TeV_amcatnloFXFXold-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v3",
+  "nSumOfWeights_ISRUp": 106830.98502032776,
+  "nSumOfWeights_ISRDown": 102737.21741218743,
+  "nSumOfWeights_FSRUp": 105560.99969668686,
+  "nSumOfWeights_FSRDown": 104308.78426135611,
+  "nSumOfWeights_renormUp": 95892.21063555815,
+  "nSumOfWeights_renormDown": 110546.41160831074,
+  "nSumOfWeights_factUp": 102748.5622298097,
+  "nSumOfWeights_factDown": 107509.53919163221,
+  "nSumOfWeights_renormDown_factUp": 111445.18434560683,
+  "nSumOfWeights_renormUp_factDown": 100203.35767700787
+}

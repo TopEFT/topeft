@@ -1,0 +1,31 @@
+{
+  "xsec": 19.36,
+  "year": "2022",
+  "treeName": "Events",
+  "histAxisName": "ST_tW_Semileptonic_central2022",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022/Full/v250305/ST_tW_Semileptonic/output_1712.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022/Full/v250305/ST_tW_Semileptonic/output_346.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022/Full/v250305/ST_tW_Semileptonic/output_1191.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022/Full/v250305/ST_tW_Semileptonic/output_1508.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022/Full/v250305/ST_tW_Semileptonic/output_760.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022/Full/v250305/ST_tW_Semileptonic/output_573.root"
+  ],
+  "nEvents": 9543272,
+  "nGenEvents": 9543272,
+  "nSumOfWeights": 343425670.9308001,
+  "isData": false,
+  "path": "/store/mc/Run3Summer22NanoAODv12/TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2",
+  "nSumOfWeights_ISRUp": 343399759.7274209,
+  "nSumOfWeights_ISRDown": 343452280.335401,
+  "nSumOfWeights_FSRUp": 343468696.6774119,
+  "nSumOfWeights_FSRDown": 343388927.67260104,
+  "nSumOfWeights_renormUp": 327062156.1157814,
+  "nSumOfWeights_renormDown": 360118503.06048095,
+  "nSumOfWeights_factUp": 352903225.8171715,
+  "nSumOfWeights_factDown": 333692895.19112515,
+  "nSumOfWeights_renormDown_factUp": 368376014.7945289,
+  "nSumOfWeights_renormUp_factDown": 315661478.3992853
+}

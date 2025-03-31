@@ -1,0 +1,32 @@
+{
+  "xsec": 19.36,
+  "year": "2023",
+  "treeName": "Events",
+  "histAxisName": "ST_tW_Semileptonic_central2023",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250305/ST_tW_Semileptonic/output_845.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250305/ST_tW_Semileptonic/output_216.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250305/ST_tW_Semileptonic/output_487.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250305/ST_tW_Semileptonic/output_627.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250305/ST_tW_Semileptonic/output_764.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250305/ST_tW_Semileptonic/output_696.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250305/ST_tW_Semileptonic/output_576.root"
+  ],
+  "nEvents": 9650268,
+  "nGenEvents": 9650268,
+  "nSumOfWeights": 347275674.95760006,
+  "isData": false,
+  "path": "/store/mc/Run3Summer23NanoAODv12/TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v14-v2",
+  "nSumOfWeights_ISRUp": 347290667.10565656,
+  "nSumOfWeights_ISRDown": 347248815.095977,
+  "nSumOfWeights_FSRUp": 347235986.8322809,
+  "nSumOfWeights_FSRDown": 347355196.3207381,
+  "nSumOfWeights_renormUp": 330728710.37800515,
+  "nSumOfWeights_renormDown": 364155651.02189165,
+  "nSumOfWeights_factUp": 356860505.4166059,
+  "nSumOfWeights_factDown": 337431607.98416233,
+  "nSumOfWeights_renormDown_factUp": 372506666.66822237,
+  "nSumOfWeights_renormUp_factDown": 319198130.855915
+}

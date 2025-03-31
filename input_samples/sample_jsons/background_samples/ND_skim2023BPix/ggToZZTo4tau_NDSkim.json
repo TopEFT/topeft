@@ -1,0 +1,27 @@
+{
+  "xsec": 0.003,
+  "year": "2023BPix",
+  "treeName": "Events",
+  "histAxisName": "ggToZZTo4tau_central2023BPix",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250305/ggToZZTo4tau/output_3144.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250305/ggToZZTo4tau/output_2994.root"
+  ],
+  "nEvents": 1046000,
+  "nGenEvents": 1046000,
+  "nSumOfWeights": 1046000.0,
+  "isData": false,
+  "path": "/store/mc/Run3Summer23BPixNanoAODv12/GluGlutoContinto2Zto4Tau_TuneCP5_13p6TeV_mcfm-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_postBPix_v6-v2",
+  "nSumOfWeights_ISRUp": 1046076.5525512695,
+  "nSumOfWeights_ISRDown": 1045927.9495697021,
+  "nSumOfWeights_FSRUp": 1046192.020023346,
+  "nSumOfWeights_FSRDown": 1045775.8402462006,
+  "nSumOfWeights_renormUp": 1046000.0,
+  "nSumOfWeights_renormDown": 1046000.0,
+  "nSumOfWeights_factUp": 1046000.0,
+  "nSumOfWeights_factDown": 1046000.0,
+  "nSumOfWeights_renormDown_factUp": 1046000.0,
+  "nSumOfWeights_renormUp_factDown": 1046000.0
+}
