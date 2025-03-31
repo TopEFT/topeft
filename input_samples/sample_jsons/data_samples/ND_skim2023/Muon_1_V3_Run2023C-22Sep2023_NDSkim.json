@@ -1,0 +1,21 @@
+{
+  "xsec": 1.0,
+  "year": "2023",
+  "treeName": "Events",
+  "histAxisName": "2023_data",
+  "options": "",
+  "era": "C3",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250220/Muon_1_V3_Run2023C_22Sep2023/output_1024.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250220/Muon_1_V3_Run2023C_22Sep2023/output_1237.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250220/Muon_1_V3_Run2023C_22Sep2023/output_1155.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250220/Muon_1_V3_Run2023C_22Sep2023/output_1302.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250220/Muon_1_V3_Run2023C_22Sep2023/output_957.root"
+  ],
+  "nEvents": 20010429,
+  "nGenEvents": 20010429,
+  "nSumOfWeights": 20010429.0,
+  "isData": true,
+  "path": "/Muon1/Run2023C-22Sep2023_v3-v1/NANOAOD"
+}

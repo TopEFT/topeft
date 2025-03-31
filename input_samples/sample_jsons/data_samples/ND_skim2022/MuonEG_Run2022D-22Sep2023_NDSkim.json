@@ -1,0 +1,20 @@
+{
+  "xsec": 1.0,
+  "year": "2022",
+  "treeName": "Events",
+  "histAxisName": "2022_data",
+  "options": "",
+  "era": "D",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022/Full/v250227/MuonEG_Run2022D_22Sep2023/output_827.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022/Full/v250227/MuonEG_Run2022D_22Sep2023/output_428.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022/Full/v250227/MuonEG_Run2022D_22Sep2023/output_354.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022/Full/v250227/MuonEG_Run2022D_22Sep2023/output_652.root"
+  ],
+  "nEvents": 8007031,
+  "nGenEvents": 8007031,
+  "nSumOfWeights": 8007031.0,
+  "isData": true,
+  "path": "/MuonEG/Run2022D-22Sep2023-v1/NANOAOD"
+}

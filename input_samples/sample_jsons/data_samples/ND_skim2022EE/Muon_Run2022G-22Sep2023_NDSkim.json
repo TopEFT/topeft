@@ -1,0 +1,32 @@
+{
+  "xsec": 1.0,
+  "year": "2022EE",
+  "treeName": "Events",
+  "histAxisName": "2022EE_data",
+  "options": "",
+  "era": "G",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_1832.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_1258.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_1499.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_322.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_1826.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_1813.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_501.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_405.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_1784.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_1064.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_1257.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_1837.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_1838.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_731.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_1746.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/Muon_Run2022G_22Sep2023/output_1341.root"
+  ],
+  "nEvents": 76689396,
+  "nGenEvents": 76689396,
+  "nSumOfWeights": 76689396.0,
+  "isData": true,
+  "path": "/Muon/Run2022G-22Sep2023-v1/NANOAOD"
+}

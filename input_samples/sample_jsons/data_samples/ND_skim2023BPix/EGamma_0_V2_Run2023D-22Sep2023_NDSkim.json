@@ -1,0 +1,22 @@
+{
+  "xsec": 1.0,
+  "year": "2023BPix",
+  "treeName": "Events",
+  "histAxisName": "2023BPix_data",
+  "options": "",
+  "era": "D2",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250228/EGamma_0_V2_Run2023D_22Sep2023/output_533.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250228/EGamma_0_V2_Run2023D_22Sep2023/output_143.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250228/EGamma_0_V2_Run2023D_22Sep2023/output_444.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250228/EGamma_0_V2_Run2023D_22Sep2023/output_673.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250228/EGamma_0_V2_Run2023D_22Sep2023/output_306.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250228/EGamma_0_V2_Run2023D_22Sep2023/output_706.root"
+  ],
+  "nEvents": 22657211,
+  "nGenEvents": 22657211,
+  "nSumOfWeights": 22657211.0,
+  "isData": true,
+  "path": "/EGamma0/Run2023D-22Sep2023_v2-v1/NANOAOD"
+}
