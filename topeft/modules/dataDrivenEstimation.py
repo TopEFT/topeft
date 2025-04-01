@@ -36,8 +36,7 @@ class DataDrivenProducer:
                 continue
 
             # First we are gonna scale all MC processes in  by the luminosity
-            name_regex='(?P<process>.*)UL(?P<year>.*)'
-            #name_regex='(?P<process>.*)_(?P<year>.*)'
+            name_regex = r'^(?P<process>.*?)(?:UL)?(?P<year>(?:\d{2}(?:APV)?|\d{4}))$'
             pattern=re.compile(name_regex)
 
             for process in histo.axes['process']:
