@@ -72,6 +72,7 @@ for sample_name,jsn in samples_to_process.items():
     s += f"{jsn_txt}\n"
     print(s)
 
+print(f"processor: {processor_name}")
 # Which processor are we running
 if processor_name == "flip_mr_processor":
     processor_instance = flip_mr_processor.AnalysisProcessor(samples_to_process)

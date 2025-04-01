@@ -3,7 +3,8 @@ import numpy as np
 import awkward as ak
 from coffea import hist, processor
 
-import topcoffea.modules.objects as obj
+#import topcoffea.modules.objects as obj
+import topeft.modules.object_selection as te_os
 
 class AnalysisProcessor(processor.ProcessorABC):
 
@@ -39,24 +40,44 @@ class AnalysisProcessor(processor.ProcessorABC):
         histAxisName = self._samples[dataset]["histAxisName"]
         year         = self._samples[dataset]["year"]
         isData       = self._samples[dataset]["isData"]
-        if isData: raise Exception("Error: Do not run this processor on data.")
+        if isData:
+            raise Exception("Error: Do not run this processor on data.")
 
+
+        is_run3 = False
+        if year.startswith("202"):
+            is_run3 = True
+        is_run2 = not is_run3
+
+        run_era = None
+        if isData:
+            if is_run3:
+                run_era = self._samples[dataset]["era"]
+            else:
+                run_era = self._samples["path"].split("/")[2].split("-")[0][-1]
 
         ################### Object selection ####################
 
         e = events.Electron
 
+        if is_run3:
+            leptonSelection = te_os.run3leptonselection()
+            jetsRho = events.Rho["fixedGridRhoFastjetAll"]
+        elif is_run2:
+            leptonSelection = te_os.run2leptonselection()
+            jetsRho = events.fixedGridRhoFastjetAll
+        
         e["gen_pdgId"] = e.matched_gen.pdgId
 
-        e["idEmu"]         = obj.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
-        e["conept"]        = obj.coneptElec(e.pt, e.mvaTTHUL, e.jetRelIso)
+        e["idEmu"]         = te_os.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
+        e["conept"]        = leptonSelection.coneptElec(e)
         e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
 
-        e["isPres"]     = obj.isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
-        e["isLooseE"]   = obj.isLooseElec(e.miniPFRelIso_all,e.sip3d,e.lostHits)
-        e["isFO"]       = obj.isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
-        e["isTightLep"] = obj.tightSelElec(e.isFO, e.mvaTTHUL)
-
+        e["isPres"] = leptonSelection.isPresElec(e)
+        e["isLooseE"] = leptonSelection.isLooseElec(e)
+        e["isFO"] = leptonSelection.isFOElec(e, year)
+        e["isTightLep"] = leptonSelection.tightSelElec(e)
+        
         e_tight = e[e.isPres & e.isLooseE & e.isFO & e.isTightLep]
 
         # Apply tight charge requirement (this happens in the event selection, so we want to apply it here to be consistent)

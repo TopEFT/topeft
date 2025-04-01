@@ -7,9 +7,13 @@ from coffea import hist, processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
-from topcoffea.modules.objects import *
-from topcoffea.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
-from topcoffea.modules.selection import *
+#from topcoffea.modules.objects import *
+import topeft.modules.object_selection as te_os
+import topcoffea.modules.object_selection as tc_os
+#from topcoffea.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
+from topeft.modules.corrections import AttachMuonSF, AttachElectronSF, AttachPerLeptonFR
+#from topcoffea.modules.selection import *
+from topcoffea.modules.event_selection import *
 from topcoffea.modules.paths import topcoffea_path
 
 # Check if the values in an array are within a given range

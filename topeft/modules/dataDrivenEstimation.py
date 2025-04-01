@@ -37,6 +37,7 @@ class DataDrivenProducer:
 
             # First we are gonna scale all MC processes in  by the luminosity
             name_regex='(?P<process>.*)UL(?P<year>.*)'
+            #name_regex='(?P<process>.*)_(?P<year>.*)'
             pattern=re.compile(name_regex)
 
             for process in histo.axes['process']:
@@ -49,9 +50,13 @@ class DataDrivenProducer:
                     print("Moving to the next process")
                 if not match:
                     raise RuntimeError(f"Sample {process} does not match the naming convention.")
-                if year not in ['16APV','16','17','18']:
+                year = year.replace("central", "").replace("UL", "")
+                if year not in ['16APV','16','17','18','2022','2023']:
                     raise RuntimeError(f"Sample {process} does not match the naming convention, year \"{year}\" is unknown.")
 
+            print("\n")
+            print("process", process, "sampleName", sampleName, "year", year)
+            print("\n")
             # now for each year we actually perform the subtraction and integrate out the application regions
             newhist=None
             for ident in histo.axes['appl']:
@@ -101,7 +106,11 @@ class DataDrivenProducer:
                             match = pattern.search(process)
                             sampleName=match.group('process')
                             year=match.group('year')
-                            nonPromptName='nonpromptUL%s'%year
+
+                            if "2022" in year or "2023" in year:
+                                nonPromptName='nonprompt%s'%year
+                            else:
+                                nonPromptName='nonpromptUL%s'%year
                             if self.dataName==sampleName:
                                 newNameDictData[nonPromptName].append(process)
                             elif sampleName in self.promptSubtractionSamples:

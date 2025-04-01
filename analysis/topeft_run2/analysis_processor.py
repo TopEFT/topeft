@@ -156,13 +156,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             is_run3 = True
         is_run2 = not is_run3
 
-        run_era = None
+        run_era = None        
         if isData:
             if is_run3:
                 run_era = self._samples[dataset]["era"]
             else:
-                run_era = self._samples["path"].split("/")[2].split("-")[0][-1]
-
+                run_era = self._samples[dataset]["path"].split("/")[2].split("-")[0][-1]
+                
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
             if histAxisName in get_te_param("lo_xsec_samples"):
@@ -508,7 +508,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Event weights that do not depend on the lep cat ##########
 
-            if not isData: # and is_run2:
+            if not isData:
                 # Workaround to use UL16APV SFs for UL16 for light jets
                 if year == "2016":
                     year_light = "2016APV"
@@ -530,7 +530,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     btag_method_bc    = "deepJet_comb"
                     btag_method_light = "deepJet_light"
                 
-                btag_effM_light = GetBtagEff(jets_light, year, 'medium')
+                btag_effM_light = GetBtagEff(jets_light, year, 'medium') #return array of ones for run3
                 btag_effM_bc = GetBtagEff(jets_bc, year, 'medium')
                 btag_effL_light = GetBtagEff(jets_light, year, 'loose')
                 btag_effL_bc = GetBtagEff(jets_bc, year, 'loose')
@@ -544,7 +544,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                 pData_bc, pMC_bc = tc_cor.get_method1a_wgt_doublewp(btag_effM_bc, btag_effL_bc, btag_sfM_bc, btag_sfL_bc, isBtagJetsMedium[bc_mask], isBtagJetsLooseNotMedium[bc_mask], isNotBtagJetsLoose[bc_mask])
                 btag_w_bc = pData_bc/pMC_bc
                 btag_w = btag_w_light*btag_w_bc
-                weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
+
+                if is_run3:
+                    btag_w = ak.ones_like(events.MET.pt)
+                    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
+                else:
+                    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
 
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
@@ -591,19 +596,16 @@ class AnalysisProcessor(processor.ProcessorABC):
                         btag_w_up = fixed_btag_w*btag_w_up/btag_w
                         btag_w_down = fixed_btag_w*btag_w_down/btag_w
 
-                        weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
+                        if is_run3:
+                            btag_w_up = ak.ones_like(events.MET.pt)
+                            btag_w_down = ak.ones_like(events.MET.pt)
+                            weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
+                        else:
+                            weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
 
-                # Trigger SFs
-                GetTriggerSF(year,events,l0,l1)
+                # Trigger SFs                        
+                GetTriggerSF(year,events,l0,l1) #return array of ones for run3
                 weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
-            elif is_run3: #to finalize after Wynona's study
-                btag_w = ak.ones_like(events.MET.pt)
-                weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
-                for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
-                    btag_w_up = ak.ones_like(events.MET.pt)
-                    btag_w_down = ak.ones_like(events.MET.pt)
-                    weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
-
 
             ######### Event weights that do depend on the lep cat ###########
             select_cat_dict = None
@@ -670,7 +672,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                         weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
                     else:
                         raise Exception(f"Unknown channel name: {ch_name}")
-
 
             ######### Masks we need for the selection ##########
 
@@ -1004,7 +1005,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # Loop over the systematics
                 for wgt_fluct in wgt_var_lst:
-
                     # Loop over nlep categories "2l", "3l", "4l"
                     for nlep_cat in cat_dict.keys():
                         # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist

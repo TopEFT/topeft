@@ -887,11 +887,19 @@ def AttachPerLeptonFR(leps, flavor, year):
         pt = ak.flatten(leps.pt)
         abseta = ak.flatten(abs(leps.eta))
         abspdgid = ak.flatten(abs(leps.pdgId))
+
+        minpt = 0.
+        maxpt = 100.
         
-        pt_mask_low = (pt >= 10)
+        if flavor == "Elec":
+            minpt = 15.
+        elif flavor == "Muon":
+            minpt = 10.
+        
+        pt_mask_low = (pt >= minpt)
         pt_mask_hi = (pt <= 100)
-        pt_masked = ak.where(~pt_mask_low, 10.1, pt)
-        pt_masked = ak.where(~pt_mask_hi, 99.9, pt)
+        pt_masked = ak.where(~pt_mask_low, minpt+0.1, pt)
+        pt_masked = ak.where(~pt_mask_hi, maxpt-0.1, pt_masked)
         
         chargeflip_sf = ak.ones_like(leps.pdgId, dtype=np.float64) #get_te_param("chargeflip_sf_dict")[flip_year_name]
 
