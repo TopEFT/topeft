@@ -4,12 +4,12 @@
   "treeName": "Events",
   "histAxisName": "2023BPix_data",
   "options": "",
-  "era": "D1",
+  "era": "D2",
   "WCnames": [],
   "files": [],
-  "nEvents": 100281976,
-  "nGenEvents": 100281976,
-  "nSumOfWeights": 100281976.0,
+  "nEvents": 21463645,
+  "nGenEvents": 21463645,
+  "nSumOfWeights": 21463645.0,
   "isData": true,
-  "path": "/Muon1/Run2023D-22Sep2023_v1-v1/NANOAOD"
+  "path": "/Muon1/Run2023D-22Sep2023_v2-v1/NANOAOD"
 }

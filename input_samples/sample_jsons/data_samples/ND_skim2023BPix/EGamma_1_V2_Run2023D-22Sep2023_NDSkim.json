@@ -6,14 +6,7 @@
   "options": "",
   "era": "D2",
   "WCnames": [],
-  "files": [
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250228/EGamma_1_V2_Run2023D_22Sep2023/output_675.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250228/EGamma_1_V2_Run2023D_22Sep2023/output_256.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250228/EGamma_1_V2_Run2023D_22Sep2023/output_501.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250228/EGamma_1_V2_Run2023D_22Sep2023/output_685.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250228/EGamma_1_V2_Run2023D_22Sep2023/output_338.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250228/EGamma_1_V2_Run2023D_22Sep2023/output_662.root"
-  ],
+  "files": [],
   "nEvents": 22653287,
   "nGenEvents": 22653287,
   "nSumOfWeights": 22653287.0,
