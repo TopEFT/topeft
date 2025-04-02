@@ -57,7 +57,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, useRun3MVA=True):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -65,7 +65,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.offZ_3l_split = offZ_split
         self.tau_h_analysis = tau_h_analysis
         self.fwd_analysis = fwd_analysis
-
+        self.useRun3MVA = useRun3MVA #can be switched to False use the alternative cuts
+        
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
         syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
@@ -229,8 +230,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
         if is_run3:
-            leptonSelection = te_os.run3leptonselection()
+            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA)
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
+            mu["jetBTagDeepFlav"] = jets[mu.jetIdx].btagDeepFlavB
         elif is_run2:
             leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll

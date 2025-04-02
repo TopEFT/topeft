@@ -167,9 +167,8 @@ class run2leptonselection:
         return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTHUL > get_te_param("mva_TTH_m_cut"))
 
 class run3leptonselection:
-
-    def __init__(self):
-        pass
+    def __init__(self, useMVA=True):
+        self.useMVA = useMVA
 
     def coneptElec(self, ele):
         conePt = (0.90 * ele.pt * (1 + ele.jetRelIso))
@@ -209,25 +208,33 @@ class run3leptonselection:
         btagReq    = (ele.btagDeepFlavB<bTagCut)
         ptReq      = (ele.conept>get_te_param("fo_pt_cut"))
         qualityReq = (ele.idEmu & ele.convVeto & (ele.lostHits==0))
-        mvaReq     = (((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3"))  & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
-        #mvaReq     = ((ele.mvaTTH_Run3>get_te_param("mva_TTH_e_cut_run3")) | ((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3"))  & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut")))) ##original cut from Sergio
+        if not self.useMVA:
+            mvaReq     = (((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3"))  & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
+        else:
+            mvaReq     = ((ele.mvaTTHrun3>get_te_param("mva_TTH_e_cut_run3")) | ((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3"))  & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut")))) ##original cut from Sergio
         return ptReq & btagReq & qualityReq & mvaReq
         
     def isFOMuon(self, muo, year):
         bTagCut=get_medium_btag_foryear(year)
         btagReq = (muo.btagDeepFlavB<bTagCut)
         ptReq   = (muo.conept>get_te_param("fo_pt_cut"))
-        mvaReq  = (((muo.btagDeepFlavB<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45))))
-        #mvaReq  = ((muo.mvaTTH_Run3>get_te_param("mva_TTH_m_cut_run3")) | ((muo.jetBTagDeepFlav<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45)))) #original cut from Sergio
+        if not self.useMVA:
+            mvaReq  = (((muo.btagDeepFlavB<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45))))
+        else:
+            mvaReq  = ((muo.mvaTTHrun3>get_te_param("mva_TTH_m_cut_run3")) | ((muo.jetBTagDeepFlav<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45)))) #original cut from Sergio
         return ptReq & btagReq & mvaReq
 
     def tightSelElec(self, ele):
-        #return (ele.isFO) & (ele.mvaTTH_Run3 > get_te_param("mva_TTH_e_cut_run3")) #original cut from Sergio
-        return ((ele.isFO) & (ele.miniPFRelIso_all<0.1))
-    
+        if not self.useMVA:
+            return ((ele.isFO) & (ele.miniPFRelIso_all<0.1))
+        else:
+            return (ele.isFO) & (ele.mvaTTHrun3 > get_te_param("mva_TTH_e_cut_run3")) #original cut from Sergio
+        
     def tightSelMuon(self, muo):
-        #return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTH_Run3 > get_te_param("mva_TTH_m_cut_run3")) #original cut from Sergio
-        return ((muo.isFO) & (muo.mediumId>0) & (muo.miniPFRelIso_all<0.1))
+        if not self.useMVA:
+            return ((muo.isFO) & (muo.mediumId>0) & (muo.miniPFRelIso_all<0.1))
+        else:
+            return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTHrun3 > get_te_param("mva_TTH_m_cut_run3")) #original cut from Sergio
 
 def isClean(obj_A, obj_B, drmin=0.4):
     objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
