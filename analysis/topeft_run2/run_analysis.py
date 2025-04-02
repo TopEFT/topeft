@@ -28,8 +28,8 @@ WGT_VAR_LST = [
     "nSumOfWeights_renormDown",
     "nSumOfWeights_factUp",
     "nSumOfWeights_factDown",
-    "nSumOfWeights_renormDown_factUp",
-    "nSumOfWeights_renormUp_factDown",    
+    #"nSumOfWeights_renormfactUp",
+    #"nSumOfWeights_renormfactDown",
 ]
 
 if __name__ == '__main__':
@@ -49,6 +49,9 @@ if __name__ == '__main__':
     parser.add_argument('--do-errors'      , action='store_true', help = 'Save the w**2 coefficients')
     parser.add_argument('--do-systs', action='store_true', help = 'Compute systematic variations')
     parser.add_argument('--split-lep-flavor', action='store_true', help = 'Split up categories by lepton flavor')
+    parser.add_argument('--offZ-split'      , action='store_true', help = 'Split up 3l offZ categories')
+    parser.add_argument('--tau_h_analysis'  , action='store_true', help = 'Add tau channels')
+    parser.add_argument('--fwd-analysis'    , action='store_true', help = 'Add fwd channels')
     parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
     parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
     parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
@@ -57,7 +60,7 @@ if __name__ == '__main__':
     parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
     parser.add_argument('--ecut', default=None  , help = 'Energy cut threshold i.e. throw out events above this (GeV)')
     parser.add_argument('--port', default='9123-9130', help = 'Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.')
-
+    parser.add_argument('--noRun3MVA'    , action='store_false', default=True, help = 'Add fwd channels')
 
     args = parser.parse_args()
     jsonFiles  = args.jsonFiles
@@ -74,9 +77,13 @@ if __name__ == '__main__':
     do_errors  = args.do_errors
     do_systs   = args.do_systs
     split_lep_flavor = args.split_lep_flavor
+    offZ_split = args.offZ_split
+    tau_h_analysis = args.tau_h_analysis
+    fwd_analysis = args.fwd_analysis
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
+    useRun3MVA = args.noRun3MVA #NB: default value is True, the arg starts with no because its usage prevents making selections with the run3 MVA
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
 
@@ -117,9 +124,15 @@ if __name__ == '__main__':
     if args.hist_list == ["ana"]:
         # Here we hardcode a list of hists used for the analysis
         hist_lst = ["njets","lj0pt","ptz"]
+        if tau_h_analysis:
+            hist_lst.append("ptz_wtau")
+        if fwd_analysis:
+            hist_lst.append("lt")
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass"]
+        if tau_h_analysis:
+            hist_lst.append("tau0pt")
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists
@@ -240,12 +253,12 @@ if __name__ == '__main__':
     else:
         print('No Wilson coefficients specified')
 
-    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr)
+    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr,offZ_split=offZ_split,tau_h_analysis=tau_h_analysis,fwd_analysis=fwd_analysis,useRun3MVA=useRun3MVA)
 
     if executor == "work_queue":
         executor_args = {
             'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
-            'filepath': f'/scratch365/{os.environ["USER"]}',
+
             # find a port to run work queue in this range:
             'port': port,
 
