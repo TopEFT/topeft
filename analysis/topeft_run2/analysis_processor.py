@@ -232,7 +232,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         if is_run3:
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA)
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-            mu["jetBTagDeepFlav"] = jets[mu.jetIdx].btagDeepFlavB
+            te_os.lepJetBTagAdder(ele, jets, btagger="btagDeepFlavB")
+            te_os.lepJetBTagAdder(mu, jets, btagger="btagDeepFlavB")
         elif is_run2:
             leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
@@ -244,8 +245,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         ele["idEmu"] = te_os.ttH_idEmu_cuts_E3(ele.hoe, ele.eta, ele.deltaEtaSC, ele.eInvMinusPInv, ele.sieie)
         ele["conept"] = leptonSelection.coneptElec(ele)
         mu["conept"] = leptonSelection.coneptMuon(mu)
-        ele["btagDeepFlavB"] = ak.fill_none(ele.matched_jet.btagDeepFlavB, -99)
-        mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+
         if not isData:
             ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
             mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
