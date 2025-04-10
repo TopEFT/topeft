@@ -43,9 +43,8 @@ def ismTightTau(idDeepTauVSmu):
     return (idDeepTauVSmu>>1 & 1)
 
 def lepJetBTagAdder(leptons, jets, btagger="btagDeepFlavB", dummyValue=-99.):
-    is_matched = (leptons.jetIdx >= 0) & (leptons.jetIdx < ak.num(jets))
-    btag_score = ak.where(is_matched, jets[leptons.jetIdx][btagger], dummyValue)
-    leptons["jetBTag"] = btag_score
+    is_matched = (leptons.jetIdx > -1) & (leptons.jetIdx < ak.num(jets))
+    leptons["jetBTag"] = ak.fill_none(leptons.matched_jet.btagDeepFlavB, dummyValue)
     
 def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
     return (hoe<(0.10-0.00*(abs(eta+deltaEtaSC)>1.479))) & (eInvMinusPInv>-0.04) & (sieie<(0.011+0.019*(abs(eta+deltaEtaSC)>1.479)))
