@@ -232,12 +232,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         if is_run3:
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA)
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-            te_os.lepJetBTagAdder(ele, jets, btagger="btagDeepFlavB")
-            te_os.lepJetBTagAdder(mu, jets, btagger="btagDeepFlavB")
+            btagAlgo = "btagDeepFlavB"
         elif is_run2:
             leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
-
+            btagAlgo = "btagDeepFlavB"
+            
+        te_os.lepJetBTagAdder(ele, jets, btagger=btagAlgo)
+        te_os.lepJetBTagAdder(mu, jets, btagger=btagAlgo)
+            
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
         events.nom = ak.ones_like(events.MET.pt)
