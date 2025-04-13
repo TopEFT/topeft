@@ -550,11 +550,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 btag_w_bc = pData_bc/pMC_bc
                 btag_w = btag_w_light*btag_w_bc
 
-                if is_run3:
-                    btag_w = ak.ones_like(events.MET.pt)
-                    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
-                else:
-                    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
+                #if is_run3:
+                #    btag_w = ak.ones_like(events.MET.pt)
+                #    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
+                #else:
+                weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
 
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
@@ -601,12 +601,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                         btag_w_up = fixed_btag_w*btag_w_up/btag_w
                         btag_w_down = fixed_btag_w*btag_w_down/btag_w
 
-                        if is_run3:
-                            btag_w_up = ak.ones_like(events.MET.pt)
-                            btag_w_down = ak.ones_like(events.MET.pt)
-                            weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
-                        else:
-                            weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
+                        #if is_run3:
+                        #    btag_w_up = ak.ones_like(events.MET.pt)
+                        #    btag_w_down = ak.ones_like(events.MET.pt)
+                        #    weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
+                        #else:
+                        weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
+
 
                 # Trigger SFs                        
                 GetTriggerSF(year,events,l0,l1) #return array of ones for run3
