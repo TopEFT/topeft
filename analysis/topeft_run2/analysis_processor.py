@@ -551,11 +551,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 btag_w_bc = pData_bc/pMC_bc
                 btag_w = btag_w_light*btag_w_bc
 
-                if is_run3:
-                    btag_w = ak.ones_like(events.MET.pt)
-                    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
-                else:
-                    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
+                #if is_run3:
+                #    btag_w = ak.ones_like(events.MET.pt)
+                #    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
+                #else:
+                weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
 
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
