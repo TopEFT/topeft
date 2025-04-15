@@ -479,7 +479,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
 
             # Loose DeepJet WP
-            loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
+            if btagAlgo == "btagDeepFlavB": 
+                loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
+            if btagAlgo == "btagPNetB":
+                loose_tag = "btag_wp_loose_PNet_" + year.replace("201", "UL1")
             btagwpl = get_tc_param(loose_tag)
             isBtagJetsLoose = (goodJets[btagAlgo] > btagwpl)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
@@ -551,11 +554,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 btag_w_bc = pData_bc/pMC_bc
                 btag_w = btag_w_light*btag_w_bc
 
-                #if is_run3:
-                #    btag_w = ak.ones_like(events.MET.pt)
-                #    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
-                #else:
-                weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
+                if is_run3:
+                    btag_w = ak.ones_like(events.MET.pt)
+                    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
+                else:
+                    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
 
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
