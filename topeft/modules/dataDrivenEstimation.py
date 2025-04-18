@@ -36,7 +36,8 @@ class DataDrivenProducer:
                 continue
 
             # First we are gonna scale all MC processes in  by the luminosity
-            name_regex = r'^(?P<process>.*?)(?:UL)?(?P<year>(?:\d{2}(?:APV)?|\d{4}))$'
+            #name_regex = r'^(?P<process>.*?)(?:UL)?(?P<year>(?:\d{2}(?:APV)?|\d{4}))$'
+            name_regex = r'^(?P<process>.*?)(?:UL)?(?P<year>(?:\d{2}(?:APV|EE|BPix)?|\d{4}(?:EE|BPix)?))$'
             pattern=re.compile(name_regex)
 
             for process in histo.axes['process']:
@@ -50,7 +51,7 @@ class DataDrivenProducer:
                 if not match:
                     raise RuntimeError(f"Sample {process} does not match the naming convention.")
                 year = year.replace("central", "").replace("UL", "")
-                if year not in ['16APV','16','17','18','2022','2023']:
+                if year not in ['16APV','16','17','18','2022','2022EE','2023','2023BPix']:
                     raise RuntimeError(f"Sample {process} does not match the naming convention, year \"{year}\" is unknown.")
 
             print("\n")
