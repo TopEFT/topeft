@@ -624,7 +624,8 @@
                     "3l_p_offZ_2b",
                     "3l_p",
                     "3l_offZ",
-                    "bmask_atleast2m"
+                    "bmask_atleast2m",
+                    "~fwdjet_mask"
                 ],
                 [
                     "3l_onZ_1b_fwd",
