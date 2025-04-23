@@ -1200,8 +1200,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             #print("\n\n\n\n\nHELOOOOOOOOOOOO\n\n\n\n\n")
             CR_GRP_MAP["Nonprompt"].append(proc_name)
             #print(f"\n\n\n\n\nHELOOOOOOOOOOOO\n{CR_GRP_MAP['Nonprompt']}\n\n\n\n")
-        elif "flips" in proc_name:
-            CR_GRP_MAP["Flips"].append(proc_name)
+        #elif "flips" in proc_name:
+        #    CR_GRP_MAP["Flips"].append(proc_name)
         elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("TTLL" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name) or ("TTZToLL_M1to10" in proc_name) or ("TTTT" in proc_name) or ("ttLNu" in proc_name):
             CR_GRP_MAP["Signal"].append(proc_name)
         elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name or "TWZToLL" in proc_name or "TZQB-Zto2L" in proc_name:

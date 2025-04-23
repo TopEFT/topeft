@@ -912,7 +912,7 @@ def AttachPerLeptonFR(leps, flavor, year):
             leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.0 + 1.0
 
             if flavor == "Elec":
-                leps['fliprate'] = (chargeflip_sf) #*(flip_lookup(leps.pt,abs(leps.eta)))
+                leps['fliprate'] = (chargeflip_sf) #*(flip_lookup(leps.pt,abs(leps.eta))) #need to be implemented
             else:
                 leps['fliprate'] = np.zeros_like(leps.pt)
    
