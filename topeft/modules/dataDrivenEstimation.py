@@ -77,7 +77,10 @@ class DataDrivenProducer:
                             match = pattern.search(process)
                             sampleName=match.group('process')
                             year=match.group('year')
-                            nonPromptName='flipsUL%s'%year
+                            if year.startswith("202"):
+                                nonPromptName='flips%s'%year
+                            else:
+                                nonPromptName='flipsUL%s'%year
                             if self.dataName==sampleName:
                                 newNameDictData[nonPromptName].append(process)
                         hFlips=hAR.group('process', newNameDictData)
