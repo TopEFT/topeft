@@ -59,14 +59,19 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Object selection ####################
 
         e = events.Electron
-
+        jets = events.Jet
+        
         if is_run3:
             leptonSelection = te_os.run3leptonselection()
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
+            btagAlgo = "btagDeepFlavB"
         elif is_run2:
             leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
-        
+            btagAlgo = "btagDeepFlavB"
+            
+        te_os.lepJetBTagAdder(e, jets, btagger=btagAlgo)
+            
         e["gen_pdgId"] = e.matched_gen.pdgId
 
         e["idEmu"]         = te_os.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
@@ -91,12 +96,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         isprompt = ((e_tight.genPartFlav==1) | (e_tight.genPartFlav == 15))
         truthFlip_mask   = ak.fill_none((isflip & isprompt),False)
         truthNoFlip_mask = ak.fill_none((noflip & isprompt),False)
-
-        #print("isflip",isflip)
-        #print("e_tight.gen_pdgId",e_tight.gen_pdgId)
-        #print("e_tight.pdgId",e_tight.pdgId)
-        #print("isprompt",isprompt)
-
 
         ########## Fill the histograms ##########
 
