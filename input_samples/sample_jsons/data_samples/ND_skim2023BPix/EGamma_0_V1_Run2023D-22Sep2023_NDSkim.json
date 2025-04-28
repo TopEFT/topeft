@@ -1,15 +1,15 @@
 {
-  "xsec": 1.0,
-  "year": "2023BPix",
-  "treeName": "Events",
-  "histAxisName": "2023BPix_data",
-  "options": "",
-  "era": "D1",
-  "WCnames": [],
-  "files": [],
-  "nEvents": 105892646,
-  "nGenEvents": 105892646,
-  "nSumOfWeights": 105892646.0,
-  "isData": true,
-  "path": "/EGamma0/Run2023D-22Sep2023_v1-v1/NANOAOD"
+    "xsec": 1.0,
+    "year": "2023BPix",
+    "treeName": "Events",
+    "histAxisName": "data2023BPix",
+    "options": "",
+    "era": "D1",
+    "WCnames": [],
+    "files": [],
+    "nEvents": 105892646,
+    "nGenEvents": 105892646,
+    "nSumOfWeights": 105892646.0,
+    "isData": true,
+    "path": "/EGamma0/Run2023D-22Sep2023_v1-v1/NANOAOD"
 }

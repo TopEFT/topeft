@@ -1,15 +1,15 @@
 {
-  "xsec": 1.0,
-  "year": "2023BPix",
-  "treeName": "Events",
-  "histAxisName": "2023BPix_data",
-  "options": "",
-  "era": "D1",
-  "WCnames": [],
-  "files": [],
-  "nEvents": 100281976,
-  "nGenEvents": 100281976,
-  "nSumOfWeights": 100281976.0,
-  "isData": true,
-  "path": "/Muon1/Run2023D-22Sep2023_v1-v1/NANOAOD"
+    "xsec": 1.0,
+    "year": "2023BPix",
+    "treeName": "Events",
+    "histAxisName": "data2023BPix",
+    "options": "",
+    "era": "D1",
+    "WCnames": [],
+    "files": [],
+    "nEvents": 100281976,
+    "nGenEvents": 100281976,
+    "nSumOfWeights": 100281976.0,
+    "isData": true,
+    "path": "/Muon1/Run2023D-22Sep2023_v1-v1/NANOAOD"
 }
