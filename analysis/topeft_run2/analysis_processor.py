@@ -895,7 +895,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
-            varnames["lt"]      = lt
+            if self.fwd_analysis:
+                varnames["lt"]      = lt
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
