@@ -1795,33 +1795,118 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
     return [GetTrig, GetTrigDo, GetTrigUp]
 
+# helper function for the Run3 SFs
+def ApplyBinnedSF(pt, edges, centers, unc, var):
+    default = centers[-1] + var * unc
+    sf = ak.full_like(pt, default)
+    for low, high, cen in zip(edges[:-1], edges[1:], centers[:-1]):
+        sf = ak.where((pt >= low) & (pt < high), cen + var * np.sqrt(unc**2 + (0.02*cen)*0.02), sf)
+    return sf
+
+# Vectorized Run3 SF functions for 2-lepton channels
+def ComputeTriggerSFRun3(year, pdg0, pt0, pdg1, pt1, var=0):
+    """
+    A single dispatcher for all run3 variants:
+    - year:       string, e.g. "2022", "2022EE", "2023", "2023BPix"
+    - pdg0, pdg1: ak.Array of ints
+    - pt0, pt1:   ak.Array of floats (conept)
+    - var:        integer or array of ±1/0
+    """
+    # Only valid when exactly two leptons
+    prod = abs(pdg0 * pdg1)
+    out  = ak.ones_like(pt0)
+
+    # define bins once
+    edges = [20, 40, 50, 65, 80, 100, 200]
+
+    # pick the right centers & uncertainties by year/channel
+    # Format: (centers_ee, unc_ee, centers_em, unc_em, centers_mm, unc_mm)
+    sf_defs = {
+      "2022": (
+        [1.0115, 1.0105, 1.0042, 0.9850, 1.0012, 1.0000, 1.0], 0.0146,   # ee
+        [0.9850, 0.9889, 0.9885, 0.9717, 0.9674, 0.9679, 1.0], 0.0052,   # em
+        [0.9881, 0.9944, 0.9937, 0.9868, 1.0022, 0.9841, 1.0], 0.0098    # mm
+      ),
+      "2022EE": (
+        [0.9845, 1.0004, 1.0025, 0.9857, 0.9965, 1.0044, 1.0], 0.0037,
+        [0.9833, 0.9818, 0.9841, 0.9806, 0.9777, 0.9807, 1.0], 0.0023,
+        [0.9788, 0.9856, 0.9850, 0.9963, 0.9909, 0.9873, 1.0], 0.0039
+      ),
+      "2023": (
+        [0.9453, 0.9791, 0.9953, 0.9822, 1.0025, 0.9948, 1.0], 0.0107,
+        [0.9748, 0.9799, 0.9712, 0.9716, 0.9724, 0.9616, 1.0], 0.0028,
+        [0.9821, 0.9936, 0.9941, 0.9863, 0.9905, 0.9786, 1.0], 0.0051
+      ),
+      "2023BPix": (
+        [0.9672, 1.0001, 0.9852, 0.9928, 0.9981, 0.9954, 1.0], 0.0155,
+        [0.9765, 0.9801, 0.9692, 0.9735, 0.9665, 0.9587, 1.0], 0.0041,
+        [0.9890, 0.9956, 0.9869, 0.9907, 0.9950, 0.9646, 1.0], 0.0080
+      ),
+    }
+
+    centers_ee, unc_ee, centers_em, unc_em, centers_mm, unc_mm = sf_defs[year]
+
+    # apply ee (uses pt0) where |pdg0*pdg1|==121
+    mask_ee = (prod == 121)
+    sf_ee = ApplyBinnedSF(pt0, edges, centers_ee, unc_ee, var)
+    out = ak.where(mask_ee, sf_ee, out)
+
+    # apply em (uses pt1) for 143
+    mask_em = (prod == 143)
+    sf_em = ApplyBinnedSF(pt1, edges, centers_em, unc_em, var)
+    out = ak.where(mask_em, sf_em, out)
+
+    # apply mm (uses pt1) for 169
+    mask_mm = (prod == 169)
+    sf_mm = ApplyBinnedSF(pt1, edges, centers_mm, unc_mm, var)
+    out = ak.where(mask_mm, sf_mm, out)
+
+    return out
+
 def GetTriggerSF(year, events, lep0, lep1):
-    is_run3 = False
-    if year.startswith("202"):
-        is_run3 = True
+    is_run3 = year.startswith("202")
     is_run2 = not is_run3
 
+    pdg0     = lep0.pdgId
+    pdg1     = lep1.pdgId
+    conept0  = lep0.conept
+    conept1  = lep1.conept
+
+    #trigger SFs are applied only to the 2l events, since for >2l channels the trigger SFs are compatible with 1
     ls = []
-    for syst in [0,1]:
-        #2l
-        if is_run2:
-            SF_ee = np.where((events.is2l & events.is_ee), LoadTriggerSF(year,ch='2l',flav='ee')[syst](lep0.pt,lep1.pt), 1.0)
-            SF_em = np.where((events.is2l & events.is_em), LoadTriggerSF(year,ch='2l',flav='em')[syst](lep0.pt,lep1.pt), 1.0)
-            SF_mm = np.where((events.is2l & events.is_mm), LoadTriggerSF(year,ch='2l',flav='mm')[syst](lep0.pt,lep1.pt), 1.0)
-        elif is_run3:
-            SF_ee = ak.ones_like(events.is2l)
-            SF_em = ak.ones_like(events.is2l)
-            SF_mm = ak.ones_like(events.is2l)
-        #3l
-        '''
-        SF_eee=np.where((events.is3l & events.is_eee),LoadTriggerSF(year,ch='3l',flav='eee')[syst](lep0.pt,lep0.eta),1.0)
-        SF_eem=np.where((events.is3l & events.is_eem),LoadTriggerSF(year,ch='3l',flav='eem')[syst](lep0.pt,lep0.eta),1.0)
-        SF_emm=np.where((events.is3l & events.is_emm),LoadTriggerSF(year,ch='3l',flav='emm')[syst](lep0.pt,lep0.eta),1.0)
-        SF_mmm=np.where((events.is3l & events.is_mmm),LoadTriggerSF(year,ch='3l',flav='mmm')[syst](lep0.pt,lep0.eta),1.0)
-        ls.append(SF_ee*SF_em*SF_mm*SF_eee*SF_eem*SF_emm*SF_mmm)
-        '''
-        ls.append(SF_ee * SF_em * SF_mm)
-    ls[1] = np.where(ls[1] == 1.0, 0.0, ls[1]) # stat unc. down
-    events['trigger_sf'] = ls[0] # nominal
-    events['trigger_sfDown'] = ls[0] - np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
-    events['trigger_sfUp'] = ls[0] + np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
+    if is_run2:
+        for syst in [0, 1]:
+            # Run 2: fall back to the JSON‐loaded functions
+            SF_ee = np.where(events.is2l & events.is_ee,
+                             LoadTriggerSF(year, ch='2l', flav='ee')[syst](conept0, conept1),
+                             1.0)
+            SF_em = np.where(events.is2l & events.is_em,
+                             LoadTriggerSF(year, ch='2l', flav='em')[syst](conept0, conept1),
+                             1.0)
+            SF_mm = np.where(events.is2l & events.is_mm,
+                             LoadTriggerSF(year, ch='2l', flav='mm')[syst](conept0, conept1),
+                             1.0)
+
+            ls.append(SF_ee * SF_em * SF_mm)
+
+        ls[1] = np.where(ls[1] == 1.0, 0.0, ls[1])
+        sf_nominal = ls[0]
+        sf_up = ls[0] + np.sqrt(ls[1]**2 + (0.02 * ls[0])**2)
+        sf_down = ls[0] - np.sqrt(ls[1]**2 + (0.02 * ls[0])**2)
+            
+    else:
+        # Run 3: vectorized awkward functions
+        mask2l     = events.is2l
+        sf_nominal = ak.where(mask2l,
+                              ComputeTriggerSFRun3(year, pdg0, conept0, pdg1, conept1, var=0),
+                              1.0)
+        sf_up      = ak.where(mask2l,
+                              ComputeTriggerSFRun3(year, pdg0, conept0, pdg1, conept1, var=1),
+                              1.02)
+        sf_down    = ak.where(mask2l,
+                              ComputeTriggerSFRun3(year, pdg0, conept0, pdg1, conept1, var=-1),
+                              0.98)
+
+    events['trigger_sf'] = sf_nominal
+    events['trigger_sfUp'] = sf_up
+    events['trigger_sfDown'] = sf_down

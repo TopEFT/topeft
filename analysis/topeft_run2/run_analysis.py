@@ -130,7 +130,7 @@ if __name__ == '__main__':
             hist_lst.append("lt")
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
-        hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass"]
+        hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass", "npvs", "npvsGood"]
         if tau_h_analysis:
             hist_lst.append("tau0pt")
     else:

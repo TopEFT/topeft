@@ -227,7 +227,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu   = events.Muon
         tau  = events.Tau
         jets = events.Jet
-
+        pv   = events.PV
 
         if is_run3:
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA)
@@ -610,7 +610,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                             weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
 
                 # Trigger SFs                        
-                GetTriggerSF(year,events,l0,l1) #return array of ones for run3
+                GetTriggerSF(year,events,l0,l1) #implemented also for Run3
+
                 weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
 
             ######### Event weights that do depend on the lep cat ###########
@@ -920,6 +921,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
             varnames["lt"]      = lt
+            varnames["npvs"]    = pv.npvs
+            varnames["npvsGood"]= pv.npvsGood
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt

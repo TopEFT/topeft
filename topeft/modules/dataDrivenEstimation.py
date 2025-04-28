@@ -54,9 +54,6 @@ class DataDrivenProducer:
                 if year not in ['16APV','16','17','18','2022','2022EE','2023','2023BPix']:
                     raise RuntimeError(f"Sample {process} does not match the naming convention, year \"{year}\" is unknown.")
 
-            print("\n")
-            print("process", process, "sampleName", sampleName, "year", year)
-            print("\n")
             # now for each year we actually perform the subtraction and integrate out the application regions
             newhist=None
             for ident in histo.axes['appl']:

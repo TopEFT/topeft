@@ -1,4 +1,12 @@
 info = {
+    "npvs": {
+        "regular": (100, 0, 100),
+        "label": r"Number of reco primary vertices ",
+    },
+    "npvsGood": {
+        "regular": (100, 0, 100),
+        "label": r"Number of Good reco primary vertices ",
+    },
     "invmass": {
         "regular": (50, 0, 1000),
         "label": r"$m_{\ell\ell}$ (GeV) ",
