@@ -1380,7 +1380,11 @@ def AttachElectronSF(electrons, year, looseWP=None):
 def GetMCeffFunc(year, wp='medium', flav='b'):
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
-    pathToBtagMCeff = topeft_path('data/btagSF/UL/btagMCeff_%s.pkl.gz'%year)
+    if not year.startswith("202"):
+        pathToBtagMCeff = topeft_path('data/btagSF/UL/btagMCeff_%s.pkl.gz' % year)
+    else:
+        pathToBtagMCeff = topeft_path('data/btagSF/Run3/btagMCeff_%s.pkl.gz' % year[0:4])
+
     hists = {}
     with gzip.open(pathToBtagMCeff) as fin:
         hin = pickle.load(fin)
@@ -1417,7 +1421,7 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
 def GetBtagEff(jets, year, wp='medium'):
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
-    result = GetMCeffFunc(year,wp)(jets.pt, np.abs(jets.eta), jets.hadronFlavour) if year[2] != "2" else ak.ones_like(jets.pt)
+    result = GetMCeffFunc(year,wp)(jets.pt, np.abs(jets.eta), jets.hadronFlavour) #if year[2] != "2" else ak.ones_like(jets.pt)
     return result
 
 def GetBTagSF(jets, year, wp='MEDIUM', syst='central'):

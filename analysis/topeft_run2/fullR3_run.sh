@@ -5,7 +5,7 @@ YEAR="2022"
 #YEAR="2022EE"
 #YEAR="2023"
 #YEAR="2023BPix"
-OUT_NAME="${YEAR}CRsBis"
+OUT_NAME="${YEAR}CRs_36f64aa"
 echo "OUT_NAME," $OUT_NAME
 
 # Build the run command for filling SR histos
