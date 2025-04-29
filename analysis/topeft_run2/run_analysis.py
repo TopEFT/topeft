@@ -130,7 +130,7 @@ if __name__ == '__main__':
             hist_lst.append("lt")
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
-        hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass", "npvs", "npvsGood"]
+        hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass", "npvs", "npvsGood"] #, "trigSF"]
         if tau_h_analysis:
             hist_lst.append("tau0pt")
     else:
@@ -258,7 +258,7 @@ if __name__ == '__main__':
     if executor == "work_queue":
         executor_args = {
             #'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
-            'master_name': '{}-workqueue-coffea'.format(os.environ['USER'] + "_" + mastername),
+            'master_name': '{}-workqueue-coffea'.format(os.environ['USER'] + "_" + outname),
 
             # find a port to run work queue in this range:
             'port': port,
@@ -287,7 +287,7 @@ if __name__ == '__main__':
             # forever until a larger worker connects.
             'resource_monitor': True,
             'resources_mode': 'auto',
-            #'filepath': f'/tmp/{os.environ["USER"]}', ##Placeholder to comment out if you don't want to save wq-factory dirs in afs
+            'filepath': f'/tmp/{os.environ["USER"]}-workers', ##Placeholder to comment out if you don't want to save wq-factory dirs in afs
 
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion

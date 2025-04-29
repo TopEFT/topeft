@@ -1863,6 +1863,7 @@ def ComputeTriggerSFRun3(year, pdg0, pt0, pdg1, pt1, var=0):
 
     return out
 
+
 def GetTriggerSF(year, events, lep0, lep1):
     is_run3 = year.startswith("202")
     is_run2 = not is_run3
@@ -1910,3 +1911,35 @@ def GetTriggerSF(year, events, lep0, lep1):
     events['trigger_sf'] = sf_nominal
     events['trigger_sfUp'] = sf_up
     events['trigger_sfDown'] = sf_down
+
+'''
+def GetTriggerSF(year, events, lep0, lep1):
+    is_run3 = False
+    if year.startswith("202"):
+        is_run3 = True
+    is_run2 = not is_run3
+
+    ls = []
+    for syst in [0,1]:
+        #2l
+        if is_run2:
+            SF_ee = np.where((events.is2l & events.is_ee), LoadTriggerSF(year,ch='2l',flav='ee')[syst](lep0.pt,lep1.pt), 1.0)
+            SF_em = np.where((events.is2l & events.is_em), LoadTriggerSF(year,ch='2l',flav='em')[syst](lep0.pt,lep1.pt), 1.0)
+            SF_mm = np.where((events.is2l & events.is_mm), LoadTriggerSF(year,ch='2l',flav='mm')[syst](lep0.pt,lep1.pt), 1.0)
+        elif is_run3:
+            SF_ee = ak.ones_like(events.is2l)
+            SF_em = ak.ones_like(events.is2l)
+            SF_mm = ak.ones_like(events.is2l)
+        #3l
+        #SF_eee=np.where((events.is3l & events.is_eee),LoadTriggerSF(year,ch='3l',flav='eee')[syst](lep0.pt,lep0.eta),1.0)
+        #SF_eem=np.where((events.is3l & events.is_eem),LoadTriggerSF(year,ch='3l',flav='eem')[syst](lep0.pt,lep0.eta),1.0)
+        #SF_emm=np.where((events.is3l & events.is_emm),LoadTriggerSF(year,ch='3l',flav='emm')[syst](lep0.pt,lep0.eta),1.0)
+        #SF_mmm=np.where((events.is3l & events.is_mmm),LoadTriggerSF(year,ch='3l',flav='mmm')[syst](lep0.pt,lep0.eta),1.0)
+        #ls.append(SF_ee*SF_em*SF_mm*SF_eee*SF_eem*SF_emm*SF_mmm)
+        
+        ls.append(SF_ee * SF_em * SF_mm)
+    ls[1] = np.where(ls[1] == 1.0, 0.0, ls[1]) # stat unc. down
+    events['trigger_sf'] = ls[0] # nominal
+    events['trigger_sfDown'] = ls[0] - np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
+    events['trigger_sfUp'] = ls[0] + np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
+'''

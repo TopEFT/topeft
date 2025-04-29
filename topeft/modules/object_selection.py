@@ -205,7 +205,7 @@ class run3leptonselection:
         return (ele.miniPFRelIso_all<get_te_param("iso_cut")) & (ele.sip3d<get_te_param("sip3d_cut")) & (ele.lostHits<=1)
 
     def isLooseMuon(self, muon):
-        return (muon.miniPFRelIso_all<get_te_param("iso_cut")) & (muon.sip3d<get_te_param("sip3d_cut")) & (muon.mediumId)
+        return (muon.miniPFRelIso_all<get_te_param("iso_cut")) & (muon.sip3d<get_te_param("sip3d_cut")) & (muon.looseId)
 
     def isFOElec(self, ele, year):
         bTagCut    = get_medium_btag_foryear(year)

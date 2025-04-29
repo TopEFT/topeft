@@ -5,7 +5,7 @@ YEAR="2022"
 #YEAR="2022EE"
 #YEAR="2023"
 #YEAR="2023BPix"
-OUT_NAME="${YEAR}CRs"
+OUT_NAME="${YEAR}CRsBis"
 echo "OUT_NAME," $OUT_NAME
 
 # Build the run command for filling SR histos
@@ -15,7 +15,7 @@ echo "OUT_NAME," $OUT_NAME
 # Build the run command for filling CR histos
 #CFGS="../../input_samples/cfgs/ND_${YEAR}_background_samples.cfg,../../input_samples/cfgs/${YEAR}_data.cfg" #,../../input_samples/cfgs/ND_${YEAR}_signal_samples.cfg"
 CFGS="../../input_samples/cfgs/NDSkim_${YEAR}_background_samples.cfg,../../input_samples/cfgs/NDSkim_${YEAR}_data_samples.cfg" #,../../input_samples/cfgs/ND_${YEAR}_signal_samples.cfg"
-OPTIONS="--hist-list cr --skip-sr  -s 50000 --split-lep-flavor -x futures -p /scratch365/$USER/ -o $OUT_NAME --do-np " # For CR plots
+OPTIONS="--hist-list cr --skip-sr  -s 50000 --split-lep-flavor -p /scratch365/$USER/ -o $OUT_NAME -x work_queue --do-np " # For CR plots
 # Run the processor over all Run2 samples
 RUN_COMMAND="time python run_analysis.py $CFGS $OPTIONS"
 printf "\nRunning the following command:\n$RUN_COMMAND\n\n"
