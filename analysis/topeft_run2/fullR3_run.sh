@@ -5,8 +5,8 @@ YEAR="2022"
 #YEAR="2022EE"
 #YEAR="2023"
 #YEAR="2023BPix"
-OUT_NAME="${YEAR}CRs_36f64aa"
-echo "OUT_NAME," $OUT_NAME
+OUT_NAME="${YEAR}CRs_af93ce1"
+echo "OUT_NAME:" $OUT_NAME
 
 # Build the run command for filling SR histos
 #CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_NDSkim.cfg,../../input_samples/cfgs/data_samples_NDSkim.cfg"
