@@ -478,15 +478,20 @@ class AnalysisProcessor(processor.ProcessorABC):
             ht = ak.sum(goodJets.pt,axis=-1)
             j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
 
+            if btagAlgo == "btagDeepFlavB":
+                btagRef = ""
+            elif btagAlgo == "btagPNetB":
+                btagName = "ParT_"
+
             # Loose DeepJet WP
-            loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
+            loose_tag = "btag_wp_loose_" + btagRef + year.replace("201", "UL1")
             btagwpl = get_tc_param(loose_tag)
             isBtagJetsLoose = (goodJets[btagAlgo] > btagwpl)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
             # Medium DeepJet WP
-            medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
+            medium_tag = "btag_wp_medium_" + btagRef + year.replace("201", "UL1")
             btagwpm = get_tc_param(medium_tag)
             isBtagJetsMedium = (goodJets[btagAlgo] > btagwpm)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
@@ -533,8 +538,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                     btag_method_bc    = "deepJet_comb"
                     btag_method_light = "deepJet_incl"
                 elif is_run3:
-                    btag_method_bc    = "deepJet_comb"
-                    btag_method_light = "deepJet_light"
+                    if btagAlgo == "btagDeepFlavB":
+                        btagName = "deepJet"
+                    elif btagAlgo == "btagPNetB":
+                        btagName = "particleNet"
+                    btag_method_bc    = f"{btagName}_comb"
+                    btag_method_light = f"{btagName}_light"
                 
                 btag_effM_light = GetBtagEff(jets_light, year, 'medium') #return array of ones for run3
                 btag_effM_bc = GetBtagEff(jets_bc, year, 'medium')
