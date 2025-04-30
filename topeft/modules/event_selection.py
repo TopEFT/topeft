@@ -495,12 +495,12 @@ def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
     #the event is overlapping with the separate sample if there is an overlap photon passing the dR cut, kinematic cuts, and not coming from hadronic activity
     isolated_overlapPhotons = overlapPhotons[~ph_iso_mask]
 
-    if any(x in dataset for x in ["TTTo","DY10to50","DY50"]):   #samples from which the events with well-isolated overlapping photons are to be vetoed
+    if any(x in dataset for x in ["TTTo","DY10to50","DY50","ST_top","ST_antitop"]):   #samples from which the events with well-isolated overlapping photons are to be vetoed
         criteria = (ak.num(isolated_overlapPhotons)==0)
         events["vetoedbyOverlap"] = ~criteria
         events["retainedbyOverlap"] = criteria
 
-    elif any(x in dataset for x in ["TTGamma","ZGToLLG","DYGto2LG-1Jets"]):  #if these samples do not have well-isolated photon, then we remove such events from them
+    elif any(x in dataset for x in ["TTGamma","ZGToLLG","DYGto2LG-1Jets","ST_TWGToLL"]):  #if these samples do not have well-isolated photon, then we remove such events from them
         criteria = (ak.num(isolated_overlapPhotons) >= 1)
         events["vetoedbyOverlap"] = ~criteria
         events["retainedbyOverlap"] = criteria
@@ -603,6 +603,14 @@ def get_Z_peak_mask_llg(lep_collection,photon_collection,pt_window,flavor="os",z
 
     return sfosz_mask_llg
 
+def addPhotonSF(events):
+    padded_photon = ak.pad_none(events.ph_fo_pt_sorted, 1)
+
+    # SFs
+    events['sf_2l_photon']    = padded_photon.sf_nom_photon[:,0]
+    events['sf_2l_hi_photon'] = padded_photon.sf_hi_photon[:,0]
+    events['sf_2l_lo_photon'] = padded_photon.sf_lo_photon[:,0]
+
 def addPhotonSelection(events, sampleType, last_pt_bin, closureTest):
     padded_photon = ak.pad_none(events.ph_fo_pt_sorted, 1)
 
@@ -654,6 +662,7 @@ def categorizePhotonsInABCD_FR(events,sampleType):
 
     #if MC, take the prompt piece only
     else:
+        #a0_prompt_match = (a0.genPartFlav != 0)
         a0_prompt_match = (a0.genPartFlav == 1)
 
         C_exclusive = (a0.inC_ABCD) & a0_prompt_match
@@ -664,6 +673,42 @@ def categorizePhotonsInABCD_FR(events,sampleType):
     #the following 2 masks are useful if we want to do Data-MC agreement study in the MRs
     events['isC_allph_ABCD'] = ak.fill_none((a0.inC_ABCD),False)
     events['isD_allph_ABCD'] = ak.fill_none((a0.inD_ABCD),False)
+
+def categorizePhotonsInABCD_kMC(events):
+    fo_ph = events.ph_fo_pt_sorted
+    padded_fo_ph = ak.pad_none(fo_ph,1)
+    a0 = padded_fo_ph[:,0]
+
+    #Using genPartFlav to match to nonprompt photons
+    a0_nonprompt_match = (a0.genPartFlav == 0)
+
+    A_exclusive = ((a0.inA_ABCD) & a0_nonprompt_match)
+    B_exclusive = ((a0.inB_ABCD) & a0_nonprompt_match)
+    C_exclusive = ((a0.inC_ABCD) & a0_nonprompt_match)
+    D_exclusive = ((a0.inD_ABCD) & a0_nonprompt_match)
+
+    events['isA_ABCD'] = ak.fill_none(A_exclusive,False)
+    events['isB_ABCD'] = ak.fill_none(B_exclusive,False)
+    events['isC_ABCD'] = ak.fill_none(C_exclusive,False)
+    events['isD_ABCD'] = ak.fill_none(D_exclusive,False)
+
+def categorizePhotonsInLRCD_kMC(events):
+    fo_ph = events.ph_fo_pt_sorted
+    padded_fo_ph = ak.pad_none(fo_ph,1)
+    a0 = padded_fo_ph[:,0]
+
+    #Using genPartFlav to match to nonprompt photons
+    a0_nonprompt_match = (a0.genPartFlav == 0)
+
+    L_exclusive = ((a0.inL_LRCD) & a0_nonprompt_match)
+    R_exclusive = ((a0.inR_LRCD) & a0_nonprompt_match)
+    C_exclusive = ((a0.inC_LRCD) & a0_nonprompt_match)
+    D_exclusive = ((a0.inD_LRCD) & a0_nonprompt_match)
+
+    events['isL_LRCD'] = ak.fill_none(L_exclusive,False)
+    events['isR_LRCD'] = ak.fill_none(R_exclusive,False)
+    events['isC_LRCD'] = ak.fill_none(C_exclusive,False)
+    events['isD_LRCD'] = ak.fill_none(D_exclusive,False)
 
 def categorize_into_ISRFSR_photon(events):
     ph_collection = events.ph_fo_pt_sorted

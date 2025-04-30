@@ -19,6 +19,7 @@ from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
 from topcoffea.modules.JECStack import JECStack
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
+from coffea.lookup_tools.dense_lookup import dense_lookup
 
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
@@ -953,13 +954,12 @@ def AddPerPhotonFR(events,ph,year,closureTest=False):
     elif year == "2018": year_name = "UL18"
     else: raise Exception(f"Not a known year: {year}")
 
-    pt_edges = np.array([20,30,45,70,120])
+    pt_edges = np.array([20,50,90,120])
     eta_edges = np.array([0,0.435,0.783,1.13,1.50])
 
     #NOTE for future: The FR and kMC numpy files will change in the future. The alphanumeric code in the path is also temporary and will eventually be removed.
     #We just need a single fake-rate file
-    #fr_file = np.load(topeft_path(f"data/photon_fakerates_gyR6uGhvfy/fr_ph_{year_name}.npz"))
-    fr_file = np.load(topeft_path(f"data/photon_fakerates_o7cANdcK3j/fr_ph_{year_name}.npz"))
+    fr_file = np.load(topeft_path(f"data/photon_fakerates_vPBDX4jaix/fr_ph_{year_name}.npz"))
 
     fr_value = fr_file[fr_file.files[0]]
     #We need to clip the underflow bins along both axes.
@@ -974,12 +974,10 @@ def AddPerPhotonFR(events,ph,year,closureTest=False):
 
     #Depending on whether we are doing closure test or not, we need different kmc files
     if not closureTest:
-        #kmc_file = np.load(topeft_path(f"data/photon_fakerates_gB29WFMqFb/kmc_ph_{year_name}.npz"))
-        kmc_file = np.load(topeft_path(f"data/photon_fakerates_ZxY8lNRB2E/kmc_ph_{year_name}.npz"))
+        kmc_file = np.load(topeft_path(f"data/photon_kmc_ZLukNwKXmX/kmc_ph_{year_name}.npz"))
 
     else:
-        #kmc_file = np.load(topeft_path(f"data/photon_fakerates_jeJHI2cDh5/kmc_ph_{year_name}.npz"))
-        kmc_file = np.load(topeft_path(f"data/photon_fakerates_5QFHsLhmPF/kmc_ph_{year_name}.npz"))
+        kmc_file = np.load(topeft_path(f"data/photon_kmc_closure_NxVGhzZ8DU/kmc_ph_{year_name}.npz"))
 
     kmc_value = kmc_file[kmc_file.files[0]]
     #We need to clip the underflow bins along both axes.
@@ -1853,3 +1851,23 @@ def GetTriggerSF(year, events, lep0, lep1):
     events['trigger_sf'] = ls[0] # nominal
     events['trigger_sfDown'] = ls[0] - np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
     events['trigger_sfUp'] = ls[0] + np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
+
+#This creates an event weight based on the photon pT correction factor (CF) derived to correct private ttgamma samples
+def ApplyttgammaCF(year, events):
+    #First load the photon from the events collection
+    padded_photon = ak.pad_none(events.ph_fo_pt_sorted, 1)
+    a0 = padded_photon[:,0]
+
+    #Next, load the file with the correction factors
+    pathToCF = topeft_path('data/ttg_private_corrections/cf.json')
+
+    with open(pathToCF,"r") as fin:
+        cf_data = json.load(fin)
+
+    pt_edges = np.array(cf_data["pt_edges"])
+    cf_dict = cf_data["correction_factors"]
+
+    photon_corr_lookup = dense_lookup(np.array(cf_dict[year]),pt_edges)
+    pt_corr = photon_corr_lookup(a0.pt)
+
+    events['photon_pt_cf'] = pt_corr
