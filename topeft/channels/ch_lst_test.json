@@ -783,6 +783,33 @@
             ]
         }
     },
+    "TTA_CH_LST_CR": {
+        "2los_ph_CR_sf_Zg": {
+            "lep_chan_lst": [
+                [
+                    "2los_ph_CR_sf_Zg",
+                    "2los_ph_CR_sf_Zg",
+                    "exactly_1ph",
+                    "bmask_atleast1med"
+                ]
+            ],
+            "lep_flav_lst": [
+                "ee",
+                "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lOS_ph",
+                "isAR_2lOS_ph",
+                "isAR_2lOS_medph"
+            ],
+            "jet_lst": [
+                "=1",
+                "=2",
+                "=3",
+                ">4"
+            ]
+        }
+    },
     "TTA_CH_LST_SR": {
         "2los_of_ph": {
             "lep_chan_lst": [
@@ -813,31 +840,6 @@
                 [
                     "2los_sf_ph",
                     "2los_sf_ph",
-                    "exactly_1ph",
-                    "bmask_atleast1med"
-                ]
-            ],
-            "lep_flav_lst": [
-                "ee",
-                "mm"
-            ],
-            "appl_lst": [
-                "isSR_2lOS_ph",
-                "isAR_2lOS_ph",
-                "isAR_2lOS_medph"
-            ],
-            "jet_lst": [
-                "=1",
-                "=2",
-                "=3",
-                ">4"
-            ]
-        },
-        "2los_ph_CR_sf_Zg": {
-            "lep_chan_lst": [
-                [
-                    "2los_ph_CR_sf_Zg",
-                    "2los_ph_CR_sf_Zg",
                     "exactly_1ph",
                     "bmask_atleast1med"
                 ]
