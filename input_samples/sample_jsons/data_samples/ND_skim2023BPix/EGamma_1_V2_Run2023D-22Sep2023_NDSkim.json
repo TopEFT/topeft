@@ -1,15 +1,22 @@
 {
-    "xsec": 1.0,
-    "year": "2023BPix",
-    "treeName": "Events",
-    "histAxisName": "data2023BPix",
-    "options": "",
-    "era": "D2",
-    "WCnames": [],
-    "files": [],
-    "nEvents": 22653287,
-    "nGenEvents": 22653287,
-    "nSumOfWeights": 22653287.0,
-    "isData": true,
-    "path": "/EGamma1/Run2023D-22Sep2023_v2-v1/NANOAOD"
+  "xsec": 1.0,
+  "year": "2023BPix",
+  "treeName": "Events",
+  "histAxisName": "data2023BPix",
+  "options": "",
+  "era": "D2",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/EGamma_1_V2_Run2023D_22Sep2023/output_253.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/EGamma_1_V2_Run2023D_22Sep2023/output_82.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/EGamma_1_V2_Run2023D_22Sep2023/output_303.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/EGamma_1_V2_Run2023D_22Sep2023/output_126.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/EGamma_1_V2_Run2023D_22Sep2023/output_176.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/EGamma_1_V2_Run2023D_22Sep2023/output_207.root"
+  ],
+  "nEvents": 22653287,
+  "nGenEvents": 22653287,
+  "nSumOfWeights": 22653287.0,
+  "isData": true,
+  "path": "/EGamma1/Run2023D-22Sep2023_v2-v1/NANOAOD"
 }
