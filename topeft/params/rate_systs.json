@@ -33,7 +33,7 @@
         "tWZ":      {                   "qcd_scale": "tWZ" },
         "Diboson":  {"pdf_scale": "qq", "qcd_scale": "VV"  },
         "Triboson": {"pdf_scale": "qq", "qcd_scale": "VVV" },
-        "convs":    {"pdf_scale": "gg"}
+        "TTGamma":    {"pdf_scale": "gg"}
     },
     "diboson_njets" : {
         "Diboson": {"1": 1.0, "2": 1.20, "3": 1.48, "4": 1.77, "5": 2.05, "6": 2.34, "7": 2.62}

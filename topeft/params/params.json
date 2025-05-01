@@ -118,7 +118,8 @@
         "ttHJet_private",
         "ttllJet_private",
         "ttlnuJet_private",
-        "tttt_private"
+        "tttt_private",
+        "TTGamma_Dilept_private"
     ],
 
     "chargeflip_sf_dict" : {
