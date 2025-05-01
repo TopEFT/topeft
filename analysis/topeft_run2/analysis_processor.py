@@ -658,14 +658,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 #correction factors for EFT ttgamma samples derived in bins of photon pt
                 if self.ttA_analysis and "TTGamma_Dilept_private" in histAxisName:
                     year_for_cf = "all" #this just means we want to use a single CF for all years
+
+                    #apply correction factors
+                    ApplyttgammaCF(year_for_cf,events)
                     if year_for_cf == "all":
-                        ApplyttgammaCF(year_for_cf,events)
                         weights_obj_base_for_kinematic_syst.add(f"photonptCF",events.photon_pt_cf)
-
-                    elif year_for_cf = year:
-                        ApplyttgammaCF(year_for_cf,events)
+                    elif year_for_cf == year:
                         weights_obj_base_for_kinematic_syst.add(f"photonptCF_{year}",events.photon_pt_cf)
-
                     else:
                         raise ValueError(f"Error: Unknown year \"{year}\".")
 

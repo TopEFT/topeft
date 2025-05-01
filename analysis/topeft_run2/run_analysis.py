@@ -373,7 +373,7 @@ if __name__ == '__main__':
     if do_np:
         out_pkl_file_name_np = os.path.join(outpath,outname+"_np.pkl.gz")
         if ttA_analysis and do_np_ph:
-            print("\nDoing nonprompt lepton and photon estimation..."
+            print("\nDoing nonprompt lepton and photon estimation...")
             ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np, ttA_analysis=args.ttA_analysis, do_np_ph=args.do_np_ph, modify_variance=args.modify_variance)
         else:
             print("\nDoing nonprompt lepton estimation.....")
