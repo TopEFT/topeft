@@ -53,6 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('--tau_h_analysis'  , action='store_true', help = 'Add tau channels')
     parser.add_argument('--fwd-analysis'    , action='store_true', help = 'Add fwd channels')
     parser.add_argument('--ttA-analysis'    , action='store_true', help = 'Add ttA channels')
+    parser.add_argument('--modify-variance' , action='store_true', help = 'Modify sumw2 of photon pT histogram only relevant to ttA analysis')
     parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
     parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
     parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
@@ -83,6 +84,7 @@ if __name__ == '__main__':
     tau_h_analysis = args.tau_h_analysis
     fwd_analysis = args.fwd_analysis
     ttA_analysis = args.ttA_analysis
+    modify_variance = args.modify_variance
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
@@ -369,12 +371,13 @@ if __name__ == '__main__':
 
     # Run the data driven estimation, save the output
     if do_np:
-        if not do_np_ph:
-            print("\nDoing the nonprompt lepton estimation...")
-        else:
-            print("\nDoing the nonprompt estimation of lepton and photon......")
         out_pkl_file_name_np = os.path.join(outpath,outname+"_np.pkl.gz")
-        ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np, do_np_ph=args.do_np_ph)
+        if ttA_analysis and do_np_ph:
+            print("\nDoing nonprompt lepton and photon estimation..."
+            ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np, ttA_analysis=args.ttA_analysis, do_np_ph=args.do_np_ph, modify_variance=args.modify_variance)
+        else:
+            print("\nDoing nonprompt lepton estimation.....")
+            ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np)
         print(f"Saving output in {out_pkl_file_name_np}...")
         ddp.dumpToPickle()
         print("Done!")

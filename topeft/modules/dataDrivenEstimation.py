@@ -11,7 +11,7 @@ from topeft.modules.nonprompt_unc_propagation_helper import modify_NP_photon_pt_
 get_te_param = GetParam(topeft_path("params/params.json"))
 
 class DataDrivenProducer:
-    def __init__(self, inputHist, outputName, do_np_ph=False):
+    def __init__(self, inputHist, outputName, ttA_analysis=False, do_np_ph=False, modify_variance=False):
         if isinstance(inputHist, str) and inputHist.endswith('.pkl.gz'): # we are plugging a pickle file
             self.inhist=utils.get_hist_from_pkl(inputHist)
         else: # we already have the histogram
@@ -20,8 +20,10 @@ class DataDrivenProducer:
         self.verbose=False
         self.dataName='data'
         self.outHist=None
+        self.ttA_analysis=ttA_analysis
         self.closure=False #a boolean to indicate whether we are doing closure test for nonprompt photon estimation
         self.do_np_ph=do_np_ph #this controls whether we will do non-prompt photon estimation or not
+        self.modify_variance=modify_variance #TEMPORARY as we explore binning optimization
         self.promptSubtractionSamples=get_te_param('prompt_subtraction_samples')
         self.promptPhSubtractionSamples=get_te_param('prompt_photon_subtraction_samples')
         self.DDFakes()
@@ -33,8 +35,9 @@ class DataDrivenProducer:
         self.outHist={}
 
         #This dictionary collects photon_pt_eta and photon_pt_eta_sumw2 hists needed for FR/kMC stat uncertainty propagation
-        required_hists_for_nonprompt_ph={}
-        np_uncertainty_propagation_done = False
+        if self.ttA_analysis:
+            required_hists_for_nonprompt_ph={}
+            np_uncertainty_propagation_done = False
 
         for key,histo in self.inhist.items():
             if histo.empty(): # histo is empty, so we just integrate over appl and keep an empty histo
@@ -98,7 +101,7 @@ class DataDrivenProducer:
                         else:
                             newhist += hFlips
 
-                    elif ident in ["isAR_2lSS","isAR_3l","isAR_2lOS_medph"]:
+                    elif ident in ["isAR_2lSS","isAR_3l","isAR_2lOS_medph","isAR_2lOS"]:
                         # if we are in the nonprompt application region, we also integrate the application region axis
                         # and construct the new process 'nonprompt'
                         # we look at data only, and rename it to fakes
@@ -134,7 +137,8 @@ class DataDrivenProducer:
                         hFakes += hPromptSub
 
                         #Also make sure to remove nonpromptPh systematic uncertainty (if it exists) from hFakes cause it is not relevant
-                        hFakes = hFakes.remove("systematic",["nonpromptPhUp","nonpromptPhDown"])
+                        if self.ttA_analysis:
+                            hFakes = hFakes.remove("systematic",["nonpromptPhUp","nonpromptPhDown"])
 
                         # now adding them to the list of processes:
                         if newhist==None:
@@ -144,7 +148,7 @@ class DataDrivenProducer:
 
                     #isAR_2lOS_ph is the regular AR using which we estimate non-prompt photon in our signal region A
                     #isAR_R_LRCD is the "AR" corresponding to the "SR" L in the LRCD closure test
-                    elif ident in ["isAR_2lOS_ph", "isAR_B_ABCD"] and self.do_np_ph:
+                    elif self.ttA_analysis and self.do_np_ph and ident in ["isAR_2lOS_ph", "isAR_B_ABCD"]:
                         print(f"\n\nWe are inside {ident} appl axis and we will do nonprompt photon estimation here")
                         newDataDict=defaultdict(list); newNonDataDict=defaultdict(list)
                         for process in hAR.axes['process']:
@@ -189,7 +193,7 @@ class DataDrivenProducer:
                             required_hists_for_nonprompt_ph["photon_pt_eta"] = hPhFakes
                         elif key == "photon_pt_eta_sumw2":
                             required_hists_for_nonprompt_ph["photon_pt_eta_sumw2"] = hPhFakes
-                        if not np_uncertainty_propagation_done and "photon_pt_eta" in required_hists_for_nonprompt_ph and "photon_pt_eta_sumw2" in required_hists_for_nonprompt_ph:
+                        if self.modify_variance and not np_uncertainty_propagation_done and "photon_pt_eta" in required_hists_for_nonprompt_ph and "photon_pt_eta_sumw2" in required_hists_for_nonprompt_ph:
                             modify_NP_photon_pt_eta_variance(required_hists_for_nonprompt_ph,closure=self.closure)
                             np_uncertainty_propagation_done = True
                             # Update newhist with the modified histogram. We only need the sumw2 histogram!
@@ -206,14 +210,14 @@ class DataDrivenProducer:
                                 newhist += hPhFakes
 
             #For the sumw2 2D histogram, only dump it to the outHist dict if we have done the non-prompt uncertainty propagation
-            if self.do_np_ph and key == "photon_pt_eta_sumw2":
+            if self.ttA_analysis and self.do_np_ph and self.modify_variance and key == "photon_pt_eta_sumw2":
                 if np_uncertainty_propagation_done:
                     self.outHist[key]=newhist
             else:
                 self.outHist[key]=newhist
 
         #This is where we modify the photon_pt2 histogram's variance for the nonpromptPhUL{year} contribution
-        if self.do_np_ph:
+        if self.ttA_analysis and self.do_np_ph and self.modify_variance:
             for year in ['16','16APV','17','18']:
                 modify_photon_pt_variance(self.outHist,year)
             #At this point, we don't need to store photon_pt_eta and photon_pt_eta_sumw2 histograms anymore
