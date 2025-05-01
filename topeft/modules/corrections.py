@@ -21,6 +21,7 @@ from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
 from coffea.lookup_tools.dense_lookup import dense_lookup
 
+from topeft.modules.axes import info as axes_info
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
@@ -954,8 +955,8 @@ def AddPerPhotonFR(events,ph,year,closureTest=False):
     elif year == "2018": year_name = "UL18"
     else: raise Exception(f"Not a known year: {year}")
 
-    pt_edges = np.array([20,50,90,120])
-    eta_edges = np.array([0,0.435,0.783,1.13,1.50])
+    pt_edges = np.array(axes_info['photon_pt2']['variable'])
+    eta_edges = np.array(axes_info['photon_eta2']['variable'])
 
     #NOTE for future: The FR and kMC numpy files will change in the future. The alphanumeric code in the path is also temporary and will eventually be removed.
     #We just need a single fake-rate file
