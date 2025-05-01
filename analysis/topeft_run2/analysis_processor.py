@@ -662,7 +662,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     #apply correction factors
                     ApplyttgammaCF(year_for_cf,events)
                     if year_for_cf == "all":
-                        weights_obj_base_for_kinematic_syst.add(f"photonptCF",events.photon_pt_cf)
+                        weights_obj_base_for_kinematic_syst.add("photonptCF",events.photon_pt_cf)
                     elif year_for_cf == year:
                         weights_obj_base_for_kinematic_syst.add(f"photonptCF_{year}",events.photon_pt_cf)
                     else:
