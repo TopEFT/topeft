@@ -788,19 +788,22 @@ class AnalysisProcessor(processor.ProcessorABC):
             if self.ttA_analysis:
                 #photon multiplicity mask
                 exactly_1ph = (ak.num(ph_fo)==1)
-                exactly_0ph = (ak.num(ph_fo)==0)
-                atleast_1ph = (ak.num(ph_fo)>=1)
 
                 #Overlap removal
                 vetoedbyOverlap = np.ones(len(events), dtype=bool)
                 retainedbyOverlap = np.ones(len(events), dtype=bool)
                 if not isData:
                     if ("TTTo" in dataset) or ("TTGamma" in dataset):
-                        te_es.generatorOverlapRemoval(dataset, events,ptCut=10, etaCut=5, deltaRCut=0.1)
-                        vetoedbyOverlap = events.vetoedbyOverlap
-                        retainedbyOverlap = events.retainedbyOverlap
+                        ptCut, etaCut, deltaRCut = 10, 5, 0.1
                     elif ("ZGToLLG" in dataset) or ("DY" in dataset):
-                        te_es.generatorOverlapRemoval(dataset, events,ptCut=15, etaCut=2.6, deltaRCut=0.05)
+                        ptCut, etaCut, deltaRCut = 15, 2.6, 0.05
+                    elif ("ST_top" in dataset) or ("ST_antitop" in dataset) or ("ST_TWGToLL" in dataset):
+                        ptCut, etaCut, deltaRCut = 10, 3, 0.4
+                    else:
+                        ptCut, etaCut, deltaRCut = None, None, None  # default or skip
+
+                    if ptCut is not None:
+                        te_es.generatorOverlapRemoval(dataset, events, ptCut=ptCut, etaCut=etaCut, deltaRCut=deltaRCut)
                         vetoedbyOverlap = events.vetoedbyOverlap
                         retainedbyOverlap = events.retainedbyOverlap
 
