@@ -23,7 +23,7 @@ import topcoffea.modules.corrections as tc_cor
 from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
 import topeft.modules.plotting_helper as plot_help
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPhotonSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, AddPerPhotonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
+from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPhotonSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, AddPerPhotonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyttgammaCF
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 import topeft.modules.jetbJetMultiplicity as jbM
@@ -655,6 +655,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                 GetTriggerSF(year,events,l0,l1)
                 weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
 
+                #correction factors for EFT ttgamma samples derived in bins of photon pt
+                if self.ttA_analysis and "TTGamma_Dilept_private" in histAxisName:
+                    year_for_cf = "all" #this just means we want to use a single CF for all years
+                    if year_for_cf == "all":
+                        ApplyttgammaCF(year_for_cf,events)
+                        weights_obj_base_for_kinematic_syst.add(f"photonptCF",events.photon_pt_cf)
+
+                    elif year_for_cf = year:
+                        ApplyttgammaCF(year_for_cf,events)
+                        weights_obj_base_for_kinematic_syst.add(f"photonptCF_{year}",events.photon_pt_cf)
+
+                    else:
+                        raise ValueError(f"Error: Unknown year \"{year}\".")
+
 
             ######### Event weights that do depend on the lep cat ###########
             select_cat_dict = None
@@ -670,11 +684,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
             elif self.ttA_analysis:
                 import_sr_cat_dict = select_cat_dict["TTA_CH_LST_SR"]
-            else:
+                import_cr_cat_dict = select_cat_dict["TTA_CH_LST_CR"]
+            else: #Default is TOP22006
                 import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
+                import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
 
             # This dictionary keeps track of which selections go with which CR categories
-            import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+            #import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
 
             #This list keeps track of the lepton categories
             lep_cats = list(import_sr_cat_dict.keys()) + list(import_cr_cat_dict.keys())
@@ -837,7 +853,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 #Categories for CR studies
                 preselections.add("2los_ph_CR_sf_Zg", (retainedbyOverlap & events.is2l_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ll_mask  & sfosz_2los_llg_mask_medph & pass_trg))
-                #the following preselection was designed to make comparison with UL ttgamma analysis
 
 
             # 2lss selection
@@ -968,13 +983,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 #pp_mass = ak.flatten(ak.fill_none(pp_mass, -1))
                 #pp_pt = ak.flatten(ak.fill_none(pp_pt, -1))
                 #cutBased = ak.fill_none(ak.firsts(ph_fo_noChIso.cutBased), -1)
-                photon_pt = ak.fill_none(ak.firsts(ph_fo.pt), -1)
-                nPhoton = ak.num(ph_fo)
-                photon_eta = ak.fill_none(ak.firsts(ph_fo.eta),-5) #just set it to some value that we won't need to worry about
+                photon_pt = ak.fill_none(ak.firsts(ph_fo_pt_sorted.pt), -1)
+                nPhoton = ak.num(ph_fo_pt_sorted)
+                photon_eta = ak.fill_none(ak.firsts(ph_fo_pt_sorted.eta),-5) #just set it to some value that we won't need to worry about
                 photon_abseta = ak.fill_none(abs(photon_eta),-1)
                 #photon_relPFchIso = ak.fill_none(ak.pad_none(ph_fo_noChIso.pfRelIso03_chg,1),-1)
                 #photon_PFchIso = ak.fill_none(ak.pad_none(ph_fo_noChIso.pfRelIso03_chg * ph_fo_noChIso.pt,1), -1)
-                invmass_llg = ak.fill_none(((l0 + l1 + ak.firsts(ph_fo)).mass),-1)    #Invmass of leading two leps and photon
+                invmass_llg = ak.fill_none(((l0 + l1 + ak.firsts(ph_fo_pt_sorted)).mass),-1)    #Invmass of leading two leps and photon
 
             if self.tau_h_analysis:
                 ptz_wtau = (l0+tau0).pt
@@ -992,6 +1007,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             else:
                 l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
 
+            if self.ttA_analysis:
+                l_A_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,ph_fo_pt_sorted], axis=1),"PtEtaPhiMCollection")
+
             # Leading object (j or l) pt
             o0pt = ak.max(l_j_collection.pt,axis=-1)
 
@@ -1000,6 +1018,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
             l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
             lj0pt = ak.max(l_j_pairs_pt,axis=-1)
+
+            if self.ttA_analysis:
+                # Pairs of l+A
+                l_A_pairs = ak.combinations(l_A_collection,2,fields=["o0","o1"])
+                l_A_pairs_pt = (l_A_pairs.o0 + l_A_pairs.o1).pt
+                maxpt_ll_lA = ak.max(l_A_pairs_pt,axis=-1) #Note that the pair that give the max pT can be lep-lep instead of lep-ph
+
+                l_A_pairs_ph_is_must = ak.cartesian({'o0': l_fo_conept_sorted, 'o1': ph_fo_pt_sorted})
+                l_A_pairs_ph_is_must_pt = (l_A_pairs_ph_is_must.o0+l_A_pairs_ph_is_must.o1).pt
+                maxpt_lA = ak.max(l_A_pairs_ph_is_must_pt,axis=-1) #A poor choice of naming. The way this differs from maxpt_ll_lA is that the pair considered must have a photon
 
             # LT
             lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + met.pt
@@ -1024,31 +1052,34 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["ljptsum"] = ljptsum
             varnames["l0pt"]    = ak.fill_none(l0.conept,-1)
             varnames["l0eta"]   = l0.eta
-            varnames["l1pt"]    = l1.conept
+            varnames["l1pt"]    = ak.fill_none(l1.conept,-1)
             varnames["l1eta"]   = l1.eta
             varnames["j0pt"]    = ak.fill_none(j0.pt, 0)
             varnames["j0eta"]   = ak.fill_none(j0.eta, 0)
-            varnames["njets"]   = njets
+            varnames["njets"]   = ak.fill_none(njets,-1)
             varnames["nbtagsl"] = nbtagsl
-            varnames["invmass"] = mll_0_1
+            varnames["invmass"] = ak.fill_none(mll_0_1,-1)
             varnames["ptbl"]    = ak.firsts(ptbl)
             varnames["ptz"]     = ptz
             varnames["b0pt"]    = ak.firsts(ptbl_bjet.pt)
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
-            varnames["lj0pt"]   = lj0pt
+            varnames["lj0pt"]   = ak.fill_none(lj0pt,-1)
             varnames["lt"]      = lt
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
             if self.ttA_analysis:
-                varnames["photon_pt"]     = photon_pt
-                varnames["photon_pt2"]     = photon_pt
-                varnames["photon_eta"]     = photon_eta
-                varnames["photon_eta2"] = photon_abseta
-                #varnames["invmass_llgamma"] = invmass_llg
+                varnames["maxpt_ll_lA"]            =  maxpt_ll_lA
+                varnames['maxpt_lA']          =  maxpt_lA
+                varnames["photon_pt"]        =  photon_pt
+                varnames["photon_pt2"]       =  photon_pt
+                varnames["photon_eta"]       =  photon_eta
+                varnames["photon_eta2"]      =  photon_abseta
+                varnames['nPhoton']          =  nPhoton
+                varnames["invmass_llgamma"]  =  ak.fill_none(invmass_llg,-1)
                 #varnames["njet_bjet"] = jets_bjets_multiplicity
-                varnames["photon_pt_eta"] = ak.Array(ak.ones_like(photon_pt))
+                varnames["photon_pt_eta"]    =  ak.Array(ak.ones_like(photon_pt))
 
             ########## Fill the histograms ##########
 
@@ -1179,6 +1210,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                             # Loop over the appropriate AR and SR for this channel
                             for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
+                                #the weight_tmp object will be used later for ttA analysis
                                 weight_tmp = weight
                                 # We don't want or need to fill SR histos with the FF variations
                                 if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
@@ -1235,21 +1267,21 @@ class AnalysisProcessor(processor.ProcessorABC):
                                                     eft_wgt_array_at_zero_wc_vals = efth.calc_eft_weights(eft_coeffs,wc_vals)
                                                     no_eft_weight = no_eft_weight * eft_wgt_array_at_zero_wc_vals
 
-                                                plot_help.fill_2d_histogram(hout, dense_axis_name, "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, no_eft_weight, eft_coeffs, all_cuts_mask, suffix="")
-                                                plot_help.fill_2d_histogram(hout, dense_axis_name, "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, no_eft_weight, eft_coeffs, all_cuts_mask, suffix="_sumw2")
+                                                plot_help.fill_2d_histogram(hout, dense_axis_name, "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, no_eft_weight, None, all_cuts_mask, suffix="") #No need to pass eft_coeffs cause we have already evaluated the weight at SM point
+                                                plot_help.fill_2d_histogram(hout, dense_axis_name, "pt", "abseta", photon_pt, photon_abseta, ch_name, appl, histAxisName, wgt_fluct, np.square(no_eft_weight), None, all_cuts_mask, suffix="_sumw2") #No need to pass eft_coeffs cause we have already evaluated the weight at SM point
 
                                             else:
-                                                if not (("photon" in dense_axis_name) == ("ph" in ch_name)): continue
                                                 if "ZGToLLG" in dataset: # ZGamma samples require ISR/FSR photons splitting
                                                     #For ISR and FSR cases, first fill regular histogram and then fill sumw2 histogram
                                                     plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon))
-                                                    plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_ISR_photon), suffix="_sumw2")
+                                                    plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"ISR", wgt_fluct, np.square(weight_tmp), eft_coeffs, (all_cuts_mask & has_ISR_photon), suffix="_sumw2")
                                                     plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon))
-                                                    plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, weight_tmp, eft_coeffs, (all_cuts_mask & has_FSR_photon), suffix="_sumw2")
+                                                    plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName+"FSR", wgt_fluct, np.square(weight_tmp), eft_coeffs, (all_cuts_mask & has_FSR_photon), suffix="_sumw2")
 
                                                 else:
                                                     plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="")
-                                                    plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="_sumw2")
+                                                    plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, np.square(weight_tmp), eft_coeffs, all_cuts_mask, suffix="_sumw2")
+
                                         #Let's handle all other histograms
                                         else:
                                             if self.offZ_3l_split:
@@ -1268,9 +1300,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
 
                                             #Fill the histos (first regular and then sumw2 hist)
-                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="")
+                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight, eft_coeffs, all_cuts_mask, suffix="")
 
-                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, weight_tmp, eft_coeffs, all_cuts_mask, suffix="_sumw2")
+                                            plot_help.fill_1d_histogram(hout, dense_axis_name, dense_axis_vals, ch_name, appl, histAxisName, wgt_fluct, np.square(weight), eft_coeffs, all_cuts_mask, suffix="_sumw2")
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
 
