@@ -36,32 +36,42 @@ FILL_OPS = {}
 
 # The channels that define the CR categories
 CR_CHAN_DICT = {
-    "cr_2los_Z" : [
+    "cr_2los_Z_ee": [
         "2los_ee_CRZ_0j",
+    ],
+    "cr_2los_Z_mm": [
         "2los_mm_CRZ_0j",
     ],
     "cr_2los_tt" : [
         "2los_em_CRtt_2j",
     ],
-    "cr_2lss" : [
+    "cr_2lss_ee" : [
         "2lss_ee_CR_1j",
-        "2lss_em_CR_1j",
-        "2lss_mm_CR_1j",
         "2lss_ee_CR_2j",
+    "cr_2lss_em" : [
+        "2lss_em_CR_1j",,
         "2lss_em_CR_2j",
+    ],
+    "cr_2lss_mm" : [
+        "2lss_mm_CR_1j",
         "2lss_mm_CR_2j",
     ],
     "cr_2lss_flip" : [
         "2lss_ee_CRflip_3j",
     ],
     "cr_3l" : [
+    "cr_3l_eee" : [
         "3l_eee_CR_0j",
+        "3l_eee_CR_1j",
+    ],
+    "cr_3l_mixed" : [
         "3l_eem_CR_0j",
         "3l_emm_CR_0j",
-        "3l_mmm_CR_0j",
-        "3l_eee_CR_1j",
         "3l_eem_CR_1j",
         "3l_emm_CR_1j",
+    ],
+    "cr_3l_mmm": [
+        "3l_mmm_CR_0j",
         "3l_mmm_CR_1j",
     ],
 }
