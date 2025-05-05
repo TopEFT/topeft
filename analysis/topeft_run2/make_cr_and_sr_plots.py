@@ -1225,7 +1225,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             CR_GRP_MAP["Conv"].append(proc_name)
         elif "TTTo" in proc_name or "TTto" in proc_name:
             CR_GRP_MAP["Ttbar"].append(proc_name)
-        elif "ZGTo" in proc_name:
+        elif "ZGTo" in proc_name or "ZGto" in proc_name:
             CR_GRP_MAP["ZGamma"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             CR_GRP_MAP["Triboson"].append(proc_name)

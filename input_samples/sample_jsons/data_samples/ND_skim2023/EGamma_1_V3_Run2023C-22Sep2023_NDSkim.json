@@ -1,22 +1,22 @@
 {
-  "xsec": 1.0,
-  "year": "2023",
-  "treeName": "Events",
-  "histAxisName": "data2023",
-  "options": "",
-  "era": "C3",
-  "WCnames": [],
-  "files": [
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250401/EGamma_1_V3_Run2023C_22Sep2023/output_533.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250401/EGamma_1_V3_Run2023C_22Sep2023/output_376.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250401/EGamma_1_V3_Run2023C_22Sep2023/output_582.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250401/EGamma_1_V3_Run2023C_22Sep2023/output_484.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250401/EGamma_1_V3_Run2023C_22Sep2023/output_514.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250401/EGamma_1_V3_Run2023C_22Sep2023/output_566.root"
-  ],
-  "nEvents": 21987586,
-  "nGenEvents": 21987586,
-  "nSumOfWeights": 21987586.0,
-  "isData": true,
-  "path": "/EGamma1/Run2023C-22Sep2023_v3-v1/NANOAOD"
+    "xsec": 1.0,
+    "year": "2023",
+    "treeName": "Events",
+    "histAxisName": "data2023",
+    "options": "",
+    "era": "C3",
+    "WCnames": [],
+    "files": [
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250401/EGamma_1_V3_Run2023C_22Sep2023/output_533.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250401/EGamma_1_V3_Run2023C_22Sep2023/output_376.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250401/EGamma_1_V3_Run2023C_22Sep2023/output_582.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250401/EGamma_1_V3_Run2023C_22Sep2023/output_484.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250401/EGamma_1_V3_Run2023C_22Sep2023/output_514.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023/Full/v250401/EGamma_1_V3_Run2023C_22Sep2023/output_566.root"
+    ],
+    "nEvents": 21987586,
+    "nGenEvents": 21987586,
+    "nSumOfWeights": 21987586.0,
+    "isData": true,
+    "path": "/EGamma1/Run2023C-22Sep2023_v3-v1/NANOAOD"
 }

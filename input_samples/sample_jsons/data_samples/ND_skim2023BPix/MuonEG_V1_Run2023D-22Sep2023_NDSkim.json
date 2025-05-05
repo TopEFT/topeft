@@ -1,24 +1,24 @@
 {
-  "xsec": 1.0,
-  "year": "2023BPix",
-  "treeName": "Events",
-  "histAxisName": "data2023BPix",
-  "options": "",
-  "era": "D1",
-  "WCnames": [],
-  "files": [
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_199.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_259.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_430.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_311.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_132.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_355.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_63.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_298.root"
-  ],
-  "nEvents": 17530531,
-  "nGenEvents": 17530531,
-  "nSumOfWeights": 17530531.0,
-  "isData": true,
-  "path": "/MuonEG/Run2023D-22Sep2023_v1-v1/NANOAOD"
+    "xsec": 1.0,
+    "year": "2023BPix",
+    "treeName": "Events",
+    "histAxisName": "data2023BPix",
+    "options": "",
+    "era": "D1",
+    "WCnames": [],
+    "files": [
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_199.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_259.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_430.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_311.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_132.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_355.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_63.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2023BPix/Full/v250401/MuonEG_V1_Run2023D_22Sep2023/output_298.root"
+    ],
+    "nEvents": 17530531,
+    "nGenEvents": 17530531,
+    "nSumOfWeights": 17530531.0,
+    "isData": true,
+    "path": "/MuonEG/Run2023D-22Sep2023_v1-v1/NANOAOD"
 }
