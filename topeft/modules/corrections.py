@@ -955,8 +955,8 @@ def AddPerPhotonFR(events,ph,year,nonprompt_validation_test=False):
     elif year == "2018": year_name = "UL18"
     else: raise Exception(f"Not a known year: {year}")
 
-    pt_edges = np.array(axes_info['photon_pt2']['variable'])
-    eta_edges = np.array(axes_info['photon_eta2']['variable'])
+    pt_edges = np.array(axes_info['photon_pt']['variable'])
+    eta_edges = np.array(axes_info['photon_abseta']['variable'])
 
     #NOTE for future: The FR and kMC numpy files will change in the future. The alphanumeric code in the path is also temporary and will eventually be removed.
     #We just need a single fake-rate file
