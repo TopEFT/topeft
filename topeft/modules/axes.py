@@ -64,7 +64,7 @@ info = {
     },
     "photon_pt_eta": {
         "pt": {
-            "variable": [20,30,45,70,120],
+            "variable": [20, 50, 90, 120],
             "label": "$p_{T}$ $\gamma$ (GeV)"
         },
         "abseta": {
@@ -74,15 +74,11 @@ info = {
     },
     "photon_pt": {
         "regular": (20, 0, 400),
-        "variable": [20,35,50,70,100,170,200,250,300],
-        "label": "$p_{T}$ $\gamma$ (GeV)"
-    },
-    "photon_pt2": {
-        "variable": [20,30,45,70,120],
+        "variable": [20, 50, 90, 120],
         "label": "$p_{T}$ $\gamma$ (GeV)"
     },
     "photon_eta": { "regular": (15, -1.5, 1.5), "label": "Photon $\eta$"},
-    "photon_eta2": { "variable" : [0,0.435,0.783,1.13,1.50], "label": "Photon abs. $\eta$"},
+    "photon_abseta": { "variable" : [0,0.435,0.783,1.13,1.50], "label": "Photon abs. $\eta$"},
     "nPhoton": {"regular": (7, 0, 7), "label": "Photon multiplicity"},
     "invmass_llgamma": {"regular": (28,60,200), "label": "$m_{\ell\ell\gamma}$ (GeV)"},
     "ht": {

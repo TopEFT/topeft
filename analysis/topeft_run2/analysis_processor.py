@@ -1077,7 +1077,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 varnames["photon_pt"]        =  photon_pt
                 varnames["photon_pt2"]       =  photon_pt
                 varnames["photon_eta"]       =  photon_eta
-                varnames["photon_eta2"]      =  photon_abseta
+                varnames["photon_abseta"]      =  photon_abseta
                 varnames['nPhoton']          =  nPhoton
                 varnames["invmass_llgamma"]  =  ak.fill_none(invmass_llg,-1)
                 #varnames["njet_bjet"] = jets_bjets_multiplicity
