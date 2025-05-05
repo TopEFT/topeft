@@ -148,7 +148,7 @@ class DataDrivenProducer:
 
                     #isAR_2lOS_ph is the regular AR using which we estimate non-prompt photon in our signal region A
                     #isAR_R_LRCD is the "AR" corresponding to the "SR" L in the LRCD closure test
-                    elif self.ttA_analysis and self.do_np_ph and ident in ["isAR_2lOS_ph", "isAR_B_ABCD"]:
+                    elif self.ttA_analysis and self.do_np_ph and ident in ["isAR_2lOS_ph", "isAR_B_ABCD","isAR_R_LRCD"]:
                         print(f"\n\nWe are inside {ident} appl axis and we will do nonprompt photon estimation here")
                         newDataDict=defaultdict(list); newNonDataDict=defaultdict(list)
                         for process in hAR.axes['process']:
@@ -216,7 +216,7 @@ class DataDrivenProducer:
             else:
                 self.outHist[key]=newhist
 
-        #This is where we modify the photon_pt2 histogram's variance for the nonpromptPhUL{year} contribution
+        #This is where we modify the photon_pt histogram's variance for the nonpromptPhUL{year} contribution
         if self.ttA_analysis and self.do_np_ph and self.modify_variance:
             for year in ['16','16APV','17','18']:
                 modify_photon_pt_variance(self.outHist,year)
