@@ -49,7 +49,7 @@ CR_CHAN_DICT = {
         "2lss_ee_CR_1j",
         "2lss_ee_CR_2j",
     "cr_2lss_em" : [
-        "2lss_em_CR_1j",,
+        "2lss_em_CR_1j",
         "2lss_em_CR_2j",
     ],
     "cr_2lss_mm" : [
