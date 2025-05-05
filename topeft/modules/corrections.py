@@ -947,7 +947,7 @@ def AttachPerLeptonFR(leps, flavor, year):
         leps['fliprate'] = np.zeros_like(leps.pt)
 
 
-def AddPerPhotonFR(events,ph,year,closureTest=False):
+def AddPerPhotonFR(events,ph,year,nonprompt_validation_test=False):
     # Get the fake rates lookup object
     if year == "2016APV": year_name = "UL16APV"
     elif year == "2016": year_name = "UL16"
@@ -973,8 +973,8 @@ def AddPerPhotonFR(events,ph,year,closureTest=False):
     fr_err_lookup = lookup_tools.dense_lookup.dense_lookup(fr_error,[pt_edges, eta_edges])
     ph['fr_err'] = (fr_err_lookup(ph.pt,abs(ph.eta)))
 
-    #Depending on whether we are doing closure test or not, we need different kmc files
-    if not closureTest:
+    #Depending on whether we are doing nonprompt validation test or not, we need different kmc files
+    if not nonprompt_validation_test:
         kmc_file = np.load(topeft_path(f"data/photon_kmc/kmc_ph_{year_name}.npz"))
 
     else:
@@ -1005,7 +1005,7 @@ def AddPerPhotonFR(events,ph,year,closureTest=False):
     events['fakerate_ph_err'] = fakerate_ph_err
 
 #this is where we assign an additional 67% systematic uncertainty on the non-prompt photon yield in the photon pT distribution
-#the 67% uncertainty was determined using a dedicated data-driven closure test for ABCD method (summed over all years)
+#the 67% uncertainty was determined using a dedicated data-driven nonprompt validation test for ABCD method (summed over all years)
 def additional_nonprompt_ph_unc(events, last_bin_pt_mask):
     nominal = np.ones(len(events))
     #If last bin, scale the yield up/down by 15% and if other bins, keep nominal yield

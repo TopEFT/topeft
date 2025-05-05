@@ -21,7 +21,7 @@ class DataDrivenProducer:
         self.dataName='data'
         self.outHist=None
         self.ttA_analysis=ttA_analysis
-        self.closure=False #a boolean to indicate whether we are doing closure test for nonprompt photon estimation
+        self.nonprompt_validation=False #a boolean to indicate whether we are doing validation test for nonprompt photon estimation
         self.do_np_ph=do_np_ph #this controls whether we will do non-prompt photon estimation or not
         self.modify_variance=modify_variance #TEMPORARY as we explore binning optimization
         self.promptSubtractionSamples=get_te_param('prompt_subtraction_samples')
@@ -147,7 +147,7 @@ class DataDrivenProducer:
                             newhist += hFakes
 
                     #isAR_2lOS_ph is the regular AR using which we estimate non-prompt photon in our signal region A
-                    #isAR_R_LRCD is the "AR" corresponding to the "SR" L in the LRCD closure test
+                    #isAR_R_LRCD is the "AR" corresponding to the "SR" L in the LRCD nonprompt validation test
                     elif self.ttA_analysis and self.do_np_ph and ident in ["isAR_2lOS_ph", "isAR_B_ABCD","isAR_R_LRCD"]:
                         print(f"\n\nWe are inside {ident} appl axis and we will do nonprompt photon estimation here")
                         newDataDict=defaultdict(list); newNonDataDict=defaultdict(list)
@@ -194,7 +194,7 @@ class DataDrivenProducer:
                         elif key == "photon_pt_eta_sumw2":
                             required_hists_for_nonprompt_ph["photon_pt_eta_sumw2"] = hPhFakes
                         if self.modify_variance and not np_uncertainty_propagation_done and "photon_pt_eta" in required_hists_for_nonprompt_ph and "photon_pt_eta_sumw2" in required_hists_for_nonprompt_ph:
-                            modify_NP_photon_pt_eta_variance(required_hists_for_nonprompt_ph,closure=self.closure)
+                            modify_NP_photon_pt_eta_variance(required_hists_for_nonprompt_ph,nonprompt_validation=self.nonprompt_validation)
                             np_uncertainty_propagation_done = True
                             # Update newhist with the modified histogram. We only need the sumw2 histogram!
                             if newhist is None:

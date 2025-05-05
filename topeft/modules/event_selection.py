@@ -611,7 +611,7 @@ def addPhotonSF(events):
     events['sf_2l_hi_photon'] = padded_photon.sf_hi_photon[:,0]
     events['sf_2l_lo_photon'] = padded_photon.sf_lo_photon[:,0]
 
-def addPhotonSelection(events, sampleType, last_pt_bin, closureTest):
+def addPhotonSelection(events, sampleType, last_pt_bin, nonprompt_validation_test):
     padded_photon = ak.pad_none(events.ph_fo_pt_sorted, 1)
 
     # SFs
@@ -623,13 +623,13 @@ def addPhotonSelection(events, sampleType, last_pt_bin, closureTest):
     padded_fo_ph = ak.pad_none(fo_ph,1)
     a0 = padded_fo_ph[:,0]
 
-    if not closureTest:
+    if not nonprompt_validation_test:
         SR_exclusive = (a0.inA_ABCD)
         AR_exclusive = (a0.inB_ABCD)
 
     else:
-        SR_exclusive = (a0.inL_ABCD)
-        AR_exclusive = (a0.inR_ABCD)
+        SR_exclusive = (a0.inL_LRCD)
+        AR_exclusive = (a0.inR_LRCD)
 
     #if MC, let's select prompt photons and if Data, do nothing
     if sampleType == "data":
