@@ -395,7 +395,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             ph_fo['inB_ABCD'] = ph_fo.mediumPhoton_regB
 
             #Attach per photon fake rates and photon SFs
-            AddPerPhotonFR(events, ph_fo, year=year, closureTest=False)
+            AddPerPhotonFR(events, ph_fo, year=year, nonprompt_validation_test=False)
             AttachPhotonSF(ph_fo,year=year)
 
             #pT sort the photon collection
@@ -566,7 +566,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             te_es.add4lMaskAndSFs(events, year, isData)
             te_es.addLepCatMasks(events)
             if self.ttA_analysis:
-                te_es.addPhotonSelection(events, sampleType, last_pt_bin=120.0 ,closureTest=False) #CAUTION: Revisit the "last_pt_bin" if photon_pt binning is changed
+                te_es.addPhotonSelection(events, sampleType, last_pt_bin=120.0 ,nonprompt_validation_test=False) #CAUTION: Revisit the "last_pt_bin" if photon_pt binning is changed
 
             # Convenient to have l0, l1, l2 on hand
             l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)

@@ -16,9 +16,9 @@ def load_numpy_files(file_path):
 
     return val, err
 
-#This function takes a dictionary that has two histograms: photon_pt_eta and photon_pt_eta_sumw2. At this point, both of these histograms should only have a single process axis "nonpromptPhUL<year>" and the yield here will be with non-prompt photon estimation done. i.e. Data - Prompt MC in region B or R depending on whether one is doing (not doing) closure test
+#This function takes a dictionary that has two histograms: photon_pt_eta and photon_pt_eta_sumw2. At this point, both of these histograms should only have a single process axis "nonpromptPhUL<year>" and the yield here will be with non-prompt photon estimation done. i.e. Data - Prompt MC in region B or R depending on whether one is doing (not doing) nonprompt photon validation test
 #CAUTION: The fr_file_path and kmc_file_path are hardcoded right now.
-def modify_NP_photon_pt_eta_variance(dict_of_hists_for_NP_uncertainty, closure=False):
+def modify_NP_photon_pt_eta_variance(dict_of_hists_for_NP_uncertainty, nonprompt_validation=False):
     print("Inside NP photon variance modification block")
     photon_pt_eta = dict_of_hists_for_NP_uncertainty["photon_pt_eta"]
     photon_pt_eta_sumw2 = dict_of_hists_for_NP_uncertainty["photon_pt_eta_sumw2"]
@@ -32,8 +32,8 @@ def modify_NP_photon_pt_eta_variance(dict_of_hists_for_NP_uncertainty, closure=F
         #We need to load the fake-rate and kMC files inside cause they depend on year!
         fr_file_path = topeft_path("data/photon_fakerates/")+f"fr_ph_UL{year}.npz"
 
-        #Depending on whether we are doing closure test or not, the kMC file changes
-        if closure:
+        #Depending on whether we are doing nonprompt photon validation test or not, the kMC file changes
+        if nonprompt_validation:
             kmc_file_path  = topeft_path("data/photon_kmc_validation/")+f"kmc_ph_UL{year}.npz"
 
         else:
