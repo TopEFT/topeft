@@ -1191,7 +1191,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
     data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
 
-    print("\n\nAll samples:",all_samples)
+    #print("dict_of_hists", dict_of_hists)
+    print("\n\nAll samples:",all_samples, "data"+year in all_samples)
     print("\nMC samples:",mc_sample_lst)
     print("\nData samples:",data_sample_lst)
 

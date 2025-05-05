@@ -998,21 +998,10 @@ def AttachMuonSF(muons, year):
     clib_year = clib_year_map[year]
     json_path = topcoffea_path(f"data/POG/MUO/{clib_year}/muon_Z.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
-
-    '''
-    #clib integration of the lepMVA Run3 SFs
-    if year.startswith("2022"):
-        lepmva_json_path = topeft_path(f"data/lepMVASF/leptonSF_{year}.json.gz")
-    elif year.startswith("2023"):
-        lepmva_json_path = topeft_path(f"data/lepMVASF/muon_mvaTTH_{year}.json.gz")
-    else:
-        raise ValueError(f"{year} is not supported for the lepMVA SFs.")
-    lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
-    '''
     
     pt_flat = ak.flatten(pt)
     abseta_flat = ak.flatten(eta)
-    pdgid_flat = ak.flatten(muons.pdgId)
+    pdgid_flat = ak.flatten(abs(muons.pdgId))
     
     pt_mask = ak.flatten((pt >= 15))
     pt_mask_reco = ak.flatten((pt >= 40))
@@ -1078,7 +1067,16 @@ def AttachMuonSF(muons, year):
         loose_up = loose_sf + loose_err
         loose_do = loose_sf - loose_err
 
+        #clib integration of the lepMVA Run3 SFs
         '''
+        if year.startswith("2022"):
+            lepmva_json_path = topeft_path(f"data/lepMVASF/leptonSF_{year}.json.gz")
+        elif year.startswith("2023"):
+            lepmva_json_path = topeft_path(f"data/lepMVASF/muon_mvaTTH_{year}.json.gz")
+        else:
+            raise ValueError(f"{year} is not supported for the lepMVA SFs.")
+        lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
+
         #lep mva SFs in clib format
         pt_lepmva_mask = ak.flatten((pt >= 15.0))
         pt_lepmva_flat = ak.where(~pt_lepmva_mask, 15.0, pt_flat)
@@ -1087,7 +1085,7 @@ def AttachMuonSF(muons, year):
             muo_tag  = "mu_allflavor"
             lepmva_vals_nom= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "", pdgid_flat)
             lepmva_vals_up= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "_muup", pdgid_flat)
-            lepmva_vals_down= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "_mudo", pdgid_flat)
+            lepmva_vals_down= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "_mudn", pdgid_flat)
         elif year.startswith("2023"):
             muo_tag = "NUM_TightmvaTTH_DEN_LooseMuons"
             lepmva_vals_nom = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "nominal")
