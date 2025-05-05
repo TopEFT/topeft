@@ -1868,7 +1868,15 @@ def ApplyttgammaCF(year, events):
     pt_edges = np.array(cf_data["pt_edges"])
     cf_dict = cf_data["correction_factors"]
 
-    photon_corr_lookup = dense_lookup(np.array(cf_dict[year]),pt_edges)
+    if year != "all":
+        photon_corr_lookup = dense_lookup(np.array(cf_dict[year]),pt_edges)
+
+    else:
+        photon_corr_lookup = dense_lookup(np.array(cf_dict["all"]),pt_edges)
+
+    #Use lookup tools to determine what correction to apply based on what the pT of the photon is
     pt_corr = photon_corr_lookup(a0.pt)
 
-    events['photon_pt_cf'] = pt_corr
+    events['photon_pt_cf'] = pt_corr #the weight by which the "old nominal" yield for ttgamma private sample should be scaled. This is the "new nominal"
+    events['photon_pt_cf_up'] = (pt_corr**2) #Up variation is to apply the pt correction weight once more on the "new nominal"
+    events['photon_pt_cf_down'] = (events.nom) #Down variation is to not apply any pt correction weight on the "old nominal"

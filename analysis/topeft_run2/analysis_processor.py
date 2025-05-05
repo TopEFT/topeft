@@ -662,9 +662,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                     #apply correction factors
                     ApplyttgammaCF(year_for_cf,events)
                     if year_for_cf == "all":
-                        weights_obj_base_for_kinematic_syst.add("photonptCF",events.photon_pt_cf)
+                        weights_obj_base_for_kinematic_syst.add("photonptCF",events.photon_pt_cf, copy.deepcopy(events.photon_pt_cf_up), copy.deepcopy(events.photon_pt_cf_down))
                     elif year_for_cf == year:
-                        weights_obj_base_for_kinematic_syst.add(f"photonptCF_{year}",events.photon_pt_cf)
+                        weights_obj_base_for_kinematic_syst.add(f"photonptCF_{year}",events.photon_pt_cf, copy.deepcopy(events.photon_pt_cf_up), copy.deepcopy(events.photon_pt_cf_down))
                     else:
                         raise ValueError(f"Error: Unknown year \"{year}\".")
 
@@ -1075,7 +1075,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 varnames["maxpt_ll_lA"]            =  maxpt_ll_lA
                 varnames['maxpt_lA']          =  maxpt_lA
                 varnames["photon_pt"]        =  photon_pt
-                varnames["photon_pt2"]       =  photon_pt
                 varnames["photon_eta"]       =  photon_eta
                 varnames["photon_abseta"]      =  photon_abseta
                 varnames['nPhoton']          =  nPhoton
