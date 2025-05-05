@@ -30,14 +30,14 @@ def modify_NP_photon_pt_eta_variance(dict_of_hists_for_NP_uncertainty, closure=F
             if match: year = match.group(1)
 
         #We need to load the fake-rate and kMC files inside cause they depend on year!
-        fr_file_path = topeft_path("data/photon_fakerates_ZPVR6zQL2M/")+f"fr_ph_UL{year}.npz"
+        fr_file_path = topeft_path("data/photon_fakerates/")+f"fr_ph_UL{year}.npz"
 
         #Depending on whether we are doing closure test or not, the kMC file changes
         if closure:
-            kmc_file_path  = topeft_path("data/photon_kmc_closure_z04kenfTjD/")+f"kmc_ph_closure_UL{year}.npz"
+            kmc_file_path  = topeft_path("data/photon_kmc_validation/")+f"kmc_ph_UL{year}.npz"
 
         else:
-            kmc_file_path  = topeft_path("data/photon_kmc_L2G8oDYJv8/")+f"kmc_ph_UL{year}.npz"
+            kmc_file_path  = topeft_path("data/photon_kmc/")+f"kmc_ph_UL{year}.npz"
 
         #Load the FR and kMC files
         ph_fr_val, ph_fr_err = load_numpy_files(fr_file_path)

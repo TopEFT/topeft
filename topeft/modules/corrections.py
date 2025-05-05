@@ -960,7 +960,7 @@ def AddPerPhotonFR(events,ph,year,closureTest=False):
 
     #NOTE for future: The FR and kMC numpy files will change in the future. The alphanumeric code in the path is also temporary and will eventually be removed.
     #We just need a single fake-rate file
-    fr_file = np.load(topeft_path(f"data/photon_fakerates_vPBDX4jaix/fr_ph_{year_name}.npz"))
+    fr_file = np.load(topeft_path(f"data/photon_fakerates/fr_ph_{year_name}.npz"))
 
     fr_value = fr_file[fr_file.files[0]]
     #We need to clip the underflow bins along both axes.
@@ -975,10 +975,10 @@ def AddPerPhotonFR(events,ph,year,closureTest=False):
 
     #Depending on whether we are doing closure test or not, we need different kmc files
     if not closureTest:
-        kmc_file = np.load(topeft_path(f"data/photon_kmc_ZLukNwKXmX/kmc_ph_{year_name}.npz"))
+        kmc_file = np.load(topeft_path(f"data/photon_kmc/kmc_ph_{year_name}.npz"))
 
     else:
-        kmc_file = np.load(topeft_path(f"data/photon_kmc_closure_NxVGhzZ8DU/kmc_ph_{year_name}.npz"))
+        kmc_file = np.load(topeft_path(f"data/photon_kmc_validation/kmc_ph_{year_name}.npz"))
 
     kmc_value = kmc_file[kmc_file.files[0]]
     #We need to clip the underflow bins along both axes.
