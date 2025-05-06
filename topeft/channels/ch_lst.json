@@ -606,8 +606,6 @@
             ],
             "lep_flav_lst": [
                 "em",
-		"ee",
-		"mm"
             ],
             "appl_lst": [
                 "isSR_2lOS",

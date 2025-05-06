@@ -986,6 +986,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     else:
                         cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
 
+            #print("\n\n\n\n\n\n\n\n")
+            #print(cr_cat_dict)
+            #print("\n\n\n")
+                        
             del import_sr_cat_dict, import_cr_cat_dict
 
             cat_dict = {}
@@ -1048,7 +1052,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         # Get a mask for events that pass any of the njet requiremens in this nlep cat
                         # Useful in cases like njets hist where we don't store njets in a sparse axis
                         njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
-
+        
                         # Loop over the njets list for each channel
                         for njet_val in cat_dict[nlep_cat].keys():
 
@@ -1067,6 +1071,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         njet_ch = None
                                         cuts_lst = [appl,lep_chan]
 
+                                        print("ch_name:", ch_name)
+                                        
                                         if isData:
                                             cuts_lst.append("is_good_lumi")
                                         if self._split_by_lepton_flavor:
@@ -1135,7 +1141,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                             # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
                             if dense_axis_name == "njets": break
-
+                #print("\n\n\n\n\n\n\n\n")
+                            
         return hout
 
     def postprocess(self, accumulator):
