@@ -70,8 +70,48 @@ class AnalysisProcessor(processor.ProcessorABC):
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
         syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
         appl_axis = hist.axis.StrCategory([], name="appl", label=r"AR/SR", growth=True)
-
         histograms = {}
+        histogram = {}
+        ch_lst = ["2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j", "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
+                  "3l_onZ_1b", "3l_onZ_2b", "3l_m_offZ_1b", "3l_m_offZ_2b", "3l_p_offZ_1b", "3l_p_offZ_2b", "4l"]
+        appl_lst = ["isAR_2lSS_OS", "isSR_2lSS", "isAR_2lSS", "isSR_3l", "isAR_3l", "isSR_4l"]
+        process_lst = ["tttt_privateUL16APV"]
+        syst_lst = ["nominal", "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown", "btagSFbc_corrUp","btagSFbc_corrDown", "btagSFlight_corrUp","btagSFlight_corrDown",
+                     "PUUp","PUDown","PreFiringUp","PreFiringDown", "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown"]
+        var_lst = ["lj0pt", "ptz"]
+        key_lst = []
+        sumw2_key_lst = []
+        for var in var_lst:
+            for ch in ch_lst:
+                for appl in appl_lst:
+                    if "2lSS" in appl and "2lss" not in ch:
+                        continue
+                    if "3l" in appl and "3l" not in ch:
+                        continue
+                    if "4l" in appl and "4l" not in ch:
+                        continue
+                    for process in process_lst:
+                        for syst in syst_lst:
+                            key = (var, ch, appl, process, syst)
+                            key_lst.append(key)
+                            sumw2_key = (var+"_sumw2", ch, appl, process, syst)
+                            sumw2_key_lst.append(sumw2_key)
+        #key_lst = [("lj0pt", "2lss_m_4j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #           ("lj0pt", "2lss_m_5j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #           ("lj0pt", "2lss_m_6j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #           ("lj0pt", "2lss_m_7j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #           ("lj0pt", "2lss_p_4j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #           ("lj0pt", "2lss_p_5j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #           ("lj0pt", "2lss_p_6j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #           ("lj0pt", "2lss_p_7j", "isSR_2lSS", "tttt_privateUL16APV", "nominal")]
+        #sumw2_key_lst = [("lj0pt_sumw2", "2lss_m_4j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #                 ("lj0pt_sumw2", "2lss_m_5j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #                 ("lj0pt_sumw2", "2lss_m_6j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #                 ("lj0pt_sumw2", "2lss_m_7j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #                 ("lj0pt_sumw2", "2lss_p_4j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #                 ("lj0pt_sumw2", "2lss_p_5j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #                 ("lj0pt_sumw2", "2lss_p_6j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
+        #                 ("lj0pt_sumw2", "2lss_p_7j", "isSR_2lSS", "tttt_privateUL16APV", "nominal")]
         for name, info in axes_info.items():
             if not rebin and "variable" in info:
                 dense_axis = hist.axis.Variable(
@@ -105,10 +145,29 @@ class AnalysisProcessor(processor.ProcessorABC):
                 wc_names=wc_names_lst,
                 label=r"Events",
             )
-        self._accumulator = histograms
+            if name == "lj0pt":
+                print("HERE!!!")
+                print("")
+                for hist_key in key_lst:
+
+                    histogram[hist_key] = HistEFT(
+                        dense_axis,
+                        wc_names=wc_names_lst,
+                        label=r"Events",
+                    )
+                for hist_key in sumw2_key_lst:
+                    histogram[hist_key] = HistEFT(
+                        sumw2_axis,
+                        wc_names=wc_names_lst,
+                        label=r"Events",
+                    )
+            histogram['meta'] = {}
+            histogram['meta']['channel'] = ch_lst
+        self._accumulator = histogram
 
         # Set the list of hists to fill
-        if hist_lst is None:
+        #if hist_lst is None:
+        if True:
             # If the hist list is none, assume we want to fill all hists
             self._hist_lst = list(self._accumulator.keys())
         else:
@@ -1059,10 +1118,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         # Fill the histos
                                         axes_fill_info_dict = {
                                             dense_axis_name : dense_axis_vals[all_cuts_mask],
-                                            "channel"       : ch_name,
-                                            "appl"          : appl,
-                                            "process"       : histAxisName,
-                                            "systematic"    : wgt_fluct,
+                                            #"channel"       : ch_name,
+                                            #"appl"          : appl,
+                                            #"process"       : histAxisName,
+                                            #"systematic"    : wgt_fluct,
                                             "weight"        : weights_flat,
                                             "eft_coeff"     : eft_coeffs_cut,
                                         }
@@ -1082,18 +1141,29 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         else:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-
-                                        hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                        hist_key = (dense_axis_name, ch_name, appl, histAxisName, wgt_fluct)
+                                        if hist_key not in hout.keys(): continue
+                                        #hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                        hout[hist_key].fill(**axes_fill_info_dict)
+                                        print("")
+                                        print(ch_name)
+                                        print(appl)
+                                        print(histAxisName)
+                                        print(wgt_fluct)
+                                        print("")
                                         axes_fill_info_dict = {
                                             dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
-                                            "channel"       : ch_name,
-                                            "appl"          : appl,
-                                            "process"       : histAxisName,
-                                            "systematic"    : wgt_fluct,
+                                            #"channel"       : ch_name,
+                                            #"appl"          : appl,
+                                            #"process"       : histAxisName,
+                                            #"systematic"    : wgt_fluct,
                                             "weight"        : np.square(weights_flat),
                                             "eft_coeff"     : eft_coeffs_cut,
                                         }
-                                        hout[dense_axis_name+"_sumw2"].fill(**axes_fill_info_dict)
+                                        hist_key = (dense_axis_name+"_sumw2", ch_name, appl, histAxisName, wgt_fluct)
+                                        if hist_key not in hout.keys(): continue
+                                        #hout[dense_axis_name+"_sumw2"].fill(**axes_fill_info_dict)
+                                        hout[hist_key].fill(**axes_fill_info_dict)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
