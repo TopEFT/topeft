@@ -1008,9 +1008,9 @@ def AddPerPhotonFR(events,ph,year,nonprompt_validation_test=False):
 #the 67% uncertainty was determined using a dedicated data-driven nonprompt validation test for ABCD method (summed over all years)
 def additional_nonprompt_ph_unc(events, last_bin_pt_mask):
     nominal = np.ones(len(events))
-    #If last bin, scale the yield up/down by 15% and if other bins, keep nominal yield
-    up_variation = ak.where(last_bin_pt_mask, nominal * 1.67, nominal)
-    down_variation = ak.where(last_bin_pt_mask, nominal * 0.33, nominal)
+    #If last bin, scale the yield up/down by 83% and if other bins, keep nominal yield
+    up_variation = ak.where(last_bin_pt_mask, nominal * 1.83, nominal)
+    down_variation = ak.where(last_bin_pt_mask, nominal * 0.17, nominal)
 
     events['np_ph_up'] = up_variation
     events['np_ph_down'] = down_variation
