@@ -897,10 +897,9 @@ def AttachPerLeptonFR(leps, flavor, year):
             minpt = 10.
         
         pt_mask_low = (pt > minpt)
-        pt_mask_hi = (pt < 100.)
+        pt_mask_hi = (pt < maxpt)
         pt_masked = ak.where(~pt_mask_low, minpt+0.1, pt)
         pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
-        pt_100 = pt_masked[(pt_masked>=100.)]
         
         chargeflip_sf = ak.ones_like(leps.pdgId, dtype=np.float64) #get_te_param("chargeflip_sf_dict")[flip_year_name]
 
@@ -1078,8 +1077,14 @@ def AttachMuonSF(muons, year, useRun3MVA=True):
             lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
             
             #lep mva SFs in clib format
-            pt_lepmva_mask = ak.flatten((pt >= 15.0))
-            pt_lepmva_flat = ak.where(~pt_lepmva_mask, 15.0, pt_flat)
+            minpt = 15.0
+            maxpt = 500.
+            pt_mask_low = (pt_flat > minpt)
+            pt_mask_hi = (pt_flat < maxpt)
+            pt_lepmva_mask = pt_mask_low & pt_mask_hi
+            pt_masked = ak.where(~pt_mask_low, minpt+0.1, pt_flat)
+            pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
+            pt_lepmva_flat = pt_masked
             
             if year.startswith("2022"):
                 muo_tag  = "mu_allflavor"
@@ -1299,9 +1304,15 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
                 raise ValueError(f"{year} is not supported for the lepMVA SFs.")
             lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
 
-            pt_lepmva_mask = ak.flatten((pt >= 15.0))
-            pt_lepmva_flat = ak.where(~pt_lepmva_mask, 15.0, pt_flat)
-
+            minpt = 15.0
+            maxpt = 500.
+            pt_mask_low = (pt_flat > minpt)
+            pt_mask_hi = (pt_flat < maxpt)
+            pt_lepmva_mask = pt_mask_low & pt_mask_hi
+            pt_masked = ak.where(~pt_mask_low, minpt+0.1, pt_flat)
+            pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
+            pt_lepmva_flat = pt_masked
+            
             if year.startswith("2022"):
                 egm_tag  = "el_allflavor"
                 lepmva_vals_nom= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "", pdgid_flat)

@@ -1,11 +1,11 @@
 # This script runs the wq run script with all of the settings appropriate for making SR histos for the full R2 analysis
 
 # Name the output
-#YEAR="2022"
-YEAR="2022EE"
+YEAR="2022"
+#YEAR="2022EE"
 #YEAR="2023"
 #YEAR="2023BPix"
-COMMIT="bc13053"
+COMMIT="9b6bdfe+e8b95a5"
 OUT_NAME="${YEAR}CRs_${COMMIT}"
 echo "OUT_NAME:" $OUT_NAME
 
@@ -16,7 +16,7 @@ echo "OUT_NAME:" $OUT_NAME
 # Build the run command for filling CR histos
 #CFGS="../../input_samples/cfgs/ND_${YEAR}_background_samples.cfg,../../input_samples/cfgs/${YEAR}_data.cfg,../../input_samples/cfgs/ND_${YEAR}_signal_samples.cfg"
 CFGS="../../input_samples/cfgs/NDSkim_${YEAR}_background_samples.cfg,../../input_samples/cfgs/NDSkim_${YEAR}_data_samples.cfg,../../input_samples/cfgs/ND_${YEAR}_signal_samples.cfg"
-OPTIONS="--hist-list cr --skip-sr -s 50000 --split-lep-flavor -p /scratch365/$USER/ -o $OUT_NAME -x work_queue --do-np --noRun3MVA " # For CR plots
+OPTIONS="--hist-list cr --skip-sr -s 50000 --split-lep-flavor -p /scratch365/$USER/ -o $OUT_NAME -x work_queue --do-np " #--noRun3MVA " # For CR plots
 # Run the processor over all Run2 samples
 RUN_COMMAND="time python run_analysis.py $CFGS $OPTIONS"
 printf "\nRunning the following command:\n$RUN_COMMAND\n\n"
