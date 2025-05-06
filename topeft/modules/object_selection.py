@@ -270,8 +270,8 @@ def maxParentage(genPart):
 
     return non_hadronic_parentage
 
-def selectPhoton(photons, pt_val, eta_val):
-    photon_pt_eta_mask = (photons.pt > pt_val) & (abs(photons.eta) < eta_val) #this is what we want for our SR
+def selectPhoton(photons):
+    photon_pt_eta_mask = (photons.pt > get_te_param("ph_pt_cut")) & (abs(photons.eta) < get_te_param("ph_eta_cut")) #this is what we want for our SR
 
     photon_pixelSeed_electronVeto_mask = (np.invert(photons.pixelSeed) & (photons.electronVeto))  #We invert the pixel seed cause we want to veto events with photons that have pixelSeed cause they are misid electrons. They help in suppressing ele->ph backgrounds
     photon_mediumID = (photons.cutBased >= 2) #At least medium

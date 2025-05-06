@@ -30,6 +30,11 @@
     "photonId" : 1,
     "medium_e" : 3,
 
+    "ph_pt_cut" : 20.0,
+    "ph_eta_cut" : 1.44,
+    "dr_ph_jet_cut" : 0.4,
+    "dr_ph_lep_cut" : 0.4,
+
     "lo_xsec_samples": [
         "TTGamma_centralUL16APV",
         "TTGamma_centralUL16",

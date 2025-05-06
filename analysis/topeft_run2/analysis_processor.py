@@ -384,11 +384,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         #clean photons collection if there is an overlap with lepton collection
 
         if self.ttA_analysis:
-            ph["isClean"] = te_os.isClean(ph, l_fo, drmin=0.4)
+            ph["isClean"] = te_os.isClean(ph, l_fo, drmin=get_te_param("dr_ph_lep_cut"))
 
             #We select photons that are already cleaned against leptons
             cleanPh = ph[ph.isClean]
-            te_os.selectPhoton(cleanPh, pt_val=20.0, eta_val=1.44)
+            te_os.selectPhoton(cleanPh)
             cleanPh['isFakeablePh'] = cleanPh.fakeablePhoton_AR_SR
             ph_fo = cleanPh[cleanPh.isFakeablePh]
             ph_fo['inA_ABCD'] = ph_fo.mediumPhoton
@@ -502,6 +502,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
             cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
+            #Let's also clean jets against photon collection
+            if self.ttA_analysis:
+                cleanedJets = cleanedJets[te_os.isClean(cleanedJets, ph_fo, drmin=get_te_param("dr_ph_jet_cut"))]
+
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
@@ -523,10 +527,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
             cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=40.)
-
-            #Let's also clean jets against photon collection
-            if self.ttA_analysis:
-                cleanedJets = cleanedJets[te_os.isClean(cleanedJets, ph_fo, drmin=0.4)]
 
             goodJets = cleanedJets[cleanedJets.isGood]
             fwdJets  = cleanedJets[cleanedJets.isFwd]
