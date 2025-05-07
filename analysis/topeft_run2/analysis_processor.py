@@ -1071,7 +1071,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         njet_ch = None
                                         cuts_lst = [appl,lep_chan]
 
-                                        print("ch_name:", ch_name)
+                                        #print("ch_name:", ch_name)
                                         
                                         if isData:
                                             cuts_lst.append("is_good_lumi")

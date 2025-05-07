@@ -200,10 +200,10 @@ exclude_dict_top22006 = {
     },
      "C": {
         "SingleMuon"     : [],
-        "DoubleMuon"     : [],
+        "DoubleMuon"     : dataset_dict_top22006["2022"]["DoubleMuon"],
         "Muon"           : [],
         "EGamma"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["DoubleMuon"] + dataset_dict_top22006["2022"]["SingleMuon"],
-        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["DoubleMuon"] + dataset_dict_top22006["2022"]["SingleMuon"] + dataset_dict_top22006    ["2022"]["EGamma"],
+        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["DoubleMuon"] + dataset_dict_top22006["2022"]["SingleMuon"] + dataset_dict_top22006["2022"]["EGamma"],
     },
     "D": {
         "Muon"     : [],
