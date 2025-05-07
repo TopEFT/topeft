@@ -15,7 +15,7 @@ echo "OUT_NAME:" $OUT_NAME
 
 # Build the run command for filling CR histos
 #CFGS="../../input_samples/cfgs/ND_${YEAR}_background_samples.cfg,../../input_samples/cfgs/${YEAR}_data.cfg,../../input_samples/cfgs/ND_${YEAR}_signal_samples.cfg"
-CFGS="../../input_samples/cfgs/NDSkim_${YEAR}_background_samples.cfg,../../input_samples/cfgs/NDSkim_${YEAR}_data_samples.cfg,../../input_samples/cfgs/ND_${YEAR}_signal_samples.cfg"
+CFGS="../../input_samples/cfgs/NDSkim_${YEAR}_background_samples.cfg,../../input_samples/cfgs/NDSkim_${YEAR}_data_samples.cfg,../../input_samples/cfgs/NDSkim_${YEAR}_signal_samples.cfg"
 OPTIONS="--hist-list cr --skip-sr -s 50000 --split-lep-flavor -p /scratch365/$USER/ -o $OUT_NAME -x work_queue --do-np " #--noRun3MVA " # For CR plots
 # Run the processor over all Run2 samples
 RUN_COMMAND="time python run_analysis.py $CFGS $OPTIONS"
