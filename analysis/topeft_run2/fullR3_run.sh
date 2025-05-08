@@ -1,11 +1,11 @@
 # This script runs the wq run script with all of the settings appropriate for making SR histos for the full R2 analysis
 
 # Name the output
-#YEAR="2022"
-YEAR="2022EE"
+YEAR="2022"
+#YEAR="2022EE"
 #YEAR="2023"
 #YEAR="2023BPix"
-COMMIT="b29a63bc"
+COMMIT="c7baf5b3"
 OUT_NAME="${YEAR}CRs_${COMMIT}"
 echo "OUT_NAME:" $OUT_NAME
 

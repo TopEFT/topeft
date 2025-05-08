@@ -1097,17 +1097,17 @@ def AttachMuonSF(muons, year, useRun3MVA=True):
                 lepmva_vals_down = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "systdown")
                 
             new_sf_flat = ak.where(
-                ~pt_mask_low, #lepmva_mask,
+                ~pt_lepmva_mask,
                 1,
                 lepmva_vals_nom,
             )
             new_up_flat = ak.where(
-                ~pt_mask_low, #lepmva_mask,
+                ~pt_lepmva_mask,
                 1,
                 lepmva_vals_up,
             )
             new_do_flat = ak.where(
-                ~pt_mask_low, #lepmva_mask,
+                ~pt_lepmva_mask,
                 1,
                 lepmva_vals_down,
             )
@@ -1326,17 +1326,17 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
                 lepmva_vals_down = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "systdown")
                 
             new_sf_flat = ak.where(
-                ~pt_mask_low, #~pt_lepmva_mask,
+                ~pt_lepmva_mask,
                 1,
                 lepmva_vals_nom,
             )
             new_up_flat = ak.where(
-                ~pt_mask_low, #~pt_lepmva_mask,
+                ~pt_lepmva_mask,
                 1,
                 lepmva_vals_up,
             )
             new_do_flat = ak.where(
-                ~pt_mask_low, #~pt_lepmva_mask,
+                ~pt_lepmva_mask,
                 1,
                 lepmva_vals_down,
             )
