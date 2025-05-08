@@ -1417,7 +1417,7 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
 def GetBtagEff(jets, year, wp='medium'):
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
-    result = GetMCeffFunc(year,wp)(jets.pt, np.abs(jets.eta), jets.hadronFlavour) if year[2] != "2" else ak.ones_like(jets.pt)
+    result = GetMCeffFunc(year,wp)(jets.pt, np.abs(jets.eta), jets.hadronFlavour)
     return result
 
 def GetBTagSF(jets, year, wp='MEDIUM', syst='central'):

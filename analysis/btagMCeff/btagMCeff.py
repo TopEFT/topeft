@@ -77,15 +77,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         j   = events.Jet
 
         if is_run3:
-            leptonSelection = te_os.run3leptonselection()
+            leptonSelection = te_os.run3leptonselection(useMVA=True)
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
+            #btagAlgo = "btagDeepFlavB"
+            btagAlgo = "btagPNetB"
         elif is_run2:
             leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
+            btagAlgo = "btagDeepFlavB"
+
+        te_os.lepJetBTagAdder(e, j, btagger=btagAlgo)
+        te_os.lepJetBTagAdder(mu, j, btagger=btagAlgo)
 
         # Muon selection
         mu["conept"] = leptonSelection.coneptMuon(mu)
-        mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
+        #mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
         mu["isPres"] = leptonSelection.isPresMuon(mu)
         mu["isFO"] = leptonSelection.isFOMuon(mu, year)
         mu["isTight"]= leptonSelection.tightSelMuon(mu)
@@ -100,7 +106,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Electron selection
         e["idEmu"] = te_os.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
         e["conept"] = leptonSelection.coneptElec(e)
-        e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
+        #e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
         e["isPres"] = leptonSelection.isPresElec(e)
         e["isFO"] = leptonSelection.isFOElec(e, year)
         e["isTight"] = leptonSelection.tightSelElec(e)
@@ -149,14 +155,26 @@ class AnalysisProcessor(processor.ProcessorABC):
         flavSelection = {'b': (np.abs(goodJets.hadronFlavour) == 5), 'c': (np.abs(goodJets.hadronFlavour) == 4), 'l': (np.abs(goodJets.hadronFlavour) <= 3) }
 
         #WP = {'all' : -999., 'loose': 0.0490, 'medium': 0.2783, 'tight': 0.7100}
-        if year == "2022":
-            WP = {'all' : -999., 'loose': 0.0583, 'medium': 0.3086, 'tight': 0.7183}
-        if year == "2022EE":
-            WP = {'all' : -999., 'loose': 0.0614, 'medium': 0.3196, 'tight': 0.7300} 
-        if year == "2023":
-            WP = {'all' : -999., 'loose': 0.0479, 'medium': 0.2431, 'tight': 0.6553}
-        if year == "2023BPix":
-            WP = {'all' : -999., 'loose': 0.0480, 'medium': 0.2435, 'tight': 0.6563}
+        if btagAlgo == "btagDeepFlavB":
+            if year == "2022":
+                WP = {'all' : -999., 'loose': 0.0583, 'medium': 0.3086, 'tight': 0.7183}
+            if year == "2022EE":
+                WP = {'all' : -999., 'loose': 0.0614, 'medium': 0.3196, 'tight': 0.7300} 
+            if year == "2023":
+                WP = {'all' : -999., 'loose': 0.0479, 'medium': 0.2431, 'tight': 0.6553}
+            if year == "2023BPix":
+                WP = {'all' : -999., 'loose': 0.0480, 'medium': 0.2435, 'tight': 0.6563}
+
+        if btagAlgo == "btagPNetB":
+            if year == "2022":
+                WP = {'all' : -999., 'loose': 0.047, 'medium': 0.245, 'tight': 0.6734}
+            if year == "2022EE":
+                WP = {'all' : -999., 'loose': 0.0499, 'medium': 0.2605, 'tight': 0.6915}
+            if year == "2023":
+                WP = {'all' : -999., 'loose': 0.0358, 'medium': 0.1917, 'tight': 0.6172}
+            if year == "2023BPix":
+                WP = {'all' : -999., 'loose': 0.0359, 'medium': 0.1919, 'tight': 0.6133}
+
         btagSelection = {}
         for wp, wpvals in WP.items():
             btagSelection[wp] = (goodJets.btagDeepFlavB>wpvals)

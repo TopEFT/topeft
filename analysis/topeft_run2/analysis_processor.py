@@ -232,8 +232,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         if is_run3:
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA)
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-            btagAlgo = "btagDeepFlavB" #DeepJet branch
-            #btagAlgo = "btagPNetB"    #PNet branch
+            #btagAlgo = "btagDeepFlavB" #DeepJet branch
+            btagAlgo = "btagPNetB"    #PNet branch
         elif is_run2:
             leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
@@ -489,7 +489,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
             # Medium DeepJet WP
-            medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
+            if btagAlgo == "btagDeepFlavB":
+                medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
+            if btagAlgo == "btagPNetB":
+                medium_tag = "btag_wp_medium_PNet_" + year.replace("201", "UL1")
             btagwpm = get_tc_param(medium_tag)
             isBtagJetsMedium = (goodJets[btagAlgo] > btagwpm)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
@@ -554,12 +557,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                 btag_w_bc = pData_bc/pMC_bc
                 btag_w = btag_w_light*btag_w_bc
 
-                if is_run3:
-                    btag_w = ak.ones_like(events.MET.pt)
-                    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
-                else:
-                    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
+                #if is_run3:
+                #    btag_w = ak.ones_like(events.MET.pt)
+                #    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
+                #else:
+                weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
 
+                #print("\n\n")
+                #print(btag_w)
+                #print("\n\n")
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
                         if b_syst.endswith("_corr"):
@@ -605,12 +611,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                         btag_w_up = fixed_btag_w*btag_w_up/btag_w
                         btag_w_down = fixed_btag_w*btag_w_down/btag_w
 
-                        if is_run3:
-                            btag_w_up = ak.ones_like(events.MET.pt)
-                            btag_w_down = ak.ones_like(events.MET.pt)
-                            weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
-                        else:
-                            weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
+                        #if is_run3:
+                        #    btag_w_up = ak.ones_like(events.MET.pt)
+                        #    btag_w_down = ak.ones_like(events.MET.pt)
+                        #    weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
+                        #else:
+                        weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
 
                 # Trigger SFs                        
                 GetTriggerSF(year,events,l0,l1) #return array of ones for run3
