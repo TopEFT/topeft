@@ -3,8 +3,8 @@
 # Name the output
 #YEAR="2022"
 #YEAR="2022EE"
-YEAR="2023"
-#YEAR="2023BPix"
+#YEAR="2023"
+YEAR="2023BPix"
 COMMIT="ed243a1d"
 OUT_NAME="${YEAR}CRs_${COMMIT}"
 echo "OUT_NAME:" $OUT_NAME
