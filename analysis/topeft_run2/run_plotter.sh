@@ -12,7 +12,7 @@
 #python make_cr_and_sr_plots.py -f /scratch365/aehnis/2022skim_CRs_np.pkl.gz -o /scratch365/apiccine/run3plots -t -y 2022 -s -n testae22_snp
 
 
-YEAR="2022"
+YEAR="2022EE"
 TYPE="" #Central"
 COMMIT="b29a63bc"
 #python make_cr_and_sr_plots.py -f histoR3/2022_run3_object_selection_test.pkl.gz -o /scratch365/apiccine/run3plots -t -y 2022 -s -n mytest22

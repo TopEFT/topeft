@@ -898,7 +898,7 @@ def AttachPerLeptonFR(leps, flavor, year):
         
         pt_mask_low = (pt > minpt)
         pt_mask_hi = (pt < maxpt)
-        pt_masked = ak.where(~pt_mask_low, minpt+0.1, pt)
+        pt_masked = ak.where(~pt_mask_low, minpt, pt)
         pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
         
         chargeflip_sf = ak.ones_like(leps.pdgId, dtype=np.float64) #get_te_param("chargeflip_sf_dict")[flip_year_name]
@@ -906,7 +906,6 @@ def AttachPerLeptonFR(leps, flavor, year):
         for syst in ffSysts:
             fr = ak.unflatten(ceval["fakeRate_2022_2022EE"].evaluate(pt_masked, abseta, syst, abspdgid), ak.num(leps.pt))
             leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0)
-            leps['fakefactor%s' % syst] = fr
             leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.0 + 1.0
             leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.0 + 1.0
 
@@ -1098,17 +1097,17 @@ def AttachMuonSF(muons, year, useRun3MVA=True):
                 lepmva_vals_down = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "systdown")
                 
             new_sf_flat = ak.where(
-                ~pt_lepmva_mask,
+                ~pt_mask_low, #lepmva_mask,
                 1,
                 lepmva_vals_nom,
             )
             new_up_flat = ak.where(
-                ~pt_lepmva_mask,
+                ~pt_mask_low, #lepmva_mask,
                 1,
                 lepmva_vals_up,
             )
             new_do_flat = ak.where(
-                ~pt_lepmva_mask,
+                ~pt_mask_low, #lepmva_mask,
                 1,
                 lepmva_vals_down,
             )
@@ -1264,6 +1263,7 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
 
     if is_run3:
         if looseWP != "none":
+            #print("\n\n\n\n\nI'm applying EGM loose SFs\n\n\n\n\n")
             loose_sf_flat = None
             loose_up_flat = None
             loose_do_flat = None
@@ -1290,6 +1290,7 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
             loose_up = ak.unflatten(loose_up_flat, ak.num(pt))
             loose_do = ak.unflatten(loose_do_flat, ak.num(pt))
         else:
+            #print("\n\n\n\n\nI'm NOT applying EGM loose SFs\n\n\n\n\n")
             loose_sf = ak.ones_like(reco_sf)
             loose_up = ak.ones_like(reco_sf)
             loose_do = ak.ones_like(reco_sf)
@@ -1325,17 +1326,17 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
                 lepmva_vals_down = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "systdown")
                 
             new_sf_flat = ak.where(
-                ~pt_lepmva_mask,
+                ~pt_mask_low, #~pt_lepmva_mask,
                 1,
                 lepmva_vals_nom,
             )
             new_up_flat = ak.where(
-                ~pt_lepmva_mask,
+                ~pt_mask_low, #~pt_lepmva_mask,
                 1,
                 lepmva_vals_up,
             )
             new_do_flat = ak.where(
-                ~pt_lepmva_mask,
+                ~pt_mask_low, #~pt_lepmva_mask,
                 1,
                 lepmva_vals_down,
             )
