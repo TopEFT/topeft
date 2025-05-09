@@ -1244,9 +1244,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         if "data" in proc_name:
             CR_GRP_MAP["Data"].append(proc_name)
         elif "nonprompt" in proc_name:
-            print("\n\n\n\n\nHELOOOOOOOOOOOO\n\n\n\n\n")
             CR_GRP_MAP["Nonprompt"].append(proc_name)
-            print(f"\n\n\n\n\nHELOOOOOOOOOOOO\n{CR_GRP_MAP['Nonprompt']}\n\n\n\n")
         elif "flips" in proc_name:
             if year.startswith("202"):
                 continue #to remove once the flips are available
@@ -1326,8 +1324,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             # Remove samples that are not relevant for the given category
             samples_to_rm = []
             #print("\n\n\n\n\nhist_mc before rm:",  hist_mc_integrated)
-            #if hist_cat == "cr_2los_tt":
-            #    samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
+            if hist_cat == "cr_2los_tt": #we don't actually expect nonprompt in the ttbar CR, and here the nonprompt estimation is not really reliable
+                samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
             hist_mc_integrated = hist_mc_integrated.remove("process", samples_to_rm)
 
 

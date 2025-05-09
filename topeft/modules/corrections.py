@@ -1343,7 +1343,13 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
             new_sf = ak.unflatten(new_sf_flat, ak.num(pt))
             new_up = ak.unflatten(new_up_flat, ak.num(pt))
             new_do = ak.unflatten(new_do_flat, ak.num(pt))
-        
+            new_sf_2l = new_sf
+            new_up_2l = new_up
+            new_do_2l = new_do
+            new_sf_3l = new_sf
+            new_up_3l = new_up
+            new_do_3l = new_do
+            
     else:
         loose_sf  = SFevaluator['ElecLooseSF_{year}'.format(year=year)](np.abs(eta),pt)
         loose_err = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](np.abs(eta),pt)
@@ -1364,6 +1370,14 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
         iso_up = iso_sf + iso_err
         iso_do = iso_sf - iso_err
 
+    #print("\n\n\n\n\n\n\n")
+    #print('new_sf', new_sf)
+    #print('new_sf_2l', new_sf_2l)
+    #print('new_sf_3l', new_sf_3l)
+    #print('sf_nom_2l_elec', ak.to_list(reco_sf * new_sf_2l * loose_sf * iso_sf))
+    #print('sf_nom_3l_elec', ak.to_list(reco_sf * new_sf_2l * loose_sf))
+    #print("\n\n\n\n\n\n\n")
+        
     electrons['sf_nom_2l_elec'] = reco_sf * new_sf_2l * loose_sf * iso_sf
     electrons['sf_hi_2l_elec']  = (reco_up) * new_up_2l * loose_up * iso_up
     electrons['sf_lo_2l_elec']  = (reco_do) * new_do_2l * loose_do * iso_do
