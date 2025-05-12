@@ -75,7 +75,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         ch_lst = ["2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j", "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
                   "3l_onZ_1b", "3l_onZ_2b", "3l_m_offZ_1b", "3l_m_offZ_2b", "3l_p_offZ_1b", "3l_p_offZ_2b", "4l"]
         appl_lst = ["isAR_2lSS_OS", "isSR_2lSS", "isAR_2lSS", "isSR_3l", "isAR_3l", "isSR_4l"]
-        process_lst = ["tttt_privateUL16APV"]
+        process_lst = ["tttt_privateUL16APV", "tHq_privateUL16APV", "tllq_privateUL16APV", "ttllJet_privateUL16APV", "ttlnuJet_privateUL16APV", "ttHJet_privateUL16APV",
+                       "tttt_privateUL16", "tHq_privateUL16", "tllq_privateUL16", "ttllJet_privateUL16", "ttlnuJet_privateUL16", "ttHJet_privateUL16",
+                       "tttt_privateUL17", "tHq_privateUL17", "tllq_privateUL17", "ttllJet_privateUL17", "ttlnuJet_privateUL17", "ttHJet_privateUL17",
+                       "tttt_privateUL18", "tHq_privateUL18", "tllq_privateUL18", "ttllJet_privateUL18", "ttlnuJet_privateUL18", "ttHJet_privateUL18",]
         syst_lst = ["nominal", "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown", "btagSFbc_corrUp","btagSFbc_corrDown", "btagSFlight_corrUp","btagSFlight_corrDown",
                      "PUUp","PUDown","PreFiringUp","PreFiringDown", "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown"]
         var_lst = ["lj0pt", "ptz"]
@@ -163,6 +166,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                     )
             histogram['meta'] = {}
             histogram['meta']['channel'] = ch_lst
+            histogram['meta']['variable'] = var_lst
+            histogram['meta']['systematic'] = syst_lst
+            histogram['meta']['appl'] = appl_lst
+            histogram['meta']['process'] = process_lst
+            
         self._accumulator = histogram
 
         # Set the list of hists to fill
