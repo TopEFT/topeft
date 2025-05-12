@@ -176,11 +176,11 @@ class run3leptonselection:
 
     def coneptElec(self, ele):
         conePt = (0.90 * ele.pt * (1 + ele.jetRelIso))
-        return ele.pt
+        return ak.where((ele.mvaTTH_Run3>get_te_param("mva_TTH_e_cut_run3")),ele.pt,conePt)
 
     def coneptMuon(self, muo):
         conePt = (0.90 * muo.pt * (1 + muo.jetRelIso))
-        return ak.where(((muo.mediumId>0)),muo.pt,conePt)
+        return ak.where(((muo.mvaTTH_Run3>get_te_param("mva_TTH_m_cut_run3"))&(muo.mediumId>0)),muo.pt,conePt)
 
     def isPresElec(self, ele):
         pt_mask    = (ele.pt       > get_te_param("pres_e_pt_cut"))

@@ -55,6 +55,13 @@ egm_tag_map = {
     "2023_Summer23BPix": "2023PromptD",
 }
 
+egm_et_map = {
+    "2022_Summer22": "2022preEE",
+    "2022_Summer22EE": "2022postEE",
+    "2023_Summer23": "2023preBPIX",
+    "2023_Summer23BPix": "2023postBPIX",
+}
+
 egm_pt_bins = {
     "Run2": OrderedDict([
         ("RecoBelow20", [10, 20]),
@@ -1391,6 +1398,94 @@ def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
     electrons['sf_hi_3l_muon']  = ak.ones_like(reco_sf)
     electrons['sf_lo_3l_muon']  = ak.ones_like(reco_sf)
 
+def AttachElectronCorrections(electrons, run, year, isData=False):
+    """  
+    Attach per-electron scale (data) or smear+scale (MC) corrections.
+    """
+
+    # Common electron vars
+    pt    = electrons.pt
+    eta   = electrons.deltaEtaSC
+    r9    = electrons.r9
+    gain  = electrons.seedGain
+    absEta = np.abs(ak.flatten(eta))
+
+    if year not in clib_year_map.keys() and not year.startswith("202"):
+        raise Exception(f"Error: Unknown year \"{year}\".")
+
+    clib_year = clib_year_map[year]
+    scale_json = topcoffea_path(f"data/POG/EGM/{clib_year}/electronSS_EtDependent.json.gz")
+    smear_json = scale_json  # same file in your example
+
+    # Load correction sets
+    cset_scale = correctionlib.CorrectionSet.from_file(scale_json)
+    cset_smear = cset_scale  # same file, different keys
+
+    et_tag = egm_et_map[clib_year]
+    # Data: only scale
+    if isData:
+        scale_eval = cset_scale.compound[f"EGMScale_Compound_Ele_{et_tag}"]
+        # flatten arrays for evaluation
+        pt_flat = ak.flatten(pt)
+        run_flat = ak.flatten(run)
+        sceta_flat = ak.flatten(eta)
+        r9_flat = ak.flatten(r9)
+        gain_flat = ak.flatten(gain)
+
+        scale_flat = scale_eval.evaluate(
+            "scale",
+            run_flat,
+            sceta_flat,
+            r9_flat,
+            absEta,
+            pt_flat,
+            gain_flat
+        )
+        # re‐nest to original jagged structure
+        electrons["pt_corrected"] = ak.unflatten(scale_flat * pt_flat, ak.num(pt))
+
+    # MC: smear + scale uncertainties
+    else:
+        # Smear
+        smear_eval = cset_smear[f"EGMSmearAndSyst_ElePTsplit_{et_tag}"]
+        pt_flat   = ak.flatten(pt)
+        r9_flat   = ak.flatten(r9)
+        sceta_flat = ak.flatten(eta)
+
+        # nominal smear width
+        smear_nom = smear_eval.evaluate("smear", pt_flat, r9_flat, absEta)
+        # random numbers per event
+        rng = np.random.default_rng(12345)
+        rnd = rng.normal(size=len(pt_flat))
+
+        pt_smeared_nom = pt_flat * (1 + smear_nom * rnd)
+
+        # systematic up/down on smear
+        dsmear = smear_eval.evaluate("esmear", pt_flat, r9_flat, absEta)
+        pt_smeared_up   = pt_flat * (1 + (smear_nom + dsmear) * rnd)
+        pt_smeared_down = pt_flat * (1 + (smear_nom - dsmear) * rnd)
+
+        # re‐nest
+        smeared_nom = ak.unflatten(pt_smeared_nom,   ak.num(pt))
+        smeared_up  = ak.unflatten(pt_smeared_up,    ak.num(pt))
+        smeared_dn  = ak.unflatten(pt_smeared_down, ak.num(pt))
+
+        electrons["pt_corrected"]  = smeared_nom
+        electrons["pt_smear_nom"]  = smeared_nom
+        electrons["pt_smear_up"]   = smeared_up
+        electrons["pt_smear_down"] = smeared_dn
+
+        # 2) Scale uncertainties on the *smeared* pt
+        scale_eval = smear_eval  # same JSON holds "escale"
+        escale = scale_eval.evaluate("escale", pt_flat, r9_flat, absEta)
+
+        scale_up   = (1 + escale) * pt_smeared_nom
+        scale_down = (1 - escale) * pt_smeared_nom
+
+        electrons["pt_scale_up"]   = ak.unflatten(scale_up,   ak.num(pt))
+        electrons["pt_scale_down"] = ak.unflatten(scale_down, ak.num(pt))
+
+    
 ###### Btag scale factors
 ################################################################
 # Hard-coded to DeepJet algorithm, loose and medium WPs

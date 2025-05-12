@@ -231,6 +231,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         run  = events.run
 
         if is_run3:
+            AttachElectronCorrections(ele, run, year, isData) #need to apply electron energy corrections before calculating conept
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA)
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
             btagAlgo = "btagDeepFlavB" #DeepJet branch
@@ -314,8 +315,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Attach the lepton SFs to the electron and muons collections
         AttachElectronSF(e_fo, year=year, looseWP="none" if is_run3 else "wpLnoiso", useRun3MVA=self.useRun3MVA) #Run3 ready
-        if is_run3:
-            AttachElectronCorrections(e_fo, run, year, isData)
         AttachMuonSF(m_fo, year=year, useRun3MVA=self.useRun3MVA)
 
         # Attach per lepton fake rates
