@@ -20,7 +20,7 @@ import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
+from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -228,6 +228,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         tau  = events.Tau
         jets = events.Jet
         pv   = events.PV
+        run  = events.run
 
         if is_run3:
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA)
@@ -313,6 +314,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Attach the lepton SFs to the electron and muons collections
         AttachElectronSF(e_fo, year=year, looseWP="none" if is_run3 else "wpLnoiso", useRun3MVA=self.useRun3MVA) #Run3 ready
+        if is_run3:
+            AttachElectronCorrections(e_fo, run, year, isData)
         AttachMuonSF(m_fo, year=year, useRun3MVA=self.useRun3MVA)
 
         # Attach per lepton fake rates
@@ -481,7 +484,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             if btagAlgo == "btagDeepFlavB":
                 btagRef = ""
             elif btagAlgo == "btagPNetB":
-                btagName = "ParT_"
+                btagRef = "ParT_"
 
             # Loose DeepJet WP
             loose_tag = "btag_wp_loose_" + btagRef + year.replace("201", "UL1")
