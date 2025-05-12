@@ -1427,11 +1427,14 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
         scale_eval = cset_scale.compound[f"EGMScale_Compound_Ele_{et_tag}"]
         # flatten arrays for evaluation
         pt_flat = ak.flatten(pt)
-        run_flat = ak.flatten(run)
         sceta_flat = ak.flatten(eta)
         r9_flat = ak.flatten(r9)
         gain_flat = ak.flatten(gain)
 
+        # have a 'run' array with the same structure as electrons.pt, then flatten it
+        run_per_electron = ak.full_like(pt, 1, dtype=int) * run
+        run_flat = ak.flatten(run_per_electron)
+        
         scale_flat = scale_eval.evaluate(
             "scale",
             run_flat,
