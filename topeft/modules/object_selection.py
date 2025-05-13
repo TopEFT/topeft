@@ -175,8 +175,9 @@ class run3leptonselection:
         self.useMVA = useMVA
 
     def coneptElec(self, ele):
-        conePt = (0.90 * ele.pt_corrected * (1 + ele.jetRelIso))
-        return ak.where( (ele.mvaTTHrun3>get_te_param("mva_TTH_e_cut_run3")), ele.pt_corrected, conePt)
+        pt_to_use = ele.pt #or pt_corrected
+        conePt = (0.90 * pt_to_use * (1 + ele.jetRelIso))
+        return ak.where( (ele.mvaTTHrun3>get_te_param("mva_TTH_e_cut_run3")), pt_to_use, conePt)
 
     def coneptMuon(self, muo):
         conePt = (0.90 * muo.pt * (1 + muo.jetRelIso))
