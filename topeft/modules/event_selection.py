@@ -130,8 +130,8 @@ dataset_dict_top22006 = {
             "TripleMu_12_10_5",
         ],
         "EGamma" : [
-            "Ele32_WPTight_Gsf",
-            #"Ele35_WPTight_Gsf",
+            "Ele30_WPTight_Gsf",
+            #"Ele32_WPTight_Gsf",
             "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
             #"Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
             "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
@@ -154,8 +154,8 @@ dataset_dict_top22006 = {
             "TripleMu_12_10_5",
         ],
         "EGamma" : [
-            "Ele32_WPTight_Gsf",
-            #"Ele35_WPTight_Gsf",
+            "Ele30_WPTight_Gsf",
+            #"Ele32_WPTight_Gsf",
             "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
             #"Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
             "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
@@ -202,8 +202,8 @@ exclude_dict_top22006 = {
         "SingleMuon"     : [],
         "DoubleMuon"     : dataset_dict_top22006["2022"]["DoubleMuon"],
         "Muon"           : [],
-        "EGamma"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["DoubleMuon"] + dataset_dict_top22006["2022"]["SingleMuon"],
-        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["DoubleMuon"] + dataset_dict_top22006["2022"]["SingleMuon"] + dataset_dict_top22006["2022"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2022"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["EGamma"],
     },
     "D": {
         "Muon"     : [],
