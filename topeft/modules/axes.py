@@ -35,7 +35,15 @@ info = {
         "label": r"Loose btag multiplicity "},
     "l0pt": {
         "regular": (50, 0, 500),
-        "label": r"Leading lep $p_{T}$ (GeV) ",
+        "label": r"Leading lep raw $p_{T}$ (GeV) ",
+    },
+    "l0ptcorr": {
+        "regular": (50, 0, 500),
+        "label": r"Leading corrected lep $p_{T}$ (GeV) ",
+    },
+    "l0conept": {
+        "regular": (50, 0, 500),
+        "label": r"Leading lep cone-$p_{T}$ (GeV) ",
     },
     "l0eta": {
         "regular": (20, -2.5, 2.5),
@@ -43,7 +51,15 @@ info = {
     },
     "l1pt": {
         "regular": (20, 0, 100),
-        "label": r"Subleading lep $p_{T}$ (GeV) "
+        "label": r"Subleading lep raw $p_{T}$ (GeV) "
+    },
+    "l1ptcorr": {
+        "regular": (20, 0, 100),
+        "label": r"Subleading lep corrected $p_{T}$ (GeV) "
+    },
+    "l1conept": {
+        "regular": (20, 0, 100),
+        "label": r"Subleading lep cone-$p_{T}$ (GeV) "
     },
     "l1eta": {
         "regular": (20, -2.5, 2.5),
