@@ -889,6 +889,20 @@ def AttachPerLeptonFR(leps, flavor, year):
 
     #Run3 is implemented with correction_lib
     if is_run3:
+        flip_year_name = year
+        with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
+            flip_hist = pickle.load(fin)
+            flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["abseta"].edges])
+
+        # Get the fliprate scaling factor for the given year
+        chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
+
+        if flavor == "Elec":
+            leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
+        else:
+            leps['fliprate'] = np.zeros_like(leps.pt)
+
+
         json_path = topeft_path("data/fakerates/fake_rates_Run3.json")
         ceval = correctionlib.CorrectionSet.from_file(json_path)
         pt = ak.flatten(leps.pt)
@@ -915,12 +929,7 @@ def AttachPerLeptonFR(leps, flavor, year):
             leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0)
             leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.0 + 1.0
             leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.0 + 1.0
-
-            if flavor == "Elec":
-                leps['fliprate'] = (chargeflip_sf) #*(flip_lookup(leps.pt,abs(leps.eta))) #need to be implemented
-            else:
-                leps['fliprate'] = np.zeros_like(leps.pt)
-   
+ 
     #Common part
     for flav in ['el','mu']:
         leps['fakefactor_%sclosuredown' % flav] = leps['fakefactor'] / leps['fakefactor_%sclosurefactor' % flav]

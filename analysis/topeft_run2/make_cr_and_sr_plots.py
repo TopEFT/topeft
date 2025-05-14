@@ -641,8 +641,11 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
 
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
-
-    ax.legend(ncol=3)
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width, box.height*0.8])
+    # Put a legend to the right of the current axis
+    ax.legend(loc='lower center', bbox_to_anchor=(0.5,1), ncol=3)
+    plt.subplots_adjust(top=0.7)
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
@@ -672,10 +675,9 @@ def make_single_fig(histo,unit_norm_bool,axis=None,bins=[],group=[]):
                 density=unit_norm_bool,
                 label=axis_name,
             )
-    plt.subplots_adjust(right=0.7)
-    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.legend()
     ax.autoscale(axis='y')
-    return fig
+    return fig    
 
 # Takes a hist with one sparse axis (axis_name) and one dense axis, overlays everything on the sparse axis
 # Makes a ratio of each cateogory on the sparse axis with respect to ref_cat
