@@ -967,6 +967,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         else:
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
+    raise ValueError("bye!")
     # The analysis bins
     analysis_bins = {}
     # Skipping for now
@@ -1248,8 +1249,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         elif "nonprompt" in proc_name:
             CR_GRP_MAP["Nonprompt"].append(proc_name)
         elif "flips" in proc_name:
-            if year.startswith("202"):
-                continue #to remove once the flips are available
             CR_GRP_MAP["Flips"].append(proc_name)
         elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("TTLL" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name) or ("TTZToLL_M1to10" in proc_name) or ("TTTT" in proc_name) or ("ttLNu" in proc_name):
             CR_GRP_MAP["Signal"].append(proc_name)
