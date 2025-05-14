@@ -535,7 +535,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
         nrows=2,
         ncols=1,
         figsize=(10,10),
-        gridspec_kw={"height_ratios": (3, 1)},
+        gridspec_kw={"height_ratios": (4, 1)},
         sharex=True
     )
     fig.subplots_adjust(hspace=.07)
@@ -1038,6 +1038,9 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                 print("Warning: empty data histo, continuing")
                 continue
 
+            print("\n\n\n\n\n\n")
+            print(lumitag=LUMI_COM_PAIRS[year][0], comtag=LUMI_COM_PAIRS[year][1])
+            print("\n\n\n\n\n\n")
             fig = make_cr_fig(hist_mc, hist_data, var=var_name, unit_norm_bool=False, bins=axes_info[var_name]['variable'],group=SR_GRP_MAP, lumitag=LUMI_COM_PAIRS[year][0], comtag=LUMI_COM_PAIRS[year][1])
             if year is not None: year_str = year
             else: year_str = "ULall"
@@ -1393,15 +1396,22 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 err_p = p_err_arr,
                 err_m = m_err_arr,
                 err_ratio_p = p_err_arr_ratio,
-                err_ratio_m = m_err_arr_ratio
+                err_ratio_m = m_err_arr_ratio,
+                lumitag=LUMI_COM_PAIRS[year][0],
+                comtag=LUMI_COM_PAIRS[year][1]
             )
+
+            print("\n\n\n\n\n\n")
+            print(LUMI_COM_PAIRS[year][0], LUMI_COM_PAIRS[year][1])
+            print("\n\n\n\n\n\n")
+            
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
 
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
-
+        break
 
 def main():
 
