@@ -293,8 +293,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Muon selection ####################
 
+        mu["pt_raw"] = mu.pt
         mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Run3 ones are not available
-        mu["pt_corrected"] = ApplyRochesterCorrections(year, mu, isData) # Run3 ones are not available
         mu["isPres"] = leptonSelection.isPresMuon(mu)
         mu["isLooseM"] = leptonSelection.isLooseMuon(mu)
         mu["isFO"] = leptonSelection.isFOMuon(mu, year)
@@ -915,12 +915,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["met"]     = met.pt
             varnames["ljptsum"] = ljptsum
             varnames["l0conept"]    = l0.conept
-            varnames["l0pt"]    = l0.pt
-            varnames["l0ptcorr"]= l0.pt_corrected
+            varnames["l0pt"]    = l0.pt_raw
+            varnames["l0ptcorr"]= l0.pt
             varnames["l0eta"]   = l0.eta
             varnames["l1conept"]    = l1.conept
-            varnames["l1pt"]    = l1.pt
-            varnames["l1ptcorr"]= l1.pt_corrected
+            varnames["l1pt"]    = l1.pt_raw
+            varnames["l1ptcorr"]= l1.pt
             varnames["l1eta"]   = l1.eta
             varnames["j0pt"]    = ak.flatten(j0.pt)
             varnames["j0eta"]   = ak.flatten(j0.eta)

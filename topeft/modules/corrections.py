@@ -1417,18 +1417,18 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
     eta   = electrons.deltaEtaSC
     r9    = electrons.r9
     gain  = electrons.seedGain
-    absEta = np.abs(ak.flatten(eta))
+    absEta = abs(eta)
 
     if year not in clib_year_map.keys() and not year.startswith("202"):
         raise Exception(f"Error: Unknown year \"{year}\".")
 
     clib_year = clib_year_map[year]
     scale_json = topcoffea_path(f"data/POG/EGM/{clib_year}/electronSS_EtDependent.json.gz")
-    smear_json = scale_json  # same file in your example
+    smear_json = scale_json  # same file
 
     # Load correction sets
     cset_scale = correctionlib.CorrectionSet.from_file(scale_json)
-    cset_smear = cset_scale  # same file, different keys
+    cset_smear = correctionlib.CorrectionSet.from_file(smear_json)
 
     et_tag = egm_et_map[clib_year]
     # Data: only scale
@@ -1439,7 +1439,8 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
         sceta_flat = ak.flatten(eta)
         r9_flat = ak.flatten(r9)
         gain_flat = ak.flatten(gain)
-
+        absEta_flat = ak.flatten(absEta)
+        
         # have a 'run' array with the same structure as electrons.pt, then flatten it
         run_per_electron = ak.full_like(pt, 1, dtype=int) * run
         run_flat = ak.flatten(run_per_electron)
@@ -1449,12 +1450,13 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
             run_flat,
             sceta_flat,
             r9_flat,
-            absEta,
+            absEta_flat,
             pt_flat,
             gain_flat
         )
         # re‐nest to original jagged structure
-        electrons["pt_corrected"] = ak.unflatten(scale_flat * pt_flat, ak.num(pt))
+        electrons["pt_raw"] = pt
+        electrons["pt"] = ak.unflatten(scale_flat * pt_flat, ak.num(pt))
 
     # MC: smear + scale uncertainties
     else:
@@ -1463,9 +1465,10 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
         pt_flat   = ak.flatten(pt)
         r9_flat   = ak.flatten(r9)
         sceta_flat = ak.flatten(eta)
-
+        absEta_flat = ak.flatten(absEta)
+        
         # nominal smear width
-        smear_nom = smear_eval.evaluate("smear", pt_flat, r9_flat, absEta)
+        smear_nom = smear_eval.evaluate("smear", pt_flat, r9_flat, absEta_flat)
         # random numbers per event
         rng = np.random.default_rng(12345)
         rnd = rng.normal(size=len(pt_flat))
@@ -1473,7 +1476,7 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
         pt_smeared_nom = pt_flat * (1 + smear_nom * rnd)
 
         # systematic up/down on smear
-        dsmear = smear_eval.evaluate("esmear", pt_flat, r9_flat, absEta)
+        dsmear = smear_eval.evaluate("esmear", pt_flat, r9_flat, absEta_flat)
         pt_smeared_up   = pt_flat * (1 + (smear_nom + dsmear) * rnd)
         pt_smeared_down = pt_flat * (1 + (smear_nom - dsmear) * rnd)
 
@@ -1482,14 +1485,15 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
         smeared_up  = ak.unflatten(pt_smeared_up,    ak.num(pt))
         smeared_dn  = ak.unflatten(pt_smeared_down, ak.num(pt))
 
-        electrons["pt_corrected"]  = smeared_nom
+        electrons["pt_raw"] = pt
+        electrons["pt"]  = smeared_nom
         electrons["pt_smear_nom"]  = smeared_nom
         electrons["pt_smear_up"]   = smeared_up
         electrons["pt_smear_down"] = smeared_dn
 
         # 2) Scale uncertainties on the *smeared* pt
         scale_eval = smear_eval  # same JSON holds "escale"
-        escale = scale_eval.evaluate("escale", pt_flat, r9_flat, absEta)
+        escale = scale_eval.evaluate("escale", pt_flat, r9_flat, absEta_flat)
 
         scale_up   = (1 + escale) * pt_smeared_nom
         scale_down = (1 - escale) * pt_smeared_nom
