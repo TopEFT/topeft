@@ -8,6 +8,10 @@
     "pres_e_pt_cut" : 7.0,
     "pres_m_pt_cut" : 5.0,
 
+    "fo_pt_cut_run3" : 20.0,
+    "pres_e_pt_cut_run3" : 10.0,
+    "pres_m_pt_cut_run3" : 10.0,
+
     "mva_TTH_e_cut" : 0.90,
     "mva_TTH_m_cut" : 0.85,
     "mva_TTH_e_cut_run3" : 0.90,

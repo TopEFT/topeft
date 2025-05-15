@@ -175,7 +175,7 @@ class run3leptonselection:
         self.useMVA = useMVA
 
     def coneptElec(self, ele):
-        pt_to_use = ele.pt #or pt_corrected
+        pt_to_use = ele.pt
         conePt = (0.90 * pt_to_use * (1 + ele.jetRelIso))
         return ak.where( (ele.mvaTTHrun3>get_te_param("mva_TTH_e_cut_run3")), pt_to_use, conePt)
 
@@ -184,7 +184,7 @@ class run3leptonselection:
         return ak.where( ((muo.mvaTTHrun3>get_te_param("mva_TTH_m_cut_run3"))&(muo.mediumId>0)), muo.pt, conePt)
 
     def isPresElec(self, ele):
-        pt_mask    = (ele.pt       > get_te_param("pres_e_pt_cut"))
+        pt_mask    = (ele.pt       > get_te_param("pres_e_pt_cut_run3"))
         eta_mask   = (abs(ele.eta) < get_te_param("eta_e_cut"))
         dxy_mask   = (abs(ele.dxy) < get_te_param("dxy_cut"))
         dz_mask    = (abs(ele.dz)  < get_te_param("dz_cut"))
@@ -194,7 +194,7 @@ class run3leptonselection:
         return (pt_mask & eta_mask & dxy_mask & dz_mask & iso_mask & sip3d_mask & ecal_crack_mask)
 
     def isPresMuon(self, muon):
-        pt_mask    = (muon.pt         > get_te_param("pres_m_pt_cut"))
+        pt_mask    = (muon.pt         > get_te_param("pres_m_pt_cut_run3"))
         eta_mask   = (abs(muon.eta)   < get_te_param("eta_m_cut"))
         dxy_mask   = (abs(muon.dxy)   < get_te_param("dxy_cut"))
         dz_mask    = (abs(muon.dz)    < get_te_param("dz_cut"))
@@ -211,7 +211,7 @@ class run3leptonselection:
     def isFOElec(self, ele, year):
         bTagCut    = get_medium_btag_foryear(year)
         btagReq    = (ele.jetBTag<bTagCut)
-        ptReq      = (ele.conept>get_te_param("fo_pt_cut"))
+        ptReq      = (ele.conept>get_te_param("fo_pt_cut_run3"))
         qualityReq = (ele.idEmu & ele.convVeto & (ele.lostHits==0))
         if not self.useMVA:
             mvaReq     = (((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3"))  & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
@@ -222,7 +222,7 @@ class run3leptonselection:
     def isFOMuon(self, muo, year):
         bTagCut=get_medium_btag_foryear(year)
         btagReq = (muo.jetBTag<bTagCut)
-        ptReq   = (muo.conept>get_te_param("fo_pt_cut"))
+        ptReq   = (muo.conept>get_te_param("fo_pt_cut_run3"))
         if not self.useMVA:
             mvaReq  = (((muo.jetBTag<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45))))
         else:
