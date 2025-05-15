@@ -534,7 +534,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     fig, (ax, rax) = plt.subplots(
         nrows=2,
         ncols=1,
-        figsize=(10,10),
+        figsize=(10,11),
         gridspec_kw={"height_ratios": (4, 1)},
         sharex=True
     )
@@ -564,8 +564,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
             years[name] = [axis_name]
     hep.style.use("CMS")
     plt.sca(ax)
-    #hep.cms.label(lumi='7.9804', com='13.6', fontsize=10.0)
-    hep.cms.label(lumi=lumitag, com=comtag, fontsize=10.0)
+    hep.cms.label(lumi=lumitag, com=comtag, fontsize=18.0)
 
     # Hack for grouping until fixed
     grouping = {proc: [good_proc for good_proc in group[proc] if good_proc in h_mc.axes['process']] for proc in group if any(p in h_mc.axes['process'] for p in group[proc])}
@@ -633,19 +632,26 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     # Scale the y axis and labels
     ax.autoscale(axis='y')
     ax.set_xlabel(None)
-    rax.set_ylabel('Ratio', loc='center')
+    ax.tick_params(axis='both', labelsize=18)   # both x and y ticks
+    ax.ticklabel_format(axis='y', style='scientific', scilimits=(0,6), useMathText=True)
+    ax.yaxis.set_offset_position("left")
+    ax.yaxis.offsetText.set_x(-0.07)
+    ax.yaxis.offsetText.set_fontsize(18)
+
+    rax.set_ylabel('Ratio', loc='center', fontsize=18)
     rax.set_ylim(0.5,1.5)
     labels = [item.get_text() for item in rax.get_xticklabels()]
     labels[-1] = '>500'
     rax.set_xticklabels(labels)
+    rax.tick_params(axis='both', labelsize=18)   # both x and y ticks
 
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
     box = ax.get_position()
-    ax.set_position([box.x0, box.y0, box.width, box.height*0.8])
+    ax.set_position([box.x0, box.y0, box.width, box.height])
     # Put a legend to the right of the current axis
-    ax.legend(loc='lower center', bbox_to_anchor=(0.5,1), ncol=3)
-    plt.subplots_adjust(top=0.7)
+    ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
+    plt.subplots_adjust(top=0.88, bottom=0.05, right=0.95, left=0.11)
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
@@ -786,7 +792,6 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
         else:
             sr_cat_dict = SR_CHAN_DICT
         print("\nVar name:",var_name)
-        print("sr_cat_dict:",sr_cat_dict)
 
         # Extract the signal hists
         hist_sig = dict_of_hists[var_name].remove("process", samples_to_rm_from_sig_hist)
@@ -1038,9 +1043,6 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                 print("Warning: empty data histo, continuing")
                 continue
 
-            print("\n\n\n\n\n\n")
-            print(lumitag=LUMI_COM_PAIRS[year][0], comtag=LUMI_COM_PAIRS[year][1])
-            print("\n\n\n\n\n\n")
             fig = make_cr_fig(hist_mc, hist_data, var=var_name, unit_norm_bool=False, bins=axes_info[var_name]['variable'],group=SR_GRP_MAP, lumitag=LUMI_COM_PAIRS[year][0], comtag=LUMI_COM_PAIRS[year][1])
             if year is not None: year_str = year
             else: year_str = "ULall"
@@ -1328,7 +1330,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             # Remove samples that are not relevant for the given category
             samples_to_rm = []
             #print("\n\n\n\n\nhist_mc before rm:",  hist_mc_integrated)
-            if hist_cat == "cr_2los_tt": #we don't actually expect nonprompt in the ttbar CR, and here the nonprompt estimation is not really reliable
+            if hist_cat.startswith("cr_2los_tt") or hist_cat.startswith('cr_2los_Z'): #we don't actually expect nonprompt in the ttbar CR, and here the nonprompt estimation is not really reliable
                 samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
             hist_mc_integrated = hist_mc_integrated.remove("process", samples_to_rm)
 
@@ -1400,10 +1402,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 lumitag=LUMI_COM_PAIRS[year][0],
                 comtag=LUMI_COM_PAIRS[year][1]
             )
-
-            print("\n\n\n\n\n\n")
-            print(LUMI_COM_PAIRS[year][0], LUMI_COM_PAIRS[year][1])
-            print("\n\n\n\n\n\n")
             
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
@@ -1411,7 +1409,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
 
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
-        break
 
 def main():
 
