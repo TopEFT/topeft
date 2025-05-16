@@ -77,14 +77,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         j   = events.Jet
 
         if is_run3:
-            leptonSelection = te_os.run3leptonselection(useMVA=True)
-            jetsRho = events.Rho["fixedGridRhoFastjetAll"]
             #btagAlgo = "btagDeepFlavB"
             btagAlgo = "btagPNetB"
+            leptonSelection = te_os.run3leptonselection(useMVA=True,btagger=btagAlgo)
+            jetsRho = events.Rho["fixedGridRhoFastjetAll"]
         elif is_run2:
+            btagAlgo = "btagDeepFlavB"
             leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
-            btagAlgo = "btagDeepFlavB"
 
         te_os.lepJetBTagAdder(e, j, btagger=btagAlgo)
         te_os.lepJetBTagAdder(mu, j, btagger=btagAlgo)
