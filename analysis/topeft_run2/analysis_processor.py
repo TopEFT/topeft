@@ -117,7 +117,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 if hist_to_include not in self._accumulator.keys():
                     raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
             self._hist_lst = hist_lst # Which hists to fill
-
+        self._hist_lst = ["njets","lj0pt","ptz", "ptz_wtau"]
         # Set the energy threshold to cut on
         self._ecut_threshold = ecut_threshold
 
@@ -806,6 +806,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("atleast_1j", (njets>=1))
             selections.add("atleast_4j", (njets>=4))
             selections.add("atleast_5j", (njets>=5))
+            selections.add("atleast_6j", (njets>=6))
             selections.add("atleast_7j", (njets>=7))
             selections.add("atleast_0j", (njets>=0))
             selections.add("atmost_3j" , (njets<=3))
@@ -894,7 +895,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lj0pt"]   = lj0pt
             varnames["lt"]      = lt
             if self.tau_h_analysis:
-                varnames["ptz_wtau"] = ptz_wtau
+                varnames["ptz_wtau"] = ptz_wtau#(tau0+l0).pt
                 varnames["tau0pt"] = tau0.pt
 
             ########## Fill the histograms ##########
@@ -1075,14 +1076,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         elif self.tau_h_analysis:
                                             if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
                                             if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
-                                            if (("ptz_wtau" in dense_axis_name) and ("1tau" not in lep_chan)): continue
+                                            if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))): continue
                                         elif self.fwd_analysis:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                             if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
                                         else:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
                                         axes_fill_info_dict = {
                                             dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
