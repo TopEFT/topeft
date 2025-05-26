@@ -239,8 +239,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             jetsRho = events.fixedGridRhoFastjetAll
             btagAlgo = "btagDeepFlavB"
             
-        te_os.lepJetBTagAdder(ele, jets, btagger=btagAlgo)
-        te_os.lepJetBTagAdder(mu, jets, btagger=btagAlgo)
+        te_os.lepJetBTagAdder(ele, btagger=btagAlgo)
+        te_os.lepJetBTagAdder(mu, btagger=btagAlgo)
             
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
