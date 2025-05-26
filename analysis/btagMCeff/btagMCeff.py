@@ -77,21 +77,20 @@ class AnalysisProcessor(processor.ProcessorABC):
         j   = events.Jet
 
         if is_run3:
-            #btagAlgo = "btagDeepFlavB"
-            btagAlgo = "btagPNetB"
-            leptonSelection = te_os.run3leptonselection(useMVA=True,btagger=btagAlgo)
+            btagAlgo = "btagDeepFlavB"
+            #btagAlgo = "btagPNetB"
+            leptonSelection = te_os.run3leptonselection(useMVA=True, btagger=btagAlgo)
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
         elif is_run2:
             btagAlgo = "btagDeepFlavB"
             leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
 
-        te_os.lepJetBTagAdder(e, j, btagger=btagAlgo)
-        te_os.lepJetBTagAdder(mu, j, btagger=btagAlgo)
+        te_os.lepJetBTagAdder(e, btagger=btagAlgo)
+        te_os.lepJetBTagAdder(mu, btagger=btagAlgo)
 
         # Muon selection
         mu["conept"] = leptonSelection.coneptMuon(mu)
-        #mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
         mu["isPres"] = leptonSelection.isPresMuon(mu)
         mu["isFO"] = leptonSelection.isFOMuon(mu, year)
         mu["isTight"]= leptonSelection.tightSelMuon(mu)
@@ -106,7 +105,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Electron selection
         e["idEmu"] = te_os.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
         e["conept"] = leptonSelection.coneptElec(e)
-        #e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
         e["isPres"] = leptonSelection.isPresElec(e)
         e["isFO"] = leptonSelection.isFOElec(e, year)
         e["isTight"] = leptonSelection.tightSelElec(e)
@@ -177,7 +175,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         btagSelection = {}
         for wp, wpvals in WP.items():
-            btagSelection[wp] = (goodJets.btagDeepFlavB>wpvals)
+            if btagAlgo == "btagDeepFlavB":
+                btagSelection[wp] = (goodJets.btagDeepFlavB>wpvals)
+            if btagAlgo == "btagPNetB":
+                btagSelection[wp] = (goodJets.btagPNetB>wpvals)
 
         for jetype in ['b', 'c', 'l']:
             for wp in WP.keys():

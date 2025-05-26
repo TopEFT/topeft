@@ -42,8 +42,8 @@ def iseTightTau(idDeepTauVSe):
 def ismTightTau(idDeepTauVSmu):
     return (idDeepTauVSmu>>1 & 1)
 
-def lepJetBTagAdder(leptons, jets, btagger="btagDeepFlavB", dummyValue=-99.):
-    is_matched = (leptons.jetIdx > -1) & (leptons.jetIdx < ak.num(jets))
+def lepJetBTagAdder(leptons, btagger="btagDeepFlavB", dummyValue=-99.):
+    #is_matched = (leptons.jetIdx > -1) & (leptons.jetIdx < ak.num(jets))
     if btagger == "btagDeepFlavB":
         leptons["jetBTag"] = ak.fill_none(leptons.matched_jet.btagDeepFlavB, dummyValue)
     if btagger == "btagPNetB":
