@@ -42,10 +42,12 @@ def iseTightTau(idDeepTauVSe):
 def ismTightTau(idDeepTauVSmu):
     return (idDeepTauVSmu>>1 & 1)
 
-def lepJetBTagAdder(leptons, jets, btagger="btagDeepFlavB", dummyValue=-99.):
-    is_matched = (leptons.jetIdx > -1) & (leptons.jetIdx < ak.num(jets))
-    leptons["jetBTag"] = ak.fill_none(leptons.matched_jet.btagDeepFlavB, dummyValue)
-    
+def lepJetBTagAdder(leptons, btagger="btagDeepFlavB", dummyValue=-99.):
+    #is_matched = (leptons.jetIdx > -1) & (leptons.jetIdx < ak.num(jets))
+    if btagger == "btagDeepFlavB":
+        leptons["jetBTag"] = ak.fill_none(leptons.matched_jet.btagDeepFlavB, dummyValue)
+    if btagger == "btagPNetB":
+        leptons["jetBTag"] = ak.fill_none(leptons.matched_jet.btagPNetB, dummyValue)
 def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
     return (hoe<(0.10-0.00*(abs(eta+deltaEtaSC)>1.479))) & (eInvMinusPInv>-0.04) & (sieie<(0.011+0.019*(abs(eta+deltaEtaSC)>1.479)))
 
@@ -53,33 +55,47 @@ def isFwdJet(pt, eta, jet_id, jetPtCut=25.0):
     mask = ((pt>jetPtCut) & (abs(eta)>get_te_param("eta_j_cut")) & (jet_id>get_te_param("jet_id_cut")))
     return mask
 
-def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
+def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0,btagger="btagDeepFlavB"):
 
     # Get the btag wp for the year
-    if (year == "2016"):
-        wploose  = get_tc_param("btag_wp_loose_UL16")
-        wpmedium = get_tc_param("btag_wp_medium_UL16")
-    elif (year == "2016APV"):
-        wploose  = get_tc_param("btag_wp_loose_UL16APV")
-        wpmedium = get_tc_param("btag_wp_medium_UL16APV")
-    elif (year == "2017"):
-        wploose  = get_tc_param("btag_wp_loose_UL17")
-        wpmedium = get_tc_param("btag_wp_medium_UL17")
-    elif (year == "2018"):
-        wploose  = get_tc_param("btag_wp_loose_UL18")
-        wpmedium = get_tc_param("btag_wp_medium_UL18")
-    elif (year == "2022"):
-        wploose = get_tc_param("btag_wp_loose_2022")
-        wpmedium = get_tc_param("btag_wp_medium_2022")
-    elif (year == "2022EE"):
-        wploose = get_tc_param("btag_wp_loose_2022EE")
-        wpmedium = get_tc_param("btag_wp_medium_2022EE")
-    elif (year == "2023"):
-        wploose = get_tc_param("btag_wp_loose_2023")
-        wpmedium = get_tc_param("btag_wp_medium_2023")
-    elif (year == "2023BPix"):
-        wploose = get_tc_param("btag_wp_loose_2023BPix")
-        wpmedium = get_tc_param("btag_wp_medium_2023BPix")
+    if btagger == "btagDeepFlavB":
+        if (year == "2016"):
+            wploose  = get_tc_param("btag_wp_loose_UL16")
+            wpmedium = get_tc_param("btag_wp_medium_UL16")
+        elif (year == "2016APV"):
+            wploose  = get_tc_param("btag_wp_loose_UL16APV")
+            wpmedium = get_tc_param("btag_wp_medium_UL16APV")
+        elif (year == "2017"):
+            wploose  = get_tc_param("btag_wp_loose_UL17")
+            wpmedium = get_tc_param("btag_wp_medium_UL17")
+        elif (year == "2018"):
+            wploose  = get_tc_param("btag_wp_loose_UL18")
+            wpmedium = get_tc_param("btag_wp_medium_UL18")
+        elif (year == "2022"):
+            wploose = get_tc_param("btag_wp_loose_2022")
+            wpmedium = get_tc_param("btag_wp_medium_2022")
+        elif (year == "2022EE"):
+            wploose = get_tc_param("btag_wp_loose_2022EE")
+            wpmedium = get_tc_param("btag_wp_medium_2022EE")
+        elif (year == "2023"):
+            wploose = get_tc_param("btag_wp_loose_2023")
+            wpmedium = get_tc_param("btag_wp_medium_2023")
+        elif (year == "2023BPix"):
+            wploose = get_tc_param("btag_wp_loose_2023BPix")
+            wpmedium = get_tc_param("btag_wp_medium_2023BPix")
+    elif btagger == "btagPNetB":
+        if (year == "2022"):
+            wploose = get_tc_param("btag_wp_loose_PNet_2022")
+            wpmedium = get_tc_param("btag_wp_medium_PNet_2022")
+        elif (year == "2022EE"):
+            wploose = get_tc_param("btag_wp_loose_PNet_2022EE")
+            wpmedium = get_tc_param("btag_wp_medium_PNet_2022EE")
+        elif (year == "2023"):
+            wploose = get_tc_param("btag_wp_loose_PNet_2023")
+            wpmedium = get_tc_param("btag_wp_medium_PNet_2023")
+        elif (year == "2023BPix"):
+            wploose = get_tc_param("btag_wp_loose_PNet_2023BPix")
+            wpmedium = get_tc_param("btag_wp_medium_PNet_2023BPix")
     else:
         raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
 
@@ -90,24 +106,34 @@ def smoothSip3D(jetpt, sipmin, sipmax, ptmin, ptmax):
     x = np.minimum(np.maximum(0, jetpt - ptmin)/(ptmax-ptmin), 1.0)
     return x*sipmax+(1-x)*sipmin
 
-def get_medium_btag_foryear(year):
+def get_medium_btag_foryear(year,btagger="btagDeepFlavB"):
     # Get the btag cut for the year
-    if (year == "2016"):
-        return get_tc_param("btag_wp_medium_UL16")
-    elif (year == "2016APV"):
-        return get_tc_param("btag_wp_medium_UL16APV")
-    elif (year == "2017"):
-        return get_tc_param("btag_wp_medium_UL17")
-    elif (year == "2018"):
-        return get_tc_param("btag_wp_medium_UL18")
-    elif (year == "2022"):
-        return get_tc_param("btag_wp_medium_2022")
-    elif (year == "2022EE"):
-        return get_tc_param("btag_wp_medium_2022EE")
-    elif (year == "2023"):
-        return get_tc_param("btag_wp_medium_2023")
-    elif (year == "2023BPix"):
-        return get_tc_param("btag_wp_medium_2023BPix")
+    if btagger == "btagDeepFlavB":
+        if (year == "2016"):
+            return get_tc_param("btag_wp_medium_UL16")
+        elif (year == "2016APV"):
+            return get_tc_param("btag_wp_medium_UL16APV")
+        elif (year == "2017"):
+            return get_tc_param("btag_wp_medium_UL17")
+        elif (year == "2018"):
+            return get_tc_param("btag_wp_medium_UL18")
+        elif (year == "2022"):
+            return get_tc_param("btag_wp_medium_2022")
+        elif (year == "2022EE"):
+            return get_tc_param("btag_wp_medium_2022EE")
+        elif (year == "2023"):
+            return get_tc_param("btag_wp_medium_2023")
+        elif (year == "2023BPix"):
+            return get_tc_param("btag_wp_medium_2023BPix")
+    elif btagger == "btagPNetB":
+        if (year == "2022"):
+            return get_tc_param("btag_wp_medium_PNet_2022")
+        elif (year == "2022EE"):
+            return get_tc_param("btag_wp_medium_PNet_2022EE")
+        elif (year == "2023"):
+            return get_tc_param("btag_wp_medium_PNet_2023")
+        elif (year == "2023BPix"):
+            return get_tc_param("btag_wp_medium_PNet_2023BPix")
     else:
         raise Exception(f"Error: Unknown year \"{year}\". Exiting...")
 
@@ -153,7 +179,7 @@ class run2leptonselection:
         btabReq    = (ele.jetBTag<bTagCut)
         ptReq      = (ele.conept>get_te_param("fo_pt_cut"))
         qualityReq = (ele.idEmu & ele.convVeto & (ele.lostHits==0))
-        mvaReq     = ((ele.mvaTTHUL>get_te_param("mva_TTH_e_cut")) | ((ele.mvaFall17V2noIso_WP90) & (ele.jetBTag<smoothBFlav(0.9*ele.pt*(1+ele.jetRelIso),20,45,year)) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
+        mvaReq     = ((ele.mvaTTHUL>get_te_param("mva_TTH_e_cut")) | ((ele.mvaFall17V2noIso_WP90) & (ele.jetBTag<smoothBFlav(0.9*ele.pt*(1+ele.jetRelIso),20,45,year, btagger=self.btagger)) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
 
         return ptReq & btabReq & qualityReq & mvaReq
 
@@ -161,7 +187,7 @@ class run2leptonselection:
         bTagCut=get_medium_btag_foryear(year)
         btagReq = (muo.jetBTag<bTagCut)
         ptReq   = (muo.conept>get_te_param("fo_pt_cut"))
-        mvaReq  = ((muo.mvaTTHUL>get_te_param("mva_TTH_m_cut")) | ((muo.jetBTag<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut"))))
+        mvaReq  = ((muo.mvaTTHUL>get_te_param("mva_TTH_m_cut")) | ((muo.jetBTag<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year,btagger=self.btagger)) & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut"))))
         return ptReq & btagReq & mvaReq
 
     def tightSelElec(self, ele):
@@ -171,8 +197,9 @@ class run2leptonselection:
         return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTHUL > get_te_param("mva_TTH_m_cut"))
 
 class run3leptonselection:
-    def __init__(self, useMVA=True):
+    def __init__(self, useMVA=True, btagger="btagDeepFlavB"):
         self.useMVA = useMVA
+        self.btagger = btagger
 
     def coneptElec(self, ele):
         conePt = (0.90 * ele.pt * (1 + ele.jetRelIso))
@@ -208,28 +235,28 @@ class run3leptonselection:
         return (muon.miniPFRelIso_all<get_te_param("iso_cut")) & (muon.sip3d<get_te_param("sip3d_cut")) & (muon.mediumId)
 
     def isFOElec(self, ele, year):
-        bTagCut    = get_medium_btag_foryear(year)
+        bTagCut    = get_medium_btag_foryear(year,btagger=self.btagger)
         btagReq    = (ele.jetBTag<bTagCut)
         ptReq      = (ele.conept>get_te_param("fo_pt_cut"))
         qualityReq = (ele.idEmu & ele.convVeto & (ele.lostHits==0))
         if not self.useMVA:
             mvaReq     = (((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3"))  & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut"))))
         else:
-            mvaReq     = ((ele.mvaTTHrun3>get_te_param("mva_TTH_e_cut_run3")) | ((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3")) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut")))) ##original cut from Sergio
+            mvaReq     = ((ele.mvaTTH>get_te_param("mva_TTH_e_cut_run3")) | ((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3")) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut")))) ##original cut from Sergio
         #return ptReq & btagReq & qualityReq & mvaReq
         return ptReq & qualityReq & mvaReq
         
     def isFOMuon(self, muo, year):
-        bTagCut=get_medium_btag_foryear(year)
+        bTagCut=get_medium_btag_foryear(year,btagger=self.btagger)
         btagReq = (muo.jetBTag<bTagCut)
-        smoothBFlavReq = (muo.jetBTag<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year))
+        smoothBFlavReq = (muo.jetBTag<smoothBFlav(0.9*muo.pt*(1+muo.jetRelIso),20,45,year,btagger=self.btagger))
         ptReq   = (muo.conept>get_te_param("fo_pt_cut"))
         if not self.useMVA:
             #mvaReq  = ((smoothBFlavReq & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45))))
             mvaReq  = (( (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45))))
         else:
             #mvaReq  = ((muo.mvaTTHrun3>get_te_param("mva_TTH_m_cut_run3")) | (smoothBFlavReq & (muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45)))) #original cut from Sergio
-            mvaReq  = ((muo.mvaTTHrun3>get_te_param("mva_TTH_m_cut_run3")) | ((muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45)))) #original cut from Sergio
+            mvaReq  = ((muo.mvaTTH>get_te_param("mva_TTH_m_cut_run3")) | ((muo.jetRelIso < get_te_param("fo_m_jetRelIso_cut")) & (muo.sip3d < smoothSip3D(0.9*muo.pt*(1+muo.jetRelIso),2.5,8.,15,45)))) #original cut from Sergio
         #return ptReq & btagReq & mvaReq
         return ptReq & mvaReq
 
@@ -237,13 +264,13 @@ class run3leptonselection:
         if not self.useMVA:
             return ((ele.isFO) & (ele.miniPFRelIso_all<0.1))
         else:
-            return (ele.isFO) & (ele.mvaTTHrun3 > get_te_param("mva_TTH_e_cut_run3")) #original cut from Sergio
+            return (ele.isFO) & (ele.mvaTTH > get_te_param("mva_TTH_e_cut_run3")) #original cut from Sergio
         
     def tightSelMuon(self, muo):
         if not self.useMVA:
             return ((muo.isFO) & (muo.mediumId>0) & (muo.miniPFRelIso_all<0.1))
         else:
-            return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTHrun3 > get_te_param("mva_TTH_m_cut_run3")) #original cut from Sergio
+            return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTH > get_te_param("mva_TTH_m_cut_run3")) #original cut from Sergio
 
 def isClean(obj_A, obj_B, drmin=0.4):
     objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
