@@ -117,56 +117,56 @@ dataset_dict_top22006 = {
     "2022" : {
         "Muon" : [
             "IsoMu24",
-            "IsoMu27",
+            #"IsoMu27",
             "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
             "TripleMu_12_10_5",
         ],  
         "SingleMuon" : [
             "IsoMu24",
-            "IsoMu27",
+            #"IsoMu27",
         ],
         "DoubleMuon" : [
             "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
             "TripleMu_12_10_5",
         ],
         "EGamma" : [
-            "Ele32_WPTight_Gsf",
-            "Ele35_WPTight_Gsf",
+            "Ele30_WPTight_Gsf",
+            #"Ele32_WPTight_Gsf",
             "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
-            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            #"Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
             "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
         ],
         "MuonEG" : [
             "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
-            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            #"Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
             "Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
             "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
             "Mu8_DiEle12_CaloIdL_TrackIdL",
-            "Mu8_DiEle12_CaloIdL_TrackIdL_DZ",
+            #"Mu8_DiEle12_CaloIdL_TrackIdL_DZ",
             "DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
         ],
     },
     "2023" : {
          "Muon" : [
             "IsoMu24",
-            "IsoMu27",
+            #"IsoMu27",
             "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
             "TripleMu_12_10_5",
         ],
         "EGamma" : [
-            "Ele32_WPTight_Gsf",
-            "Ele35_WPTight_Gsf",
+            "Ele30_WPTight_Gsf",
+            #"Ele32_WPTight_Gsf",
             "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL",
-            "Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            #"Ele23_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
             "Ele16_Ele12_Ele8_CaloIdL_TrackIdL",
         ],
         "MuonEG" : [
             "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL",
-            "Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
+            #"Mu23_TrkIsoVVL_Ele12_CaloIdL_TrackIdL_IsoVL_DZ",
             "Mu12_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
             "Mu8_TrkIsoVVL_Ele23_CaloIdL_TrackIdL_IsoVL_DZ",
             "Mu8_DiEle12_CaloIdL_TrackIdL",
-            "Mu8_DiEle12_CaloIdL_TrackIdL_DZ",
+            #"Mu8_DiEle12_CaloIdL_TrackIdL_DZ",
             "DiMu9_Ele9_CaloIdL_TrackIdL_DZ",
         ],
     },
@@ -200,10 +200,10 @@ exclude_dict_top22006 = {
     },
      "C": {
         "SingleMuon"     : [],
-        "DoubleMuon"     : [],
+        "DoubleMuon"     : dataset_dict_top22006["2022"]["DoubleMuon"],
         "Muon"           : [],
-        "EGamma"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["DoubleMuon"] + dataset_dict_top22006["2022"]["SingleMuon"],
-        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["DoubleMuon"] + dataset_dict_top22006["2022"]["SingleMuon"] + dataset_dict_top22006    ["2022"]["EGamma"],
+        "EGamma"         : dataset_dict_top22006["2022"]["Muon"],
+        "MuonEG"         : dataset_dict_top22006["2022"]["Muon"] + dataset_dict_top22006["2022"]["EGamma"],
     },
     "D": {
         "Muon"     : [],
@@ -268,7 +268,10 @@ def add1lMaskAndSFs(events, year, isData, sampleType):
 
     # Filters and cleanups
     filter_flags = events.Flag
-    filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & (((year == "2016")|(year == "2016APV")) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
+    if year.startswith("202"):
+        filters = ( filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & filter_flags.BadPFMuonDzFilter & filter_flags.hfNoisyHitsFilter & filter_flags.eeBadScFilter & filter_flags.ecalBadCalibFilter )
+    else:
+        filters = filter_flags.goodVertices & filter_flags.globalSuperTightHalo2016Filter & filter_flags.HBHENoiseFilter & filter_flags.HBHENoiseIsoFilter & filter_flags.EcalDeadCellTriggerPrimitiveFilter & filter_flags.BadPFMuonFilter & (((year == "2016")|(year == "2016APV")) | filter_flags.ecalBadCalibFilter) & (isData | filter_flags.eeBadScFilter)
     cleanup = events.minMllAFAS > 12
     muTightCharge = ((abs(padded_FOs[:,0].pdgId)!=13) | (padded_FOs[:,0].tightCharge>=1))
 

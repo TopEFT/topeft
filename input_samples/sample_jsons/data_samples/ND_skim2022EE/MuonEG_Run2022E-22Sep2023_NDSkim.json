@@ -1,22 +1,22 @@
 {
-  "xsec": 1.0,
-  "year": "2022EE",
-  "treeName": "Events",
-  "histAxisName": "2022EE_data",
-  "options": "",
-  "era": "E",
-  "WCnames": [],
-  "files": [
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/MuonEG_Run2022E_22Sep2023/output_199.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/MuonEG_Run2022E_22Sep2023/output_471.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/MuonEG_Run2022E_22Sep2023/output_782.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/MuonEG_Run2022E_22Sep2023/output_688.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/MuonEG_Run2022E_22Sep2023/output_321.root",
-    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250228/MuonEG_Run2022E_22Sep2023/output_568.root"
-  ],
-  "nEvents": 12873327,
-  "nGenEvents": 12873327,
-  "nSumOfWeights": 12873327.0,
-  "isData": true,
-  "path": "/MuonEG/Run2022E-22Sep2023-v1/NANOAOD"
+    "xsec": 1.0,
+    "year": "2022EE",
+    "treeName": "Events",
+    "histAxisName": "data2022EE",
+    "options": "",
+    "era": "E",
+    "WCnames": [],
+    "files": [
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250401/MuonEG_Run2022E_22Sep2023/output_196.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250401/MuonEG_Run2022E_22Sep2023/output_259.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250401/MuonEG_Run2022E_22Sep2023/output_142.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250401/MuonEG_Run2022E_22Sep2023/output_246.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250401/MuonEG_Run2022E_22Sep2023/output_258.root",
+        "/store/user/apiccine/run3skimsT3/data/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250401/MuonEG_Run2022E_22Sep2023/output_94.root"
+    ],
+    "nEvents": 12873327,
+    "nGenEvents": 12873327,
+    "nSumOfWeights": 12873327.0,
+    "isData": true,
+    "path": "/MuonEG/Run2022E-22Sep2023-v1/NANOAOD"
 }

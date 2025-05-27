@@ -1,0 +1,33 @@
+{
+    "xsec": 1.896,
+    "year": "2022EE",
+    "treeName": "Events",
+    "histAxisName": "ZGto2LG-1Jets_ntgc_5f_central2022EE",
+    "options": "",
+    "WCnames": [],
+    "files": [
+        "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250429/ZGto2LG_1Jets_ntgc_5f/output_48.root",
+        "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250429/ZGto2LG_1Jets_ntgc_5f/output_42.root",
+        "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250429/ZGto2LG_1Jets_ntgc_5f/output_43.root",
+        "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250429/ZGto2LG_1Jets_ntgc_5f/output_49.root",
+        "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250429/ZGto2LG_1Jets_ntgc_5f/output_44.root",
+        "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250429/ZGto2LG_1Jets_ntgc_5f/output_45.root",
+        "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250429/ZGto2LG_1Jets_ntgc_5f/output_47.root",
+        "/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250429/ZGto2LG_1Jets_ntgc_5f/output_46.root"
+    ],
+    "nEvents": 2910558,
+    "nGenEvents": 2910558,
+    "nSumOfWeights": 2910558.0,
+    "isData": false,
+    "path": "/store/mc/Run3Summer22EENanoAODv12/ZGto2LG-1Jets_ntgc_5f_TuneCP5_13p6TeV_madgraphMLM-pythia8/NANOAODSIM",
+    "nSumOfWeights_ISRUp": 2959444.503833812,
+    "nSumOfWeights_ISRDown": 2845067.3729992425,
+    "nSumOfWeights_FSRUp": 2911791.8116989136,
+    "nSumOfWeights_FSRDown": 2910031.0441684723,
+    "nSumOfWeights_renormUp": 2903770.0304260254,
+    "nSumOfWeights_renormDown": 2918699.072570801,
+    "nSumOfWeights_factUp": 2556537.359359741,
+    "nSumOfWeights_factDown": 3355289.6890563965,
+    "nSumOfWeights_renormDown_factUp": 2564249.119277954,
+    "nSumOfWeights_renormUp_factDown": 3348085.746673584
+}

@@ -13,8 +13,9 @@ setuptools.setup(
             "data/fliprates/*.pkl.gz",
             "data/fakerates/*.json",
             "data/triggerSF/*.pkl.gz",
-            "data/btagSF/UL/*.pkl.gz",
+            "data/btagSF/*/*.pkl.gz",
             "data/btagSF/UL/*.csv",
+            "data/lepMVASF/*.json.gz",
             "modules/*.json"
         ],
     }

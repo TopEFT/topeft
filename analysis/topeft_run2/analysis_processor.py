@@ -20,7 +20,7 @@ import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
+from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -227,9 +227,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu   = events.Muon
         tau  = events.Tau
         jets = events.Jet
-
+        pv   = events.PV
+        run  = events.run
 
         if is_run3:
+            AttachElectronCorrections(ele, run, year, isData) #need to apply electron energy corrections before calculating conept
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA)
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
             #btagAlgo = "btagDeepFlavB" #DeepJet branch
@@ -291,7 +293,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Muon selection ####################
 
-        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Run3 ready
+        mu["pt_raw"] = mu.pt
+        mu["pt"] = ApplyRochesterCorrections(year, mu, isData) # Run3 ones are not available
         mu["isPres"] = leptonSelection.isPresMuon(mu)
         mu["isLooseM"] = leptonSelection.isLooseMuon(mu)
         mu["isFO"] = leptonSelection.isFOMuon(mu, year)
@@ -312,8 +315,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
 
         # Attach the lepton SFs to the electron and muons collections
-        AttachElectronSF(e_fo,year=year, looseWP="none" if is_run3 else "wpLnoiso") #Run3 ready
-        AttachMuonSF(m_fo,year=year)
+        AttachElectronSF(e_fo, year=year, looseWP="none" if is_run3 else "wpLnoiso", useRun3MVA=self.useRun3MVA) #Run3 ready
+        AttachMuonSF(m_fo, year=year, useRun3MVA=self.useRun3MVA)
 
         # Attach per lepton fake rates
         AttachPerLeptonFR(e_fo, flavor = "Elec", year=year)
@@ -402,7 +405,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
             lumi = 1000.0*get_tc_param(f"lumi_{year}")
             weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
-
+                        
             if is_run2:
                 l1prefiring_args = [events.L1PreFiringWeight.Nom, events.L1PreFiringWeight.Up, events.L1PreFiringWeight.Dn]
             elif is_run3:
@@ -478,6 +481,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             ht = ak.sum(goodJets.pt,axis=-1)
             j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
 
+            if btagAlgo == "btagDeepFlavB":
+                btagRef = ""
+            elif btagAlgo == "btagPNetB":
+                btagRef = "ParT_"
+
             # Loose DeepJet WP
             if btagAlgo == "btagDeepFlavB": 
                 loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
@@ -490,7 +498,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Medium DeepJet WP
             if btagAlgo == "btagDeepFlavB":
-                medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
+                medium_tag = "btag_wp_medium_" + btagRef + year.replace("201", "UL1")
             if btagAlgo == "btagPNetB":
                 medium_tag = "btag_wp_medium_PNet_" + year.replace("201", "UL1")
             btagwpm = get_tc_param(medium_tag)
@@ -539,8 +547,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                     btag_method_bc    = "deepJet_comb"
                     btag_method_light = "deepJet_incl"
                 elif is_run3:
-                    btag_method_bc    = "deepJet_comb"
-                    btag_method_light = "deepJet_light"
+                    if btagAlgo == "btagDeepFlavB":
+                        btagName = "deepJet"
+                    elif btagAlgo == "btagPNetB":
+                        btagName = "particleNet"
+                    btag_method_bc    = f"{btagName}_comb"
+                    btag_method_light = f"{btagName}_light"
                 
                 btag_effM_light = GetBtagEff(jets_light, year, 'medium') #return array of ones for run3
                 btag_effM_bc = GetBtagEff(jets_bc, year, 'medium')
@@ -557,15 +569,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 btag_w_bc = pData_bc/pMC_bc
                 btag_w = btag_w_light*btag_w_bc
 
-                #if is_run3:
-                #    btag_w = ak.ones_like(events.MET.pt)
-                #    weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
-                #else:
                 weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
 
-                #print("\n\n")
-                #print(btag_w)
-                #print("\n\n")
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
                         if b_syst.endswith("_corr"):
@@ -610,21 +615,17 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                         btag_w_up = fixed_btag_w*btag_w_up/btag_w
                         btag_w_down = fixed_btag_w*btag_w_down/btag_w
-
-                        #if is_run3:
-                        #    btag_w_up = ak.ones_like(events.MET.pt)
-                        #    btag_w_down = ak.ones_like(events.MET.pt)
-                        #    weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
-                        #else:
+                        
                         weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
 
                 # Trigger SFs                        
-                GetTriggerSF(year,events,l0,l1) #return array of ones for run3
+                GetTriggerSF(year,events,l0,l1) #implemented also for Run3
+
                 weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
 
             ######### Event weights that do depend on the lep cat ###########
             select_cat_dict = None
-            with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json_test:
+            with open(topeft_path("channels/ch_lst.json"), "r") as ch_json_test:
                 select_cat_dict = json.load(ch_json_test)
 
             # This dictionary keeps track of which selections go with which SR categories
@@ -913,9 +914,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["ht"]      = ht
             varnames["met"]     = met.pt
             varnames["ljptsum"] = ljptsum
-            varnames["l0pt"]    = l0.conept
+            varnames["l0conept"]    = l0.conept
+            varnames["l0pt"]    = l0.pt_raw
+            varnames["l0ptcorr"]= l0.pt
             varnames["l0eta"]   = l0.eta
-            varnames["l1pt"]    = l1.conept
+            varnames["l1conept"]    = l1.conept
+            varnames["l1pt"]    = l1.pt_raw
+            varnames["l1ptcorr"]= l1.pt
             varnames["l1eta"]   = l1.eta
             varnames["j0pt"]    = ak.flatten(j0.pt)
             varnames["j0eta"]   = ak.flatten(j0.eta)
@@ -929,6 +934,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
             varnames["lt"]      = lt
+            varnames["npvs"]    = pv.npvs
+            varnames["npvsGood"]= pv.npvsGood
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
@@ -986,6 +993,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     else:
                         cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
 
+            #print("\n\n\n\n\n\n\n\n")
+            #print(cr_cat_dict)
+            #print("\n\n\n")
+                        
             del import_sr_cat_dict, import_cr_cat_dict
 
             cat_dict = {}
@@ -1048,7 +1059,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         # Get a mask for events that pass any of the njet requiremens in this nlep cat
                         # Useful in cases like njets hist where we don't store njets in a sparse axis
                         njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
-
+        
                         # Loop over the njets list for each channel
                         for njet_val in cat_dict[nlep_cat].keys():
 
@@ -1067,6 +1078,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         njet_ch = None
                                         cuts_lst = [appl,lep_chan]
 
+                                        #print("ch_name:", ch_name)
+                                        
                                         if isData:
                                             cuts_lst.append("is_good_lumi")
                                         if self._split_by_lepton_flavor:
@@ -1135,7 +1148,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                             # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
                             if dense_axis_name == "njets": break
-
+                #print("\n\n\n\n\n\n\n\n")
+                            
         return hout
 
     def postprocess(self, accumulator):

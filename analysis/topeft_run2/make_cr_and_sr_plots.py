@@ -40,9 +40,17 @@ CR_CHAN_DICT = {
         "2los_ee_CRZ_0j",
         "2los_mm_CRZ_0j",
     ],
+    "cr_2los_Z_ee": [
+        "2los_ee_CRZ_0j",
+    ],
+    "cr_2los_Z_mm": [
+        "2los_mm_CRZ_0j",
+    ],
+
     "cr_2los_tt" : [
         "2los_em_CRtt_2j",
     ],
+    
     "cr_2lss" : [
         "2lss_ee_CR_1j",
         "2lss_em_CR_1j",
@@ -51,9 +59,23 @@ CR_CHAN_DICT = {
         "2lss_em_CR_2j",
         "2lss_mm_CR_2j",
     ],
+    "cr_2lss_ee" : [
+        "2lss_ee_CR_1j",
+        "2lss_ee_CR_2j",
+    ],
+    "cr_2lss_em" : [
+        "2lss_em_CR_1j",
+        "2lss_em_CR_2j",
+    ],
+    "cr_2lss_mm" : [
+        "2lss_mm_CR_1j",
+        "2lss_mm_CR_2j",
+    ],
+
     "cr_2lss_flip" : [
         "2lss_ee_CRflip_3j",
     ],
+
     "cr_3l" : [
         "3l_eee_CR_0j",
         "3l_eem_CR_0j",
@@ -62,6 +84,20 @@ CR_CHAN_DICT = {
         "3l_eee_CR_1j",
         "3l_eem_CR_1j",
         "3l_emm_CR_1j",
+        "3l_mmm_CR_1j",
+    ],
+    "cr_3l_eee" : [
+        "3l_eee_CR_0j",
+        "3l_eee_CR_1j",
+    ],
+    "cr_3l_mixed" : [
+        "3l_eem_CR_0j",
+        "3l_emm_CR_0j",
+        "3l_eem_CR_1j",
+        "3l_emm_CR_1j",
+    ],
+    "cr_3l_mmm": [
+        "3l_mmm_CR_0j",
         "3l_mmm_CR_1j",
     ],
 }
@@ -157,6 +193,16 @@ WCPT_EXAMPLE = {
     "cQQ1"   : -1.35,
     "cQt8"   : -2.89,
     "cQt1"   : -1.24,
+}
+
+LUMI_COM_PAIRS = {
+    "2016": ("35.9", "13"),
+    "2017": ("41.5", "13"),
+    "2018": ("59.8", "13"),
+    "2022": ("7.98", "13.6"),
+    "2022EE": ("26.67", "13.6"),
+    "2023": ("17.79", "13.6"),
+    "2023BPix": ("9.451", "13.6"),
 }
 
 # Some of our processes do not have rate systs split into qcd and pdf, so we just list them under qcd
@@ -472,8 +518,7 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 ######### Plotting functions #########
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],group=[],set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
-
+def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],group=[],set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None, lumitag="138", comtag="13"):
     colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown"]
 
     # Decide if we're plotting stat or syst uncty for mc
@@ -489,15 +534,15 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     fig, (ax, rax) = plt.subplots(
         nrows=2,
         ncols=1,
-        figsize=(10,10),
-        gridspec_kw={"height_ratios": (3, 1)},
+        figsize=(10,11),
+        gridspec_kw={"height_ratios": (4, 1)},
         sharex=True
     )
     fig.subplots_adjust(hspace=.07)
 
     # Set up the colors
     ax.set_prop_cycle(cycler(color=colors))
-
+        
     # Normalize if we want to do that
     if unit_norm_bool:
         sum_mc = 0
@@ -519,7 +564,8 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
             years[name] = [axis_name]
     hep.style.use("CMS")
     plt.sca(ax)
-    hep.cms.label(lumi='7.9804', com='13.6', fontsize=10.0)
+    hep.cms.label(lumi=lumitag, com=comtag, fontsize=18.0)
+
     # Hack for grouping until fixed
     grouping = {proc: [good_proc for good_proc in group[proc] if good_proc in h_mc.axes['process']] for proc in group if any(p in h_mc.axes['process'] for p in group[proc])}
     if group:
@@ -586,16 +632,26 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     # Scale the y axis and labels
     ax.autoscale(axis='y')
     ax.set_xlabel(None)
-    rax.set_ylabel('Ratio', loc='center')
+    ax.tick_params(axis='both', labelsize=18)   # both x and y ticks
+    ax.ticklabel_format(axis='y', style='scientific', scilimits=(0,6), useMathText=True)
+    ax.yaxis.set_offset_position("left")
+    ax.yaxis.offsetText.set_x(-0.07)
+    ax.yaxis.offsetText.set_fontsize(18)
+
+    rax.set_ylabel('Ratio', loc='center', fontsize=18)
     rax.set_ylim(0.5,1.5)
     labels = [item.get_text() for item in rax.get_xticklabels()]
     labels[-1] = '>500'
     rax.set_xticklabels(labels)
+    rax.tick_params(axis='both', labelsize=18)   # both x and y ticks
 
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
-
-    ax.legend(ncol=3)
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width, box.height])
+    # Put a legend to the right of the current axis
+    ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
+    plt.subplots_adjust(top=0.88, bottom=0.05, right=0.95, left=0.11)
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
@@ -625,10 +681,9 @@ def make_single_fig(histo,unit_norm_bool,axis=None,bins=[],group=[]):
                 density=unit_norm_bool,
                 label=axis_name,
             )
-    plt.subplots_adjust(right=0.7)
-    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.legend()
     ax.autoscale(axis='y')
-    return fig
+    return fig    
 
 # Takes a hist with one sparse axis (axis_name) and one dense axis, overlays everything on the sparse axis
 # Makes a ratio of each cateogory on the sparse axis with respect to ref_cat
@@ -697,10 +752,20 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
     # If selecting a year, append that year to the wight list
     sig_wl = ["private"]
     if year is None: pass
-    elif year == "2017": sig_wl.append("UL17")
-    elif year == "2018": sig_wl.append("UL18")
-    elif year == "2016": sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
-    elif year == "2022": sig_wl.append("central2022")
+    elif year == "2017":
+        sig_wl.append("UL17")
+    elif year == "2018":
+        sig_wl.append("UL18")
+    elif year == "2016":
+        sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
+    elif year == "2022":
+        sig_wl.append("2022")
+    elif year == "2022EE":
+        sig_wl.append("2022EE")
+    elif year == "2023":
+        sig_wl.append("2023")
+    elif year == "2023BPix":
+        sig_wl.append("2023BPix")
     else: raise Exception
 
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
@@ -727,7 +792,6 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
         else:
             sr_cat_dict = SR_CHAN_DICT
         print("\nVar name:",var_name)
-        print("sr_cat_dict:",sr_cat_dict)
 
         # Extract the signal hists
         hist_sig = dict_of_hists[var_name].remove("process", samples_to_rm_from_sig_hist)
@@ -844,8 +908,17 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         mc_wl.append("UL16APV")
         data_wl.append("UL16APV")
     elif year == "2022":
-        mc_wl.append("central2022")
+        mc_wl.append("2022")
         data_wl.append("2022")
+    elif year == "2022EE":
+        mc_wl.append("2022EE")
+        data_wl.append("2022EE")
+    elif year == "2023":
+        mc_wl.append("2023")
+        data_wl.append("2023")
+    elif year == "2023BPix":
+        mc_wl.append("2023BPix")
+        data_wl.append("2023BPix")
     else:
         raise Exception(f"Error: Unknown year \"{year}\".")
 
@@ -899,6 +972,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         else:
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
+    raise ValueError("bye!")
     # The analysis bins
     analysis_bins = {}
     # Skipping for now
@@ -969,7 +1043,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                 print("Warning: empty data histo, continuing")
                 continue
 
-            fig = make_cr_fig(hist_mc, hist_data, var=var_name, unit_norm_bool=False, bins=axes_info[var_name]['variable'],group=SR_GRP_MAP)
+            fig = make_cr_fig(hist_mc, hist_data, var=var_name, unit_norm_bool=False, bins=axes_info[var_name]['variable'],group=SR_GRP_MAP, lumitag=LUMI_COM_PAIRS[year][0], comtag=LUMI_COM_PAIRS[year][1])
             if year is not None: year_str = year
             else: year_str = "ULall"
             title = chan_name + "_" + var_name + "_" + year_str
@@ -991,10 +1065,20 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     # If selecting a year, append that year to the wight list
     sig_wl = ["private"]
     if year is None: pass
-    elif year == "2017": sig_wl.append("UL17")
-    elif year == "2018": sig_wl.append("UL18")
-    elif year == "2016": sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
-    elif year == "2022": sig_wl.append("central2022")
+    elif year == "2017":
+        sig_wl.append("UL17")
+    elif year == "2018":
+        sig_wl.append("UL18")
+    elif year == "2016":
+        sig_wl.append("UL16") # NOTE: Right now this will plot both UL16 an UL16APV
+    elif year == "2022":
+        sig_wl.append("2022")
+    elif year == "2022EE":
+        sig_wl.append("2022EE")
+    elif year == "2023":
+        sig_wl.append("2023")
+    elif year == "2023BPix":
+        sig_wl.append("2023BPix")
     else: raise Exception
 
     # Get the list of samples to actually plot (finding sample list from first hist in the dict)
@@ -1130,8 +1214,17 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         mc_wl.append("UL16APV")
         data_wl.append("UL16APV")
     elif year == "2022":
-        mc_wl.append("central2022")
+        mc_wl.append("2022")
         data_wl.append("2022")
+    elif year == "2022EE":
+        mc_wl.append("2022EE")
+        data_wl.append("2022EE")
+    elif year == "2023":
+        mc_wl.append("2023")
+        data_wl.append("2023")
+    elif year == "2023BPix":
+        mc_wl.append("2023BPix")
+        data_wl.append("2023BPix")
     else:
         raise Exception(f"Error: Unknown year \"{year}\".")
 
@@ -1141,14 +1234,17 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     all_samples = yt.get_cat_lables(dict_of_hists,"process")
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
     data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
+
+    #print("dict_of_hists", dict_of_hists)
+    print("\n\nAll samples:",all_samples, "data"+year in all_samples)
+    print("\nMC samples:",mc_sample_lst)
+    print("\nData samples:",data_sample_lst)
+
     for sample_name in all_samples:
         if sample_name not in mc_sample_lst:
             samples_to_rm_from_mc_hist.append(sample_name)
         if sample_name not in data_sample_lst:
             samples_to_rm_from_data_hist.append(sample_name)
-    print("\nAll samples:",all_samples)
-    print("\nMC samples:",mc_sample_lst)
-    print("\nData samples:",data_sample_lst)
     print("\nVariables:",dict_of_hists.keys())
 
     # Fill group map (should we just fully hard code this?)
@@ -1169,7 +1265,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             CR_GRP_MAP["Conv"].append(proc_name)
         elif "TTTo" in proc_name or "TTto" in proc_name:
             CR_GRP_MAP["Ttbar"].append(proc_name)
-        elif "ZGTo" in proc_name:
+        elif "ZGTo" in proc_name or "ZGto" in proc_name:
             CR_GRP_MAP["ZGamma"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             CR_GRP_MAP["Triboson"].append(proc_name)
@@ -1186,27 +1282,36 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     skip_lst = [] # Skip these hists
     #skip_wlst = ["njets"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
-        if 'sumw2' in var_name: continue
-        if (var_name in skip_lst): continue
+        if 'sumw2' in var_name:
+            continue
+        if (var_name in skip_lst):
+            continue
         #if (var_name not in skip_wlst): continue
         if (var_name == "njets"):
             # We do not keep track of jets in the sparse axis for the njets hists
             cr_cat_dict = get_dict_with_stripped_bin_names(CR_CHAN_DICT,"njets")
-        else:  cr_cat_dict = CR_CHAN_DICT
+        else:
+            cr_cat_dict = CR_CHAN_DICT
         # If the hist is not split by lepton flavor, the lep flav info should not be in the channel names we try to integrate over
         if not yt.is_split_by_lepflav(dict_of_hists):
             cr_cat_dict = get_dict_with_stripped_bin_names(cr_cat_dict,"lepflav")
         print("\nVar name:",var_name)
-        print("cr_cat_dict:",cr_cat_dict)
+        #print("cr_cat_dict:",cr_cat_dict)
 
         # Extract the MC and data hists
         hist_mc = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_data = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
 
+        #print(f"\n\nHEYY dict_of_hists[{var_name}]:", dict_of_hists[var_name].axes["process"], "\n\n", samples_to_rm_from_mc_hist)
+        #print("\n\n\n\n\nhist_mc just created:",  hist_mc)
+
+        #print("\n\n\nAttributes:", dir(dict_of_hists[var_name]))
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
-            if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The 2los Z category does not require jets (so leading jet plots do not make sense)
-            if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))): continue # The flip category does not require jets (so leading jet plots do not make sense)
+            if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))):
+                continue # The 2los Z category does not require jets (so leading jet plots do not make sense)
+            if (hist_cat == "cr_2lss_flip" and (("j0" in var_name) and ("lj0pt" not in var_name))):
+                continue # The flip category does not require jets (so leading jet plots do not make sense)
             print("\n\tCategory:",hist_cat)
 
             # Make a sub dir for this category
@@ -1224,7 +1329,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 continue
             # Remove samples that are not relevant for the given category
             samples_to_rm = []
-            if hist_cat == "cr_2los_tt":
+            #print("\n\n\n\n\nhist_mc before rm:",  hist_mc_integrated)
+            if hist_cat.startswith("cr_2los_tt") or hist_cat.startswith('cr_2los_Z'): #we don't actually expect nonprompt in the ttbar CR, and here the nonprompt estimation is not really reliable
                 samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
             hist_mc_integrated = hist_mc_integrated.remove("process", samples_to_rm)
 
@@ -1263,6 +1369,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 print(f'Empty {hist_data_integrated=}')
                 continue
 
+            #print("\n\n\n\n\nhist_mc before fig:",  hist_mc_integrated)
+            
             # Print out total MC and data and the sf between them
             # For extracting the factors we apply to the flip contribution
             # Probably should be an option not just a commented block...
@@ -1290,15 +1398,17 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 err_p = p_err_arr,
                 err_m = m_err_arr,
                 err_ratio_p = p_err_arr_ratio,
-                err_ratio_m = m_err_arr_ratio
+                err_ratio_m = m_err_arr_ratio,
+                lumitag=LUMI_COM_PAIRS[year][0],
+                comtag=LUMI_COM_PAIRS[year][1]
             )
+            
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
 
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
-
 
 def main():
 
