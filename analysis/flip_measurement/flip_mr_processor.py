@@ -63,23 +63,20 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Object selection ####################
 
         e = events.Electron
-        mu = events.Muon
         jets = events.Jet
-
+        
         if is_run3:
             leptonSelection = te_os.run3leptonselection(useMVA=True)
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-            btagAlgo = "btagDeepFlavB" #DeepJet branch
+            btagAlgo = "btagDeepFlavB"
         elif is_run2:
             leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
-            btagAlgo = "btagDeepFlavB" #DeepJet branch
-        
-        te_os.lepJetBTagAdder(e, jets, btagger=btagAlgo)
-        te_os.lepJetBTagAdder(mu, jets, btagger=btagAlgo)
+            btagAlgo = "btagDeepFlavB"
+            
+        te_os.lepJetBTagAdder(e, btagger=btagAlgo)
 
         e["gen_pdgId"] = e.matched_gen.pdgId
-
         e["idEmu"]         = te_os.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
         e["conept"]        = leptonSelection.coneptElec(e)
         e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)

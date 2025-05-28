@@ -1,4 +1,12 @@
 info = {
+    "npvs": {
+        "regular": (100, 0, 100),
+        "label": r"Number of reco primary vertices ",
+    },
+    "npvsGood": {
+        "regular": (100, 0, 100),
+        "label": r"Number of Good reco primary vertices ",
+    },
     "invmass": {
         "regular": (50, 0, 1000),
         "label": r"$m_{\ell\ell}$ (GeV) ",
@@ -27,38 +35,54 @@ info = {
         "label": r"Loose btag multiplicity "},
     "l0pt": {
         "regular": (50, 0, 500),
-        "label": r"Leading lep $p_{T}$ (GeV) ",
+        "label": r"Leading lep raw $p_{T}$ (GeV) ",
+    },
+    "l0ptcorr": {
+        "regular": (50, 0, 500),
+        "label": r"Leading corrected lep $p_{T}$ (GeV) ",
+    },
+    "l0conept": {
+        "regular": (50, 0, 500),
+        "label": r"Leading lep cone-$p_{T}$ (GeV) ",
+    },
+    "l0eta": {
+        "regular": (20, -2.5, 2.5),
+        "label": r"Leading lep $\eta$ "
     },
     "l1pt": {
-        "regular": (10, 0, 100),
-        "label": r"Subleading lep $p_{T}$ (GeV) "
+        "regular": (20, 0, 100),
+        "label": r"Subleading lep raw $p_{T}$ (GeV) "
+    },
+    "l1ptcorr": {
+        "regular": (20, 0, 100),
+        "label": r"Subleading lep corrected $p_{T}$ (GeV) "
+    },
+    "l1conept": {
+        "regular": (20, 0, 100),
+        "label": r"Subleading lep cone-$p_{T}$ (GeV) "
     },
     "l1eta": {
         "regular": (20, -2.5, 2.5),
         "label": r"Subleading $\eta$ "
     },
     "j0pt": {
-        "regular": (10, 0, 500),
+        "regular": (50, 0, 500),
         "label": r"Leading jet  $p_{T}$ (GeV) "
     },
     "b0pt": {
-        "regular": (10, 0, 500),
+        "regular": (50, 0, 500),
         "label": r"Leading b jet  $p_{T}$ (GeV) "
-    },
-    "l0eta": {
-        "regular": (20, -2.5, 2.5),
-        "label": r"Leading lep $\eta$ "
     },
     "j0eta": {
         "regular": (30, -3, 3),
         "label": r"Leading jet  $\eta$ "
     },
     "ht": {
-        "regular": (20, 0, 1000),
+        "regular": (100, 0, 1000),
         "variable": [0, 300, 500, 800],
         "label": r"H$_{T}$ (GeV) ",
     },
-    "met": {"regular": (20, 0, 400), "label": r"MET (GeV)"},
+    "met": {"regular": (40, 0, 400), "label": r"MET (GeV)"},
     "ljptsum": {
         "regular": (11, 0, 1100),
         "variable": [0, 400, 600, 1000],
@@ -85,7 +109,7 @@ info = {
         "label": r"pt of lepton hadronic tau pair (GeV) ",
     },
     "tau0pt": {
-        "regular": (12, 0, 600),
+        "regular": (60, 0, 600),
         "variable": [0, 150, 250, 500],
         "label": r"pt of leading hadronic tau (GeV) ",
     },

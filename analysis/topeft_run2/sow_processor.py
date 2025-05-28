@@ -36,9 +36,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             "SumOfWeights_renormDown":     HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
             "SumOfWeights_factUp":         HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
             "SumOfWeights_factDown":       HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-            "SumOfWeights_renormfactUp":   HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-            "SumOfWeights_renormfactDown": HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
-
+            "SumOfWeights_renormUp_factDown": HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
+            "SumOfWeights_renormDown_factUp": HistEFT(proc_axis, dense_axis, wc_names=wc_names_lst),
         }
 
     @property
@@ -94,12 +93,14 @@ class AnalysisProcessor(processor.ProcessorABC):
         hout["SumOfWeights_FSRDown"].fill(process=dataset, SumOfWeights=counts, weight=wgts*events.FSRDown, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
         # Fill renorm/fact histos
+        event_lst = dir(events)
+        print(event_lst)
         hout["SumOfWeights_renormUp"].fill(process=dataset,       SumOfWeights=counts, weight=wgts*events.renormUp,       eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
         hout["SumOfWeights_renormDown"].fill(process=dataset,     SumOfWeights=counts, weight=wgts*events.renormDown,     eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
         hout["SumOfWeights_factUp"].fill(process=dataset,         SumOfWeights=counts, weight=wgts*events.factUp,         eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
         hout["SumOfWeights_factDown"].fill(process=dataset,       SumOfWeights=counts, weight=wgts*events.factDown,       eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_renormfactUp"].fill(process=dataset,   SumOfWeights=counts, weight=wgts*events.renormfactUp,   eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
-        hout["SumOfWeights_renormfactDown"].fill(process=dataset, SumOfWeights=counts, weight=wgts*events.renormfactDown, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights_renormDown_factUp"].fill(process=dataset,   SumOfWeights=counts, weight=wgts*events.renormDown_factUp,   eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
+        hout["SumOfWeights_renormUp_factDown"].fill(process=dataset, SumOfWeights=counts, weight=wgts*events.renormUp_factDown, eft_coeff=eft_coeffs, eft_err_coeff=eft_w2_coeffs)
 
         return hout
 

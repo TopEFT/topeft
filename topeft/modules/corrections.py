@@ -55,6 +55,13 @@ egm_tag_map = {
     "2023_Summer23BPix": "2023PromptD",
 }
 
+egm_et_map = {
+    "2022_Summer22": "2022preEE",
+    "2022_Summer22EE": "2022postEE",
+    "2023_Summer23": "2023preBPIX",
+    "2023_Summer23BPix": "2023postBPIX",
+}
+
 egm_pt_bins = {
     "Run2": OrderedDict([
         ("RecoBelow20", [10, 20]),
@@ -882,6 +889,20 @@ def AttachPerLeptonFR(leps, flavor, year):
 
     #Run3 is implemented with correction_lib
     if is_run3:
+        flip_year_name = year
+        with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
+            flip_hist = pickle.load(fin)
+            flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["abseta"].edges])
+
+        # Get the fliprate scaling factor for the given year
+        chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
+
+        if flavor == "Elec":
+            leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
+        else:
+            leps['fliprate'] = np.zeros_like(leps.pt)
+
+
         json_path = topeft_path("data/fakerates/fake_rates_Run3.json")
         ceval = correctionlib.CorrectionSet.from_file(json_path)
         pt = ak.flatten(leps.pt)
@@ -897,25 +918,18 @@ def AttachPerLeptonFR(leps, flavor, year):
             minpt = 10.
         
         pt_mask_low = (pt > minpt)
-        pt_mask_hi = (pt < 100.)
-        pt_masked = ak.where(~pt_mask_low, minpt+0.1, pt)
+        pt_mask_hi = (pt < maxpt)
+        pt_masked = ak.where(~pt_mask_low, minpt, pt)
         pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
-        pt_100 = pt_masked[(pt_masked>=100.)]
         
         chargeflip_sf = ak.ones_like(leps.pdgId, dtype=np.float64) #get_te_param("chargeflip_sf_dict")[flip_year_name]
 
         for syst in ffSysts:
             fr = ak.unflatten(ceval["fakeRate_2022_2022EE"].evaluate(pt_masked, abseta, syst, abspdgid), ak.num(leps.pt))
             leps['fakefactor%s' % syst] = ak.fill_none(-fr/(1-fr),0)
-            leps['fakefactor%s' % syst] = fr
             leps['fakefactor_elclosurefactor'] = (np.abs(leps.pdgId)==11)*0.0 + 1.0
             leps['fakefactor_muclosurefactor'] = (np.abs(leps.pdgId)==13)*0.0 + 1.0
-
-            if flavor == "Elec":
-                leps['fliprate'] = (chargeflip_sf) #*(flip_lookup(leps.pt,abs(leps.eta)))
-            else:
-                leps['fliprate'] = np.zeros_like(leps.pt)
-   
+ 
     #Common part
     for flav in ['el','mu']:
         leps['fakefactor_%sclosuredown' % flav] = leps['fakefactor'] / leps['fakefactor_%sclosurefactor' % flav]
@@ -950,7 +964,7 @@ def fakeRateWeight3l(events, lep1, lep2, lep3):
         fakefactor_3l = fakefactor_3l * (lep3.isTightLep + (~lep3.isTightLep) * getattr(lep3,'fakefactor%s' % syst))
         events['fakefactor_3l%s' % syst] = fakefactor_3l
 
-def AttachMuonSF(muons, year):
+def AttachMuonSF(muons, year, useRun3MVA=True):
     '''
       Description:
           Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the muons array passed to this function. These
@@ -998,21 +1012,10 @@ def AttachMuonSF(muons, year):
     clib_year = clib_year_map[year]
     json_path = topcoffea_path(f"data/POG/MUO/{clib_year}/muon_Z.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
-
-    '''
-    #clib integration of the lepMVA Run3 SFs
-    if year.startswith("2022"):
-        lepmva_json_path = topeft_path(f"data/lepMVASF/leptonSF_{year}.json.gz")
-    elif year.startswith("2023"):
-        lepmva_json_path = topeft_path(f"data/lepMVASF/muon_mvaTTH_{year}.json.gz")
-    else:
-        raise ValueError(f"{year} is not supported for the lepMVA SFs.")
-    lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
-    '''
     
     pt_flat = ak.flatten(pt)
     abseta_flat = ak.flatten(eta)
-    pdgid_flat = ak.flatten(muons.pdgId)
+    pdgid_flat = ak.flatten(abs(muons.pdgId))
     
     pt_mask = ak.flatten((pt >= 15))
     pt_mask_reco = ak.flatten((pt >= 40))
@@ -1078,42 +1081,56 @@ def AttachMuonSF(muons, year):
         loose_up = loose_sf + loose_err
         loose_do = loose_sf - loose_err
 
-        '''
-        #lep mva SFs in clib format
-        pt_lepmva_mask = ak.flatten((pt >= 15.0))
-        pt_lepmva_flat = ak.where(~pt_lepmva_mask, 15.0, pt_flat)
-
-        if year.startswith("2022"):
-            muo_tag  = "mu_allflavor"
-            lepmva_vals_nom= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "", pdgid_flat)
-            lepmva_vals_up= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "_muup", pdgid_flat)
-            lepmva_vals_down= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "_mudo", pdgid_flat)
-        elif year.startswith("2023"):
-            muo_tag = "NUM_TightmvaTTH_DEN_LooseMuons"
-            lepmva_vals_nom = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "nominal")
-            lepmva_vals_up = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "systup")
-            lepmva_vals_down = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "systdown")
-
-        new_sf_flat = ak.where(
-            ~pt_lepmva_mask,
-            1,
-            lepmva_vals_nom,
-        )
-        new_up_flat = ak.where(
-            ~pt_lepmva_mask,
-            1,
-            lepmva_vals_up,
-        )
-        new_do_flat = ak.where(
-            ~pt_lepmva_mask,
-            1,
-            lepmva_vals_down,
-        )
-        new_sf = ak.unflatten(new_sf_flat, ak.num(pt))
-        new_up = ak.unflatten(new_up_flat, ak.num(pt))
-        new_do = ak.unflatten(new_do_flat, ak.num(pt))
-        '''
-        
+        if "mvaTTHrun3" in muons.fields and useRun3MVA:
+            #clib integration of the lepMVA Run3 SFs
+            if year.startswith("2022"):
+                lepmva_json_path = topeft_path(f"data/lepMVASF/leptonSF_{year}.json.gz")
+            elif year.startswith("2023"):
+                lepmva_json_path = topeft_path(f"data/lepMVASF/muon_mvaTTH_{year}.json.gz")
+            else:
+                raise ValueError(f"{year} is not supported for the lepMVA SFs.")
+            lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
+            
+            #lep mva SFs in clib format
+            minpt = 15.0
+            maxpt = 500.
+            pt_mask_low = (pt_flat > minpt)
+            pt_mask_hi = (pt_flat < maxpt)
+            pt_lepmva_mask = pt_mask_low & pt_mask_hi
+            pt_masked = ak.where(~pt_mask_low, minpt+0.1, pt_flat)
+            pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
+            pt_lepmva_flat = pt_masked
+            
+            if year.startswith("2022"):
+                muo_tag  = "mu_allflavor"
+                lepmva_vals_nom= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "", pdgid_flat)
+                lepmva_vals_up= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "_muup", pdgid_flat)
+                lepmva_vals_down= lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "_mudn", pdgid_flat)
+            elif year.startswith("2023"):
+                muo_tag = "NUM_TightmvaTTH_DEN_LooseMuons"
+                lepmva_vals_nom = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "nominal")
+                lepmva_vals_up = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "systup")
+                lepmva_vals_down = lepmva_ceval[muo_tag].evaluate(abseta_flat, pt_lepmva_flat, "systdown")
+                
+            new_sf_flat = ak.where(
+                ~pt_lepmva_mask,
+                1,
+                lepmva_vals_nom,
+            )
+            new_up_flat = ak.where(
+                ~pt_lepmva_mask,
+                1,
+                lepmva_vals_up,
+            )
+            new_do_flat = ak.where(
+                ~pt_lepmva_mask,
+                1,
+                lepmva_vals_down,
+            )
+            new_sf = ak.unflatten(new_sf_flat, ak.num(pt))
+            new_up = ak.unflatten(new_up_flat, ak.num(pt))
+            new_do = ak.unflatten(new_do_flat, ak.num(pt))
+            
         ##Not available yet for Run3
         #reco_loose_sf_flat = ak.where(
         #    ~pt_mask,
@@ -1149,7 +1166,7 @@ def AttachMuonSF(muons, year):
     muons['sf_hi_3l_elec']  = ak.ones_like(new_sf)
     muons['sf_lo_3l_elec']  = ak.ones_like(new_sf)
 
-def AttachElectronSF(electrons, year, looseWP=None):
+def AttachElectronSF(electrons, year, looseWP=None, useRun3MVA=True):
     '''
       Description:
           Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the electrons array passed to this function. These
@@ -1194,17 +1211,6 @@ def AttachElectronSF(electrons, year, looseWP=None):
     clib_year = clib_year_map[year]
     json_path = topcoffea_path(f"data/POG/EGM/{clib_year}/electron.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
-
-    '''
-    #clib integration of the lepMVA Run3 SFs
-    if year.startswith("2022"):
-        lepmva_json_path = topeft_path(f"data/lepMVASF/leptonSF_{year}.json.gz")
-    elif year.startswith("2023"):
-        lepmva_json_path = topeft_path(f"data/lepMVASF/electron_mvaTTH_{year}.json.gz")
-    else:
-        raise ValueError(f"{year} is not supported for the lepMVA SFs.")
-    lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
-    '''
     
     eta_flat   = ak.flatten(eta)
     pt_flat    = ak.flatten(pt)
@@ -1273,6 +1279,7 @@ def AttachElectronSF(electrons, year, looseWP=None):
 
     if is_run3:
         if looseWP != "none":
+            #print("\n\n\n\n\nI'm applying EGM loose SFs\n\n\n\n\n")
             loose_sf_flat = None
             loose_up_flat = None
             loose_do_flat = None
@@ -1299,46 +1306,66 @@ def AttachElectronSF(electrons, year, looseWP=None):
             loose_up = ak.unflatten(loose_up_flat, ak.num(pt))
             loose_do = ak.unflatten(loose_do_flat, ak.num(pt))
         else:
+            #print("\n\n\n\n\nI'm NOT applying EGM loose SFs\n\n\n\n\n")
             loose_sf = ak.ones_like(reco_sf)
             loose_up = ak.ones_like(reco_sf)
             loose_do = ak.ones_like(reco_sf)
 
-        '''
-        #lep mva SFs in clib format
-        pt_lepmva_mask = ak.flatten((pt >= 15.0))
-        pt_lepmva_flat = ak.where(~pt_lepmva_mask, 15.0, pt_flat)
+        if "mvaTTHrun3" in electrons.fields and useRun3MVA:
+            #clib integration of the lepMVA Run3 SFs
+            if year.startswith("2022"):
+                lepmva_json_path = topeft_path(f"data/lepMVASF/leptonSF_{year}.json.gz")
+            elif year.startswith("2023"):
+                lepmva_json_path = topeft_path(f"data/lepMVASF/electron_mvaTTH_{year}.json.gz")
+            else:
+                raise ValueError(f"{year} is not supported for the lepMVA SFs.")
+            lepmva_ceval = correctionlib.CorrectionSet.from_file(lepmva_json_path)
 
-        if year.startswith("2022"):
-            egm_tag  = "el_allflavor"
-            lepmva_vals_nom= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "", pdgid_flat)
-            lepmva_vals_up= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "_elup", pdgid_flat)
-            lepmva_vals_down= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "_eldo", pdgid_flat)
-        elif year.startswith("2023"):
-            egm_tag = "NUM_TightmvaTTH_DEN_LooseElectrons"
-            lepmva_vals_nom = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "nominal")
-            lepmva_vals_up = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "systup")
-            lepmva_vals_down = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "systdown")
-
-        new_sf_flat = ak.where(
-            ~pt_lepmva_mask,
-            1,
-            lepmva_vals_nom,
-        )
-        new_up_flat = ak.where(
-            ~pt_lepmva_mask,
-            1,
-            lepmva_vals_up,
-        )
-        new_do_flat = ak.where(
-            ~pt_lepmva_mask,
-            1,
-            lepmva_vals_down,
-        )
-        new_sf = ak.unflatten(new_sf_flat, ak.num(pt))
-        new_up = ak.unflatten(new_up_flat, ak.num(pt))
-        new_do = ak.unflatten(new_do_flat, ak.num(pt))
-        '''
-        
+            minpt = 15.0
+            maxpt = 500.
+            pt_mask_low = (pt_flat > minpt)
+            pt_mask_hi = (pt_flat < maxpt)
+            pt_lepmva_mask = pt_mask_low & pt_mask_hi
+            pt_masked = ak.where(~pt_mask_low, minpt+0.1, pt_flat)
+            pt_masked = ak.where(~pt_mask_hi, maxpt-0.5, pt_masked)
+            pt_lepmva_flat = pt_masked
+            
+            if year.startswith("2022"):
+                egm_tag  = "el_allflavor"
+                lepmva_vals_nom= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "", pdgid_flat)
+                lepmva_vals_up= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "_elup", pdgid_flat)
+                lepmva_vals_down= lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "_eldn", pdgid_flat)
+            elif year.startswith("2023"):
+                egm_tag = "NUM_TightmvaTTH_DEN_LooseElectrons"
+                lepmva_vals_nom = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "nominal")
+                lepmva_vals_up = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "systup")
+                lepmva_vals_down = lepmva_ceval[egm_tag].evaluate(abs(eta_flat), pt_lepmva_flat, "systdown")
+                
+            new_sf_flat = ak.where(
+                ~pt_lepmva_mask,
+                1,
+                lepmva_vals_nom,
+            )
+            new_up_flat = ak.where(
+                ~pt_lepmva_mask,
+                1,
+                lepmva_vals_up,
+            )
+            new_do_flat = ak.where(
+                ~pt_lepmva_mask,
+                1,
+                lepmva_vals_down,
+            )
+            new_sf = ak.unflatten(new_sf_flat, ak.num(pt))
+            new_up = ak.unflatten(new_up_flat, ak.num(pt))
+            new_do = ak.unflatten(new_do_flat, ak.num(pt))
+            new_sf_2l = new_sf
+            new_up_2l = new_up
+            new_do_2l = new_do
+            new_sf_3l = new_sf
+            new_up_3l = new_up
+            new_do_3l = new_do
+            
     else:
         loose_sf  = SFevaluator['ElecLooseSF_{year}'.format(year=year)](np.abs(eta),pt)
         loose_err = SFevaluator['ElecLooseSF_{year}_er'.format(year=year)](np.abs(eta),pt)
@@ -1359,6 +1386,14 @@ def AttachElectronSF(electrons, year, looseWP=None):
         iso_up = iso_sf + iso_err
         iso_do = iso_sf - iso_err
 
+    #print("\n\n\n\n\n\n\n")
+    #print('new_sf', new_sf)
+    #print('new_sf_2l', new_sf_2l)
+    #print('new_sf_3l', new_sf_3l)
+    #print('sf_nom_2l_elec', ak.to_list(reco_sf * new_sf_2l * loose_sf * iso_sf))
+    #print('sf_nom_3l_elec', ak.to_list(reco_sf * new_sf_2l * loose_sf))
+    #print("\n\n\n\n\n\n\n")
+        
     electrons['sf_nom_2l_elec'] = reco_sf * new_sf_2l * loose_sf * iso_sf
     electrons['sf_hi_2l_elec']  = (reco_up) * new_up_2l * loose_up * iso_up
     electrons['sf_lo_2l_elec']  = (reco_do) * new_do_2l * loose_do * iso_do
@@ -1372,6 +1407,101 @@ def AttachElectronSF(electrons, year, looseWP=None):
     electrons['sf_hi_3l_muon']  = ak.ones_like(reco_sf)
     electrons['sf_lo_3l_muon']  = ak.ones_like(reco_sf)
 
+def AttachElectronCorrections(electrons, run, year, isData=False):
+    """  
+    Attach per-electron scale (data) or smear+scale (MC) corrections.
+    """
+
+    # Common electron vars
+    pt    = electrons.pt
+    eta   = electrons.deltaEtaSC
+    r9    = electrons.r9
+    gain  = electrons.seedGain
+    absEta = abs(eta)
+
+    if year not in clib_year_map.keys() and not year.startswith("202"):
+        raise Exception(f"Error: Unknown year \"{year}\".")
+
+    clib_year = clib_year_map[year]
+    scale_json = topcoffea_path(f"data/POG/EGM/{clib_year}/electronSS_EtDependent.json.gz")
+    smear_json = scale_json  # same file
+
+    # Load correction sets
+    cset_scale = correctionlib.CorrectionSet.from_file(scale_json)
+    cset_smear = correctionlib.CorrectionSet.from_file(smear_json)
+
+    et_tag = egm_et_map[clib_year]
+    # Data: only scale
+    if isData:
+        scale_eval = cset_scale.compound[f"EGMScale_Compound_Ele_{et_tag}"]
+        # flatten arrays for evaluation
+        pt_flat = ak.flatten(pt)
+        sceta_flat = ak.flatten(eta)
+        r9_flat = ak.flatten(r9)
+        gain_flat = ak.flatten(gain)
+        absEta_flat = ak.flatten(absEta)
+        
+        # have a 'run' array with the same structure as electrons.pt, then flatten it
+        run_per_electron = ak.full_like(pt, 1, dtype=int) * run
+        run_flat = ak.flatten(run_per_electron)
+        
+        scale_flat = scale_eval.evaluate(
+            "scale",
+            run_flat,
+            sceta_flat,
+            r9_flat,
+            absEta_flat,
+            pt_flat,
+            gain_flat
+        )
+        # re‐nest to original jagged structure
+        electrons["pt_raw"] = pt
+        electrons["pt"] = ak.unflatten(scale_flat * pt_flat, ak.num(pt))
+
+    # MC: smear + scale uncertainties
+    else:
+        # Smear
+        smear_eval = cset_smear[f"EGMSmearAndSyst_ElePTsplit_{et_tag}"]
+        pt_flat   = ak.flatten(pt)
+        r9_flat   = ak.flatten(r9)
+        sceta_flat = ak.flatten(eta)
+        absEta_flat = ak.flatten(absEta)
+        
+        # nominal smear width
+        smear_nom = smear_eval.evaluate("smear", pt_flat, r9_flat, absEta_flat)
+        # random numbers per event
+        rng = np.random.default_rng(12345)
+        rnd = rng.normal(size=len(pt_flat))
+
+        pt_smeared_nom = pt_flat * (1 + smear_nom * rnd)
+
+        # systematic up/down on smear
+        dsmear = smear_eval.evaluate("esmear", pt_flat, r9_flat, absEta_flat)
+        pt_smeared_up   = pt_flat * (1 + (smear_nom + dsmear) * rnd)
+        pt_smeared_down = pt_flat * (1 + (smear_nom - dsmear) * rnd)
+
+        # re‐nest
+        smeared_nom = ak.unflatten(pt_smeared_nom,   ak.num(pt))
+        smeared_up  = ak.unflatten(pt_smeared_up,    ak.num(pt))
+        smeared_dn  = ak.unflatten(pt_smeared_down, ak.num(pt))
+
+        electrons["pt_raw"] = pt
+        electrons["pt"]  = smeared_nom
+        electrons["pt_smear_nom"]  = smeared_nom
+        electrons["pt_smear_up"]   = smeared_up
+        electrons["pt_smear_down"] = smeared_dn
+
+        # 2) Scale uncertainties on the *smeared* pt
+        scale_eval = smear_eval  # same JSON holds "escale"
+        escale = scale_eval.evaluate("escale", pt_flat, r9_flat, absEta_flat)
+
+        scale_up   = (1 + escale) * pt_smeared_nom
+        scale_down = (1 - escale) * pt_smeared_nom
+
+        electrons["pt_scale_up"]   = ak.unflatten(scale_up,   ak.num(pt))
+        electrons["pt_scale_down"] = ak.unflatten(scale_down, ak.num(pt))
+
+    
 ###### Btag scale factors
 ################################################################
 # Hard-coded to DeepJet algorithm, loose and medium WPs
@@ -1380,7 +1510,11 @@ def AttachElectronSF(electrons, year, looseWP=None):
 def GetMCeffFunc(year, wp='medium', flav='b'):
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
-    pathToBtagMCeff = topeft_path('data/btagSF/UL/btagMCeff_%s.pkl.gz'%year)
+    if not year.startswith("202"):
+        pathToBtagMCeff = topeft_path('data/btagSF/UL/btagMCeff_%s.pkl.gz' % year)
+    else:
+        pathToBtagMCeff = topeft_path('data/btagSF/Run3/btagMCeff_%s.pkl.gz' % year[0:4])
+
     hists = {}
     with gzip.open(pathToBtagMCeff) as fin:
         hin = pickle.load(fin)
@@ -1795,6 +1929,124 @@ def LoadTriggerSF(year, ch='2l', flav='em'):
     GetTrigDo = lookup_tools.dense_lookup.dense_lookup(do   , [h['hmn'].axes['l0pt'].edges, h['hmn'].axes[axisY].edges])
     return [GetTrig, GetTrigDo, GetTrigUp]
 
+# helper function for the Run3 SFs
+def ApplyBinnedSF(pt, edges, centers, unc, var):
+    default = centers[-1] + var * unc
+    sf = ak.full_like(pt, default)
+    for low, high, cen in zip(edges[:-1], edges[1:], centers[:-1]):
+        sf = ak.where((pt >= low) & (pt < high), cen + var * np.sqrt(unc**2 + (0.02*cen)*0.02), sf)
+    return sf
+
+# Vectorized Run3 SF functions for 2-lepton channels
+def ComputeTriggerSFRun3(year, pdg0, pt0, pdg1, pt1, var=0):
+    """
+    A single dispatcher for all run3 variants:
+    - year:       string, e.g. "2022", "2022EE", "2023", "2023BPix"
+    - pdg0, pdg1: ak.Array of ints
+    - pt0, pt1:   ak.Array of floats (conept)
+    - var:        integer or array of ±1/0
+    """
+    # Only valid when exactly two leptons
+    prod = abs(pdg0 * pdg1)
+    out  = ak.ones_like(pt0)
+
+    # define bins once
+    edges = [20, 40, 50, 65, 80, 100, 200]
+
+    # pick the right centers & uncertainties by year/channel
+    # Format: (centers_ee, unc_ee, centers_em, unc_em, centers_mm, unc_mm)
+    sf_defs = {
+      "2022": (
+        [1.0115, 1.0105, 1.0042, 0.9850, 1.0012, 1.0000, 1.0], 0.0146,   # ee
+        [0.9850, 0.9889, 0.9885, 0.9717, 0.9674, 0.9679, 1.0], 0.0052,   # em
+        [0.9881, 0.9944, 0.9937, 0.9868, 1.0022, 0.9841, 1.0], 0.0098    # mm
+      ),
+      "2022EE": (
+        [0.9845, 1.0004, 1.0025, 0.9857, 0.9965, 1.0044, 1.0], 0.0037,
+        [0.9833, 0.9818, 0.9841, 0.9806, 0.9777, 0.9807, 1.0], 0.0023,
+        [0.9788, 0.9856, 0.9850, 0.9963, 0.9909, 0.9873, 1.0], 0.0039
+      ),
+      "2023": (
+        [0.9453, 0.9791, 0.9953, 0.9822, 1.0025, 0.9948, 1.0], 0.0107,
+        [0.9748, 0.9799, 0.9712, 0.9716, 0.9724, 0.9616, 1.0], 0.0028,
+        [0.9821, 0.9936, 0.9941, 0.9863, 0.9905, 0.9786, 1.0], 0.0051
+      ),
+      "2023BPix": (
+        [0.9672, 1.0001, 0.9852, 0.9928, 0.9981, 0.9954, 1.0], 0.0155,
+        [0.9765, 0.9801, 0.9692, 0.9735, 0.9665, 0.9587, 1.0], 0.0041,
+        [0.9890, 0.9956, 0.9869, 0.9907, 0.9950, 0.9646, 1.0], 0.0080
+      ),
+    }
+
+    centers_ee, unc_ee, centers_em, unc_em, centers_mm, unc_mm = sf_defs[year]
+
+    # apply ee (uses pt0) where |pdg0*pdg1|==121
+    mask_ee = (prod == 121)
+    sf_ee = ApplyBinnedSF(pt0, edges, centers_ee, unc_ee, var)
+    out = ak.where(mask_ee, sf_ee, out)
+
+    # apply em (uses pt1) for 143
+    mask_em = (prod == 143)
+    sf_em = ApplyBinnedSF(pt1, edges, centers_em, unc_em, var)
+    out = ak.where(mask_em, sf_em, out)
+
+    # apply mm (uses pt1) for 169
+    mask_mm = (prod == 169)
+    sf_mm = ApplyBinnedSF(pt1, edges, centers_mm, unc_mm, var)
+    out = ak.where(mask_mm, sf_mm, out)
+
+    return out
+
+
+def GetTriggerSF(year, events, lep0, lep1):
+    is_run3 = year.startswith("202")
+    is_run2 = not is_run3
+
+    pdg0     = lep0.pdgId
+    pdg1     = lep1.pdgId
+    conept0  = lep0.conept
+    conept1  = lep1.conept
+
+    #trigger SFs are applied only to the 2l events, since for >2l channels the trigger SFs are compatible with 1
+    ls = []
+    if is_run2:
+        for syst in [0, 1]:
+            # Run 2: fall back to the JSON‐loaded functions
+            SF_ee = np.where(events.is2l & events.is_ee,
+                             LoadTriggerSF(year, ch='2l', flav='ee')[syst](conept0, conept1),
+                             1.0)
+            SF_em = np.where(events.is2l & events.is_em,
+                             LoadTriggerSF(year, ch='2l', flav='em')[syst](conept0, conept1),
+                             1.0)
+            SF_mm = np.where(events.is2l & events.is_mm,
+                             LoadTriggerSF(year, ch='2l', flav='mm')[syst](conept0, conept1),
+                             1.0)
+
+            ls.append(SF_ee * SF_em * SF_mm)
+
+        ls[1] = np.where(ls[1] == 1.0, 0.0, ls[1])
+        sf_nominal = ls[0]
+        sf_up = ls[0] + np.sqrt(ls[1]**2 + (0.02 * ls[0])**2)
+        sf_down = ls[0] - np.sqrt(ls[1]**2 + (0.02 * ls[0])**2)
+            
+    else:
+        # Run 3: vectorized awkward functions
+        mask2l     = events.is2l
+        sf_nominal = ak.where(mask2l,
+                              ComputeTriggerSFRun3(year, pdg0, conept0, pdg1, conept1, var=0),
+                              1.0)
+        sf_up      = ak.where(mask2l,
+                              ComputeTriggerSFRun3(year, pdg0, conept0, pdg1, conept1, var=1),
+                              1.02)
+        sf_down    = ak.where(mask2l,
+                              ComputeTriggerSFRun3(year, pdg0, conept0, pdg1, conept1, var=-1),
+                              0.98)
+
+    events['trigger_sf'] = sf_nominal
+    events['trigger_sfUp'] = sf_up
+    events['trigger_sfDown'] = sf_down
+
+'''
 def GetTriggerSF(year, events, lep0, lep1):
     is_run3 = False
     if year.startswith("202"):
@@ -1813,15 +2065,15 @@ def GetTriggerSF(year, events, lep0, lep1):
             SF_em = ak.ones_like(events.is2l)
             SF_mm = ak.ones_like(events.is2l)
         #3l
-        '''
-        SF_eee=np.where((events.is3l & events.is_eee),LoadTriggerSF(year,ch='3l',flav='eee')[syst](lep0.pt,lep0.eta),1.0)
-        SF_eem=np.where((events.is3l & events.is_eem),LoadTriggerSF(year,ch='3l',flav='eem')[syst](lep0.pt,lep0.eta),1.0)
-        SF_emm=np.where((events.is3l & events.is_emm),LoadTriggerSF(year,ch='3l',flav='emm')[syst](lep0.pt,lep0.eta),1.0)
-        SF_mmm=np.where((events.is3l & events.is_mmm),LoadTriggerSF(year,ch='3l',flav='mmm')[syst](lep0.pt,lep0.eta),1.0)
-        ls.append(SF_ee*SF_em*SF_mm*SF_eee*SF_eem*SF_emm*SF_mmm)
-        '''
+        #SF_eee=np.where((events.is3l & events.is_eee),LoadTriggerSF(year,ch='3l',flav='eee')[syst](lep0.pt,lep0.eta),1.0)
+        #SF_eem=np.where((events.is3l & events.is_eem),LoadTriggerSF(year,ch='3l',flav='eem')[syst](lep0.pt,lep0.eta),1.0)
+        #SF_emm=np.where((events.is3l & events.is_emm),LoadTriggerSF(year,ch='3l',flav='emm')[syst](lep0.pt,lep0.eta),1.0)
+        #SF_mmm=np.where((events.is3l & events.is_mmm),LoadTriggerSF(year,ch='3l',flav='mmm')[syst](lep0.pt,lep0.eta),1.0)
+        #ls.append(SF_ee*SF_em*SF_mm*SF_eee*SF_eem*SF_emm*SF_mmm)
+        
         ls.append(SF_ee * SF_em * SF_mm)
     ls[1] = np.where(ls[1] == 1.0, 0.0, ls[1]) # stat unc. down
     events['trigger_sf'] = ls[0] # nominal
     events['trigger_sfDown'] = ls[0] - np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
     events['trigger_sfUp'] = ls[0] + np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
+'''
