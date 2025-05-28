@@ -484,23 +484,17 @@ class AnalysisProcessor(processor.ProcessorABC):
             if btagAlgo == "btagDeepFlavB":
                 btagRef = ""
             elif btagAlgo == "btagPNetB":
-                btagRef = "ParT_"
+                btagRef = "PNet_"
 
             # Loose DeepJet WP
-            if btagAlgo == "btagDeepFlavB": 
-                loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
-            if btagAlgo == "btagPNetB":
-                loose_tag = "btag_wp_loose_PNet_" + year.replace("201", "UL1")
+            loose_tag = "btag_wp_loose_" + btagRef + year.replace("201", "UL1")
             btagwpl = get_tc_param(loose_tag)
             isBtagJetsLoose = (goodJets[btagAlgo] > btagwpl)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
 
             # Medium DeepJet WP
-            if btagAlgo == "btagDeepFlavB":
-                medium_tag = "btag_wp_medium_" + btagRef + year.replace("201", "UL1")
-            if btagAlgo == "btagPNetB":
-                medium_tag = "btag_wp_medium_PNet_" + year.replace("201", "UL1")
+            medium_tag = "btag_wp_medium_" + btagRef + year.replace("201", "UL1")
             btagwpm = get_tc_param(medium_tag)
             isBtagJetsMedium = (goodJets[btagAlgo] > btagwpm)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
@@ -992,11 +986,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"] + import_cr_cat_dict[lep_cat]["appl_lst_data"]
                     else:
                         cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
-
-            #print("\n\n\n\n\n\n\n\n")
-            #print(cr_cat_dict)
-            #print("\n\n\n")
-                        
+            
             del import_sr_cat_dict, import_cr_cat_dict
 
             cat_dict = {}
@@ -1077,8 +1067,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         flav_ch = None
                                         njet_ch = None
                                         cuts_lst = [appl,lep_chan]
-
-                                        #print("ch_name:", ch_name)
                                         
                                         if isData:
                                             cuts_lst.append("is_good_lumi")
@@ -1148,7 +1136,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                             # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
                             if dense_axis_name == "njets": break
-                #print("\n\n\n\n\n\n\n\n")
                             
         return hout
 
