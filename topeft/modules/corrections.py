@@ -1507,13 +1507,16 @@ def AttachElectronCorrections(electrons, run, year, isData=False):
 # Hard-coded to DeepJet algorithm, loose and medium WPs
 
 # MC efficiencies
-def GetMCeffFunc(year, wp='medium', flav='b'):
+def GetMCeffFunc(year, wp='medium', btagalgo="btagDeepFlavB", flav='b'):
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
     if not year.startswith("202"):
         pathToBtagMCeff = topeft_path('data/btagSF/UL/btagMCeff_%s.pkl.gz' % year)
     else:
-        pathToBtagMCeff = topeft_path('data/btagSF/Run3/btagMCeff_%s.pkl.gz' % year[0:4])
+        pkltag = year[0:4]
+        if btagalgo == "btagPNetB":
+            pkltag += "_PNet"
+        pathToBtagMCeff = topeft_path(f'data/btagSF/Run3/btagMCeff_{pkltag}.pkl.gz')
 
     hists = {}
     with gzip.open(pathToBtagMCeff) as fin:
@@ -1548,10 +1551,10 @@ def GetMCeffFunc(year, wp='medium', flav='b'):
 
     return fun
 
-def GetBtagEff(jets, year, wp='medium'):
+def GetBtagEff(jets, year, wp='medium', btagalgo="btagDeepFlavB"):
     if year not in clib_year_map.keys():
         raise Exception(f"Error: Unknown year \"{year}\".")
-    result = GetMCeffFunc(year,wp)(jets.pt, np.abs(jets.eta), jets.hadronFlavour)
+    result = GetMCeffFunc(year, wp, btagalgo)(jets.pt, np.abs(jets.eta), jets.hadronFlavour)
     return result
 
 def GetBTagSF(jets, year, wp='MEDIUM', syst='central'):
