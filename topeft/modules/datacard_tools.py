@@ -858,7 +858,7 @@ class DatacardMaker():
                         for sp_key,arr in data_sm.items():
                             data_obs += arr
                     if not self.use_real_data and wcs_dict is not None:
-                    # Create asimov dataset, 'vals' are WCs specified at the command-line
+                        # Create asimov dataset, 'vals' are WCs specified at the command-line
                         vals = wcs_dict
                         decomposed_templates = self.decompose(proc_hist,proc_sumw2,wcs,vals)
                         data_sm = decomposed_templates.pop("sm")
