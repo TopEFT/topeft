@@ -88,7 +88,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         if not btagAlgo in ["btagDeepFlavB", "btagPNetB"]:
             raise ValueError("b-tagging algorithm not recognized!")
-            
+
         te_os.lepJetBTagAdder(e, btagger=btagAlgo)
         te_os.lepJetBTagAdder(mu, btagger=btagAlgo)
 
@@ -160,7 +160,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             if year == "2022":
                 WP = {'all' : -999., 'loose': 0.0583, 'medium': 0.3086, 'tight': 0.7183}
             if year == "2022EE":
-                WP = {'all' : -999., 'loose': 0.0614, 'medium': 0.3196, 'tight': 0.7300} 
+                WP = {'all' : -999., 'loose': 0.0614, 'medium': 0.3196, 'tight': 0.7300}
             if year == "2023":
                 WP = {'all' : -999., 'loose': 0.0479, 'medium': 0.2431, 'tight': 0.6553}
             if year == "2023BPix":

@@ -467,7 +467,7 @@ central_2022_dict = {
     "2022_TTLL_MLL-4to50":{
         "path" : "/TTLL_MLL-4to50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
         "histAxisName": "TTLL_MLL-4to50_central2022",
-        "xsecName" : "TTLL_MLL-4to50_13p6TeV",    
+        "xsecName" : "TTLL_MLL-4to50_13p6TeV",
     },
     "2022_TTLL_MLL-50":{
         "path" : "/TTLL_MLL-50_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
@@ -1518,7 +1518,7 @@ central_2022_bkg_dict = {
     #        "histAxisName" : "TTG-1Jets_PTG-200_central2022",
     #        "xsecName" : "TTG-1Jets_PTG-200_13p6TeV",
     #    },
-    #    "TTto2L2Nu": { 
+    #    "TTto2L2Nu": {
     #        "path": "/TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
     #        "histAxisName": "TTto2L2Nu_central2022",
     #        "xsecName" : "TTto2L2Nu_13p6TeV",

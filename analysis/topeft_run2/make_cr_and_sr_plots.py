@@ -50,7 +50,7 @@ CR_CHAN_DICT = {
     "cr_2los_tt" : [
         "2los_em_CRtt_2j",
     ],
-    
+
     "cr_2lss" : [
         "2lss_ee_CR_1j",
         "2lss_em_CR_1j",

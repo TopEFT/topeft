@@ -246,7 +246,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         te_os.lepJetBTagAdder(ele, btagger=btagAlgo)
         te_os.lepJetBTagAdder(mu, btagger=btagAlgo)
-            
+
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
         events.nom = ak.ones_like(events.MET.pt)
@@ -409,7 +409,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
             lumi = 1000.0*get_tc_param(f"lumi_{year}")
             weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
-                        
+
             if is_run2:
                 l1prefiring_args = [events.L1PreFiringWeight.Nom, events.L1PreFiringWeight.Up, events.L1PreFiringWeight.Dn]
             elif is_run3:
@@ -551,7 +551,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         btagName = "particleNet"
                     btag_method_bc    = f"{btagName}_comb"
                     btag_method_light = f"{btagName}_light"
-                
+
                 btag_effM_light = GetBtagEff(jets_light, year, 'medium', btagAlgo)
                 btag_effM_bc = GetBtagEff(jets_bc, year, 'medium', btagAlgo)
                 btag_effL_light = GetBtagEff(jets_light, year, 'loose', btagAlgo)
@@ -616,7 +616,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                         weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
 
-                # Trigger SFs                        
+                # Trigger SFs
                 GetTriggerSF(year,events,l0,l1) #implemented also for Run3
 
                 weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
@@ -990,7 +990,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"] + import_cr_cat_dict[lep_cat]["appl_lst_data"]
                     else:
                         cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
-            
+
             del import_sr_cat_dict, import_cr_cat_dict
 
             cat_dict = {}
@@ -1053,7 +1053,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         # Get a mask for events that pass any of the njet requiremens in this nlep cat
                         # Useful in cases like njets hist where we don't store njets in a sparse axis
                         njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
-        
+
                         # Loop over the njets list for each channel
                         for njet_val in cat_dict[nlep_cat].keys():
 
@@ -1071,7 +1071,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         flav_ch = None
                                         njet_ch = None
                                         cuts_lst = [appl,lep_chan]
-                                        
+
                                         if isData:
                                             cuts_lst.append("is_good_lumi")
                                         if self._split_by_lepton_flavor:
@@ -1139,8 +1139,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if not self._split_by_lepton_flavor: break
 
                             # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
-                            if dense_axis_name == "njets": break
-                            
+                            if dense_axis_name == "njets":
+                                break
         return hout
 
     def postprocess(self, accumulator):

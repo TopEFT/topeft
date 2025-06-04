@@ -246,7 +246,7 @@ class run3leptonselection:
             mvaReq     = ((ele.mvaTTHrun3 > get_te_param("mva_TTH_e_cut_run3")) | ((ele.mvaIso > get_te_param("fo_e_mvaiso_cut_run3")) & (ele.jetRelIso < get_te_param("fo_e_jetRelIso_cut")))) ##original cut from Sergio
         return ptReq & btagReq & qualityReq & mvaReq
         #return ptReq & qualityReq & mvaReq
-        
+
     def isFOMuon(self, muo, year):
         bTagCut=get_medium_btag_foryear(year,btagger=self.btagger)
         btagReq = (muo.jetBTag<bTagCut)
@@ -266,7 +266,7 @@ class run3leptonselection:
             return ((ele.isFO) & (ele.miniPFRelIso_all<0.1))
         else:
             return (ele.isFO) & (ele.mvaTTHrun3 > get_te_param("mva_TTH_e_cut_run3")) #original cut from Sergio
-        
+
     def tightSelMuon(self, muo):
         if not self.useMVA:
             return ((muo.isFO) & (muo.mediumId>0) & (muo.miniPFRelIso_all<0.1))

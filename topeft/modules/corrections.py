@@ -2031,7 +2031,6 @@ def GetTriggerSF(year, events, lep0, lep1):
         sf_nominal = ls[0]
         sf_up = ls[0] + np.sqrt(ls[1]**2 + (0.02 * ls[0])**2)
         sf_down = ls[0] - np.sqrt(ls[1]**2 + (0.02 * ls[0])**2)
-            
     else:
         # Run 3: vectorized awkward functions
         mask2l     = events.is2l
