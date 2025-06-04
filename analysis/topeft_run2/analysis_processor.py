@@ -234,12 +234,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             AttachElectronCorrections(ele, run, year, isData) #need to apply electron energy corrections before calculating conept
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA)
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-            #btagAlgo = "btagDeepFlavB" #DeepJet branch
-            btagAlgo = "btagPNetB"    #PNet branch
+            btagAlgo = "btagDeepFlavB" #DeepJet branch
+            #btagAlgo = "btagPNetB"    #PNet branch
         elif is_run2:
             leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
             btagAlgo = "btagDeepFlavB"
+
+        if not btagAlgo in ["btagDeepFlavB", "btagPNetB"]:
+            raise ValueError("b-tagging algorithm not recognized!")
             
         te_os.lepJetBTagAdder(ele, btagger=btagAlgo)
         te_os.lepJetBTagAdder(mu, btagger=btagAlgo)

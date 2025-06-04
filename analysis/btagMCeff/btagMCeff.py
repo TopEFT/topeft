@@ -86,6 +86,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
 
+        if not btagAlgo in ["btagDeepFlavB", "btagPNetB"]:
+            raise ValueError("b-tagging algorithm not recognized!")
+            
         te_os.lepJetBTagAdder(e, btagger=btagAlgo)
         te_os.lepJetBTagAdder(mu, btagger=btagAlgo)
 
@@ -163,7 +166,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             if year == "2023BPix":
                 WP = {'all' : -999., 'loose': 0.0480, 'medium': 0.2435, 'tight': 0.6563}
 
-        if btagAlgo == "btagPNetB":
+        elif btagAlgo == "btagPNetB":
             if year == "2022":
                 WP = {'all' : -999., 'loose': 0.047, 'medium': 0.245, 'tight': 0.6734}
             if year == "2022EE":
