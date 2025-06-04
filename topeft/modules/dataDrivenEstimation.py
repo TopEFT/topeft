@@ -36,7 +36,6 @@ class DataDrivenProducer:
                 continue
 
             # First we are gonna scale all MC processes in  by the luminosity
-            #name_regex = r'^(?P<process>.*?)(?:UL)?(?P<year>(?:\d{2}(?:APV)?|\d{4}))$'
             name_regex = r'^(?P<process>.*?)(?:UL)?(?P<year>(?:\d{2}(?:APV|EE|BPix)?|\d{4}(?:EE|BPix)?))$'
             pattern=re.compile(name_regex)
 

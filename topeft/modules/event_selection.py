@@ -120,7 +120,7 @@ dataset_dict_top22006 = {
             #"IsoMu27",
             "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
             "TripleMu_12_10_5",
-        ],  
+        ],
         "SingleMuon" : [
             "IsoMu24",
             #"IsoMu27",
@@ -147,7 +147,7 @@ dataset_dict_top22006 = {
         ],
     },
     "2023" : {
-         "Muon" : [
+        "Muon" : [
             "IsoMu24",
             #"IsoMu27",
             "Mu17_TrkIsoVVL_Mu8_TrkIsoVVL_DZ_Mass3p8",
@@ -198,7 +198,7 @@ exclude_dict_top22006 = {
         "MuonEG"         : dataset_dict_top22006["2018"]["DoubleMuon"] + dataset_dict_top22006["2018"]["EGamma"],
         "SingleMuon"     : dataset_dict_top22006["2018"]["DoubleMuon"] + dataset_dict_top22006["2018"]["EGamma"] + dataset_dict_top22006["2018"]["MuonEG"],
     },
-     "C": {
+    "C": {
         "SingleMuon"     : [],
         "DoubleMuon"     : dataset_dict_top22006["2022"]["DoubleMuon"],
         "Muon"           : [],

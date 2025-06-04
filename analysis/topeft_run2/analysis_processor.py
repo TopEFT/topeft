@@ -66,7 +66,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.tau_h_analysis = tau_h_analysis
         self.fwd_analysis = fwd_analysis
         self.useRun3MVA = useRun3MVA #can be switched to False use the alternative cuts
-        
+
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
         syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
@@ -157,13 +157,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             is_run3 = True
         is_run2 = not is_run3
 
-        run_era = None        
+        run_era = None
         if isData:
             if is_run3:
                 run_era = self._samples[dataset]["era"]
             else:
                 run_era = self._samples[dataset]["path"].split("/")[2].split("-")[0][-1]
-                
+
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
             if histAxisName in get_te_param("lo_xsec_samples"):
@@ -192,8 +192,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"     ]
                 sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"         ]
                 sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"       ]
-                sow_renormDown_factUp   = self._samples[dataset]["nSumOfWeights_renormDown_factUp"   ]
-                sow_renormUp_factDown = self._samples[dataset]["nSumOfWeights_renormUp_factDown" ]
+                if is_run3:
+                    sow_renormDown_factUp   = self._samples[dataset]["nSumOfWeights_renormDown_factUp"   ]
+                    sow_renormUp_factDown = self._samples[dataset]["nSumOfWeights_renormUp_factDown" ]
         else:
             sow_ISRUp          = -1
             sow_ISRDown        = -1
@@ -232,18 +233,20 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         if is_run3:
             AttachElectronCorrections(ele, run, year, isData) #need to apply electron energy corrections before calculating conept
-            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA)
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-            btagAlgo = "btagDeepFlavB" #DeepJet branch
-            #btagAlgo = "btagPNetB"    #PNet branch
+            #btagAlgo = "btagDeepFlavB" #DeepJet branch
+            btagAlgo = "btagPNetB"    #PNet branch
+            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger=btagAlgo)
         elif is_run2:
-            leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
             btagAlgo = "btagDeepFlavB"
-            
-        te_os.lepJetBTagAdder(ele, jets, btagger=btagAlgo)
-        te_os.lepJetBTagAdder(mu, jets, btagger=btagAlgo)
-            
+            leptonSelection = te_os.run2leptonselection(btagger=btagAlgo)
+        if not btagAlgo in ["btagDeepFlavB", "btagPNetB"]:
+            raise ValueError("b-tagging algorithm not recognized!")
+
+        te_os.lepJetBTagAdder(ele, btagger=btagAlgo)
+        te_os.lepJetBTagAdder(mu, btagger=btagAlgo)
+
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
         events.nom = ak.ones_like(events.MET.pt)
@@ -290,7 +293,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ele["isLooseE"] = leptonSelection.isLooseElec(ele)
         ele["isFO"] = leptonSelection.isFOElec(ele, year)
         ele["isTightLep"] = leptonSelection.tightSelElec(ele)
-
+        if is_run2:
+            ele["pt_raw"] = ele.pt
         ################### Muon selection ####################
 
         mu["pt_raw"] = mu.pt
@@ -405,7 +409,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
             lumi = 1000.0*get_tc_param(f"lumi_{year}")
             weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
-                        
+
             if is_run2:
                 l1prefiring_args = [events.L1PreFiringWeight.Nom, events.L1PreFiringWeight.Up, events.L1PreFiringWeight.Dn]
             elif is_run3:
@@ -484,7 +488,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             if btagAlgo == "btagDeepFlavB":
                 btagRef = ""
             elif btagAlgo == "btagPNetB":
-                btagRef = "ParT_"
+                btagRef = "PNet_"
 
             # Loose DeepJet WP
             loose_tag = "btag_wp_loose_" + btagRef + year.replace("201", "UL1")
@@ -547,11 +551,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                         btagName = "particleNet"
                     btag_method_bc    = f"{btagName}_comb"
                     btag_method_light = f"{btagName}_light"
-                
-                btag_effM_light = GetBtagEff(jets_light, year, 'medium') #return array of ones for run3
-                btag_effM_bc = GetBtagEff(jets_bc, year, 'medium')
-                btag_effL_light = GetBtagEff(jets_light, year, 'loose')
-                btag_effL_bc = GetBtagEff(jets_bc, year, 'loose')
+
+                btag_effM_light = GetBtagEff(jets_light, year, 'medium', btagAlgo)
+                btag_effM_bc = GetBtagEff(jets_bc, year, 'medium', btagAlgo)
+                btag_effL_light = GetBtagEff(jets_light, year, 'loose', btagAlgo)
+                btag_effL_bc = GetBtagEff(jets_bc, year, 'loose', btagAlgo)
                 btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M", year_light, btag_method_light, "central")
                 btag_sfM_bc    = tc_cor.btag_sf_eval(jets_bc,    "M", year, btag_method_bc, "central")
                 btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L", year_light, btag_method_light, "central")
@@ -564,9 +568,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 btag_w = btag_w_light*btag_w_bc
 
                 weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
-                #print("\n\n\n\n\n\n\n\n")
-                #print("btag_w", ak.to_list(btag_w))
-                    
+
                 if self._do_systematics and syst_var=='nominal':
                     for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
                         if b_syst.endswith("_corr"):
@@ -611,14 +613,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                         btag_w_up = fixed_btag_w*btag_w_up/btag_w
                         btag_w_down = fixed_btag_w*btag_w_down/btag_w
-                        
+
                         weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
-                        #print(f"\t{b_syst}\n\tbtag_w_up", ak.to_list(btag_w_up))
-                        #print("\tbtag_w_down", ak.to_list(btag_w_down))
-                        
-                #print("\n\n\n\n\n\n\n\n")
-                        
-                # Trigger SFs                        
+
+                # Trigger SFs
                 GetTriggerSF(year,events,l0,l1) #implemented also for Run3
 
                 weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
@@ -993,10 +991,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                     else:
                         cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
 
-            #print("\n\n\n\n\n\n\n\n")
-            #print(cr_cat_dict)
-            #print("\n\n\n")
-                        
             del import_sr_cat_dict, import_cr_cat_dict
 
             cat_dict = {}
@@ -1059,7 +1053,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         # Get a mask for events that pass any of the njet requiremens in this nlep cat
                         # Useful in cases like njets hist where we don't store njets in a sparse axis
                         njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
-        
+
                         # Loop over the njets list for each channel
                         for njet_val in cat_dict[nlep_cat].keys():
 
@@ -1078,8 +1072,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         njet_ch = None
                                         cuts_lst = [appl,lep_chan]
 
-                                        #print("ch_name:", ch_name)
-                                        
                                         if isData:
                                             cuts_lst.append("is_good_lumi")
                                         if self._split_by_lepton_flavor:
@@ -1147,9 +1139,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if not self._split_by_lepton_flavor: break
 
                             # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
-                            if dense_axis_name == "njets": break
-                #print("\n\n\n\n\n\n\n\n")
-                            
+                            if dense_axis_name == "njets":
+                                break
         return hout
 
     def postprocess(self, accumulator):
