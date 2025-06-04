@@ -18,6 +18,7 @@ parser = argparse.ArgumentParser(description='You can customize your run')
 parser.add_argument('inputFiles'            , nargs='?', default='', help = 'Json or cfg file(s) containing files and metadata')
 parser.add_argument('--executor','-x'       , default='work_queue', help = 'Which executor to use')
 parser.add_argument('--processor_name','-r' , default='flip_mr_processor', help = 'Which processor to run')
+parser.add_argument('--nworkers','-n'   , default=8  , help = 'Number of workers')
 parser.add_argument('--chunksize','-s'      , default=100000, type=int, help = 'Number of events per chunk')
 parser.add_argument('--max-files','-N'      , default=0, type=int, help = 'If specified, limit the number of root files per sample. Useful for testing')
 parser.add_argument('--nchunks','-c'        , default=0, type=int, help = 'You can choose to run only a number of chunks')
@@ -25,19 +26,31 @@ parser.add_argument('--outname','-o'        , default='flipTopEFT', help = 'Name
 parser.add_argument('--outpath','-p'        , default='histos', help = 'Name of the output directory')
 parser.add_argument('--treename'            , default='Events', help = 'Name of the tree inside the files')
 parser.add_argument('--xrd'                 , default='', help = 'The XRootD redirector to use when reading directly from json files')
+parser.add_argument('--port', default='9123-9130', help = 'Specify the Work Queue port. An integer PORT or an integer range PORT_MRT_MIN-PORT_MAX.')
 
 args = parser.parse_args()
 inputFiles = args.inputFiles.replace(' ','').split(',')  # Remove whitespace and split by commas
 executor   = args.executor
 processor_name  = args.processor_name
-chunksize  = args.chunksize
-nchunks    = args.nchunks if args.nchunks else None
+nworkers   = int(args.nworkers)
+chunksize  = int(args.chunksize)
+nchunks    = int(args.nchunks) if args.nchunks else None
 outname    = args.outname
 outpath    = args.outpath
 treename   = args.treename
 xrd        = args.xrd
 max_files  = args.max_files
 
+if executor == "work_queue":
+    # construct wq port range
+    port = list(map(int, args.port.split('-')))
+    if len(port) < 1:
+        raise ValueError("At least one port value should be specified.")
+    if len(port) > 2:
+        raise ValueError("More than one port range was specified.")
+    if len(port) == 1:
+        # convert single values into a range of one element
+        port.append(port[0])
 
 samples_to_process = {}
 for fn in inputFiles:
@@ -88,15 +101,19 @@ if executor == "work_queue":
         'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
 
         # find a port to run work queue in this range:
-        'port': [9123,9130],
+        'port': port,
 
         'debug_log': 'debug.log',
         'transactions_log': 'tr.log',
         'stats_log': 'stats.log',
+        'tasks_accum_log': 'tasks.log',
 
-        'environment_file': remote_environment.get_environment(),
+        'environment_file': remote_environment.get_environment(
+            extra_pip_local = {"topeft": ["topeft", "setup.py"]},
+        ),
         'extra_input_files': extra_input_files_lst,
 
+        'retries': 20,
         # use mid-range compression for chunks results. 9 is the default for work
         # queue in coffea. Valid values are 0 (minimum compression, less memory
         # usage) to 16 (maximum compression, more memory usage).
@@ -109,6 +126,7 @@ if executor == "work_queue":
         # forever until a larger worker connects.
         'resource_monitor': True,
         'resources_mode': 'auto',
+        #'filepath': f'/tmp/{os.environ["USER"]}', ##Placeholder to comment out if you don't want to save wq-factory dirs in afs
 
         # this resource values may be omitted when using
         # resources_mode: 'auto', but they do make the initial portion
@@ -121,9 +139,9 @@ if executor == "work_queue":
         # mode will use the values specified here, so workers need to be at least
         # this large. If left unspecified, tasks will use whole workers in the
         # exploratory mode.
-        #'cores': 1,
-        #'disk': 8000,   #MB
-        #'memory': 10000, #MB
+        # 'cores': 1,
+        # 'disk': 8000,   #MB
+        # 'memory': 10000, #MB
 
         # control the size of accumulation tasks. Results are
         # accumulated in groups of size chunks_per_accum, keeping at
@@ -140,7 +158,6 @@ if executor == "work_queue":
         #
         # warning: small values (e.g. close to 1) may cause the workflow to misbehave,
         # as most tasks will be terminated.
-        #
         # Less than 1 disables it.
         'fast_terminate_workers': 0,
 
