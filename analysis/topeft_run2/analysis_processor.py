@@ -548,10 +548,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     btag_method_bc    = f"{btagName}_comb"
                     btag_method_light = f"{btagName}_light"
                 
-                btag_effM_light = GetBtagEff(jets_light, year, 'medium') #return array of ones for run3
-                btag_effM_bc = GetBtagEff(jets_bc, year, 'medium')
-                btag_effL_light = GetBtagEff(jets_light, year, 'loose')
-                btag_effL_bc = GetBtagEff(jets_bc, year, 'loose')
+                btag_effM_light = GetBtagEff(jets_light, year, 'medium', btagAlgo)
+                btag_effM_bc = GetBtagEff(jets_bc, year, 'medium', btagAlgo)
+                btag_effL_light = GetBtagEff(jets_light, year, 'loose', btagAlgo)
+                btag_effL_bc = GetBtagEff(jets_bc, year, 'loose', btagAlgo)
                 btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M", year_light, btag_method_light, "central")
                 btag_sfM_bc    = tc_cor.btag_sf_eval(jets_bc,    "M", year, btag_method_bc, "central")
                 btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L", year_light, btag_method_light, "central")
