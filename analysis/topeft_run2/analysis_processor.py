@@ -192,8 +192,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"     ]
                 sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"         ]
                 sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"       ]
-                sow_renormDown_factUp   = self._samples[dataset]["nSumOfWeights_renormDown_factUp"   ]
-                sow_renormUp_factDown = self._samples[dataset]["nSumOfWeights_renormUp_factDown" ]
+                if is_run3:
+                    sow_renormDown_factUp   = self._samples[dataset]["nSumOfWeights_renormDown_factUp"   ]
+                    sow_renormUp_factDown = self._samples[dataset]["nSumOfWeights_renormUp_factDown" ]
         else:
             sow_ISRUp          = -1
             sow_ISRDown        = -1
@@ -232,14 +233,14 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         if is_run3:
             AttachElectronCorrections(ele, run, year, isData) #need to apply electron energy corrections before calculating conept
-            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA)
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
             #btagAlgo = "btagDeepFlavB" #DeepJet branch
             btagAlgo = "btagPNetB"    #PNet branch
+            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger=btagAlgo)
         elif is_run2:
-            leptonSelection = te_os.run2leptonselection()
             jetsRho = events.fixedGridRhoFastjetAll
             btagAlgo = "btagDeepFlavB"
+            leptonSelection = te_os.run2leptonselection(btagger=btagAlgo)
             
         te_os.lepJetBTagAdder(ele, btagger=btagAlgo)
         te_os.lepJetBTagAdder(mu, btagger=btagAlgo)
@@ -290,7 +291,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         ele["isLooseE"] = leptonSelection.isLooseElec(ele)
         ele["isFO"] = leptonSelection.isFOElec(ele, year)
         ele["isTightLep"] = leptonSelection.tightSelElec(ele)
-
+        if is_run2:
+            ele["pt_raw"] = ele.pt
         ################### Muon selection ####################
 
         mu["pt_raw"] = mu.pt

@@ -139,8 +139,8 @@ def get_medium_btag_foryear(year,btagger="btagDeepFlavB"):
 
 class run2leptonselection:
 
-    def __init__(self):
-        pass
+    def __init__(self, btagger="btagDeepFlavB"):
+        self.btagger = btagger
 
     def coneptElec(self, ele):
         conePt = (0.90 * ele.pt * (1 + ele.jetRelIso))
