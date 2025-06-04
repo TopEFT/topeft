@@ -66,7 +66,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.tau_h_analysis = tau_h_analysis
         self.fwd_analysis = fwd_analysis
         self.useRun3MVA = useRun3MVA #can be switched to False use the alternative cuts
-        
+
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
         syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
@@ -157,13 +157,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             is_run3 = True
         is_run2 = not is_run3
 
-        run_era = None        
+        run_era = None
         if isData:
             if is_run3:
                 run_era = self._samples[dataset]["era"]
             else:
                 run_era = self._samples[dataset]["path"].split("/")[2].split("-")[0][-1]
-                
+
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
             if histAxisName in get_te_param("lo_xsec_samples"):
@@ -241,7 +241,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             jetsRho = events.fixedGridRhoFastjetAll
             btagAlgo = "btagDeepFlavB"
             leptonSelection = te_os.run2leptonselection(btagger=btagAlgo)
-            
+        if not btagAlgo in ["btagDeepFlavB", "btagPNetB"]:
+            raise ValueError("b-tagging algorithm not recognized!")
+
         te_os.lepJetBTagAdder(ele, btagger=btagAlgo)
         te_os.lepJetBTagAdder(mu, btagger=btagAlgo)
             
@@ -550,10 +552,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     btag_method_bc    = f"{btagName}_comb"
                     btag_method_light = f"{btagName}_light"
                 
-                btag_effM_light = GetBtagEff(jets_light, year, 'medium') #return array of ones for run3
-                btag_effM_bc = GetBtagEff(jets_bc, year, 'medium')
-                btag_effL_light = GetBtagEff(jets_light, year, 'loose')
-                btag_effL_bc = GetBtagEff(jets_bc, year, 'loose')
+                btag_effM_light = GetBtagEff(jets_light, year, 'medium', btagAlgo)
+                btag_effM_bc = GetBtagEff(jets_bc, year, 'medium', btagAlgo)
+                btag_effL_light = GetBtagEff(jets_light, year, 'loose', btagAlgo)
+                btag_effL_bc = GetBtagEff(jets_bc, year, 'loose', btagAlgo)
                 btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M", year_light, btag_method_light, "central")
                 btag_sfM_bc    = tc_cor.btag_sf_eval(jets_bc,    "M", year, btag_method_bc, "central")
                 btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L", year_light, btag_method_light, "central")
@@ -611,7 +613,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                         btag_w_up = fixed_btag_w*btag_w_up/btag_w
                         btag_w_down = fixed_btag_w*btag_w_down/btag_w
-                        
+
                         weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
 
                 # Trigger SFs                        

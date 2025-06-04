@@ -542,7 +542,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
 
     # Set up the colors
     ax.set_prop_cycle(cycler(color=colors))
-        
+
     # Normalize if we want to do that
     if unit_norm_bool:
         sum_mc = 0
@@ -683,7 +683,7 @@ def make_single_fig(histo,unit_norm_bool,axis=None,bins=[],group=[]):
             )
     plt.legend()
     ax.autoscale(axis='y')
-    return fig    
+    return fig
 
 # Takes a hist with one sparse axis (axis_name) and one dense axis, overlays everything on the sparse axis
 # Makes a ratio of each cateogory on the sparse axis with respect to ref_cat
@@ -1322,7 +1322,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             # Integrate to get the categories we want
             axes_to_integrate_dict = {}
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
-            try: 
+            try:
                 hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)[{"channel": sum}]
                 hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)[{"channel": sum}]
             except:
@@ -1370,7 +1370,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 continue
 
             #print("\n\n\n\n\nhist_mc before fig:",  hist_mc_integrated)
-            
+
             # Print out total MC and data and the sf between them
             # For extracting the factors we apply to the flip contribution
             # Probably should be an option not just a commented block...
@@ -1402,7 +1402,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 lumitag=LUMI_COM_PAIRS[year][0],
                 comtag=LUMI_COM_PAIRS[year][1]
             )
-            
+
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
@@ -1436,7 +1436,7 @@ def main():
     os.mkdir(save_dir_path)
 
     # Get the histograms
-    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False) 
+    hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
     # Print info about histos
     #yt.print_hist_info(args.pkl_file_path,"nbtagsl")
     #exit()
