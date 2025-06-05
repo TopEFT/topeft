@@ -547,10 +547,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                 elif is_run3:
                     if btagAlgo == "btagDeepFlavB":
                         btagName = "deepJet"
+                        suffix_bc = "comb"
+                        suffix_light = "light"
                     elif btagAlgo == "btagPNetB":
                         btagName = "particleNet"
-                    btag_method_bc    = f"{btagName}_comb"
-                    btag_method_light = f"{btagName}_light"
+                        if year.startswith("2023"):
+                            suffix_bc = "tnp"
+                            suffix_light = "light"
+                        else:
+                            suffix_bc = "comb"
+                            suffix_light = "light"
+                        
+                    btag_method_bc    = f"{btagName}_{suffix_bc}"
+                    btag_method_light = f"{btagName}_{suffix_light}"
 
                 btag_effM_light = GetBtagEff(jets_light, year, 'medium', btagAlgo)
                 btag_effM_bc = GetBtagEff(jets_bc, year, 'medium', btagAlgo)
