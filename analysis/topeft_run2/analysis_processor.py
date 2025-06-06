@@ -437,7 +437,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
         ]
         if self.ttA_analysis:
-            wgt_correction_syst_lst.extend(["phoSFUp","phoSFDown"])
+            wgt_correction_syst_lst.extend(["phoSFUp","phoSFDown","photonptCFUp","photonptCFDown"])
             data_syst_lst.extend(["nonpromptPhUp","nonpromptPhDown"])
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
@@ -566,7 +566,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             te_es.add4lMaskAndSFs(events, year, isData)
             te_es.addLepCatMasks(events)
             if self.ttA_analysis:
-                te_es.addPhotonSelection(events, sampleType, last_pt_bin=info['photon_pt']['variable'][:-1],nonprompt_validation_test=False) #CAUTION: Revisit the "last_pt_bin" if photon_pt binning is changed
+                te_es.addPhotonSelection(events, sampleType, last_pt_bin=axes_info['photon_pt']['variable'][-1],nonprompt_validation_test=False) #CAUTION: Revisit the "last_pt_bin" if photon_pt binning is changed
 
             # Convenient to have l0, l1, l2 on hand
             l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
@@ -657,8 +657,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 #correction factors for EFT ttgamma samples derived in bins of photon pt
                 if self.ttA_analysis and "TTGamma_Dilept_private" in histAxisName:
-                    year_for_cf = "all" #this just means we want to use a single CF for all years
-
+                    year_for_cf = "all" #this just means we want to use a single CF for all years. CAUTION: If we decide to per-year, need to edit the list of systematics earlier in this script to add "_{year}".
                     #apply correction factors
                     ApplyttgammaCF(year_for_cf,events)
                     if year_for_cf == "all":
@@ -797,7 +796,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         ptCut, etaCut, deltaRCut = 10, 5, 0.1
                     elif ("ZGToLLG" in dataset) or ("DY" in dataset):
                         ptCut, etaCut, deltaRCut = 15, 2.6, 0.05
-                    elif ("ST_top" in dataset) or ("ST_antitop" in dataset) or ("ST_TWGToLL" in dataset):
+                    elif ("tW" in dataset) or ("tbarW" in dataset) or ("ST_TWGToLL" in dataset):
                         ptCut, etaCut, deltaRCut = 10, 3, 0.4
                     else:
                         ptCut, etaCut, deltaRCut = None, None, None  # default or skip
@@ -1175,7 +1174,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                         # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                         #Let's first make sure that we strip off that are not relevant to some lepton categories
-                        if "_ph" not in nlep_cat and wgt_fluct in ['nonpromptPhUp','nonpromptPhDown']: continue
+                        #if "_ph" not in nlep_cat and wgt_fluct in ['nonpromptPhUp','nonpromptPhDown']: continue
                         weights_object = weights_dict[nlep_cat]
                         if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                             # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
@@ -1196,11 +1195,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                             # In all other cases, the up/down variations should correspond to only the ones in the data list
                             else:
                                 #if the lepton category is not photon related, we need to edit data_syst_lst
-                                if "_ph" not in nlep_cat:
-                                    data_syst_lst_non_photon = [syst for syst in data_syst_lst if syst not in ['nonpromptPhUp', 'nonpromptPhDown']]
-                                    if weights_object.variations != set(data_syst_lst_non_photon): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst_non_photon)}\" but have \"{weights_object.variations}\".")
-                                else:
-                                    if weights_object.variations != set(data_syst_lst): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst)}\" but have \"{weights_object.variations}\".")
+                                #if "_ph" not in nlep_cat:
+                                #    data_syst_lst_non_photon = [syst for syst in data_syst_lst if syst not in ['nonpromptPhUp', 'nonpromptPhDown']]
+                                #    if weights_object.variations != set(data_syst_lst_non_photon): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst_non_photon)}\" but have \"{weights_object.variations}\".")
+                                #else:
+                                if weights_object.variations != set(data_syst_lst): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst)}\" but have \"{weights_object.variations}\".")
 
                         # Get a mask for events that pass any of the njet requiremens in this nlep cat
                         # Useful in cases like njets hist where we don't store njets in a sparse axis
