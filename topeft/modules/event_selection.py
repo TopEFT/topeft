@@ -495,7 +495,7 @@ def generatorOverlapRemoval(dataset, events, ptCut, etaCut, deltaRCut):
     #the event is overlapping with the separate sample if there is an overlap photon passing the dR cut, kinematic cuts, and not coming from hadronic activity
     isolated_overlapPhotons = overlapPhotons[~ph_iso_mask]
 
-    if any(x in dataset for x in ["TTTo","DY10to50","DY50","ST_top","ST_antitop"]):   #samples from which the events with well-isolated overlapping photons are to be vetoed
+    if any(x in dataset for x in ["TTTo","DY10to50","DY50","ST_top","ST_antitop","tW","tbarW"]):   #samples from which the events with well-isolated overlapping photons are to be vetoed
         criteria = (ak.num(isolated_overlapPhotons)==0)
         events["vetoedbyOverlap"] = ~criteria
         events["retainedbyOverlap"] = criteria
