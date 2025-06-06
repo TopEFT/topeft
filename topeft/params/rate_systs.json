@@ -23,6 +23,12 @@
             "tWZ": 1.5,
             "Diboson": 1.023,
             "Triboson": 1.5
+        },
+        "xsec_unc": {
+            "ZGFSR": 1.20,
+            "ZGISR": 1.20,
+            "STGamma": 1.10,
+            "Others": 1.30
         }
     },
     "correlations" : {
@@ -35,7 +41,11 @@
         "tWZ":      {                   "qcd_scale": "tWZ" },
         "Diboson":  {"pdf_scale": "qq", "qcd_scale": "VV"  },
         "Triboson": {"pdf_scale": "qq", "qcd_scale": "VVV" },
-        "TTGamma":  {"pdf_scale": "gg", "qcd_scale": "ttA" }
+        "ttA":      {"pdf_scale": "gg", "qcd_scale": "ttA" },
+        "ZGFSR":    {                                       "xsec_unc":"ZGFSR"},
+        "ZGISR":    {                                       "xsec_unc":"ZGISR"},
+        "STGamma":  {                                       "xsec_unc":"STGamma"},
+        "Others":   {                                       "xsec_unc":"Others"}
     },
     "diboson_njets" : {
         "Diboson": {"1": 1.0, "2": 1.20, "3": 1.48, "4": 1.77, "5": 2.05, "6": 2.34, "7": 2.62}
