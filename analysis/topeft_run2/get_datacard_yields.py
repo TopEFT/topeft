@@ -33,12 +33,16 @@ CAT_ORDER = [
     "2lss_p_3b",
     "2lss_m_2b",
     "2lss_p_2b",
-    "3l_m_1b",
-    "3l_p_1b",
-    "3l_m_2b",
-    "3l_p_2b",
+    "2lss_fwd_m",
+    "2lss_fwd_p",
+    "3l_m_fwd_1b",
+    "3l_m_fwd_2b",
+    "3l_p_fwd_1b",
+    "3l_p_fwd_2b",
     "3l_onZ_1b",
     "3l_onZ_2b",
+    "3l_onZ_1b_fwd",
+    "3l_onZ_2b_fwd",
     "4l_2b",
 ]
 
@@ -48,12 +52,16 @@ RENAME_CAT_MAP = {
     "2lss_4t_p"    : "2lss_p_3b",
     "2lss_m"       : "2lss_m_2b",
     "2lss_p"       : "2lss_p_2b",
-    "3l_m_offZ_1b" : "3l_m_1b",
-    "3l_m_offZ_2b" : "3l_m_2b",
-    "3l_p_offZ_1b" : "3l_p_1b",
-    "3l_p_offZ_2b" : "3l_p_2b",
+    "2lss_fwd_m"   : "2lss_fwd_m",
+    "2lss_fwd_p"   : "2lss_fwd_p",
+    "3l_m_offZ_1b_fwd" : "3l_m_fwd_1b",
+    "3l_m_offZ_2b_fwd" : "3l_m_fwd_2b",
+    "3l_p_offZ_1b_fwd" : "3l_p_fwd_1b",
+    "3l_p_offZ_2b_fwd" : "3l_p_fwd_2b",
     "3l_onZ_1b"    : "3l_onZ_1b",
     "3l_onZ_2b"    : "3l_onZ_2b",
+    "3l_onZ_1b_fwd"    : "3l_onZ_1b_fwd",
+    "3l_onZ_2b_fwd"    : "3l_onZ_2b_fwd",
     "4l"           : "4l_2b",
 }
 
@@ -196,7 +204,7 @@ def add_proc_sums(rates_dict):
 
 # Takes a string (corresponding to a cateogry name), returns the name with the njets and kinematic var info removed
 # E.g. "2lss_4t_p_4j_2b_lj0pt" -> "2lss_4t_p_2b"
-def get_base_cat_name(cat_name,var_lst=["ptz","lj0pt"]):
+def get_base_cat_name(cat_name,var_lst=["ptz","lj0pt","lt"]):
     cat_name_split = cat_name.split("_")
     substr_lst_nojets_novarname = []
     for substr in cat_name_split:

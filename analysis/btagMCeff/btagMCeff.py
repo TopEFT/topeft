@@ -32,15 +32,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         jeta_axis = hist.axis.Regular(25, -2.5, 2.5, name="eta", label=r"Jet \eta (GeV)")
         jaeta_axis = hist.axis.Variable([0, 1, 1.8, 2.4], name="abseta", label=r"Jet \eta (GeV)")
         Flav_axis = hist.axis.StrCategory([], name="Flav", growth=True)
-        flav_axis = hist.axis.IntCategory([], name="flav", growth=True)
+        flav_axis = hist.axis.Regular(5, 0, 5, name="flav", label="jet flav")
         wp_axis = hist.axis.StrCategory([], name="WP", growth=True)
         self._accumulator = {
             'jetpt'  : hist.Hist(wp_axis, Flav_axis, jpt_axis),
             'jeteta'  : hist.Hist(wp_axis, Flav_axis, jeta_axis),
             'jetpteta'  : hist.Hist(wp_axis, Flav_axis, jpt_axis, jaeta_axis),
-            'jetptetaflav'  : hist.Hist(wp_axis, jetpt_axis, jaeta_axis, flav_axis),
+            'jetptetaflav'  : hist.Hist(wp_axis, jetpt_axis, flav_axis, jaeta_axis)
         }
-
+        self._bjets = 0
     @property
     def accumulator(self):
         return self._accumulator
@@ -51,6 +51,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
     # Main function: run on a given dataset
     def process(self, events):
+
+        events = events
         # Dataset parameters
         dataset = events.metadata['dataset']
         year   = self._samples[dataset]['year']
@@ -61,18 +63,30 @@ class AnalysisProcessor(processor.ProcessorABC):
         for d in datasets:
             if d in dataset: dataset = dataset.split('_')[0]
 
+        is_run3 = False
+        if year.startswith("202"):
+            is_run3 = True
+        is_run2 = not is_run3
+
         # Initialize objects
         met = events.MET
         e   = events.Electron
         mu  = events.Muon
         j   = events.Jet
 
+        if is_run3:
+            leptonSelection = te_os.run3leptonselection()
+            jetsRho = events.Rho["fixedGridRhoFastjetAll"]
+        elif is_run2:
+            leptonSelection = te_os.run2leptonselection()
+            jetsRho = events.fixedGridRhoFastjetAll
+
         # Muon selection
-        mu["conept"] = te_os.coneptMuon(mu.pt, mu.mvaTTHUL, mu.jetRelIso, mu.mediumId)
+        mu["conept"] = leptonSelection.coneptMuon(mu)
         mu["btagDeepFlavB"] = ak.fill_none(mu.matched_jet.btagDeepFlavB, -99)
-        mu["isPres"] = te_os.isPresMuon(mu.dxy, mu.dz, mu.sip3d, mu.eta, mu.pt, mu.miniPFRelIso_all)
-        mu["isFO"] = te_os.isFOMuon(mu.pt, mu.conept, mu.btagDeepFlavB, mu.mvaTTHUL, mu.jetRelIso, year)
-        mu["isTight"]= te_os.tightSelMuon(mu.isFO, mu.mediumId, mu.mvaTTHUL)
+        mu["isPres"] = leptonSelection.isPresMuon(mu)
+        mu["isFO"] = leptonSelection.isFOMuon(mu, year)
+        mu["isTight"]= leptonSelection.tightSelMuon(mu)
         mu['isGood'] = mu['isPres'] & mu['isTight']
 
         leading_mu = mu[ak.argmax(mu.pt,axis=-1,keepdims=True)]
@@ -83,11 +97,12 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Electron selection
         e["idEmu"] = te_os.ttH_idEmu_cuts_E3(e.hoe, e.eta, e.deltaEtaSC, e.eInvMinusPInv, e.sieie)
-        e["conept"] = te_os.coneptElec(e.pt, e.mvaTTHUL, e.jetRelIso)
+        e["conept"] = leptonSelection.coneptElec(e)
         e["btagDeepFlavB"] = ak.fill_none(e.matched_jet.btagDeepFlavB, -99)
-        e["isPres"] = te_os.isPresElec(e.pt, e.eta, e.dxy, e.dz, e.miniPFRelIso_all, e.sip3d, getattr(e,"mvaFall17V2noIso_WPL"))
-        e["isFO"] = te_os.isFOElec(e.pt, e.conept, e.btagDeepFlavB, e.idEmu, e.convVeto, e.lostHits, e.mvaTTHUL, e.jetRelIso, e.mvaFall17V2noIso_WP90, year)
-        e["isTight"] = te_os.tightSelElec(e.isFO, e.mvaTTHUL)
+        e["isPres"] = leptonSelection.isPresElec(e)
+        e["isFO"] = leptonSelection.isFOElec(e, year)
+        e["isTight"] = leptonSelection.tightSelElec(e)
+        e["isLooseE"] = leptonSelection.isLooseElec(e)
         e['isClean'] = te_os.isClean(e, mu, drmin=0.05)
         e['isGood']  = e['isPres'] & e['isTight'] & e['isClean']
 
@@ -110,9 +125,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Jet selection
 
         jetptname = 'pt_nom' if hasattr(j, 'pt_nom') else 'pt'
-        j["isGood"] = tc_os.is_tight_jet(getattr(j, jetptname), j.eta, j.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
+        j["isGood"] = tc_os.is_tight_jet(getattr(j, jetptname), j.eta, j.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=0)
         j['isClean'] = te_os.isClean(j, e, drmin=0.4)& te_os.isClean(j, mu, drmin=0.4)
         goodJets = j[(j.isClean)&(j.isGood)]
+        goodJets = goodJets[(goodJets.partonFlavour != 0)]
+
         njets = ak.num(goodJets)
         ht = ak.sum(goodJets.pt,axis=-1)
         j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
@@ -150,7 +167,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         return hout
 
-
     def postprocess(self, accumulator):
         return accumulator
 
@@ -159,4 +175,5 @@ if __name__ == '__main__':
     outpath= './coffeaFiles/'
     samples     = load(outpath+'samples.coffea')
     topprocessor = AnalysisProcessor(samples)
+
 
