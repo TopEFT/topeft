@@ -47,6 +47,7 @@ def main():
     parser.add_argument("-z", "--set-up-offZdivision", action="store_true", help = "Copy the ptz and lj0pt cards with 3l offZ division.")
     parser.add_argument("-t", "--tau-flag", action="store_true", help = "Copy the ptz, lj0pt, and ptz_wtau cards for tau channels.")
     parser.add_argument("-f", "--fwd-flag", action="store_true", help = "Copy the ptz, lj0pt, and lt cards for forward channels.")
+    parser.add_argument("-a", "--all-analysis", action="store_true", help = "Copy all channels in with fwd and offZ contributions.")
     args = parser.parse_args()
 
     ###### Print out general info ######
@@ -113,6 +114,8 @@ def main():
             import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
         if args.fwd_flag:
             import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
+        if args.all_analysis:
+            import_sr_ch_lst = select_ch_lst["ALL_CH_LST_SR"]
 
         CATSELECTED = []
 
@@ -130,13 +133,20 @@ def main():
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif "3l" in lep_ch_name and int(jet) == 1 and 'fwd' not in lep_ch_name: # 1j for fwd only
                         continue
-                    elif args.set_up_offZdivision and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
+                    elif args.all_analysis and (
+                         ("3l_onZ_2b" in lep_ch_name and int(jet) == 1) or
+                         ("offZ_2b_fwd" in lep_ch_name and int(jet) == 1) or
+                         ("3l_p_offZ_1b_fwd" in lep_ch_name and int(jet) == 5) or
+                         ("m_offZ_2b_fwd" in lep_ch_name and int(jet) == 4)
+                         ):
+                        continue
+                    elif (args.set_up_offZdivision or args.all_analysis) and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
-                    elif args.tau_flag and ("2los" in lep_ch_name):
+                    elif (args.tau_flag or args.all_analysis) and ("2los" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif args.tau_flag and ("1tau_onZ" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
-                    elif args.fwd_flag and ("fwd" in lep_ch_name or "2lss_p" in lep_ch_name or "2lss_m" in lep_ch_name):
+                    elif (args.fwd_flag or args.all_analysis) and ("fwd" in lep_ch_name and "2lss" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_lt"
                     else:
                         channelname = lep_ch_name + "_" + jet + "j_lj0pt"
