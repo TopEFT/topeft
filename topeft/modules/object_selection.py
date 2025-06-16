@@ -10,6 +10,7 @@ import awkward as ak
 from topcoffea.modules.get_param_from_jsons import GetParam
 from topcoffea.modules.paths import topcoffea_path
 from topeft.modules.paths import topeft_path
+from topeft.modules.genParentage import maxHistoryPDGID
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 
@@ -224,7 +225,274 @@ class run3leptonselection:
     def tightSelMuon(self, muo):
         return (muo.isFO) & (muo.mediumId>0) & (muo.mvaTTH_Run3 > get_te_param("mva_TTH_m_cut_run3"))
 
+def pt_eta_cut_genMatched_objects(gen_matched_object,pt_threshold,eta_threshold):
+    pt_mask = gen_matched_object.pt > pt_threshold
+    eta_mask = abs(gen_matched_object.eta) < eta_threshold
+    pt_eta_mask = ak.fill_none(ak.pad_none((pt_mask & eta_mask),1),False)
+
+    return pt_eta_mask
+
+def object_sel_photon(ph_collection, pt_threshold, eta_threshold):
+    pt_mask = ph_collection.pt > pt_threshold
+    eta_mask = abs(ph_collection.eta) < eta_threshold
+    pt_eta_mask = ak.fill_none(ak.pad_none((pt_mask & eta_mask), 1), False)
+
+    return pt_eta_mask
+
+def pt_eta_cut_genMatched_photons(pt,eta):
+    pt_mask = pt > 20
+    eta_mask = abs(eta) < 1.44
+    pt_eta_mask = (pt_mask & eta_mask)
+    return pt_eta_mask
+
+def mediumPhoton(ph):
+    return (ph.cutBased >= 2)
+
+def mediumEle(ele):
+    return (ele.isMedium)
+
+def mediumMu(mu):
+    return (mu.mediumId)
+
+def maxParentage(genPart):
+    """Filter generated events with overlapping phase space"""
+    genMotherIdx = genPart.genPartIdxMother
+    genpdgId = genPart.pdgId
+    ##calculate maxparent pdgId of the event
+    idx = ak.to_numpy(ak.flatten(abs(genPart.pdgId)))
+    par = ak.to_numpy(ak.flatten(genPart.genPartIdxMother))
+    num = ak.to_numpy(ak.num(genPart.pdgId))
+    maxParentFlatten = maxHistoryPDGID(idx,par,num)
+    genPart["maxParent"] = ak.unflatten(maxParentFlatten, num)
+    genPart["maxParent"] = ak.unflatten(maxParentFlatten, num)
+
+    non_hadronic_parentage = ((abs(genPart.pdgId) == 22) & (genPart.maxParent < 37))
+
+    return non_hadronic_parentage
+
+def selectPhoton(photons):
+    photon_pt_eta_mask = (photons.pt > get_te_param("ph_pt_cut")) & (abs(photons.eta) < get_te_param("ph_eta_cut")) #this is what we want for our SR
+
+    photon_pixelSeed_electronVeto_mask = (np.invert(photons.pixelSeed) & (photons.electronVeto))  #We invert the pixel seed cause we want to veto events with photons that have pixelSeed cause they are misid electrons. They help in suppressing ele->ph backgrounds
+    photon_mediumID = (photons.cutBased >= 2) #At least medium
+
+    #Let's relax two components from medium cutBasedID -- 1. charged isolation and 2. sigmaetaeta
+    #split out the ID requirement using the vid (versioned ID) bitmap
+    #"(x & 3) >= 2" makes sure each component passes medium threshold
+    photon_MinPtCut = (photons.vidNestedWPBitmap >> 0 & 3) >= 2
+    photon_PhoSCEtaMultiRangeCut = (photons.vidNestedWPBitmap >> 2 & 3) >= 2
+    photon_PhoSingleTowerHadOverEmCut = (photons.vidNestedWPBitmap >> 4 & 3) >= 2
+    photon_sieieCut = (photons.vidNestedWPBitmap >> 6 & 3) >= 2
+    photon_ChIsoCut = (photons.vidNestedWPBitmap >> 8 & 3) >= 2
+    photon_NeuIsoCut = (photons.vidNestedWPBitmap >> 10 & 3) >= 2
+    photon_PhoIsoCut = (photons.vidNestedWPBitmap >> 12 & 3) >= 2
+
+    #also define the charged hadron isolation for photons
+    photon_chIso = ((photons.pfRelIso03_chg) * (photons.pt))
+
+    #Future Note: There are a bunch of "fakeable photon" objects defined below. Some are used in derivation of fake rates, others in derivation of kMC factors and others in the main analysis processor. This could be cleaned up in the future.
+
+    #define medium photon mask with relaxed sieie and chIso cut. In lack of better name, calling it "fakeablePhoton" for now. This will be used in determination of FR and kMC factors in nonprompt_fakerate.py
+    fakeablePhoton = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &        #we also want to avoid the gap along the sieie axis
+        (photon_chIso < 15) &
+        ~((photon_chIso >= 1.141) & (photon_chIso <= 4.0)) &          #we also want to avoid the gap along the pf chIso axis
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #define fakeable photon collection to be used only in MR. This is useful in defining photon fake-rate (FR)
+    fakeablePhoton_MR = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &         #we also want to avoid the gap along the sieie axis
+        (photon_chIso < 15) &
+        (4.0 < photon_chIso) &     #For MR, we are only considered with 4 < ch. Iso. < 15
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #define fakeable photon collection to be used only in AR/SR. This is what we will use in the main analysis processor of the analysis
+    fakeablePhoton_AR_SR = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &    #we also want to avoid the gap along the sieie axis
+        photon_ChIsoCut &      #For SR and AR, we are only concerned with ch. Iso. < 1.141
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #the mediumPhoton_relaxedchIso_relaxedsieie is for Region D of ABCD non-prompt photon estimation
+    mediumPhoton_regD = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        ((photons.sieie > 0.012) & (photons.sieie < 0.022)) &
+        (photon_chIso < 15) &
+        (4.0 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #the mediumPhoton_relaxedchIso is for Region C of ABCD non-prompt photon estimation
+    mediumPhoton_regC = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        photon_sieieCut &   #same as medium cutBased ID
+        (photon_chIso < 15) &
+        (4.0 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #the mediumPhoton_relaxedsieie is for Region B of ABCD non-prompt photon estimation
+    mediumPhoton_regB = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        ((photons.sieie > 0.012) & (photons.sieie < 0.022)) &
+        photon_ChIsoCut &      #same as medium cutBased ID
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #this is relevant for studying at what value can we cut on ch. Iso in region C to reduce nonprompt contribution in that region but isn't actively used in analysis processors
+    mediumPhoton_nochIso = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        photon_sieieCut &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    #this is relevant for closure test. This region fails the sieie cut and 1.141 < pf chIso < 4
+    mediumPhoton_regR = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        ((photons.sieie > 0.012) & (photons.sieie < 0.022)) &
+        (photon_chIso < 4.0) &
+        (1.141 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    mediumPhoton_regL = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        photon_sieieCut &
+        (photon_chIso < 4) &
+        (1.141 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    fakeablePhoton_L_R = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &    #we also want to avoid the gap along the sieie axis
+        (photon_chIso < 4) &
+        (1.141 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    fakeablePhoton_LRCD_kMC = (
+        photon_MinPtCut &
+        photon_PhoSCEtaMultiRangeCut &
+        photon_PhoSingleTowerHadOverEmCut &
+        (photons.sieie < 0.022) &
+        ~((photons.sieie >= 0.01015) & (photons.sieie <= 0.012)) &    #we also want to avoid the gap along the sieie axis
+        (photon_chIso < 15) &
+        (1.141 < photon_chIso) &
+        photon_NeuIsoCut &
+        photon_PhoIsoCut
+    )
+
+    photons['mediumPhoton'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & photon_mediumID)   #this is the SR photon
+    photons['mediumPhoton_regD'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regD) #Region D in ABCD
+    photons['mediumPhoton_regC'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regC) #Region C in ABCD
+    photons['mediumPhoton_regB'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regB) #Region B in ABCD
+    photons['mediumPhoton_nochIso'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_nochIso)
+    photons['fakeablePhoton'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton)
+    photons['fakeablePhoton_MR'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton_MR)
+    photons['fakeablePhoton_AR_SR'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton_AR_SR)
+    photons['mediumPhoton_regL'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regL)
+    photons['mediumPhoton_regR'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & mediumPhoton_regR)
+    photons['fakeablePhoton_L_R'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton_L_R)
+    photons['fakeablePhoton_LRCD_kMC'] = (photon_pt_eta_mask & photon_pixelSeed_electronVeto_mask & fakeablePhoton_LRCD_kMC)
+
+def categorizeGenPhoton(photons):    #currently unused
+    """A helper function to categorize MC reconstructed photons
+
+    Returns an integer array to label them as either a generated true photon (1),
+    a mis-identified generated electron (2), a photon from a hadron decay (3),
+    or a fake (e.g. from pileup) (4).
+    Taken from TTGamma processor used in CMSDAS 2023
+    """
+    #### Photon categories, using pdgID of the matched gen particle for the leading photon in the event
+    # reco photons matched to a generated photon
+    # if matched_gen is None (i.e. no match), then we set the flag False
+    matchedPho = ak.fill_none(photons.matched_gen.pdgId == 22, False)
+    # reco photons really generated as electrons
+    matchedEle = ak.fill_none(abs(photons.matched_gen.pdgId) == 11, False)
+    # if the gen photon has a PDG ID > 25 in its history, it has a hadronic parent
+    hadronicParent = ak.fill_none(photons.matched_gen.maxParent > 25, False)
+
+    # define the photon categories for tight photon events
+    # a genuine photon is a reconstructed photon which is matched to a generator level photon, and does not have a hadronic parent
+    isGenPho = matchedPho & ~hadronicParent
+    # a hadronic photon is a reconstructed photon which is matched to a generator level photon, but has a hadronic parent
+    isHadPho = matchedPho & hadronicParent
+    # a misidentified electron is a reconstructed photon which is matched to a generator level electron
+    isMisIDele = matchedEle
+    # a hadronic/fake photon is a reconstructed photon that does not fall within any of the above categories
+    isHadFake = ~isMisIDele & ~isHadPho & ~isGenPho
+
+    # integer definition for the photon category axis
+    # since false = 0 , true = 1, this only leaves the integer value of the category it falls into
+    return 1 * isGenPho + 2 * isMisIDele + 3 * isHadPho + 4 * isHadFake
+
 def isClean(obj_A, obj_B, drmin=0.4):
-    objB_near, objB_DR = obj_A.nearest(obj_B, return_metric=True)
+    objB_near_any_in_A, objB_DR = obj_A.nearest(obj_B, return_metric=True)
     mask = ak.fill_none(objB_DR > drmin, True)
     return (mask)
+
+def is_prompt_photon(genpart_collection,photon_obj):
+
+    #let's first define a mask to make sure our reco photon is matched to a true gen level photon
+    is_true_photon = ak.fill_none(abs(photon_obj.matched_gen.pdgId)==22,False)
+
+    true_photon = photon_obj[is_true_photon]  #collection of reco photon that is matched to a true gen photon
+
+    #first use genPartFlav
+    ph_prompt_match = (true_photon.genPartFlav == 1)
+
+    #Next, let's look at genPartIdx of true_photon collection
+    genpartidx_of_true_photon = true_photon.genPartIdx
+    genparticles_at_genpartidx = genpart_collection[genpartidx_of_true_photon]
+    mother_of_gen_particle = genparticles_at_genpartidx.parent
+
+    #Now let's loop over the parentage history of the genparticles_at_genpartidx collection and see if there is a hadron in the chain. If there is one, it is non-prompt photon
+    mother_is_not_hadron = True
+    while not ak.all(ak.is_none(mother_of_gen_particle, axis=1)):
+        mother_is_not_hadron = (mother_is_not_hadron & ( (ak.fill_none(abs(mother_of_gen_particle.pdgId), 0) < 37) ))
+        mother_of_gen_particle = mother_of_gen_particle.parent
+
+    is_prompt_photon = (ph_prompt_match & mother_is_not_hadron)
+    has_prompt_photon = ak.any(is_prompt_photon,axis=1) #WARNING: The reason this is probably fine is cause we eventually require that the event has exactly 1 photon
+
+    return has_prompt_photon

@@ -68,6 +68,9 @@ CR_CHAN_DICT = {
 
 
 SR_CHAN_DICT = {
+    "2los_SR": [
+        "2los_ph_3j"
+    ],
     "2lss_SR": [
         "2lss_4t_m_4j", "2lss_4t_m_5j", "2lss_4t_m_6j", "2lss_4t_m_7j",
         "2lss_4t_p_4j", "2lss_4t_p_5j", "2lss_4t_p_6j", "2lss_4t_p_7j",
@@ -127,6 +130,7 @@ SR_GRP_MAP = {
     "ttll" : [],
     "tttt" : [],
     "tXq" : [],
+    "ttA" : [],
 }
 
 # Best fit point from TOP-19-001 with madup numbers for the 10 new WCs
@@ -234,7 +238,7 @@ def get_scale_name(sample_name,sample_group_map):
     elif sample_name in sample_group_map["Triboson"]:
         scale_name_for_json = "Triboson"
     elif sample_name in sample_group_map["Signal"]:
-        for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
+        for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt","ttA"]:
             if proc_str in sample_name:
                 # This should only match once, but maybe we should put a check to enforce this
                 scale_name_for_json = proc_str
@@ -819,7 +823,7 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
 
 ###################### Wrapper function for SR data and mc plots (unblind!) ######################
 # Wrapper function to loop over all SR categories and make plots for all variables
-def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
+def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False):
 
     # Construct list of MC samples
     mc_wl = []
@@ -852,6 +856,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="lj0pt")
+    #all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="lj0pt")
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
     data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
     for sample_name in all_samples:
@@ -888,7 +893,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         elif "TTTo" in proc_name or "TTto" in proc_name:
             CR_GRP_MAP["Ttbar"].append(proc_name)
         elif "TTG" in proc_name:
-            SR_GRP_MAP["Conv"].append(proc_name)
+            SR_GRP_MAP["ttA"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             SR_GRP_MAP["Multiboson"].append(proc_name)
         elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
@@ -909,6 +914,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     #}
     analysis_bins['ptz'] = axes_info['ptz']['variable']
     analysis_bins['lj0pt'] = axes_info['lj0pt']['variable']
+    analysis_bins['photon_pt'] = axes_info['photon_pt']['variable']
 
     # Loop over hists and make plots
     skip_lst = ['ptz', 'njets'] # Skip this hist
@@ -922,6 +928,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         # Extract the MC and data hists
         hist_mc_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_data_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
+        if not unblind: hist_data_orig = hist_mc_orig
 
         # Loop over channels
         channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
@@ -1332,7 +1339,10 @@ def main():
     # Make the plots
     make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    # Blinded plots (Asimov data)
     #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
+    # Unblinded plots (real data)
+    #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,unblid=True)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
     #make_simple_plots(hin_dict,args.year,save_dir_path)
 

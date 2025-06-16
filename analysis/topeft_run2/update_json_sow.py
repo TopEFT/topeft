@@ -40,8 +40,8 @@ WEIGHTS_NAME_LST = [
     'renormDown',
     'factUp',
     'factDown',
-    'renormfactUp',
-    'renormfactDown',
+    #'renormfactUp',
+    #'renormfactDown',
 ]
 
 # Construct a dict to hold the hist name and json name, format:

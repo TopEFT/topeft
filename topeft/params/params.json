@@ -27,7 +27,13 @@
     "dxy_tau_cut" : 1000.0,
     "dz_tau_cut" : 0.2,
     "sip3d_cut" : 8,
+    "photonId" : 1,
+    "medium_e" : 3,
 
+    "ph_pt_cut" : 20.0,
+    "ph_eta_cut" : 1.44,
+    "dr_ph_jet_cut" : 0.4,
+    "dr_ph_lep_cut" : 0.4,
 
     "lo_xsec_samples": [
         "TTGamma_centralUL16APV",
@@ -50,15 +56,7 @@
         "TTGJets_centralUL16APV",
         "TTGJets_centralUL16",
         "TTGJets_centralUL17",
-        "TTGJets_centralUL18",
-        "ZGToLLG_centralUL16APV",
-        "ZGToLLG_centralUL16",
-        "ZGToLLG_centralUL17",
-        "ZGToLLG_centralUL18",
-        "TTGamma_centralUL16APV",
-        "TTGamma_centralUL16",
-        "TTGamma_centralUL17",
-        "TTGamma_centralUL18"
+        "TTGJets_centralUL18"
     ],
 
     "prompt_subtraction_samples": [
@@ -77,6 +75,7 @@
         "WWW_4F_central",
         "WWZ_central",
         "WZZ_ext_central",
+        "TTGamma_private",
         "tHq_private",
         "tllq_private",
         "ttHJet_private",
@@ -89,6 +88,43 @@
         "ttW_central",
         "ttZ_central",
         "tttt_central"
+    ],
+
+    "prompt_photon_subtraction_samples": [
+        "TTGamma_central",
+        "ZGToLLG_central",
+        "ZGFSR_central",
+        "ZGISR_central",
+        "TTTo2L2Nu_central",
+        "TTToSemiLeptonic_central",
+        "WWW_central",
+        "WZZ_central",
+        "ZZZ_central",
+        "WWZ_central",
+        "WWW_4F_central",
+        "WWZ_4F_central",
+        "WWTo2L2Nu_central",
+        "WZTo3LNu_central",
+        "ZZTo4L_central",
+        "ST_antitop_t-channel_central",
+        "ST_top_s-channel_central",
+        "ST_top_t-channel_central",
+        "ST_TWGToLL_central",
+        "tW_central",
+        "tbarW_central",
+        "DY10to50_central",
+        "DY50_central",
+        "DYJetsToLL_central",
+        "TWZToLL_central",
+        "WJetsToLNu_central",
+        "TTZToLL_M1to10_central",
+        "tllq_private",
+        "tHq_private",
+        "ttHJet_private",
+        "ttllJet_private",
+        "ttlnuJet_private",
+        "tttt_private",
+        "TTGamma_Dilept_private"
     ],
 
     "chargeflip_sf_dict" : {

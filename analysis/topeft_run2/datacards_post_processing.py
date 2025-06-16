@@ -44,6 +44,7 @@ def main():
     parser.add_argument("-z", "--set-up-offZdivision", action="store_true", help = "Copy the ptz and lj0pt cards with 3l offZ division.")
     parser.add_argument("-t", "--tau-flag", action="store_true", help = "Copy the ptz, lj0pt, and ptz_wtau cards for tau channels.")
     parser.add_argument("-f", "--fwd-flag", action="store_true", help = "Copy the ptz, lj0pt, and lt cards for forward channels.")
+    parser.add_argument("-a", "--tta-flag", action="store_true", help = "Copy the ptz, lj0pt, and lt cards for forward channels.")
     args = parser.parse_args()
 
     ###### Print out general info ######
@@ -110,6 +111,8 @@ def main():
             import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
         if args.fwd_flag:
             import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
+        if args.tta_flag:
+            import_sr_ch_lst = select_ch_lst["TTA_CH_LST_SR"]
 
         CATSELECTED = []
 
@@ -133,6 +136,8 @@ def main():
                         channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
                     elif args.fwd_flag and ("fwd" in lep_ch_name or "2lss_p" in lep_ch_name or "2lss_m" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_lt"
+                    elif args.tta_flag and ("photon" in lep_ch_name or "2los_ph" in lep_ch_name):
+                        channelname = lep_ch_name + "_" + jet + "j_photon_pt"
                     else:
                         channelname = lep_ch_name + "_" + jet + "j_lj0pt"
                     CATSELECTED.append(channelname)

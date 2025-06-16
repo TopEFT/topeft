@@ -19,7 +19,9 @@ from topcoffea.modules.CorrectedJetsFactory import CorrectedJetsFactory
 from topcoffea.modules.JECStack import JECStack
 from coffea.btag_tools.btagscalefactor import BTagScaleFactor
 from coffea.lookup_tools import txt_converters, rochester_lookup
+from coffea.lookup_tools.dense_lookup import dense_lookup
 
+from topeft.modules.axes import info as axes_info
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
@@ -546,6 +548,58 @@ for year in ['2016APV_2016', 2017, 2018]:
 extLepSF.finalize()
 SFevaluator = extLepSF.make_evaluator()
 
+###### Photon scale factors
+################################################################
+extPhoSF = lookup_tools.extractor()
+
+# New UL Photon SFs
+# Muon: reco
+# pT vs super cluster eta
+extPhoSF.add_weight_sets(["PhotonMediumSF_2016 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2016_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2016APV EGamma_SF2D %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2016APV_err EGamma_SF2D_err %s" % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Medium_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2017 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Medium_UL17.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2017_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_PHO_Medium_UL17.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2018 EGamma_SF2D %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Med_UL18.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2018_statData statData %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Med_UL18.root')])
+extPhoSF.add_weight_sets(["PhotonMediumSF_2018_err EGamma_SF2D_err %s"    % topcoffea_path('data/photonSF/egammaEffi_EGM2D_Pho_Med_UL18.root')])
+extPhoSF.add_weight_sets(["SF_CSEV_Medium_2016_postVFP MediumID/SF_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["Staunc_CSEV_Medium_2016_postVFP MediumID/Staunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PUunc_CSEV_Medium_2016_postVFP MediumID/PUunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_postVFP.root')])
+#Model only in UL2017 and 18 extPhoSF.add_weight_sets(["Modelunc_CSEV_Medium_16_postVFP MediumID/Modelunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["SF_HasPix_Medium_2016_postVFP MediumID/SF_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["Staunc_HasPix_Medium_2016_postVFP MediumID/Staunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["PUunc_HasPix_Medium_2016_postVFP MediumID/PUunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_postVFP.root')])
+#Model only in UL2017 and 18 extPhoSF.add_weight_sets(["Modelunc_HasPix_Medium_16_postVFP MediumID/Modelunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_postVFP.root')])
+extPhoSF.add_weight_sets(["SF_CSEV_Medium_2016_preVFP MediumID/SF_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["Staunc_CSEV_Medium_2016_preVFP MediumID/Staunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["PUunc_CSEV_Medium_2016_preVFP MediumID/PUunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_preVFP.root')])
+#Model only in UL2017 and 18 extPhoSF.add_weight_sets(["Modelunc_CSEV_Medium_16_preVFP MediumID/Modelunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["SF_HasPix_Medium_2016_preVFP MediumID/SF_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["Staunc_HasPix_Medium_2016_preVFP MediumID/Staunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["PUunc_HasPix_Medium_2016_preVFP MediumID/PUunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_preVFP.root')])
+#Model only in UL2017 and 18 extPhoSF.add_weight_sets(["Modelunc_HasPix_Medium_16_preVFP MediumID/Modelunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL16_preVFP.root')])
+extPhoSF.add_weight_sets(["SF_CSEV_Medium_2017 MediumID/SF_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["Staunc_CSEV_Medium_2017 MediumID/Staunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["PUunc_CSEV_Medium_2017 MediumID/PUunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["Modelunc_CSEV_Medium_2017 MediumID/Modelunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["SF_HasPix_Medium_2017 MediumID/SF_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["Staunc_HasPix_Medium_2017 MediumID/Staunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["PUunc_HasPix_Medium_2017 MediumID/PUunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["Modelunc_HasPix_Medium_2017 MediumID/Modelunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL17.root')])
+extPhoSF.add_weight_sets(["SF_CSEV_Medium_2018 MediumID/SF_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["Staunc_CSEV_Medium_2018 MediumID/Staunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["PUunc_CSEV_Medium_2018 MediumID/PUunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["Modelunc_CSEV_Medium_2018 MediumID/Modelunc_CSEV_MediumID %s"    % topcoffea_path('data/photonSF/CSEV_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["SF_HasPix_Medium_2018 MediumID/SF_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["Staunc_HasPix_Medium_2018 MediumID/Staunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["PUunc_HasPix_Medium_2018 MediumID/PUunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL18.root')])
+extPhoSF.add_weight_sets(["Modelunc_HasPix_Medium_2018 MediumID/Modelunc_HasPix_MediumID %s"    % topcoffea_path('data/photonSF/HasPix_SummaryPlot_UL18.root')])
+
+extPhoSF.finalize()
+PhoSFevaluator = extPhoSF.make_evaluator()
+
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
 def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
@@ -892,6 +946,75 @@ def AttachPerLeptonFR(leps, flavor, year):
     else:
         leps['fliprate'] = np.zeros_like(leps.pt)
 
+
+def AddPerPhotonFR(events,ph,year,nonprompt_validation_test=False):
+    # Get the fake rates lookup object
+    if year == "2016APV": year_name = "UL16APV"
+    elif year == "2016": year_name = "UL16"
+    elif year == "2017": year_name = "UL17"
+    elif year == "2018": year_name = "UL18"
+    else: raise Exception(f"Not a known year: {year}")
+
+    pt_edges = np.array(axes_info['photon_pt']['variable'])
+    eta_edges = np.array(axes_info['photon_abseta']['variable'])
+
+    #NOTE for future: The FR and kMC numpy files will change in the future. The alphanumeric code in the path is also temporary and will eventually be removed.
+    #We just need a single fake-rate file
+    fr_file = np.load(topeft_path(f"data/photon_fakerates/fr_ph_{year_name}.npz"))
+
+    fr_value = fr_file[fr_file.files[0]]
+    #We need to clip the underflow bins along both axes.
+    fr_value = fr_value[1:,1:]
+    fr_val_lookup = lookup_tools.dense_lookup.dense_lookup(fr_value,[pt_edges, eta_edges])
+    ph['fr_val'] = (fr_val_lookup(ph.pt,abs(ph.eta)))
+
+    fr_error = fr_file[fr_file.files[1]]
+    fr_error = fr_error[1:,1:]
+    fr_err_lookup = lookup_tools.dense_lookup.dense_lookup(fr_error,[pt_edges, eta_edges])
+    ph['fr_err'] = (fr_err_lookup(ph.pt,abs(ph.eta)))
+
+    #Depending on whether we are doing nonprompt validation test or not, we need different kmc files
+    if not nonprompt_validation_test:
+        kmc_file = np.load(topeft_path(f"data/photon_kmc/kmc_ph_{year_name}.npz"))
+
+    else:
+        kmc_file = np.load(topeft_path(f"data/photon_kmc_validation/kmc_ph_{year_name}.npz"))
+
+    kmc_value = kmc_file[kmc_file.files[0]]
+    #We need to clip the underflow bins along both axes.
+    kmc_value = kmc_value[1:,1:]
+    kmc_val_lookup = lookup_tools.dense_lookup.dense_lookup(kmc_value, [pt_edges, eta_edges])
+    ph['kmc_val'] = (kmc_val_lookup(ph.pt,abs(ph.eta)))
+
+    kmc_error = kmc_file[kmc_file.files[1]]
+    #We need to clip the underflow bins along both axes.
+    kmc_error = kmc_error[1:,1:]
+    kmc_err_lookup = lookup_tools.dense_lookup.dense_lookup(kmc_error, [pt_edges, eta_edges])
+    ph['kmc_err'] = (kmc_err_lookup(ph.pt,abs(ph.eta)))
+
+    fakerate_val = (ph.fr_val * ph.kmc_val)
+    fakerate_ph_val = ak.pad_none(fakerate_val, 1)
+
+    fakerate_err = fakerate_val * np.sqrt(pow((ph.fr_err/ph.fr_val),2)+pow((ph.kmc_err/ph.kmc_val),2))
+    fakerate_ph_err = ak.pad_none(fakerate_err, 1)
+
+    fakerate_ph_val = fakerate_ph_val[:,0]  #ALERT: Fine for our case since we need exactly 1 photon but need to revisit this if we relax photon multiplicity cut in the future
+    fakerate_ph_err = fakerate_ph_err[:,0]
+
+    events['fakerate_ph_val'] = fakerate_ph_val
+    events['fakerate_ph_err'] = fakerate_ph_err
+
+#this is where we assign an additional 67% systematic uncertainty on the non-prompt photon yield in the photon pT distribution
+#the 67% uncertainty was determined using a dedicated data-driven nonprompt validation test for ABCD method (summed over all years)
+def additional_nonprompt_ph_unc(events, last_bin_pt_mask):
+    nominal = np.ones(len(events))
+    #If last bin, scale the yield up/down by 83% and if other bins, keep nominal yield
+    up_variation = ak.where(last_bin_pt_mask, nominal * 1.83, nominal)
+    down_variation = ak.where(last_bin_pt_mask, nominal * 0.17, nominal)
+
+    events['np_ph_up'] = up_variation
+    events['np_ph_down'] = down_variation
+
 def fakeRateWeight1l(events, lep1):
     for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown']:
         fakefactor_2l =  (~lep1.isTightLep + (1)*(lep1.isTightLep)) # if all are tight the FF is 1 because events are in the SR
@@ -1214,6 +1337,67 @@ def AttachElectronSF(electrons, year, looseWP=None):
     electrons['sf_nom_3l_muon'] = ak.ones_like(reco_sf)
     electrons['sf_hi_3l_muon']  = ak.ones_like(reco_sf)
     electrons['sf_lo_3l_muon']  = ak.ones_like(reco_sf)
+
+def AttachPhotonSF(photons, year):
+    '''
+      Description:
+          Inserts 'sf_nom', 'sf_hi', and 'sf_lo' into the photons array passed to this function. These
+          values correspond to the nominal, up, and down photon scalefactor values respectively.
+    '''
+    sieie = np.abs(photons.sieie)
+    pt = photons.pt
+    eta = photons.eta
+    aeta = np.abs(photons.eta)
+    r9 = photons.r9
+    if year not in ['2016','2016APV','2017','2018']: raise Exception(f"Error: Unknown year \"{year}\".")
+    photon_sf  = PhoSFevaluator['PhotonMediumSF_{year}'.format(year=year)](sieie,pt)
+    photon_err = np.power(PhoSFevaluator['PhotonMediumSF_{year}_err'.format(year=year)](sieie,pt), 2)
+
+    sf_year = year
+    if '2016APV' in year:
+        sf_year = '2016_preVFP'
+    elif '2016' in year:
+        sf_year = '2016_postVFP'
+    '''
+    High R9 [R9 > 0.96], Low R9 [R9 < 0.96]
+    EB: |eta| < 1.5
+    EE: 1.5 > |eta| > 2.5
+    '''
+    r9_cut  = 0.96
+    eta_cut = 1.5
+    EBhR9 = (1 * ak.ones_like(r9))
+    EBlR9 = (2 * ak.ones_like(r9))
+    EEhR9 = (4 * ak.ones_like(r9))
+    EElR9 = (5 * ak.ones_like(r9))
+    for sf_type in ['CSEV', 'HasPix']:
+        EBlR9_sf = PhoSFevaluator[f'SF_{sf_type}_Medium_{sf_year}'](EBlR9)
+        EBhR9_sf = PhoSFevaluator[f'SF_{sf_type}_Medium_{sf_year}'](EBhR9)
+        EElR9_sf = PhoSFevaluator[f'SF_{sf_type}_Medium_{sf_year}'](EElR9)
+        EEhR9_sf = PhoSFevaluator[f'SF_{sf_type}_Medium_{sf_year}'](EEhR9)
+        tmp_sf = ak.ones_like(photon_sf)
+        tmp_sf = ak.where((aeta < eta_cut) & (r9<r9_cut), EBlR9_sf[aeta<eta_cut], tmp_sf)
+        tmp_sf = ak.where((aeta < eta_cut) & (r9>r9_cut), EBhR9_sf[aeta<eta_cut], tmp_sf)
+        tmp_sf = ak.where((aeta > eta_cut) & (r9<r9_cut), EElR9_sf[aeta<eta_cut], tmp_sf)
+        tmp_sf = ak.where((aeta > eta_cut) & (r9>r9_cut), EEhR9_sf[aeta<eta_cut], tmp_sf)
+        photon_sf = photon_sf * tmp_sf
+        for syst_type in ['Staunc', 'PUunc', 'Modelunc']:
+            if '16' in sf_year and 'Model' in syst_type:
+                #Model only in UL17 and 18
+                continue
+            tmp_err = ak.ones_like(photon_err)
+            tmp_err  = ak.where((aeta < eta_cut) & (r9<r9_cut),
+                                PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EBlR9)[aeta<eta_cut], tmp_err)
+            tmp_err  = ak.where((aeta < eta_cut) & (r9>r9_cut),
+                                PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EBhR9)[aeta<eta_cut], tmp_err)
+            tmp_err  = ak.where((aeta > eta_cut) & (r9<r9_cut),
+                                PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EElR9)[aeta<eta_cut], tmp_err)
+            tmp_err  = ak.where((aeta > eta_cut) & (r9>r9_cut),
+                                PhoSFevaluator[f'{syst_type}_{sf_type}_Medium_{sf_year}'](EEhR9)[aeta<eta_cut], tmp_err)
+            photon_err = photon_err + np.power(tmp_err, 2)
+
+    photons['sf_nom_photon'] = photon_sf
+    photons['sf_hi_photon']  = photon_sf + np.sqrt(photon_err)
+    photons['sf_lo_photon']  = photon_sf - np.sqrt(photon_err)
 
 ###### Btag scale factors
 ################################################################
@@ -1668,3 +1852,31 @@ def GetTriggerSF(year, events, lep0, lep1):
     events['trigger_sf'] = ls[0] # nominal
     events['trigger_sfDown'] = ls[0] - np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
     events['trigger_sfUp'] = ls[0] + np.sqrt(ls[1] * ls[1] + ls[0]*0.02*ls[0]*0.02)
+
+#This creates an event weight based on the photon pT correction factor (CF) derived to correct private ttgamma samples
+def ApplyttgammaCF(year, events):
+    #First load the photon from the events collection
+    padded_photon = ak.pad_none(events.ph_fo_pt_sorted, 1)
+    a0 = padded_photon[:,0]
+
+    #Next, load the file with the correction factors
+    pathToCF = topeft_path('data/ttg_private_corrections/cf.json')
+
+    with open(pathToCF,"r") as fin:
+        cf_data = json.load(fin)
+
+    pt_edges = np.array(cf_data["pt_edges"])
+    cf_dict = cf_data["correction_factors"]
+
+    if year != "all":
+        photon_corr_lookup = dense_lookup(np.array(cf_dict[year]),pt_edges)
+
+    else:
+        photon_corr_lookup = dense_lookup(np.array(cf_dict["all"]),pt_edges)
+
+    #Use lookup tools to determine what correction to apply based on what the pT of the photon is
+    pt_corr = photon_corr_lookup(a0.pt)
+
+    events['photon_pt_cf'] = pt_corr #the weight by which the "old nominal" yield for ttgamma private sample should be scaled. This is the "new nominal"
+    events['photon_pt_cf_up'] = (pt_corr**2) #Up variation is to apply the pt correction weight once more on the "new nominal"
+    events['photon_pt_cf_down'] = (events.nom) #Down variation is to not apply any pt correction weight on the "old nominal"

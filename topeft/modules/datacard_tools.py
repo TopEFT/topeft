@@ -120,6 +120,9 @@ class MissingParton(RateSystematic):
         "3l_p_offZ_2b": "3l2b_p",
         "3l_m_offZ_2b": "3l2b_m",
         "4l_2b": "4l",
+        "2los_ph_CR_sf_Zg": "2lss_m_2b",  #CAUTION: temporary
+        "2los_sf_ph": "2lss_m_2b", #CAUTION: temporary
+        "2los_of_ph": "2lss_m_2b", #CAUTION: temporary
     }
 
     def __init__(self,name,**kwargs):
@@ -148,8 +151,9 @@ class DatacardMaker():
             "ZZZ_",
         ],
         "tWZ": ["TWZToLL_"],
-        "convs": ["TTGamma_"],
+        #"convs": ["TTGamma_"],
         "fakes": ["nonprompt"],
+        "fakePh": ["nonpromptPh"],
         "charge_flips_": ["flips"],
         "data_obs": ["data"],
 
@@ -161,6 +165,7 @@ class DatacardMaker():
             "TTTo2L2Nu_",
         ],
         "ttlnu_": ["ttlnuJet_"],
+        "ttA_": ["TTGamma_Dilept_","TTGamma_"],
     }
 
     # Controls how we rebin the dense axis of the corresponding distribution
@@ -176,7 +181,7 @@ class DatacardMaker():
     FNAME_TEMPLATE = "ttx_multileptons-{cat}_{kmvar}.{ext}"
     # FNAME_TEMPLATE = "TESTING_ttx_multileptons-{cat}.{ext}"
 
-    SIGNALS = set(["ttH","tllq","ttll","ttlnu","tHq","tttt"])
+    SIGNALS = set(["ttH","tllq","ttll","ttlnu","tHq","tttt","ttA"])
 
     @classmethod
     def get_year(cls,s):
@@ -243,7 +248,7 @@ class DatacardMaker():
             For the regular expression, group 1 matches 'njet_bjet', group 2 matches 'bjet_njet'
             group 3 matches '_njet'.
         """
-        rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[2-7]j)|(_[2-7]j$)")
+        rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[2-7]j)|(_[1-7]j$)")
 
         m = rgx.search(s)
         if m.group(1) and m.group(2) is None and m.group(3) is None:
@@ -266,6 +271,8 @@ class DatacardMaker():
     @classmethod
     def get_lep_mult(cls,s):
         """ Returns the lepton multiplicity based on the string passed to it."""
+        if s.startswith("2los_"):
+            return 2.1 # Hack because photon 2los starts at 1 jet
         if s.startswith("2lss_"):
             return 2
         elif s.startswith("3l_"):
@@ -324,6 +331,7 @@ class DatacardMaker():
             "TTJets",
             "WJetsToLNu",
             "TTGJets",  # This is the old low stats convs process, new one should be TTGamma
+            #"TTGamma_central",
 
             # "TTGamma",
             # "WWTo2L2Nu","ZZTo4L",#"WZTo3LNu",
@@ -380,7 +388,7 @@ class DatacardMaker():
         self.syst_shape_decorrelate = {
             "ISR": [
                 {
-                    "matches": ["ttH","ttll","tttt","convs"],
+                    "matches": ["ttH","ttll","tttt","ttA"],
                     "group": "gg",
                 },
                 {
@@ -400,6 +408,10 @@ class DatacardMaker():
                 "matches": [".*"],
                 "group": "",
             }]
+        }
+
+        self.syst_to_skip = {
+            "ttA": "charge_flips"
         }
 
         if extra_ignore:
@@ -813,6 +825,8 @@ class DatacardMaker():
         num_l = self.get_lep_mult(ch)
         if num_l == 2 or num_l == 4:
             num_b = 2
+        if num_l == 2.1:  #corresponds to the photon specific channels
+            num_b = 1
 
         outf_root_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="root")
 
@@ -838,8 +852,12 @@ class DatacardMaker():
                 # TODO This is a hack for now, track this upstream
                 if 'charge_flip' in p and '2l' not in ch:
                     continue
+                if 'charge_flip' in p and '2los' in ch:
+                    continue
                 # TODO This is a hack for now, track this upstream
                 if 'fakes' in p and '4l' in ch:
+                    continue
+                if 'fakePh' in p and '_ph' not in ch:
                     continue
                 proc_hist = ch_hist.integrate("process",[p])
                 proc_sumw2 = ch_sumw2 if ch_sumw2 is None else ch_sumw2.integrate("process",[p])
@@ -889,6 +907,14 @@ class DatacardMaker():
                                 raise Warning("Systematics Error arr[0]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
                             if check_zero_arr1 and sum(arr[1]) != 0:
                                 raise Warning("Systematics Error arr[1]:Zero values in 'nominal' but non-zero in '%s'" % (syst))
+
+                        #CAUTION: Not sure if we want this to be permanent. Employing this hack to handle bins with 0 sum
+                        if not check_zero_arr0 and sum(arr[0]) == 0:
+                            arr[0] = np.ones_like(arr[0]) * 0.01
+                            print("Systematics Error arr[0]:Zero values in '%s' but non-zero in 'nominal'" % (syst))
+                        if not check_zero_arr1 and sum(arr[1]) == 0:
+                            arr[1] = np.ones_like(arr[1]) * 0.01
+                            print("Systematics Error arr[1]:Zero values in '%s' but non-zero in 'nominal'" % (syst))
 
                         sum_arr = sum(arr[0])
                         if sum_arr == 0: continue #TODO find a more elegant solution
@@ -1066,6 +1092,9 @@ class DatacardMaker():
                         if num_l == 2:
                             njet_offset = 4
                             ch_key = f"{ch_key}_{num_b}b"
+                        elif num_l == 2.1:
+                            njet_offset = 1
+                            ch_key = "2lss_m_2b"   #CAUTION: Temporary! Fix this later!
                         elif num_l == 3:
                             njet_offset = 2
                             if "_onZ" in ch:
@@ -1078,6 +1107,9 @@ class DatacardMaker():
                                 raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
                         elif num_l == 4:
                             njet_offset = 2
+                            ch_key = f"{ch_key}_{num_b}b"
+                        elif num_l == 2.1:
+                            njet_offset = 1
                             ch_key = f"{ch_key}_{num_b}b"
                         else:
                             raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
@@ -1100,6 +1132,12 @@ class DatacardMaker():
                 f.write("* autoMCStats 10\n")
             else:
                 f.write("* autoMCStats -1\n")
+
+        outf_json_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="json")
+        with open(os.path.join(self.out_dir,f"{outf_json_name}"),"w") as f:
+            print('making', os.path.join(self.out_dir,f"{outf_json_name}"))
+            json.dump(self.scalings_json, f, indent=4)
+
         dt = time.time() - tic
         print(f"File Write Time: {dt:.2f} s")
         print(f"Total Hists Written: {num_h}")
@@ -1120,7 +1158,9 @@ class DatacardMaker():
         tic = time.time()
 
         sm = h.eval({})
-        sm_w2 = sumw2.eval(vals)
+        if sumw2 is None:
+            print("No sumw2 histogram found! Setting errors to 0")
+        sm_w2 = sumw2.eval(vals) if sumw2 is not None else 0
         sm = add_sumw2_stub(sm,sm_w2)
 
         # Note: The keys of this dictionary are a pretty contrived, but are useful later on

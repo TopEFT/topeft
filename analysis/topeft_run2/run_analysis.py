@@ -52,9 +52,12 @@ if __name__ == '__main__':
     parser.add_argument('--offZ-split'      , action='store_true', help = 'Split up 3l offZ categories')
     parser.add_argument('--tau_h_analysis'  , action='store_true', help = 'Add tau channels')
     parser.add_argument('--fwd-analysis'    , action='store_true', help = 'Add fwd channels')
+    parser.add_argument('--ttA-analysis'    , action='store_true', help = 'Add ttA channels')
+    parser.add_argument('--modify-variance' , action='store_true', help = 'Modify sumw2 of photon pT histogram only relevant to ttA analysis')
     parser.add_argument('--skip-sr', action='store_true', help = 'Skip all signal region categories')
     parser.add_argument('--skip-cr', action='store_true', help = 'Skip all control region categories')
     parser.add_argument('--do-np'  , action='store_true', help = 'Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.')
+    parser.add_argument('--do_np_ph', action='store_true', help='Perform photon non-prompt estimation')
     parser.add_argument('--do-renormfact-envelope', action='store_true', help = 'Perform renorm/fact envelope calculation on the output hist (saves the modified with the the same name as the original.')
     parser.add_argument('--wc-list', action='extend', nargs='+', help = 'Specify a list of Wilson coefficients to use in filling histograms.')
     parser.add_argument('--hist-list', action='extend', nargs='+', help = 'Specify a list of histograms to fill.')
@@ -80,9 +83,12 @@ if __name__ == '__main__':
     offZ_split = args.offZ_split
     tau_h_analysis = args.tau_h_analysis
     fwd_analysis = args.fwd_analysis
+    ttA_analysis = args.ttA_analysis
+    modify_variance = args.modify_variance
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
+    do_np_ph   = args.do_np_ph
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
 
@@ -127,6 +133,8 @@ if __name__ == '__main__':
             hist_lst.append("ptz_wtau")
         if fwd_analysis:
             hist_lst.append("lt")
+        if ttA_analysis:
+            hist_lst.extend(['photon_pt','photon_eta','photon_abseta','photon_pt','photon_pt_eta'])
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0eta", "l1pt", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass"]
@@ -252,7 +260,7 @@ if __name__ == '__main__':
     else:
         print('No Wilson coefficients specified')
 
-    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr,offZ_split=offZ_split,tau_h_analysis=tau_h_analysis,fwd_analysis=fwd_analysis)
+    processor_instance = analysis_processor.AnalysisProcessor(samplesdict,wc_lst,hist_lst,ecut_threshold,do_errors,do_systs,split_lep_flavor,skip_sr,skip_cr,offZ_split=offZ_split,tau_h_analysis=tau_h_analysis,fwd_analysis=fwd_analysis,ttA_analysis=ttA_analysis)
 
     if executor == "work_queue":
         executor_args = {
@@ -363,9 +371,13 @@ if __name__ == '__main__':
 
     # Run the data driven estimation, save the output
     if do_np:
-        print("\nDoing the nonprompt estimation...")
         out_pkl_file_name_np = os.path.join(outpath,outname+"_np.pkl.gz")
-        ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np)
+        if ttA_analysis and do_np_ph:
+            print("\nDoing nonprompt lepton and photon estimation...")
+            ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np, ttA_analysis=args.ttA_analysis, do_np_ph=args.do_np_ph, modify_variance=args.modify_variance)
+        else:
+            print("\nDoing nonprompt lepton estimation.....")
+            ddp = DataDrivenProducer(out_pkl_file,out_pkl_file_name_np)
         print(f"Saving output in {out_pkl_file_name_np}...")
         ddp.dumpToPickle()
         print("Done!")
