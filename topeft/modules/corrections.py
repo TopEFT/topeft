@@ -555,7 +555,7 @@ SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
-def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
+def ApplyTES(year, taus, isData, vsJetWP="Loose"):
     if isData:
         return (taus.pt, taus.mass)
     pt  = taus.pt
@@ -572,6 +572,12 @@ def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
     padded_taus = ak.with_name(padded_taus, "TauCandidate")
 
     clib_year = clib_year_map[year]
+    is_run2 = False
+    if year.startswith("201"):
+        is_run2 = True
+
+    is_run3 = not is_run2
+
     json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
     ceval = correctionlib.CorrectionSet.from_file(json_path)
 
@@ -586,11 +592,20 @@ def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
     pt_mask_flat = ak.flatten((pt>0) & (pt<1000))
 
     ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
-    deep_tau_cuts = [
+
+    if is_run2:
+        deep_tau_cuts = [
         ("DeepTau2017v2p1VSjet", ak.flatten(padded_taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
         ("DeepTau2017v2p1VSe", ak.flatten(padded_taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
         ("DeepTau2017v2p1VSmu", ak.flatten(padded_taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
-    ]
+        ]
+
+    if is_run3:
+        deep_tau_cuts = [
+        ("DeepTau2018v2p5VSjet", ak.flatten(padded_taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
+        ("DeepTau2018v2p5VSe", ak.flatten(padded_taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
+        ("DeepTau2018v2p5VSmu", ak.flatten(padded_taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
+        ]
 
     DT_sf_list = []
     DT_up_list = []
@@ -738,12 +753,26 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
 
     pt_mask_flat = ak.flatten((pt>20) & (pt<205))
 
+    is_run2 = False
+    if year.startswith("201"):
+        is_run2 = True
+
+    is_run3 = not is_run2
+
     ## Correction-lib implementation - MUST BE TESTED WHEN TAU IN THE MASTER BRANCH PROCESSOR
-    deep_tau_cuts = [
+    if is_run2:
+        deep_tau_cuts = [
         ("DeepTau2017v2p1VSjet", ak.flatten(padded_taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
         ("DeepTau2017v2p1VSe", ak.flatten(padded_taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
         ("DeepTau2017v2p1VSmu", ak.flatten(padded_taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
-    ]
+        ]
+
+    if is_run3:
+        deep_tau_cuts = [
+        ("DeepTau2018v2p5VSjet", ak.flatten(padded_taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
+        ("DeepTau2018v2p5VSe", ak.flatten(padded_taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
+        ("DeepTau2018v2p5VSmu", ak.flatten(padded_taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
+        ]
 
     for deep_tau_cut in deep_tau_cuts:
         discr = deep_tau_cut[0]
