@@ -6,7 +6,7 @@ are included in a single plot. The default is 5.
 If `group>1` the file names will contain the channel and a unique number.
 If `group==1` the file names will contain the channel and systematic.
 Example run:
-    `python make_syst_plots.py /scratch365/byates2/3l_fwd/ptz-lj0pt_withSys/ -o ~/www/EFT/systs/group5/ --group 5`
+    `python make_syst_plots.py /scratch365/byates2/3l_fwd/ptz-lj0pt_withSys/ -o ~/www/EFT/systs/group5/ --group 5 -C`
 '''
 import numpy as np
 np.seterr(divide='ignore', invalid='ignore')
