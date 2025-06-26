@@ -163,6 +163,9 @@ if __name__ == "__main__":
     do_np = args.do_np
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
+    ecut = args.ecut
+    port = args.port
+    hist_list = args.hist_list
 
     if args.options:
         import yaml
@@ -223,13 +226,13 @@ if __name__ == "__main__":
             )
 
     # Set the threshold for the ecut (if not applying a cut, should be None)
-    ecut_threshold = args.ecut
+    ecut_threshold = ecut
     if ecut_threshold is not None:
-        ecut_threshold = float(args.ecut)
+        ecut_threshold = float(ecut)
 
     if executor in ["work_queue", "taskvine"]:
         # construct wq port range
-        port = list(map(int, args.port.split("-")))
+        port = list(map(int, port.split("-")))
         if len(port) < 1:
             raise ValueError("At least one port value should be specified.")
         if len(port) > 2:
@@ -239,7 +242,7 @@ if __name__ == "__main__":
             port.append(port[0])
 
     # Figure out which hists to include
-    if args.hist_list == ["ana"]:
+    if hist_list == ["ana"]:
         # Here we hardcode a list of hists used for the analysis
         hist_lst = ["njets", "lj0pt", "ptz"]
         if tau_h_analysis:
