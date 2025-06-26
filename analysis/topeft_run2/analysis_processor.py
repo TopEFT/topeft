@@ -333,6 +333,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         ################### Tau selection ####################
 
         if self.tau_h_analysis:
+            if is_run2:
+                tau["isVLoose"]  = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet)
+                tau["isLoose"]   = te_os.isLooseTau(tau.idDeepTau2017v2p1VSjet)
+                tau["iseTight"]  = te_os.iseTightTau(tau.idDeepTau2017v2p1VSe)
+                tau["ismTight"]  = te_os.ismTightTau(tau.idDeepTau2017v2p1VSmu)
+            if is_run3:
+                tau["isVLoose"]  = te_os.isVLooseTau(tau.idDeepTau2018v2p5VSjet)
+                tau["isLoose"]   = te_os.isLooseTau(tau.idDeepTau2018v2p5VSjet)
+                tau["iseTight"]  = te_os.iseTightTau(tau.idDeepTau2018v2p5VSe)
+                tau["ismTight"]  = te_os.ismTightTau(tau.idDeepTau2018v2p5VSmu)
+
             tau["pt"], tau["mass"] = ApplyTES(year, tau, isData)
             tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
             tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.3)
@@ -341,10 +352,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             tau['DMflag'] = ((tau.decayMode==0) | (tau.decayMode==1) | (tau.decayMode==10) | (tau.decayMode==11))
             tau = tau[tau['DMflag']]
-            tau["isVLoose"]  = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet)
-            tau["isLoose"]   = te_os.isLooseTau(tau.idDeepTau2017v2p1VSjet)
-            tau["iseTight"]  = te_os.iseTightTau(tau.idDeepTau2017v2p1VSe)
-            tau["ismTight"]  = te_os.ismTightTau(tau.idDeepTau2017v2p1VSmu)
 
             cleaning_taus = tau[tau["isLoose"]>0]
             nLtau  = ak.num(tau[tau["isLoose"]>0] )
