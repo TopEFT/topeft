@@ -164,6 +164,36 @@ if __name__ == "__main__":
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
 
+    if args.options:
+        import yaml
+        with open(args.options,'r') as f:
+            ops = yaml.load(f,Loader=yaml.Loader)
+        jsonFiles = ops.pop("jsonFiles",jsonFiles)
+        prefix = ops.pop("prefix",prefix)
+        executor = ops.pop("executor",executor)
+        dotest = ops.pop("test",dotest)
+        nworkers = ops.pop("nworkers",nworkers)
+        chunksize = ops.pop("chunksize",chunksize)
+        nchunks = ops.pop("nchunks",nchunks)
+        outname = ops.pop("outname",outname)
+        outpath = ops.pop("outpath",outpath)
+        pretend = ops.pop("pretend",pretend)
+        treename = ops.pop("treename",treename)
+        do_errors = ops.pop("do_errors",do_errors)
+        do_systs = ops.pop("do_systs",do_systs)
+        split_lep_flavor = ops.pop("split_lep_flavor",split_lep_flavor)
+        offZ_split = ops.pop("offZ_split",offZ_split)
+        tau_h_analysis = ops.pop("tau_h_analysis",tau_h_analysis)
+        fwd_analysis = ops.pop("fwd_analysis",fwd_analysis)
+        skip_sr = ops.pop("skip_sr",skip_sr)
+        skip_cr = ops.pop("skip_cr",skip_cr)
+        do_np = ops.pop("do_np",do_np)
+        do_renormfact_envelope = ops.pop("do_renormfact_envelope",do_renormfact_envelope)
+        wc_lst = ops.pop("wc_list",wc_lst)
+        hist_list = ops.pop("hist_list",hist_list)
+        port = ops.pop("port",port)
+        ecut = ops.pop("ecut",ecut)
+
     # Check if we have valid options
     if executor not in LST_OF_KNOWN_EXECUTORS:
         raise Exception(
