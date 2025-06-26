@@ -139,6 +139,11 @@ if __name__ == "__main__":
         default="9123-9130",
         help="Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.",
     )
+    parser.add_argument(
+        "--options",
+        default=None,
+        help="YAML file that specifies command-line options. Options explicitly set at command-line take precedence"
+    )
 
     args = parser.parse_args()
     jsonFiles = args.jsonFiles
