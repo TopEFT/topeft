@@ -102,6 +102,9 @@ if __name__ == "__main__":
     )
     parser.add_argument("--fwd-analysis", action="store_true", help="Add fwd channels")
     parser.add_argument(
+        "--dphill_analysis", action="store_true", help="Add tau channels"
+    )
+    parser.add_argument(
         "--skip-sr", action="store_true", help="Skip all signal region categories"
     )
     parser.add_argument(
@@ -158,6 +161,7 @@ if __name__ == "__main__":
     offZ_split = args.offZ_split
     tau_h_analysis = args.tau_h_analysis
     fwd_analysis = args.fwd_analysis
+    dphill_analysis = args.dphill_analysis
     skip_sr = args.skip_sr
     skip_cr = args.skip_cr
     do_np = args.do_np
@@ -216,6 +220,8 @@ if __name__ == "__main__":
             hist_lst.append("ptz_wtau")
         if fwd_analysis:
             hist_lst.append("lt")
+        if dphill_analysis:
+            hist_lst.append("dphill")
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
@@ -379,6 +385,7 @@ if __name__ == "__main__":
         offZ_split=offZ_split,
         tau_h_analysis=tau_h_analysis,
         fwd_analysis=fwd_analysis,
+        dphill_analysis=dphill_analysis,
     )
 
     if executor in ["work_queue", "taskvine"]:

@@ -75,4 +75,9 @@ info = {
         "variable": [0,150,250,500],
         "label": r"Scalar sum of met at leading leptons (GeV)",
     },
+    "dphill": {
+        "regular": (10, -1, 1),
+        "variable": [-1, -0.5, 0, 0.5, 1],
+        "label": r"\Delta \phi of Z candidate leptons (GeV)",
+    },
 }

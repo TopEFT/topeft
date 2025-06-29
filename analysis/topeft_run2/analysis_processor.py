@@ -57,7 +57,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
+    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, dphill_analysis=False):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -65,6 +65,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.offZ_3l_split = offZ_split
         self.tau_h_analysis = tau_h_analysis
         self.fwd_analysis = fwd_analysis
+        self.dphill_analysis = dphill_analysis
 
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
@@ -595,6 +596,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
             elif self.tau_h_analysis:
                 import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
+            elif self.dphill_analysis:
+                import_sr_cat_dict = select_cat_dict["DPHILL"]
             elif self.fwd_analysis:
                 import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
             else:
@@ -837,6 +840,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 ptz_wtau = (l0+tau0).pt
             if self.offZ_3l_split:
                 ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+            dphill = te_es.get_ll_dphi(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
             bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
@@ -896,6 +900,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
+            if self.dphill_analysis:
+                varnames["dphill"]     = dphill
 
             ########## Fill the histograms ##########
 
