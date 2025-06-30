@@ -500,7 +500,7 @@ def get_ll_dphi(lep_collection,pt_window):
     zpeak_idx = ak.argmin(abs(pair_invmass_with_sfosz_mask - 91.2),keepdims=True,axis=1)
     dphi_of_sfosz = pair_dphi_with_sfosz_mask[zpeak_idx]
 
-    return ak.flatten(dphi_of_sfosz)
+    return ak.firsts(dphi_of_sfosz)
 
 def lt_Z_mask(lep0, lep1, tau, pt_window):
     sfosz_l0t_mask = ((lep0.pdgId/abs(lep0.pdgId)) == tau.charge)
