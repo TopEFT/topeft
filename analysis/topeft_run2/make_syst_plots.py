@@ -28,7 +28,7 @@ CMS_COLORS = ["#5790fc", "#f89c20", "#e42536", "#964a8b", "#9c9ca1", "#7a21dd"]
 var_lookup = {'lj0pt': r'$\it{p}_{\rm{T}} (\ell j)_{\rm{max}}$', 'ptz': r'$\it{p}_{\rm{T}}(\rm{Z})$', 'lt': r'$\it{L}_{\rm{T}}$', 'photon_pt': r'$\gamma \it{p}_{\rm{T}}$'}
 
 parser = argparse.ArgumentParser()
-parser.add_argument("input_path", default="histos/plotsTopEFT.pkl.gz", help = "The path to the pkl file")
+parser.add_argument("input_path", default="histos", help = "The path to the datacard files")
 parser.add_argument("-n", "--name_str", default="ttx_multileptons-", help = "The path to the pkl file")
 parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
 parser.add_argument("--group",             default="5", help = "The path the output files should be saved to")
@@ -183,8 +183,8 @@ def plot_hists(hists, path, group=1):
         fig,ax = new_fig()
         fig2,ax2 = new_fig()
         label='Preliminary'
-        hep.cms.label(label, lumi='138', ax=ax) 
-        hep.cms.label(label, lumi='138', ax=ax2) 
+        hep.cms.label(label, lumi='138', ax=ax)
+        hep.cms.label(label, lumi='138', ax=ax2)
         ax.axhline(y=1, color='gray')
         iplot = 0
         ymin = 1
