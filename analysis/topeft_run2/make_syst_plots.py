@@ -29,9 +29,9 @@ var_lookup = {'lj0pt': r'$\it{p}_{\rm{T}} (\ell j)_{\rm{max}}$', 'ptz': r'$\it{p
 
 parser = argparse.ArgumentParser()
 parser.add_argument("input_path", default="histos", help = "The path to the datacard files")
-parser.add_argument("-n", "--name_str", default="ttx_multileptons-", help = "The path to the pkl file")
+parser.add_argument("-n", "--name_str", default="ttx_multileptons-", help = "Prefix in datacard file names")
 parser.add_argument("-o", "--output-path", default=".", help = "The path the output files should be saved to")
-parser.add_argument("--group",             default="5", help = "The path the output files should be saved to")
+parser.add_argument("--group",             default="5", help = "Number of systematic terms to plot per image")
 parser.add_argument("--condor","-C",action="store_true",help="Split up the channels into multiple condor jobs")
 parser.add_argument("--ch-lst","-c",default=[],action="extend",nargs="+",help="Specify a list of channels to process.")
 
