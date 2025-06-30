@@ -41,7 +41,7 @@ if __name__ == "__main__":
         help="Json file(s) containing files and metadata",
     )
     parser.add_argument(
-        "--executor", "-x", default="futures", help="Which executor to use"
+        "--executor", "-x", default="work_queue", help="Which executor to use"
     )
     parser.add_argument(
         "--prefix",
