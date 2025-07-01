@@ -139,6 +139,11 @@ if __name__ == "__main__":
         default="9123-9130",
         help="Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.",
     )
+    parser.add_argument(
+        "--options",
+        default=None,
+        help="YAML file that specifies command-line options. Options explicitly set at command-line take precedence"
+    )
 
     args = parser.parse_args()
     jsonFiles = args.jsonFiles
@@ -163,6 +168,39 @@ if __name__ == "__main__":
     do_np = args.do_np
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
+    ecut = args.ecut
+    port = args.port
+    hist_list = args.hist_list
+
+    if args.options:
+        import yaml
+        with open(args.options,'r') as f:
+            ops = yaml.load(f,Loader=yaml.Loader)
+        jsonFiles = ops.pop("jsonFiles",jsonFiles)
+        prefix = ops.pop("prefix",prefix)
+        executor = ops.pop("executor",executor)
+        dotest = ops.pop("test",dotest)
+        nworkers = ops.pop("nworkers",nworkers)
+        chunksize = ops.pop("chunksize",chunksize)
+        nchunks = ops.pop("nchunks",nchunks)
+        outname = ops.pop("outname",outname)
+        outpath = ops.pop("outpath",outpath)
+        pretend = ops.pop("pretend",pretend)
+        treename = ops.pop("treename",treename)
+        do_errors = ops.pop("do_errors",do_errors)
+        do_systs = ops.pop("do_systs",do_systs)
+        split_lep_flavor = ops.pop("split_lep_flavor",split_lep_flavor)
+        offZ_split = ops.pop("offZ_split",offZ_split)
+        tau_h_analysis = ops.pop("tau_h_analysis",tau_h_analysis)
+        fwd_analysis = ops.pop("fwd_analysis",fwd_analysis)
+        skip_sr = ops.pop("skip_sr",skip_sr)
+        skip_cr = ops.pop("skip_cr",skip_cr)
+        do_np = ops.pop("do_np",do_np)
+        do_renormfact_envelope = ops.pop("do_renormfact_envelope",do_renormfact_envelope)
+        wc_lst = ops.pop("wc_list",wc_lst)
+        hist_list = ops.pop("hist_list",hist_list)
+        port = ops.pop("port",port)
+        ecut = ops.pop("ecut",ecut)
 
     # Check if we have valid options
     if executor not in LST_OF_KNOWN_EXECUTORS:
@@ -193,13 +231,13 @@ if __name__ == "__main__":
             )
 
     # Set the threshold for the ecut (if not applying a cut, should be None)
-    ecut_threshold = args.ecut
+    ecut_threshold = ecut
     if ecut_threshold is not None:
-        ecut_threshold = float(args.ecut)
+        ecut_threshold = float(ecut)
 
     if executor in ["work_queue", "taskvine"]:
         # construct wq port range
-        port = list(map(int, args.port.split("-")))
+        port = list(map(int, port.split("-")))
         if len(port) < 1:
             raise ValueError("At least one port value should be specified.")
         if len(port) > 2:
@@ -209,7 +247,7 @@ if __name__ == "__main__":
             port.append(port[0])
 
     # Figure out which hists to include
-    if args.hist_list == ["ana"]:
+    if hist_list == ["ana"]:
         # Here we hardcode a list of hists used for the analysis
         hist_lst = ["njets", "lj0pt", "ptz"]
         if tau_h_analysis:
