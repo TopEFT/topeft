@@ -17,7 +17,9 @@ import topcoffea.modules.eft_helper as efth
 import topcoffea.modules.event_selection as tc_es
 import topcoffea.modules.object_selection as tc_os
 import topcoffea.modules.corrections as tc_cor
+import sys
 
+print(sys.path)
 from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
@@ -236,7 +238,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
             #btagAlgo = "btagDeepFlavB" #DeepJet branch
             btagAlgo = "btagPNetB"    #PNet branch
-            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger="btagDeepFlavB") #btagAlgo)
+            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger="btagDeepFlavB")
+
         elif is_run2:
             jetsRho = events.fixedGridRhoFastjetAll
             btagAlgo = "btagDeepFlavB"
