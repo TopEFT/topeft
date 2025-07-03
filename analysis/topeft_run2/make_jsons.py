@@ -1604,11 +1604,11 @@ central_2022_bkg_dict = {
     #        "histAxisName":"WWW_central2022",
     #        "xsecName":"WWW_13p6TeV",
     #    },
-    #    "WWZ":{
-    #        "path":"/WWZ_4F_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
-    #        "histAxisName":"WWZ_central2022",
-    #        "xsecName":"WWZ_13p6TeV",
-    #    },
+    #   "WWZ":{
+    #       "path":"/WWZ_4F_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+    #       "histAxisName":"WWZ_central2022",
+    #       "xsecName":"WWZ_13p6TeV",
+    #   },
     #    "ZZZ":{
     #        "path":"/ZZZ_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
     #        "histAxisName":"ZZZ_central2022",
@@ -1719,6 +1719,21 @@ central_2022_bkg_dict = {
     #        "histAxisName":"ST_tbarW_Semileptonic-ext1_central2022",
     #        "xsecName":"ST_tbarW_Semileptonic_13p6TeV",
     #    },
+    "ZG_MLL-4to50_PTG-10to100": {
+        "path" : "/DYGto2LG-1Jets_MLL-4to50_PTG-10to100_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+        "histAxisName" : "ZG_MLL-4to50_PTG-10to100",
+        "xsecName" : "ZG_MLL-4to50_PTG-10to100_13p6TeV",
+    },
+    "ZG_MLL-4to50_PTG-100to200": {
+        "path" : "/DYGto2LG-1Jets_MLL-4to50_PTG-100to200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+        "histAxisName" : "ZG_MLL-4to50_PTG-100to200",
+        "xsecName" : "ZG_MLL-4to50_PTG-100to200_13p6TeV",
+    },
+        "ZG_MLL-4to50_PTG-200": {
+        "path" : "/DYGto2LG-1Jets_MLL-4to50_PTG-200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+        "histAxisName" : "ZG_MLL-4to50_PTG-200",
+        "xsecName" : "ZG_MLL-4to50_PTG-200_13p6TeV",
+    },
 }
 
 ########### Data ##############
@@ -1989,6 +2004,7 @@ def main():
     out_dir_central_2017   = os.path.join(jsons_path,"signal_samples/central_2017/")
     out_dir_central_sync   = os.path.join(jsons_path,"sync_samples/")
     out_dir_central_bkg_2022 = os.path.join(jsons_path,"background_samples/central_2022/")
+    out_dir_central_bkgZG_2022 = os.path.join(jsons_path,"background_samples/central_2022/ZG")
     out_dir_central_2022 = os.path.join(jsons_path,"signal_samples/central_2022/")
 
     out_dir_data_2016 = os.path.join(jsons_path,"data_samples/2016/")
@@ -1997,6 +2013,7 @@ def main():
     out_dir_data_2022 = os.path.join(jsons_path,"data_samples/2022/")
     ######### Make/remake JSONs #########
 
+    make_jsons_for_dict_of_samples(central_2022_bkg_dict,"root://cms-xrd-global.cern.ch/","2022",out_dir_central_bkgZG_2022,on_das=True)
     # Private UL samples
     #make_jsons_for_dict_of_samples(test_private_UL17_dict,"/hadoop","2017",out_dir_test_private_UL)
     #make_jsons_for_dict_of_samples(private_UL17_dict,"/hadoop","2017",out_dir_private_UL)
