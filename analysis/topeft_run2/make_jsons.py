@@ -1734,6 +1734,31 @@ central_2022_bkg_dict = {
         "histAxisName" : "ZG_MLL-4to50_PTG-200",
         "xsecName" : "ZG_MLL-4to50_PTG-200_13p6TeV",
     },
+    "ZG_MLL-50_PTG-10to100": {
+        "path" : "/DYGto2LG-1Jets_MLL-50_PTG-10to100_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+        "histAxisName" : "ZG_MLL-50_PTG-10to100",
+        "xsecName" : "ZG_MLL-50_PTG-10to100_13p6TeV",
+    },
+    "ZG_MLL-50_PTG-100to200": {
+        "path" : "/DYGto2LG-1Jets_MLL-50_PTG-100to200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5_ext1-v2/NANOAODSIM",
+        "histAxisName" : "ZG_MLL-50_PTG-100to200",
+        "xsecName" : "ZG_MLL-50_PTG-100to200_13p6TeV",
+    },
+    "ZG_MLL-50_PTG-200to400": {
+        "path" : "/DYGto2LG-1Jets_MLL-50_PTG-200to400_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+        "histAxisName" : "ZG_MLL-50_PTG-200to400",
+        "xsecName" : "ZG_MLL-50_PTG-200to400_13p6TeV",
+    },
+    "ZG_MLL-50_PTG-400to600": {
+        "path" : "/DYGto2LG-1Jets_MLL-50_PTG-400to600_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+        "histAxisName" : "ZG_MLL-50_PTG-400to600",
+        "xsecName" : "ZG_MLL-50_PTG-400to600_13p6TeV",
+    },
+    "ZG_MLL-50_PTG-600": {
+        "path" : "/DYGto2LG-1Jets_MLL-50_PTG-600_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
+        "histAxisName" : "ZG_MLL-50_PTG-600",
+        "xsecName" : "ZG_MLL-50_PTG-600_13p6TeV",
+    }
 }
 
 ########### Data ##############
