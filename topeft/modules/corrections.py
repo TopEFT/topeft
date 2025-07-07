@@ -835,10 +835,8 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
 
         wp   = padded_taus.idDeepTau2018v2p5VSjet
         deep_tau_cuts = [
-        ("DeepTau2018v2p5VSjet", ak.flatten(padded_taus[f"is{vsJetWP}"]>0), (flat_pt,flat_dm,flat_gen,vsJetWP,"iseTight"), (flat_gen==5)),
-        ("DeepTau2018v2p5VSe", ak.flatten(padded_taus["iseTight"]>0), (flat_eta, flat_dm, flat_gen, "VVLoose"), ((flat_gen==1)|(flat_gen==3))),
-        ("DeepTau2018v2p5VSmu", ak.flatten(padded_taus["ismTight"]>0), (flat_eta, flat_gen, "VVLoose"), ((flat_gen==2)|(flat_gen==4))),
-        ("DeepTau2018v2p5VSjet", ak.flatten(padded_taus[f"is{vsJetWP}"]>0), (flat_pt,flat_dm,flat_gen,vsJetWP,"iseTight"), ((flat_gen!=5) & (flat_gen!=4) & (flat_gen!=3) & (flat_gen!=2) & (flat_gen!=1)))
+        ("DeepTau2018v2p5VSjet", ak.flatten(padded_taus[f"is{vsJetWP}"]>0), (flat_pt,flat_dm,flat_gen,vsJetWP,"Tight"), (flat_gen==5)),
+        ("DeepTau2018v2p5VSe", ak.flatten(padded_taus["iseTight"]>0), (flat_eta, flat_dm, flat_gen, "VVLoose"), ((flat_gen==1)|(flat_gen==3)))
         ]
 
     for idx, deep_tau_cut in enumerate(deep_tau_cuts):
@@ -898,14 +896,13 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
                 fake_elec_sf = ak.unflatten(DT_sf_discr, ak.num(pt))
                 fake_elec_sf_up = ak.unflatten(DT_up_discr, ak.num(pt))
                 fake_elec_sf_down = ak.unflatten(DT_do_discr, ak.num(pt))
-            if idr == 2:
-                fake_muon_sf = ak.unflatten(DT_sf_discr, ak.num(pt))
-                fake_muon_sf_up = ak.unflatten(DT_up_discr, ak.num(pt))
-                fake_muon_sf_down = ak.unflatten(DT_do_discr, ak.num(pt))
-            if idr == 3:
-                new_fake_sf = ak.unflatten(DT_sf_discr, ak.num(pt))
-                new_fake_sf_up = ak.unflatten(DT_up_discr, ak.num(pt))
-                new_fake_sf_down = ak.unflatten(DT_do_discr, ak.num(pt))
+
+        new_fake_sf = np.ones_like(pt, dtype=np.float32)
+        new_fake_sf_up = np.ones_like(pt, dtype=np.float32)
+        new_fake_sf_down = np.ones_like(pt, dtype=np.float32)
+        fake_muon_sf = np.ones_like(pt, dtype=np.float32)
+        fake_muon_sf_up= np.ones_like(pt, dtype=np.float32)
+        fake_muon_sf_down = np.ones_like(pt, dtype=np.float32)
 
     padded_taus["sf_tau_real"] = real_sf
     padded_taus["sf_tau_real_up"] = real_sf_up
