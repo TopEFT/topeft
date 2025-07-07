@@ -686,6 +686,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
             if self.tau_h_analysis:
+                tau_F_mask = (ak.num(tau[tau["isVLoose"]>0]) >=1)
                 tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) >=1)
                 no_tau_mask = (ak.num(tau[tau["isLoose"]>0])==0)
 
@@ -714,6 +715,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("~fwdjet_mask", (~fwdjet_mask))
             if self.tau_h_analysis:
                 preselections.add("1tau", (tau_L_mask))
+                preselections.add("1Ftau", (tau_F_mask))
                 preselections.add("0tau", (no_tau_mask))
                 preselections.add("onZ_tau", (tl_zpeak_mask))
                 preselections.add("offZ_tau", (~tl_zpeak_mask))
