@@ -3,6 +3,9 @@
 # To use, run command python tauFitter.py -f /path/to/pkl/file
 # pkl file should have CRs listed below and have all other
 # corrections aside from fake tau SFs
+# output is in the form of linear fit y = mx+b
+# where m and b are in numerical form, y is the SF, and x is the tau pt
+# pt bins are from [20, 30], [30, 40], [40, 50], [50, 60], [60, 80], [80, 100], [100, 200]
 
 import numpy as np
 import os
