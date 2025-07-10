@@ -343,7 +343,55 @@
                 "=3",
                 ">4"
             ]
-        }
+        },
+	"2los_1tau_Ftau": {
+	    "lep_chan_lst": [
+                [
+                    "2lss_1tau_Ftau",
+		    "2los",
+                    "2l_nozeeveto",
+                    "bmask_atleast1m2l",
+                    "1Ftau"
+		]
+            ],
+            "lep_flav_lst": [
+		"ee",
+                "em",
+                "mm"
+            ],
+            "appl_lst": [
+		"isSR_2lOS"
+            ],
+            "jet_lst": [
+		"=2",
+		"=3",
+		"=4"
+            ]
+	},
+	 "2los_1tau_Ttau": {
+            "lep_chan_lst": [
+                [
+                    "2lss_1tau_Ttau",
+		    "2los",
+                    "2l_nozeeveto",
+                    "bmask_atleast1m2l",
+                    "1tau"
+                ]
+	    ],
+            "lep_flav_lst": [
+		"ee",
+                "em",
+                "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lOS"
+            ],
+            "jet_lst": [
+                "=2",
+		"=3",
+                "=4"
+            ]
+	 }
     },
     "OFFZ_SPLIT_CH_LST_SR": {
         "2l": {
@@ -638,6 +686,172 @@
                 ">1"
             ]
         }
+    },
+    "CH_LST_CR_TAU": {
+        "2l_CR": {
+            "lep_chan_lst": [
+                [
+                    "2lss_CR",
+                    "chargedl0",
+                    "2lss",
+                    "bmask_exactly1m"
+                ]
+            ],
+            "lep_flav_lst": [
+                "ee",
+                "em",
+                "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lSS",
+                "isAR_2lSS"
+            ],
+            "appl_lst_data": [
+                "isAR_2lSS_OS"
+            ],
+            "jet_lst": [
+                "=1",
+                "=2",
+                "=3"
+            ]
+        },
+        "2l_CRflip": {
+            "lep_chan_lst": [
+                [
+                    "2lss_CRflip",
+                    "2l_nozeeveto",
+                    "2lee",
+                    "2l_onZ_as"
+                ]
+            ],
+            "lep_flav_lst": [
+                "ee"
+            ],
+            "appl_lst": [
+                "isSR_2lSS",
+                "isAR_2lSS"
+            ],
+            "appl_lst_data": [
+                "isAR_2lSS_OS"
+            ],
+            "jet_lst": [
+                "<3"
+            ]
+        },
+        "2los_CRZ": {
+            "lep_chan_lst": [
+                [
+                    "2los_CRZ",
+                    "2l_nozeeveto",
+                    "2los",
+                    "2l_onZ",
+                    "bmask_exactly0m"
+                ]
+            ],
+            "lep_flav_lst": [
+                "ee",
+                "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lOS",
+                "isAR_2lOS"
+            ],
+            "jet_lst": [
+                ">0"
+            ]
+        },
+        "2los_CRtt": {
+            "lep_chan_lst": [
+                [
+                    "2los_CRtt",
+                    "2l_nozeeveto",
+                    "2los",
+                    "2lem",
+                    "bmask_exactly2m"
+                ]
+            ],
+            "lep_flav_lst": [
+                "em"
+            ],
+            "appl_lst": [
+                "isSR_2lOS",
+                "isAR_2lOS"
+            ],
+            "jet_lst": [
+                "=2"
+            ]
+        },
+        "3l_CR": {
+            "lep_chan_lst": [
+                [
+                    "3l_CR",
+                    "3l",
+                    "bmask_exactly0m"
+                ]
+            ],
+            "lep_flav_lst": [
+                "eee",
+                "eem",
+                "emm",
+                "mmm"
+            ],
+            "appl_lst": [
+                "isSR_3l",
+                "isAR_3l"
+            ],
+            "jet_lst": [
+                "=0",
+                ">1"
+            ]
+        },
+	"2los_1tau_Ftau": {
+	    "lep_chan_lst": [
+                [
+                    "2lss_1tau_Ftau",
+		    "2los",
+                    "2l_nozeeveto",
+                    "bmask_atleast1m2l",
+                    "1Ftau"
+		]
+            ],
+            "lep_flav_lst": [
+		"ee",
+                "em",
+                "mm"
+            ],
+            "appl_lst": [
+		"isSR_2lOS"
+            ],
+            "jet_lst": [
+		"=2",
+		"=3",
+		"=4"
+            ]
+	},
+	 "2los_1tau_Ttau": {
+            "lep_chan_lst": [
+                [
+                    "2lss_1tau_Ttau",
+		    "2los",
+                    "2l_nozeeveto",
+                    "bmask_atleast1m2l",
+                    "1tau"
+                ]
+	    ],
+            "lep_flav_lst": [
+		"ee",
+                "em",
+                "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lOS"
+            ],
+            "jet_lst": [
+                "=2",
+		"=3",
+                "=4"
+            ]
+	 }
     },
     "FWD_CH_LST_SR": {
         "2l": {
