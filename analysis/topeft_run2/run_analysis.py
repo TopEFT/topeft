@@ -256,7 +256,7 @@ if __name__ == '__main__':
 
     if executor == "work_queue":
         executor_args = {
-            'master_name': '{}-workqueue-coffea'.format(os.environ['USER']),
+            'master_name': '{}-run2-workqueue-coffea'.format(os.environ['USER']),
 
             # find a port to run work queue in this range:
             'port': port,
@@ -285,7 +285,7 @@ if __name__ == '__main__':
             # forever until a larger worker connects.
             'resource_monitor': True,
             'resources_mode': 'auto',
-            #'filepath': f'/tmp/{os.environ["USER"]}', ##Placeholder to comment out if you don't want to save wq-factory dirs in afs
+            'filepath': f'/tmp/{os.environ["USER"]}-workers', ##Placeholder to comment out if you don't want to save wq-factory dirs in $HOME
 
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion

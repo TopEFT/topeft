@@ -603,6 +603,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # This dictionary keeps track of which selections go with which CR categories
             import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+            if self.tau_h_analysis:
+                import_cr_cat_dict.update(select_cat_dict["TAU_CH_LST_CR"])
 
             #This list keeps track of the lepton categories
             lep_cats = list(import_sr_cat_dict.keys()) + list(import_cr_cat_dict.keys())

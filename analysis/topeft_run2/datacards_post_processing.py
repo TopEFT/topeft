@@ -45,6 +45,34 @@ def main():
     parser.add_argument("-t", "--tau-flag", action="store_true", help = "Copy the ptz, lj0pt, and ptz_wtau cards for tau channels.")
     parser.add_argument("-f", "--fwd-flag", action="store_true", help = "Copy the ptz, lj0pt, and lt cards for forward channels.")
     args = parser.parse_args()
+    print(args)
+
+    ###### Check that you run one only type of analysis ######
+
+    # collect your booleans
+    flags = [
+        args.set_up_top22006,
+        args.set_up_offZdivision,
+        args.tau_flag,
+        args.fwd_flag,
+    ]
+    
+    # check exactly one is True
+    if sum(flags) != 1:
+        raise ValueError(
+            "Exactly one of --set_up_top22006, "
+            "--set_up_offZdivision, --tau_flag, --fwd_flag must be set."
+        )
+    
+    # now you can safely branch
+    if args.set_up_top22006:
+        import_sr_ch_lst = select_ch_lst["TOP22_006_CH_LST_SR"]
+    elif args.set_up_offZdivision:
+        import_sr_ch_lst = select_ch_lst["OFFZ_SPLIT_CH_LST_SR"]
+    elif args.tau_flag:
+        import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
+    elif args.fwd_flag:
+        import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
 
     ###### Print out general info ######
 
@@ -138,6 +166,7 @@ def main():
                     CATSELECTED.append(channelname)
 
     CATSELECTED = sorted(CATSELECTED)
+    print("\nCATSELECTED", CATSELECTED, len(CATSELECTED), "\n")
     # Grab the ptz-lj0pt cards we want for TOP-22-006, copy into a dir
     n_txt = 0
     n_root = 0
@@ -172,7 +201,10 @@ def main():
     # Check that we got the expected number and print what we learn
     print(f"\tNumber of text templates copied: {n_txt}")
     print(f"\tNumber of root templates copied: {n_txt}")
-    if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))):
+    print(args.tau_flag)
+    print((n_txt != 60) or (n_root != 60))
+    print((args.tau_flag and ((n_txt != 60) or (n_root != 60))))
+    if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))   or   (args.tau_flag and ((n_txt != 60) or (n_root != 60)))):
         raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
     print("Done.\n")
 

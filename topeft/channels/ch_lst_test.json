@@ -350,8 +350,10 @@
                 "=3",
                 ">4"
             ]
-        },
-        "2los_1tau_Ftau": {
+        }
+    },
+    "TAU_CH_LST_CR": {
+        "2los_1tau": {
             "lep_chan_lst": [
                 [
                     "2los_1tau_Ftau",
@@ -359,24 +361,7 @@
                     "2l_nozeeveto",
                     "bmask_atleast1m2l",
                     "1Ftau"
-                ]
-            ],
-            "lep_flav_lst": [
-                "ee",
-                "em",
-                "mm"
-            ],
-            "appl_lst": [
-                "isSR_2lOS"
-            ],
-            "jet_lst": [
-                "=2",
-                "=3",
-                "=4"
-            ]
-        },
-        "2los_1tau_Ttau": {
-            "lep_chan_lst": [
+                ],
                 [
                     "2los_1tau_Ttau",
                     "2los",
