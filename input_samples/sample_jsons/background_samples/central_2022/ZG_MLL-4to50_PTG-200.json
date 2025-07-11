@@ -2,7 +2,7 @@
   "xsec": 0.02224,
   "year": "2022",
   "treeName": "Events",
-  "histAxisName": "ZG_MLL-4to50_PTG-200",
+  "histAxisName": "ZG_MLL-4to50_PTG-200_central2022",
   "options": "",
   "WCnames": [],
   "files": [
@@ -35,9 +35,9 @@
   "nSumOfWeights_FSRUp": 11715.337179070339,
   "nSumOfWeights_FSRDown": 11688.218172122957,
   "nSumOfWeights_renormUp": 10801.698181188709,
-  "nSumOfWeights_renormDown": 12811.340010300795,
+  "nSumOfWeights_renormDown": 12811.340010300793,
   "nSumOfWeights_factUp": 11540.577682881285,
   "nSumOfWeights_factDown": 11909.87076195977,
-  "nSumOfWeights_renormDown_factUp": 12663.173787984675,
+  "nSumOfWeights_renormDown_factUp": 12663.173787984677,
   "nSumOfWeights_renormUp_factDown": 11009.17418437652
 }

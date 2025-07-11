@@ -2,7 +2,7 @@
   "xsec": 88.17,
   "year": "2022",
   "treeName": "Events",
-  "histAxisName": "ZG_MLL-4to50_PTG-10to100",
+  "histAxisName": "ZG_MLL-4to50_PTG-10to100_central2022",
   "options": "",
   "WCnames": [],
   "files": [
@@ -147,13 +147,13 @@
   "isData": false,
   "path": "/DYGto2LG-1Jets_MLL-4to50_PTG-10to100_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM",
   "nSumOfWeights_ISRUp": 4310635484.711979,
-  "nSumOfWeights_ISRDown": 4294737523.2935286,
+  "nSumOfWeights_ISRDown": 4294737523.293529,
   "nSumOfWeights_FSRUp": 4305701894.218965,
   "nSumOfWeights_FSRDown": 4301393836.557868,
   "nSumOfWeights_renormUp": 4056149226.5112967,
-  "nSumOfWeights_renormDown": 4636378068.63592,
-  "nSumOfWeights_factUp": 4703419780.133624,
+  "nSumOfWeights_renormDown": 4636378068.635917,
+  "nSumOfWeights_factUp": 4703419780.133627,
   "nSumOfWeights_factDown": 3805248035.0362196,
-  "nSumOfWeights_renormDown_factUp": 5046525022.91375,
-  "nSumOfWeights_renormUp_factDown": 3574467386.7333226
+  "nSumOfWeights_renormDown_factUp": 5046525022.913752,
+  "nSumOfWeights_renormUp_factDown": 3574467386.733322
 }
