@@ -261,6 +261,17 @@ jerc_dict = {
     }
 }
 
+jet_veto_dict = {
+    "2016APV": "Summer19UL16_V1",
+    "2016": "Summer19UL16_V1",
+    "2017": "Summer19UL17_V1",
+    "2018": "Summer19UL18_V1",
+    "2022": "Summer22_23Sep2023_RunCD_V1",
+    "2022EE": "Summer22EE_23Sep2023_RunEFG_V1",
+    "2023": "Summer23Prompt23_RunC_V1",
+    "2023BPix": "Summer23BPixPrompt23_RunD_V1"
+}
+
 with open(topeft_path('modules/jerc_dict.json'), 'r') as f:
     jerc_dict = json.load(f)
 
@@ -548,6 +559,7 @@ extLepSF.add_weight_sets(["TauFakeSF_down TauSF/pt_down %s"%topcoffea_path('data
 # Jet Veto Maps
 def ApplyJetVetoMaps(jets, year):
     jme_year = clib_year_map[year]
+    key = jet_veto_dict[year]
     json_path = topcoffea_path(f"data/POG/JME/{jme_year}/jetvetomaps.json.gz")
 
     # Grab the json

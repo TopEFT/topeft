@@ -461,7 +461,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Jet Veto Maps
             # Removes events that have ANY jet in a specific eta-phi space (not required for Run 2)
             # Zero is passing the veto map, so Run 2 will be assigned an array of length events with all zeros
-            veto_map_array = cor_ec.ApplyJetVetoMaps(cleanedJets, year) if is_run3 else ak.zeros_like(met.pt)
+            veto_map_array = ApplyJetVetoMaps(cleanedJets, year) if is_run3 else ak.zeros_like(met.pt)
             veto_map_mask = (veto_map_array == 0)
 
             # Selecting jets and cleaning them
