@@ -35,15 +35,6 @@ def isVTightTau(idDeepTauVSjet):
 
 def isVVTightTau(idDeepTauVSjet):
     return (idDeepTauVSjet>>7 & 1)
-<<<<<<< HEAD
-=======
-
-def iseTightTau(idDeepTauVSe):
-    return (idDeepTauVSe>>1 & 1)
-
-def ismTightTau(idDeepTauVSmu):
-    return (idDeepTauVSmu>>1 & 1)
->>>>>>> 72fd0c426f5705219478be624f8b3a071145133f
 
 def iseTightTau(idDeepTauVSe):
     return (idDeepTauVSe>>1 & 1)
@@ -64,11 +55,7 @@ def isFwdJet(pt, eta, jet_id, jetPtCut=25.0):
     mask = ((pt>jetPtCut) & (abs(eta)>get_te_param("eta_j_cut")) & (jet_id>get_te_param("jet_id_cut")))
     return mask
 
-<<<<<<< HEAD
 def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0,btagger="btagDeepFlavB"):
-=======
-def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):
->>>>>>> 72fd0c426f5705219478be624f8b3a071145133f
 
     # Get the btag wp for the year
     if btagger == "btagDeepFlavB":

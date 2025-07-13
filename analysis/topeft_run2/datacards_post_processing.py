@@ -166,10 +166,7 @@ def main():
                     CATSELECTED.append(channelname)
 
     CATSELECTED = sorted(CATSELECTED)
-<<<<<<< HEAD
-=======
     print("\nCATSELECTED", CATSELECTED, len(CATSELECTED), "\n")
->>>>>>> 72fd0c426f5705219478be624f8b3a071145133f
     # Grab the ptz-lj0pt cards we want for TOP-22-006, copy into a dir
     n_txt = 0
     n_root = 0
@@ -204,14 +201,10 @@ def main():
     # Check that we got the expected number and print what we learn
     print(f"\tNumber of text templates copied: {n_txt}")
     print(f"\tNumber of root templates copied: {n_txt}")
-<<<<<<< HEAD
-    if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))):
-=======
     print(args.tau_flag)
     print((n_txt != 60) or (n_root != 60))
     print((args.tau_flag and ((n_txt != 60) or (n_root != 60))))
     if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))   or   (args.tau_flag and ((n_txt != 60) or (n_root != 60)))):
->>>>>>> 72fd0c426f5705219478be624f8b3a071145133f
         raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
     print("Done.\n")
 
