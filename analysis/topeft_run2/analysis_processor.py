@@ -22,7 +22,7 @@ import sys
 print(sys.path)
 from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
+from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -458,6 +458,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
             cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
+            # Jet Veto Maps
+            # Removes events that have ANY jet in a specific eta-phi space (not required for Run 2)
+            # Zero is passing the veto map, so Run 2 will be assigned an array of length events with all zeros
+            veto_map_array = ApplyJetVetoMaps(cleanedJets, year) if is_run3 else ak.zeros_like(met.pt)
+            veto_map_mask = (veto_map_array == 0)
+
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
@@ -744,6 +750,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Lumi mask (for data)
             selections.add("is_good_lumi",lumi_mask)
             preselections.add("is_good_lumi",lumi_mask)
+
+            # Jet veto mask (for Run 3)
+            selections.add("jet_veto", veto_map_mask)
+            preselections.add("jet_veto", veto_map_mask)
 
             # 2lss selection
             preselections.add("chargedl0", (chargel0_p | chargel0_m))
@@ -1084,8 +1094,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         njet_ch = None
                                         cuts_lst = [appl,lep_chan]
 
+                                        #Selections applied everywhere
                                         if isData:
                                             cuts_lst.append("is_good_lumi")
+                                        cuts_lst.append("jet_veto")
+
                                         if self._split_by_lepton_flavor:
                                             flav_ch = lep_flav
                                             cuts_lst.append(lep_flav)
