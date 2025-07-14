@@ -588,7 +588,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Event weights that do depend on the lep cat ###########
             select_cat_dict = None
-            with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json_test:
+            with open(topeft_path("channels/ch_lst.json"), "r") as ch_json_test:
                 select_cat_dict = json.load(ch_json_test)
 
             if not self._skip_signal_regions:

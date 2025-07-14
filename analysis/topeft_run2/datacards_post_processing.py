@@ -64,15 +64,17 @@ def main():
             "--set_up_offZdivision, --tau_flag, --fwd_flag must be set."
         )
     
-    # now you can safely branch
-    if args.set_up_top22006:
-        import_sr_ch_lst = select_ch_lst["TOP22_006_CH_LST_SR"]
-    elif args.set_up_offZdivision:
-        import_sr_ch_lst = select_ch_lst["OFFZ_SPLIT_CH_LST_SR"]
-    elif args.tau_flag:
-        import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
-    elif args.fwd_flag:
-        import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
+    with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
+        select_ch_lst = json.load(ch_json)
+        #reading the macro analysis setup
+        if args.set_up_top22006:
+            import_sr_ch_lst = select_ch_lst["TOP22_006_CH_LST_SR"]
+        elif args.set_up_offZdivision:
+            import_sr_ch_lst = select_ch_lst["OFFZ_SPLIT_CH_LST_SR"]
+        elif args.tau_flag:
+            import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
+        elif args.fwd_flag:
+            import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
 
     ###### Print out general info ######
 
