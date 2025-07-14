@@ -1,0 +1,27 @@
+{
+  "xsec": 0.2413,
+  "year": "2022EE",
+  "treeName": "Events",
+  "histAxisName": "ZG_MLL-4to50_PTG-100to200_central2022EE",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250713/ZG_MLL_4to50_PTG_100to200/output_926.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250713/ZG_MLL_4to50_PTG_100to200/output_1919.root"
+  ],
+  "nEvents": 1448629,
+  "nGenEvents": 1448629,
+  "nSumOfWeights": 2025778.4090378992,
+  "isData": false,
+  "path": "/DYGto2LG-1Jets_MLL-4to50_PTG-100to200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v2/NANOAODSIM",
+  "nSumOfWeights_ISRUp": 2031261.3550697155,
+  "nSumOfWeights_ISRDown": 2018794.4177902585,
+  "nSumOfWeights_FSRUp": 2027333.2499352992,
+  "nSumOfWeights_FSRDown": 2023487.520391427,
+  "nSumOfWeights_renormUp": 1864357.4962386298,
+  "nSumOfWeights_renormDown": 2225954.8123216694,
+  "nSumOfWeights_factUp": 2034175.2835196091,
+  "nSumOfWeights_factDown": 2016137.2422176094,
+  "nSumOfWeights_renormDown_factUp": 2234115.2650937573,
+  "nSumOfWeights_renormUp_factDown": 1853093.91047053
+}

@@ -1,0 +1,32 @@
+{
+  "xsec": 0.0006528,
+  "year": "2022EE",
+  "treeName": "Events",
+  "histAxisName": "ZG_MLL-50_PTG-600_central2022EE",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250713/ZG_MLL_50_PTG_600/output_2208.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250713/ZG_MLL_50_PTG_600/output_2175.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250713/ZG_MLL_50_PTG_600/output_2140.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250713/ZG_MLL_50_PTG_600/output_1160.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250713/ZG_MLL_50_PTG_600/output_1952.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250713/ZG_MLL_50_PTG_600/output_2195.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2022EE/Full/v250713/ZG_MLL_50_PTG_600/output_1159.root"
+  ],
+  "nEvents": 1797374,
+  "nGenEvents": 1797374,
+  "nSumOfWeights": 2677.0200207872,
+  "isData": false,
+  "path": "/DYGto2LG-1Jets_MLL-50_PTG-600_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v2/NANOAODSIM",
+  "nSumOfWeights_ISRUp": 2694.1812216128674,
+  "nSumOfWeights_ISRDown": 2655.122895804843,
+  "nSumOfWeights_FSRUp": 2678.136704089804,
+  "nSumOfWeights_FSRDown": 2674.5898293904575,
+  "nSumOfWeights_renormUp": 2538.632346771603,
+  "nSumOfWeights_renormDown": 2831.905363513214,
+  "nSumOfWeights_factUp": 2610.401226396142,
+  "nSumOfWeights_factDown": 2757.6304230904334,
+  "nSumOfWeights_renormDown_factUp": 2783.7516621922205,
+  "nSumOfWeights_renormUp_factDown": 2633.0451980516855
+}

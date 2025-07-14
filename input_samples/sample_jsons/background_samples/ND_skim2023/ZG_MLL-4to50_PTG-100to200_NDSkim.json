@@ -1,0 +1,33 @@
+{
+  "xsec": 0.2413,
+  "year": "2023",
+  "treeName": "Events",
+  "histAxisName": "ZG_MLL-4to50_PTG-100to200_central2023",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250713/ZG_MLL_4to50_PTG_100to200/output_428.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250713/ZG_MLL_4to50_PTG_100to200/output_297.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250713/ZG_MLL_4to50_PTG_100to200/output_334.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250713/ZG_MLL_4to50_PTG_100to200/output_189.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250713/ZG_MLL_4to50_PTG_100to200/output_645.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250713/ZG_MLL_4to50_PTG_100to200/output_249.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250713/ZG_MLL_4to50_PTG_100to200/output_459.root",
+    "/cms/cephfs/data/store/user/apiccine/run3skimsT3/mc/NAOD_ULv12_lepMVA-run3/2023/Full/v250713/ZG_MLL_4to50_PTG_100to200/output_320.root"
+  ],
+  "nEvents": 5683089,
+  "nGenEvents": 5683089,
+  "nSumOfWeights": 7930379.668343303,
+  "isData": false,
+  "path": "/DYGto2LG-1Jets_MLL-4to50_PTG-100to200_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM",
+  "nSumOfWeights_ISRUp": 7951547.421815239,
+  "nSumOfWeights_ISRDown": 7903606.114361337,
+  "nSumOfWeights_FSRUp": 7934884.85460832,
+  "nSumOfWeights_FSRDown": 7920747.871729253,
+  "nSumOfWeights_renormUp": 7297860.050945771,
+  "nSumOfWeights_renormDown": 8715179.651415503,
+  "nSumOfWeights_factUp": 7963563.687945489,
+  "nSumOfWeights_factDown": 7892216.583491016,
+  "nSumOfWeights_renormDown_factUp": 8747524.839604018,
+  "nSumOfWeights_renormUp_factDown": 7253425.508715276
+}
