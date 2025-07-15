@@ -583,7 +583,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # Trigger SFs
                 GetTriggerSF(year,events,l0,l1)
-                weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+                weights_obj_base_for_kinematic_syst.add(f"{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
 
 
             ######### Event weights that do depend on the lep cat ###########
@@ -816,6 +816,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             del preselections
 
             # Lep flavor selection
+            selections.add("e",  events.is_e)
+            selections.add("m",  events.is_m)
             selections.add("ee",  events.is_ee)
             selections.add("em",  events.is_em)
             selections.add("mm",  events.is_mm)
@@ -992,7 +994,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 cat_dict.update(cr_cat_dict)
                 del import_cr_cat_dict
-
+                
             if (not self._skip_signal_regions and not self._skip_control_regions):
                 for k in sr_cat_dict:
                     if k in cr_cat_dict:
