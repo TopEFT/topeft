@@ -687,7 +687,7 @@
             ]
         }
     },
-    "CH_LST_CR_TAU": {
+    "TAU_CH_LST_CR": {
         "2l_CR": {
             "lep_chan_lst": [
                 [
@@ -804,42 +804,25 @@
                 ">1"
             ]
         },
-	"2los_1tau_Ftau": {
-	    "lep_chan_lst": [
+        "2los_1tau": {
+            "lep_chan_lst": [
                 [
-                    "2lss_1tau_Ftau",
-		    "2los",
+                    "2los_1tau_Ftau",
+                    "2los",
                     "2l_nozeeveto",
                     "bmask_atleast1m2l",
                     "1Ftau"
-		]
-            ],
-            "lep_flav_lst": [
-		"ee",
-                "em",
-                "mm"
-            ],
-            "appl_lst": [
-		"isSR_2lOS"
-            ],
-            "jet_lst": [
-		"=2",
-		"=3",
-		"=4"
-            ]
-	},
-	 "2los_1tau_Ttau": {
-            "lep_chan_lst": [
+                ],
                 [
-                    "2lss_1tau_Ttau",
-		    "2los",
+                    "2los_1tau_Ttau",
+                    "2los",
                     "2l_nozeeveto",
                     "bmask_atleast1m2l",
                     "1tau"
                 ]
-	    ],
+            ],
             "lep_flav_lst": [
-		"ee",
+                "ee",
                 "em",
                 "mm"
             ],
@@ -848,10 +831,32 @@
             ],
             "jet_lst": [
                 "=2",
-		"=3",
+                "=3",
                 "=4"
             ]
-	 }
+        },
+        "1l_1tau_CR": {
+            "lep_chan_lst": [
+                [
+                    "1l_1tau_CR",
+                    "1l",
+                    "bmask_atleast2m",
+                    "1tau"
+                ]
+            ],
+            "lep_flav_lst": [
+                "e",
+                "m"
+            ],
+            "appl_lst": [
+                "isSR_1l"
+            ],
+            "jet_lst": [
+                "=2",
+                "=3",
+                "=4"
+            ]
+        }
     },
     "FWD_CH_LST_SR": {
         "2l": {

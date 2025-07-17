@@ -100,36 +100,46 @@ CR_CHAN_DICT = {
         "3l_mmm_CR_0j",
         "3l_mmm_CR_1j",
     ],
-    "cr_2lss_1tau_Ftau_ee": [
-        "2lss_ee_1tau_Ftau_2j",
-        "2lss_ee_1tau_Ftau_3j",
-        "2lss_ee_1tau_Ftau_4j",
+    "cr_2los_1tau_Ftau_ee": [
+        "2los_ee_1tau_Ftau_2j",
+        "2los_ee_1tau_Ftau_3j",
+        "2los_ee_1tau_Ftau_4j",
     ],
-    "cr_2lss_1tau_Ftau_mm": [
-        "2lss_mm_1tau_Ftau_2j",
-        "2lss_mm_1tau_Ftau_3j",
-        "2lss_mm_1tau_Ftau_4j",
+    "cr_2los_1tau_Ftau_mm": [
+        "2los_mm_1tau_Ftau_2j",
+        "2los_mm_1tau_Ftau_3j",
+        "2los_mm_1tau_Ftau_4j",
     ],
-    "cr_2lss_1tau_Ftau_em": [
-        "2lss_em_1tau_Ftau_2j",
-        "2lss_em_1tau_Ftau_3j",
-        "2lss_em_1tau_Ftau_4j",
+    "cr_2los_1tau_Ftau_em": [
+        "2los_em_1tau_Ftau_2j",
+        "2los_em_1tau_Ftau_3j",
+        "2ls_em_1tau_Ftau_4j",
     ],
-    "cr_2lss_1tau_Ttau_ee": [
-        "2lss_ee_1tau_Ttau_2j",
-        "2lss_ee_1tau_Ttau_3j",
-        "2lss_ee_1tau_Ttau_4j",
+    "cr_2los_1tau_Ttau_ee": [
+        "2los_ee_1tau_Ttau_2j",
+        "2los_ee_1tau_Ttau_3j",
+        "2los_ee_1tau_Ttau_4j",
     ],
-    "cr_2lss_1tau_Ttau_mm": [
-        "2lss_mm_1tau_Ttau_2j",
-        "2lss_mm_1tau_Ttau_3j",
-        "2lss_mm_1tau_Ttau_4j",
+    "cr_2los_1tau_Ttau_mm": [
+        "2los_mm_1tau_Ttau_2j",
+        "2los_mm_1tau_Ttau_3j",
+        "2los_mm_1tau_Ttau_4j",
     ],
-    "cr_2lss_1tau_Ttau_em": [
-        "2lss_em_1tau_Ttau_2j",
-        "2lss_em_1tau_Ttau_3j",
-        "2lss_em_1tau_Ttau_4j",
+    "cr_2los_1tau_Ttau_em": [
+        "2los_em_1tau_Ttau_2j",
+        "2los_em_1tau_Ttau_3j",
+        "2los_em_1tau_Ttau_4j",
     ],
+    "1l_e_1tau_CR":         [
+         "1l_e_1tau_CR_2j",
+         "1l_e_1tau_CR_3j",
+         "1l_e_1tau_CR_4j",
+    ],
+    "1l_m_1tau_CR":         [
+        "1l_m_1tau_CR_2j",
+        "1l_m_1tau_CR_3j",
+        "1l_m_1tau_CR_4j",
+    ]
 }
 
 
