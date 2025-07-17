@@ -946,16 +946,13 @@ def AttachPerLeptonFR(leps, flavor, year):
         flip_year_name = year
         with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
             flip_hist = pickle.load(fin)
-            flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["abseta"].edges])
+            flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
 
-        # Get the fliprate scaling factor for the given year
-        chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
-
+        # Apply scaling factor for electrons
         if flavor == "Elec":
-            leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
+            leps['fliprate'] = (get_flipsf(leps.eta, year))*(flip_lookup(leps.pt,abs(leps.eta)))
         else:
             leps['fliprate'] = np.zeros_like(leps.pt)
-
 
         json_path = topeft_path("data/fakerates/fake_rates_Run3.json")
         ceval = correctionlib.CorrectionSet.from_file(json_path)
@@ -988,6 +985,24 @@ def AttachPerLeptonFR(leps, flavor, year):
     for flav in ['el','mu']:
         leps['fakefactor_%sclosuredown' % flav] = leps['fakefactor'] / leps['fakefactor_%sclosurefactor' % flav]
         leps['fakefactor_%sclosureup' % flav]   = leps['fakefactor'] * leps['fakefactor_%sclosurefactor' % flav]
+
+def get_flipsf(eta_array, year):
+    # Get flip scaling factors for run3
+
+    json_path = topeft_path(f"data/fliprates/flip_sf_{year}.json")
+    with open(json_path, 'r') as f:
+        chargeflip_sf_dict = json.load(f)
+
+    flip_sf = ak.full_like(eta_array, 1.0)  # default value
+
+    for bin_str, sf in chargeflip_sf_dict["FlipSF_eta"].items():
+        # Parse bin string like "[-3,-1.479]"
+        low, high = map(float, bin_str.strip("[]").split(","))
+        # Apply mask
+        mask = ((eta_array >= low) & (eta_array < high)) | ((eta_array == 2.5) & (high == 2.5))
+        flip_sf = ak.where(mask, sf, flip_sf)
+
+    return flip_sf
 
 def fakeRateWeight1l(events, lep1):
     for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown']:
