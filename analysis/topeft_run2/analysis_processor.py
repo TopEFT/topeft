@@ -730,7 +730,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("2los", charge2l_0)
             preselections.add("2lem", events.is_em)
             preselections.add("2lee", events.is_ee)
-            preselections.add("2lee", events.is_mm)
+            preselections.add("2lmm", events.is_mm)
             preselections.add("2l_onZ_as", sfasz_2l_mask)
             preselections.add("2l_onZ", sfosz_2l_mask)
             preselections.add("bmask_atleast3m", (bmask_atleast3med))
