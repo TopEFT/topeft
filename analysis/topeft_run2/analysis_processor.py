@@ -236,8 +236,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         if is_run3:
             AttachElectronCorrections(ele, run, year, isData) #need to apply electron energy corrections before calculating conept
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-            #btagAlgo = "btagDeepFlavB" #DeepJet branch
-            btagAlgo = "btagPNetB"    #PNet branch
+            btagAlgo = "btagDeepFlavB" #DeepJet branch
+            #btagAlgo = "btagPNetB"    #PNet branch
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger="btagDeepFlavB")
 
         elif is_run2:
@@ -618,10 +618,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                         else:
                             raise ValueError("btag systematics should be divided in flavor (bc or light)!")
 
-                        btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}")
-                        btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}")
-                        btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}")
-                        btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}")
+                        btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"{btagName}_{dJ_tag}", f"up_{corrtype}")
+                        btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"{btagName}_{dJ_tag}", f"down_{corrtype}")
+                        btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"{btagName}_{dJ_tag}", f"up_{corrtype}")
+                        btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"{btagName}_{dJ_tag}", f"down_{corrtype}")
 
                         pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_up, btag_sfL_up, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
                         pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_down, btag_sfL_down, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
