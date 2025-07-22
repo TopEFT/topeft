@@ -109,8 +109,8 @@ info = {
         "label": r"pt of lepton hadronic tau pair (GeV) ",
     },
     "tau0pt": {
-        "regular": (60, 0, 600),
-        "variable": [0, 150, 250, 500],
+        "regular": (20, 0, 200),
+        #"variable": [0, 150, 250, 500],
         "label": r"pt of leading hadronic tau (GeV) ",
     },
     "lt": {
