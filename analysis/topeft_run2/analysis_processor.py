@@ -17,9 +17,7 @@ import topcoffea.modules.eft_helper as efth
 import topcoffea.modules.event_selection as tc_es
 import topcoffea.modules.object_selection as tc_os
 import topcoffea.modules.corrections as tc_cor
-import sys
 
-print(sys.path)
 from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps
@@ -236,8 +234,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         if is_run3:
             AttachElectronCorrections(ele, run, year, isData) #need to apply electron energy corrections before calculating conept
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-            #btagAlgo = "btagDeepFlavB" #DeepJet branch
-            btagAlgo = "btagPNetB"    #PNet branch
+            btagAlgo = "btagDeepFlavB" #DeepJet branch
+            #btagAlgo = "btagPNetB"    #PNet branch
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger="btagDeepFlavB")
 
         elif is_run2:
@@ -246,7 +244,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             leptonSelection = te_os.run2leptonselection(btagger=btagAlgo)
         if not btagAlgo in ["btagDeepFlavB", "btagPNetB"]:
             raise ValueError("b-tagging algorithm not recognized!")
-
         te_os.lepJetBTagAdder(ele, btagger=btagAlgo)
         te_os.lepJetBTagAdder(mu, btagger=btagAlgo)
 
@@ -261,7 +258,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isData:
             ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
             mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
-
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
             golden_json_path = topcoffea_path("data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
@@ -505,15 +501,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             isBtagJetsLoose = (goodJets[btagAlgo] > btagwpl)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
-
             # Medium DeepJet WP
             medium_tag = "btag_wp_medium_" + btagRef + year.replace("201", "UL1")
             btagwpm = get_tc_param(medium_tag)
             isBtagJetsMedium = (goodJets[btagAlgo] > btagwpm)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
             nbtagsm = ak.num(goodJets[isBtagJetsMedium])
-
-
             #################### Add variables into event object so that they persist ####################
 
             # Put njets and l_fo_conept_sorted into events
@@ -569,7 +562,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                         
                     btag_method_bc    = f"{btagName}_{suffix_bc}"
                     btag_method_light = f"{btagName}_{suffix_light}"
-
                 btag_effM_light = GetBtagEff(jets_light, year, 'medium', btagAlgo)
                 btag_effM_bc = GetBtagEff(jets_bc, year, 'medium', btagAlgo)
                 btag_effL_light = GetBtagEff(jets_light, year, 'loose', btagAlgo)
@@ -896,6 +888,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
+            bjetsm = goodJets[isBtagJetsMedium][ak.argsort(goodJets[isBtagJetsMedium].pt, axis=-1, ascending=False)]
             bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
             blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
             bl0pt = ak.flatten(blpt[ak.argmax(blpt,axis=-1,keepdims=True)])
@@ -918,6 +911,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             # LT
             lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + met.pt
 
+
+
             # Define invariant mass hists
             mll_0_1 = (l0+l1).mass # Invmass for leading two leps
 
@@ -925,10 +920,21 @@ class AnalysisProcessor(processor.ProcessorABC):
             ljptsum = ak.sum(l_j_collection.pt,axis=-1)
             if self._ecut_threshold is not None:
                 ecut_mask = (ljptsum<self._ecut_threshold)
-
-            # Counts
+            if not isData:
+                lgen_part = l_fo_conept_sorted.gen_pdgId
+                gen_matched = events.GenPart[l_fo_conept_sorted.genPartIdx]
+                mother_idx = gen_matched.genPartIdxMother
+                mother = events.GenPart[mother_idx]
+                lgen_parent = mother.pdgId
+                matchbl = events.GenPart[bjetsl.genJetIdx]
+                matchbm = events.GenPart[bjetsm.genJetIdx]
+                motherblid = matchbl.genPartIdxMother
+                motherbmid = matchbl.genPartIdxMother
+                motherbl = events.GenPart[motherblid]
+                motherbm = events.GenPart[motherbmid]
+                
+        # Counts
             counts = np.ones_like(events['event'])
-
             # Variables we will loop over when filling hists
             varnames = {}
             varnames["ht"]      = ht
@@ -936,6 +942,26 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["ljptsum"] = ljptsum
             varnames["l0conept"]    = l0.conept
             varnames["l0pt"]    = l0.pt_raw
+            if not isData:
+                varnames["lgen_part_pdgid"] = abs(lgen_part)
+#                varnames["lgen_parent_pdgid"] = abs(lgen_parent)
+#                varnames["bjetsl_hadron"] = bjetsl.matched_gen.hadronFlavour
+#                varnames["bjetsl_parton"] = bjetsl.matched_gen.partonFlavour
+#                varnames["bjetsm_hadron"] = bjetsm.matched_gen.hadronFlavour
+#                varnames["bjetsm_parton"] = bjetsm.matched_gen.partonFlavour
+#                varnames["bjetsl_genJet"] = abs(motherbl.pdgId)
+#                varnames["bjetsm_genJet"] = abs(motherbm.pdgId)
+                varnames["l0genPartFlav"] = l0.genPartFlav
+            else:
+                varnames["l0genPartFlav"] = ak.full_like(l0.pt, 100)
+                varnames["lgen_part_pdgid"] = ak.full_like(l_fo_conept_sorted.pt, 0)
+#                varnames["lgen_parent_pdgid"] = ak.full_like(l_fo_conept_sorted.pt, 0)
+#                varnames["bjetsl_hadron"] = ak.full_like(bjetsl.pt, 10)
+#                varnames["bjetsl_patron"] = ak.full_like(bjetsl.pt, 10)
+#                varnames["bjetsm_hadron"] = ak.full_like(bjetsm.pt, 10)
+#                varnames["bjetsm_parton"] = ak.full_like(bjetsm.pt, 10)
+#                varnames["bjetsl_genJet"] = ak.full_like(bjetsl.pt, 0)
+#                varnames["bjetsm_genJet"] = ak.full_like(bjetsm.pt, 0)
             varnames["l0ptcorr"]= l0.pt
             varnames["l0eta"]   = l0.eta
             varnames["l1conept"]    = l1.conept

@@ -117,5 +117,49 @@ info = {
         "regular": (12, 0, 600),
         "variable": [0,150,250,500],
         "label": r"Scalar sum of met at leading leptons (GeV)",
+        },
+    "l0genPartFlav": {
+        "regular": (26, -0.50, 25.5),
+        "label": r"id of particle flavor",
     },
+    "lgen_part_pdgid": {
+        "regular": (27, -0.5, 26.5),
+        "label": r"pdgid of generated l_fo_conept_sorted",
+    },
+#    "lgen_parent_pdgid": {
+#        "regular": (27, -0.5, 26.5),
+#        "label": r"pdgid of the mother particle of l_fo_conept_sorted",
+#    },
+#    "bjetsl_hadron": {
+#        "regular": (27, -0.5, 26.5),
+#        "label": r"Hadron Flavor for loose b jets",
+#    },
+#    "bjetsl_parton": {
+#        "regular": (27, -0.5, 26.5),
+#        "label": r"Parton Flavor for loose b jets",
+#    },
+#    "bjetsm_hadron": {
+#        "regular": (27, -0.5, 26.5),
+#        "label": r"Hadron Flavor for medium b jets",
+#    },
+#    "bjetsm_parton": {
+#        "regular": (27, -0.5, 26.5),
+#        "label": r"Parton Flavor for medium b jets",
+#    },
+#    "bjetsl_genJet_hadron": {
+#        "regular": (27, -0.5, 26.5),
+#        "label": r"Hadron Flavor for loose b jets",
+#    },
+#    "bjetsl_genJet_parton": {
+#        "regular": (27, -0.5, 26.5),
+#        "label": r"Parton Flavor for loose b jets",
+#    },
+#    "bjetsm_genJet_hadron": {
+#        "regular": (27, -0.5, 26.5),
+#        "label": r"Hadron Flavor for medium b jets",
+#    },
+#    "bjetsm_genJet_parton": {
+#        "regular": (27, -0.5, 26.5),
+#        "label": r"Parton Flavor for loose b jets",
+#    },
 }
