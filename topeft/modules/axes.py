@@ -124,42 +124,42 @@ info = {
     },
     "lgen_part_pdgid": {
         "regular": (27, -0.5, 26.5),
-        "label": r"pdgid of generated l_fo_conept_sorted",
+        "label": r"pdgid of genparticle of selected leptons",
     },
-#    "lgen_parent_pdgid": {
-#        "regular": (27, -0.5, 26.5),
-#        "label": r"pdgid of the mother particle of l_fo_conept_sorted",
-#    },
-#    "bjetsl_hadron": {
-#        "regular": (27, -0.5, 26.5),
-#        "label": r"Hadron Flavor for loose b jets",
-#    },
-#    "bjetsl_parton": {
-#        "regular": (27, -0.5, 26.5),
-#        "label": r"Parton Flavor for loose b jets",
-#    },
-#    "bjetsm_hadron": {
-#        "regular": (27, -0.5, 26.5),
-#        "label": r"Hadron Flavor for medium b jets",
-#    },
-#    "bjetsm_parton": {
-#        "regular": (27, -0.5, 26.5),
-#        "label": r"Parton Flavor for medium b jets",
-#    },
-#    "bjetsl_genJet_hadron": {
-#        "regular": (27, -0.5, 26.5),
-#        "label": r"Hadron Flavor for loose b jets",
-#    },
-#    "bjetsl_genJet_parton": {
-#        "regular": (27, -0.5, 26.5),
-#        "label": r"Parton Flavor for loose b jets",
-#    },
-#    "bjetsm_genJet_hadron": {
-#        "regular": (27, -0.5, 26.5),
-#        "label": r"Hadron Flavor for medium b jets",
-#    },
-#    "bjetsm_genJet_parton": {
-#        "regular": (27, -0.5, 26.5),
-#        "label": r"Parton Flavor for loose b jets",
-#    },
+   "lgen_parent_pdgid": {
+       "regular": (27, -0.5, 26.5),
+       "label": r"pdgid of the mother genparticle of selected leptons",
+   },
+   "bjetsl_hadron": {
+       "regular": (27, -0.5, 26.5),
+       "label": r"Hadron Flavor for loose b jets",
+   },
+   "bjetsl_parton": {
+       "regular": (27, -0.5, 26.5),
+       "label": r"Parton Flavor for loose b jets",
+   },
+   "bjetsm_hadron": {
+       "regular": (27, -0.5, 26.5),
+       "label": r"Hadron Flavor for medium b jets",
+   },
+   "bjetsm_parton": {
+       "regular": (27, -0.5, 26.5),
+       "label": r"Parton Flavor for medium b jets",
+   },
+   "bjetsl_genJet": {
+       "regular": (27, -0.5, 26.5),
+       "label": r"pdgid of the genparticle of loose b jets",
+   },
+   "bjetsl_genParentJet": {
+       "regular": (27, -0.5, 26.5),
+       "label": r"pdgid of the mother genparticle of loose b jet",
+   },
+   "bjetsm_genJet": {
+       "regular": (27, -0.5, 26.5),
+       "label": r"pdgid of the genparticle of loose b jet",
+   },
+   "bjetsm_genParentJet": {
+       "regular": (27, -0.5, 26.5),
+       "label": r"pdgid of the mother genparticle of medium b jet",
+   },
 }
