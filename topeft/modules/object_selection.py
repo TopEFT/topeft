@@ -15,32 +15,67 @@ get_te_param = GetParam(topeft_path("params/params.json"))
 
 ### These functions have been synchronized with ttH ###
 
-def isPresTau(pt, eta, dxy, dz, idDeepTauVSjet, idDeepTauVSe, idDeepTauVSmu, minpt=20.0):
-    return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTauVSjet>>3 & 1 ==1)&(idDeepTauVSe>>1 & 1 ==1)&(idDeepTauVSmu>>1 & 1 ==1)
+class run2TauSelection:
+    def __init__(self):
+        pass
 
-def isVLooseTau(idDeepTauVSjet):
-    return (idDeepTauVSjet>>2 & 1)
+    def isPresTau(self, pt, eta, dxy, dz, idDeepTauVSjet, idDeepTauVSe, idDeepTauVSmu, minpt=20.0):
+        return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTauVSjet>>3 & 1 ==1)&(idDeepTauVSe>>1 & 1 ==1)&(idDeepTauVSmu>>1 & 1 ==1)
 
-def isLooseTau(idDeepTauVSjet):
-    return (idDeepTauVSjet>>3 & 1)
+    def isVLooseTau(self, idDeepTauVSjet):
+        return (idDeepTauVSjet>>2 & 1)
 
-def isMediumTau(idDeepTauVSjet):
-    return (idDeepTauVSjet>>4 & 1)
+    def isLooseTau(self, idDeepTauVSjet):
+        return (idDeepTauVSjet>>3 & 1)
 
-def isTightTau(idDeepTauVSjet):
-    return (idDeepTauVSjet>>5 & 1)
+    def isMediumTau(self, idDeepTauVSjet):
+        return (idDeepTauVSjet>>4 & 1)
 
-def isVTightTau(idDeepTauVSjet):
-    return (idDeepTauVSjet>>6 & 1)
+    def isTightTau(self, idDeepTauVSjet):
+        return (idDeepTauVSjet>>5 & 1)
 
-def isVVTightTau(idDeepTauVSjet):
-    return (idDeepTauVSjet>>7 & 1)
+    def isVTightTau(self, idDeepTauVSjet):
+        return (idDeepTauVSjet>>6 & 1)
 
-def iseTightTau(idDeepTauVSe):
-    return (idDeepTauVSe>>1 & 1)
+    def isVVTightTau(self, idDeepTauVSjet):
+        return (idDeepTauVSjet>>7 & 1)
 
-def ismTightTau(idDeepTauVSmu):
-    return (idDeepTauVSmu>>1 & 1)
+    def iseTightTau(self, idDeepTauVSe):
+        return (idDeepTauVSe>>1 & 1)
+
+    def ismTightTau(self, idDeepTauVSmu):
+        return (idDeepTauVSmu>>1 & 1)
+
+class run3TauSelection:
+    def __init__(self):
+        pass
+
+    def isPresTau(self, pt, eta, dxy, dz, idDeepTauVSjet, idDeepTauVSe, idDeepTauVSmu, minpt=20.0):
+        return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTauVSjet >= 3)&(idDeepTauVSe >= 1)&(idDeepTauVSmu >= 1)
+
+    def isVLooseTau(self, idDeepTauVSjet):
+        return (idDeepTauVSjet >= 2)
+
+    def isLooseTau(self, idDeepTauVSjet):
+        return (idDeepTauVSjet >= 3)
+
+    def isMediumTau(self, idDeepTauVSjet):
+        return (idDeepTauVSjet >= 4)
+
+    def isTightTau(self, idDeepTauVSjet):
+        return (idDeepTauVSjet >= 5)
+
+    def isVTightTau(self, idDeepTauVSjet):
+        return (idDeepTauVSjet >= 6)
+
+    def isVVTightTau(self, idDeepTauVSjet):
+        return (idDeepTauVSjet >= 7)
+
+    def iseTightTau(self, idDeepTauVSe):
+        return (idDeepTauVSe >= 1)
+
+    def ismTightTau(self, idDeepTauVSmu):
+        return (idDeepTauVSmu >= 1)
 
 def lepJetBTagAdder(leptons, btagger="btagDeepFlavB", dummyValue=-99.):
     #is_matched = (leptons.jetIdx > -1) & (leptons.jetIdx < ak.num(jets))

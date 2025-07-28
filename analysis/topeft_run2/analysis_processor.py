@@ -237,10 +237,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             #btagAlgo = "btagDeepFlavB" #DeepJet branch
             btagAlgo = "btagPNetB"    #PNet branch
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger=btagAlgo)
+            tauSelection = te_os.run3TauSelection()
         elif is_run2:
             jetsRho = events.fixedGridRhoFastjetAll
             btagAlgo = "btagDeepFlavB"
             leptonSelection = te_os.run2leptonselection(btagger=btagAlgo)
+            tauSelection = te_os.run2TauSelection()
         if not btagAlgo in ["btagDeepFlavB", "btagPNetB"]:
             raise ValueError("b-tagging algorithm not recognized!")
 
@@ -335,17 +337,17 @@ class AnalysisProcessor(processor.ProcessorABC):
         if self.tau_h_analysis:
             tau["pt"], tau["mass"] = ApplyTES(year, tau, isData)
             if is_run2:
-                tau["isVLoose"]  = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet)
-                tau["isLoose"]   = te_os.isLooseTau(tau.idDeepTau2017v2p1VSjet)
-                tau["iseTight"]  = te_os.iseTightTau(tau.idDeepTau2017v2p1VSe)
-                tau["ismTight"]  = te_os.ismTightTau(tau.idDeepTau2017v2p1VSmu)
-                tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
+                tau["isVLoose"]  = tauSelection.isVLooseTau(tau.idDeepTau2017v2p1VSjet)
+                tau["isLoose"]   = tauSelection.isLooseTau(tau.idDeepTau2017v2p1VSjet)
+                tau["iseTight"]  = tauSelection.iseTightTau(tau.idDeepTau2017v2p1VSe)
+                tau["ismTight"]  = tauSelection.ismTightTau(tau.idDeepTau2017v2p1VSmu)
+                tau["isPres"]  = tauSelection.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
             if is_run3:
-                tau["isVLoose"]  = te_os.isVLooseTau(tau.idDeepTau2018v2p5VSjet)
-                tau["isLoose"]   = te_os.isLooseTau(tau.idDeepTau2018v2p5VSjet)
-                tau["iseTight"]  = te_os.iseTightTau(tau.idDeepTau2018v2p5VSe)
-                tau["ismTight"]  = te_os.ismTightTau(tau.idDeepTau2018v2p5VSmu)
-                tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2018v2p5VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2018v2p5VSmu, minpt=20)
+                tau["isVLoose"]  = tauSelection.isVLooseTau(tau.idDeepTau2018v2p5VSjet)
+                tau["isLoose"]   = tauSelection.isLooseTau(tau.idDeepTau2018v2p5VSjet)
+                tau["iseTight"]  = tauSelection.iseTightTau(tau.idDeepTau2018v2p5VSe)
+                tau["ismTight"]  = tauSelection.ismTightTau(tau.idDeepTau2018v2p5VSmu)
+                tau["isPres"]  = tauSelection.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2018v2p5VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2018v2p5VSmu, minpt=20)
 
             tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.3)
             tau["isGood"]  =  tau["isClean"] & tau["isPres"]
@@ -363,16 +365,16 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         else:
             if is_run2: 
-                tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
+                tau["isPres"]  = tauSelection.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
             if is_run3:
-                tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2018v2p5VSmu, minpt=20)
+                tau["isPres"]  = tauSelection.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2018v2p5VSmu, minpt=20)
             tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
             tau["isGood"]  =  tau["isClean"] & tau["isPres"]
             tau = tau[tau.isGood] # use these to clean jets
             if is_run2:
-                tau["isTight"] = te_os.isVLooseTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
+                tau["isTight"] = tauSelection.isVLooseTau(tau.idDeepTau2017v2p1VSjet) # use these to veto
             if is_run3:
-                tau["isTight"] = te_os.isVLooseTau(tau.idDeepTau2018v2p5VSjet) # use these to veto
+                tau["isTight"] = tauSelection.isVLooseTau(tau.idDeepTau2018v2p5VSjet) # use these to veto
 
         ######### Systematics ###########
 
