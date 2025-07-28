@@ -1147,9 +1147,23 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
+                                        # Handle jagged arrays generically and ensure 1D inputs
+                                        values_cut = dense_axis_vals[all_cuts_mask]
+                                        try:
+                                            counts = ak.num(values_cut, axis=1)
+                                            needs_flatten = ak.any(counts != 1)
+                                        except Exception:
+                                            needs_flatten = False
+                                        if needs_flatten:
+                                            values_cut = ak.flatten(values_cut)
+                                            rep = ak.to_numpy(counts)
+                                            weights_flat = np.repeat(weights_flat, rep)
+                                            if eft_coeffs_cut is not None:
+                                                eft_coeffs_cut = np.repeat(eft_coeffs_cut, rep, axis=0)
+
                                         # Fill the histos
                                         axes_fill_info_dict = {
-                                            dense_axis_name : dense_axis_vals[all_cuts_mask],
+                                            dense_axis_name : values_cut,
                                             "channel"       : ch_name,
                                             "appl"          : appl,
                                             "process"       : histAxisName,
@@ -1176,7 +1190,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
                                         axes_fill_info_dict = {
-                                            dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
+                                            dense_axis_name+"_sumw2" : values_cut,
                                             "channel"       : ch_name,
                                             "appl"          : appl,
                                             "process"       : histAxisName,
