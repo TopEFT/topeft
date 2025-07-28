@@ -942,26 +942,31 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["ljptsum"] = ljptsum
             varnames["l0conept"]    = l0.conept
             varnames["l0pt"]    = l0.pt_raw
+
             if not isData:
-                varnames["lgen_part_pdgid"] = abs(lgen_part)
-#                varnames["lgen_parent_pdgid"] = abs(lgen_parent)
-#                varnames["bjetsl_hadron"] = bjetsl.matched_gen.hadronFlavour
-#                varnames["bjetsl_parton"] = bjetsl.matched_gen.partonFlavour
-#                varnames["bjetsm_hadron"] = bjetsm.matched_gen.hadronFlavour
-#                varnames["bjetsm_parton"] = bjetsm.matched_gen.partonFlavour
-#                varnames["bjetsl_genJet"] = abs(motherbl.pdgId)
-#                varnames["bjetsm_genJet"] = abs(motherbm.pdgId)
                 varnames["l0genPartFlav"] = l0.genPartFlav
+                varnames["lgen_part_pdgid"] = abs(lgen_part)
+                varnames["lgen_parent_pdgid"] = abs(lgen_parent)
+                varnames["bjetsl_hadron"] = bjetsl.matched_gen.hadronFlavour
+                varnames["bjetsl_parton"] = bjetsl.matched_gen.partonFlavour
+                varnames["bjetsm_hadron"] = bjetsm.matched_gen.hadronFlavour
+                varnames["bjetsm_parton"] = bjetsm.matched_gen.partonFlavour
+                varnames["bjetsl_genJet"] = abs(matchbl.pdgId)
+                varnames["bjetsm_genJet"] = abs(matchbm.pdgId)
+                varnames["bjetsl_genParentJet"] = abs(motherbl.pdgId)
+                varnames["bjetsm_genParentJet"] = abs(motherbm.pdgId)
             else:
-                varnames["l0genPartFlav"] = ak.full_like(l0.pt, 100)
+                varnames["l0genPartFlav"] = ak.full_like(l0.pt, 0)
                 varnames["lgen_part_pdgid"] = ak.full_like(l_fo_conept_sorted.pt, 0)
-#                varnames["lgen_parent_pdgid"] = ak.full_like(l_fo_conept_sorted.pt, 0)
-#                varnames["bjetsl_hadron"] = ak.full_like(bjetsl.pt, 10)
-#                varnames["bjetsl_patron"] = ak.full_like(bjetsl.pt, 10)
-#                varnames["bjetsm_hadron"] = ak.full_like(bjetsm.pt, 10)
-#                varnames["bjetsm_parton"] = ak.full_like(bjetsm.pt, 10)
-#                varnames["bjetsl_genJet"] = ak.full_like(bjetsl.pt, 0)
-#                varnames["bjetsm_genJet"] = ak.full_like(bjetsm.pt, 0)
+                varnames["lgen_parent_pdgid"] = ak.full_like(l_fo_conept_sorted.pt, 0)
+                varnames["bjetsl_hadron"] = ak.full_like(bjetsl.pt, 0)
+                varnames["bjetsl_patron"] = ak.full_like(bjetsl.pt, 0)
+                varnames["bjetsm_hadron"] = ak.full_like(bjetsm.pt, 0)
+                varnames["bjetsm_parton"] = ak.full_like(bjetsm.pt, 0)
+                varnames["bjetsl_genJet"] = ak.full_like(bjetsl.pt, 0)
+                varnames["bjetsm_genJet"] = ak.full_like(bjetsm.pt, 0)
+                varnames["bjetsl_genParentJet"] = ak.full_like(bjetsl.pt, 0)
+                varnames["bjetsm_genParentJet"] = ak.full_like(bjetsm.pt, 0)
             varnames["l0ptcorr"]= l0.pt
             varnames["l0eta"]   = l0.eta
             varnames["l1conept"]    = l1.conept
@@ -1147,9 +1152,22 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
+                                        # Handle jagged arrays generically and ensure 1D inputs
+                                        values_cut = dense_axis_vals[all_cuts_mask]
+                                        try:
+                                            counts = ak.num(values_cut, axis=1)
+                                        except ValueError:
+                                            counts = None
+                                        if counts is not None:
+                                            values_cut = ak.flatten(values_cut)
+                                            rep = ak.to_numpy(counts)
+                                            weights_flat = np.repeat(weights_flat, rep)
+                                            if eft_coeffs_cut is not None:
+                                                eft_coeffs_cut = np.repeat(eft_coeffs_cut, rep, axis=0)
+
                                         # Fill the histos
                                         axes_fill_info_dict = {
-                                            dense_axis_name : dense_axis_vals[all_cuts_mask],
+                                            dense_axis_name : values_cut,
                                             "channel"       : ch_name,
                                             "appl"          : appl,
                                             "process"       : histAxisName,
@@ -1176,7 +1194,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
                                         axes_fill_info_dict = {
-                                            dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
+                                            dense_axis_name+"_sumw2" : values_cut,
                                             "channel"       : ch_name,
                                             "appl"          : appl,
                                             "process"       : histAxisName,
