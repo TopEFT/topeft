@@ -118,48 +118,28 @@ info = {
         "variable": [0,150,250,500],
         "label": r"Scalar sum of met at leading leptons (GeV)",
         },
-    "l0genPartFlav": {
-        "regular": (26, -0.50, 25.5),
-        "label": r"id of particle flavor",
+    "l0_gen_pdgId": {
+       "regular": (27, -0.5, 26.5),
+       "label": r"pdgid of l0 genparticle",
     },
-    "lgen_part_pdgid": {
-        "regular": (27, -0.5, 26.5),
-        "label": r"pdgid of genparticle of selected leptons",
+    "l1_gen_pdgId": {
+       "regular": (27, -0.5, 26.5),
+       "label": r"pdgid of l1 genparticle",
     },
-   "lgen_parent_pdgid": {
+    "l2_gen_pdgId": {
        "regular": (27, -0.5, 26.5),
-       "label": r"pdgid of the mother genparticle of selected leptons",
-   },
-   "bjetsl_hadron": {
+       "label": r"pdgid of l2 genparticle",
+    },
+    "l0_genParent_pdgId": {
        "regular": (27, -0.5, 26.5),
-       "label": r"Hadron Flavor for loose b jets",
-   },
-   "bjetsl_parton": {
+       "label": r"pdgid of l0 genparent",
+    },
+    "l1_genParent_pdgId": {
        "regular": (27, -0.5, 26.5),
-       "label": r"Parton Flavor for loose b jets",
-   },
-   "bjetsm_hadron": {
+       "label": r"pdgid of l1 genparent",
+    },
+    "l2_genParent_pdgId": {
        "regular": (27, -0.5, 26.5),
-       "label": r"Hadron Flavor for medium b jets",
-   },
-   "bjetsm_parton": {
-       "regular": (27, -0.5, 26.5),
-       "label": r"Parton Flavor for medium b jets",
-   },
-   "bjetsl_genJet": {
-       "regular": (27, -0.5, 26.5),
-       "label": r"pdgid of the genparticle of loose b jets",
-   },
-   "bjetsl_genParentJet": {
-       "regular": (27, -0.5, 26.5),
-       "label": r"pdgid of the mother genparticle of loose b jet",
-   },
-   "bjetsm_genJet": {
-       "regular": (27, -0.5, 26.5),
-       "label": r"pdgid of the genparticle of loose b jet",
-   },
-   "bjetsm_genParentJet": {
-       "regular": (27, -0.5, 26.5),
-       "label": r"pdgid of the mother genparticle of medium b jet",
-   },
+       "label": r"pdgid of l2 genparent",
+    }
 }
