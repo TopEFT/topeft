@@ -140,7 +140,17 @@ CR_GRP_MAP = {
     "Ttbar" : [],
     "Ttbarpowheg" : [],
     "ZGamma" : [],
-    "Diboson" : [],
+    #"Diboson" : [],
+    "WWTo2L2Nu" : [],
+    "ZZTo4L": [],
+    "WZTo3LNu": [],
+    "ZZTo4mu": [],
+    "ZZTo4tau": [],
+    "ZZTo4e": [],
+    "ZZTo2mu2tau": [],
+    "ZZTo2e2tau": [],
+    "ZZTo2e2mu": [],
+    "TWZ" : [],
     "Triboson" : [],
     "Single top" : [],
     "Singleboson" : [],
@@ -519,7 +529,7 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
 def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],group=[],set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None, lumitag="138", comtag="13"):
-    colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown"]
+    colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown","goldenrod","yellow","olive","coral", "navy", "yellowgreen", "aquamarine", "black", "plum"]
 
     # Decide if we're plotting stat or syst uncty for mc
     # In principle would be better to combine them
@@ -534,7 +544,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     fig, (ax, rax) = plt.subplots(
         nrows=2,
         ncols=1,
-        figsize=(10,11),
+        figsize=(12,13),
         gridspec_kw={"height_ratios": (4, 1)},
         sharex=True
     )
@@ -586,7 +596,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
         histtype='fill',
     )
 
-    # Plot the data
+    #Plot the data
     hep.histplot(
         h_data[{'process':sum}].as_hist({}).values(flow=True)[1:],
         #error_opts = DATA_ERR_OPS,
@@ -650,7 +660,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
     # Put a legend to the right of the current axis
-    ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
+    ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=5, fontsize=12)
     plt.subplots_adjust(top=0.88, bottom=0.05, right=0.95, left=0.11)
     return fig
 
@@ -782,7 +792,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
 
     # Loop over hists and make plots
     skip_lst = [] # Skip this hist
-    for idx,var_name in enumerate(dict_of_hists.keys()):
+    for idx, var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
         if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if (var_name in skip_lst): continue
@@ -791,7 +801,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
             sr_cat_dict = get_dict_with_stripped_bin_names(SR_CHAN_DICT,"njets")
         else:
             sr_cat_dict = SR_CHAN_DICT
-        print("\nVar name:",var_name)
+        print("\nVar name:", var_name)
 
         # Extract the signal hists
         hist_sig = dict_of_hists[var_name].remove("process", samples_to_rm_from_sig_hist)
@@ -1265,14 +1275,34 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             CR_GRP_MAP["Conv"].append(proc_name)
         elif "TTTo" in proc_name or "TTto" in proc_name:
             CR_GRP_MAP["Ttbar"].append(proc_name)
-        elif "ZGTo" in proc_name or "ZGto" in proc_name:
+        elif "ZG" in proc_name:
             CR_GRP_MAP["ZGamma"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
             CR_GRP_MAP["Triboson"].append(proc_name)
-        elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZto3LNu" in proc_name or "WZTo3LNu" in proc_name or "ZZTo4mu" in proc_name or "ZZTo4tau" in proc_name or "ZZTo4e" in proc_name or "ZZTo2mu2tau" in proc_name or "ZZTo2e2tau" in proc_name or "ZZTo2e2mu" in proc_name:
-            CR_GRP_MAP["Diboson"].append(proc_name)
+        # elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZto3LNu" in proc_name or "WZTo3LNu" in proc_name or "ZZTo4mu" in proc_name or "ZZTo4tau" in proc_name or "ZZTo4e" in proc_name or "ZZTo2mu2tau" in proc_name or "ZZTo2e2tau" in proc_name or "ZZTo2e2mu" in proc_name:
+        #     CR_GRP_MAP["Diboson"].append(proc_name)
+        # elif "TWZ" in proc_name:
+        #     CR_GRP_MAP["Diboson"].append(proc_name)
+        elif "WWTo2L2Nu" in proc_name:
+            CR_GRP_MAP["WWTo2L2Nu"].append(proc_name)
+        elif "ZZTo4L" in proc_name:
+            CR_GRP_MAP["ZZTo4L"].append(proc_name)
+        elif "WZto3LNu" in proc_name or "WZTo3LNu" in proc_name:
+            CR_GRP_MAP["WZTo3LNu"].append(proc_name)
+        elif "ZZTo4mu" in proc_name:
+            CR_GRP_MAP["WZTo3LNu"].append(proc_name)
+        elif "ZZTo4tau" in proc_name:
+            CR_GRP_MAP["ZZTo4tau"].append(proc_name)
+        elif "ZZTo4e" in proc_name:
+            CR_GRP_MAP["ZZTo4e"].append(proc_name)
+        elif "ZZTo2mu2tau" in proc_name:
+            CR_GRP_MAP["ZZTo2mu2tau"].append(proc_name)
+        elif "ZZTo2e2tau" in proc_name:
+            CR_GRP_MAP["ZZTo2e2tau"].append(proc_name)
+        elif "ZZTo2e2mu" in proc_name:
+            CR_GRP_MAP["ZZTo2e2mu"].append(proc_name)
         elif "TWZ" in proc_name:
-            CR_GRP_MAP["Diboson"].append(proc_name)
+            CR_GRP_MAP["TWZ"].append(proc_name)
         elif "WJets" in proc_name:
             CR_GRP_MAP["Singleboson"].append(proc_name)
         else:
