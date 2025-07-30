@@ -1202,18 +1202,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
-                                        # # Handle jagged arrays generically and ensure 1D inputs
                                         values_cut = dense_axis_vals[all_cuts_mask]
-                                        # try:
-                                        #     counts = ak.num(values_cut, axis=1)
-                                        # except ValueError:
-                                        #     counts = None
-                                        # if counts is not None:
-                                        #     values_cut = ak.flatten(values_cut)
-                                        #     rep = ak.to_numpy(counts)
-                                        #     weights_flat = np.repeat(weights_flat, rep)
-                                        #     if eft_coeffs_cut is not None:
-                                        #         eft_coeffs_cut = np.repeat(eft_coeffs_cut, rep, axis=0)
 
                                         # Fill the histos
                                         axes_fill_info_dict = {
