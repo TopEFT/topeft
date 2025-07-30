@@ -18,9 +18,31 @@ import topcoffea.modules.utils as utils
 from topeft.modules.yield_tools import YieldTools
 
 from topcoffea.modules.paths import topcoffea_path
+from topeft.modules.paths import topeft_path
 import topeft.modules.get_rate_systs as grs
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
+import yaml
+
+with open(topeft_path("params/cr_sr_plots_metadata.yml")) as f:
+    _META = yaml.safe_load(f)
+
+DATA_ERR_OPS = _META["DATA_ERR_OPS"]
+MC_ERROR_OPS = _META["MC_ERROR_OPS"]
+if isinstance(MC_ERROR_OPS.get("edgecolor"), list):
+    MC_ERROR_OPS["edgecolor"] = tuple(MC_ERROR_OPS["edgecolor"])
+CR_CHAN_DICT = _META["CR_CHAN_DICT"]
+SR_CHAN_DICT = _META["SR_CHAN_DICT"]
+CR_GROUP_INFO = _META.get("CR_GRP_MAP", {})
+SR_GROUP_INFO = _META.get("SR_GRP_MAP", {})
+CR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in CR_GROUP_INFO.items()}
+SR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in SR_GROUP_INFO.items()}
+CR_GRP_MAP = {k: [] for k in CR_GRP_PATTERNS.keys()}
+SR_GRP_MAP = {k: [] for k in SR_GRP_PATTERNS.keys()}
+FILL_COLORS = {k: v.get("color") for k, v in {**CR_GROUP_INFO, **SR_GROUP_INFO}.items()}
+WCPT_EXAMPLE = _META["WCPT_EXAMPLE"]
+LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
+PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
 
 
 # This script takes an input pkl file that should have both data and background MC included.
@@ -29,195 +51,6 @@ get_tc_param = GetParam(topcoffea_path("params/params.json"))
 # For example, to make unit normalized plots for 2018, with the timestamp appended to the directory name, you would run:
 #     python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2018 -t -u
 
-# Some options for plotting the data and MC
-DATA_ERR_OPS = {'linestyle':'none', 'marker': '.', 'markersize': 10., 'color':'k', 'elinewidth': 1,}
-MC_ERROR_OPS = {'label': 'Stat. Unc.', 'hatch': '////', 'facecolor': 'none', 'edgecolor': (0,0,0,.5), 'linewidth': 0}
-FILL_OPS = {}
-
-# The channels that define the CR categories
-CR_CHAN_DICT = {
-    "cr_2los_Z" : [
-        "2los_ee_CRZ_0j",
-        "2los_mm_CRZ_0j",
-    ],
-    "cr_2los_Z_ee": [
-        "2los_ee_CRZ_0j",
-    ],
-    "cr_2los_Z_mm": [
-        "2los_mm_CRZ_0j",
-    ],
-
-    "cr_2los_tt" : [
-        "2los_em_CRtt_2j",
-    ],
-
-    "cr_2lss" : [
-        "2lss_ee_CR_1j",
-        "2lss_em_CR_1j",
-        "2lss_mm_CR_1j",
-        "2lss_ee_CR_2j",
-        "2lss_em_CR_2j",
-        "2lss_mm_CR_2j",
-    ],
-    "cr_2lss_ee" : [
-        "2lss_ee_CR_1j",
-        "2lss_ee_CR_2j",
-    ],
-    "cr_2lss_em" : [
-        "2lss_em_CR_1j",
-        "2lss_em_CR_2j",
-    ],
-    "cr_2lss_mm" : [
-        "2lss_mm_CR_1j",
-        "2lss_mm_CR_2j",
-    ],
-
-    "cr_2lss_flip" : [
-        "2lss_ee_CRflip_3j",
-    ],
-
-    "cr_3l" : [
-        "3l_eee_CR_0j",
-        "3l_eem_CR_0j",
-        "3l_emm_CR_0j",
-        "3l_mmm_CR_0j",
-        "3l_eee_CR_1j",
-        "3l_eem_CR_1j",
-        "3l_emm_CR_1j",
-        "3l_mmm_CR_1j",
-    ],
-    "cr_3l_eee" : [
-        "3l_eee_CR_0j",
-        "3l_eee_CR_1j",
-    ],
-    "cr_3l_mixed" : [
-        "3l_eem_CR_0j",
-        "3l_emm_CR_0j",
-        "3l_eem_CR_1j",
-        "3l_emm_CR_1j",
-    ],
-    "cr_3l_mmm": [
-        "3l_mmm_CR_0j",
-        "3l_mmm_CR_1j",
-    ],
-}
-
-
-SR_CHAN_DICT = {
-    "2lss_SR": [
-        "2lss_4t_m_4j", "2lss_4t_m_5j", "2lss_4t_m_6j", "2lss_4t_m_7j",
-        "2lss_4t_p_4j", "2lss_4t_p_5j", "2lss_4t_p_6j", "2lss_4t_p_7j",
-        "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
-        "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
-    ],
-    "3l_offZ_SR" : [
-        "3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_m_offZ_1b_5j",
-        "3l_m_offZ_2b_2j", "3l_m_offZ_2b_3j", "3l_m_offZ_2b_4j", "3l_m_offZ_2b_5j",
-        "3l_p_offZ_1b_2j", "3l_p_offZ_1b_3j", "3l_p_offZ_1b_4j", "3l_p_offZ_1b_5j",
-        "3l_p_offZ_2b_2j", "3l_p_offZ_2b_3j", "3l_p_offZ_2b_4j", "3l_p_offZ_2b_5j",
-    ],
-    "3l_onZ_SR" : [
-        "3l_onZ_1b_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
-        "3l_onZ_2b_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
-    ],
-    "4l_SR" : [
-        "4l_2j", "4l_3j", "4l_4j",
-    ],
-    "4l_2j" : [
-        "4l_2j",
-    ],
-    "4l_3j" : [
-        "4l_3j",
-    ],
-    "4l_4j" : [
-        "4l_4j",
-    ]
-}
-
-
-CR_GRP_MAP = {
-    "DY" : [],
-    "Ttbar" : [],
-    "Ttbarpowheg" : [],
-    "ZGamma" : [],
-    #"Diboson" : [],
-    "WWTo2L2Nu" : [],
-    "ZZTo4L": [],
-    "WZTo3LNu": [],
-    "ZZTo4mu": [],
-    "ZZTo4tau": [],
-    "ZZTo4e": [],
-    "ZZTo2mu2tau": [],
-    "ZZTo2e2tau": [],
-    "ZZTo2e2mu": [],
-    "TWZ" : [],
-    "Triboson" : [],
-    "Single top" : [],
-    "Singleboson" : [],
-    "Conv": [],
-    "Nonprompt" : [],
-    "Flips" : [],
-    "Signal" : [],
-    "Data" : [],
-}
-
-SR_GRP_MAP = {
-    "Data": [],
-    "Conv": [],
-    "Diboson" : [],
-    "Multiboson" : [],
-    "Nonprompt" : [],
-    "Flips" : [],
-    "ttH" : [],
-    "ttlnu" : [],
-    "ttll" : [],
-    "tttt" : [],
-    "tXq" : [],
-}
-
-# Best fit point from TOP-19-001 with madup numbers for the 10 new WCs
-WCPT_EXAMPLE = {
-    "ctW": -0.74,
-    "ctZ": -0.86,
-    "ctp": 24.5,
-    "cpQM": -0.27,
-    "ctG": -0.81,
-    "cbW": 3.03,
-    "cpQ3": -1.71,
-    "cptb": 0.13,
-    "cpt": -3.72,
-    "cQl3i": -4.47,
-    "cQlMi": 0.51,
-    "cQei": 0.05,
-    "ctli": 0.33,
-    "ctei": 0.33,
-    "ctlSi": -0.07,
-    "ctlTi": -0.01,
-    "cQq13"  : -0.05,
-    "cQq83"  : -0.15,
-    "cQq11"  : -0.15,
-    "ctq1"   : -0.20,
-    "cQq81"  : -0.50,
-    "ctq8"   : -0.50,
-    "ctt1"   : -0.71,
-    "cQQ1"   : -1.35,
-    "cQt8"   : -2.89,
-    "cQt1"   : -1.24,
-}
-
-LUMI_COM_PAIRS = {
-    "2016": ("35.9", "13"),
-    "2017": ("41.5", "13"),
-    "2018": ("59.8", "13"),
-    "2022": ("7.98", "13.6"),
-    "2022EE": ("26.67", "13.6"),
-    "2023": ("17.79", "13.6"),
-    "2023BPix": ("9.451", "13.6"),
-}
-
-# Some of our processes do not have rate systs split into qcd and pdf, so we just list them under qcd
-# This list keeps track of those, so we can handle them when extracting the numbers from the rate syst json
-PROC_WITHOUT_PDF_RATE_SYST = ["tttt","ttll","ttlnu","Triboson","tWZ","convs"]
 
 yt = YieldTools()
 
@@ -241,6 +74,22 @@ def get_dict_with_stripped_bin_names(in_chan_dict,type_of_info_to_strip):
             if bin_name_no_njet not in out_chan_dict[cat]:
                 out_chan_dict[cat].append(bin_name_no_njet)
     return (out_chan_dict)
+
+def populate_group_map(samples, pattern_map):
+    out = {k: [] for k in pattern_map}
+    for proc_name in samples:
+        matched = False
+        for grp, patterns in pattern_map.items():
+            for pat in patterns:
+                if pat in proc_name:
+                    out[grp].append(proc_name)
+                    matched = True
+                    break
+            if matched:
+                break
+        if not matched:
+            raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+    return out
 
 def group(h: HistEFT, oldname: str, newname: str, grouping: dict[str, list[str]]):
     hnew = HistEFT(
@@ -529,7 +378,18 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
 def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],group=[],set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None, lumitag="138", comtag="13"):
-    colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown","goldenrod","yellow","olive","coral", "navy", "yellowgreen", "aquamarine", "black", "plum"]
+    default_colors = [
+        "tab:blue", "darkgreen", "tab:orange", "tab:cyan", "tab:purple", "tab:pink",
+        "tan", "mediumseagreen", "tab:red", "brown", "goldenrod", "yellow",
+        "olive", "coral", "navy", "yellowgreen", "aquamarine", "black", "plum",
+        "gray"
+    ]
+    colors = []
+    for i, proc in enumerate(group):
+        c = FILL_COLORS.get(proc)
+        if c is None:
+            c = default_colors[i % len(default_colors)]
+        colors.append(c)
 
     # Decide if we're plotting stat or syst uncty for mc
     # In principle would be better to combine them
@@ -948,41 +808,10 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     print("\nData samples:",data_sample_lst)
     print("\nVariables:",dict_of_hists.keys())
 
-    # Very hard coded :(
-    for proc_name in mc_sample_lst + data_sample_lst:
-        if "data" in proc_name:
-            SR_GRP_MAP["Data"].append(proc_name)
-        elif "nonprompt" in proc_name:
-            SR_GRP_MAP["Nonprompt"].append(proc_name)
-        elif "flips" in proc_name:
-            SR_GRP_MAP["Flips"].append(proc_name)
-        elif ("ttH" in proc_name):
-            SR_GRP_MAP["ttH"].append(proc_name)
-        elif ("ttlnu" in proc_name):
-            SR_GRP_MAP["ttlnu"].append(proc_name)
-        elif ("ttll" in proc_name) or ("TTZToLL_M1to10" in proc_name) or ("TTToSemiLeptonic" in proc_name) or ("TTTo2L2Nu" in proc_name):
-            CR_GRP_MAP["Signal"].append(proc_name)
-            SR_GRP_MAP["ttll"].append(proc_name)
-        elif (("tllq" in proc_name) or ("tHq" in proc_name)):
-            SR_GRP_MAP["tXq"].append(proc_name)
-        elif ("tttt" in proc_name):
-            SR_GRP_MAP["tttt"].append(proc_name)
-        elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name or "TWZToLL" in proc_name:
-            CR_GRP_MAP["Single top"].append(proc_name)
-        elif "TTTo" in proc_name or "TTto" in proc_name:
-            CR_GRP_MAP["Ttbar"].append(proc_name)
-        elif "TTG" in proc_name:
-            SR_GRP_MAP["Conv"].append(proc_name)
-        elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
-            SR_GRP_MAP["Multiboson"].append(proc_name)
-        elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
-            SR_GRP_MAP["Diboson"].append(proc_name)
-        elif "TWZ" in proc_name:
-            SR_GRP_MAP["Multiboson"].append(proc_name)
-        else:
-            raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+    global SR_GRP_MAP, CR_GRP_MAP
+    CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
+    SR_GRP_MAP = populate_group_map(mc_sample_lst + data_sample_lst, SR_GRP_PATTERNS)
 
-    raise ValueError("bye!")
     # The analysis bins
     analysis_bins = {}
     # Skipping for now
@@ -1257,56 +1086,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             samples_to_rm_from_data_hist.append(sample_name)
     print("\nVariables:",dict_of_hists.keys())
 
-    # Fill group map (should we just fully hard code this?)
-    for proc_name in all_samples:
-        if "data" in proc_name:
-            CR_GRP_MAP["Data"].append(proc_name)
-        elif "nonprompt" in proc_name:
-            CR_GRP_MAP["Nonprompt"].append(proc_name)
-        elif "flips" in proc_name:
-            CR_GRP_MAP["Flips"].append(proc_name)
-        elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("TTLL" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name) or ("TTZToLL_M1to10" in proc_name) or ("TTTT" in proc_name) or ("ttLNu" in proc_name):
-            CR_GRP_MAP["Signal"].append(proc_name)
-        elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name or "TWZToLL" in proc_name or "TZQB-Zto2L" in proc_name:
-            CR_GRP_MAP["Single top"].append(proc_name)
-        elif "DY" in proc_name:
-            CR_GRP_MAP["DY"].append(proc_name)
-        elif "TTG" in proc_name:
-            CR_GRP_MAP["Conv"].append(proc_name)
-        elif "TTTo" in proc_name or "TTto" in proc_name:
-            CR_GRP_MAP["Ttbar"].append(proc_name)
-        elif "ZG" in proc_name:
-            CR_GRP_MAP["ZGamma"].append(proc_name)
-        elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
-            CR_GRP_MAP["Triboson"].append(proc_name)
-        # elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZto3LNu" in proc_name or "WZTo3LNu" in proc_name or "ZZTo4mu" in proc_name or "ZZTo4tau" in proc_name or "ZZTo4e" in proc_name or "ZZTo2mu2tau" in proc_name or "ZZTo2e2tau" in proc_name or "ZZTo2e2mu" in proc_name:
-        #     CR_GRP_MAP["Diboson"].append(proc_name)
-        # elif "TWZ" in proc_name:
-        #     CR_GRP_MAP["Diboson"].append(proc_name)
-        elif "WWTo2L2Nu" in proc_name:
-            CR_GRP_MAP["WWTo2L2Nu"].append(proc_name)
-        elif "ZZTo4L" in proc_name:
-            CR_GRP_MAP["ZZTo4L"].append(proc_name)
-        elif "WZto3LNu" in proc_name or "WZTo3LNu" in proc_name:
-            CR_GRP_MAP["WZTo3LNu"].append(proc_name)
-        elif "ZZTo4mu" in proc_name:
-            CR_GRP_MAP["WZTo3LNu"].append(proc_name)
-        elif "ZZTo4tau" in proc_name:
-            CR_GRP_MAP["ZZTo4tau"].append(proc_name)
-        elif "ZZTo4e" in proc_name:
-            CR_GRP_MAP["ZZTo4e"].append(proc_name)
-        elif "ZZTo2mu2tau" in proc_name:
-            CR_GRP_MAP["ZZTo2mu2tau"].append(proc_name)
-        elif "ZZTo2e2tau" in proc_name:
-            CR_GRP_MAP["ZZTo2e2tau"].append(proc_name)
-        elif "ZZTo2e2mu" in proc_name:
-            CR_GRP_MAP["ZZTo2e2mu"].append(proc_name)
-        elif "TWZ" in proc_name:
-            CR_GRP_MAP["TWZ"].append(proc_name)
-        elif "WJets" in proc_name:
-            CR_GRP_MAP["Singleboson"].append(proc_name)
-        else:
-            raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+    global CR_GRP_MAP
+    CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
 
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
