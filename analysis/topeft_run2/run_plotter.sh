@@ -14,6 +14,6 @@
 
 YEAR="2022"
 TYPE="" #Central"
-COMMIT="115bd8b_ParticleNetOnlyJet"
-python make_cr_and_sr_plots.py -f histos/2022CRs_tautest_np.pkl.gz -o /scratch365/apiccine/run3plots_loc -t -y ${YEAR} -s -n gentest${YEAR}
-#python make_cr_and_sr_plots.py -f /scratch365/apiccine/${YEAR}CRs${TYPE}_${COMMIT}_np.pkl.gz -o /scratch365/apiccine/run3plots -t -y $YEAR -s -n test${YEAR}CRs${TYPE}_${COMMIT}
+COMMIT="828e395f_PNet"
+#python make_cr_and_sr_plots.py -f histos/2022CRs_tautest_np.pkl.gz -o /scratch365/apiccine/run3plots_loc -t -y ${YEAR} -s -n gentest${YEAR}
+python make_cr_and_sr_plots.py -f /scratch365/apiccine/${YEAR}CRs${TYPE}_${COMMIT}_np.pkl.gz -o /scratch365/apiccine/run3plots -t -y $YEAR -s -n test${YEAR}CRs${TYPE}_${COMMIT}

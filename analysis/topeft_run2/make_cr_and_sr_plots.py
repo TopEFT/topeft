@@ -596,33 +596,33 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
         histtype='fill',
     )
 
-    # Plot the data
-#    hep.histplot(
-#        h_data[{'process':sum}].as_hist({}).values(flow=True)[1:],
-#        #error_opts = DATA_ERR_OPS,
-#        ax=ax,
-#        bins=bins,
-#        stack=False,
-#        density=unit_norm_bool,
-#        label='Data',
-#        #flow='show',
-#        histtype='errorbar',
-#        **DATA_ERR_OPS,
-#    )
+    #Plot the data
+    hep.histplot(
+        h_data[{'process':sum}].as_hist({}).values(flow=True)[1:],
+        #error_opts = DATA_ERR_OPS,
+        ax=ax,
+        bins=bins,
+        stack=False,
+        density=unit_norm_bool,
+        label='Data',
+        #flow='show',
+        histtype='errorbar',
+        **DATA_ERR_OPS,
+    )
 
     # Make the ratio plot
-#    hep.histplot(
-#        (h_data[{'process':sum}].as_hist({}).values(flow=True)/h_mc[{"process": sum}].as_hist({}).values(flow=True))[1:],
-#        yerr=(np.sqrt(h_data[{'process':sum}].as_hist({}).values(flow=True)) / h_data[{'process':sum}].as_hist({}).values(flow=True))[1:],
-#        #error_opts = DATA_ERR_OPS,
-#        ax=rax,
-#        bins=bins,
-#        stack=False,
-#        density=unit_norm_bool,
-#        #flow='show',
-#        histtype='errorbar',
-#        **DATA_ERR_OPS,
-#    )
+    hep.histplot(
+        (h_data[{'process':sum}].as_hist({}).values(flow=True)/h_mc[{"process": sum}].as_hist({}).values(flow=True))[1:],
+        yerr=(np.sqrt(h_data[{'process':sum}].as_hist({}).values(flow=True)) / h_data[{'process':sum}].as_hist({}).values(flow=True))[1:],
+        #error_opts = DATA_ERR_OPS,
+        ax=rax,
+        bins=bins,
+        stack=False,
+        density=unit_norm_bool,
+        #flow='show',
+        histtype='errorbar',
+        **DATA_ERR_OPS,
+    )
 
     # Plot the syst error
     if plot_syst_err:
@@ -792,7 +792,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
 
     # Loop over hists and make plots
     skip_lst = [] # Skip this hist
-    for idx,var_name in enumerate(dict_of_hists.keys()):
+    for idx, var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
         if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if (var_name in skip_lst): continue
@@ -801,7 +801,7 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
             sr_cat_dict = get_dict_with_stripped_bin_names(SR_CHAN_DICT,"njets")
         else:
             sr_cat_dict = SR_CHAN_DICT
-        print("\nVar name:",var_name)
+        print("\nVar name:", var_name)
 
         # Extract the signal hists
         hist_sig = dict_of_hists[var_name].remove("process", samples_to_rm_from_sig_hist)
