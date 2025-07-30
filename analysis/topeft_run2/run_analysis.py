@@ -130,7 +130,7 @@ if __name__ == '__main__':
             hist_lst.append("lt")
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
-        hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0ptcorr", "l0conept", "l0eta", "l1pt", "l1ptcorr", "l1conept", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass", "npvs", "npvsGood", "l0_gen_pdgId", "l1_gen_pdgId", "l2_gen_pdgId", "l0_genParent_pdgId", "l1_genParent_pdgId", "l2_genParent_pdgId"]
+        hist_lst = ["lj0pt", "ptz", "met", "ljptsum", "l0pt", "l0ptcorr", "l0conept", "l0eta", "l1pt", "l1ptcorr", "l1conept", "l1eta", "j0pt", "j0eta", "njets", "nbtagsl", "invmass", "npvs", "npvsGood", "l0_gen_pdgId", "l1_gen_pdgId", "l2_gen_pdgId", "l0_genParent_pdgId", "l1_genParent_pdgId", "l2_genParent_pdgId", "b0l_hFlav", "b0m_hFlav", "b0l_pFlav", "b0m_pFlav", "b1l_hFlav", "b1m_hFlav", "b1l_pFlav", "b1m_pFlav", "b0l_genhFlav", "b0m_genhFlav", "b0l_genpFlav", "b0m_genpFlav", "b1l_genhFlav", "b1m_genhFlav", "b1l_genpFlav", "b1m_genpFlav"]
         if tau_h_analysis:
             hist_lst.append("tau0pt")
     else:
