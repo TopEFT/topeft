@@ -120,92 +120,92 @@ info = {
     },
 
     "l0_gen_pdgId": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"pdgid of l0 genparticle",
     },
     "l1_gen_pdgId": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"pdgid of l1 genparticle",
     },
     "l2_gen_pdgId": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"pdgid of l2 genparticle",
     },
     "l0_genParent_pdgId": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"pdgid of l0 genparent",
     },
     "l1_genParent_pdgId": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"pdgid of l1 genparent",
     },
     "l2_genParent_pdgId": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"pdgid of l2 genparent",
     },
 
     "b0l_hFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"Hadron Flavor of leading loose b jet",
    },
     "b0l_pFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"Parton Flavor of leading loose b jet",
    },
     "b0m_hFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"Hadron Flavor of leading medium b jet",
    },
     "b0m_pFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"Parton Flavor of leading medium b jet",
    },
     "b1l_hFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"Hadron Flavor of subleading loose b jet",
    },
     "b1l_pFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"Parton Flavor of subleading loose b jet",
    },
     "b1m_hFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"Hadron Flavor of subleading medium b jet",
    },
     "b1m_pFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"Parton Flavor of subleading medium b jet",
    },
     "b0l_genhFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"GenHadron Flavor of leading loose b jet",
    },
     "b0l_genpFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"GenParton Flavor of leading loose b jet",
    },
     "b0m_genhFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"GenHadron Flavor of leading medium b jet",
    },
     "b0m_genpFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"GenParton Flavor of leading medium b jet",
    },
     "b1l_genhFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"GenHadron Flavor of subleading loose b jet",
    },
     "b1l_genpFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"GenParton Flavor of subleading loose b jet",
    },
     "b1m_genhFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"GenHadron Flavor of subleading medium b jet",
    },
     "b1m_genpFlav": {
-       "regular": (27, -0.5, 26.5),
+       "regular": (28, -1.5, 26.5),
        "label": r"GenParton Flavor of subleading medium b jet",
    }
 }

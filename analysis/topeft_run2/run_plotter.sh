@@ -14,6 +14,6 @@
 
 YEAR="2022"
 TYPE="" #Central"
-COMMIT="115bd8b_ParticleNetOnlyJet"
+COMMIT="1e421ac9_PNet"
 #python make_cr_and_sr_plots.py -f histoR3/2022_run3_object_selection_test.pkl.gz -o /scratch365/apiccine/run3plots -t -y 2022 -s -n mytest22
 python make_cr_and_sr_plots.py -f /scratch365/apiccine/${YEAR}CRs${TYPE}_${COMMIT}_np.pkl.gz -o /scratch365/apiccine/run3plots -t -y $YEAR -s -n test${YEAR}CRs${TYPE}_${COMMIT}

@@ -236,7 +236,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
             #btagAlgo = "btagDeepFlavB" #DeepJet branch
             btagAlgo = "btagPNetB"    #PNet branch
-            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger="btagDeepFlavB")
+            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger=btagAlgo)
         elif is_run2:
             jetsRho = events.fixedGridRhoFastjetAll
             btagAlgo = "btagDeepFlavB"
@@ -441,6 +441,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Loop over the list of systematic variations we've constructed
         met_raw=met
+
         for syst_var in syst_var_list:
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
@@ -613,10 +614,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                         else:
                             raise ValueError("btag systematics should be divided in flavor (bc or light)!")
 
-                        btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}")
-                        btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}")
-                        btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}")
-                        btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}")
+                        btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"{btagName}_{dJ_tag}", f"up_{corrtype}")
+                        btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"{btagName}_{dJ_tag}", f"down_{corrtype}")
+                        btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"{btagName}_{dJ_tag}", f"up_{corrtype}")
+                        btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"{btagName}_{dJ_tag}", f"down_{corrtype}")
 
                         pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_up, btag_sfL_up, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
                         pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_down, btag_sfL_down, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
@@ -896,6 +897,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
             bl0pt = ak.flatten(blpt[ak.argmax(blpt,axis=-1,keepdims=True)])
 
+            bjetsl_padded = ak.pad_none(bjetsl, 2)
+            b0l = bjetsl_padded[:,0]
+            b1l = bjetsl_padded[:,1]
+            bjetsm_padded = ak.pad_none(bjetsm, 2)
+            b0m = bjetsm_padded[:,0]
+            b1m = bjetsm_padded[:,1]
+
             # Collection of all objects (leptons and jets)
             if self.tau_h_analysis:
                 l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets,cleaning_taus], axis=1),"PtEtaPhiMCollection")
@@ -952,8 +960,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lt"]      = lt
             varnames["npvs"]    = pv.npvs
             varnames["npvsGood"]= pv.npvsGood
+            
             if not isData:
-                #NB 
                 l0_gen_pdgId = ak.fill_none(l0["gen_pdgId"], -1)
                 l1_gen_pdgId = ak.fill_none(l1["gen_pdgId"], -1)
                 l2_gen_pdgId = ak.fill_none(l2["gen_pdgId"], -1)
@@ -961,9 +969,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 l1_genParent_pdgId = ak.fill_none(l1["genParent_pdgId"], -1)
                 l2_genParent_pdgId = ak.fill_none(l2["genParent_pdgId"], -1)
 
-                bjetsl_padded = ak.pad_none(bjetsl, 2)
-                b0l = bjetsl_padded[:,0]
-                b1l = bjetsl_padded[:,1]
                 b0l_hFlav = ak.fill_none(b0l.hadronFlavour, -1) 
                 b0l_pFlav = ak.fill_none(b0l.partonFlavour, -1)
                 b1l_hFlav = ak.fill_none(b1l.hadronFlavour, -1) 
@@ -973,9 +978,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 b1l_genhFlav = ak.fill_none(b1l.matched_gen.hadronFlavour, -1) 
                 b1l_genpFlav = ak.fill_none(b1l.matched_gen.partonFlavour, -1)
 
-                bjetsm_padded = ak.pad_none(bjetsm, 2)
-                b0m = bjetsm_padded[:,0]
-                b1m = bjetsm_padded[:,1]
                 b0m_hFlav = ak.fill_none(b0m.hadronFlavour, -1) 
                 b0m_pFlav = ak.fill_none(b0m.partonFlavour, -1)
                 b1m_hFlav = ak.fill_none(b1m.hadronFlavour, -1) 
@@ -985,29 +987,55 @@ class AnalysisProcessor(processor.ProcessorABC):
                 b1m_genhFlav = ak.fill_none(b1m.matched_gen.hadronFlavour, -1) 
                 b1m_genpFlav = ak.fill_none(b1m.matched_gen.partonFlavour, -1)
 
-                varnames["l0_gen_pdgId"] = l0_gen_pdgId
-                varnames["l1_gen_pdgId"] = l1_gen_pdgId
-                varnames["l2_gen_pdgId"] = l2_gen_pdgId
-                varnames["l0_genParent_pdgId"] = l0_genParent_pdgId
-                varnames["l1_genParent_pdgId"] = l1_genParent_pdgId
-                varnames["l2_genParent_pdgId"] = l2_genParent_pdgId
+            else:
+                l0_gen_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
+                l1_gen_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
+                l2_gen_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
+                l0_genParent_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
+                l1_genParent_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
+                l2_genParent_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
+
+                b0l_hFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+                b0l_pFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+                b1l_hFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+                b1l_pFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+                b0l_genhFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+                b0l_genpFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+                b1l_genhFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+                b1l_genpFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
                 
-                varnames["b0l_hFlav"] = b0l_hFlav
-                varnames["b0l_pFlav"] = b0l_pFlav
-                varnames["b1l_hFlav"] = b1l_hFlav
-                varnames["b1l_pFlav"] = b1l_pFlav
-                varnames["b0l_genhFlav"] = b0l_genhFlav
-                varnames["b0l_genpFlav"] = b0l_genpFlav
-                varnames["b1l_genhFlav"] = b1l_genhFlav
-                varnames["b1l_genpFlav"] = b1l_genpFlav
-                varnames["b0m_hFlav"] = b0m_hFlav
-                varnames["b0m_pFlav"] = b0m_pFlav
-                varnames["b1m_hFlav"] = b1m_hFlav
-                varnames["b1m_pFlav"] = b1m_pFlav
-                varnames["b0m_genhFlav"] = b0m_genhFlav
-                varnames["b0m_genpFlav"] = b0m_genpFlav
-                varnames["b1m_genhFlav"] = b1m_genhFlav
-                varnames["b1m_genpFlav"] = b1m_genpFlav
+                b0m_hFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+                b0m_pFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+                b1m_hFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+                b1m_pFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+                b0m_genhFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+                b0m_genpFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+                b1m_genhFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+                b1m_genpFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+
+            varnames["l0_gen_pdgId"] = l0_gen_pdgId
+            varnames["l1_gen_pdgId"] = l1_gen_pdgId
+            varnames["l2_gen_pdgId"] = l2_gen_pdgId
+            varnames["l0_genParent_pdgId"] = l0_genParent_pdgId
+            varnames["l1_genParent_pdgId"] = l1_genParent_pdgId
+            varnames["l2_genParent_pdgId"] = l2_genParent_pdgId
+            
+            varnames["b0l_hFlav"] = b0l_hFlav
+            varnames["b0l_pFlav"] = b0l_pFlav
+            varnames["b1l_hFlav"] = b1l_hFlav
+            varnames["b1l_pFlav"] = b1l_pFlav
+            varnames["b0l_genhFlav"] = b0l_genhFlav
+            varnames["b0l_genpFlav"] = b0l_genpFlav
+            varnames["b1l_genhFlav"] = b1l_genhFlav
+            varnames["b1l_genpFlav"] = b1l_genpFlav
+            varnames["b0m_hFlav"] = b0m_hFlav
+            varnames["b0m_pFlav"] = b0m_pFlav
+            varnames["b1m_hFlav"] = b1m_hFlav
+            varnames["b1m_pFlav"] = b1m_pFlav
+            varnames["b0m_genhFlav"] = b0m_genhFlav
+            varnames["b0m_genpFlav"] = b0m_genpFlav
+            varnames["b1m_genhFlav"] = b1m_genhFlav
+            varnames["b1m_genpFlav"] = b1m_genpFlav
                 
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
@@ -1174,18 +1202,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
-                                        # # Handle jagged arrays generically and ensure 1D inputs
                                         values_cut = dense_axis_vals[all_cuts_mask]
-                                        # try:
-                                        #     counts = ak.num(values_cut, axis=1)
-                                        # except ValueError:
-                                        #     counts = None
-                                        # if counts is not None:
-                                        #     values_cut = ak.flatten(values_cut)
-                                        #     rep = ak.to_numpy(counts)
-                                        #     weights_flat = np.repeat(weights_flat, rep)
-                                        #     if eft_coeffs_cut is not None:
-                                        #         eft_coeffs_cut = np.repeat(eft_coeffs_cut, rep, axis=0)
 
                                         # Fill the histos
                                         axes_fill_info_dict = {
