@@ -559,10 +559,12 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
         sum_data = 0
         for sample in h_mc.eval({}):
             sum_mc = sum_mc + sum(h_mc.eval({})[sample])
-        for sample in h_data.eval({}):
-            sum_data = sum_data + sum(h_data.eval({})[sample])
+        if not h_data.empty():
+            for sample in h_data.eval({}):
+                sum_data = sum_data + sum(h_data.eval({})[sample])
         h_mc.scale(1.0/sum_mc)
-        h_data.scale(1.0/sum_data)
+        if sum_data > 0:
+            h_data.scale(1.0/sum_data)
 
     # Plot the MC
     years = {}
@@ -584,8 +586,11 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     else:
         vals = [h_mc[{'process': proc}].eval({})[()][1:-1] for proc in grouping]
         mc_vals = {proc: h_mc[{'process': proc}].as_hist({}).values(flow=True)[1:] for proc in grouping}
-    bins = h_data[{'process': sum}].as_hist({}).axes[var].edges
-    bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2])*0.3])
+    if not h_data.empty():
+        bin_edges = h_data[{ 'process': sum }].as_hist({}).axes[var].edges
+    else:
+        bin_edges = h_mc[{ 'process': sum }].as_hist({}).axes[var].edges
+    bins = np.append(bin_edges, [bin_edges[-1] + (bin_edges[-1] - bin_edges[-2])*0.3])
     hep.histplot(
         list(mc_vals.values()),
         ax=ax,
@@ -596,33 +601,29 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
         histtype='fill',
     )
 
-    # Plot the data
-#    hep.histplot(
-#        h_data[{'process':sum}].as_hist({}).values(flow=True)[1:],
-#        #error_opts = DATA_ERR_OPS,
-#        ax=ax,
-#        bins=bins,
-#        stack=False,
-#        density=unit_norm_bool,
-#        label='Data',
-#        #flow='show',
-#        histtype='errorbar',
-#        **DATA_ERR_OPS,
-#    )
+    # Plot the data and ratio only if data is available
+    if not h_data.empty():
+        hep.histplot(
+            h_data[{ 'process':sum }].as_hist({}).values(flow=True)[1:],
+            ax=ax,
+            bins=bins,
+            stack=False,
+            density=unit_norm_bool,
+            label='Data',
+            histtype='errorbar',
+            **DATA_ERR_OPS,
+        )
 
-    # Make the ratio plot
-#    hep.histplot(
-#        (h_data[{'process':sum}].as_hist({}).values(flow=True)/h_mc[{"process": sum}].as_hist({}).values(flow=True))[1:],
-#        yerr=(np.sqrt(h_data[{'process':sum}].as_hist({}).values(flow=True)) / h_data[{'process':sum}].as_hist({}).values(flow=True))[1:],
-#        #error_opts = DATA_ERR_OPS,
-#        ax=rax,
-#        bins=bins,
-#        stack=False,
-#        density=unit_norm_bool,
-#        #flow='show',
-#        histtype='errorbar',
-#        **DATA_ERR_OPS,
-#    )
+        hep.histplot(
+            (h_data[{ 'process':sum }].as_hist({}).values(flow=True)/h_mc[{ 'process': sum }].as_hist({}).values(flow=True))[1:],
+            yerr=(np.sqrt(h_data[{ 'process':sum }].as_hist({}).values(flow=True)) / h_data[{ 'process':sum }].as_hist({}).values(flow=True))[1:],
+            ax=rax,
+            bins=bins,
+            stack=False,
+            density=unit_norm_bool,
+            histtype='errorbar',
+            **DATA_ERR_OPS,
+        )
 
     # Plot the syst error
     if plot_syst_err:
@@ -1396,8 +1397,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 print(f'Empty {hist_mc_integrated=}')
                 continue
             if hist_data_integrated.empty():
-                print(f'Empty {hist_data_integrated=}')
-                continue
+                print(f'Empty {hist_data_integrated=}, plotting MC only')
 
             #print("\n\n\n\n\nhist_mc before fig:",  hist_mc_integrated)
 
