@@ -17,9 +17,7 @@ import topcoffea.modules.eft_helper as efth
 import topcoffea.modules.event_selection as tc_es
 import topcoffea.modules.object_selection as tc_os
 import topcoffea.modules.corrections as tc_cor
-import sys
 
-print(sys.path)
 from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps
@@ -236,17 +234,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         if is_run3:
             AttachElectronCorrections(ele, run, year, isData) #need to apply electron energy corrections before calculating conept
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-            btagAlgo = "btagDeepFlavB" #DeepJet branch
-            #btagAlgo = "btagPNetB"    #PNet branch
-            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger=btagAlgo) #"btagDeepFlavB")
-
+            #btagAlgo = "btagDeepFlavB" #DeepJet branch
+            btagAlgo = "btagPNetB"    #PNet branch
+            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger=btagAlgo)
         elif is_run2:
             jetsRho = events.fixedGridRhoFastjetAll
             btagAlgo = "btagDeepFlavB"
             leptonSelection = te_os.run2leptonselection(btagger=btagAlgo)
         if not btagAlgo in ["btagDeepFlavB", "btagPNetB"]:
             raise ValueError("b-tagging algorithm not recognized!")
-
+        
         te_os.lepJetBTagAdder(ele, btagger=btagAlgo)
         te_os.lepJetBTagAdder(mu, btagger=btagAlgo)
 
@@ -261,6 +258,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isData:
             ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
             mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
+            ele["genParent_pdgId"] = ak.fill_none(ele.matched_gen.distinctParent.pdgId, 0)
+            mu["genParent_pdgId"] = ak.fill_none(mu.matched_gen.distinctParent.pdgId, 0)
 
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
@@ -442,6 +441,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Loop over the list of systematic variations we've constructed
         met_raw=met
+
         for syst_var in syst_var_list:
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
@@ -505,15 +505,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             isBtagJetsLoose = (goodJets[btagAlgo] > btagwpl)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
-
             # Medium DeepJet WP
             medium_tag = "btag_wp_medium_" + btagRef + year.replace("201", "UL1")
             btagwpm = get_tc_param(medium_tag)
             isBtagJetsMedium = (goodJets[btagAlgo] > btagwpm)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
             nbtagsm = ak.num(goodJets[isBtagJetsMedium])
-
-
             #################### Add variables into event object so that they persist ####################
 
             # Put njets and l_fo_conept_sorted into events
@@ -569,7 +566,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                         
                     btag_method_bc    = f"{btagName}_{suffix_bc}"
                     btag_method_light = f"{btagName}_{suffix_light}"
-
                 btag_effM_light = GetBtagEff(jets_light, year, 'medium', btagAlgo)
                 btag_effM_bc = GetBtagEff(jets_bc, year, 'medium', btagAlgo)
                 btag_effL_light = GetBtagEff(jets_light, year, 'loose', btagAlgo)
@@ -896,9 +892,17 @@ class AnalysisProcessor(processor.ProcessorABC):
                 ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
+            bjetsm = goodJets[isBtagJetsMedium][ak.argsort(goodJets[isBtagJetsMedium].pt, axis=-1, ascending=False)]
             bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
             blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
             bl0pt = ak.flatten(blpt[ak.argmax(blpt,axis=-1,keepdims=True)])
+
+            bjetsl_padded = ak.pad_none(bjetsl, 2)
+            b0l = bjetsl_padded[:,0]
+            b1l = bjetsl_padded[:,1]
+            bjetsm_padded = ak.pad_none(bjetsm, 2)
+            b0m = bjetsm_padded[:,0]
+            b1m = bjetsm_padded[:,1]
 
             # Collection of all objects (leptons and jets)
             if self.tau_h_analysis:
@@ -925,10 +929,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             ljptsum = ak.sum(l_j_collection.pt,axis=-1)
             if self._ecut_threshold is not None:
                 ecut_mask = (ljptsum<self._ecut_threshold)
-
+                
             # Counts
             counts = np.ones_like(events['event'])
-
+            
             # Variables we will loop over when filling hists
             varnames = {}
             varnames["ht"]      = ht
@@ -956,6 +960,83 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lt"]      = lt
             varnames["npvs"]    = pv.npvs
             varnames["npvsGood"]= pv.npvsGood
+            
+            if not isData:
+                l0_gen_pdgId = ak.fill_none(l0["gen_pdgId"], -1)
+                l1_gen_pdgId = ak.fill_none(l1["gen_pdgId"], -1)
+                l2_gen_pdgId = ak.fill_none(l2["gen_pdgId"], -1)
+                l0_genParent_pdgId = ak.fill_none(l0["genParent_pdgId"], -1)
+                l1_genParent_pdgId = ak.fill_none(l1["genParent_pdgId"], -1)
+                l2_genParent_pdgId = ak.fill_none(l2["genParent_pdgId"], -1)
+
+                b0l_hFlav = ak.fill_none(b0l.hadronFlavour, -1) 
+                b0l_pFlav = ak.fill_none(b0l.partonFlavour, -1)
+                b1l_hFlav = ak.fill_none(b1l.hadronFlavour, -1) 
+                b1l_pFlav = ak.fill_none(b1l.partonFlavour, -1)
+                b0l_genhFlav = ak.fill_none(b0l.matched_gen.hadronFlavour, -1) 
+                b0l_genpFlav = ak.fill_none(b0l.matched_gen.partonFlavour, -1)
+                b1l_genhFlav = ak.fill_none(b1l.matched_gen.hadronFlavour, -1) 
+                b1l_genpFlav = ak.fill_none(b1l.matched_gen.partonFlavour, -1)
+
+                b0m_hFlav = ak.fill_none(b0m.hadronFlavour, -1) 
+                b0m_pFlav = ak.fill_none(b0m.partonFlavour, -1)
+                b1m_hFlav = ak.fill_none(b1m.hadronFlavour, -1) 
+                b1m_pFlav = ak.fill_none(b1m.partonFlavour, -1)
+                b0m_genhFlav = ak.fill_none(b0m.matched_gen.hadronFlavour, -1) 
+                b0m_genpFlav = ak.fill_none(b0m.matched_gen.partonFlavour, -1)
+                b1m_genhFlav = ak.fill_none(b1m.matched_gen.hadronFlavour, -1) 
+                b1m_genpFlav = ak.fill_none(b1m.matched_gen.partonFlavour, -1)
+
+            else:
+                l0_gen_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
+                l1_gen_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
+                l2_gen_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
+                l0_genParent_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
+                l1_genParent_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
+                l2_genParent_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
+
+                b0l_hFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+                b0l_pFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+                b1l_hFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+                b1l_pFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+                b0l_genhFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+                b0l_genpFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+                b1l_genhFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+                b1l_genpFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+                
+                b0m_hFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+                b0m_pFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+                b1m_hFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+                b1m_pFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+                b0m_genhFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+                b0m_genpFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+                b1m_genhFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+                b1m_genpFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+
+            varnames["l0_gen_pdgId"] = l0_gen_pdgId
+            varnames["l1_gen_pdgId"] = l1_gen_pdgId
+            varnames["l2_gen_pdgId"] = l2_gen_pdgId
+            varnames["l0_genParent_pdgId"] = l0_genParent_pdgId
+            varnames["l1_genParent_pdgId"] = l1_genParent_pdgId
+            varnames["l2_genParent_pdgId"] = l2_genParent_pdgId
+            
+            varnames["b0l_hFlav"] = b0l_hFlav
+            varnames["b0l_pFlav"] = b0l_pFlav
+            varnames["b1l_hFlav"] = b1l_hFlav
+            varnames["b1l_pFlav"] = b1l_pFlav
+            varnames["b0l_genhFlav"] = b0l_genhFlav
+            varnames["b0l_genpFlav"] = b0l_genpFlav
+            varnames["b1l_genhFlav"] = b1l_genhFlav
+            varnames["b1l_genpFlav"] = b1l_genpFlav
+            varnames["b0m_hFlav"] = b0m_hFlav
+            varnames["b0m_pFlav"] = b0m_pFlav
+            varnames["b1m_hFlav"] = b1m_hFlav
+            varnames["b1m_pFlav"] = b1m_pFlav
+            varnames["b0m_genhFlav"] = b0m_genhFlav
+            varnames["b0m_genpFlav"] = b0m_genpFlav
+            varnames["b1m_genhFlav"] = b1m_genhFlav
+            varnames["b1m_genpFlav"] = b1m_genpFlav
+                
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
@@ -1121,9 +1202,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
+                                        values_cut = dense_axis_vals[all_cuts_mask]
+
                                         # Fill the histos
                                         axes_fill_info_dict = {
-                                            dense_axis_name : dense_axis_vals[all_cuts_mask],
+                                            dense_axis_name : values_cut,
                                             "channel"       : ch_name,
                                             "appl"          : appl,
                                             "process"       : histAxisName,
@@ -1150,7 +1233,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                         hout[dense_axis_name].fill(**axes_fill_info_dict)
                                         axes_fill_info_dict = {
-                                            dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
+                                            dense_axis_name+"_sumw2" : values_cut,
                                             "channel"       : ch_name,
                                             "appl"          : appl,
                                             "process"       : histAxisName,
