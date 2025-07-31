@@ -56,7 +56,7 @@ def main():
         args.tau_flag,
         args.fwd_flag,
     ]
-    
+
     # check exactly one is True
     if sum(flags) != 1:
         raise ValueError(
@@ -114,7 +114,7 @@ def main():
         for line in lines_from_condor_out_to_print:
             print(f"\t\t* In {line[0]}: {line[1]}")
 
-            
+
     ####### Copy the TOP-22-006 relevant files to their own dir ######
     with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
         select_ch_lst = json.load(ch_json)
