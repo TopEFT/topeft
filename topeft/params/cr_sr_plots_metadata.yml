@@ -1,0 +1,327 @@
+DATA_ERR_OPS:
+  linestyle: none
+  marker: '.'
+  markersize: 10.0
+  color: k
+  elinewidth: 1
+MC_ERROR_OPS:
+  label: 'Stat. Unc.'
+  hatch: '////'
+  facecolor: none
+  edgecolor: [0,0,0,0.5]
+  linewidth: 0
+CR_CHAN_DICT:
+  cr_2los_Z:
+    - 2los_ee_CRZ_0j
+    - 2los_mm_CRZ_0j
+  cr_2los_Z_ee:
+    - 2los_ee_CRZ_0j
+  cr_2los_Z_mm:
+    - 2los_mm_CRZ_0j
+  cr_2los_tt:
+    - 2los_em_CRtt_2j
+  cr_2lss:
+    - 2lss_ee_CR_1j
+    - 2lss_em_CR_1j
+    - 2lss_mm_CR_1j
+    - 2lss_ee_CR_2j
+    - 2lss_em_CR_2j
+    - 2lss_mm_CR_2j
+  cr_2lss_ee:
+    - 2lss_ee_CR_1j
+    - 2lss_ee_CR_2j
+  cr_2lss_em:
+    - 2lss_em_CR_1j
+    - 2lss_em_CR_2j
+  cr_2lss_mm:
+    - 2lss_mm_CR_1j
+    - 2lss_mm_CR_2j
+  cr_2lss_flip:
+    - 2lss_ee_CRflip_3j
+  cr_3l:
+    - 3l_eee_CR_0j
+    - 3l_eem_CR_0j
+    - 3l_emm_CR_0j
+    - 3l_mmm_CR_0j
+    - 3l_eee_CR_1j
+    - 3l_eem_CR_1j
+    - 3l_emm_CR_1j
+    - 3l_mmm_CR_1j
+  cr_3l_eee:
+    - 3l_eee_CR_0j
+    - 3l_eee_CR_1j
+  cr_3l_mixed:
+    - 3l_eem_CR_0j
+    - 3l_emm_CR_0j
+    - 3l_eem_CR_1j
+    - 3l_emm_CR_1j
+  cr_3l_mmm:
+    - 3l_mmm_CR_0j
+    - 3l_mmm_CR_1j
+SR_CHAN_DICT:
+  2lss_SR:
+    - 2lss_4t_m_4j
+    - 2lss_4t_m_5j
+    - 2lss_4t_m_6j
+    - 2lss_4t_m_7j
+    - 2lss_4t_p_4j
+    - 2lss_4t_p_5j
+    - 2lss_4t_p_6j
+    - 2lss_4t_p_7j
+    - 2lss_m_4j
+    - 2lss_m_5j
+    - 2lss_m_6j
+    - 2lss_m_7j
+    - 2lss_p_4j
+    - 2lss_p_5j
+    - 2lss_p_6j
+    - 2lss_p_7j
+  3l_offZ_SR:
+    - 3l_m_offZ_1b_2j
+    - 3l_m_offZ_1b_3j
+    - 3l_m_offZ_1b_4j
+    - 3l_m_offZ_1b_5j
+    - 3l_m_offZ_2b_2j
+    - 3l_m_offZ_2b_3j
+    - 3l_m_offZ_2b_4j
+    - 3l_m_offZ_2b_5j
+    - 3l_p_offZ_1b_2j
+    - 3l_p_offZ_1b_3j
+    - 3l_p_offZ_1b_4j
+    - 3l_p_offZ_1b_5j
+    - 3l_p_offZ_2b_2j
+    - 3l_p_offZ_2b_3j
+    - 3l_p_offZ_2b_4j
+    - 3l_p_offZ_2b_5j
+  3l_onZ_SR:
+    - 3l_onZ_1b_2j
+    - 3l_onZ_1b_3j
+    - 3l_onZ_1b_4j
+    - 3l_onZ_1b_5j
+    - 3l_onZ_2b_2j
+    - 3l_onZ_2b_3j
+    - 3l_onZ_2b_4j
+    - 3l_onZ_2b_5j
+  4l_SR:
+    - 4l_2j
+    - 4l_3j
+    - 4l_4j
+  4l_2j:
+    - 4l_2j
+  4l_3j:
+    - 4l_3j
+  4l_4j:
+    - 4l_4j
+CR_GRP_MAP:
+  Data:
+    color: black
+    patterns:
+      - data
+  DY:
+    color: tab:blue
+    patterns:
+      - DY
+  Ttbar:
+    color: darkgreen
+    patterns:
+      - TTTo
+      - TTto
+  ZGamma:
+    color: tab:orange
+    patterns:
+      - ZG
+  Diboson:
+    color: tab:cyan
+    patterns:
+      - WWTo2L2Nu
+      - ZZTo4L
+      - WZTo3LNu
+      - WZto3LNu
+      - ZZTo4mu
+      - ZZTo4tau
+      - ZZTo4e
+      - ZZTo2mu2tau
+      - ZZTo2e2tau
+      - ZZTo2e2mu
+  Triboson:
+    color: tab:purple
+    patterns:
+      - WWW
+      - WWZ
+      - WZZ
+      - ZZZ
+  'Single top':
+    color: tab:pink
+    patterns:
+      - ST
+      - tW
+      - tbarW
+      - TWZ_Tto
+      - TZQB-Zto2L
+  Singleboson:
+    color: tan
+    patterns:
+      - WJets
+  Conv:
+    color: mediumseagreen
+    patterns:
+      - TTG
+  Nonprompt:
+    color: tab:red
+    patterns:
+      - nonprompt
+  Flips:
+    color: brown
+    patterns:
+      - flips
+  Signal:
+    color: yellowgreen
+    patterns:
+      - ttH
+      - ttlnu
+      - TTLL
+      - ttll
+      - tllq
+      - tHq
+      - tttt
+      - TTZToLL_M1to10
+      - TTTT
+      - ttLNu
+  # WWTo2L2Nu:
+  #   color: brown
+  #   patterns:
+  #     - WWTo2L2Nu
+  # ZZTo4L:
+  #   color: goldenrod
+  #   patterns:
+  #     - ZZTo4L
+  # WZTo3LNu:
+  #   color: yellow
+  #   patterns:
+  #     - WZto3LNu
+  #     - WZTo3LNu
+  #     - ZZTo4mu
+  # ZZTo4tau:
+  #   color: olive
+  #   patterns:
+  #     - ZZTo4tau
+  # ZZTo4e:
+  #   color: coral
+  #   patterns:
+  #     - ZZTo4e
+  # ZZTo2mu2tau:
+  #   color: navy
+  #   patterns:
+  #     - ZZTo2mu2tau
+  # ZZTo2e2tau:
+  #   color: yellowgreen
+  #   patterns:
+  #     - ZZTo2e2tau
+  # ZZTo2e2mu:
+  #   color: aquamarine
+  #   patterns:
+  #     - ZZTo2e2mu
+SR_GRP_MAP:
+  Data:
+    color: black
+    patterns:
+      - data
+  Nonprompt:
+    color: tab:red
+    patterns:
+      - nonprompt
+  Flips:
+    color: brown
+    patterns:
+      - flips
+  ttH:
+    color: tab:orange
+    patterns:
+      - ttH
+  ttlnu:
+    color: tab:cyan
+    patterns:
+      - ttlnu
+  ttll:
+    color: tab:purple
+    patterns:
+      - ttll
+      - TTZToLL_M1to10
+      - TTToSemiLeptonic
+      - TTTo2L2Nu
+  tXq:
+    color: tab:pink
+    patterns:
+      - tllq
+      - tHq
+  tttt:
+    color: tan
+    patterns:
+      - tttt
+  Conv:
+    color: mediumseagreen
+    patterns:
+      - TTG
+  Multiboson:
+    color: tab:purple
+    patterns:
+      - WWW
+      - WWZ
+      - WZZ
+      - ZZZ
+      - TWZ
+  Diboson:
+    color: tab:cyan
+    patterns:
+      - WWTo2L2Nu
+      - ZZTo4L
+      - WZTo3LNu
+      - WZto3LNu
+      - ZZTo4mu
+      - ZZTo4tau
+      - ZZTo4e
+      - ZZTo2mu2tau
+      - ZZTo2e2tau
+      - ZZTo2e2mu
+WCPT_EXAMPLE:
+  ctW: -0.74
+  ctZ: -0.86
+  ctp: 24.5
+  cpQM: -0.27
+  ctG: -0.81
+  cbW: 3.03
+  cpQ3: -1.71
+  cptb: 0.13
+  cpt: -3.72
+  cQl3i: -4.47
+  cQlMi: 0.51
+  cQei: 0.05
+  ctli: 0.33
+  ctei: 0.33
+  ctlSi: -0.07
+  ctlTi: -0.01
+  cQq13: -0.05
+  cQq83: -0.15
+  cQq11: -0.15
+  ctq1: -0.2
+  cQq81: -0.5
+  ctq8: -0.5
+  ctt1: -0.71
+  cQQ1: -1.35
+  cQt8: -2.89
+  cQt1: -1.24
+LUMI_COM_PAIRS:
+  '2016': ['35.9', '13']
+  '2017': ['41.5', '13']
+  '2018': ['59.8', '13']
+  '2022': ['7.98', '13.6']
+  '2022EE': ['26.67', '13.6']
+  '2023': ['17.79', '13.6']
+  '2023BPix': ['9.451', '13.6']
+PROC_WITHOUT_PDF_RATE_SYST:
+  - tttt
+  - ttll
+  - ttlnu
+  - Triboson
+  - tWZ
+  - convs

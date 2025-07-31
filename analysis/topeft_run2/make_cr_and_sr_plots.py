@@ -18,10 +18,31 @@ import topcoffea.modules.utils as utils
 from topeft.modules.yield_tools import YieldTools
 
 from topcoffea.modules.paths import topcoffea_path
+from topeft.modules.paths import topeft_path
 import topeft.modules.get_rate_systs as grs
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
+import yaml
 
+with open(topeft_path("params/cr_sr_plots_metadata.yml")) as f:
+    _META = yaml.safe_load(f)
+
+DATA_ERR_OPS = _META["DATA_ERR_OPS"]
+MC_ERROR_OPS = _META["MC_ERROR_OPS"]
+if isinstance(MC_ERROR_OPS.get("edgecolor"), list):
+    MC_ERROR_OPS["edgecolor"] = tuple(MC_ERROR_OPS["edgecolor"])
+CR_CHAN_DICT = _META["CR_CHAN_DICT"]
+SR_CHAN_DICT = _META["SR_CHAN_DICT"]
+CR_GROUP_INFO = _META.get("CR_GRP_MAP", {})
+SR_GROUP_INFO = _META.get("SR_GRP_MAP", {})
+CR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in CR_GROUP_INFO.items()}
+SR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in SR_GROUP_INFO.items()}
+CR_GRP_MAP = {k: [] for k in CR_GRP_PATTERNS.keys()}
+SR_GRP_MAP = {k: [] for k in SR_GRP_PATTERNS.keys()}
+FILL_COLORS = {k: v.get("color") for k, v in {**CR_GROUP_INFO, **SR_GROUP_INFO}.items()}
+WCPT_EXAMPLE = _META["WCPT_EXAMPLE"]
+LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
+PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
 
 # This script takes an input pkl file that should have both data and background MC included.
 # Use the -y option to specify a year, if no year is specified, all years will be included.
@@ -29,195 +50,6 @@ get_tc_param = GetParam(topcoffea_path("params/params.json"))
 # For example, to make unit normalized plots for 2018, with the timestamp appended to the directory name, you would run:
 #     python make_cr_plots.py -f histos/your.pkl.gz -o ~/www/somewhere/in/your/web/dir -n some_dir_name -y 2018 -t -u
 
-# Some options for plotting the data and MC
-DATA_ERR_OPS = {'linestyle':'none', 'marker': '.', 'markersize': 10., 'color':'k', 'elinewidth': 1,}
-MC_ERROR_OPS = {'label': 'Stat. Unc.', 'hatch': '////', 'facecolor': 'none', 'edgecolor': (0,0,0,.5), 'linewidth': 0}
-FILL_OPS = {}
-
-# The channels that define the CR categories
-CR_CHAN_DICT = {
-    "cr_2los_Z" : [
-        "2los_ee_CRZ_0j",
-        "2los_mm_CRZ_0j",
-    ],
-    "cr_2los_Z_ee": [
-        "2los_ee_CRZ_0j",
-    ],
-    "cr_2los_Z_mm": [
-        "2los_mm_CRZ_0j",
-    ],
-
-    "cr_2los_tt" : [
-        "2los_em_CRtt_2j",
-    ],
-
-    "cr_2lss" : [
-        "2lss_ee_CR_1j",
-        "2lss_em_CR_1j",
-        "2lss_mm_CR_1j",
-        "2lss_ee_CR_2j",
-        "2lss_em_CR_2j",
-        "2lss_mm_CR_2j",
-    ],
-    "cr_2lss_ee" : [
-        "2lss_ee_CR_1j",
-        "2lss_ee_CR_2j",
-    ],
-    "cr_2lss_em" : [
-        "2lss_em_CR_1j",
-        "2lss_em_CR_2j",
-    ],
-    "cr_2lss_mm" : [
-        "2lss_mm_CR_1j",
-        "2lss_mm_CR_2j",
-    ],
-
-    "cr_2lss_flip" : [
-        "2lss_ee_CRflip_3j",
-    ],
-
-    "cr_3l" : [
-        "3l_eee_CR_0j",
-        "3l_eem_CR_0j",
-        "3l_emm_CR_0j",
-        "3l_mmm_CR_0j",
-        "3l_eee_CR_1j",
-        "3l_eem_CR_1j",
-        "3l_emm_CR_1j",
-        "3l_mmm_CR_1j",
-    ],
-    "cr_3l_eee" : [
-        "3l_eee_CR_0j",
-        "3l_eee_CR_1j",
-    ],
-    "cr_3l_mixed" : [
-        "3l_eem_CR_0j",
-        "3l_emm_CR_0j",
-        "3l_eem_CR_1j",
-        "3l_emm_CR_1j",
-    ],
-    "cr_3l_mmm": [
-        "3l_mmm_CR_0j",
-        "3l_mmm_CR_1j",
-    ],
-}
-
-
-SR_CHAN_DICT = {
-    "2lss_SR": [
-        "2lss_4t_m_4j", "2lss_4t_m_5j", "2lss_4t_m_6j", "2lss_4t_m_7j",
-        "2lss_4t_p_4j", "2lss_4t_p_5j", "2lss_4t_p_6j", "2lss_4t_p_7j",
-        "2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j",
-        "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
-    ],
-    "3l_offZ_SR" : [
-        "3l_m_offZ_1b_2j", "3l_m_offZ_1b_3j", "3l_m_offZ_1b_4j", "3l_m_offZ_1b_5j",
-        "3l_m_offZ_2b_2j", "3l_m_offZ_2b_3j", "3l_m_offZ_2b_4j", "3l_m_offZ_2b_5j",
-        "3l_p_offZ_1b_2j", "3l_p_offZ_1b_3j", "3l_p_offZ_1b_4j", "3l_p_offZ_1b_5j",
-        "3l_p_offZ_2b_2j", "3l_p_offZ_2b_3j", "3l_p_offZ_2b_4j", "3l_p_offZ_2b_5j",
-    ],
-    "3l_onZ_SR" : [
-        "3l_onZ_1b_2j"   , "3l_onZ_1b_3j"   , "3l_onZ_1b_4j"   , "3l_onZ_1b_5j",
-        "3l_onZ_2b_2j"   , "3l_onZ_2b_3j"   , "3l_onZ_2b_4j"   , "3l_onZ_2b_5j",
-    ],
-    "4l_SR" : [
-        "4l_2j", "4l_3j", "4l_4j",
-    ],
-    "4l_2j" : [
-        "4l_2j",
-    ],
-    "4l_3j" : [
-        "4l_3j",
-    ],
-    "4l_4j" : [
-        "4l_4j",
-    ]
-}
-
-
-CR_GRP_MAP = {
-    "DY" : [],
-    "Ttbar" : [],
-    "Ttbarpowheg" : [],
-    "ZGamma" : [],
-    #"Diboson" : [],
-    "WWTo2L2Nu" : [],
-    "ZZTo4L": [],
-    "WZTo3LNu": [],
-    "ZZTo4mu": [],
-    "ZZTo4tau": [],
-    "ZZTo4e": [],
-    "ZZTo2mu2tau": [],
-    "ZZTo2e2tau": [],
-    "ZZTo2e2mu": [],
-    "TWZ" : [],
-    "Triboson" : [],
-    "Single top" : [],
-    "Singleboson" : [],
-    "Conv": [],
-    "Nonprompt" : [],
-    "Flips" : [],
-    "Signal" : [],
-    "Data" : [],
-}
-
-SR_GRP_MAP = {
-    "Data": [],
-    "Conv": [],
-    "Diboson" : [],
-    "Multiboson" : [],
-    "Nonprompt" : [],
-    "Flips" : [],
-    "ttH" : [],
-    "ttlnu" : [],
-    "ttll" : [],
-    "tttt" : [],
-    "tXq" : [],
-}
-
-# Best fit point from TOP-19-001 with madup numbers for the 10 new WCs
-WCPT_EXAMPLE = {
-    "ctW": -0.74,
-    "ctZ": -0.86,
-    "ctp": 24.5,
-    "cpQM": -0.27,
-    "ctG": -0.81,
-    "cbW": 3.03,
-    "cpQ3": -1.71,
-    "cptb": 0.13,
-    "cpt": -3.72,
-    "cQl3i": -4.47,
-    "cQlMi": 0.51,
-    "cQei": 0.05,
-    "ctli": 0.33,
-    "ctei": 0.33,
-    "ctlSi": -0.07,
-    "ctlTi": -0.01,
-    "cQq13"  : -0.05,
-    "cQq83"  : -0.15,
-    "cQq11"  : -0.15,
-    "ctq1"   : -0.20,
-    "cQq81"  : -0.50,
-    "ctq8"   : -0.50,
-    "ctt1"   : -0.71,
-    "cQQ1"   : -1.35,
-    "cQt8"   : -2.89,
-    "cQt1"   : -1.24,
-}
-
-LUMI_COM_PAIRS = {
-    "2016": ("35.9", "13"),
-    "2017": ("41.5", "13"),
-    "2018": ("59.8", "13"),
-    "2022": ("7.98", "13.6"),
-    "2022EE": ("26.67", "13.6"),
-    "2023": ("17.79", "13.6"),
-    "2023BPix": ("9.451", "13.6"),
-}
-
-# Some of our processes do not have rate systs split into qcd and pdf, so we just list them under qcd
-# This list keeps track of those, so we can handle them when extracting the numbers from the rate syst json
-PROC_WITHOUT_PDF_RATE_SYST = ["tttt","ttll","ttlnu","Triboson","tWZ","convs"]
 
 yt = YieldTools()
 
@@ -241,6 +73,24 @@ def get_dict_with_stripped_bin_names(in_chan_dict,type_of_info_to_strip):
             if bin_name_no_njet not in out_chan_dict[cat]:
                 out_chan_dict[cat].append(bin_name_no_njet)
     return (out_chan_dict)
+
+def populate_group_map(samples, pattern_map):
+    out = {k: [] for k in pattern_map}
+    for proc_name in samples:
+        matched = False
+        for grp, patterns in pattern_map.items():
+            for pat in patterns:
+                if pat in proc_name:
+                    out[grp].append(proc_name)
+                    matched = True
+                    break
+            if matched:
+                break
+        if not matched:
+            print(f"Warning: Process name \"{proc_name}\" does not match any known group patterns. It will not be included in the grouping.")
+            # If you want to raise an error instead, uncomment the next line
+            # raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+    return out
 
 def group(h: HistEFT, oldname: str, newname: str, grouping: dict[str, list[str]]):
     hnew = HistEFT(
@@ -528,8 +378,28 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 ######### Plotting functions #########
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],group=[],set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None, lumitag="138", comtag="13"):
-    colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown","goldenrod","yellow","olive","coral", "navy", "yellowgreen", "aquamarine", "black", "plum"]
+def make_cr_fig(h_mc, h_data, unit_norm_bool, axis='process', var='lj0pt', bins=None, group=None, set_x_lim=None, err_p=None, err_m=None, err_ratio_p=None, err_ratio_m=None, lumitag="138", comtag="13"):
+    if bins is None:
+        bins = []
+    if group is None:
+        group = {}
+    default_colors = [
+        "tab:blue", "darkgreen", "tab:orange", "tab:cyan", "tab:purple", "tab:pink",
+        "tan", "mediumseagreen", "tab:red", "brown", "goldenrod", "yellow",
+        "olive", "coral", "navy", "yellowgreen", "aquamarine", "black", "plum",
+        "gray"
+    ]
+
+    # Determine which groups are actually present
+    grouping = {proc: [p for p in group[proc] if p in h_mc.axes['process']]
+                for proc in group if any(p in h_mc.axes['process'] for p in group[proc])}
+
+    colors = []
+    for i, proc in enumerate(grouping):
+        c = FILL_COLORS.get(proc)
+        if c is None:
+            c = default_colors[i % len(default_colors)]
+        colors.append(c)
 
     # Decide if we're plotting stat or syst uncty for mc
     # In principle would be better to combine them
@@ -544,14 +414,13 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     fig, (ax, rax) = plt.subplots(
         nrows=2,
         ncols=1,
-        figsize=(12,13),
+        figsize=(10,11),
         gridspec_kw={"height_ratios": (4, 1)},
         sharex=True
     )
     fig.subplots_adjust(hspace=.07)
 
-    # Set up the colors
-    ax.set_prop_cycle(cycler(color=colors))
+    # Set up the colors for each stacked process
 
     # Normalize if we want to do that
     if unit_norm_bool:
@@ -576,14 +445,12 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     plt.sca(ax)
     hep.cms.label(lumi=lumitag, com=comtag, fontsize=18.0)
 
-    # Hack for grouping until fixed
-    grouping = {proc: [good_proc for good_proc in group[proc] if good_proc in h_mc.axes['process']] for proc in group if any(p in h_mc.axes['process'] for p in group[proc])}
-    if group:
-        vals = [h_mc[{'process': grouping[proc]}][{'process': sum}].eval({})[()][1:-1] for proc in grouping]
-        mc_vals = {proc: h_mc[{'process': grouping[proc]}][{'process': sum}].as_hist({}).values(flow=True)[1:] for proc in grouping}
-    else:
-        vals = [h_mc[{'process': proc}].eval({})[()][1:-1] for proc in grouping]
-        mc_vals = {proc: h_mc[{'process': proc}].as_hist({}).values(flow=True)[1:] for proc in grouping}
+    # Use the grouping information determined above
+    mc_vals = {
+        proc: h_mc[{"process": grouping[proc]}][{"process": sum}].as_hist({}).values(flow=True)[1:]
+        for proc in grouping
+    }
+
     bins = h_data[{'process': sum}].as_hist({}).axes[var].edges
     bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2])*0.3])
     hep.histplot(
@@ -594,6 +461,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
         density=unit_norm_bool,
         label=list(mc_vals.keys()),
         histtype='fill',
+        color=colors,
     )
 
     #Plot the data
@@ -660,13 +528,12 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
     # Put a legend to the right of the current axis
-    ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=5, fontsize=12)
+    ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
     plt.subplots_adjust(top=0.88, bottom=0.05, right=0.95, left=0.11)
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
 def make_single_fig(histo,unit_norm_bool,axis=None,bins=[],group=[]):
-    #print("\nPlotting values:",histo.eval({}))
     fig, ax = plt.subplots(1, 1, figsize=(10,10))
     hep.style.use("CMS")
     plt.sca(ax)
@@ -698,8 +565,6 @@ def make_single_fig(histo,unit_norm_bool,axis=None,bins=[],group=[]):
 # Takes a hist with one sparse axis (axis_name) and one dense axis, overlays everything on the sparse axis
 # Makes a ratio of each cateogory on the sparse axis with respect to ref_cat
 def make_single_fig_with_ratio(histo,axis_name,cat_ref,var='lj0pt',err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
-    #print("\nPlotting values:",histo.eval({}))
-
     # Create the figure
     fig, (ax, rax) = plt.subplots(
         nrows=2,
@@ -948,41 +813,10 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     print("\nData samples:",data_sample_lst)
     print("\nVariables:",dict_of_hists.keys())
 
-    # Very hard coded :(
-    for proc_name in mc_sample_lst + data_sample_lst:
-        if "data" in proc_name:
-            SR_GRP_MAP["Data"].append(proc_name)
-        elif "nonprompt" in proc_name:
-            SR_GRP_MAP["Nonprompt"].append(proc_name)
-        elif "flips" in proc_name:
-            SR_GRP_MAP["Flips"].append(proc_name)
-        elif ("ttH" in proc_name):
-            SR_GRP_MAP["ttH"].append(proc_name)
-        elif ("ttlnu" in proc_name):
-            SR_GRP_MAP["ttlnu"].append(proc_name)
-        elif ("ttll" in proc_name) or ("TTZToLL_M1to10" in proc_name) or ("TTToSemiLeptonic" in proc_name) or ("TTTo2L2Nu" in proc_name):
-            CR_GRP_MAP["Signal"].append(proc_name)
-            SR_GRP_MAP["ttll"].append(proc_name)
-        elif (("tllq" in proc_name) or ("tHq" in proc_name)):
-            SR_GRP_MAP["tXq"].append(proc_name)
-        elif ("tttt" in proc_name):
-            SR_GRP_MAP["tttt"].append(proc_name)
-        elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name or "TWZToLL" in proc_name:
-            CR_GRP_MAP["Single top"].append(proc_name)
-        elif "TTTo" in proc_name or "TTto" in proc_name:
-            CR_GRP_MAP["Ttbar"].append(proc_name)
-        elif "TTG" in proc_name:
-            SR_GRP_MAP["Conv"].append(proc_name)
-        elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
-            SR_GRP_MAP["Multiboson"].append(proc_name)
-        elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
-            SR_GRP_MAP["Diboson"].append(proc_name)
-        elif "TWZ" in proc_name:
-            SR_GRP_MAP["Multiboson"].append(proc_name)
-        else:
-            raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+    global SR_GRP_MAP, CR_GRP_MAP
+    CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
+    SR_GRP_MAP = populate_group_map(mc_sample_lst + data_sample_lst, SR_GRP_PATTERNS)
 
-    raise ValueError("bye!")
     # The analysis bins
     analysis_bins = {}
     # Skipping for now
@@ -1257,56 +1091,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             samples_to_rm_from_data_hist.append(sample_name)
     print("\nVariables:",dict_of_hists.keys())
 
-    # Fill group map (should we just fully hard code this?)
-    for proc_name in all_samples:
-        if "data" in proc_name:
-            CR_GRP_MAP["Data"].append(proc_name)
-        elif "nonprompt" in proc_name:
-            CR_GRP_MAP["Nonprompt"].append(proc_name)
-        elif "flips" in proc_name:
-            CR_GRP_MAP["Flips"].append(proc_name)
-        elif ("ttH" in proc_name) or ("ttlnu" in proc_name) or ("TTLL" in proc_name) or ("ttll" in proc_name) or ("tllq" in proc_name) or ("tHq" in proc_name) or ("tttt" in proc_name) or ("TTZToLL_M1to10" in proc_name) or ("TTTT" in proc_name) or ("ttLNu" in proc_name):
-            CR_GRP_MAP["Signal"].append(proc_name)
-        elif "ST" in proc_name or "tW" in proc_name or "tbarW" in proc_name or "TWZToLL" in proc_name or "TZQB-Zto2L" in proc_name:
-            CR_GRP_MAP["Single top"].append(proc_name)
-        elif "DY" in proc_name:
-            CR_GRP_MAP["DY"].append(proc_name)
-        elif "TTG" in proc_name:
-            CR_GRP_MAP["Conv"].append(proc_name)
-        elif "TTTo" in proc_name or "TTto" in proc_name:
-            CR_GRP_MAP["Ttbar"].append(proc_name)
-        elif "ZG" in proc_name:
-            CR_GRP_MAP["ZGamma"].append(proc_name)
-        elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
-            CR_GRP_MAP["Triboson"].append(proc_name)
-        # elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZto3LNu" in proc_name or "WZTo3LNu" in proc_name or "ZZTo4mu" in proc_name or "ZZTo4tau" in proc_name or "ZZTo4e" in proc_name or "ZZTo2mu2tau" in proc_name or "ZZTo2e2tau" in proc_name or "ZZTo2e2mu" in proc_name:
-        #     CR_GRP_MAP["Diboson"].append(proc_name)
-        # elif "TWZ" in proc_name:
-        #     CR_GRP_MAP["Diboson"].append(proc_name)
-        elif "WWTo2L2Nu" in proc_name:
-            CR_GRP_MAP["WWTo2L2Nu"].append(proc_name)
-        elif "ZZTo4L" in proc_name:
-            CR_GRP_MAP["ZZTo4L"].append(proc_name)
-        elif "WZto3LNu" in proc_name or "WZTo3LNu" in proc_name:
-            CR_GRP_MAP["WZTo3LNu"].append(proc_name)
-        elif "ZZTo4mu" in proc_name:
-            CR_GRP_MAP["WZTo3LNu"].append(proc_name)
-        elif "ZZTo4tau" in proc_name:
-            CR_GRP_MAP["ZZTo4tau"].append(proc_name)
-        elif "ZZTo4e" in proc_name:
-            CR_GRP_MAP["ZZTo4e"].append(proc_name)
-        elif "ZZTo2mu2tau" in proc_name:
-            CR_GRP_MAP["ZZTo2mu2tau"].append(proc_name)
-        elif "ZZTo2e2tau" in proc_name:
-            CR_GRP_MAP["ZZTo2e2tau"].append(proc_name)
-        elif "ZZTo2e2mu" in proc_name:
-            CR_GRP_MAP["ZZTo2e2mu"].append(proc_name)
-        elif "TWZ" in proc_name:
-            CR_GRP_MAP["TWZ"].append(proc_name)
-        elif "WJets" in proc_name:
-            CR_GRP_MAP["Singleboson"].append(proc_name)
-        else:
-            raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+    global CR_GRP_MAP
+    CR_GRP_MAP = populate_group_map(all_samples, CR_GRP_PATTERNS)
 
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
@@ -1326,16 +1112,11 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         if not yt.is_split_by_lepflav(dict_of_hists):
             cr_cat_dict = get_dict_with_stripped_bin_names(cr_cat_dict,"lepflav")
         print("\nVar name:",var_name)
-        #print("cr_cat_dict:",cr_cat_dict)
 
         # Extract the MC and data hists
         hist_mc = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_data = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
 
-        #print(f"\n\nHEYY dict_of_hists[{var_name}]:", dict_of_hists[var_name].axes["process"], "\n\n", samples_to_rm_from_mc_hist)
-        #print("\n\n\n\n\nhist_mc just created:",  hist_mc)
-
-        #print("\n\n\nAttributes:", dir(dict_of_hists[var_name]))
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
             if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))):
@@ -1359,9 +1140,14 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 continue
             # Remove samples that are not relevant for the given category
             samples_to_rm = []
-            #print("\n\n\n\n\nhist_mc before rm:",  hist_mc_integrated)
+
             if hist_cat.startswith("cr_2los_tt") or hist_cat.startswith('cr_2los_Z'): #we don't actually expect nonprompt in the ttbar CR, and here the nonprompt estimation is not really reliable
-                samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
+                try:
+                    samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
+                except KeyError:
+                    print(f"Warning: No Nonprompt group in CR_GRP_MAP for {hist_cat}, skipping sample removal.")
+                else:
+                    pass
             hist_mc_integrated = hist_mc_integrated.remove("process", samples_to_rm)
 
 
@@ -1399,8 +1185,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 print(f'Empty {hist_data_integrated=}')
                 continue
 
-            #print("\n\n\n\n\nhist_mc before fig:",  hist_mc_integrated)
-
             # Print out total MC and data and the sf between them
             # For extracting the factors we apply to the flip contribution
             # Probably should be an option not just a commented block...
@@ -1418,12 +1202,13 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             x_range = None
             if var_name == "ht": x_range = (0,250)
             group = {k:v for k,v in CR_GRP_MAP.items() if v} # Remove empty groups
+
             fig = make_cr_fig(
                 hist_mc_integrated,
                 hist_data_integrated,
                 unit_norm_bool,
                 var=var_name,
-                group=group,#CR_GRP_MAP,
+                group=group,
                 set_x_lim = x_range,
                 err_p = p_err_arr,
                 err_m = m_err_arr,
