@@ -588,6 +588,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Event weights that do depend on the lep cat ###########
             select_cat_dict = None
+
             with open(topeft_path("channels/ch_lst.json"), "r") as ch_json_test:
                 select_cat_dict = json.load(ch_json_test)
 
@@ -618,6 +619,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 lep_cats += list(import_cr_cat_dict.keys())
             
             # Add the 2l_4t category 
+
             lep_cats += ["2l_4t"]
             lep_cats_data = [lep_cat for lep_cat in lep_cats if (lep_cat.startswith("2l") and not "os" in lep_cat)]
 
@@ -870,6 +872,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             if self.tau_h_analysis:
                 ptz_wtau = te_es.get_Zlt_pt(l0, l1, tau0)
+
             if self.offZ_3l_split:
                 ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
@@ -929,11 +932,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lj0pt"]   = lj0pt
             varnames["lt"]      = lt
             if self.tau_h_analysis:
-                varnames["ptz_wtau"] = ptz_wtau#(tau0+l0).pt
+
+                varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
 
             ########## Fill the histograms ##########
-
             cat_dict = {}
             if not self._skip_signal_regions:
             # If we are not skipping the signal regions, we will fill the SR categories
@@ -1114,6 +1117,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
                                             if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
                                             if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))): continue
+
                                         elif self.fwd_analysis:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                             if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue

@@ -509,4 +509,3 @@ def get_Zlt_pt(lep0, lep1, tau0):
     lt_pt = ak.where(sfosz_mask0, lt0_pt, lt1_pt)
     #lt_pt = lt_pt[(sfosz_mask0 | sfosz_mask1)]
     return lt_pt
-    

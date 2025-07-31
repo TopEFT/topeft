@@ -3,32 +3,32 @@
         "2l": {
             "lep_chan_lst": [
                 [
-                    "2lss_p",
-                    "2lss",
-                    "2l_p",
-                    "bmask_atleast1m2l",
-                    "bmask_atmost2m"
+            "2lss_p",
+            "2lss",
+            "2l_p",
+            "bmask_atleast1m2l",
+            "bmask_atmost2m"
                 ],
-                [
+        [
                     "2lss_m",
                     "2lss",
                     "2l_m",
-                    "bmask_atleast1m2l",
-                    "bmask_atmost2m"
+            "bmask_atleast1m2l",
+            "bmask_atmost2m"
                 ],
-                [
+        [
                     "2lss_4t_p",
                     "2lss",
                     "2l_p",
-                    "bmask_atleast1m2l",
-                    "bmask_atleast3m"
+            "bmask_atleast1m2l",
+            "bmask_atleast3m"            
                 ],
                 [
                     "2lss_4t_m",
                     "2lss",
                     "2l_m",
-                    "bmask_atleast1m2l",
-                    "bmask_atleast3m"
+            "bmask_atleast1m2l",
+            "bmask_atleast3m"
                 ]
             ],
             "lep_flav_lst": [
@@ -50,33 +50,33 @@
                 ">7"
             ]
         },
-        "3l": {
+    "3l": {
             "lep_chan_lst": [
                 [
                     "3l_onZ_1b",
-                    "3l",
-                    "3l_onZ",
-                    "bmask_exactly1m"
+            "3l",
+            "3l_onZ",
+            "bmask_exactly1m"
                 ],
-                [
+        [
                     "3l_onZ_2b",
                     "3l",
                     "3l_onZ",
                     "bmask_atleast2m"
                 ],
-                [
+        [
                     "3l_m_offZ_1b",
                     "3l_m",
                     "3l_offZ",
                     "bmask_exactly1m"
                 ],
-                [
+        [
                     "3l_m_offZ_2b",
                     "3l_m",
                     "3l_offZ",
                     "bmask_atleast2m"
                 ],
-                [
+        [
                     "3l_p_offZ_1b",
                     "3l_p",
                     "3l_offZ",
@@ -93,7 +93,7 @@
                 "eee",
                 "eem",
                 "emm",
-                "mmm"
+        "mmm"
             ],
             "appl_lst": [
                 "isSR_3l",
@@ -105,25 +105,25 @@
                 "=4",
                 ">5"
             ]
-        },
-        "4l": {
+    },
+    "4l": {
             "lep_chan_lst": [
                 [
                     "4l",
-                    "4l",
-                    "bmask_atleast1m2l"
-                ]
+            "4l",
+            "bmask_atleast1m2l"
+        ]
             ],
             "lep_flav_lst": [
-                "llll"
+        "llll"
             ],
             "appl_lst": [
-                "isSR_4l"
+        "isSR_4l"
             ],
             "jet_lst": [
-                "=2",
-                "=3",
-                ">4"
+        "=2",
+        "=3",
+        ">4"
             ]
         }
     },
@@ -131,36 +131,36 @@
         "2lss": {
             "lep_chan_lst": [
                 [
-                    "2lss_p",
-                    "2lss",
-                    "2l_p",
-                    "bmask_atleast1m2l",
-                    "bmask_atmost2m",
-                    "0tau"
+            "2lss_p",
+            "2lss",
+            "2l_p",
+            "bmask_atleast1m2l",
+            "bmask_atmost2m",
+            "0tau"
                 ],
-                [
+        [
                     "2lss_m",
                     "2lss",
                     "2l_m",
-                    "bmask_atleast1m2l",
-                    "bmask_atmost2m",
-                    "0tau"
+            "bmask_atleast1m2l",
+            "bmask_atmost2m",
+            "0tau"
                 ],
-                [
+        [
                     "2lss_4t_p",
                     "2lss",
                     "2l_p",
-                    "bmask_atleast1m2l",
-                    "bmask_atleast3m",
-                    "0tau"
+            "bmask_atleast1m2l",
+            "bmask_atleast3m",
+            "0tau"
                 ],
                 [
                     "2lss_4t_m",
                     "2lss",
                     "2l_m",
-                    "bmask_atleast1m2l",
-                    "bmask_atleast3m",
-                    "0tau"
+            "bmask_atleast1m2l",
+            "bmask_atleast3m",
+            "0tau"
                 ]
             ],
             "lep_flav_lst": [
@@ -182,9 +182,9 @@
                 ">7"
             ]
         },
-        "2lss_1tau": {
-            "lep_chan_lst": [
-                [
+    "2lss_1tau": {
+        "lep_chan_lst": [
+        [
                     "2lss_m_1tau_onZ",
                     "2lss",
                     "2l_m",
@@ -199,7 +199,7 @@
                     "bmask_atleast1m2l",
                     "1tau",
                     "offZ_tau"
-                ],
+        ],
                 [
                     "2lss_m_1tau_offZ",
                     "2lss",
@@ -207,17 +207,9 @@
                     "bmask_atleast1m2l",
                     "1tau",
                     "offZ_tau"
-                ],
-                [
-                    "2lss_p_1tau_onZ",
-                    "2lss",
-                    "2l_p",
-                    "bmask_atleast1m2l",
-                    "1tau",
-                    "onZ_tau"
                 ]
-            ],
-            "lep_flav_lst": [
+        ],
+        "lep_flav_lst": [
                 "ee",
                 "em",
                 "mm"
@@ -233,20 +225,21 @@
                 "=3",
                 "=4",
                 "=5",
-                ">6"
+                "=6",
+                ">7"
             ]
-        },
-        "2los_1tau": {
-            "lep_chan_lst": [
-                [
+    },
+    "2los_1tau": {
+        "lep_chan_lst": [
+         [
                     "2los_onZ_1tau",
                     "2los",
                     "bmask_atleast2m",
                     "1tau",
                     "2l_onZ"
-                ]
-            ],
-            "lep_flav_lst": [
+                 ]
+        ],
+        "lep_flav_lst": [
                 "ee",
                 "em",
                 "mm"
@@ -258,52 +251,52 @@
             "jet_lst": [
                 ">5"
             ]
-        },
-        "3l": {
+    },
+    "3l": {
             "lep_chan_lst": [
                 [
                     "3l_onZ_1b",
-                    "3l",
-                    "3l_onZ",
-                    "bmask_exactly1m",
-                    "0tau"
+            "3l",
+            "3l_onZ",
+            "bmask_exactly1m",
+            "0tau"
                 ],
-                [
+        [
                     "3l_onZ_2b",
                     "3l",
                     "3l_onZ",
                     "bmask_atleast2m",
-                    "0tau"
+            "0tau"
                 ],
-                [
+        [
                     "3l_m_offZ_1b",
                     "3l_m",
                     "3l_offZ",
                     "bmask_exactly1m",
-                    "0tau"
+            "0tau"
                 ],
-                [
+        [
                     "3l_m_offZ_2b",
                     "3l_m",
                     "3l_offZ",
                     "bmask_atleast2m",
-                    "0tau"
+            "0tau"
                 ],
-                [
+        [
                     "3l_p_offZ_1b",
                     "3l_p",
                     "3l_offZ",
                     "bmask_exactly1m",
-                    "0tau"
+            "0tau"
                 ],
                 [
                     "3l_p_offZ_2b",
                     "3l_p",
                     "3l_offZ",
                     "bmask_atleast2m",
-                    "0tau"
+            "0tau"
                 ],
-                [
+        [
                     "3l_1tau_1b",
                     "bmask_exactly1m",
                     "1tau"
@@ -318,7 +311,7 @@
                 "eee",
                 "eem",
                 "emm",
-                "mmm"
+        "mmm"
             ],
             "appl_lst": [
                 "isSR_3l",
@@ -330,113 +323,58 @@
                 "=4",
                 ">5"
             ]
-        },
-        "4l": {
+    },
+    "4l": {
             "lep_chan_lst": [
                 [
                     "4l",
-                    "4l",
-                    "bmask_atleast1m2l"
-                ]
+            "4l",
+            "bmask_atleast1m2l"
+        ]
             ],
             "lep_flav_lst": [
-                "llll"
+        "llll"
             ],
             "appl_lst": [
-                "isSR_4l"
+        "isSR_4l"
             ],
             "jet_lst": [
-                "=2",
-                "=3",
-                ">4"
+        "=2",
+        "=3",
+        ">4"
             ]
         }
     },
-    "TAU_CH_LST_CR": {
-        "2los_1tau": {
-            "lep_chan_lst": [
-                [
-                    "2los_1tau_Ftau",
-                    "2los",
-                    "2l_nozeeveto",
-                    "bmask_atleast1m2l",
-                    "1Ftau"
-                ],
-                [
-                    "2los_1tau_Ttau",
-                    "2los",
-                    "2l_nozeeveto",
-                    "bmask_atleast1m2l",
-                    "1tau"
-                ]
-            ],
-            "lep_flav_lst": [
-                "ee",
-                "em",
-                "mm"
-            ],
-            "appl_lst": [
-                "isSR_2lOS"
-            ],
-            "jet_lst": [
-                "=2",
-                "=3",
-                "=4"
-            ]
-        },
-        "1l_1tau_CR": {
-            "lep_chan_lst": [
-                [
-                    "1l_1tau_CR",
-                    "1l",
-                    "bmask_atleast2m",
-                    "1tau"
-                ]
-            ],
-            "lep_flav_lst": [
-                "e",
-                "m"
-            ],
-            "appl_lst": [
-                "isSR_1l"
-            ],
-            "jet_lst": [
-                "=2",
-                "=3",
-                "=4"
-            ]
-        }
-    },
-    "OFFZ_SPLIT_CH_LST_SR": {
+    "OFFZ_SPLIT_CH_LST_SR":{
         "2l": {
             "lep_chan_lst": [
                 [
-                    "2lss_p",
-                    "2lss",
-                    "2l_p",
-                    "bmask_atleast1m2l",
-                    "bmask_atmost2m"
+            "2lss_p",
+            "2lss",
+            "2l_p",
+            "bmask_atleast1m2l",
+            "bmask_atmost2m"
                 ],
-                [
+        [
                     "2lss_m",
                     "2lss",
                     "2l_m",
-                    "bmask_atleast1m2l",
-                    "bmask_atmost2m"
+            "bmask_atleast1m2l",
+            "bmask_atmost2m"
                 ],
-                [
+        [
                     "2lss_4t_p",
                     "2lss",
                     "2l_p",
-                    "bmask_atleast1m2l",
-                    "bmask_atleast3m"
+            "bmask_atleast1m2l",
+            "bmask_atleast3m"
                 ],
                 [
                     "2lss_4t_m",
                     "2lss",
                     "2l_m",
-                    "bmask_atleast1m2l",
-                    "bmask_atleast3m"
+            "bmask_atleast1m2l",
+            "bmask_atleast3m"
                 ]
             ],
             "lep_flav_lst": [
@@ -458,87 +396,87 @@
                 ">7"
             ]
         },
-        "3l": {
+    "3l": {
             "lep_chan_lst": [
                 [
                     "3l_onZ_1b",
-                    "3l",
-                    "3l_onZ",
-                    "bmask_exactly1m"
+            "3l",
+            "3l_onZ",
+            "bmask_exactly1m"
                 ],
-                [
+        [
                     "3l_onZ_2b",
                     "3l",
                     "3l_onZ",
                     "bmask_atleast2m"
                 ],
-                [
+        [
                     "3l_m_offZ_low_1b",
                     "3l_m",
                     "3l_offZ_low",
                     "bmask_exactly1m"
                 ],
-                [
+        [
                     "3l_m_offZ_high_1b",
                     "3l_m",
                     "3l_offZ_high",
                     "bmask_exactly1m"
                 ],
-                [
+        [
                     "3l_m_offZ_none_1b",
                     "3l_m",
                     "3l_offZ_none",
                     "bmask_exactly1m"
                 ],
-                [
+        [
                     "3l_m_offZ_low_2b",
                     "3l_m",
                     "3l_offZ_low",
                     "bmask_atleast2m"
                 ],
-                [
+        [
                     "3l_m_offZ_high_2b",
                     "3l_m",
                     "3l_offZ_high",
                     "bmask_atleast2m"
                 ],
-                [
+        [
                     "3l_m_offZ_none_2b",
                     "3l_m",
                     "3l_offZ_none",
                     "bmask_atleast2m"
                 ],
-                [
+        [
                     "3l_p_offZ_low_1b",
                     "3l_p",
                     "3l_offZ_low",
                     "bmask_exactly1m"
                 ],
-                [
+        [
                     "3l_p_offZ_high_1b",
                     "3l_p",
                     "3l_offZ_high",
                     "bmask_exactly1m"
                 ],
-                [
+        [
                     "3l_p_offZ_none_1b",
                     "3l_p",
                     "3l_offZ_none",
                     "bmask_exactly1m"
                 ],
-                [
+        [
                     "3l_p_offZ_low_2b",
                     "3l_p",
                     "3l_offZ_low",
                     "bmask_atleast2m"
                 ],
-                [
+        [
                     "3l_p_offZ_high_2b",
                     "3l_p",
                     "3l_offZ_high",
                     "bmask_atleast2m"
                 ],
-                [
+        [
                     "3l_p_offZ_none_2b",
                     "3l_p",
                     "3l_offZ_none",
@@ -549,7 +487,7 @@
                 "eee",
                 "eem",
                 "emm",
-                "mmm"
+        "mmm"
             ],
             "appl_lst": [
                 "isSR_3l",
@@ -561,92 +499,92 @@
                 "=4",
                 ">5"
             ]
-        },
-        "4l": {
+    },
+    "4l": {
             "lep_chan_lst": [
                 [
                     "4l",
-                    "4l",
-                    "bmask_atleast1m2l"
-                ]
+            "4l",
+            "bmask_atleast1m2l"
+        ]
             ],
             "lep_flav_lst": [
-                "llll"
+        "llll"
             ],
             "appl_lst": [
-                "isSR_4l"
+        "isSR_4l"
             ],
             "jet_lst": [
-                "=2",
-                "=3",
-                ">4"
+        "=2",
+        "=3",
+        ">4"
             ]
         }
     },
     "CH_LST_CR": {
-        "2l_CR": {
+    "2l_CR": {
             "lep_chan_lst": [
                 [
                     "2lss_CR",
-                    "chargedl0",
-                    "2lss",
-                    "bmask_exactly1m"
-                ]
+            "chargedl0",
+            "2lss",
+            "bmask_exactly1m"
+        ]
             ],
             "lep_flav_lst": [
-                "ee",
-                "em",
-                "mm"
+        "ee",
+        "em",
+        "mm"
             ],
-            "appl_lst": [
-                "isSR_2lSS",
+        "appl_lst": [
+            "isSR_2lSS",
                 "isAR_2lSS"
             ],
-            "appl_lst_data": [
+        "appl_lst_data": [
                 "isAR_2lSS_OS"
             ],
             "jet_lst": [
-                "=1",
-                "=2",
-                "=3"
+        "=1",
+        "=2",
+        "=3"
             ]
         },
-        "2l_CRflip": {
+    "2l_CRflip": {
             "lep_chan_lst": [
                 [
                     "2lss_CRflip",
-                    "2l_nozeeveto",
-                    "2lee",
-                    "2l_onZ_as"
-                ]
+            "2l_nozeeveto",
+            "2lee",
+            "2l_onZ_as"
+        ]
             ],
             "lep_flav_lst": [
-                "ee"
+        "ee"
             ],
-            "appl_lst": [
-                "isSR_2lSS",
+        "appl_lst": [
+            "isSR_2lSS",
                 "isAR_2lSS"
             ],
-            "appl_lst_data": [
+        "appl_lst_data": [
                 "isAR_2lSS_OS"
             ],
             "jet_lst": [
-                "<3"
+        "<3"
             ]
         },
-        "2los_CRZ": {
+    "2los_CRZ": {
             "lep_chan_lst": [
                 [
                     "2los_CRZ",
-                    "2l_nozeeveto",
-                    "2los",
-                    "2l_onZ",
-                    "bmask_exactly0m"
+            "2l_nozeeveto",
+            "2los",
+            "2l_onZ",
+            "bmask_exactly0m"
                 ]
             ],
-            "lep_flav_lst": [
-                "ee",
-                "mm"
+        "lep_flav_lst": [
+        "ee",
+        "mm"
             ],
             "appl_lst": [
                 "isSR_2lOS",
@@ -656,18 +594,18 @@
                 ">0"
             ]
         },
-        "2los_CRtt": {
+    "2los_CRtt": {
             "lep_chan_lst": [
                 [
                     "2los_CRtt",
-                    "2l_nozeeveto",
-                    "2los",
-                    "2lem",
-                    "bmask_exactly2m"
+            "2l_nozeeveto",
+            "2los",
+            "2lem",
+            "bmask_exactly2m"
                 ]
             ],
-            "lep_flav_lst": [
-                "em"
+        "lep_flav_lst": [
+        "em"
             ],
             "appl_lst": [
                 "isSR_2lOS",
@@ -677,29 +615,29 @@
                 "=2"
             ]
         },
-        "3l_CR": {
+    "3l_CR": {
             "lep_chan_lst": [
-                [
+            [
                     "3l_CR",
-                    "3l",
-                    "bmask_exactly0m"
+            "3l",
+            "bmask_exactly0m"
                 ]
             ],
-            "lep_flav_lst": [
-                "eee",
-                "eem",
-                "emm",
-                "mmm"
+        "lep_flav_lst": [
+        "eee",
+        "eem",
+        "emm",
+        "mmm"
             ],
-            "appl_lst": [
+        "appl_lst": [
                 "isSR_3l",
                 "isAR_3l"
             ],
             "jet_lst": [
                 "=0",
-                ">1"
+        ">1"
             ]
-        }
+    }
     },
     "FWD_CH_LST_SR": {
         "2l": {
@@ -768,33 +706,33 @@
                 ">7"
             ]
         },
-        "3l": {
+    "3l": {
             "lep_chan_lst": [
                 [
                     "3l_onZ_1b",
-                    "3l",
-                    "3l_onZ",
-                    "bmask_exactly1m"
+            "3l",
+            "3l_onZ",
+            "bmask_exactly1m"
                 ],
-                [
+        [
                     "3l_onZ_2b",
                     "3l",
                     "3l_onZ",
                     "bmask_atleast2m"
                 ],
-                [
+        [
                     "3l_m_offZ_1b",
                     "3l_m",
                     "3l_offZ",
                     "bmask_exactly1m"
                 ],
-                [
+        [
                     "3l_m_offZ_2b",
                     "3l_m",
                     "3l_offZ",
                     "bmask_atleast2m"
                 ],
-                [
+        [
                     "3l_p_offZ_1b",
                     "3l_p",
                     "3l_offZ",
@@ -811,7 +749,7 @@
                 "eee",
                 "eem",
                 "emm",
-                "mmm"
+        "mmm"
             ],
             "appl_lst": [
                 "isSR_3l",
@@ -823,25 +761,25 @@
                 "=4",
                 ">5"
             ]
-        },
-        "4l": {
+    },
+    "4l": {
             "lep_chan_lst": [
                 [
                     "4l",
-                    "4l",
-                    "bmask_atleast1m2l"
-                ]
+            "4l",
+            "bmask_atleast1m2l"
+        ]
             ],
             "lep_flav_lst": [
-                "llll"
+        "llll"
             ],
             "appl_lst": [
-                "isSR_4l"
+        "isSR_4l"
             ],
             "jet_lst": [
-                "=2",
-                "=3",
-                ">4"
+        "=2",
+        "=3",
+        ">4"
             ]
         }
     }

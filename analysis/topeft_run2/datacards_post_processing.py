@@ -116,7 +116,6 @@ def main():
 
             
     ####### Copy the TOP-22-006 relevant files to their own dir ######
-    
     with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
         select_ch_lst = json.load(ch_json)
         #reading the macro analysis setup
@@ -156,7 +155,7 @@ def main():
                     CATSELECTED.append(channelname)
 
     CATSELECTED = sorted(CATSELECTED)
-    #print("\nCATSELECTED", CATSELECTED, len(CATSELECTED), "\n")
+
     # Grab the ptz-lj0pt cards we want for TOP-22-006, copy into a dir
     n_txt = 0
     n_root = 0
@@ -170,7 +169,6 @@ def main():
         print(f"\nCopying tau analysis relevant files to {ptzlj0pt_path}...")
     elif args.fwd_flag:
         print(f"\nCopying forward jets analysis relevant files to {ptzlj0pt_path}...")
-
 
     for fname in datacard_files:
         file_name_strip_ext = os.path.splitext(fname)[0]
@@ -196,10 +194,8 @@ def main():
     # Check that we got the expected number and print what we learn
     print(f"\tNumber of text templates copied: {n_txt}")
     print(f"\tNumber of root templates copied: {n_txt}")
-
-    if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))   or   (args.tau_flag and ((n_txt != 68) or (n_root != 68)))):
+    if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))):
         raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
     print("Done.\n")
-
 
 main()
