@@ -44,7 +44,6 @@ WCPT_EXAMPLE = _META["WCPT_EXAMPLE"]
 LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
 PROC_WITHOUT_PDF_RATE_SYST = _META["PROC_WITHOUT_PDF_RATE_SYST"]
 
-
 # This script takes an input pkl file that should have both data and background MC included.
 # Use the -y option to specify a year, if no year is specified, all years will be included.
 # There are various other options available from the command line.
@@ -88,7 +87,9 @@ def populate_group_map(samples, pattern_map):
             if matched:
                 break
         if not matched:
-            raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
+            print(f"Warning: Process name \"{proc_name}\" does not match any known group patterns. It will not be included in the grouping.")
+            # If you want to raise an error instead, uncomment the next line
+            # raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
     return out
 
 def group(h: HistEFT, oldname: str, newname: str, grouping: dict[str, list[str]]):
@@ -377,15 +378,24 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 ######### Plotting functions #########
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],group=[],set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None, lumitag="138", comtag="13"):
+def make_cr_fig(h_mc, h_data, unit_norm_bool, axis='process', var='lj0pt', bins=None, group=None, set_x_lim=None, err_p=None, err_m=None, err_ratio_p=None, err_ratio_m=None, lumitag="138", comtag="13"):
+    if bins is None:
+        bins = []
+    if group is None:
+        group = {}
     default_colors = [
         "tab:blue", "darkgreen", "tab:orange", "tab:cyan", "tab:purple", "tab:pink",
         "tan", "mediumseagreen", "tab:red", "brown", "goldenrod", "yellow",
         "olive", "coral", "navy", "yellowgreen", "aquamarine", "black", "plum",
         "gray"
     ]
+
+    # Determine which groups are actually present
+    grouping = {proc: [p for p in group[proc] if p in h_mc.axes['process']]
+                for proc in group if any(p in h_mc.axes['process'] for p in group[proc])}
+
     colors = []
-    for i, proc in enumerate(group):
+    for i, proc in enumerate(grouping):
         c = FILL_COLORS.get(proc)
         if c is None:
             c = default_colors[i % len(default_colors)]
@@ -404,14 +414,13 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     fig, (ax, rax) = plt.subplots(
         nrows=2,
         ncols=1,
-        figsize=(12,13),
+        figsize=(10,11),
         gridspec_kw={"height_ratios": (4, 1)},
         sharex=True
     )
     fig.subplots_adjust(hspace=.07)
 
-    # Set up the colors
-    ax.set_prop_cycle(cycler(color=colors))
+    # Set up the colors for each stacked process
 
     # Normalize if we want to do that
     if unit_norm_bool:
@@ -436,14 +445,12 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     plt.sca(ax)
     hep.cms.label(lumi=lumitag, com=comtag, fontsize=18.0)
 
-    # Hack for grouping until fixed
-    grouping = {proc: [good_proc for good_proc in group[proc] if good_proc in h_mc.axes['process']] for proc in group if any(p in h_mc.axes['process'] for p in group[proc])}
-    if group:
-        vals = [h_mc[{'process': grouping[proc]}][{'process': sum}].eval({})[()][1:-1] for proc in grouping]
-        mc_vals = {proc: h_mc[{'process': grouping[proc]}][{'process': sum}].as_hist({}).values(flow=True)[1:] for proc in grouping}
-    else:
-        vals = [h_mc[{'process': proc}].eval({})[()][1:-1] for proc in grouping]
-        mc_vals = {proc: h_mc[{'process': proc}].as_hist({}).values(flow=True)[1:] for proc in grouping}
+    # Use the grouping information determined above
+    mc_vals = {
+        proc: h_mc[{"process": grouping[proc]}][{"process": sum}].as_hist({}).values(flow=True)[1:]
+        for proc in grouping
+    }
+
     bins = h_data[{'process': sum}].as_hist({}).axes[var].edges
     bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2])*0.3])
     hep.histplot(
@@ -454,6 +461,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
         density=unit_norm_bool,
         label=list(mc_vals.keys()),
         histtype='fill',
+        color=colors,
     )
 
     #Plot the data
@@ -520,13 +528,12 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width, box.height])
     # Put a legend to the right of the current axis
-    ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=5, fontsize=12)
+    ax.legend(loc='lower center', bbox_to_anchor=(0.5,1.02), ncol=4, fontsize=16)
     plt.subplots_adjust(top=0.88, bottom=0.05, right=0.95, left=0.11)
     return fig
 
 # Takes a hist with one sparse axis and one dense axis, overlays everything on the sparse axis
 def make_single_fig(histo,unit_norm_bool,axis=None,bins=[],group=[]):
-    #print("\nPlotting values:",histo.eval({}))
     fig, ax = plt.subplots(1, 1, figsize=(10,10))
     hep.style.use("CMS")
     plt.sca(ax)
@@ -558,8 +565,6 @@ def make_single_fig(histo,unit_norm_bool,axis=None,bins=[],group=[]):
 # Takes a hist with one sparse axis (axis_name) and one dense axis, overlays everything on the sparse axis
 # Makes a ratio of each cateogory on the sparse axis with respect to ref_cat
 def make_single_fig_with_ratio(histo,axis_name,cat_ref,var='lj0pt',err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
-    #print("\nPlotting values:",histo.eval({}))
-
     # Create the figure
     fig, (ax, rax) = plt.subplots(
         nrows=2,
@@ -1107,16 +1112,11 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         if not yt.is_split_by_lepflav(dict_of_hists):
             cr_cat_dict = get_dict_with_stripped_bin_names(cr_cat_dict,"lepflav")
         print("\nVar name:",var_name)
-        #print("cr_cat_dict:",cr_cat_dict)
 
         # Extract the MC and data hists
         hist_mc = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_data = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
 
-        #print(f"\n\nHEYY dict_of_hists[{var_name}]:", dict_of_hists[var_name].axes["process"], "\n\n", samples_to_rm_from_mc_hist)
-        #print("\n\n\n\n\nhist_mc just created:",  hist_mc)
-
-        #print("\n\n\nAttributes:", dir(dict_of_hists[var_name]))
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
             if (hist_cat == "cr_2los_Z" and (("j0" in var_name) and ("lj0pt" not in var_name))):
@@ -1140,9 +1140,14 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 continue
             # Remove samples that are not relevant for the given category
             samples_to_rm = []
-            #print("\n\n\n\n\nhist_mc before rm:",  hist_mc_integrated)
+
             if hist_cat.startswith("cr_2los_tt") or hist_cat.startswith('cr_2los_Z'): #we don't actually expect nonprompt in the ttbar CR, and here the nonprompt estimation is not really reliable
-                samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
+                try:
+                    samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
+                except KeyError:
+                    print(f"Warning: No Nonprompt group in CR_GRP_MAP for {hist_cat}, skipping sample removal.")
+                else:
+                    pass
             hist_mc_integrated = hist_mc_integrated.remove("process", samples_to_rm)
 
 
@@ -1180,8 +1185,6 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 print(f'Empty {hist_data_integrated=}')
                 continue
 
-            #print("\n\n\n\n\nhist_mc before fig:",  hist_mc_integrated)
-
             # Print out total MC and data and the sf between them
             # For extracting the factors we apply to the flip contribution
             # Probably should be an option not just a commented block...
@@ -1199,12 +1202,13 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             x_range = None
             if var_name == "ht": x_range = (0,250)
             group = {k:v for k,v in CR_GRP_MAP.items() if v} # Remove empty groups
+
             fig = make_cr_fig(
                 hist_mc_integrated,
                 hist_data_integrated,
                 unit_norm_bool,
                 var=var_name,
-                group=group,#CR_GRP_MAP,
+                group=group,
                 set_x_lim = x_range,
                 err_p = p_err_arr,
                 err_m = m_err_arr,

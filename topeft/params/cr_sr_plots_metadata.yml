@@ -11,15 +11,15 @@ MC_ERROR_OPS:
   edgecolor: [0,0,0,0.5]
   linewidth: 0
 CR_CHAN_DICT:
-  cr_2los_Z:
-    - 2los_ee_CRZ_0j
-    - 2los_mm_CRZ_0j
-  cr_2los_Z_ee:
-    - 2los_ee_CRZ_0j
-  cr_2los_Z_mm:
-    - 2los_mm_CRZ_0j
-  cr_2los_tt:
-    - 2los_em_CRtt_2j
+  # cr_2los_Z:
+  #   - 2los_ee_CRZ_0j
+  #   - 2los_mm_CRZ_0j
+  # cr_2los_Z_ee:
+  #   - 2los_ee_CRZ_0j
+  # cr_2los_Z_mm:
+  #   - 2los_mm_CRZ_0j
+  # cr_2los_tt:
+  #   - 2los_em_CRtt_2j
   cr_2lss:
     - 2lss_ee_CR_1j
     - 2lss_em_CR_1j
@@ -27,37 +27,37 @@ CR_CHAN_DICT:
     - 2lss_ee_CR_2j
     - 2lss_em_CR_2j
     - 2lss_mm_CR_2j
-  cr_2lss_ee:
-    - 2lss_ee_CR_1j
-    - 2lss_ee_CR_2j
-  cr_2lss_em:
-    - 2lss_em_CR_1j
-    - 2lss_em_CR_2j
-  cr_2lss_mm:
-    - 2lss_mm_CR_1j
-    - 2lss_mm_CR_2j
-  cr_2lss_flip:
-    - 2lss_ee_CRflip_3j
-  cr_3l:
-    - 3l_eee_CR_0j
-    - 3l_eem_CR_0j
-    - 3l_emm_CR_0j
-    - 3l_mmm_CR_0j
-    - 3l_eee_CR_1j
-    - 3l_eem_CR_1j
-    - 3l_emm_CR_1j
-    - 3l_mmm_CR_1j
-  cr_3l_eee:
-    - 3l_eee_CR_0j
-    - 3l_eee_CR_1j
-  cr_3l_mixed:
-    - 3l_eem_CR_0j
-    - 3l_emm_CR_0j
-    - 3l_eem_CR_1j
-    - 3l_emm_CR_1j
-  cr_3l_mmm:
-    - 3l_mmm_CR_0j
-    - 3l_mmm_CR_1j
+  # cr_2lss_ee:
+  #   - 2lss_ee_CR_1j
+  #   - 2lss_ee_CR_2j
+  # cr_2lss_em:
+  #   - 2lss_em_CR_1j
+  #   - 2lss_em_CR_2j
+  # cr_2lss_mm:
+  #   - 2lss_mm_CR_1j
+  #   - 2lss_mm_CR_2j
+  # cr_2lss_flip:
+  #   - 2lss_ee_CRflip_3j
+  # cr_3l:
+  #   - 3l_eee_CR_0j
+  #   - 3l_eem_CR_0j
+  #   - 3l_emm_CR_0j
+  #   - 3l_mmm_CR_0j
+  #   - 3l_eee_CR_1j
+  #   - 3l_eem_CR_1j
+  #   - 3l_emm_CR_1j
+  #   - 3l_mmm_CR_1j
+  # cr_3l_eee:
+  #   - 3l_eee_CR_0j
+  #   - 3l_eee_CR_1j
+  # cr_3l_mixed:
+  #   - 3l_eem_CR_0j
+  #   - 3l_emm_CR_0j
+  #   - 3l_eem_CR_1j
+  #   - 3l_emm_CR_1j
+  # cr_3l_mmm:
+  #   - 3l_mmm_CR_0j
+  #   - 3l_mmm_CR_1j
 SR_CHAN_DICT:
   2lss_SR:
     - 2lss_4t_m_4j
@@ -117,16 +117,65 @@ CR_GRP_MAP:
     color: black
     patterns:
       - data
-  Nonprompt:
+  DY:
     color: tab:blue
+    patterns:
+      - DY
+  Ttbar:
+    color: darkgreen
+    patterns:
+      - TTTo
+      - TTto
+  ZGamma:
+    color: tab:orange
+    patterns:
+      - ZG
+  Diboson:
+    color: tab:cyan
+    patterns:
+      - WWTo2L2Nu
+      - ZZTo4L
+      - WZTo3LNu
+      - WZto3LNu
+      - ZZTo4mu
+      - ZZTo4tau
+      - ZZTo4e
+      - ZZTo2mu2tau
+      - ZZTo2e2tau
+      - ZZTo2e2mu
+  Triboson:
+    color: tab:purple
+    patterns:
+      - WWW
+      - WWZ
+      - WZZ
+      - ZZZ
+  'Single top':
+    color: tab:pink
+    patterns:
+      - ST
+      - tW
+      - tbarW
+      - TWZToLL
+      - TZQB-Zto2L
+  Singleboson:
+    color: tan
+    patterns:
+      - WJets
+  Conv:
+    color: mediumseagreen
+    patterns:
+      - TTG
+  Nonprompt:
+    color: tab:red
     patterns:
       - nonprompt
   Flips:
-    color: darkgreen
+    color: brown
     patterns:
       - flips
   Signal:
-    color: tab:orange
+    color: yellowgreen
     patterns:
       - ttH
       - ttlnu
@@ -138,91 +187,55 @@ CR_GRP_MAP:
       - TTZToLL_M1to10
       - TTTT
       - ttLNu
-  'Single top':
-    color: tab:cyan
-    patterns:
-      - ST
-      - tW
-      - tbarW
-      - TWZToLL
-      - TZQB-Zto2L
-  DY:
-    color: tab:purple
-    patterns:
-      - DY
-  Conv:
-    color: tab:pink
-    patterns:
-      - TTG
-  Ttbar:
-    color: tan
-    patterns:
-      - TTTo
-      - TTto
-  ZGamma:
-    color: mediumseagreen
-    patterns:
-      - ZG
-  Triboson:
-    color: tab:red
-    patterns:
-      - WWW
-      - WWZ
-      - WZZ
-      - ZZZ
-  WWTo2L2Nu:
-    color: brown
-    patterns:
-      - WWTo2L2Nu
-  ZZTo4L:
-    color: goldenrod
-    patterns:
-      - ZZTo4L
-  WZTo3LNu:
-    color: yellow
-    patterns:
-      - WZto3LNu
-      - WZTo3LNu
-      - ZZTo4mu
-  ZZTo4tau:
-    color: olive
-    patterns:
-      - ZZTo4tau
-  ZZTo4e:
-    color: coral
-    patterns:
-      - ZZTo4e
-  ZZTo2mu2tau:
-    color: navy
-    patterns:
-      - ZZTo2mu2tau
-  ZZTo2e2tau:
-    color: yellowgreen
-    patterns:
-      - ZZTo2e2tau
-  ZZTo2e2mu:
-    color: aquamarine
-    patterns:
-      - ZZTo2e2mu
-  TWZ:
-    color: plum
-    patterns:
-      - TWZ
-  Singleboson:
-    color: gray
-    patterns:
-      - WJets
+  # WWTo2L2Nu:
+  #   color: brown
+  #   patterns:
+  #     - WWTo2L2Nu
+  # ZZTo4L:
+  #   color: goldenrod
+  #   patterns:
+  #     - ZZTo4L
+  # WZTo3LNu:
+  #   color: yellow
+  #   patterns:
+  #     - WZto3LNu
+  #     - WZTo3LNu
+  #     - ZZTo4mu
+  # ZZTo4tau:
+  #   color: olive
+  #   patterns:
+  #     - ZZTo4tau
+  # ZZTo4e:
+  #   color: coral
+  #   patterns:
+  #     - ZZTo4e
+  # ZZTo2mu2tau:
+  #   color: navy
+  #   patterns:
+  #     - ZZTo2mu2tau
+  # ZZTo2e2tau:
+  #   color: yellowgreen
+  #   patterns:
+  #     - ZZTo2e2tau
+  # ZZTo2e2mu:
+  #   color: aquamarine
+  #   patterns:
+  #     - ZZTo2e2mu
+  # TWZ:
+  #   color: plum
+  #   patterns:
+  #     - TWZ
 SR_GRP_MAP:
   Data:
     color: black
     patterns:
       - data
   Nonprompt:
-    color: tab:blue
+    color: tab:red
     patterns:
       - nonprompt
   Flips:
-    color: darkgreen
+    color: brown
     patterns:
       - flips
   ttH:
@@ -254,7 +267,7 @@ SR_GRP_MAP:
     patterns:
       - TTG
   Multiboson:
-    color: tab:red
+    color: tab:purple
     patterns:
       - WWW
       - WWZ
@@ -262,11 +275,18 @@ SR_GRP_MAP:
       - ZZZ
       - TWZ
   Diboson:
-    color: brown
+    color: tab:cyan
     patterns:
       - WWTo2L2Nu
       - ZZTo4L
       - WZTo3LNu
+      - WZto3LNu
+      - ZZTo4mu
+      - ZZTo4tau
+      - ZZTo4e
+      - ZZTo2mu2tau
+      - ZZTo2e2tau
+      - ZZTo2e2mu
 WCPT_EXAMPLE:
   ctW: -0.74
   ctZ: -0.86
