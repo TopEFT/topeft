@@ -8,15 +8,25 @@
 # pt bins are from [20, 30], [30, 40], [40, 50], [50, 60], [60, 80], [80, 100], [100, 200]
 
 import numpy as np
+import os
 import copy
 import datetime
 import argparse
 import math
+from cycler import cycler
 
 from coffea import hist
 
+import sys
+import re
+import numpy as np
+import matplotlib
+#matplotlib.use('Qt4Agg')
+
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from numpy.linalg import eig
+from  numpy.linalg import eig
 from scipy.odr import *
 
 from topeft.modules.yield_tools import YieldTools
@@ -27,6 +37,7 @@ yt = YieldTools()
 
 Ftau = ["2los_CRtt_Ftau_2j", "2los_CRtt_Ftau_3j", "2los_CRtt_Ftau_4j"]
 Ttau = ["2los_CRtt_Ttau_2j", "2los_CRtt_Ttau_3j", "2los_CRtt_Ttau_4j"]
+
 
 CR_GRP_MAP = {
     "DY" : [],
@@ -98,7 +109,7 @@ def getPoints(dict_of_hists):
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
     samples_to_rm_from_data_hist = []
-    all_samples = yt.get_cat_lables(dict_of_hists,"sample")
+    all_samples = yt.get_cat_lables(dict_of_hists,"process")
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
     data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
     print(mc_sample_lst)
@@ -117,15 +128,17 @@ def getPoints(dict_of_hists):
         else:
             CR_GRP_MAP["Ttbar"].append(proc_name)
 
-    var_name = "taupt"
-    cr_cat_dict = CR_CHAN_DICT
+    var_name = "tau0pt"
+    #cr_cat_dict = CR_CHAN_DICT
     for sample in samples_to_rm_from_mc_hist:
         print(sample)
-    for sample in samples_to_rm_from_data_hist:
+    for	sample in samples_to_rm_from_data_hist:
         print(sample)
-    hist_mc = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
-    hist_data = dict_of_hists[var_name].remove(samples_to_rm_from_data_hist,"sample")
-
+    print("samples_to_rm_from_mc_hist", samples_to_rm_from_mc_hist)
+    print("samples_to_rm_from_data_hist", samples_to_rm_from_data_hist)
+    hist_mc = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"process")
+    hist_data = dict_of_hists[var_name].remove(samples_to_rm_from_data_hist,"process")
+    
     # Integrate to get the categories we want
     mc_fake     = hist_mc.integrate("channel", Ftau)
     mc_tight    = hist_mc.integrate("channel", Ttau)
@@ -160,7 +173,6 @@ def getPoints(dict_of_hists):
             data_fake_e.append(math.sqrt(item*(1-(item/sum(data_fake_vals)))))
         for item in data_tight_vals:
             data_tight_e.append(math.sqrt(item*(1-(item/sum(data_tight_vals)))))
-
 
     mc_x = [20, 30, 40, 50, 60, 80, 100]
     mc_y = []
@@ -246,13 +258,13 @@ def main():
 
     # Get the histograms
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
+    #print("Available axes:", hin_dict)
     x_mc,y_mc,yerr_mc,x_data,y_data,yerr_data = getPoints(hin_dict)
 
     print("fr data = ", y_data)
     print("fr mc = ", y_mc)
     SF = y_data/y_mc
     SF_e = yerr_data/y_mc + y_data*yerr_mc/(y_mc**2)
-
 
     print('SF',SF)
     print('sfERR',SF_e)
