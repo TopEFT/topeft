@@ -985,6 +985,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
+                print("\n\n\n\n\n\n")
+                print("ptz_wtau:", ak.to_list(ptz_wtau)
+                      ,"\ntau0pt:", ak.to_list(tau0.pt))
+                print("\n\n\n\n\n\n")
+                pass
 
             ########## Fill the histograms ##########
 

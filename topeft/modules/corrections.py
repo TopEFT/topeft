@@ -833,18 +833,42 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
         corr_jet = ceval["DeepTau2018v2p5VSjet"]
         corr_e = ceval["DeepTau2018v2p5VSe"]
 
-        wp   = padded_taus.idDeepTau2018v2p5VSjet
+        vsjet_raw_mask = padded_taus[f"is{vsJetWP}"] > 0        
+        vsjet_mask     = ak.fill_none(vsjet_raw_mask, False)             
+        vsjet_flat_mask = ak.flatten(vsjet_mask)     
+
+        vse_raw_mask = padded_taus[f"iseTight"] > 0        
+        vse_mask     = ak.fill_none(vse_raw_mask, False)             
+        vse_flat_mask = ak.flatten(vse_mask)            
+
+
         deep_tau_cuts = [
-        ("DeepTau2018v2p5VSjet", ak.flatten(padded_taus[f"is{vsJetWP}"]>0), (flat_pt,flat_dm,flat_gen,vsJetWP,"Tight"), (flat_gen==5)),
-        ("DeepTau2018v2p5VSe", ak.flatten(padded_taus["iseTight"]>0), (flat_eta, flat_dm, flat_gen, "VVLoose"), ((flat_gen==1)|(flat_gen==3)))
+            (
+                "DeepTau2018v2p5VSjet",
+                vsjet_flat_mask,
+                (flat_pt, flat_dm, flat_gen, vsJetWP, "Tight"),
+                (flat_gen == 5),
+            ),
+            (
+                "DeepTau2018v2p5VSe",
+                vse_flat_mask,
+                (flat_eta, flat_dm, flat_gen, "VVLoose"),
+                ((flat_gen == 1) | (flat_gen == 3)),
+            ),
         ]
 
+    # print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
     for idx, deep_tau_cut in enumerate(deep_tau_cuts):
+        # print(f"\nProcessing {deep_tau_cut[0]}") # with args {ak.to_list(deep_tau_cut[1:])}")
         discr = deep_tau_cut[0]
-        id_mask_flat = deep_tau_cut[1]
-        arg_list = deep_tau_cut[2]
-        gen_mask_flat = deep_tau_cut[3]
-        tau_mask_flat = id_mask_flat & pt_mask_flat & gen_mask_flat
+        id_mask_flat = ak.fill_none(deep_tau_cut[1], False)
+        arg_list = (deep_tau_cut[2])
+        gen_mask_flat = ak.fill_none(deep_tau_cut[3], False)
+        tau_mask_flat = ak.fill_none(id_mask_flat & pt_mask_flat & gen_mask_flat, False)
+        # print("\tid_mask_flat shape: ", ak.to_list(id_mask_flat))
+        # print("\targ_list: ", arg_list)
+        # print("\tgen_mask_flat shape: ", ak.to_list(gen_mask_flat))
+        # print("\ttau_mask_flat shape: ", ak.to_list(tau_mask_flat))
 
         if "VSjet" in discr:
             arg_sf = arg_list + ("nom", "pt")
@@ -852,18 +876,23 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
             arg_sf = arg_list + ("nom",)
         DT_sf_list.append(
             ak.where(
-                tau_mask_flat,
+                ~tau_mask_flat,
                 1,
                 ceval[discr].evaluate(*arg_sf)
             )
         )
+
+        # print(f"\t{discr} SF shape: {ak.to_list(DT_sf_list[-1])}")
+        # print("\tceval[discr].evaluate(*arg_sf) = ", ceval[discr].evaluate(*arg_sf))
+
+
         if "VSjet" in discr:
             arg_up = arg_list + ("up", "pt")
         else:
             arg_up = arg_list + ("up",)
         DT_up_list.append(
             ak.where(
-                tau_mask_flat,
+                ~tau_mask_flat,
                 1,
                 ceval[discr].evaluate(*arg_up)
             )
@@ -874,7 +903,7 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
             arg_down = arg_list + ("down",)
         DT_do_list.append(
             ak.where(
-                tau_mask_flat,
+                ~tau_mask_flat,
                 1,
                 ceval[discr].evaluate(*arg_down)
             )
@@ -883,7 +912,10 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
         DT_sf_flat = None
         DT_up_flat = None
         DT_do_flat = None
+
+        print("\n")
         for idr, DT_sf_discr in enumerate(DT_sf_list):
+            # print(f"\tProcessing set of correction {idr} with shape {ak.to_list(DT_sf_discr)}")
             DT_sf_discr = ak.to_numpy(DT_sf_discr)
             DT_up_discr = ak.to_numpy(DT_up_list[idr])
             DT_do_discr = ak.to_numpy(DT_do_list[idr])
@@ -897,12 +929,26 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
                 fake_elec_sf_up = ak.unflatten(DT_up_discr, ak.num(pt))
                 fake_elec_sf_down = ak.unflatten(DT_do_discr, ak.num(pt))
 
-        new_fake_sf = np.ones_like(pt, dtype=np.float32)
-        new_fake_sf_up = np.ones_like(pt, dtype=np.float32)
-        new_fake_sf_down = np.ones_like(pt, dtype=np.float32)
-        fake_muon_sf = np.ones_like(pt, dtype=np.float32)
-        fake_muon_sf_up= np.ones_like(pt, dtype=np.float32)
-        fake_muon_sf_down = np.ones_like(pt, dtype=np.float32)
+        new_fake_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+        new_fake_sf_up = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+        new_fake_sf_down = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+        fake_muon_sf = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+        fake_muon_sf_up = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+        fake_muon_sf_down = ak.fill_none(np.ones_like(pt, dtype=np.float32), 1.0)
+   
+    # print("\n\n\n\nreal_sf", ak.to_list(real_sf))
+    # print("real_sf_up", ak.to_list(real_sf_up))
+    # print("real_sf_down", ak.to_list(real_sf_down))
+    # print("fake_elec_sf", ak.to_list(fake_elec_sf))
+    # print("fake_elec_sf_up", ak.to_list( fake_elec_sf_up))
+    # print("fake_elec_sf_down", ak.to_list( fake_elec_sf_down))
+    # print("fake_muon_sf", ak.to_list( fake_muon_sf))
+    # print("fake_muon_sf_up", ak.to_list( fake_muon_sf_up))
+    # print("fake_muon_sf_down", ak.to_list( fake_muon_sf_down))
+    # print("new_fake_sf", ak.to_list( new_fake_sf))
+    # print("new_fake_sf_up", ak.to_list( new_fake_sf_up))
+    # print("new_fake_sf_down", ak.to_list( new_fake_sf_down))
+    # print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 
     padded_taus["sf_tau_real"] = real_sf
     padded_taus["sf_tau_real_up"] = real_sf_up
