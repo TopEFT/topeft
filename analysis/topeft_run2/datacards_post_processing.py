@@ -45,7 +45,6 @@ def main():
     parser.add_argument("-t", "--tau-flag", action="store_true", help = "Copy the ptz, lj0pt, and ptz_wtau cards for tau channels.")
     parser.add_argument("-f", "--fwd-flag", action="store_true", help = "Copy the ptz, lj0pt, and lt cards for forward channels.")
     args = parser.parse_args()
-    print(args)
 
     ###### Check that you run one only type of analysis ######
 

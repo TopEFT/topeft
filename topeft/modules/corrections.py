@@ -548,7 +548,6 @@ SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
-#def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
 def ApplyTES(year, taus, isData):
     if isData:
         return (taus.pt, taus.mass)
