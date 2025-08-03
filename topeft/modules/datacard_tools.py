@@ -842,9 +842,9 @@ class DatacardMaker():
                 # TODO This is a hack for now, track this upstream
                 if 'fakes' in p and '4l' in ch:
                     continue
-                if 'charge_flip' in p and '2los' in ch:
+                if 'charge_flip' in p and ('2los' in ch and 'tau' in ch):
                     continue
-                print("DEBUG LINE\tch_hist", ch_hist, f"\tprocess: {p}")
+
                 proc_hist = ch_hist.integrate("process",[p])
                 proc_sumw2 = ch_sumw2 if ch_sumw2 is None else ch_sumw2.integrate("process",[p])
                 if self.verbose:
@@ -1067,7 +1067,6 @@ class DatacardMaker():
                         if "2los" in ch:
                             ch = ch.replace("2los", "2lss").replace("_onZ", "_p")
                         # First strip off any njet and/or bjet labels
-                        #ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","")
                         ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","").replace("_1tau", "")
                         # Now construct the category key, matching names in the missing_parton file to the current category
                         if num_l == 2:
