@@ -593,7 +593,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 select_cat_dict = json.load(ch_json_test)
 
             if not self._skip_signal_regions:
-            # If we are not skipping the signal regions, we will import the SR categories
+                # If we are not skipping the signal regions, we will import the SR categories
                 # This dictionary keeps track of which selections go with which SR categories
                 if self.offZ_3l_split:
                     import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
@@ -605,7 +605,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
 
             if not self._skip_control_regions:
-            # If we are not skipping the control regions, we will import the CR categories
+                # If we are not skipping the control regions, we will import the CR categories
                 # This dictionary keeps track of which selections go with which CR categories
                 import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
                 if self.tau_h_analysis:
@@ -617,8 +617,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 lep_cats += list(import_sr_cat_dict.keys())
             if not self._skip_control_regions:
                 lep_cats += list(import_cr_cat_dict.keys())
-            
-            # Add the 2l_4t category 
+
+            # Add the 2l_4t category
 
             lep_cats += ["2l_4t"]
             lep_cats_data = [lep_cat for lep_cat in lep_cats if (lep_cat.startswith("2l") and not "os" in lep_cat)]
@@ -778,7 +778,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("4l", (events.is4l & pass_trg))
 
             if not self._skip_signal_regions:
-            # If we are not skipping the signal regions, we will fill the selections according to the json specifications
+                # If we are not skipping the signal regions, we will fill the selections according to the json specifications
                 for lep_cat, lep_cat_dict in import_sr_cat_dict.items():
                     lep_ch_list = lep_cat_dict['lep_chan_lst']
                     chtag = None
@@ -797,7 +797,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         selections.add(chtag, tempmask)
 
             if not self._skip_control_regions:
-            # If we are not skipping the control regions, we will fill the selections according to the json specifications
+                # If we are not skipping the control regions, we will fill the selections according to the json specifications
                 for lep_cat, lep_cat_dict in import_cr_cat_dict.items():
                     lep_ch_list = lep_cat_dict['lep_chan_lst']
                     chtag = None
@@ -939,8 +939,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             ########## Fill the histograms ##########
             cat_dict = {}
             if not self._skip_signal_regions:
-            # If we are not skipping the signal regions, we will fill the SR categories
-                sr_cat_dict = {}    
+                # If we are not skipping the signal regions, we will fill the SR categories
+                sr_cat_dict = {}
                 for lep_cat in import_sr_cat_dict.keys():
                     sr_cat_dict[lep_cat] = {}
                     for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
@@ -964,12 +964,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                             sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
                         else:
                             sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"]
-                
+
                 cat_dict.update(sr_cat_dict)
                 del import_sr_cat_dict
 
             if not self._skip_control_regions:
-            # If we are not skipping the control regions, we will fill the CR categories
+                # If we are not skipping the control regions, we will fill the CR categories
                 cr_cat_dict = {}
                 for lep_cat in import_cr_cat_dict.keys():
                     cr_cat_dict[lep_cat] = {}
@@ -997,7 +997,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 cat_dict.update(cr_cat_dict)
                 del import_cr_cat_dict
-                
+
             if (not self._skip_signal_regions and not self._skip_control_regions):
                 for k in sr_cat_dict:
                     if k in cr_cat_dict:

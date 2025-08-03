@@ -586,10 +586,23 @@ def ApplyTES(year, taus, isData):
         arg_tau = ["pt", "eta", "decayMode", "genPartFlav"]
         pt_mask_flat = ak.flatten((pt>0) & (pt<1000))
 
+        # Placeholder: remove once tau corrections are validated with correctionlib
         deep_tau_cuts = [
-            ("DeepTau2017v2p1VSjet", ak.flatten(padded_taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
-            ("DeepTau2017v2p1VSe", ak.flatten(padded_taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
-            ("DeepTau2017v2p1VSmu", ak.flatten(padded_taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
+            (
+                "DeepTau2017v2p1VSjet",
+                ak.flatten(padded_taus["isTight"] > 0),
+                ("pt", "decayMode", "genPartFlav", "Tight"),
+            ),
+            (
+                "DeepTau2017v2p1VSe",
+                ak.flatten(padded_taus["iseTight"] > 0),
+                ("eta", "genPartFlav", "VVLoose"),
+            ),
+            (
+                "DeepTau2017v2p1VSmu",
+                ak.flatten(padded_taus["ismTight"] > 0),
+                ("eta", "genPartFlav", "Loose"),
+            ),
         ]
 
         DT_sf_list = []
