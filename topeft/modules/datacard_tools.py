@@ -844,7 +844,7 @@ class DatacardMaker():
                     continue
                 if 'charge_flip' in p and ('2los' in ch and 'tau' in ch):
                     continue
-   
+
                 proc_hist = ch_hist.integrate("process",[p])
                 proc_sumw2 = ch_sumw2 if ch_sumw2 is None else ch_sumw2.integrate("process",[p])
                 if self.verbose:

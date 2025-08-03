@@ -192,7 +192,7 @@ def main():
 
     # Check that we got the expected number and print what we learn
     print(f"\tNumber of text templates copied: {n_txt}")
-    print(f"\tNumber of root templates copied: {n_txt}")
+    print(f"\tNumber of root templates copied: {n_root}")
     if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))):
         raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
     print("Done.\n")
