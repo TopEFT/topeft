@@ -2,21 +2,25 @@
 
 # PrintUsage: display script usage information
 PrintUsage() {
-  echo "Usage: $0 [-y YEAR] [-c COMMIT] --cr | --sr"
+  echo "Usage: $0 [-y YEAR] [-t TAG] --cr | --sr [run_analysis options]"
   echo
   echo "Options:"
   echo "  -y YEAR    Year identifier (e.g., 2022, 2022EE, 2023, 2023BPix)"
-  echo "  -c COMMIT  Git commit tag or identifier"
+  echo "  -t TAG     Git tag or commit identifier"
   echo "  --cr       Generate control-region histograms"
   echo "  --sr       Generate signal-region histograms"
   echo "  -h, --help Show this help message"
+  echo
+  echo "Any additional options after those listed above are passed directly"
+  echo "to run_analysis.py, allowing access to its full set of arguments."
 }
 
 # Default values
 DEFAULT_YEAR="2022"
-DEFAULT_COMMIT="fec79a60_PNet"
+DEFAULT_TAG="fec79a60_PNet"
 FLAG_CR=false
 FLAG_SR=false
+EXTRA_ARGS=()
 
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
@@ -25,8 +29,8 @@ while [[ $# -gt 0 ]]; do
       YEAR="$2"
       shift 2
       ;;
-    -c)
-      COMMIT="$2"
+    -t)
+      TAG="$2"
       shift 2
       ;;
     --cr)
@@ -42,9 +46,8 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      echo "Error: Unknown option '$1'"
-      PrintUsage
-      exit 1
+      EXTRA_ARGS+=("$1")
+      shift
       ;;
   esac
 done
@@ -63,16 +66,16 @@ if [[ -z "$YEAR" ]]; then
   YEAR="$DEFAULT_YEAR"
 fi
 
-if [[ -z "$COMMIT" ]]; then
-  echo "Warning: COMMIT not provided, using default COMMIT=$DEFAULT_COMMIT"
-  COMMIT="$DEFAULT_COMMIT"
+if [[ -z "$TAG" ]]; then
+  echo "Warning: TAG not provided, using default TAG=$DEFAULT_TAG"
+  TAG="$DEFAULT_TAG"
 fi
 
 # Define output name based on mode
 if [[ "$FLAG_CR" == "true" ]]; then
-  OUT_NAME="${YEAR}CRs_${COMMIT}"
+  OUT_NAME="${YEAR}CRs_${TAG}"
 else
-  OUT_NAME="${YEAR}SRs_${COMMIT}"
+  OUT_NAME="${YEAR}SRs_${TAG}"
 fi
 
 echo "OUT_NAME: $OUT_NAME"
@@ -89,8 +92,8 @@ else
 fi
 
 # Build and run the command
-RUN_COMMAND="time python run_analysis.py $CFGS $OPTIONS"
+RUN_CMD=(python run_analysis.py $CFGS $OPTIONS "${EXTRA_ARGS[@]}")
 
-printf "\nRunning the following command:\n$RUN_COMMAND\n\n"
+printf "\nRunning the following command:\n%s\n\n" "${RUN_CMD[*]}"
 
-eval $RUN_COMMAND
+time "${RUN_CMD[@]}"
