@@ -179,6 +179,12 @@ if __name__ == "__main__":
         help="Specify the Work Queue port. An integer PORT or an integer range PORT_MIN-PORT_MAX.",
     )
     parser.add_argument(
+        "--noRun3MVA",
+        action='store_false',
+        default=True,
+        help = 'Do not use the Run3 MVA for lepton selection. Default is to use it.',
+    )
+    parser.add_argument(
         "--options",
         default=None,
         help="YAML file that specifies command-line options. Options explicitly set at command-line take precedence",
