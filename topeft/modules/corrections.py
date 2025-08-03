@@ -630,7 +630,7 @@ def ApplyTES(year, taus, isData, vsJetWP="Loose"):
     return (taus.pt*tes*fes, taus.mass*tes*fes)
 
 def ApplyTESSystematic(year, taus, isData, syst_name):
-    if not syst_name.startswith('TES'):
+    if not syst_name.startswith('TES') or isData:
         return (taus.pt, taus.mass)
 
     pt  = taus.pt
@@ -699,7 +699,7 @@ def ApplyTESSystematic(year, taus, isData, syst_name):
     return (taus.pt*tes_syst, taus.mass*tes_syst)
 
 def ApplyFESSystematic(year, taus, isData, syst_name):
-    if not syst_name.startswith('FES'):
+    if not syst_name.startswith('FES') or isData:
         return (taus.pt, taus.mass)
 
     pt  = taus.pt

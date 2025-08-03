@@ -2,6 +2,13 @@ import subprocess
 from ndcctools.work_queue import Factory
 from os.path import exists
 
+# create dir for staging
+# this will be part of coffea once
+# https://github.com/scikit-hep/coffea/pull/1357
+# becomes part of a release
+import os
+os.makedirs(f"/tmp/{os.environ['USER']}", exist_ok=True)
+
 
 def test_topcoffea_wq():
     port=9123

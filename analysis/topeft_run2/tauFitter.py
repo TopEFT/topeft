@@ -38,7 +38,6 @@ yt = YieldTools()
 Ftau = ["2los_CRtt_Ftau_2j", "2los_CRtt_Ftau_3j", "2los_CRtt_Ftau_4j"]
 Ttau = ["2los_CRtt_Ttau_2j", "2los_CRtt_Ttau_3j", "2los_CRtt_Ttau_4j"]
 
-
 CR_GRP_MAP = {
     "DY" : [],
     "Ttbar" : [],
@@ -173,6 +172,7 @@ def getPoints(dict_of_hists):
             data_fake_e.append(math.sqrt(item*(1-(item/sum(data_fake_vals)))))
         for item in data_tight_vals:
             data_tight_e.append(math.sqrt(item*(1-(item/sum(data_tight_vals)))))
+        
 
     mc_x = [20, 30, 40, 50, 60, 80, 100]
     mc_y = []
@@ -265,6 +265,7 @@ def main():
     print("fr mc = ", y_mc)
     SF = y_data/y_mc
     SF_e = yerr_data/y_mc + y_data*yerr_mc/(y_mc**2)
+        
 
     print('SF',SF)
     print('sfERR',SF_e)
