@@ -56,7 +56,7 @@ def main():
         args.tau_flag,
         args.fwd_flag,
     ]
-    
+
     # check exactly one is True
     if sum(flags) != 1:
         raise ValueError(
@@ -114,7 +114,7 @@ def main():
         for line in lines_from_condor_out_to_print:
             print(f"\t\t* In {line[0]}: {line[1]}")
 
-            
+
     ####### Copy the TOP-22-006 relevant files to their own dir ######
     with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
         select_ch_lst = json.load(ch_json)
@@ -193,7 +193,7 @@ def main():
 
     # Check that we got the expected number and print what we learn
     print(f"\tNumber of text templates copied: {n_txt}")
-    print(f"\tNumber of root templates copied: {n_txt}")
+    print(f"\tNumber of root templates copied: {n_root}")
     if (args.set_up_top22006 and ((n_txt != 43) or (n_root != 43)))   or   (args.set_up_offZdivision and ((n_txt != 75) or (n_root != 75))):
         raise Exception(f"Error, unexpected number of text ({n_txt}) or root ({n_root}) files copied")
     print("Done.\n")

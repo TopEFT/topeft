@@ -8,25 +8,15 @@
 # pt bins are from [20, 30], [30, 40], [40, 50], [50, 60], [60, 80], [80, 100], [100, 200]
 
 import numpy as np
-import os
 import copy
 import datetime
 import argparse
 import math
-from cycler import cycler
 
 from coffea import hist
 
-import sys
-import re
-import numpy as np
-import matplotlib
-#matplotlib.use('Qt4Agg')
-
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
-from  numpy.linalg import eig
+from numpy.linalg import eig
 from scipy.odr import *
 
 from topeft.modules.yield_tools import YieldTools
@@ -131,11 +121,11 @@ def getPoints(dict_of_hists):
     cr_cat_dict = CR_CHAN_DICT
     for sample in samples_to_rm_from_mc_hist:
         print(sample)
-    for	sample in samples_to_rm_from_data_hist:
+    for sample in samples_to_rm_from_data_hist:
         print(sample)
     hist_mc = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"sample")
     hist_data = dict_of_hists[var_name].remove(samples_to_rm_from_data_hist,"sample")
-    
+
     # Integrate to get the categories we want
     mc_fake     = hist_mc.integrate("channel", Ftau)
     mc_tight    = hist_mc.integrate("channel", Ttau)
@@ -170,7 +160,7 @@ def getPoints(dict_of_hists):
             data_fake_e.append(math.sqrt(item*(1-(item/sum(data_fake_vals)))))
         for item in data_tight_vals:
             data_tight_e.append(math.sqrt(item*(1-(item/sum(data_tight_vals)))))
-        
+
 
     mc_x = [20, 30, 40, 50, 60, 80, 100]
     mc_y = []
@@ -262,7 +252,7 @@ def main():
     print("fr mc = ", y_mc)
     SF = y_data/y_mc
     SF_e = yerr_data/y_mc + y_data*yerr_mc/(y_mc**2)
-        
+
 
     print('SF',SF)
     print('sfERR',SF_e)
