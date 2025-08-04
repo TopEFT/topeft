@@ -200,6 +200,9 @@ CR_GRP_MAP:
   #   patterns:
   #     - WZto3LNu
   #     - WZTo3LNu
+  # ZZTo4mu:
+  #   color: darkviolet
+  #   patterns:
   #     - ZZTo4mu
   # ZZTo4tau:
   #   color: olive
