@@ -17,32 +17,32 @@ WC_LST = [
 ]
 
 WC_FORMAT_DICT = {
-    "cQq13"  : "$c_{\mathrm{Qq}}^{31}$",
-    "cQq83"  : "$c_{\mathrm{Qq}}^{38}$",
-    "cQq11"  : "$c_{\mathrm{Qq}}^{11}$",
-    "ctq1"   : "$c_{\mathrm{tq}}^{1}$" ,
-    "cQq81"  : "$c_{\mathrm{Qq}}^{18}$",
-    "ctq8"   : "$c_{\mathrm{tq}}^{8}$" ,
-    "ctt1"   : "$c_{\mathrm{tt}}^{1}$" ,
-    "cQQ1"   : "$c_{\mathrm{QQ}}^{1}$" ,
-    "cQt8"   : "$c_{\mathrm{Qt}}^{8}$" ,
-    "cQt1"   : "$c_{\mathrm{Qt}}^{1}$" ,
-    "ctW"    : "$c_{\mathrm{tW}}$"  ,
-    "ctZ"    : "$c_{\mathrm{tZ}}$"  ,
-    "ctp"    : "$c_{\mathrm{t} \\varphi}$"  ,
-    "cpQM"   : "$c_{\\varphi \mathrm{Q}}^{-}$" ,
-    "ctG"    : "$c_{\mathrm{tG}}$"  ,
-    "cbW"    : "$c_{\mathrm{bW}}$"  ,
-    "cpQ3"   : "$c_{\\varphi \mathrm{Q}}^{3}$" ,
-    "cptb"   : "$c_{\\varphi \mathrm{t b}}$" ,
-    "cpt"    : "$c_{\\varphi \mathrm{t}}$"  ,
-    "cQl3i"  : "$c_{\mathrm{Q\ell}}^{3(\ell)}$" ,
-    "cQlMi"  : "$c_{\mathrm{Q\ell}}^{-(\ell)}$" ,
-    "cQei"   : "$c_{\mathrm{Qe}}^{(\ell)}$"  ,
-    "ctli"   : "$c_{\mathrm{t\ell}}^{(\ell)}$"  ,
-    "ctei"   : "$c_{\mathrm{te}}^{(\ell)}$"  ,
-    "ctlSi"  : "$c_{\mathrm{t}}^{S(\ell)}$" ,
-    "ctlTi"  : "$c_{\mathrm{t}}^{T(\ell)}$" ,
+    "cQq13"  : r"$c_{\mathrm{Qq}}^{31}$",
+    "cQq83"  : r"$c_{\mathrm{Qq}}^{38}$",
+    "cQq11"  : r"$c_{\mathrm{Qq}}^{11}$",
+    "ctq1"   : r"$c_{\mathrm{tq}}^{1}$" ,
+    "cQq81"  : r"$c_{\mathrm{Qq}}^{18}$",
+    "ctq8"   : r"$c_{\mathrm{tq}}^{8}$" ,
+    "ctt1"   : r"$c_{\mathrm{tt}}^{1}$" ,
+    "cQQ1"   : r"$c_{\mathrm{QQ}}^{1}$" ,
+    "cQt8"   : r"$c_{\mathrm{Qt}}^{8}$" ,
+    "cQt1"   : r"$c_{\mathrm{Qt}}^{1}$" ,
+    "ctW"    : r"$c_{\mathrm{tW}}$"  ,
+    "ctZ"    : r"$c_{\mathrm{tZ}}$"  ,
+    "ctp"    : r"$c_{\mathrm{t} \varphi}$"  ,
+    "cpQM"   : r"$c_{\varphi \mathrm{Q}}^{-}$" ,
+    "ctG"    : r"$c_{\mathrm{tG}}$"  ,
+    "cbW"    : r"$c_{\mathrm{bW}}$"  ,
+    "cpQ3"   : r"$c_{\varphi \mathrm{Q}}^{3}$" ,
+    "cptb"   : r"$c_{\varphi \mathrm{t b}}$" ,
+    "cpt"    : r"$c_{\varphi \mathrm{t}}$"  ,
+    "cQl3i"  : r"$c_{\mathrm{Q\ell}}^{3(\ell)}$" ,
+    "cQlMi"  : r"$c_{\mathrm{Q\ell}}^{-(\ell)}$" ,
+    "cQei"   : r"$c_{\mathrm{Qe}}^{(\ell)}$"  ,
+    "ctli"   : r"$c_{\mathrm{t\ell}}^{(\ell)}$"  ,
+    "ctei"   : r"$c_{\mathrm{te}}^{(\ell)}$"  ,
+    "ctlSi"  : r"$c_{\mathrm{t}}^{S(\ell)}$" ,
+    "ctlTi"  : r"$c_{\mathrm{t}}^{T(\ell)}$" ,
 }
 
 ################### From TOP-22-006 ###################
@@ -75,7 +75,7 @@ def make_plot(wc_lst,range_dict_a,range_dict_b=None,save_name="summary_lims_comp
     if xlog: plt.xscale('log')
     plt.ylim(y_min+0.5, y_max+0.5+1.3) # If leaving room for legend
 
-    plt.xlabel("$\Lambda$ = $\sqrt{\mathrm{WC} \; / \; 2\sigma \, \mathrm{limit}}$ [TeV]",loc="right")
+    plt.xlabel(r"$\Lambda$ = $\sqrt{\mathrm{WC} \; / \; 2\sigma \, \mathrm{limit}}$ [TeV]", loc="right")
 
     # Figure out where to put each row
     y_lst = []
@@ -107,7 +107,7 @@ def make_plot(wc_lst,range_dict_a,range_dict_b=None,save_name="summary_lims_comp
 
     # Make the legend
     #tag_lst = ["$c=0.01$", "$c=1$", "c=$(4\pi)^2$"]
-    tag_lst = ["$\mathrm{WC}=0.01$", "$\mathrm{WC}=1$", "$\mathrm{WC}=(4\pi)^2$"]
+    tag_lst = [r"$\mathrm{WC}=0.01$", r"$\mathrm{WC}=1$", r"$\mathrm{WC}=(4\pi)^2$"]
     patch_a0 = mpatches.Patch(color=clr_lst_a[0], label=tag_lst[0])
     patch_a1 = mpatches.Patch(color=clr_lst_a[1], label=tag_lst[1])
     patch_a2 = mpatches.Patch(color=clr_lst_a[2], label=tag_lst[2])
@@ -196,7 +196,7 @@ def main():
     make_plot(
         wc_lst=WC_LST,
         range_dict_a = lambda_dict_top22006,
-        tag_a = "TOP-21-006 2$\sigma$ profiled asimov",
+        tag_a = r"TOP-21-006 2$\sigma$ profiled asimov",
         save_name="lambda_lims_b",
         xlog = True,
     )
