@@ -5,7 +5,6 @@ setuptools.setup(
     version='0.0.0',
     description='Analysis code for top quark EFT analyses',
     packages=setuptools.find_packages(),
-    #packages=setuptools.find_packages(include=["topeft", "topeft.*"]),
     # Include data files (Note: "include_package_data=True" does not seem to work)
     package_data={
         "topeft" : [
