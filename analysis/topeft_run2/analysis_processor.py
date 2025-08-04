@@ -683,6 +683,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             elif self.ttA_analysis:
                 import_sr_cat_dict = select_cat_dict["TTA_CH_LST_SR"]
                 import_cr_cat_dict = select_cat_dict["TTA_CH_LST_CR"]
+                #import_cr_cat_dict = select_cat_dict["TTA_CH_LSR_DATAMC_CR"]
             else: #Default is TOP22006
                 import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
                 import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
@@ -853,7 +854,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 preselections.add("2los_of_ph", (retainedbyOverlap & events.is2l & charge2l_0 & events.is_em & bmask_atleast1med & pass_trg))
 
                 #Categories for CR studies
+                #ZG background estimation CR
                 preselections.add("2los_ph_CR_sf_Zg", (retainedbyOverlap & events.is2l_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & ~sfosz_2los_ll_mask  & sfosz_2los_llg_mask_medph & pass_trg))
+                #Following two are Data-MC agreement CR
+                preselections.add("2los_CR_sf_lowJet", (retainedbyOverlap & events.is2l_nozeeveto & charge2l_0 & (events.is_ee | events.is_mm) & sfosz_2los_ll_mask  & ~sfosz_2los_llg_mask_medph & pass_trg))#populate with DY contribution
+                preselections.add("2los_CR_of_lowJet", (retainedbyOverlap & events.is2l & charge2l_0 & events.is_em & pass_trg))
 
 
             # 2lss selection

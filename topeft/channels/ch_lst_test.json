@@ -810,6 +810,53 @@
             ]
         }
     },
+    "TTA_CH_LSR_DATAMC_CR": {
+        "2los_CR_sf_lowJet": {
+            "lep_chan_lst":  [
+                [
+                    "2los_CR_sf_lowJet",
+                    "2los_CR_sf_lowJet",
+                    "exactly_1ph",
+                    "bmask_exactly0m"
+                ]
+            ],
+            "lep_flav_lst": [
+                "ee",
+                "mm"
+            ],
+            "appl_lst": [
+                "isSR_2lOS_ph",
+                "isAR_2lOS_ph",
+                "isAR_2lOS_medph"
+            ],
+            "jet_lst": [
+                "=0",
+                "=1"
+            ]
+        },
+        "2los_CR_of_lowJet": {
+            "lep_chan_lst":  [
+                [
+                    "2los_CR_of_lowJet",
+                    "2los_CR_of_lowJet",
+                    "exactly_1ph",
+                    "bmask_exactly0m"
+                ]
+            ],
+            "lep_flav_lst": [
+                "em"
+            ],
+            "appl_lst": [
+                "isSR_2lOS_ph",
+                "isAR_2lOS_ph",
+                "isAR_2lOS_medph"
+            ],
+            "jet_lst": [
+                "=0",
+                "=1"
+            ]
+        }
+    },
     "TTA_CH_LST_SR": {
         "2los_of_ph": {
             "lep_chan_lst": [
