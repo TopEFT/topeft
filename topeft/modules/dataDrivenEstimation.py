@@ -24,7 +24,8 @@ class DataDrivenProducer:
         self.nonprompt_validation=False #a boolean to indicate whether we are doing validation test for nonprompt photon estimation
         self.do_np_ph=do_np_ph #this controls whether we will do non-prompt photon estimation or not
         self.modify_variance=modify_variance #TEMPORARY as we explore binning optimization
-        self.promptSubtractionSamples=get_te_param('prompt_subtraction_samples')
+        self.promptleptonSubtractionSamples=get_te_param('prompt_lepton_subtraction_samples')
+        self.promptleptonSubtractionSamplesttA=get_te_param('prompt_lepton_subtraction_samples_ttA')
         self.promptPhSubtractionSamples=get_te_param('prompt_photon_subtraction_samples')
         self.DDFakes()
 
@@ -105,15 +106,19 @@ class DataDrivenProducer:
                         # if we are in the nonprompt application region, we also integrate the application region axis
                         # and construct the new process 'nonprompt'
                         # we look at data only, and rename it to fakes
+                        print(f"\n\nWe are inside {ident} appl axis and we will do nonprompt lepton estimation here")
                         newNameDictData=defaultdict(list); newNameDictNoData=defaultdict(list)
                         for process in hAR.axes['process']:
                             match = pattern.search(process)
                             sampleName=match.group('process')
                             year=match.group('year')
                             nonPromptName='nonpromptUL%s'%year
-                            if self.dataName==sampleName:
+
+                            #Choose the relevant prompt subtraction sample list based on analysis type
+                            promptSamples = self.promptleptonSubtractionSamplesttA if self.ttA_analysis else self.promptleptonSubtractionSamples
+                            if self.dataName == sampleName:
                                 newNameDictData[nonPromptName].append(process)
-                            elif sampleName in self.promptSubtractionSamples:
+                            elif sampleName in promptSamples:
                                 newNameDictNoData[nonPromptName].append(process)
                             else:
                                 print(f"We won't consider {sampleName} for the prompt subtraction in the appl. region")
@@ -148,7 +153,7 @@ class DataDrivenProducer:
 
                     #isAR_2lOS_ph is the regular AR using which we estimate non-prompt photon in our signal region A
                     #isAR_R_LRCD is the "AR" corresponding to the "SR" L in the LRCD nonprompt validation test
-                    elif self.ttA_analysis and self.do_np_ph and ident in ["isAR_2lOS_ph", "isAR_B_ABCD","isAR_R_LRCD"]:
+                    elif self.ttA_analysis and self.do_np_ph and ident in ["isAR_2lOS_ph","isAR_R_LRCD"]:
                         print(f"\n\nWe are inside {ident} appl axis and we will do nonprompt photon estimation here")
                         newDataDict=defaultdict(list); newNonDataDict=defaultdict(list)
                         for process in hAR.axes['process']:
