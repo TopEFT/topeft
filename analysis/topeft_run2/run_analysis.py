@@ -476,8 +476,6 @@ if __name__ == "__main__":
             # Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
             "compression": 0,
-            # 'filepath': f'/project01/ndcms/{os.environ["USER"]}',
-            "filepath": f'/tmp/{os.environ["USER"]}',
             # automatically find an adequate resource allocation for tasks.
             # tasks are first tried using the maximum resources seen of previously ran
             # tasks. on resource exhaustion, they are retried with the maximum resource
@@ -486,7 +484,7 @@ if __name__ == "__main__":
             # 'resource_monitor': True,
             "resource_monitor": "measure",
             "resources_mode": "auto",
-            #'filepath': f'/tmp/{os.environ["USER"]}-workers', ##Placeholder to comment out if you don't want to save wq-factory dirs in $HOME
+            'filepath': f'/tmp/{os.environ["USER"]}-workers', ##Placeholder to comment out if you don't want to save wq-factory dirs in $HOME
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
             # of a workflow run a little bit faster.
