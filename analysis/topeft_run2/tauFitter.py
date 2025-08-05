@@ -182,6 +182,8 @@ def getPoints(dict_of_hists):
     data_fake   = data_fake.integrate("systematic","nominal")
     data_tight  = data_tight.integrate("systematic","nominal")
 
+    ## note for run3 update: mc_fake.values() is returning empty bins at this point, still fixing
+
     #print(mc_tight.values(sumw2=True))
 
     #for sample in mc_fake._sumw2:
