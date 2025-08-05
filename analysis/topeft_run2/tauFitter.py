@@ -35,8 +35,8 @@ import topcoffea.modules.utils as utils
 yt = YieldTools()
 
 
-Ftau = ["2los_CRtt_Ftau_2j", "2los_CRtt_Ftau_3j", "2los_CRtt_Ftau_4j"]
-Ttau = ["2los_CRtt_Ttau_2j", "2los_CRtt_Ttau_3j", "2los_CRtt_Ttau_4j"]
+Ftau = ["2los_ee_1tau_Ftau_2j", "2los_em_1tau_Ftau_2j", "2los_mm_1tau_Ftau_2j", "2los_ee_1tau_Ftau_3j", "2los_em_1tau_Ftau_3j", "2los_mm_1tau_Ftau_3j", "2los_ee_1tau_Ftau_4j", "2los_em_1tau_Ftau_4j", "2los_mm_1tau_Ftau_4j"]
+Ttau = ["2los_ee_1tau_Ttau_2j", "2los_em_1tau_Ttau_2j", "2los_mm_1tau_Ttau_2j", "2los_ee_1tau_Ttau_3j", "2los_em_1tau_Ttau_3j", "2los_mm_1tau_Ttau_3j", "2los_ee_1tau_Ttau_4j", "2los_em_1tau_Ttau_4j", "2los_mm_1tau_Ttau_4j"]
 
 CR_GRP_MAP = {
     "DY" : [],
@@ -77,7 +77,7 @@ def SF_fit_alt(SF,SF_e,x):
     c0,c1,cov, = out.Output()
     return c0,c1,cov
 
-def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=True):
+def group_bins_original(histo,bin_map,axis_name="sample",drop_unspecified=True):
 
     bin_map = copy.deepcopy(bin_map) # Don't want to edit the original
 
@@ -94,6 +94,29 @@ def group_bins(histo,bin_map,axis_name="sample",drop_unspecified=True):
     old_ax = histo.axis(axis_name)
     new_ax = hist.Cat(old_ax.name,old_ax.label)
     new_histo = histo.group(old_ax,new_ax,bin_map,overflow="over")
+
+    return new_histo
+
+# Group bins in a hist, returns a new hist
+def group_bins(histo,bin_map,axis_name="process",drop_unspecified=False):
+
+    bin_map = copy.deepcopy(bin_map) # Don't want to edit the original
+
+    # Construct the map of bins to remap
+    bins_to_remap_lst = []
+    for grp_name,bins_in_grp in bin_map.items():
+        bins_to_remap_lst.extend(bins_in_grp)
+    if not drop_unspecified:
+        for bin_name in yt.get_cat_lables(histo,axis_name):
+            if bin_name not in bins_to_remap_lst:
+                bin_map[bin_name] = bin_name
+    bin_map = {m:bin_map[m] for m in bin_map if any(a in list(histo.axes[axis_name]) for a in bin_map[m])}
+
+    # Remap the bins
+    old_ax = histo.axes[axis_name]
+    #new_ax = hist.axis.StrCategory([], name=old_ax.name, label=old_ax.label, growth=True)
+    #new_histo = group(histo, axis_name, axis_name, bin_map)
+    new_histo = histo.group(axis_name, bin_map)
 
     return new_histo
 
@@ -133,25 +156,34 @@ def getPoints(dict_of_hists):
         print(sample)
     for	sample in samples_to_rm_from_data_hist:
         print(sample)
-    print("samples_to_rm_from_mc_hist", samples_to_rm_from_mc_hist)
-    print("samples_to_rm_from_data_hist", samples_to_rm_from_data_hist)
-    hist_mc = dict_of_hists[var_name].remove(samples_to_rm_from_mc_hist,"process")
-    hist_data = dict_of_hists[var_name].remove(samples_to_rm_from_data_hist,"process")
-    
+
+    hist_mc = dict_of_hists[var_name].remove("process",samples_to_rm_from_mc_hist)
+    hist_data = dict_of_hists[var_name].remove("process",samples_to_rm_from_data_hist)
+
+    for ax in hist_mc.axes:
+        print(f"{ax.name}: {type(ax)}")
+    if hasattr(ax, "categories"):
+        print(f"  categories: {ax.categories}")
+    elif hasattr(ax, "edges"):
+        print(f"  bin edges: {ax.edges}")
+
     # Integrate to get the categories we want
     mc_fake     = hist_mc.integrate("channel", Ftau)
     mc_tight    = hist_mc.integrate("channel", Ttau)
     data_fake     = hist_data.integrate("channel", Ftau)
     data_tight    = hist_data.integrate("channel", Ttau)
-    mc_fake     = group_bins(mc_fake,CR_GRP_MAP)
-    mc_tight    = group_bins(mc_tight,CR_GRP_MAP)
-    data_fake   = group_bins(data_fake,CR_GRP_MAP)
-    data_tight  = group_bins(data_tight,CR_GRP_MAP)
+    mc_fake     = group_bins(mc_fake,CR_GRP_MAP,"channel",drop_unspecified=True)
+    mc_tight    = group_bins(mc_tight,CR_GRP_MAP,"channel",drop_unspecified=True)
+    data_fake   = group_bins(data_fake,CR_GRP_MAP,"channel",drop_unspecified=True)
+    data_tight  = group_bins(data_tight,CR_GRP_MAP,"channel",drop_unspecified=True)
+
     mc_fake     = mc_fake.integrate("systematic","nominal")
     mc_tight    = mc_tight.integrate("systematic","nominal")
     data_fake   = data_fake.integrate("systematic","nominal")
     data_tight  = data_tight.integrate("systematic","nominal")
-    print(mc_tight.values(sumw2=True))
+
+    #print(mc_tight.values(sumw2=True))
+
     #for sample in mc_fake._sumw2:
     for item in (mc_tight.values(sumw2=True)):
         mc_fake_e = sqrt_list(mc_fake.values(sumw2=True)[item][1])
