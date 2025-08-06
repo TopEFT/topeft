@@ -16,7 +16,7 @@ def load_numpy_files(file_path):
 
     return val, err
 
-#This function takes a dictionary that has two histograms: photon_pt_eta and photon_pt_eta_sumw2. At this point, both of these histograms should only have a single process axis "nonpromptPhUL<year>" and the yield here will be with non-prompt photon estimation done. i.e. Data - Prompt MC in region B or R depending on whether one is doing (not doing) nonprompt photon validation test
+#This function takes a dictionary that has two histograms: photon_pt_eta and photon_pt_eta_sumw2. At this point, both of these histograms should only have a single process axis "nonpromptPhUL<year>" and the yield here will be with non-prompt photon estimation done. i.e. Data - Prompt MC in region R(B) depending on whether one is doing (not doing) nonprompt photon validation test
 #CAUTION: The fr_file_path and kmc_file_path are hardcoded right now.
 def modify_NP_photon_pt_eta_variance(dict_of_hists_for_NP_uncertainty, nonprompt_validation=False):
     print("Inside NP photon variance modification block")
