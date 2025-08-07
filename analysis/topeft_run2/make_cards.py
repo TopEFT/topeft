@@ -115,6 +115,10 @@ def run_condor(dc,pkl_fpath,out_dir,var_lst,ch_lst,chunk_size):
         other_opts.append("--do-nuisance")
     if dc.year_lst:
         other_opts.extend(["--year"," ".join(dc.year_lst)])
+    if dc.use_AAC:
+        other_opts.append("--use-AAC")
+    if dc.do_ttA:
+        other_opts.append("--do-ttA")
     if dc.drop_syst:
         other_opts.extend(["--drop-syst"," ".join(dc.drop_syst)])
     other_opts = " ".join(other_opts)
@@ -173,6 +177,7 @@ def main():
     parser.add_argument("--use-AAC","-A",action="store_true",help="Include all EFT templates in datacards for AAC model")
     parser.add_argument("--wc-vals", default="",action="store", nargs="+", help="Specify the corresponding wc values to set for the wc list")
     parser.add_argument("--wc-scalings", default=[],action="extend",nargs="+",help="Specify a list of wc ordering for scalings.json")
+    parser.add_argument("--do-ttA", action="store_true",help="If runnning over ttA channels, use this")
 
     args = parser.parse_args()
     pkl_file   = args.pkl_file
@@ -191,6 +196,7 @@ def main():
     verbose    = args.verbose
     use_AAC     = args.use_AAC
     wc_vals    = args.wc_vals
+    do_ttA     = args.do_ttA
 
     wc_scalings = args.wc_scalings
     select_only = args.select_only
@@ -205,7 +211,7 @@ def main():
     kwargs = {
         "wcs": wcs,
         "rate_syst_path": rs_json,
-        "missing_parton_path": mp_file,
+        #"missing_parton_path": mp_file,
         "out_dir": out_dir,
         "var_lst": var_lst,
         "do_mc_stat": do_mc_stat,
@@ -218,6 +224,7 @@ def main():
         "use_AAC":  use_AAC,
         "wc_vals": wc_vals,
         "wc_scalings": wc_scalings,
+        "do_ttA": do_ttA,
     }
 
     if out_dir != "." and not os.path.exists(out_dir):

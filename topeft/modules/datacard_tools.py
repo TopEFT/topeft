@@ -120,9 +120,12 @@ class MissingParton(RateSystematic):
         "3l_p_offZ_2b": "3l2b_p",
         "3l_m_offZ_2b": "3l2b_m",
         "4l_2b": "4l",
-        "2los_ph_CR_sf_Zg": "2lss_m_2b",  #CAUTION: temporary
-        "2los_sf_ph": "2lss_m_2b", #CAUTION: temporary
-        "2los_of_ph": "2lss_m_2b", #CAUTION: temporary
+    }
+
+    CH_MAP_ttA = {
+        "2los_ph_CR_sf_Zg": "2los_ph_CR_sf_Zg_1b",
+        "2los_sf_ph": "2los_sf_ph_1b",
+        "2los_of_ph": "2los_of_ph_1b",
     }
 
     def __init__(self,name,**kwargs):
@@ -138,6 +141,7 @@ class DatacardMaker():
     #   separate into two distinct actions to make things easier to follow for the reader
     # Note:
     #   Care must be taken with regards to the underscores, due to 'nonprompt', 'data', and 'flips'
+
     GROUP = {
         "Diboson_": [
             "WZTo3LNu_",
@@ -151,9 +155,7 @@ class DatacardMaker():
             "ZZZ_",
         ],
         "tWZ": ["TWZToLL_"],
-        #"convs": ["TTGamma_"],
         "fakes": ["nonprompt"],
-        "fakePh": ["nonpromptPh"],
         "charge_flips_": ["flips"],
         "data_obs": ["data"],
 
@@ -165,7 +167,42 @@ class DatacardMaker():
             "TTTo2L2Nu_",
         ],
         "ttlnu_": ["ttlnuJet_"],
-        "ttA_": ["TTGamma_Dilept_","TTGamma_"],
+        "ttA_": ["TTGamma_Dilept_"],
+
+    }
+    GROUP_ttA = {
+        "Diboson_": [
+            "WZTo3LNu_",
+            "WWTo2L2Nu_",
+            "ZZTo4L_",
+        ],
+        "Triboson_": [
+            "WWW_",
+            "WWZ_",
+            "WZZ_",
+            "ZZZ_",
+        ],
+        "tWZ": ["TWZToLL_"],
+        "fakes": ["nonprompt"],
+        "fakePh": ["nonpromptPh"],
+        "data_obs": ["data"],
+
+        "ttH_": ["ttHJet_"],
+        "ttll_": [
+            "ttllJet_",
+            "TTZToLL_M1to10_",
+            "TTToSemiLeptonic_",
+            "TTTo2L2Nu_",
+        ],
+        "ttlnu_": ["ttlnuJet_"],
+        "ttA_": ["TTGamma_Dilept_"],
+        "ZGFSR_": ["ZGToLLGFSR_"],
+        "ZGISR_": ["ZGToLLGISR_"],
+        "STGamma_": ["ST_TWGToLL_"],
+        "Others_": [
+            "ST_top_t-channel_","ST_antitop_t-channel_","ST_top_s-channel_",
+            "DY10to50_","DY50_","DYJetsToLL_","tW_","tbarW_",
+            "WJetsToLNu_"]
     }
 
     # Controls how we rebin the dense axis of the corresponding distribution
@@ -305,7 +342,8 @@ class DatacardMaker():
         self.coeffs          = kwargs.pop("wcs",[])
         self.use_real_data   = kwargs.pop("unblind",False)
         self.verbose         = kwargs.pop("verbose",True)
-        self.use_AAC          = kwargs.pop("use_AAC",False)
+        self.use_AAC         = kwargs.pop("use_AAC",False)
+        self.do_ttA          = kwargs.pop("do_ttA",False)
         self.wc_scalings     = kwargs.pop("wc_scalings",[])
         self.scalings        = []
 
@@ -319,28 +357,37 @@ class DatacardMaker():
                     raise ValueError(f"Invalid year choice '{yr}', should be empty if running over all years or one of: {self.YEARS}")
 
         rate_syst_path = kwargs.pop("rate_systs_path","params/rate_systs.json")
-        miss_part_path = kwargs.pop("missing_parton_path","data/missing_parton/missing_parton.root")
+        if not self.do_ttA:
+            miss_part_path = kwargs.pop("missing_parton_path","data/missing_parton/missing_parton.root")
+        else:
+            miss_part_path = kwargs.pop("missing_parton_path","data/missing_parton/missing_parton_ttA.root")
 
         # TODO: Need to find a better name for this variable
         self.rate_systs = self.load_systematics(rate_syst_path,miss_part_path)
 
         # Samples to be excluded from the datacard, should correspond to names before group_processes is run
-        self.ignore = [
-            "DYJetsToLL", "DY10to50", "DY50",
-            "ST_antitop_t-channel", "ST_top_s-channel", "ST_top_t-channel", "tbarW", "tW",
-            "TTJets",
-            "WJetsToLNu",
-            "TTGJets",  # This is the old low stats convs process, new one should be TTGamma
-            #"TTGamma_central",
+        if self.do_ttA:
+            self.ignore = [
+                "TTJets",
+                "TTGJets",  # This is the old low stats convs process, new one should be TTGamma
+            ]
+        else:
+            self.ignore = [
+                "DYJetsToLL", "DY10to50", "DY50",
+                "ST_antitop_t-channel", "ST_top_s-channel", "ST_top_t-channel", "tbarW", "tW",
+                "TTJets",
+                "WJetsToLNu",
+                "TTGJets",  # This is the old low stats convs process, new one should be TTGamma
+                #"TTGamma_central",
 
-            # "TTGamma",
-            # "WWTo2L2Nu","ZZTo4L",#"WZTo3LNu",
-            # "WWW","WWW_4F","WWZ_4F","WWZ","WZZ","ZZZ",
-            # "flips","nonprompt",
-            # "tttt","ttlnuJet","tllq","tHq","ttHJet",
-            # "TTTo2L2Nu", "TTToSemiLeptonic",
-            # "data",
-        ]
+                # "TTGamma",
+                # "WWTo2L2Nu","ZZTo4L",#"WZTo3LNu",
+                # "WWW","WWW_4F","WWZ_4F","WWZ","WZZ","ZZZ",
+                # "flips","nonprompt",
+                # "tttt","ttlnuJet","tllq","tHq","ttHJet",
+                # "TTTo2L2Nu", "TTToSemiLeptonic",
+                # "data",
+            ]
 
         if not self.use_real_data:
             # Since we're just going to generate Asimov data, this lets us drop the real data histograms
@@ -385,34 +432,67 @@ class DatacardMaker():
         # Note: Since the decorrelation happens during the self.analysis() step, the matched names
         #       should correspond to the renamed/re-grouped processes, e.g. use "Diboson" instead of
         #       "ZZ","WZ","WW".
-        self.syst_shape_decorrelate = {
-            "ISR": [
-                {
-                    "matches": ["ttH","ttll","tttt","ttA"],
-                    "group": "gg",
-                },
-                {
-                    "matches": ["ttlnu","tllq","Diboson","Triboson"],
-                    "group": "qq",
-                },
-                {
-                    "matches": ["tHq"],
-                    "group": "qg"
-                }
-            ],
-            "renorm": [{
-                "matches": [".*"],
-                "group": "",
-            }],
-            "fact": [{
-                "matches": [".*"],
-                "group": "",
-            }]
-        }
+        if not self.do_ttA:
+            self.syst_shape_decorrelate = {
+                "ISR": [
+                    {
+                        "matches": ["ttH","ttll","tttt","ttA"],
+                        "group": "gg",
+                    },
+                    {
+                        "matches": ["ttlnu","tllq","Diboson","Triboson"],
+                        "group": "qq",
+                    },
+                    {
+                        "matches": ["tHq"],
+                        "group": "qg"
+                    }
+                ],
+                "renorm": [{
+                    "matches": [".*"],
+                    "group": "",
+                }],
+                "fact": [{
+                    "matches": [".*"],
+                    "group": "",
+                }]
+            }
 
-        self.syst_to_skip = {
-            "ttA": "charge_flips"
-        }
+        else:
+            self.syst_shape_decorrelate = {
+                "ISR": [
+                    {
+                        "matches": ["ttH","ttll","tttt","ttA"],
+                        "group": "gg",
+                    },
+                    {
+                        "matches": ["ttlnu","tllq","Diboson","Triboson"],
+                        "group": "qq",
+                    },
+                    {
+                        "matches": ["tHq"],
+                        "group": "qg"
+                    }
+                ],
+                "FSR": [
+                    {
+                        "matches": ["ttA"],
+                        "group"  : "ttA",
+                    }],
+                "renorm": [{
+                    "matches": [".*"],
+                    "group": "",
+                }],
+                "fact": [{
+                    "matches": [".*"],
+                    "group": "",
+                }]
+            }
+
+        if self.do_ttA:
+            self.syst_to_skip = {
+                "ttA": "charge_flips"
+            }
 
         if extra_ignore:
             print(f"Adding processes to ignore: {extra_ignore}")
@@ -608,7 +688,11 @@ class DatacardMaker():
         # TODO: This needs work to be less convoluted...
         all_procs = set(h.axes["process"])
         grp_map = {}
-        for grp_name,to_grp in self.GROUP.items():
+        if self.do_ttA:
+            group = self.GROUP_ttA
+        else:
+            group = self.GROUP
+        for grp_name,to_grp in group.items():
             for yr in self.YEARS:
                 new_name = f"{grp_name}{yr}"
                 lst = []
@@ -968,7 +1052,10 @@ class DatacardMaker():
                                 all_shapes.add(syst_base)
                                 text_card_info[proc_name]["shapes"].add(syst_base)
                             syst_width = max(len(syst),syst_width)
-                        zero_out_sumw2 = p != "fakes" and "close" not in p # Zero out sumw2 for all proc but fakes, so that we only do auto stats for fakes
+                        if not self.do_ttA:
+                            zero_out_sumw2 = p != "fakes" and "close" not in p # Zero out sumw2 for all proc but fakes, so that we only do auto stats for fakes
+                        else:
+                            zero_out_sumw2 = (p != "fakes" and "close" not in p and p != "fakePh") # Zero out sumw2 for all proc but fakes, so that we only do auto stats for fakes
                         f[hist_name] = to_hist(arr,hist_name,zero_wgts=zero_out_sumw2)
 
                         num_h += 1
@@ -1071,6 +1158,8 @@ class DatacardMaker():
             # Rate systematics rows
             for k,rate_syst in self.rate_systs.items():
                 syst_name = rate_syst.name
+                # If we are not using ttA setup, no need to work with xsec_unc systematic uncertainty. So let's skip that immediately
+                if "xsec_unc" in syst_name and not self.do_ttA: continue
                 left_text = f"{syst_name:<{syst_width}} lnN"
                 if km_dist == "njets" and (syst_name == "diboson_njets" or syst_name == "missing_parton"):
                     # These systematics are only treated as rate systs for njets distribution
@@ -1089,30 +1178,34 @@ class DatacardMaker():
                         # First strip off any njet and/or bjet labels
                         ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","")
                         # Now construct the category key, matching names in the missing_parton file to the current category
-                        if num_l == 2:
-                            njet_offset = 4
-                            ch_key = f"{ch_key}_{num_b}b"
-                        elif num_l == 2.1:
-                            njet_offset = 1
-                            ch_key = "2lss_m_2b"   #CAUTION: Temporary! Fix this later!
-                        elif num_l == 3:
-                            njet_offset = 2
-                            if "_onZ" in ch:
-                                ch_key = f"{num_l}l_sfz_{num_b}b"
-                            elif "_p_offZ" in ch:
-                                ch_key = f"{num_l}l{num_b}b_p"
-                            elif "_m_offZ" in ch:
-                                ch_key = f"{num_l}l{num_b}b_m"
+                        if not self.do_ttA:
+                            if num_l == 2:
+                                njet_offset = 4
+                                ch_key = f"{ch_key}_{num_b}b"
+                            elif num_l == 3:
+                                njet_offset = 2
+                                if "_onZ" in ch:
+                                    ch_key = f"{num_l}l_sfz_{num_b}b"
+                                elif "_p_offZ" in ch:
+                                    ch_key = f"{num_l}l{num_b}b_p"
+                                elif "_m_offZ" in ch:
+                                    ch_key = f"{num_l}l{num_b}b_m"
+                                else:
+                                    raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
+                            elif num_l == 4:
+                                njet_offset = 2
+                                ch_key = f"{ch_key}_{num_b}b"
+                            elif num_l == 2.1:
+                                njet_offset = 1
+                                ch_key = f"{ch_key}_{num_b}b"
                             else:
                                 raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
-                        elif num_l == 4:
-                            njet_offset = 2
-                            ch_key = f"{ch_key}_{num_b}b"
-                        elif num_l == 2.1:
-                            njet_offset = 1
-                            ch_key = f"{ch_key}_{num_b}b"
                         else:
-                            raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
+                            if num_l == 2.1: #currently a hack for ttA channels
+                                njet_offset = 1
+                                ch_key = f"{ch_key}_1b"
+                            else:
+                                raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
                         # The bins in the missing_parton root files start indexing from 0
                         bin_idx = num_j - njet_offset
                         if isinstance(v,dict):
@@ -1134,9 +1227,10 @@ class DatacardMaker():
                 f.write("* autoMCStats -1\n")
 
         outf_json_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="json")
-        with open(os.path.join(self.out_dir,f"{outf_json_name}"),"w") as f:
-            print('making', os.path.join(self.out_dir,f"{outf_json_name}"))
-            json.dump(self.scalings_json, f, indent=4)
+        if not self.use_AAC:
+            with open(os.path.join(self.out_dir,f"{outf_json_name}"),"w") as f:
+                print('making', os.path.join(self.out_dir,f"{outf_json_name}"))
+                json.dump(self.scalings_json, f, indent=4)
 
         dt = time.time() - tic
         print(f"File Write Time: {dt:.2f} s")
