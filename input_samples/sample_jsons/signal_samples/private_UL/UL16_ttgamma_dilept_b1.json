@@ -22440,8 +22440,8 @@
         "/store/user/apiccine/FullProduction/FullR2/UL16/Round2/Batch1/postLHE_step/v250304/nAOD_step_ttgamma_0085_run0/NAOD-00000_594964.root",
         "/store/user/apiccine/FullProduction/FullR2/UL16/Round2/Batch1/postLHE_step/v250304/nAOD_step_ttgamma_0079_run0/NAOD-00000_548784.root"
   ],
-  "nEvents": 1,
-  "nGenEvents": 1,
+  "nEvents": 10069611,
+  "nGenEvents": 10069611,
   "nSumOfWeights": 118223.8147469468,
   "isData": false,
   "path": "/store/user/apiccine/FullProduction/FullR2/UL16/Round2/Batch1/postLHE_step/v250304/nAOD_step_ttgamma_*",
