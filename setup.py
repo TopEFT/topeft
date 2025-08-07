@@ -15,7 +15,9 @@ setuptools.setup(
             "data/btagSF/UL/*.pkl.gz",
             "data/btagSF/UL/*.csv",
             "modules/*.json",
-            "data/photon_fakerates_*/*.npz"
+            "data/photon_fakerates*/*.npz",
+            "data/photon_kmc*/*.npz",
+            "data/ttg_private_corrections/cf.json"
         ],
     }
 )
