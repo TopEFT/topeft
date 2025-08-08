@@ -6,7 +6,6 @@ import awkward as ak
 import json
 
 import hist
-from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.sparseHist import SparseHist
 
 from coffea import processor
