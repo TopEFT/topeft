@@ -6,7 +6,6 @@ import awkward as ak
 import json
 
 import hist
-from topcoffea.modules.histEFT import HistEFT
 from topcoffea.modules.sparseHist import SparseHist
 
 from coffea import processor
@@ -73,29 +72,29 @@ class AnalysisProcessor(processor.ProcessorABC):
         appl_axis = hist.axis.StrCategory([], name="appl", label=r"AR/SR", growth=True)
 
         histograms = {}
-        pt_axis = hist.axis.Variable([20, 50, 90, 120],name='pt',label=r"$p_{T}$ $\gamma$ (GeV)")
-        pt_sumw2_axis = hist.axis.Variable([20, 50, 90, 120],name='pt_sumw2',label=r"$p_{T}$ $\gamma$ (GeV)")
-        abseta_axis = hist.axis.Variable([0,0.435,0.783,1.13,1.50],name='abseta',label=r"Photon abs. $\eta$")
-        abseta_sumw2_axis = hist.axis.Variable([0,0.435,0.783,1.13,1.50],name='abseta_sumw2',label=r"Photon abs. $\eta$")
+        pt_axis = hist.axis.Variable(axes_info["photon_pt_eta"]["pt"]["variable"],name='pt',label=r"$p_{T}$ $\gamma$ (GeV)")
+        pt_sumw2_axis = hist.axis.Variable(axes_info["photon_pt_eta"]["pt"]["variable"],name='pt_sumw2',label=r"$p_{T}$ $\gamma$ (GeV)")
+        abseta_axis = hist.axis.Variable(axes_info["photon_pt_eta"]["abseta"]["variable"],name='abseta',label=r"Photon abs. $\eta$")
+        abseta_sumw2_axis = hist.axis.Variable(axes_info["photon_pt_eta"]["abseta"]["variable"],name='abseta_sumw2',label=r"Photon abs. $\eta$")
 
         histograms['photon_pt_eta'] = SparseHist(
-                    proc_axis,
-                    chan_axis,
-                    syst_axis,
-                    appl_axis,
-                    pt_axis,
-                    abseta_axis,
-                    label=r"Events",
+            proc_axis,
+            chan_axis,
+            syst_axis,
+            appl_axis,
+            pt_axis,
+            abseta_axis,
+            label=r"Events",
         )
 
         histograms['photon_pt_eta_sumw2'] = SparseHist(
-                    proc_axis,
-                    chan_axis,
-                    syst_axis,
-                    appl_axis,
-                    pt_sumw2_axis,
-                    abseta_sumw2_axis,
-                    label=r"Events",
+            proc_axis,
+            chan_axis,
+            syst_axis,
+            appl_axis,
+            pt_sumw2_axis,
+            abseta_sumw2_axis,
+            label=r"Events",
         )
         self._accumulator = histograms
 

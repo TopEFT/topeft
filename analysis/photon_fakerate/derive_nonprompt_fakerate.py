@@ -79,48 +79,47 @@ class AnalysisProcessor(processor.ProcessorABC):
         abseta_sumw2_axis = hist.axis.Variable(axes_info["photon_pt_eta"]["abseta"]["variable"],name='photon_abseta_sumw2',label=r"Photon abs. $\eta$")
 
         histograms['photon_pt_eta'] = SparseHist(
-                    proc_axis,
-                    chan_axis,
-                    syst_axis,
-                    appl_axis,
-                    pt_axis,
-                    abseta_axis,
-                    label=r"Events",
+            proc_axis,
+            chan_axis,
+            syst_axis,
+            appl_axis,
+            pt_axis,
+            abseta_axis,
+            label=r"Events",
         )
 
         histograms['photon_pt_eta_sumw2'] = SparseHist(
-                    proc_axis,
-                    chan_axis,
-                    syst_axis,
-                    appl_axis,
-                    pt_sumw2_axis,
-                    abseta_sumw2_axis,
-                    label=r"Events",
+            proc_axis,
+            chan_axis,
+            syst_axis,
+            appl_axis,
+            pt_sumw2_axis,
+            abseta_sumw2_axis,
+            label=r"Events",
         )
 
-        #the photon pt histograms are not needed for FR calculations
+        #the photon pt histograms are not needed for FR calculations and were just added for some cross-checks
         histograms['photon_pt'] = HistEFT(
-                    proc_axis,
-                    chan_axis,
-                    syst_axis,
-                    appl_axis,
-                    pt_axis,
-                    wc_names=wc_names_lst,
-                    label=r"Events",
-                    rebin=rebin
+            proc_axis,
+            chan_axis,
+            syst_axis,
+            appl_axis,
+            pt_axis,
+            wc_names=wc_names_lst,
+            label=r"Events",
+            rebin=rebin
         )
 
         histograms['photon_pt_sumw2'] = HistEFT(
-                    proc_axis,
-                    chan_axis,
-                    syst_axis,
-                    appl_axis,
-                    pt_sumw2_axis,
-                    wc_names=wc_names_lst,
-                    label=r"Events",
-                    rebin=rebin
+            proc_axis,
+            chan_axis,
+            syst_axis,
+            appl_axis,
+            pt_sumw2_axis,
+            wc_names=wc_names_lst,
+            label=r"Events",
+            rebin=rebin
         )
-
         self._accumulator = histograms
 
         # Set the list of hists to fill
