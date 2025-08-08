@@ -23,10 +23,9 @@ import topcoffea.modules.corrections as tc_cor
 from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
 import topeft.modules.plotting_helper as plot_help
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPhotonSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, AddPerPhotonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyttgammaCF
+from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachPhotonSF, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyttgammaCF
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
-import topeft.modules.jetbJetMultiplicity as jbM
 
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
@@ -693,9 +692,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             photon_abseta = ak.fill_none(ak.firsts(abs(ph_fo_pt_sorted.eta)),-1)
             pf_chIso = ak.flatten(ak.fill_none(ak.pad_none(((ph_fo_pt_sorted.pfRelIso03_chg) * (ph_fo_pt_sorted.pt)),1),-1))
 
-            if self._ecut_threshold is not None:
-                ecut_mask = (ljptsum<self._ecut_threshold)
-
             # Counts
             counts = np.ones_like(events['event'])
             ########## Fill the histograms ##########
@@ -810,10 +806,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
                                         else:
                                             all_cuts_mask = selections.all(*cuts_lst)
-
-                                        # Apply the optional cut on energy of the event
-                                        if self._ecut_threshold is not None:
-                                            all_cuts_mask = (all_cuts_mask & ecut_mask)
 
                                         # Weights and eft coeffs
                                         weights_flat = weight[all_cuts_mask]
