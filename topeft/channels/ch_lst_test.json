@@ -612,6 +612,55 @@
             ]
         }
     },
+    "FWD_CH_LST_SR_4j": {
+        "3l": {
+            "lep_chan_lst": [
+                [
+                    "3l_m_offZ_1b_fwd",
+                    "3l_m",
+                    "3l_offZ",
+                    "bmask_exactly1m",
+                    "fwdjet_mask"
+                ],
+                [
+                    "3l_p_offZ_1b_fwd",
+                    "3l_p",
+                    "3l_offZ",
+                    "bmask_exactly1m",
+                    "fwdjet_mask"
+                ],
+                        [
+                    "3l_m_offZ_2b_fwd",
+                    "3l_m",
+                    "3l_offZ",
+                    "bmask_atleast2m",
+                    "fwdjet_mask"
+                ],
+                [
+                    "3l_p_offZ_2b_fwd",
+                    "3l_p",
+                    "3l_offZ",
+                    "bmask_atleast2m",
+                    "fwdjet_mask"
+                ]
+            ],
+            "lep_flav_lst": [
+                "eee",
+                "eem",
+                "emm",
+        "mmm"
+            ],
+            "appl_lst": [
+                "isSR_3l",
+                "isAR_3l"
+            ],
+            "jet_lst": [
+                ">4"
+            ]
+	}
+    },
+
+
     "CH_LST_CR": {
     "2l_CR": {
             "lep_chan_lst": [
