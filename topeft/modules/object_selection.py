@@ -46,7 +46,7 @@ def ttH_idEmu_cuts_E3(hoe, eta, deltaEtaSC, eInvMinusPInv, sieie):
     return (hoe<(0.10-0.00*(abs(eta+deltaEtaSC)>1.479))) & (eInvMinusPInv>-0.04) & (sieie<(0.011+0.019*(abs(eta+deltaEtaSC)>1.479)))
 
 def isFwdJet(pt, eta, jet_id, jetPtCut=25.0):
-    mask = ((pt>jetPtCut) & (abs(eta)>get_te_param("eta_j_cut")) & (jet_id>get_te_param("jet_id_cut")))
+    mask = ((pt>jetPtCut) & (abs(eta)>get_te_param("eta_j_cut")) & (abs(eta)<get_te_param("eta_j_cut_upper")) & (jet_id>get_te_param("jet_id_cut")))
     return mask
 
 def smoothBFlav(jetpt,ptmin,ptmax,year,scale_loose=1.0):

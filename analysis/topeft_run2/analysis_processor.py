@@ -699,6 +699,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
             bmask_exactly0med = (nbtagsm==0) # Used for 3l CR and 2los Z CR
             bmask_exactly1med = (nbtagsm==1) # Used for 3l SR and 2lss CR
+            bmask_atleast1med = (nbtagsm>=1) # Used for 3l fwd SR
             bmask_exactly2med = (nbtagsm==2) # Used for CRtt
             bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
             bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
@@ -766,6 +767,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
             preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
             preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
+            if self.fwd_analysis:
+                preselections.add("bmask_atleast1m", (bmask_atleast1med))
 
             if self.offZ_3l_split:
                 preselections.add("3l_offZ_low", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask))
@@ -930,7 +933,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
-            varnames["lt"]      = lt
+            if self.fwd_analysis:
+                varnames["lt"]      = lt
             if self.tau_h_analysis:
 
                 varnames["ptz_wtau"] = ptz_wtau
@@ -1120,7 +1124,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                                         elif self.fwd_analysis:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                            if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
+                                            if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)): continue
                                         else:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue

@@ -1,4 +1,5 @@
 import os
+import subprocess
 import shutil
 import argparse
 import json
@@ -14,6 +15,8 @@ IGNORE_LINES = [
     "(Set coffea.deprecations_as_errors = True to get a stack trace now.)",
     "ImportError: coffea.hist is deprecated",
     "warnings.warn(message, FutureWarning)",
+    "UserWarning: Numba extension module 'awkward.numba' failed to load due to 'AttributeError(module 'awkward.numba' has no attribute '_register')",
+    "entrypoints.init_all()",
 ]
 
 # Return list of lines in a file
@@ -44,6 +47,7 @@ def main():
     parser.add_argument("-z", "--set-up-offZdivision", action="store_true", help = "Copy the ptz and lj0pt cards with 3l offZ division.")
     parser.add_argument("-t", "--tau-flag", action="store_true", help = "Copy the ptz, lj0pt, and ptz_wtau cards for tau channels.")
     parser.add_argument("-f", "--fwd-flag", action="store_true", help = "Copy the ptz, lj0pt, and lt cards for forward channels.")
+    parser.add_argument("-a", "--all-analysis", action="store_true", help = "Copy all channels in with fwd and offZ contributions.")
     args = parser.parse_args()
 
     ###### Check that you run one only type of analysis ######
@@ -126,6 +130,8 @@ def main():
             import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
         elif args.fwd_flag:
             import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
+        if args.all_analysis:
+            import_sr_ch_lst = select_ch_lst["ALL_CH_LST_SR"]
 
         CATSELECTED = []
 
@@ -139,15 +145,25 @@ def main():
                 lep_ch_name = lep_ch[0]
                 for jet in jet_list:
                     # special channels to be binned by ptz instead of lj0pt
-                    if lep_ch_name == "3l_onZ_1b" or (lep_ch_name == "3l_onZ_2b" and (int(jet) == 4 or int(jet) == 5)):
+                    if "3l" in lep_ch_name and int(jet) == 1 and 'fwd' not in lep_ch_name: # 1j for fwd only
+                        continue
+                    elif "3l_onZ_1b" in lep_ch_name or ("3l_onZ_2b" in lep_ch_name and (int(jet) == 4 or int(jet) == 5)) and 'fwd' not in lep_ch_name:
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
-                    elif args.set_up_offZdivision and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
+                    elif args.all_analysis and (
+                         ("3l_onZ_2b" in lep_ch_name and int(jet) == 1) or
+                         ("3l_onZ_1b" in lep_ch_name and int(jet) == 1) or
+                         ("offZ_2b_fwd" in lep_ch_name and int(jet) == 1) or
+                         ("offZ_1b_fwd" in lep_ch_name and int(jet) == 5) or # will be removed after update in ch_lst
+                         ("offZ_2b_fwd" in lep_ch_name and int(jet) == 5) # will be removed after update in ch_lst
+                         ):
+                        continue
+                    elif (args.set_up_offZdivision or args.all_analysis) and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
-                    elif args.tau_flag and ("2los" in lep_ch_name):
+                    elif (args.tau_flag or args.all_analysis) and ("2los" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif args.tau_flag and ("1tau_onZ" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
-                    elif args.fwd_flag and ("fwd" in lep_ch_name or "2lss_p" in lep_ch_name or "2lss_m" in lep_ch_name):
+                    elif (args.fwd_flag or args.all_analysis) and ("fwd" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_lt"
                     else:
                         channelname = lep_ch_name + "_" + jet + "j_lj0pt"
@@ -173,6 +189,10 @@ def main():
         file_name_strip_ext = os.path.splitext(fname)[0]
         for file in CATSELECTED:
             if file in file_name_strip_ext:
+                if fname.endswith(".txt"):
+                    bad = subprocess.call([f'grep "observation 0.00" {os.path.join(args.datacards_path,fname)}'], shell=True, stdout=subprocess.DEVNULL)
+                    if bad == 0:
+                        raise Exception(f"Warning: {file} has 0 observation!")
                 shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
                 if fname.endswith(".txt"): n_txt += 1
                 if fname.endswith(".root"): n_root += 1

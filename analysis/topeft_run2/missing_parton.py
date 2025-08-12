@@ -19,19 +19,22 @@ from topcoffea.modules.paths import topcoffea_path
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 
-files = ['2lss_4t_m', '2lss_4t_p', '2lss_fwd_m', '2lss_fwd_p', '2lss_m', '2lss_p', '3l_m_offZ_1b', '3l_m_offZ_2b', '3l_onZ_1b', '3l_onZ_2b', '3l_p_offZ_1b', '3l_p_offZ_2b', '4l']
+files = ['2lss_4t_m', '2lss_4t_p', '2lss_fwd_m', '2lss_fwd_p', '2lss_m', '2lss_p', '3l_m_offZ_1b', '3l_m_offZ_2b', '3l_onZ_1b', '3l_onZ_2b', '3l_p_offZ_1b', '3l_p_offZ_2b', '3l_m_offZ_fwd_1b', '3l_m_offZ_fwd_2b', '3l_onZ_fwd_1b', '3l_onZ_fwd_2b', '3l_p_offZ_fwd_1b', '3l_p_offZ_fwd_2b', '4l']
+files = ['3l_m_offZ_fwd_1b', '3l_m_offZ_fwd_2b', '3l_onZ_fwd_1b', '3l_onZ_fwd_2b', '3l_p_offZ_fwd_1b', '3l_p_offZ_fwd_2b']
 files = ['2lss_fwd_m', '2lss_fwd_p']
+files = ['2lss_fwd_m', '2lss_fwd_p', '3l_m_offZ_1b_fwd', '3l_m_offZ_2b_fwd', '3l_onZ_1b_fwd', '3l_onZ_2b_fwd', '3l_p_offZ_1b_fwd', '3l_p_offZ_2b_fwd']
 files_diff = ['2lss_4t_m_4j_2b', '2lss_4t_m_5j_2b', '2lss_4t_m_6j_2b', '2lss_4t_m_7j_2b', '2lss_4t_p_4j_2b', '2lss_4t_p_5j_2b', '2lss_4t_p_6j_2b', '2lss_4t_p_7j_2b', '2lss_m_4j_2b', '2lss_m_5j_2b', '2lss_m_6j_2b', '2lss_m_7j_2b', '2lss_p_4j_2b', '2lss_p_5j_2b', '2lss_p_6j_2b', '2lss_p_7j_2b', '3l_m_offZ_1b_2j', '3l_m_offZ_1b_3j', '3l_m_offZ_1b_4j', '3l_m_offZ_1b_5j', '3l_m_offZ_2b_2j', '3l_m_offZ_2b_3j', '3l_m_offZ_2b_4j', '3l_m_offZ_2b_5j', '3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j', '3l_p_offZ_1b_2j', '3l_p_offZ_1b_3j', '3l_p_offZ_1b_4j', '3l_p_offZ_1b_5j', '3l_p_offZ_2b_2j', '3l_p_offZ_2b_3j', '3l_p_offZ_2b_4j', '3l_p_offZ_2b_5j', '4l_2j_2b', '4l_3j_2b', '4l_4j_2b']
 files_ptz = ['3l_onZ_1b_2j', '3l_onZ_1b_3j', '3l_onZ_1b_4j', '3l_onZ_1b_5j', '3l_onZ_2b_2j', '3l_onZ_2b_3j', '3l_onZ_2b_4j', '3l_onZ_2b_5j']
 
 def get_hists(fname, path, process):
-    fin = uproot.open('histos/'+path+'/2lss_fwd/ttx_multileptons-'+fname+'.root')
-    card = strip('histos/'+path+'/2lss_fwd/ttx_multileptons-'+fname+'.txt')
+    fin = uproot.open('/scratch365/byates2/3l_fwd/'+path+'/ttx_multileptons-'+fname+'.root')
+    card = strip('/scratch365/byates2/3l_fwd/'+path+'/ttx_multileptons-'+fname+'.txt')
     sm = [k.split(';')[0] for k in fin.keys() if 'sm' in k]
 
     nom = {}; up = {}; down = {}
 
-    nom = {proc.strip(';1'): fin[proc].values() for proc in fin if 'sm;' in proc and (process in proc or process.replace('ll','Z') in proc)}
+    nom = {proc.strip(';1'): fin[proc].values() for proc in fin if 'sm;' in proc}
+    #nom = {proc.strip(';1'): fin[proc].values() for proc in fin if 'sm;' in proc and (process in proc or process.replace('ll','Z') in proc)}
     for val in nom.values():
         val = [x if not math.isinf(x) else 0 for x in val]
 
@@ -126,7 +129,7 @@ if __name__ == '__main__':
         fout = uproot.open(fout)
 
     rename = {'tllq': 'tZq', 'ttZ': 'ttll', 'ttW': 'ttlnu'} #Used to rename things like ttZ to ttll and ttHnobb to ttH
-    rename = {} #Used to rename things like ttZ to ttll and ttHnobb to ttH
+    #rename = {} #Used to rename things like ttZ to ttll and ttHnobb to ttH
     for proc in ['tllq']:
         for fname in files:
             fname += '_' + var

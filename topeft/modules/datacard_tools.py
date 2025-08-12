@@ -244,9 +244,9 @@ class DatacardMaker():
             For the regular expression, group 1 matches 'njet_bjet', group 2 matches 'bjet_njet'
             group 3 matches '_njet'.
         """
-        rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[2-7]j)|(_[2-7]j$)")
+        rgx = re.compile(r"(_[2-7]j_[1-2]b)|(_[1-2]b_[1-7]j)|(_[1-7]j$)")
 
-        m = rgx.search(s)
+        m = rgx.search(s.replace('_fwd', ''))
         if m.group(1) and m.group(2) is None and m.group(3) is None:
             # The order is '_Nj_Mb'
             _,j,b = m.group(1).split("_")
@@ -1058,7 +1058,7 @@ class DatacardMaker():
                     proc_name = self.get_process(p) # Strips off any "_sm" or "_lin_*" junk
                     # Need to handle certain systematics in a special way
                     if syst_name == "diboson_njets":
-                        v = rate_syst.get_process(proc_name,num_j)
+                        v = rate_syst.get_process(proc_name,min(num_j + (1 if 'fwd' in outf_root_name else 0), 7)) # fwd jet is an extra jet
                         # v = rate_syst.get_process(proc_name)
                         # if isinstance(v,dict):
                         #     v = v[str(num_j)]
@@ -1110,6 +1110,12 @@ class DatacardMaker():
                 f.write("* autoMCStats 10\n")
             else:
                 f.write("* autoMCStats -1\n")
+
+        outf_json_name = self.FNAME_TEMPLATE.format(cat=ch,kmvar=km_dist,ext="json")
+        with open(os.path.join(self.out_dir,f"{outf_json_name}"),"w") as f:
+            print('making', os.path.join(self.out_dir,f"{outf_json_name}"))
+            json.dump(self.scalings_json, f, indent=4)
+
         dt = time.time() - tic
         print(f"File Write Time: {dt:.2f} s")
         print(f"Total Hists Written: {num_h}")
