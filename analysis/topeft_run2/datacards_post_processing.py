@@ -129,15 +129,16 @@ def main():
                 lep_ch_name = lep_ch[0]
                 for jet in jet_list:
                     # special channels to be binned by ptz instead of lj0pt
-                    if "3l_onZ_1b" in lep_ch_name or ("3l_onZ_2b" in lep_ch_name and (int(jet) == 4 or int(jet) == 5)) and 'fwd' not in lep_ch_name:
-                        channelname = lep_ch_name + "_" + jet + "j_ptz"
-                    elif "3l" in lep_ch_name and int(jet) == 1 and 'fwd' not in lep_ch_name: # 1j for fwd only
+                    if "3l" in lep_ch_name and int(jet) == 1 and 'fwd' not in lep_ch_name: # 1j for fwd only
                         continue
+                    elif "3l_onZ_1b" in lep_ch_name or ("3l_onZ_2b" in lep_ch_name and (int(jet) == 4 or int(jet) == 5)) and 'fwd' not in lep_ch_name:
+                        channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif args.all_analysis and (
                          ("3l_onZ_2b" in lep_ch_name and int(jet) == 1) or
+                         ("3l_onZ_1b" in lep_ch_name and int(jet) == 1) or
                          ("offZ_2b_fwd" in lep_ch_name and int(jet) == 1) or
-                         ("3l_p_offZ_1b_fwd" in lep_ch_name and int(jet) == 5) or
-                         ("m_offZ_2b_fwd" in lep_ch_name and int(jet) == 4)
+                         ("offZ_1b_fwd" in lep_ch_name and int(jet) == 5) or # will be removed after update in ch_lst
+                         ("offZ_2b_fwd" in lep_ch_name and int(jet) == 5) # will be removed after update in ch_lst
                          ):
                         continue
                     elif (args.set_up_offZdivision or args.all_analysis) and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
@@ -146,7 +147,7 @@ def main():
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif args.tau_flag and ("1tau_onZ" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
-                    elif (args.fwd_flag or args.all_analysis) and ("fwd" in lep_ch_name and "2lss" in lep_ch_name):
+                    elif (args.fwd_flag or args.all_analysis) and ("fwd" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_lt"
                     else:
                         channelname = lep_ch_name + "_" + jet + "j_lj0pt"
