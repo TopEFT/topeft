@@ -3,6 +3,7 @@
     "eta_m_cut" : 2.4,
     "eta_t_cut" : 2.3,
     "eta_j_cut" : 2.4,
+    "eta_j_cut_upper" : 5,
 
     "fo_pt_cut" : 10.0,
     "pres_e_pt_cut" : 7.0,
