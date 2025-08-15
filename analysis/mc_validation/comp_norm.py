@@ -23,6 +23,12 @@ The flag `--density` will normalize the main plots to unity and draw them on a l
 This is useful if your normalization is off but you want a larger plot of the shapes.
 The flag `--flow` will draw the under and overflow bins.
 
+Lumi:
+The script will try to infer the luminosity of each file based on the names.
+If the names don't contain `UL1x` or `202x` it will _not_ rescale anything.
+If it detects _different_ lumis, it will scale to the larger one.
+Use `--no-lumi` to skip this check/scaling.
+
 
 Exampe:
 python comp_norm.py histos/2022_tllq_NewStPt4_zero.pkl.gz histos/2022_tllq_fixed0p1.pkl.gz ../../input_samples/sample_jsons/signal_samples/private_UL/2022_tllq_fixed0p1_nanoGEN.json --var t_pt --private --skip --str2 "nanoGEN gen-level fixed +/-1"
