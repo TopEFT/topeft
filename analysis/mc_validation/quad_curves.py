@@ -3,6 +3,11 @@ This script produces the quadratic curves based on the SumOfWeights (inclusive c
 As a minimum it takes in the SumOfWeights pkl file and a path to save the plots.
 The path defaults to `~/afs/www/EFT/` which is the web are on `glados`.
 Modify the script if you're using another system like `lxplus`.
+The script finds and prints the WC values where they each scale the SM by 10%.
+
+By default the script skips any WCs that have complex roots
+or ones that need a |value|>100 to scale the SM by 10%.
+To save these, use the `--save-all` flag, which will create a sub directory called `bad`.
 
 Starting Points:
 You can also pass the json file for the process which may have optional fields.
