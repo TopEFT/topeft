@@ -20,7 +20,7 @@ import topcoffea.modules.remote_environment as remote_environment
 
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
-import gen_processor as gen_processor
+import gen_processor
 
 LST_OF_KNOWN_EXECUTORS = ["futures","work_queue"]
 
@@ -273,7 +273,7 @@ if __name__ == '__main__':
                 extra_pip_local = {"topeft": ["topeft", "setup.py"]},
             ),
             #'filepath': f'/project01/ndcms/{os.environ["USER"]}',
-            'extra_input_files': ["gen_photon_processor2.py"],
+            'extra_input_files': ["gen_processor.py"],
 
             'retries': 5,
 
