@@ -59,6 +59,7 @@ parser.add_argument('--private', action='store_true' , help = 'Use private key f
 parser.add_argument('--skip'   , action='store_true' , help = 'Use private key for second hist')
 parser.add_argument('json'     , default='', help = 'Json file(s) containing files and metadata')
 parser.add_argument('--small'   , action='store_true', help = 'Remove all |WCs| >100')
+parser.add_argument('--no-lumi' , action='store_true', help = 'Don\t rescale the lumi')
 args  = parser.parse_args()
 fin1   = args.fin1
 fin2   = args.fin2
@@ -184,11 +185,11 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     lumi1, lumi2 = 0, 0
     year1 = extract_year(args.fin1)
     year2 = extract_year(args.fin2)
-    if year1 is not None:
+    if year1 is not None and not args.no_lumi:
         lumi1 = 1000.0*get_tc_param(f"lumi_{year1}")
-    if year2 is not None:
+    if year2 is not None and not args.no_lumi:
         lumi2 = 1000.0*get_tc_param(f"lumi_{year2}")
-    if lumi1 > 0 and lumi2 > 0:
+    if lumi1 > 0 and lumi2 > 0 and not args.density:
         if lumi1 > lumi2:
             print(f'Scaling {args.fin2} from {round(lumi2/1000)} pb^-1 to {round(lumi1/1000)} pb^-1')
             hists2[var] *= lumi1/lumi2
