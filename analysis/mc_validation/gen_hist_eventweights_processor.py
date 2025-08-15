@@ -110,7 +110,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             self._hist_lst = hist_lst
 
         print("hist_lst: ", self._hist_lst)
-    
+
     @property
     def columns(self):
         return self._columns
@@ -129,7 +129,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
         eft_coeffs = ak.to_numpy(events['EFTfitCoefficients']) if hasattr(events, "EFTfitCoefficients") else None
 
-        # else: 
+        # else:
         SM_pt = {wc: 0.0 for wc in self._wc_names_lst}
         #wc_lst_SM = order_wc_values(self._wc_names_lst, SM_pt)
         wc_lst_SM = np.zeros(len(self._wc_names_lst))
@@ -138,7 +138,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         #wc_lst_SM = np.zeros(len(self._wc_names_lst))
         #event_weights_SM = efth.calc_eft_weights(eft_coeffs,wc_lst_SM)
         event_weights_SMefth = efth.calc_eft_weights(eft_coeffs,np.zeros(len(self._wc_names_lst)))
-            
+
         eft_weight_names = [ x for x in events['LHEWeight'].fields if x.startswith('EFTrwgt') ][:10]
         if not eft_weight_names:
             wc_lst_pt1 = np.random.uniform(-10, 10, len(self._wc_names_lst))
