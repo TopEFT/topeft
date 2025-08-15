@@ -6,13 +6,10 @@ python gen_hist_eventweights_plotter.py 2022_tllq_NewStPt4.pkl.gz /users/byates2
 import pickle
 #from coffea import hist
 import hist
-from topcoffea.modules.histEFT import HistEFT
 import gzip
-import numpy as np
+#import numpy as np
 import matplotlib.pyplot as plt
 import argparse
-import mplhep as hep
-from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
 #from coffea.hist import Bin
 from topeft.modules import axes
 BINNING = {k: v['variable'] for k,v in axes.info.items() if 'variable' in v}
@@ -33,10 +30,10 @@ fin   = args.fin
 with gzip.open(fin) as fin:
   hin = pickle.load(fin)
   for k in hin.keys():
-    if isinstance(hin[k], dict):
-        continue
-    if k in hists: hists[k]+=hin[k]
-    else:               hists[k]=hin[k]
+      if isinstance(hin[k], dict):
+          continue
+      if k in hists: hists[k]+=hin[k]
+      else:               hists[k]=hin[k]
 
 for h_name in hists:
     ls = '-'

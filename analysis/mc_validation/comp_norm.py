@@ -28,7 +28,6 @@ python comp_norm.py histos/2022_tllq_NewStPt4_zero.pkl.gz histos/2022_tllq_fixed
 '''
 import os
 import pickle
-import hist
 import gzip
 import numpy as np
 import matplotlib

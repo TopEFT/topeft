@@ -12,11 +12,8 @@ np.seterr(divide='ignore', invalid='ignore', over='ignore')
 import hist
 from hist import Hist
 import topcoffea.modules.eft_helper as efth
-from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
-NanoAODSchema.warn_missing_crossrefs = False
 
 from coffea import processor
-from coffea.analysis_tools import PackedSelection
 
 # Get the lumi for the given year
 def get_lumi(year):
@@ -29,7 +26,7 @@ def get_lumi(year):
     if year not in lumi_dict.keys():
         raise Exception(f"(ERROR: Unknown year \"{year}\".")
     else:
-        return(lumi_dict[year])
+        return lumi_dict[year]
 
 # Clean the objects
 def is_clean(obj_A, obj_B, drmin=0.4):
