@@ -44,7 +44,6 @@ import matplotlib.pyplot as plt
 import argparse
 import json
 import mplhep as hep
-from topeft.modules import axes
 from topcoffea.modules.get_param_from_jsons import GetParam
 from topcoffea.modules.paths import topcoffea_path
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
