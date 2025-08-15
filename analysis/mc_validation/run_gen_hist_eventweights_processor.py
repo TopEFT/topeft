@@ -84,6 +84,7 @@ if __name__ == '__main__':
 
     nevts_total = 0
     def LoadJsonToSampleName(jsonFile, prefix):
+        global nevts_total
         sampleName = jsonFile if not '/' in jsonFile else jsonFile[jsonFile.rfind('/')+1:]
         if sampleName.endswith('.json'): sampleName = sampleName[:-5]
         with open(jsonFile) as jf:

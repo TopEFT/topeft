@@ -1,6 +1,8 @@
 '''
 This script produces histograms of the log of the event weights
-Exmaple:
+It assumes the MG weights are saved in the nanoGEN file.
+
+Example:
 python run_gen_hist_eventweights_processor.py ../../input_samples/sample_jsons/signal_samples/private_UL/2022_tllq_NewStPt4_nanoGEN.json -o 2022_tllq_NewStPt4 -x futures -r file:///cms/cephfs/data/ -p gen_hist_eventweights_processor.py
 '''
 #!/usr/bin/env python
@@ -15,39 +17,6 @@ NanoAODSchema.warn_missing_crossrefs = False
 
 from coffea import processor
 from coffea.analysis_tools import PackedSelection
-
-#### tW WC reweight points ####
-SM_pt = {"ctGIm": 0.0, "ctGRe":0.0, "cHQ3": 0.0, "ctWRe": 0.0, "cbWRe": 0.0, "cHtbRe": 0.0,
-         "cQl3": 0.0, "cQl3": 0.0, "cQl3": 0.0,
-         "cleQt3Re11": 0.0, "cleQt3Re22": 0.0, "cleQt3Re33": 0.0,
-         "cleQt1Re11": 0.0, "cleQt1Re22": 0.0, "cleQt1Re33": 0.0}
-
-# starting point of tWLO_rwgt1 sample
-rwgt1 = {"ctGIm": -0.2, "ctGRe":-0.2, "cHQ3": 1.5, "ctWRe": -1.0, "cbWRe": -10.0, "cHtbRe": 4.0,
-         "cQl3": 4.0, "cQl3": 4.1, "cQl3": 4.2,
-         "cleQt3Re11": 12.0, "cleQt3Re22": 12.1, "cleQt3Re33": 12.2,
-         "cleQt1Re11": 15.0, "cleQt1Re22": 15.1, "cleQt1Re33": 15.2}
-
-# starting point of tWLO_rwgt2 sample
-rwgt2 = {"ctGIm": -0.5, "ctGRe":-0.5, "cHQ3": 1.5, "ctWRe": -1.0, "cbWRe": -8.0, "cHtbRe": 4.0,
-         "cQl3": 8.0, "cQl3": 8.0, "cQl3": 8.0,
-         "cleQt3Re11": 12.0, "cleQt3Re22": 12.0, "cleQt3Re33": 12.0,
-         "cleQt1Re11": 15.0, "cleQt1Re22": 15.0, "cleQt1Re33": 15.0}
-
-rwgt3 = {"ctGIm": -1.0, "ctGRe":-1.0, "cHQ3": 3.0, "ctWRe": 3.0, "cbWRe": 10.0, "cHtbRe": 6.0,
-         "cQl3": 10.0, "cQl3": 10.0, "cQl3": 10.0,
-         "cleQt3Re11": 20.0, "cleQt3Re22": 20.0, "cleQt3Re33": 20.0,
-         "cleQt1Re11": 20.0, "cleQt1Re22": 20.0, "cleQt1Re33": 20.0}
-
-rwgt4 = {"ctGIm": -1.5, "ctGRe":-1.5, "cHQ3": 5.0, "ctWRe": 5.0, "cbWRe": 12.0, "cHtbRe": 8.0,
-         "cQl3": 12.0, "cQl3": 12.0, "cQl3": 12.0,
-         "cleQt3Re11": 20.0, "cleQt3Re22": 20.0, "cleQt3Re33": 20.0,
-         "cleQt1Re11": 20.0, "cleQt1Re22": 20.0, "cleQt1Re33": 20.0}
-
-rwgt5 = {"ctGIm": -0.5, "ctGRe":-0.5, "cHQ3": 8.0, "ctWRe": 10.0, "cbWRe": 15.0, "cHtbRe": 10.0,
-         "cQl3": 15.0, "cQl3": 15.0, "cQl3": 15.0,
-         "cleQt3Re11": 20.0, "cleQt3Re22": 20.0, "cleQt3Re33": 20.0,
-         "cleQt1Re11": 20.0, "cleQt1Re22": 20.0, "cleQt1Re33": 20.0}
 
 # Get the lumi for the given year
 def get_lumi(year):
@@ -224,7 +193,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             "weights_SM_log" : np.nan_to_num(np.log10(event_weights_SM ), nan=self._low-1),
             "weights_SMneg_log" : np.nan_to_num(np.log10(event_weights_SM[event_weights_SM < 0] ), nan=self._low-1),
             "weights_SMabs_log" : np.nan_to_num(np.log10(np.abs(event_weights_SM) ), nan=self._low-1),
-            "weights_SMefth_log" : np.nan_to_num(np.log10(event_weights_SMefth ), nan=self._low-1),
             "weights_SMefth_log" : np.nan_to_num(np.log10(event_weights_SMefth ), nan=self._low-1),
             "weights_SMcoeff_log" : np.nan_to_num(np.log10(event_weights_SMcoeff ), nan=self._low-1),
             "weights_pt1_log": np.nan_to_num(np.log10(event_weights_pt1), nan=self._low-1),

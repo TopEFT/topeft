@@ -34,7 +34,6 @@ python quad_curves.py ../topeft_run2/histos/2022_ttlnuJet_Run3.pkl.gz --json ../
 '''
 import os
 import pickle
-from coffea import hist
 import gzip
 import numpy as np
 import matplotlib.pyplot as plt
@@ -60,8 +59,8 @@ assert args.fixed is None or len(args.fixed) == len(args.fixed_wcs), print(f'{le
 with gzip.open(fin) as fin:
     hin = pickle.load(fin)
     for k in hin.keys():
-      if k in hists: hists[k]+=hin[k]
-      else:               hists[k]=hin[k]
+        if k in hists: hists[k]+=hin[k]
+        else:               hists[k]=hin[k]
 
 fixed_points = []
 if args.fixed is not None:
