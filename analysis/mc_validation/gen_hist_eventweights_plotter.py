@@ -4,13 +4,10 @@ Example:
 python gen_hist_eventweights_plotter.py 2022_tllq_NewStPt4.pkl.gz /users/byates2/afs/www/EFT/tllq_NewStPt4_Run3/weights/weights.pdf
 '''
 import pickle
-#from coffea import hist
-import hist
 import gzip
 #import numpy as np
 import matplotlib.pyplot as plt
 import argparse
-#from coffea.hist import Bin
 from topeft.modules import axes
 BINNING = {k: v['variable'] for k,v in axes.info.items() if 'variable' in v}
 
@@ -28,12 +25,12 @@ fin   = args.fin
 #  if k in hists: hists[k]+=hin[k]
 #  else:               hists[k]=hin[k]
 with gzip.open(fin) as fin:
-  hin = pickle.load(fin)
-  for k in hin.keys():
-      if isinstance(hin[k], dict):
-          continue
-      if k in hists: hists[k]+=hin[k]
-      else:               hists[k]=hin[k]
+    hin = pickle.load(fin)
+    for k in hin.keys():
+        if isinstance(hin[k], dict):
+            continue
+        if k in hists: hists[k]+=hin[k]
+        else:               hists[k]=hin[k]
 
 for h_name in hists:
     ls = '-'
