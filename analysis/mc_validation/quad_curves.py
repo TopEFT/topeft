@@ -70,7 +70,7 @@ if args.fixed is not None:
             hin = pickle.load(fin)
             fixed_points.append(hin['SumOfWeights'])
     print('Done loading fixed points')
-    
+
 
 sow = hists['SumOfWeights']
 wcs = sow._wc_names
