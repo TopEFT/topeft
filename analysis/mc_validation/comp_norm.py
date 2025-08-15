@@ -343,7 +343,8 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     (eft/sm * norm).plot1d(yerr=eft_err, ax=rax, flow=flow, ls='--')
 
     eft_start_norm = np.sum(eft.values(flow=True)[()]) #/ sm_scale
-    #eb3 = ax2.errorbar([1], eft_start_norm / np.sum(sm.values(flow=True)), xerr=0.05, linestyle='--')
+    if 'fixed' in args.fin2:
+        eb3 = ax2.errorbar([1], eft_start_norm / np.sum(sm.values(flow=True)), xerr=0.05, linestyle='--')
 
     if args.private and wc and not args.skip: #FIXME
         eft = hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt)
