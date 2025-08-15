@@ -12,6 +12,7 @@ Comparing two private EFT files:
 By default the script expects the first pkl file to be an EFT file and the second to be a SM central file.
 If you pass the argument `--private` it will understand that the _second_ pkl file is also a private sample.
 There is a special flag `--skip` which tells the script _not_ to draw a reweighted histogram for the second pkl file.
+This is useful when comparing Run 3 to Run 2 (at the SM) since some of the WC names have changed.
 
 
 Labels:

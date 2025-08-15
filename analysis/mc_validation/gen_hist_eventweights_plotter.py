@@ -3,6 +3,7 @@ This script plots weights produced by `gen_hist_eventweights_processor.py`
 Example:
 python gen_hist_eventweights_plotter.py 2022_tllq_NewStPt4.pkl.gz /users/byates2/afs/www/EFT/tllq_NewStPt4_Run3/weights/weights.pdf
 '''
+import os
 import pickle
 import gzip
 #import numpy as np
@@ -59,6 +60,7 @@ plt.legend(ncol=3)
 plt.gca().set_yscale('log')
 plt.gca().set_xlabel('log(event weights)')
 plt.tight_layout()
+os.makedirs(f'{args.output}', exist_ok=True)
 plt.savefig(f'{args.output}/weights.pdf')
 plt.savefig(f'{args.output}/weights.png')
 #plt.savefig(args.output.replace('.pdf', '.png'))
