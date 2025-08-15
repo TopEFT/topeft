@@ -254,7 +254,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
         print(f'{var} int(hist1)=', np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values()), 'int(hist2)=', np.sum(sm.values()))
     s = np.sum(sm.values(flow=True)) / np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values(flow=True))
     #s = np.sum(sm.values()) / np.sum(hists1[var][{'process': [s for s in hists1[var].axes['process'] if 'central' in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).values())
-    print(f'Scaling EFT sample by {s}')
+    print(f'Ratio {s}')
     #hists1[var] *= 1.26
     #hists1[var] *= s
     #hists1[var] /= 0.3141 / 0.04406 # tWA ratio of MG / SM xsec
