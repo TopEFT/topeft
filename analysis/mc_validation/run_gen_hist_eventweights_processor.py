@@ -95,7 +95,7 @@ if __name__ == '__main__':
         with open(jsonFile) as jf:
             samplesdict[sampleName] = json.load(jf)
             samplesdict[sampleName]['redirector'] = prefix
-            nevts_total += samplesdict[sname]["nEvents"]
+            nevts_total += samplesdict[sampleName]["nEvents"]
 
     if isinstance(jsonFiles, str) and ',' in jsonFiles:
         jsonFiles = jsonFiles.replace(' ', '').split(',')
