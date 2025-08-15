@@ -10,7 +10,6 @@ import importlib
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
-from topcoffea.modules import utils
 import topcoffea.modules.remote_environment as remote_environment
 
 LST_OF_KNOWN_EXECUTORS = ["futures","work_queue"]
@@ -145,20 +144,6 @@ if __name__ == '__main__':
         #flist[sname] = samplesdict[sname]['files']
         redirector = samplesdict[sname]['redirector']
         flist[sname] = [(redirector+f) for f in samplesdict[sname]['files']]
-
-    # Get the list of WCs
-    # Here we make sure WC list is same for all files
-    # There are ways of handling if not, but for now let's just stick to the simple case
-    # wc_set = ()
-    # for item in samplesdict:
-    #     for i, file_name in enumerate(samplesdict[item]['files']):
-    #         wc_lst = utils.get_list_of_wc_names(file_name)
-    #         if i==0:
-    #             wc_set = set(wc_lst)
-    #         else:
-    #             if set(wc_lst) != wc_set:
-    #                raise Exception("ERROR: Not all files have same WC list")
-    # wc_lst = wc_lst
 
     # Extract the list of all WCs, as long as we haven't already specified one.
     if len(wc_lst) == 0:

@@ -94,7 +94,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "SumOfWeights_eft": HistEFT(proc_axis, hist.axis.Regular(bins=1, start=0, stop=2, name="SumOfWeights", label="SumOfWeights"), wc_names=wc_names_lst),
             #"photon_l_pt"    : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Variable([20,35,50,70,100,170,200,250,300],  name="photon_pt",      label=r"$p_{\mathrm{T}}$ $\gamma$ (GeV)"), wc_names=wc_names_lst, rebin=False),
             "lhe_l0pt"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(25,  0, 250,    name="lhe_l0pt",      label=r"Pt of leading LHE lepton"), wc_names=wc_names_lst, rebin=False),
-            "l0pt"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(25,  0, 350,    name="l0pt",      label=r"Pt of leading lepton"), wc_names=wc_names_lst, rebin=False),
+            #"l0pt"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(25,  0, 350,    name="l0pt",      label=r"Pt of leading lepton"), wc_names=wc_names_lst, rebin=False),
             #"l0pt"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(15,  0, 500,    name="l0pt",      label=r"Pt of leading lepton"), wc_names=wc_names_lst, rebin=False),
             "l0pt"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(25,  0, 250,    name="l0pt",      label=r"Pt of leading lepton"), wc_names=wc_names_lst, rebin=False),
             "j0pt"        : HistEFT(proc_axis, chan_axis, syst_axis, appl_axis, hist.axis.Regular(15,  0, 500,    name="j0pt",      label=r"Pt of leading jet"), wc_names=wc_names_lst, rebin=False),
@@ -644,19 +644,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     axes_fill_info_dict['weight'] = np.ones_like(event_weight_cut)
                                     #axes_fill_info_dict['eft_coeff'] = None
 
-                                    if 'photon_pt' in dense_axis_name and False:
-                                        hout[dense_axis_name+'_cnt'].fill(**axes_fill_info_dict)
-                                        axes_fill_info_dict.pop(dense_axis_name)
-                                        axes_fill_info_dict['ptreco'] = ph_pt[all_cuts_mask]
-                                        #axes_fill_info_dict['ptreco'] = gen_p_smear[all_cuts_mask]
-                                        axes_fill_info_dict['ptgen'] = gen_p_pt[all_cuts_mask]
-                                        #print(gen_p_smear[all_cuts_mask], gen_p_pt[all_cuts_mask], '\n\n\n')
-                                        axes_fill_info_dict['weight'] = event_weight_cut
-                                        axes_fill_info_dict.pop('eft_coeff')
-                                        hout['gen_reco'].fill(**axes_fill_info_dict)
-
-                                        # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
-                                        if not self._split_by_lepton_flavor: break
+                                    # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
+                                    if not self._split_by_lepton_flavor: break
         return hout
 
     def postprocess(self, accumulator):
