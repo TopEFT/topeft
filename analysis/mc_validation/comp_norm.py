@@ -28,6 +28,7 @@ Exampe:
 python comp_norm.py histos/2022_tllq_NewStPt4_zero.pkl.gz histos/2022_tllq_fixed0p1.pkl.gz ../../input_samples/sample_jsons/signal_samples/private_UL/2022_tllq_fixed0p1_nanoGEN.json --var t_pt --private --skip --str2 "nanoGEN gen-level fixed +/-1"
 '''
 import os
+import re
 import pickle
 import gzip
 import numpy as np
@@ -38,7 +39,9 @@ import argparse
 import json
 import mplhep as hep
 from topeft.modules import axes
-BINNING = {k: v['variable'] for k,v in axes.info.items() if 'variable' in v}
+from topcoffea.modules.get_param_from_jsons import GetParam
+from topcoffea.modules.paths import topcoffea_path
+get_tc_param = GetParam(topcoffea_path("params/params.json"))
 
 #Load hists from pickle file created by TopCoffea
 hists1={}
@@ -168,6 +171,33 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
         str2 = str2.replace('central', 'TOP-22-006')
 
     lumi = 1000*41.48
+
+    # Infer lumi from file name
+    def extract_year(s):
+        match = re.search(r'(?:UL(\d{2})|(\d{4}))', s)
+        if match:
+            if match.group(1):  # Matched ULxx
+                return int("20" + match.group(1))  # Convert UL17 -> 2017
+            else:  # Matched yyyy
+                return int(match.group(2))
+        return None
+    lumi1, lumi2 = 0, 0
+    year1 = extract_year(args.fin1)
+    year2 = extract_year(args.fin2)
+    if year1 is not None:
+        lumi1 = 1000.0*get_tc_param(f"lumi_{year1}")
+    if year2 is not None:
+        lumi2 = 1000.0*get_tc_param(f"lumi_{year2}")
+    if lumi1 > 0 and lumi2 > 0:
+        if lumi1 > lumi2:
+            print(f'Scaling {args.fin2} from {round(lumi2/1000)} pb^-1 to {round(lumi1/1000)} pb^-1')
+            hists2[var] *= lumi1/lumi2
+        elif lumi2 > lumi1:
+            print(f'Scaling {args.fin1} from {round(lumi1/1000)} pb^-1 to {round(lumi2/1000)} pb^-1')
+            hists1[var] *= lumi2/lumi1
+    elif not args.density:
+        print(f'\n\nWARNING: Could not infer the luminosity.\n         Make sure {args.fin1} and {args.fin2} are normalized the same!\n\n')
+
     #hists1[var] /= lumi
     #hists1[var] *= 41.48/7.9804
     #hists2[var] /= lumi
@@ -307,7 +337,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     (eft/sm * norm).plot1d(yerr=eft_err, ax=rax, flow=flow, ls='--')
 
     eft_start_norm = np.sum(eft.values(flow=True)[()]) #/ sm_scale
-    eb3 = ax2.errorbar([1], eft_start_norm / np.sum(sm.values(flow=True)), xerr=0.05, linestyle='--')
+    #eb3 = ax2.errorbar([1], eft_start_norm / np.sum(sm.values(flow=True)), xerr=0.05, linestyle='--')
 
     if args.private and wc and not args.skip: #FIXME
         eft = hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt)
