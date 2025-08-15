@@ -7,7 +7,6 @@ import gzip
 import os
 import importlib
 
-import numpy as np
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
@@ -18,7 +17,6 @@ LST_OF_KNOWN_EXECUTORS = ["futures","work_queue"]
 
 if __name__ == '__main__':
 
-    import argparse
     parser = argparse.ArgumentParser(description='You can customize your run')
     parser.add_argument('jsonFiles'        , nargs='?', help = 'Json file(s) containing files and metadata')
     parser.add_argument('--executor','-x'  , default='work_queue', help = 'Which executor to use')
@@ -85,18 +83,20 @@ if __name__ == '__main__':
     samplesdict = {}
     allInputFiles = []
 
+    nevts_total = 0
     def LoadJsonToSampleName(jsonFile, prefix):
         sampleName = jsonFile if not '/' in jsonFile else jsonFile[jsonFile.rfind('/')+1:]
         if sampleName.endswith('.json'): sampleName = sampleName[:-5]
         with open(jsonFile) as jf:
             samplesdict[sampleName] = json.load(jf)
             samplesdict[sampleName]['redirector'] = prefix
+            nevts_total += samplesdict[sname]["nEvents"]
 
     if isinstance(jsonFiles, str) and ',' in jsonFiles:
         jsonFiles = jsonFiles.replace(' ', '').split(',')
     elif isinstance(jsonFiles, str):
         jsonFiles = [jsonFiles]
-    
+
     for jsonFile in jsonFiles:
         if os.path.isdir(jsonFile):
             if not jsonFile.endswith('/'): jsonFile+='/'
@@ -176,7 +176,7 @@ if __name__ == '__main__':
         else:
             wc_print = ', '.join(wc_lst[:-1]) + ', and ' + wc_lst[-1]
             print('Wilson Coefficients: {}.'.format(wc_print))
-    
+
     else:
         print('No Wilson coefficients specified')
 
@@ -278,7 +278,7 @@ if __name__ == '__main__':
         print('Processed {} events in {} seconds ({:.2f} evts/sec).'.format(nevts_total,dt,nevts_total/dt))
     elif executor == "futures":
         print("Processing time: %1.2f s with %i workers (%.2f s cpu overall)" % (dt, nworkers, dt*nworkers, ))
-    
+
 
     # Save the output
     outpath = "."

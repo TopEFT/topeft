@@ -9,10 +9,7 @@ import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 from coffea import processor
 from coffea.analysis_tools import PackedSelection
-from coffea.lookup_tools import dense_lookup
 import hist
-import gzip
-import cloudpickle
 
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.histEFT import HistEFT
@@ -23,7 +20,7 @@ from topcoffea.modules.get_param_from_jsons import GetParam
 from topcoffea.modules.paths import topcoffea_path
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 
-import topcoffea.modules.corrections as tc_cor
+#import topcoffea.modules.corrections as tc_cor
 
 def construct_cat_name(chan_str,nlep_cat,njet_str=None,flav_str=None):
 
@@ -358,33 +355,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("em",  (((np.abs(gen_l[:,0].pdgId)==11) & (np.abs(gen_l[:,1].pdgId)==13)) | ((np.abs(gen_l[:,0].pdgId)==13) & (np.abs(gen_l[:,1].pdgId)==11))))
         selections.add("mm",  ((np.abs(gen_l[:,0].pdgId)==13) & (np.abs(gen_l[:,1].pdgId)==13)))
 
-        # Dictionary of dense axis values
-        dense_axis_dict = {
-            #"mll_fromzg_e" : mll_e_from_zg,
-            #"mll_fromzg_m" : mll_m_from_zg,
-            #"mll_fromzg_t" : mll_t_from_zg,
-            "mll" : mll_l0l1,
-            "ht" : ht,
-            "ht_clean" : ht_clean,
-            #"tX_pt" : tX_pt,
-            "tops_pt" : tops_pt,
-            "t_pt" : ak.firsts(gen_top).pt,
-            "photon_pt"  : ak.firsts(gen_p).pt,
-            #"photon_eta" : ak.firsts(gen_p).eta,
-            "l0pt" : ak.firsts(gen_l.pt),
-            "j0_pt" : ak.firsts(genjet.pt),
-            "njets" : njets,
-        }
-        #photon_corr = np.array([0.91833045, 1.35587398, 1.26851835, 1.18176626, 1.06023785, 1.01151175, 1.12375213, 1.2254865, 1.29468245, 1.28469248])
-        #photon_corr = np.array([0.67951414, 1.05344394, 0.99007983, 0.91114849, 0.83287222, 0.79661511, 0.7835315, 0.85342146, 0.8678204, 0.8110449])
-        #photon_corr = np.array([0.68965203, 1.01824049, 0.95263776, 0.88748827, 0.79622231, 0.75962975, 0.84392056, 0.9203215, 0.97228659, 0.96478428])
-        #binning = np.array([0] + axes_info["photon_pt"]["variable"])
-        # Create the lookup tool
-        #photon_corr_lookup = dense_lookup.dense_lookup(photon_corr, binning)
-
         gen_p_pt = ak.fill_none(ak.firsts(gen_p).pt, -1)
         gen_p_eta = ak.fill_none(ak.firsts(gen_p).eta, -999)
 
+        # Dictionary of dense axis values
         dense_axis_dict = {
             "photon_pt" : gen_p_pt,
             #"photon_pt" : ph_pt,
@@ -497,7 +471,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             if post_mortem:
                 eft_coeffs = ak.to_numpy(events["EFTPostMortem"])
                 LHEWeight_originalXWGTUP = ak.broadcast_arrays(
-                    events.LHEWeight.originalXWGTUP[:, None], 
+                    events.LHEWeight.originalXWGTUP[:, None],
                     eft_coeffs
                 )[0]
                 #eft_coeffs = eft_coeffs/LHEWeight_originalXWGTUP
@@ -633,7 +607,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     #    if self._split_by_lepton_flavor:
                                     #        ch_name += '_' + flav_ch
                                     #    if 'incl' in ch_name:
-                                    #        ch_name += '_' + njet_ch 
+                                    #        ch_name += '_' + njet_ch
 
                                     # Mask out the none values
                                     isnotnone_mask = (ak.fill_none((dense_axis_vals != None),False))

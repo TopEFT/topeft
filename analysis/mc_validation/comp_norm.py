@@ -26,10 +26,9 @@ The flag `--flow` will draw the under and overflow bins.
 Exampe:
 python comp_norm.py histos/2022_tllq_NewStPt4_zero.pkl.gz histos/2022_tllq_fixed0p1.pkl.gz ../../input_samples/sample_jsons/signal_samples/private_UL/2022_tllq_fixed0p1_nanoGEN.json --var t_pt --private --skip --str2 "nanoGEN gen-level fixed +/-1"
 '''
+import os
 import pickle
-#from coffea import hist
 import hist
-from topcoffea.modules.histEFT import HistEFT
 import gzip
 import numpy as np
 import matplotlib
@@ -38,8 +37,6 @@ import matplotlib.pyplot as plt
 import argparse
 import json
 import mplhep as hep
-from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
-from coffea.hist import Bin
 from topeft.modules import axes
 BINNING = {k: v['variable'] for k,v in axes.info.items() if 'variable' in v}
 
@@ -64,15 +61,15 @@ fin1   = args.fin1
 fin2   = args.fin2
 
 with gzip.open(fin1) as fin1:
-  hin = pickle.load(fin1)
-  for k in hin.keys():
-    if k in hists1: hists1[k]+=hin[k]
-    else:               hists1[k]=hin[k]
+    hin = pickle.load(fin1)
+    for k in hin.keys():
+        if k in hists1: hists1[k]+=hin[k]
+        else:               hists1[k]=hin[k]
 with gzip.open(fin2) as fin2:
-  hin = pickle.load(fin2)
-  for k in hin.keys():
-    if k in hists2: hists2[k]+=hin[k]
-    else:               hists2[k]=hin[k]
+    hin = pickle.load(fin2)
+    for k in hin.keys():
+        if k in hists2: hists2[k]+=hin[k]
+        else:               hists2[k]=hin[k]
 
 '''
 h = hists['met'] #grab the MET plot, others are available
@@ -177,10 +174,11 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
 
     if args.private: sm = hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({})
     else: sm = hists2[var][{'process': [s for s in hists2[var].axes['process'] if 'central' in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({})
-    err = np.sqrt(sm.variances()[()])/np.sum(sm.values()[()]) 
+    err = np.sqrt(sm.variances()[()])/np.sum(sm.values()[()])
     err = np.sqrt(sm.variances()[()])#/np.sum(sm.values()[()])
     err = np.sqrt(sm.variances(flow=(flow=='show'))[()])#/np.sum(sm.values()[()])
-    if flow=='show': err = err[1:]
+    if flow=='show':
+        err = err[1:]
     if not args.private: hists2[var][{'process': [s for s in hists2[var].axes['process'] if 'central' in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).plot1d(yerr=err, label=str2 + ' SM', ax=ax, density=density, flow=flow)
     else: hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).plot1d(yerr=err, label=str2, ax=ax, density=density, flow=flow)
 
@@ -228,7 +226,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     #hists1[var] *= 3
     #hists1[var] *= 10.7 / 1.513
     eft = hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}]
-    err = np.sqrt(eft.as_hist({}).variances()[()])#/np.sum(eft.values()[()]) 
+    err = np.sqrt(eft.as_hist({}).variances()[()])#/np.sum(eft.values()[()])
 
     #eft.as_hist({}).plot1d(yerr=False, label='nanoAOD gen-level to SM', ax=ax, density=density)#, flow='show')
     st_pt = {'ctq1': 0.64, 'ctq8': 0.86, 'cQq81': 0.79, 'cQq83': -1.19, 'ctW': 1.49, 'cpQM': -1.02, 'ctZ': 0.94, 'ctG': 0.24, 'cQq13': 0.51, 'cQq11': -0.53, 'cpt': 1.5}
