@@ -1,3 +1,8 @@
+'''
+This script runs the gen weights processor
+Example:
+python run_gen_hist_eventweights_processor.py ../../input_samples/sample_jsons/signal_samples/private_UL/2022_tllq_fixed0p1_nanoGEN.json -o 2022_tllq_fixed0p1 -x futures -r file:///cms/cephfs/data/
+'''
 #!/usr/bin/env python
 import argparse
 import json

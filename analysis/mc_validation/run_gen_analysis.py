@@ -1,3 +1,8 @@
+'''
+This script runs the gen processor
+Example:
+python run_gen_analysis.py ../../input_samples/sample_jsons/signal_samples/private_UL/2022_tllq_NewStPt4_zero_nanoGEN.json -o 2022_tllq_NewStPt4_zero -x futures -r file:///cms/cephfs/data/
+'''
 #!/usr/bin/env python
 
 import argparse
