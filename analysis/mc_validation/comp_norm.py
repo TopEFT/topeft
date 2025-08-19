@@ -194,7 +194,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
         lumi1 = 1000.0*get_tc_param(f"lumi_{year1}")
     if year2 is not None and not args.no_lumi:
         lumi2 = 1000.0*get_tc_param(f"lumi_{year2}")
-    if lumi1 > 0 and lumi2 > 0 and not args.density:
+    if lumi1 > 0 and lumi2 > 0:
         if lumi1 > lumi2:
             print(f'Scaling {args.fin2} from {round(lumi2/1000)} pb^-1 to {round(lumi1/1000)} pb^-1')
             hists2[var] *= lumi1/lumi2
@@ -332,7 +332,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     ax2 = fig.add_axes([0.7, 0.55, 0.15, 0.15])
     eb1 = ax2.errorbar([1], 1, xerr=0.05, yerr=np.sqrt(np.sum(sm.values(flow=True)))/np.sum(sm.values(flow=True)))
     #eb1 = ax2.errorbar([1], np.sum(sm.values(flow=True)), xerr=0.05, yerr=np.sqrt(np.sum(sm.values(flow=True))))
-    eft_sm_norm = np.sum(eft.values(flow=False)[()]) #/ sm_scale
+    eft_sm_norm = np.sum(eft.values(flow=True)[()]) #/ sm_scale
     eb2 = ax2.errorbar([1], eft_sm_norm / np.sum(sm.values(flow=True)), xerr=0.05)
     plt.gca().set_xticks([])
 
