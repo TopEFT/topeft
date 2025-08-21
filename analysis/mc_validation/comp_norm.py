@@ -175,6 +175,8 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     str2 = args.str2
     if args.private:
         str2 = str2.replace('central', 'TOP-22-006')
+    if 'fixed' in args.fin2:
+        str2 = 'nanoGEN gen-level fixed +/-1'
 
     lumi = 1000*41.48
 
