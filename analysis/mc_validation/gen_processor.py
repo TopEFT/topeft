@@ -650,3 +650,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
     def postprocess(self, accumulator):
         return accumulator
+
+
+if __name__ == '__main__':
+    raise Exception('Please use `run_gen_analysis.py` to run this processor!')
