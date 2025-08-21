@@ -19,5 +19,4 @@
 
 # ctW,ctB <-> ctW,ctZ
 "ctWRe": ["expr::ctWRe('-1 * @0', {ctW})", ["ctW"]]
-"ctBRe": ["expr::ctBRe('@0 / {SW} - @1 * {CW}/{SW} ', {ctZ}, {ctW})", ["ctZ", "ctW"]]
 "ctBRe": ["expr::ctBRe('@0 / {SW} - @1 * {CW}/{SW} ', {ctZ}, {ctW})", ["ctZ", "ctW"]] # {ctZ}/SW - {ctW}/TW (TW = tan Weinberg angle)
