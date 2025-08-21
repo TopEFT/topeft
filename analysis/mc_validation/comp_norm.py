@@ -182,7 +182,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
 
     # Infer lumi from file name
     def extract_year(s):
-        match = re.search(r'(?:UL(\d{2})|(\d{4}))', s)
+        match = re.search(r'(?:UL(\d{2})|(\d{4}))[A-Za-z]*', s)
         if match:
             if match.group(1):  # Matched ULxx
                 return int("20" + match.group(1))  # Convert UL17 -> 2017
