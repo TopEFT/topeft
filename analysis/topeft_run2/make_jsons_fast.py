@@ -54,6 +54,7 @@ import subprocess
 
 import topcoffea.modules.sample_lst_jsons_tools as sjt
 from topeft.modules.combine_json_ext import combine_json_ext
+from topeft.modules.combine_json_batch import combine_json_batch
 
 #########################################################
 # This is the complete set of UL samples for TOP-22-006 #
