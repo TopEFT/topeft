@@ -1065,7 +1065,9 @@ class DatacardMaker():
                     elif syst_name == "missing_parton":
                         v = rate_syst.get_process(proc_name)
                         if "2los" in ch:
-                            ch = ch.replace("2los", "2lss").replace("_onZ", "_p")
+                            ch_key = ch.replace("2los", "2lss").replace("_onZ", "_p")
+                        else:
+                            ch_key = ch
                         # First strip off any njet and/or bjet labels
                         ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","").replace("_1tau", "")
                         # Now construct the category key, matching names in the missing_parton file to the current category
@@ -1076,14 +1078,12 @@ class DatacardMaker():
                             ch_key = f"{ch_key}_{num_b}b"
                         elif num_l == 3:
                             njet_offset = 2
-                            if "_onZ" in ch:
+                            if "_onZ" in ch or "tau" in ch:
                                 ch_key = f"{num_l}l_sfz_{num_b}b"
                             elif "_p_offZ" in ch:
                                 ch_key = f"{num_l}l{num_b}b_p"
                             elif "_m_offZ" in ch:
                                 ch_key = f"{num_l}l{num_b}b_m"
-                            elif "tau" in ch:
-                                ch_key = f"{num_l}l_sfz_{num_b}b"
                             else:
                                 raise ValueError(f"Unable to match {ch} for {syst_name} rate systematic")
                         elif num_l == 4:
