@@ -57,8 +57,10 @@ parser.add_argument('--json', default='', help = 'Json file(s) containing files 
 parser.add_argument("--fixed"  , action="extend", nargs="+", help="Fixed WC versions (sum of weights pkl file)" )
 parser.add_argument("--fixed-wcs"  , action="extend", nargs="+", help="Fixed WC values (`wc:val`)" )
 parser.add_argument("--do-grad"   , action="store_true", help="Do full gradient (defaults to single derivative for each WC)" )
+parser.add_argument('--scale'   , default="1.1" , help = 'Where to stop')
 args  = parser.parse_args()
 fin   = args.fin
+scale = float(args.scale)
 assert args.fixed is None or len(args.fixed) == len(args.fixed_wcs), print(f'{len(args.fixed)} must match {len(args.fixed_wcs)}!')
 
 with gzip.open(fin) as fin:
@@ -110,7 +112,7 @@ for n in range(1000):
     val = sow[{'process': sum}].eval(wc_pt)[()][1]
     # 10% of SM?
     #if np.abs(val - 54688) < 1e-3:
-    if np.abs(val / sm - 1.1) < 1e-2:
+    if np.abs(val / sm - scale) < 1e-2:
         print("Reached 10%", val/sm, f'in {n} steps')
         wc_best = wc_pt
         break
@@ -147,7 +149,7 @@ for n in range(1000):
         '''
         #grad = np.append(grad, step*(1.1 - val/sm) / h_val + wc_val)
         #FIXME grad = np.append(grad, (1.1 - val/sm) / h_val + wc_val)
-        grad[i] = step*(1.1 - val/sm) / h_val + wc_val
+        grad[i] = step*(scale - val/sm) / h_val + wc_val
         i += 1
         #grad = np.append(grad, (54688 - val/sm) / h_val * step + wc_val)
         #print(wc, tmp, val, grad[-1], val/sm, (1.1 - val/sm) / h_val + wc_val)
@@ -239,7 +241,7 @@ for wc in wc_vals:
     #        continue
     # Fit 1D curve
     poly = np.polyfit(vals, yields, 2)
-    roots = np.roots(poly - np.array([0,0,1.1]))
+    roots = np.roots(poly - np.array([0,0,scale]))
     if np.any(np.iscomplex(roots)):# or ((np.abs(poly[0]) < 1e-3) and (np.abs(poly[1]) < 1e-3)):
         print('Skipping', wc, poly, '(complex roots)')
         if not args.save_all:
@@ -265,14 +267,14 @@ for wc in wc_vals:
 
     plt.plot(np.linspace(vmin,vmax,100), np.polyval(poly, np.linspace(vmin,vmax,100)), label=f'1D curve\n{np.round(poly[0], 2)} * {wc}^2 + {np.round(poly[1], 2)} * {wc} + {np.round(poly[2], 2)}')
     # 10% larger than SM
-    plt.axhline(1.1, linestyle='--', color='b')
+    plt.axhline(scale, linestyle='--', color='b')
     #plt.plot(vals, yields, 'o', color='r')
     #plt.plot(vals[::10], yields[::10], 'o', color='r')
     wc_1d[wc] = roots
     for iroot,root in enumerate(roots):
         best = sow[{'process': sum}].eval({wc: root})[()][1]
         if iroot==0:
-            plt.plot(root, best/sm, color='k', marker='o', label='$\sigma=1.1\sigma_{SM}$')
+            plt.plot(root, best/sm, color='k', marker='o', label='$\sigma={scale}\sigma_{SM}$')
         else:
             plt.plot(root, best/sm, color='k', marker='o')
     #best = sow[{'process': sum}].eval(wc_best)[()][1]
