@@ -16,5 +16,17 @@ This directory contains scripts from the validation studies of the FullR2 privat
     - Should be run on the output of the topeft processor
     - Was used during the June 2022 MC validation studies (for TOP-22-006 pre approval checks)
 
+:memo: The scripts below were updated in August of 2025
+* `gen_processor.py`:
+    - This is an updated script to produce gen level histograms for comparison of various samples
 
+* `gen_hist_eventweights_processor.py`:
+    - This script produces distributions of MG weights (if they are saved in the samples)
 
+* `gen_hist_eventweights_plotter.py`:
+    - This script produces plots of MG weights
+    - Should be run on the output of the gen_hist_eventweights_processor.py processor
+
+* `comp_norm.py`:
+    - This script plots two pkl files for different variables for comparison of shapes and normalizations
+    - Should be run on the output of the gen_processor.py processor
