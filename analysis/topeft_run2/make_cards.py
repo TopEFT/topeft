@@ -26,8 +26,8 @@ error  = {condor_dir}/job_{idx}.err
 log    = {condor_dir}/job_{idx}.log
 
 request_cpus = 1
-request_memory = 8192
-request_disk = 1024
+request_memory = 20000
+request_disk = 4096
 
 transfer_input_files = make_cards.py,selectedWCs.txt
 should_transfer_files = yes
@@ -52,10 +52,13 @@ echo "VAR_LST: ${VAR_LST}"
 echo "CH_LST: ${CH_LST}"
 echo "OTHER: ${OTHER}"
 
-source ${USR_DIR}/miniconda3/etc/profile.d/conda.sh
+export CONDA_DIR="$(conda info --base)"
+echo "CONDA_DIR: ${CONDA_DIR}"
+source ${CONDA_DIR}/etc/profile.d/conda.sh
 unset PYTHONPATH
 conda activate ${CONDA_DEFAULT_ENV}
 
+ulimit -s unlimited
 python make_cards.py ${INF} -d ${OUT_DIR} --var-lst ${VAR_LST} --ch-lst ${CH_LST} --use-selected "selectedWCs.txt" ${OTHER}
 """
 

@@ -41,7 +41,10 @@ if __name__ == "__main__":
         help="Json file(s) containing files and metadata",
     )
     parser.add_argument(
-        "--executor", "-x", default="work_queue", help="Which executor to use"
+        "--executor",
+        "-x",
+        default="work_queue",
+        help="Which executor to use",
     )
     parser.add_argument(
         "--prefix",
@@ -59,11 +62,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--pretend",
         action="store_true",
-        help="Read json files but, not execute the analysis",
+        help="Read json files but do not execute the analysis",
     )
-    parser.add_argument("--nworkers", "-n", default=8, help="Number of workers")
     parser.add_argument(
-        "--chunksize", "-s", default=100000, help="Number of events per chunk"
+        "--nworkers",
+        "-n",
+        default=8,
+        help="Number of workers",
+    )
+    parser.add_argument(
+        "--chunksize",
+        "-s",
+        default=100000,
+        help="Number of events per chunk",
     )
     parser.add_argument(
         "--nchunks",
@@ -78,16 +89,25 @@ if __name__ == "__main__":
         help="Name of the output file with histograms",
     )
     parser.add_argument(
-        "--outpath", "-p", default="histos", help="Name of the output directory"
+        "--outpath",
+        "-p",
+        default="histos",
+        help="Name of the output directory",
     )
     parser.add_argument(
-        "--treename", default="Events", help="Name of the tree inside the files"
+        "--treename",
+        default="Events",
+        help="Name of the tree inside the files",
     )
     parser.add_argument(
-        "--do-errors", action="store_true", help="Save the w**2 coefficients"
+        "--do-errors",
+        action="store_true",
+        help="Save the w**2 coefficients",
     )
     parser.add_argument(
-        "--do-systs", action="store_true", help="Compute systematic variations"
+        "--do-systs",
+        action="store_true",
+        help="Compute systematic variations",
     )
     parser.add_argument(
         "--split-lep-flavor",
@@ -95,27 +115,46 @@ if __name__ == "__main__":
         help="Split up categories by lepton flavor",
     )
     parser.add_argument(
-        "--offZ-split", action="store_true", help="Split up 3l offZ categories"
+        "--offZ-split",
+        action="store_true",
+        help="Split up 3l offZ categories",
     )
     parser.add_argument(
-        "--tau_h_analysis", action="store_true", help="Add tau channels"
-    )
-    parser.add_argument("--fwd-analysis", action="store_true", help="Add fwd channels")
-    parser.add_argument(
-        "--skip-sr", action="store_true", help="Skip all signal region categories"
+        "--tau_h_analysis",
+        action="store_true",
+        help="Add tau channels",
     )
     parser.add_argument(
-        "--skip-cr", action="store_true", help="Skip all control region categories"
+        "--fwd-analysis",
+        action="store_true",
+        help="Add fwd channels",
+    )
+    parser.add_argument(
+        "--skip-sr",
+        action="store_true",
+        help="Skip all signal region categories",
+    )
+    parser.add_argument(
+        "--skip-cr",
+        action="store_true",
+        help="Skip all control region categories",
     )
     parser.add_argument(
         "--do-np",
         action="store_true",
-        help="Perform nonprompt estimation on the output hist, and save a new hist with the np contribution included. Note that signal, background and data samples should all be processed together in order for this option to make sense.",
+        help=(
+            "Perform nonprompt estimation on the output hist, and save a new hist "
+            "with the np contribution included. Signal, background and data samples "
+            "must all be processed together."
+        ),
     )
     parser.add_argument(
         "--do-renormfact-envelope",
         action="store_true",
-        help="Perform renorm/fact envelope calculation on the output hist (saves the modified with the the same name as the original.",
+        help=(
+            "Perform renorm/fact envelope calculation on the output hist "
+            "(saves the modified with the same name as the original)."
+        ),
     )
     parser.add_argument(
         "--wc-list",
@@ -142,7 +181,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--options",
         default=None,
-        help="YAML file that specifies command-line options. Options explicitly set at command-line take precedence"
+        help="YAML file that specifies command-line options. Options explicitly set at command-line take precedence",
     )
 
     args = parser.parse_args()
@@ -163,9 +202,9 @@ if __name__ == "__main__":
     offZ_split = args.offZ_split
     tau_h_analysis = args.tau_h_analysis
     fwd_analysis = args.fwd_analysis
-    skip_sr = args.skip_sr
-    skip_cr = args.skip_cr
-    do_np = args.do_np
+    skip_sr    = args.skip_sr
+    skip_cr    = args.skip_cr
+    do_np      = args.do_np
     do_renormfact_envelope = args.do_renormfact_envelope
     wc_lst = args.wc_list if args.wc_list is not None else []
     ecut = args.ecut
@@ -436,18 +475,16 @@ if __name__ == "__main__":
             # use mid-range compression for chunks results.
             # Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
-            "compression": 0,
-            # 'filepath': f'/project01/ndcms/{os.environ["USER"]}',
-            "filepath": f'/tmp/{os.environ["USER"]}',
+            "compression": 1,
             # automatically find an adequate resource allocation for tasks.
             # tasks are first tried using the maximum resources seen of previously ran
             # tasks. on resource exhaustion, they are retried with the maximum resource
             # values, if specified below. if a maximum is not specified, the task waits
             # forever until a larger worker connects.
-            # 'resource_monitor': True,
-            "resource_monitor": "measure",
+            'resource_monitor': True,
+            #"resource_monitor": "measure",
             "resources_mode": "auto",
-            #'filepath': f'/tmp/{os.environ["USER"]}', ##Placeholder to comment out if you don't want to save wq-factory dirs in afs
+            'filepath': f'/tmp/{os.environ["USER"]}', ##Placeholder to comment out if you don't want to save wq-factory dirs in $HOME
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
             # of a workflow run a little bit faster.
@@ -464,6 +501,8 @@ if __name__ == "__main__":
             # 'memory': 10000, #MB
             # control the size of accumulation tasks.
             "treereduction": 10,
+            #'chunks_per_accum': 25,
+            #'chunks_accum_in_mem': 2,
             # terminate workers on which tasks have been running longer than average.
             # This is useful for temporary conditions on worker nodes where a task will
             # be finish faster is ran in another worker.

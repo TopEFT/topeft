@@ -722,9 +722,6 @@ class YieldTools():
                 if lepflav in yld_sum_dict.keys():
                     yld_sum_dict[lepflav] = yld_sum_dict[lepflav] + yld
 
-            e_over_m_from_2l = (yld_sum_dict["ee"]/yld_sum_dict["mm"])**(1./2.)
-            e_over_m_from_3l = (yld_sum_dict["eee"]/yld_sum_dict["mmm"])**(1./3.)
-
             print_ratios(yld_sum_dict["ee"],yld_sum_dict["mm"],2)
             print_ratios(yld_sum_dict["eee"],yld_sum_dict["mmm"],3)
 

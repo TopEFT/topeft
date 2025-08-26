@@ -53,7 +53,6 @@ def get_renormfact_envelope(dict_of_hists):
         cat_lst = yt.get_cat_lables(histo,"channel")
 
         # Loop over processes and channels and find the bins with the most extreme rf variations
-        out_dict = {}
         for process_name in process_lst:
             if process_name in NO_RENORMFACT_LST: continue
             for cat_name in cat_lst:
