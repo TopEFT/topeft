@@ -274,7 +274,7 @@ for wc in wc_vals:
     for iroot,root in enumerate(roots):
         best = sow[{'process': sum}].eval({wc: root})[()][1]
         if iroot==0:
-            plt.plot(root, best/sm, color='k', marker='o', label='$\sigma={scale}\sigma_{SM}$')
+            plt.plot(root, best/sm, color='k', marker='o', label='$\sigma='+args.scale+'\sigma_{SM}$')
         else:
             plt.plot(root, best/sm, color='k', marker='o')
     #best = sow[{'process': sum}].eval(wc_best)[()][1]
@@ -334,8 +334,9 @@ for wc in wc_vals:
     plt.xlabel(wc)
     plt.ylabel('$\sigma_{EFT} / \sigma_{SM}$')
     plt.legend()
-    if wc in wc_best: plt.savefig(f'/afs/crc.nd.edu/user/{user[0]}/{user}//www/EFT/{args.dout}/{wc}_quad.png')
-    else: plt.savefig(f'/afs/crc.nd.edu/user/{user[0]}/{user}/www/EFT/{args.dout}/bad/{wc}_quad.png')
+    scale_post = args.scale.replace('.', 'p') + 'SM'
+    if wc in wc_best: plt.savefig(f'/afs/crc.nd.edu/user/{user[0]}/{user}//www/EFT/{args.dout}/{wc}_quad_{scale_post}.png')
+    else: plt.savefig(f'/afs/crc.nd.edu/user/{user[0]}/{user}/www/EFT/{args.dout}/bad/{wc}_quad_{scale_post}.png')
     #print(wc, vals, yields)
     plt.close()
 #print(wc_best)
