@@ -500,10 +500,9 @@ if __name__ == "__main__":
             # 'disk': 8000,   #MB
             # 'memory': 10000, #MB
             # control the size of accumulation tasks.
-            #"treereduction": 10,
-            'chunks_per_accum': 25,
-            'chunks_accum_in_mem': 2,
-            
+            "treereduction": 10,
+            #'chunks_per_accum': 25,
+            #'chunks_accum_in_mem': 2,
             # terminate workers on which tasks have been running longer than average.
             # This is useful for temporary conditions on worker nodes where a task will
             # be finish faster is ran in another worker.
