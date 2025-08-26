@@ -307,7 +307,7 @@ private_UL16APV_dict = {
 }
 
 
-def make_jsons_for_dict_of_samples(samples_dict,prefix,year=None,out_dir,on_das=False):
+def make_jsons_for_dict_of_samples(samples_dict,prefix,year,out_dir,on_das=False):
     failed = []
     #samples_dict = {k:v for k,v in samples_dict.items() if year in k}
     for sample_name,sample_info in sorted(samples_dict.items()):
