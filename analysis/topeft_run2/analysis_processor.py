@@ -316,7 +316,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Tau selection ####################
 
-        if self.tau_h_analysis:
+        if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
             tau["pt"], tau["mass"] = ApplyTES(year, tau, isData)
             tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
             tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.3)
@@ -357,7 +357,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         obj_correction_syst_lst = [
             f'JER_{year}Up', f'JER_{year}Down'
         ] + obj_jes_entries
-        if self.tau_h_analysis:
+        if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
             obj_correction_syst_lst.append("TESUp")
             obj_correction_syst_lst.append("TESDown")
             obj_correction_syst_lst.append("FESUp")
@@ -367,7 +367,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
             "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown", # Theory systs
         ]
-        if self.tau_h_analysis:
+        if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
             wgt_correction_syst_lst.append("lepSF_taus_realUp")
             wgt_correction_syst_lst.append("lepSF_taus_realDown")
             wgt_correction_syst_lst.append("lepSF_taus_fakeUp")
@@ -432,7 +432,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Jet cleaning, before any jet selection
             #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
-            if self.tau_h_analysis:
+            if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
                 vetos_tocleanjets = ak.with_name( ak.concatenate([cleaning_taus, l_fo], axis=1), "PtEtaPhiMCandidate")
             else:
                 vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
@@ -449,7 +449,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Jet energy corrections
             if not isData:
                 cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-                if self.tau_h_analysis:
+                if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
                     tau["pt"], tau["mass"]      = ApplyTESSystematic(year, tau, isData, syst_var)
                     tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var)
 
@@ -596,11 +596,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # If we are not skipping the signal regions, we will import the SR categories
                 # This dictionary keeps track of which selections go with which SR categories
                 if self.offZ_3l_split:
-                    import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
+                    import_sr_cat_dict = select_cat_dict["OFFZ_TAU_SPLIT_CH_LST_SR"]
                 elif self.tau_h_analysis:
                     import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
                 elif self.fwd_analysis:
-                    import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
+                    import_sr_cat_dict = select_cat_dict["FWD_TAU_CH_LST_SR_2l"]
                 else:
                     import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
 
@@ -657,19 +657,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if ch_name.startswith("1l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_1l_muon, copy.deepcopy(events.sf_1l_hi_muon), copy.deepcopy(events.sf_1l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_1l_elec, copy.deepcopy(events.sf_1l_hi_elec), copy.deepcopy(events.sf_1l_lo_elec))
-                        if self.tau_h_analysis:
+                        if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
                             weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
                             weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
                     elif ch_name.startswith("2l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
-                        if self.tau_h_analysis:
+                        if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
                             weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
                             weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
                     elif ch_name.startswith("3l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
-                        if self.tau_h_analysis:
+                        if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
                             weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
                             weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
                     elif ch_name.startswith("4l"):
@@ -689,7 +689,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
             sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
             sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
-            if self.tau_h_analysis:
+            if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
                 tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0, 30.0)
 
             # Pass trigger mask
@@ -713,7 +713,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
             charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
-            if self.tau_h_analysis:
+            if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
                 tau_F_mask = (ak.num(tau[tau["isVLoose"]>0]) >=1)
                 tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) >=1)
                 no_tau_mask = (ak.num(tau[tau["isLoose"]>0])==0)
@@ -741,7 +741,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("bmask_atmost2m", (bmask_atmost2med))
             preselections.add("fwdjet_mask", (fwdjet_mask))
             preselections.add("~fwdjet_mask", (~fwdjet_mask))
-            if self.tau_h_analysis:
+            if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
                 preselections.add("1l", (events.is1l & pass_trg))
                 preselections.add("1tau", (tau_L_mask))
                 preselections.add("1Ftau", (tau_F_mask))
@@ -854,7 +854,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
             selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0)
             selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0)
-            if self.tau_h_analysis:
+            if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
                 selections.add("isSR_1l",    ( events.is1l_SR))
 
             selections.add("isSR_3l",  events.is3l_SR)
@@ -873,7 +873,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
-            if self.tau_h_analysis:
+            if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
                 ptz_wtau = te_es.get_Zlt_pt(l0, l1, tau0)
 
             if self.offZ_3l_split:
@@ -885,7 +885,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             bl0pt = ak.flatten(blpt[ak.argmax(blpt,axis=-1,keepdims=True)])
 
             # Collection of all objects (leptons and jets)
-            if self.tau_h_analysis:
+            if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
                 l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets,cleaning_taus], axis=1),"PtEtaPhiMCollection")
             else:
                 l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
@@ -935,7 +935,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lj0pt"]   = lj0pt
             if self.fwd_analysis:
                 varnames["lt"]      = lt
-            if self.tau_h_analysis:
+            if self.tau_h_analysis or self.fwd_analysis or self.offZ_3l_split:
 
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
@@ -1125,6 +1125,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         elif self.fwd_analysis:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                             if (("lt" in dense_axis_name) and ("fwd" not in lep_chan)): continue
+                                            if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
+                                            if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))): continue
                                         else:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
