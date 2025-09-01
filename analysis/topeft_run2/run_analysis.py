@@ -191,7 +191,7 @@ if __name__ == "__main__":
     dotest = args.test
     nworkers = int(args.nworkers)
     chunksize = int(args.chunksize)
-    nchunks = int(args.nchunks) if not args.nchunks is None else args.nchunks
+    nchunks = int(args.nchunks) if args.nchunks is not None else args.nchunks
     outname = args.outname
     outpath = args.outpath
     pretend = args.pretend
@@ -258,7 +258,7 @@ if __name__ == "__main__":
     if dotest:
         if executor == "futures":
             nchunks = 2
-            chunksize = 10000
+            chunksize = 100
             nworkers = 1
             print(
                 "Running a fast test with %i workers, %i chunks of %i events"
@@ -526,6 +526,9 @@ if __name__ == "__main__":
     # Run the processor and get the output
     tstart = time.time()
 
+    print("chunksize: ", chunksize
+    print("nchunks: ", nchunks)
+    
     if executor == "futures":
         exec_instance = processor.futures_executor(workers=nworkers)
         runner = processor.Runner(

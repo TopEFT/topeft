@@ -70,7 +70,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
         syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
         appl_axis = hist.axis.StrCategory([], name="appl", label=r"AR/SR", growth=True)
-        histograms = {}
+
         histogram = {}
         ch_lst = ["2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j", "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
                   "3l_onZ_1b", "3l_onZ_2b", "3l_m_offZ_1b", "3l_m_offZ_2b", "3l_p_offZ_1b", "3l_p_offZ_2b", "4l"]
@@ -115,6 +115,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         #                 ("lj0pt_sumw2", "2lss_p_5j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
         #                 ("lj0pt_sumw2", "2lss_p_6j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
         #                 ("lj0pt_sumw2", "2lss_p_7j", "isSR_2lSS", "tttt_privateUL16APV", "nominal")]
+        
         for name, info in axes_info.items():
             if not rebin and "variable" in info:
                 dense_axis = hist.axis.Variable(
@@ -130,29 +131,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 sumw2_axis = hist.axis.Regular(
                     *info["regular"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
                 )
-            histograms[name] = HistEFT(
-                proc_axis,
-                chan_axis,
-                syst_axis,
-                appl_axis,
-                dense_axis,
-                wc_names=wc_names_lst,
-                label=r"Events",
-            )
-            histograms[name+"_sumw2"] = HistEFT(
-                proc_axis,
-                chan_axis,
-                syst_axis,
-                appl_axis,
-                sumw2_axis,
-                wc_names=wc_names_lst,
-                label=r"Events",
-            )
+
             if name == "lj0pt":
                 print("HERE!!!")
                 print("")
                 for hist_key in key_lst:
-
                     histogram[hist_key] = HistEFT(
                         dense_axis,
                         wc_names=wc_names_lst,
