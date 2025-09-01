@@ -86,16 +86,16 @@ SR_CHAN_DICT = {
     ],
     "4l_SR" : [
         "4l_2j", "4l_3j", "4l_4j",
-    ],
-    "4l_2j" : [
-        "4l_2j",
-    ],
-    "4l_3j" : [
-        "4l_3j",
-    ],
-    "4l_4j" : [
-        "4l_4j",
     ]
+    #"4l_2j" : [
+    #    "4l_2j",
+    #],
+    #"4l_3j" : [
+    #    "4l_3j",
+    #],
+    #"4l_4j" : [
+    #    "4l_4j",
+    #]
 }
 
 
@@ -119,7 +119,7 @@ SR_GRP_MAP = {
     "Data": [],
     "Conv": [],
     "Diboson" : [],
-    "Multiboson" : [],
+    "Triboson" : [],
     "Nonprompt" : [],
     "Flips" : [],
     "ttH" : [],
@@ -127,6 +127,7 @@ SR_GRP_MAP = {
     "ttll" : [],
     "tttt" : [],
     "tXq" : [],
+    "tWZ": [],
 }
 
 # Best fit point from TOP-19-001 with madup numbers for the 10 new WCs
@@ -225,7 +226,22 @@ def group_bins(histo,bin_map,axis_name="process",drop_unspecified=False):
 
 # Match a given sample name to whatever it is called in the json
 # Will return None if a match is not found
-def get_scale_name(sample_name,sample_group_map):
+#def get_scale_name(sample_name,sample_group_map):
+#    scale_name_for_json = None
+#    if sample_name in sample_group_map["Conv"]:
+#        scale_name_for_json = "convs"
+#    elif sample_name in sample_group_map["Diboson"]:
+#        scale_name_for_json = "Diboson"
+#    elif sample_name in sample_group_map["Triboson"]:
+#        scale_name_for_json = "Triboson"
+#    elif sample_name in sample_group_map["Signal"]:
+#        for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
+#            if proc_str in sample_name:
+#                # This should only match once, but maybe we should put a check to enforce this
+#                scale_name_for_json = proc_str
+#    return scale_name_for_json
+#
+def get_scale_name(sample_name,sample_group_map,group_type="CR"):
     scale_name_for_json = None
     if sample_name in sample_group_map["Conv"]:
         scale_name_for_json = "convs"
@@ -233,19 +249,27 @@ def get_scale_name(sample_name,sample_group_map):
         scale_name_for_json = "Diboson"
     elif sample_name in sample_group_map["Triboson"]:
         scale_name_for_json = "Triboson"
-    elif sample_name in sample_group_map["Signal"]:
+
+    if group_type == "CR":
+        if (sample_name in sample_group_map["Signal"]) :
+            for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
+                if proc_str in sample_name:
+                    # This should only match once, but maybe we should put a check to enforce this
+                    scale_name_for_json = proc_str
+    else:
         for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
             if proc_str in sample_name:
                 # This should only match once, but maybe we should put a check to enforce this
                 scale_name_for_json = proc_str
     return scale_name_for_json
 
+
 # This function gets the tag that indicates how a particualr systematic is correlated
 #   - For pdf_scale this corresponds to the initial state (e.g. gg)
 #   - For qcd_scale this corresponds to the process type (e.g. VV)
 # For any systemaitc or process that is not included in the correlations json we return None
-def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
-    proc_name_in_json = get_scale_name(proc_name,sample_group_map)
+def get_correlation_tag(uncertainty_name,proc_name,sample_group_map,group_type):
+    proc_name_in_json = get_scale_name(proc_name,sample_group_map,group_type)
     corr_tag = None
     # Right now we only have two types of uncorrelated rate systematics
     if uncertainty_name in ["qcd_scale","pdf_scale"]:
@@ -261,10 +285,10 @@ def get_correlation_tag(uncertainty_name,proc_name,sample_group_map):
 # This function gets all of the the rate systematics from the json file
 # Returns a dictionary with all of the uncertainties
 # If the sample does not have an uncertainty in the json, an uncertainty of 0 is returned for that category
-def get_rate_systs(sample_name,sample_group_map):
+def get_rate_systs(sample_name,sample_group_map,group_type):
 
     # Figure out the name of the appropriate sample in the syst rate json (if the proc is in the json)
-    scale_name_for_json = get_scale_name(sample_name,sample_group_map)
+    scale_name_for_json = get_scale_name(sample_name,sample_group_map,group_type)
 
     # Get the lumi uncty for this sample (same for all samles)
     lumi_uncty = grs.get_syst("lumi")
@@ -299,7 +323,7 @@ def get_rate_systs(sample_name,sample_group_map):
 
 
 # Wrapper for getting plus and minus rate arrs
-def get_rate_syst_arrs(base_histo,proc_group_map):
+def get_rate_syst_arrs(base_histo,proc_group_map,group_type):
 
     # Fill dictionary with the rate uncertainty arrays (with correlated ones organized together)
     rate_syst_arr_dict = {}
@@ -308,13 +332,13 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
         for sample_name in yt.get_cat_lables(base_histo,"process"):
 
             # Build the plus and minus arrays from the rate uncertainty number and the nominal arr
-            rate_syst_dict = get_rate_systs(sample_name,proc_group_map)
+            rate_syst_dict = get_rate_systs(sample_name,proc_group_map,group_type)
             thissample_nom_arr = base_histo.integrate("process",sample_name).integrate("systematic","nominal").eval({})[()]
             p_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][1]) - thissample_nom_arr # Difference between positive fluctuation and nominal
             m_arr = thissample_nom_arr*(rate_syst_dict[rate_sys_type][0]) - thissample_nom_arr # Difference between positive fluctuation and nominal
 
             # Put the arrays into the correlation dict (organizing correlated ones together)
-            correlation_tag = get_correlation_tag(rate_sys_type,sample_name,proc_group_map)
+            correlation_tag = get_correlation_tag(rate_sys_type,sample_name,proc_group_map,group_type)
             out_key_name = rate_sys_type
             if correlation_tag is not None: out_key_name += "_"+correlation_tag
             if out_key_name not in rate_syst_arr_dict[rate_sys_type]:
@@ -335,7 +359,13 @@ def get_rate_syst_arrs(base_histo,proc_group_map):
     return [sum(all_rates_m_sumw2_lst),sum(all_rates_p_sumw2_lst)]
 
 # Wrapper for getting plus and minus shape arrs
-def get_shape_syst_arrs(base_histo):
+def get_shape_syst_arrs(base_histo,group_type):
+
+    #let's define what group to use
+    if group_type=="SR":
+        grp_map = SR_GRP_MAP
+    else:
+        grp_map = CR_GRP_MAP
 
     # Get the list of systematic base names (i.e. without the up and down tags)
     # Assumes each syst has a "systnameUp" and a "systnameDown" category on the systematic axis
@@ -360,7 +390,7 @@ def get_shape_syst_arrs(base_histo):
         # Special handling of renorm and fact
         # Uncorrelate these systs across the processes (though leave processes in groups like dibosons correlated to be consistent with SR)
         if (syst_name == "renorm") or (syst_name == "fact"):
-            p_arr_rel,m_arr_rel = get_decorrelated_uncty(syst_name,CR_GRP_MAP,relevant_samples_lst,base_histo,n_arr)
+            p_arr_rel,m_arr_rel = get_decorrelated_uncty(syst_name,grp_map,relevant_samples_lst,base_histo,n_arr)
 
         # If the syst is not renorm or fact, just treat it normally (correlate across all processes)
         else:
@@ -472,7 +502,7 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 ######### Plotting functions #########
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
-def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],group=[],set_x_lim=None,err_p=None,err_m=None,err_ratio_p=None,err_ratio_m=None):
+def make_cr_fig(h_mc,h_mc_sumw2,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],group=[],set_x_lim=None,syst_err=None,err_p_syst=None,err_m_syst=None,err_ratio_p_syst=None,err_ratio_m_syst=None,unblind=False):
 
     colors = ["tab:blue","darkgreen","tab:orange",'tab:cyan',"tab:purple","tab:pink","tan","mediumseagreen","tab:red","brown"]
 
@@ -481,7 +511,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
     # But for our cases syst is way bigger than mc stat, so if we're plotting syst, ignore stat
     plot_syst_err = False
     mc_err_ops = MC_ERROR_OPS
-    if (err_p is not None) and (err_m is not None) and (err_ratio_p is not None) and (err_ratio_m is not None):
+    if (syst_err is not None) and (err_p_syst is not None) and (err_m_syst is not None) and (err_ratio_p_syst is not None) and (err_ratio_m_syst is not None):
         plot_syst_err = True
         mc_err_ops = None
 
@@ -519,17 +549,30 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
             years[name] = [axis_name]
     hep.style.use("CMS")
     plt.sca(ax)
-    hep.cms.label(lumi='138')
+    if unblind: hep.cms.label(data=True, label='Preliminary',lumi='138')
+    else: hep.cms.label(lumi='138')
     # Hack for grouping until fixed
     grouping = {proc: [good_proc for good_proc in group[proc] if good_proc in h_mc.axes['process']] for proc in group if any(p in h_mc.axes['process'] for p in group[proc])}
+    #handle grouping for sumw2 hist separately (probably redundant)
+    grouping_sumw2 = {proc: [good_proc for good_proc in group[proc] if good_proc in h_mc_sumw2.axes['process']] for proc in group if any(p in h_mc_sumw2.axes['process'] for p in group[proc])}
     if group:
         vals = [h_mc[{'process': grouping[proc]}][{'process': sum}].eval({})[()][1:-1] for proc in grouping]
+        sumw2 = [h_mc_sumw2[{'process': grouping_sumw2[proc]}][{'process': sum}].eval({})[()][1:-1] for proc in grouping_sumw2]
         mc_vals = {proc: h_mc[{'process': grouping[proc]}][{'process': sum}].as_hist({}).values(flow=True)[1:] for proc in grouping}
+        mc_sumw2 = {proc: h_mc_sumw2[{'process': grouping_sumw2[proc]}][{'process': sum}].as_hist({}).values(flow=True)[1:] for proc in grouping_sumw2}
     else:
         vals = [h_mc[{'process': proc}].eval({})[()][1:-1] for proc in grouping]
+        sumw2 = [h_mc_sumw2[{'process': grouping_sumw2[proc]}][{'process': sum}].eval({})[()][2:-1] for proc in grouping_sumw2]
         mc_vals = {proc: h_mc[{'process': proc}].as_hist({}).values(flow=True)[1:] for proc in grouping}
+        mc_sumw2 = {proc: h_mc_sumw2[{'process': grouping_sumw2[proc]}][{'process': sum}].as_hist({}).values(flow=True)[2:] for proc in grouping_sumw2}
+
     bins = h_data[{'process': sum}].as_hist({}).axes[var].edges
     bins = np.append(bins, [bins[-1] + (bins[-1] - bins[-2])*0.3])
+
+    #Let's define some useful quantities
+    summed_mc_val = h_mc[{'process': sum}].eval({})[()][1:]
+    summed_mc_sumw2 = h_mc_sumw2[{'process': sum}].eval({})[()][1:]
+
     hep.histplot(
         list(mc_vals.values()),
         ax=ax,
@@ -556,7 +599,7 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
 
     # Make the ratio plot
     hep.histplot(
-        (h_data[{'process':sum}].as_hist({}).values(flow=True)/h_mc[{"process": sum}].as_hist({}).values(flow=True))[1:],
+        (h_data[{'process':sum}].as_hist({}).values(flow=True)[1:])/summed_mc_val,
         yerr=(np.sqrt(h_data[{'process':sum}].as_hist({}).values(flow=True)) / h_data[{'process':sum}].as_hist({}).values(flow=True))[1:],
         #error_opts = DATA_ERR_OPS,
         ax=rax,
@@ -568,29 +611,84 @@ def make_cr_fig(h_mc,h_data,unit_norm_bool,axis='process',var='lj0pt',bins=[],gr
         **DATA_ERR_OPS,
     )
 
-    # Plot the syst error
-    if plot_syst_err:
-        bin_edges_arr = h_mc.axes[var].edges
-        #err_p = np.append(err_p,0) # Work around off by one error
-        #err_m = np.append(err_m,0) # Work around off by one error
-        #err_ratio_p = np.append(err_ratio_p,0) # Work around off by one error
-        #err_ratio_m = np.append(err_ratio_m,0) # Work around off by one error
-        ax.fill_between(bin_edges_arr,err_m,err_p, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
-        rax.fill_between(bin_edges_arr,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
-    err_m = np.append(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]-np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    err_p = np.append(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]+np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    err_ratio_m = np.append(1-1/np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    err_ratio_p = np.append(1+1/np.sqrt(h_mc[{'process': sum}].as_hist({}).values(flow=True)[1:]), 1)
-    rax.fill_between(bins,err_ratio_m,err_ratio_p,step='post', facecolor='none', edgecolor='gray', label='Stat err', hatch='////')
+    #Now we want to add error bands to the plot. First, let's define all useful quantities
+    err_m_stat = summed_mc_val - np.sqrt(summed_mc_sumw2)
+    err_p_stat = summed_mc_val + np.sqrt(summed_mc_sumw2)
+    err_ratio_m_stat = np.where(summed_mc_val > 0, err_m_stat/summed_mc_val, 1)
+    err_ratio_p_stat = np.where(summed_mc_val > 0, err_p_stat/summed_mc_val, 1)
+
+    err_m_stat = np.append(err_m_stat, err_m_stat[-1])                      #Check: Is it even okay to do this?
+    err_p_stat = np.append(err_p_stat, err_p_stat[-1])                     #Check: Is it even okay to do this?
+    err_ratio_m_stat = np.append(err_ratio_m_stat, err_ratio_m_stat[-1])   #Check: Is it even okay to do this?
+    err_ratio_p_stat = np.append(err_ratio_p_stat, err_ratio_p_stat[-1])   #Check: Is it even okay to do this?
+    
+    #also a good idea to keep bin edges arr handy
+    bin_edges_arr = h_mc.axes[var].edges
+
+    if unblind and plot_syst_err:
+        print("\nYou are unblinding and also plotting systematic error.")
+        err_m_syst = np.append(err_m_syst,err_m_syst[-1])
+        err_p_syst = np.append(err_p_syst,err_p_syst[-1])
+        err_ratio_m_syst = np.append(err_ratio_m_syst, err_ratio_m_syst[-1])
+        err_ratio_p_syst = np.append(err_ratio_p_syst, err_ratio_p_syst[-1])
+        bin_edges_arr = np.append(bin_edges_arr, [bin_edges_arr[-1] + (bin_edges_arr[-1] - bin_edges_arr[-2])*0.3])
+
+        #first plot the syst uncertainty band
+        ax.fill_between(bin_edges_arr,err_m_syst,err_p_syst, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
+        rax.fill_between(bin_edges_arr,err_ratio_m_syst,err_ratio_p_syst,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
+
+        #Now we calculate total uncertainty band
+        err_m_total = summed_mc_val - np.sqrt(summed_mc_sumw2+np.square(syst_err))
+        err_p_total = summed_mc_val + np.sqrt(summed_mc_sumw2+np.square(syst_err))
+        err_ratio_m_total = np.where(summed_mc_val > 0, err_m_total/summed_mc_val, 1)
+        err_ratio_p_total = np.where(summed_mc_val > 0, err_p_total/summed_mc_val, 1)
+
+        err_m_total = np.append(err_m_total, err_m_total[-1])
+        err_p_total = np.append(err_p_total, err_p_total[-1])
+        err_ratio_m_total = np.append(err_ratio_m_total, err_ratio_m_total[-1])
+        err_ratio_p_total = np.append(err_ratio_p_total, err_ratio_p_total[-1])
+
+        #Now we can plot the total uncertainty band
+        ax.fill_between(bins,err_m_total,err_p_total, step='post', facecolor='none', edgecolor='gray', label='Total err', hatch='\\\\')
+        rax.fill_between(bins,err_ratio_m_total,err_ratio_p_total,step='post', facecolor='none', edgecolor='gray', label='Total err', hatch='\\\\')
+
+    elif unblind and not plot_syst_err:
+        print("\n You are unblinding but not plotting systematic error.")
+        ax.fill_between(bins,err_m_stat,err_p_stat, step='post', facecolor='none', edgecolor='gray', label='Stat err', hatch='\\\\')
+        rax.fill_between(bins,err_ratio_m_stat,err_ratio_p_stat,step='post', facecolor='none', edgecolor='gray', label='Stat err', hatch='\\\\')
+
+    elif not unblind and plot_syst_err: #If Asimov data, no need for total error. If systematic errors available, plot that only
+        print("\nSince you are not unblinding, you only will have systematic uncertainty band in your plots")
+        err_m_syst = np.append(err_m_syst,err_m_syst[-1])
+        err_p_syst = np.append(err_p_syst,err_p_syst[-1])
+        err_ratio_m_syst = np.append(err_ratio_m_syst, err_ratio_m_syst[-1])
+        err_ratio_p_syst = np.append(err_ratio_p_syst, err_ratio_p_syst[-1])
+        bin_edges_arr = np.append(bin_edges_arr, [bin_edges_arr[-1] + (bin_edges_arr[-1] - bin_edges_arr[-2])*0.3])
+
+        #just plot the syst uncertainty band
+        ax.fill_between(bin_edges_arr,err_m_syst,err_p_syst, step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
+        rax.fill_between(bin_edges_arr,err_ratio_m_syst,err_ratio_p_syst,step='post', facecolor='none', edgecolor='gray', label='Syst err', hatch='////')
 
     # Scale the y axis and labels
     ax.autoscale(axis='y')
     ax.set_xlabel(None)
-    rax.set_ylabel('Ratio', loc='center')
+    rax.set_ylabel('Ratio', loc='center',fontsize=17)
     rax.set_ylim(0.5,1.5)
     labels = [item.get_text() for item in rax.get_xticklabels()]
-    labels[-1] = '>500'
+    #labels[-1] = '>500'
     rax.set_xticklabels(labels)
+    rax.tick_params(axis='both',which='major',direction='in',labelsize=15, length=9,top=True,right=True)
+    rax.set_xlabel(axes_info[var]['label'],loc='right',fontsize=20)
+    rax.axhline(1.0,linestyle="-",color="k",linewidth=1)
+    ax.tick_params(axis='both',which='major',direction='in',labelsize=15,length=9,top=True,right=True)
+    ax.set_ylabel('Events',loc='center',fontsize=20)
+    #ax.set_yscale('log')
+
+    # Minor ticks: no labels, just ticks
+    ax.minorticks_on()
+    rax.minorticks_on()
+    ax.tick_params(axis='both', which='minor', direction='in', length=3,top=True,right=True)
+    rax.tick_params(axis='both', which='minor', direction='in', length=3,top=True,right=True)
 
     # Set the x axis lims
     if set_x_lim: plt.xlim(set_x_lim)
@@ -819,7 +917,7 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
 
 ###################### Wrapper function for SR data and mc plots (unblind!) ######################
 # Wrapper function to loop over all SR categories and make plots for all variables
-def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
+def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,skip_syst_errs=False):
 
     # Construct list of MC samples
     mc_wl = []
@@ -850,6 +948,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
 
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
+    samples_to_rm_from_mc_sumw2_hist = [] #We don't want stat uncertainty for anything except nonprompt leptons
     samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists,"process",h_name="lj0pt")
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
@@ -859,6 +958,8 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             samples_to_rm_from_mc_hist.append(sample_name)
         if sample_name not in data_sample_lst:
             samples_to_rm_from_data_hist.append(sample_name)
+        if "nonprompt" not in sample_name:
+            samples_to_rm_from_mc_sumw2_hist.append(sample_name) 
     print("\nAll samples:",all_samples)
     print("\nMC samples:",mc_sample_lst)
     print("\nData samples:",data_sample_lst)
@@ -890,11 +991,11 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         elif "TTG" in proc_name:
             SR_GRP_MAP["Conv"].append(proc_name)
         elif "WWW" in proc_name or "WWZ" in proc_name or "WZZ" in proc_name or "ZZZ" in proc_name:
-            SR_GRP_MAP["Multiboson"].append(proc_name)
+            SR_GRP_MAP["Triboson"].append(proc_name)
         elif "WWTo2L2Nu" in proc_name or "ZZTo4L" in proc_name or "WZTo3LNu" in proc_name:
             SR_GRP_MAP["Diboson"].append(proc_name)
         elif "TWZ" in proc_name:
-            SR_GRP_MAP["Multiboson"].append(proc_name)
+            SR_GRP_MAP["tWZ"].append(proc_name)
         else:
             raise Exception(f"Error: Process name \"{proc_name}\" is not known.")
 
@@ -912,6 +1013,15 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
 
     # Loop over hists and make plots
     skip_lst = ['ptz', 'njets'] # Skip this hist
+
+    #CHANGE: a separate dict to just include sumw2 hist
+    dict_of_sumw2 = {}
+    #first let's collect all sumw2 hists
+    for var_name in dict_of_hists.keys():
+        if var_name.endswith('sumw2'):
+            base_name = var_name.replace("_sumw2","") #all this does is strip "_sumw2" from the histogram name so the name is now exactly same as base hist
+            dict_of_sumw2[base_name] = dict_of_hists[var_name]
+
     #keep_lst = ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
@@ -919,13 +1029,17 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
         #if (var_name not in keep_lst): continue
         print("\nVariable:",var_name)
 
-        # Extract the MC and data hists
+        # Extract the MC,sumw2, and data hists
         hist_mc_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
+        hist_mc_sumw2 = dict_of_sumw2[var_name].remove("process",samples_to_rm_from_mc_sumw2_hist)
         hist_data_orig = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
+
+        if not unblind: hist_data_orig = hist_mc_orig
 
         # Loop over channels
         channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
         print("channels:",channels_lst)
+        print("channels in hist_sumw2: ", yt.get_cat_lables(dict_of_sumw2[var_name],"channel"))
         #for chan_name in channels_lst: # For each channel individually
         for chan_name in SR_CHAN_DICT.keys():
             #hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
@@ -935,8 +1049,34 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
             if not channels:
                 continue
             hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
+            channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_mc_sumw2.axes['channel']]
+            #Check: We don't do nonprompt lepton estimation for 4l channels. Could someone verify?
+            if "4l" not in chan_name:
+                hist_sumw2 = hist_mc_sumw2.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
             channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_data_orig.axes['channel']]
             hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
+
+            # Calculate the syst errors
+            p_err_arr = None
+            m_err_arr = None
+            p_err_arr_ratio = None
+            m_err_arr_ratio = None
+            if not skip_syst_errs:
+                # Get plus and minus rate and shape arrs
+                rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_orig[{"channel": channels}][{"channel": sum}], SR_GRP_MAP,"SR")
+                shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_orig[{"channel": channels}][{"channel": sum}],"SR")
+                if (var_name == "njets"):
+                    # This is a special case for the diboson jet dependent systematic
+                    db_hist = hist_mc_orig[{"process": SR_GRP_MAP["Diboson"], "channel": channels, "systematic": "nominal"}][{"process":  sum, "channel":  sum}].eval({})[()]
+                    shape_systs_summed_arr_p = shape_systs_summed_arr_p + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
+                    shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
+                # Get the arrays we will actually put in the CR plot
+                nom_arr_all = hist_mc_orig[{"process": sum, "channel":channels, "systematic": "nominal"}][{"channel": sum}].eval({})[()][1:]
+                syst_err = np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:]
+                p_err_arr = nom_arr_all + syst_err # This goes in the main plot
+                m_err_arr = nom_arr_all - syst_err # This goes in the main plot
+                p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
+                m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
 
             #print(var_name, chan_name, f'grouping {SR_GRP_MAP=}')
             # Using new grouping approach in plot functions
@@ -968,7 +1108,19 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
                 print("Warning: empty data histo, continuing")
                 continue
 
-            fig = make_cr_fig(hist_mc, hist_data, var=var_name, unit_norm_bool=False, bins=axes_info[var_name]['variable'],group=SR_GRP_MAP)
+            fig = make_cr_fig(hist_mc,
+                              hist_sumw2,
+                              hist_data,
+                              var=var_name,
+                              unit_norm_bool=False,
+                              bins=axes_info[var_name]['variable'],
+                              group=SR_GRP_MAP,
+                              unblind=unblind,
+                              syst_err = syst_err if not skip_syst_errs else None,
+                              err_p_syst = p_err_arr,
+                              err_m_syst = m_err_arr,
+                              err_ratio_p_syst = p_err_arr_ratio,
+                              err_ratio_m_syst = m_err_arr_ratio)
             if year is not None: year_str = year
             else: year_str = "ULall"
             title = chan_name + "_" + var_name + "_" + year_str
@@ -1105,7 +1257,7 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 ###################### Wrapper function for all CR plots ######################
 # Wrapper function to loop over all CR categories and make plots for all variables
 # The input hist should include both the data and MC
-def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_path):
+def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_path,unblind=True):
 
     # Construct list of MC samples
     mc_wl = []
@@ -1136,6 +1288,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
 
     # Get the list of samples we want to plot
     samples_to_rm_from_mc_hist = []
+    samples_to_rm_from_mc_sumw2_hist = []
     samples_to_rm_from_data_hist = []
     all_samples = yt.get_cat_lables(dict_of_hists,"process")
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
@@ -1145,6 +1298,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             samples_to_rm_from_mc_hist.append(sample_name)
         if sample_name not in data_sample_lst:
             samples_to_rm_from_data_hist.append(sample_name)
+        if "nonprompt" not in sample_name:
+            samples_to_rm_from_mc_sumw2_hist.append(sample_name)
     print("\nAll samples:",all_samples)
     print("\nMC samples:",mc_sample_lst)
     print("\nData samples:",data_sample_lst)
@@ -1184,6 +1339,14 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     # Loop over hists and make plots
     skip_lst = [] # Skip these hists
     #skip_wlst = ["njets"] # Skip all but these hists
+
+    #a separate dict to just include sumw2 hist
+    dict_of_sumw2 = {}
+    for var_name in dict_of_hists.keys():
+        if var_name.endswith('sumw2'):
+            base_name = var_name.replace("_sumw2","") #all this does is strip "_sumw2" from the histogram name so the name is now exactly same as base hist
+            dict_of_sumw2[base_name] = dict_of_hists[var_name]
+
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
         if (var_name in skip_lst): continue
@@ -1198,8 +1361,9 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         print("\nVar name:",var_name)
         print("cr_cat_dict:",cr_cat_dict)
 
-        # Extract the MC and data hists
+        # Extract the MC,sumw2, and data hists
         hist_mc = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
+        hist_mc_sumw2 = dict_of_sumw2[var_name].remove("process",samples_to_rm_from_mc_sumw2_hist)
         hist_data = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
 
         # Loop over the CR categories
@@ -1217,6 +1381,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             axes_to_integrate_dict = {}
             axes_to_integrate_dict["channel"] = cr_cat_dict[hist_cat]
             hist_mc_integrated   = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc,hist_cat)   ,axes_to_integrate_dict)[{"channel": sum}]
+            hist_mc_sumw2_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_mc_sumw2,hist_cat)   ,axes_to_integrate_dict)[{"channel": sum}]
             hist_data_integrated = yt.integrate_out_cats(yt.integrate_out_appl(hist_data,hist_cat) ,axes_to_integrate_dict)[{"channel": sum}]
 
             # Remove samples that are not relevant for the given category
@@ -1224,7 +1389,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             if hist_cat == "cr_2los_tt":
                 samples_to_rm += copy.deepcopy(CR_GRP_MAP["Nonprompt"])
             hist_mc_integrated = hist_mc_integrated.remove("process", samples_to_rm)
-
+            hist_mc_sumw2_integrated = hist_mc_sumw2_integrated.remove("process", samples_to_rm)
 
             # Calculate the syst errors
             p_err_arr = None
@@ -1233,8 +1398,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             m_err_arr_ratio = None
             if not skip_syst_errs:
                 # Get plus and minus rate and shape arrs
-                rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
-                shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated)
+                rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP,"CR")
+                shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated,"CR")
                 if (var_name == "njets"):
                     # This is a special case for the diboson jet dependent systematic
                     db_hist = hist_mc_integrated.integrate("process",CR_GRP_MAP["Diboson"])[{"process": sum}].integrate("systematic","nominal").eval({})[()]
@@ -1242,16 +1407,17 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                     shape_systs_summed_arr_m = shape_systs_summed_arr_m + get_diboson_njets_syst_arr(db_hist,bin0_njets=0) # Njets histos are assumed to start at njets=0
                 # Get the arrays we will actually put in the CR plot
                 nom_arr_all = hist_mc_integrated[{"process": sum}].integrate("systematic","nominal").eval({})[()][1:]
-                p_err_arr = nom_arr_all + np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:] # This goes in the main plot
-                m_err_arr = nom_arr_all - np.sqrt(shape_systs_summed_arr_m + rate_systs_summed_arr_m)[1:] # This goes in the main plot
+                syst_err = np.sqrt(shape_systs_summed_arr_p + rate_systs_summed_arr_p)[1:]
+                p_err_arr = nom_arr_all + syst_err # This goes in the main plot
+                m_err_arr = nom_arr_all - syst_err # This goes in the main plot
                 p_err_arr_ratio = np.where(nom_arr_all>0,p_err_arr/nom_arr_all,1) # This goes in the ratio plot
                 m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
-
 
             # Group the samples by process type, and grab just nominal syst category
             #hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
             #hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
             hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
+            hist_mc_sumw2_integrated = hist_mc_sumw2_integrated.integrate("systematic","nominal")
             hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
             if hist_mc_integrated.empty():
                 print(f'Empty {hist_mc_integrated=}')
@@ -1279,15 +1445,18 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             group = {k:v for k,v in CR_GRP_MAP.items() if v} # Remove empty groups
             fig = make_cr_fig(
                 hist_mc_integrated,
+                hist_mc_sumw2_integrated,
                 hist_data_integrated,
                 unit_norm_bool,
                 var=var_name,
                 group=group,#CR_GRP_MAP,
                 set_x_lim = x_range,
-                err_p = p_err_arr,
-                err_m = m_err_arr,
-                err_ratio_p = p_err_arr_ratio,
-                err_ratio_m = m_err_arr_ratio
+                syst_err = syst_err if not skip_syst_errs else None,
+                err_p_syst = p_err_arr,
+                err_m_syst = m_err_arr,
+                err_ratio_p_syst = p_err_arr_ratio,
+                err_ratio_m_syst = m_err_arr_ratio,
+                unblind=True
             )
             title = hist_cat+"_"+var_name
             if unit_norm_bool: title = title + "_unitnorm"
@@ -1330,13 +1499,14 @@ def main():
     #exit()
 
     # Make the plots
-    make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
+    #make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
     #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
     #make_simple_plots(hin_dict,args.year,save_dir_path)
 
     # Make unblinded SR data MC comparison plots by year
+    make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,unblind=True,skip_syst_errs=args.skip_syst)
     #make_all_sr_data_mc_plots(hin_dict,"2016",save_dir_path)
     #make_all_sr_data_mc_plots(hin_dict,"2016APV",save_dir_path)
     #make_all_sr_data_mc_plots(hin_dict,"2017",save_dir_path)
