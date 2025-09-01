@@ -558,6 +558,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             events["l_fo_conept_sorted"] = l_fo_conept_sorted
 
             # The event selection
+            te_es.add1lMaskAndSFs(events, year, isData, sampleType)
             te_es.add2lMaskAndSFs(events, year, isData, sampleType)
             te_es.add3lMaskAndSFs(events, year, isData, sampleType)
             te_es.add4lMaskAndSFs(events, year, isData)
@@ -654,24 +655,38 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Event weights that do depend on the lep cat ###########
             select_cat_dict = None
-            with open(topeft_path("channels/ch_lst_test.json"), "r") as ch_json_test:
+
+            with open(topeft_path("channels/ch_lst.json"), "r") as ch_json_test:
                 select_cat_dict = json.load(ch_json_test)
 
-            # This dictionary keeps track of which selections go with which SR categories
-            if self.offZ_3l_split:
-                import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
-            elif self.tau_h_analysis:
-                import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
-            elif self.fwd_analysis:
-                import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
-            else:
-                import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
+            if not self._skip_signal_regions:
+                # If we are not skipping the signal regions, we will import the SR categories
+                # This dictionary keeps track of which selections go with which SR categories
+                if self.offZ_3l_split:
+                    import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
+                elif self.tau_h_analysis:
+                    import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
+                elif self.fwd_analysis:
+                    import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
+                else:
+                    import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
 
-            # This dictionary keeps track of which selections go with which CR categories
-            import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+            if not self._skip_control_regions:
+                # If we are not skipping the control regions, we will import the CR categories
+                # This dictionary keeps track of which selections go with which CR categories
+                import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+                if self.tau_h_analysis:
+                    import_cr_cat_dict.update(select_cat_dict["TAU_CH_LST_CR"])
 
             #This list keeps track of the lepton categories
-            lep_cats = list(import_sr_cat_dict.keys()) + list(import_cr_cat_dict.keys())
+            lep_cats = []
+            if not self._skip_signal_regions:
+                lep_cats += list(import_sr_cat_dict.keys())
+            if not self._skip_control_regions:
+                lep_cats += list(import_cr_cat_dict.keys())
+
+            # Add the 2l_4t category
+
             lep_cats += ["2l_4t"]
             lep_cats_data = [lep_cat for lep_cat in lep_cats if (lep_cat.startswith("2l") and not "os" in lep_cat)]
 
@@ -680,6 +695,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             for ch_name in lep_cats:
                 # For both data and MC
                 weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
+                if ch_name.startswith("1l"):
+                    weights_dict[ch_name].add("FF", events.fakefactor_1l, copy.deepcopy(events.fakefactor_1l_up), copy.deepcopy(events.fakefactor_1l_down))
+                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_1l_pt1/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_pt2/events.fakefactor_1l))
+                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_1l_be1/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_be2/events.fakefactor_1l))
+                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_1l_elclosureup/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_elclosuredown/events.fakefactor_1l))
+                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_1l_muclosureup/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_muclosuredown/events.fakefactor_1l))
                 if ch_name.startswith("2l"):
                     weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
                     weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
@@ -700,7 +721,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                 # For MC only
                 if not isData:
-                    if ch_name.startswith("2l"):
+                    if ch_name.startswith("1l"):
+                        weights_dict[ch_name].add("lepSF_muon", events.sf_1l_muon, copy.deepcopy(events.sf_1l_hi_muon), copy.deepcopy(events.sf_1l_lo_muon))
+                        weights_dict[ch_name].add("lepSF_elec", events.sf_1l_elec, copy.deepcopy(events.sf_1l_hi_elec), copy.deepcopy(events.sf_1l_lo_elec))
+                        if self.tau_h_analysis:
+                            weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
+                            weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
+                    elif ch_name.startswith("2l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
                         if self.tau_h_analysis:
@@ -753,7 +780,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
             if self.tau_h_analysis:
-                tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) ==1)
+                tau_F_mask = (ak.num(tau[tau["isVLoose"]>0]) >=1)
+                tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) >=1)
                 no_tau_mask = (ak.num(tau[tau["isLoose"]>0])==0)
 
 
@@ -771,7 +799,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("2los", charge2l_0)
             preselections.add("2lem", events.is_em)
             preselections.add("2lee", events.is_ee)
-            preselections.add("2lee", events.is_mm)
+            preselections.add("2lmm", events.is_mm)
             preselections.add("2l_onZ_as", sfasz_2l_mask)
             preselections.add("2l_onZ", sfosz_2l_mask)
             preselections.add("bmask_atleast3m", (bmask_atleast3med))
@@ -780,7 +808,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("fwdjet_mask", (fwdjet_mask))
             preselections.add("~fwdjet_mask", (~fwdjet_mask))
             if self.tau_h_analysis:
+                preselections.add("1l", (events.is1l & pass_trg))
                 preselections.add("1tau", (tau_L_mask))
+                preselections.add("1Ftau", (tau_F_mask))
                 preselections.add("0tau", (no_tau_mask))
                 preselections.add("onZ_tau", (tl_zpeak_mask))
                 preselections.add("offZ_tau", (~tl_zpeak_mask))
@@ -814,45 +844,49 @@ class AnalysisProcessor(processor.ProcessorABC):
             # 4l selection
             preselections.add("4l", (events.is4l & pass_trg))
 
-            #Filling selections according to the json specifications for SRs
-            for lep_cat, lep_cat_dict in import_sr_cat_dict.items():
-                lep_ch_list = lep_cat_dict['lep_chan_lst']
-                chtag = None
+            if not self._skip_signal_regions:
+                # If we are not skipping the signal regions, we will fill the selections according to the json specifications
+                for lep_cat, lep_cat_dict in import_sr_cat_dict.items():
+                    lep_ch_list = lep_cat_dict['lep_chan_lst']
+                    chtag = None
 
-                #looping over each region within the lep category
-                for lep_ch in lep_ch_list:
-                    tempmask = None
-                    #the first entry of the list is the region name to add in "selections"
-                    chtag = lep_ch[0]
+                    #looping over each region within the lep category
+                    for lep_ch in lep_ch_list:
+                        tempmask = None
+                        #the first entry of the list is the region name to add in "selections"
+                        chtag = lep_ch[0]
 
-                    for chcut in lep_ch[1:]:
-                        if not tempmask is None:
-                            tempmask = tempmask & preselections.any(chcut)
-                        else:
-                            tempmask = preselections.any(chcut)
-                    selections.add(chtag, tempmask)
+                        for chcut in lep_ch[1:]:
+                            if not tempmask is None:
+                                tempmask = tempmask & preselections.any(chcut)
+                            else:
+                                tempmask = preselections.any(chcut)
+                        selections.add(chtag, tempmask)
 
-            #Filling selections according to the json specifications for CRs
-            for lep_cat, lep_cat_dict in import_cr_cat_dict.items():
-                lep_ch_list = lep_cat_dict['lep_chan_lst']
-                chtag = None
+            if not self._skip_control_regions:
+                # If we are not skipping the control regions, we will fill the selections according to the json specifications
+                for lep_cat, lep_cat_dict in import_cr_cat_dict.items():
+                    lep_ch_list = lep_cat_dict['lep_chan_lst']
+                    chtag = None
 
-                #looping over each region within the lep category
-                for lep_ch in lep_ch_list:
-                    tempmask = None
-                    #the first entry of the list is the region name to add in "selections"
-                    chtag = lep_ch[0]
+                    #looping over each region within the lep category
+                    for lep_ch in lep_ch_list:
+                        tempmask = None
+                        #the first entry of the list is the region name to add in "selections"
+                        chtag = lep_ch[0]
 
-                    for chcut in lep_ch[1:]:
-                        if not tempmask is None:
-                            tempmask = tempmask & preselections.any(chcut)
-                        else:
-                            tempmask = preselections.any(chcut)
-                    selections.add(chtag, tempmask)
+                        for chcut in lep_ch[1:]:
+                            if not tempmask is None:
+                                tempmask = tempmask & preselections.any(chcut)
+                            else:
+                                tempmask = preselections.any(chcut)
+                        selections.add(chtag, tempmask)
 
             del preselections
 
             # Lep flavor selection
+            selections.add("e",  events.is_e)
+            selections.add("m",  events.is_m)
             selections.add("ee",  events.is_ee)
             selections.add("em",  events.is_em)
             selections.add("mm",  events.is_mm)
@@ -873,6 +907,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("atleast_1j", (njets>=1))
             selections.add("atleast_4j", (njets>=4))
             selections.add("atleast_5j", (njets>=5))
+            selections.add("atleast_6j", (njets>=6))
             selections.add("atleast_7j", (njets>=7))
             selections.add("atleast_0j", (njets>=0))
             selections.add("atmost_3j" , (njets<=3))
@@ -883,6 +918,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
             selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0)
             selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0)
+            if self.tau_h_analysis:
+                selections.add("isSR_1l",    ( events.is1l_SR))
 
             selections.add("isSR_3l",  events.is3l_SR)
             selections.add("isAR_3l", ~events.is3l_SR)
@@ -901,7 +938,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             if self.tau_h_analysis:
-                ptz_wtau = (l0+tau0).pt
+                ptz_wtau = te_es.get_Zlt_pt(l0, l1, tau0)
+
             if self.offZ_3l_split:
                 ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
@@ -961,69 +999,72 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lj0pt"]   = lj0pt
             varnames["lt"]      = lt
             if self.tau_h_analysis:
+
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
 
             ########## Fill the histograms ##########
-
-            sr_cat_dict = {}
-            cr_cat_dict = {}
-
-            for lep_cat in import_sr_cat_dict.keys():
-                sr_cat_dict[lep_cat] = {}
-                for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
-                    jettag = None
-                    if jet_cat.startswith("="):
-                        jettag = "exactly_"
-                    elif jet_cat.startswith("<"):
-                        jettag = "atmost_"
-                    elif jet_cat.startswith(">"):
-                        jettag = "atleast_"
-                    else:
-                        raise RuntimeError(f"jet_cat {jet_cat} in {lep_cat} misses =,<,> !")
-                    jet_key = jettag + str(jet_cat).replace("=", "").replace("<", "").replace(">", "") + "j"
-
-                    sr_cat_dict[lep_cat][jet_key] = {}
-                    sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
-                    for lep_chan_def in import_sr_cat_dict[lep_cat]["lep_chan_lst"]:
-                        sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0])
-                    sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
-                    if isData and "appl_lst_data" in import_sr_cat_dict[lep_cat].keys():
-                        sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
-                    else:
-                        sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"]
-
-            for lep_cat in import_cr_cat_dict.keys():
-                cr_cat_dict[lep_cat] = {}
-                for jet_cat in import_cr_cat_dict[lep_cat]["jet_lst"]:
-                    jettag = None
-                    if jet_cat.startswith("="):
-                        jettag = "exactly_"
-                    elif jet_cat.startswith("<"):
-                        jettag = "atmost_"
-                    elif jet_cat.startswith(">"):
-                        jettag = "atleast_"
-                    else:
-                        raise RuntimeError(f"jet_cat {jet_cat} in {lep_cat} misses =,<,> !")
-                    jet_key = jettag + str(jet_cat).replace("=", "").replace("<", "").replace(">", "") + "j"
-
-                    cr_cat_dict[lep_cat][jet_key] = {}
-                    cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
-                    for lep_chan_def in import_cr_cat_dict[lep_cat]["lep_chan_lst"]:
-                        cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0])
-                    cr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_cr_cat_dict[lep_cat]["lep_flav_lst"]
-                    if isData and "appl_lst_data" in import_cr_cat_dict[lep_cat].keys():
-                        cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"] + import_cr_cat_dict[lep_cat]["appl_lst_data"]
-                    else:
-                        cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
-
-            del import_sr_cat_dict, import_cr_cat_dict
-
             cat_dict = {}
             if not self._skip_signal_regions:
+                # If we are not skipping the signal regions, we will fill the SR categories
+                sr_cat_dict = {}
+                for lep_cat in import_sr_cat_dict.keys():
+                    sr_cat_dict[lep_cat] = {}
+                    for jet_cat in import_sr_cat_dict[lep_cat]["jet_lst"]:
+                        jettag = None
+                        if jet_cat.startswith("="):
+                            jettag = "exactly_"
+                        elif jet_cat.startswith("<"):
+                            jettag = "atmost_"
+                        elif jet_cat.startswith(">"):
+                            jettag = "atleast_"
+                        else:
+                            raise RuntimeError(f"jet_cat {jet_cat} in {lep_cat} misses =,<,> !")
+                        jet_key = jettag + str(jet_cat).replace("=", "").replace("<", "").replace(">", "") + "j"
+
+                        sr_cat_dict[lep_cat][jet_key] = {}
+                        sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
+                        for lep_chan_def in import_sr_cat_dict[lep_cat]["lep_chan_lst"]:
+                            sr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0])
+                        sr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_sr_cat_dict[lep_cat]["lep_flav_lst"]
+                        if isData and "appl_lst_data" in import_sr_cat_dict[lep_cat].keys():
+                            sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"] + import_sr_cat_dict[lep_cat]["appl_lst_data"]
+                        else:
+                            sr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_sr_cat_dict[lep_cat]["appl_lst"]
+
                 cat_dict.update(sr_cat_dict)
+                del import_sr_cat_dict
+
             if not self._skip_control_regions:
+                # If we are not skipping the control regions, we will fill the CR categories
+                cr_cat_dict = {}
+                for lep_cat in import_cr_cat_dict.keys():
+                    cr_cat_dict[lep_cat] = {}
+                    for jet_cat in import_cr_cat_dict[lep_cat]["jet_lst"]:
+                        jettag = None
+                        if jet_cat.startswith("="):
+                            jettag = "exactly_"
+                        elif jet_cat.startswith("<"):
+                            jettag = "atmost_"
+                        elif jet_cat.startswith(">"):
+                            jettag = "atleast_"
+                        else:
+                            raise RuntimeError(f"jet_cat {jet_cat} in {lep_cat} misses =,<,> !")
+                        jet_key = jettag + str(jet_cat).replace("=", "").replace("<", "").replace(">", "") + "j"
+
+                        cr_cat_dict[lep_cat][jet_key] = {}
+                        cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"] = []
+                        for lep_chan_def in import_cr_cat_dict[lep_cat]["lep_chan_lst"]:
+                            cr_cat_dict[lep_cat][jet_key]["lep_chan_lst"].append(lep_chan_def[0])
+                        cr_cat_dict[lep_cat][jet_key]["lep_flav_lst"] = import_cr_cat_dict[lep_cat]["lep_flav_lst"]
+                        if isData and "appl_lst_data" in import_cr_cat_dict[lep_cat].keys():
+                            cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"] + import_cr_cat_dict[lep_cat]["appl_lst_data"]
+                        else:
+                            cr_cat_dict[lep_cat][jet_key]["appl_lst"] = import_cr_cat_dict[lep_cat]["appl_lst"]
+
                 cat_dict.update(cr_cat_dict)
+                del import_cr_cat_dict
+
             if (not self._skip_signal_regions and not self._skip_control_regions):
                 for k in sr_cat_dict:
                     if k in cr_cat_dict:
@@ -1141,8 +1182,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
                                         elif self.tau_h_analysis:
                                             if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
-                                            if (("ptz" in dense_axis_name) and ("2lss" not in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
-                                            if (("ptz_wtau" in dense_axis_name) and ("1tau" not in lep_chan)): continue
+                                            if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
+                                            if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))): continue
+
                                         elif self.fwd_analysis:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                             if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue

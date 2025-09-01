@@ -107,6 +107,7 @@ class JetScale(RateSystematic):
 class MissingParton(RateSystematic):
     # Maps channel name from pkl file to hist name in missing_parton.root file
     CH_MAP = {
+        "2los_onZ": "2los_onZ_1tau",
         "2lss_4t_m": "2lss_4t_m_2b",
         "2lss_4t_p": "2lss_4t_p_2b",
         "2lss_m": "2lss_m_2b",
@@ -266,7 +267,7 @@ class DatacardMaker():
     @classmethod
     def get_lep_mult(cls,s):
         """ Returns the lepton multiplicity based on the string passed to it."""
-        if s.startswith("2lss_"):
+        if s.startswith("2l"):
             return 2
         elif s.startswith("3l_"):
             return 3
@@ -841,6 +842,9 @@ class DatacardMaker():
                 # TODO This is a hack for now, track this upstream
                 if 'fakes' in p and '4l' in ch:
                     continue
+                if 'charge_flip' in p and ('2los' in ch and 'tau' in ch):
+                    continue
+
                 proc_hist = ch_hist.integrate("process",[p])
                 proc_sumw2 = ch_sumw2 if ch_sumw2 is None else ch_sumw2.integrate("process",[p])
                 if self.verbose:
@@ -1060,15 +1064,21 @@ class DatacardMaker():
                         #     v = v[str(num_j)]
                     elif syst_name == "missing_parton":
                         v = rate_syst.get_process(proc_name)
+                        if "2los" in ch:
+                            ch_key = ch.replace("2los", "2lss").replace("_onZ", "_p")
+                        else:
+                            ch_key = ch
                         # First strip off any njet and/or bjet labels
-                        ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","")
+                        ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","").replace("_1tau", "")
                         # Now construct the category key, matching names in the missing_parton file to the current category
                         if num_l == 2:
                             njet_offset = 4
+                            ch_key = ch_key.replace("_onZ", "")
+                            ch_key = ch_key.replace("_offZ", "")
                             ch_key = f"{ch_key}_{num_b}b"
                         elif num_l == 3:
                             njet_offset = 2
-                            if "_onZ" in ch:
+                            if "_onZ" in ch or "tau" in ch:
                                 ch_key = f"{num_l}l_sfz_{num_b}b"
                             elif "_p_offZ" in ch:
                                 ch_key = f"{num_l}l{num_b}b_p"
