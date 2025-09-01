@@ -526,9 +526,9 @@ if __name__ == "__main__":
     # Run the processor and get the output
     tstart = time.time()
 
-    print("chunksize: ", chunksize
+    print("chunksize: ", chunksize)
     print("nchunks: ", nchunks)
-    
+
     if executor == "futures":
         exec_instance = processor.futures_executor(workers=nworkers)
         runner = processor.Runner(
