@@ -10,6 +10,7 @@ import yaml
 
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
+from topeft.custom_runner import TupleRunner
 
 import topcoffea.modules.utils as utils
 import topcoffea.modules.remote_environment as remote_environment
@@ -538,12 +539,12 @@ if __name__ == "__main__":
 
     if executor == "futures":
         exec_instance = processor.futures_executor(workers=nworkers)
-        runner = processor.Runner(
+        runner = TupleRunner(
             exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks
         )
     elif executor == "work_queue":
         executor = processor.WorkQueueExecutor(**executor_args)
-        runner = processor.Runner(
+        runner = TupleRunner(
             executor,
             schema=NanoAODSchema,
             chunksize=chunksize,
@@ -556,7 +557,7 @@ if __name__ == "__main__":
             executor = processor.TaskVineExecutor(**executor_args)
         except AttributeError:
             raise RuntimeError("TaskVineExecutor not available.")
-        runner = processor.Runner(
+        runner = TupleRunner(
             executor,
             schema=NanoAODSchema,
             chunksize=chunksize,
