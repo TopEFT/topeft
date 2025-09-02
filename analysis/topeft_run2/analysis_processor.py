@@ -78,6 +78,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError("hist_key must be provided and cannot be None")
 
         var, ch, appl, sample, syst = hist_key
+
         if var not in metadata["variables"]:
             raise ValueError(f"Unknown variable {var}")
         if ch not in metadata["channels"]:

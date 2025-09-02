@@ -453,7 +453,9 @@ if __name__ == "__main__":
     ch_app_map = metadata.get("channel_applications", {})
     syst_lst = metadata["systematics"]
     var_lst = hist_lst if hist_lst is not None else metadata["variables"]
+
     sample_lst = list(samplesdict.keys())
+
     key_lst = []
     for var in var_lst:
         for ch in ch_lst:
@@ -581,9 +583,9 @@ if __name__ == "__main__":
             tau_h_analysis=tau_h_analysis,
             fwd_analysis=fwd_analysis,
         )
+
         out = runner(sample_flist, treename, processor_instance)
         output.update(out)
-
 
     dt = time.time() - tstart
 
