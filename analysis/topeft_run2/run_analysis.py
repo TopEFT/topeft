@@ -6,6 +6,7 @@ import time
 import cloudpickle
 import gzip
 import os
+import yaml
 
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
@@ -16,6 +17,7 @@ import topcoffea.modules.remote_environment as remote_environment
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
 import analysis_processor
+from topeft.modules.axes import info as axes_info
 
 LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
 
@@ -443,20 +445,22 @@ if __name__ == "__main__":
     else:
         print("No Wilson coefficients specified")
 
-    processor_instance = analysis_processor.AnalysisProcessor(
-        samplesdict,
-        wc_lst,
-        hist_lst,
-        ecut_threshold,
-        do_errors,
-        do_systs,
-        split_lep_flavor,
-        skip_sr,
-        skip_cr,
-        offZ_split=offZ_split,
-        tau_h_analysis=tau_h_analysis,
-        fwd_analysis=fwd_analysis,
-    )
+    metadata_path = os.path.join(os.path.dirname(__file__), "metadata.yml")
+    with open(metadata_path, "r") as f:
+        metadata = yaml.safe_load(f)
+
+    ch_lst = metadata["channels"]
+    ch_app_map = metadata.get("channel_applications", {})
+    syst_lst = metadata["systematics"]
+    var_lst = hist_lst if hist_lst is not None else metadata["variables"]
+    process_lst = list(set([samplesdict[k]["histAxisName"] for k in samplesdict.keys()]))
+    key_lst = []
+    for var in var_lst:
+        for ch in ch_lst:
+            for appl in ch_app_map.get(ch, []):
+                for process in process_lst:
+                    for syst in syst_lst:
+                        key_lst.append((var, ch, appl, process, syst))
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
@@ -558,7 +562,26 @@ if __name__ == "__main__":
             xrootdtimeout=300,
         )
 
-    output = runner(flist, treename, processor_instance)
+    output = {}
+    for key in key_lst:
+        processor_instance = analysis_processor.AnalysisProcessor(
+            samplesdict,
+            wc_lst,
+            key,
+            ecut_threshold,
+            do_errors,
+            do_systs,
+            split_lep_flavor,
+            skip_sr,
+            skip_cr,
+            offZ_split=offZ_split,
+            tau_h_analysis=tau_h_analysis,
+            fwd_analysis=fwd_analysis,
+        )
+        out = runner(flist, treename, processor_instance)
+        for k, v in out.items():
+            output[k] = v
+
 
     dt = time.time() - tstart
 
@@ -568,10 +591,6 @@ if __name__ == "__main__":
                 nevts_total, dt, nevts_total / dt
             )
         )
-
-    # nbins = sum(sum(arr.size for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
-    # nfilled = sum(sum(np.sum(arr > 0) for arr in h.eval({}).values()) for h in output.values() if isinstance(h, hist.Hist))
-    # print("Filled %.0f bins, nonzero bins: %1.1f %%" % (nbins, 100*nfilled/nbins,))
 
     if executor == "futures":
         print(
