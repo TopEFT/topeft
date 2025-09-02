@@ -8,6 +8,7 @@ import os
 import numpy as np
 from coffea import hist, processor
 from coffea.nanoevents import NanoAODSchema
+from topeft.custom_runner import TupleRunner
 
 import simple_processor
 
@@ -91,7 +92,7 @@ if __name__ == '__main__':
     flist = {}
     for sname in samplesdict.keys():
         redirector = samplesdict[sname]['redirector']
-        flist[sname] = [(redirector+f) for f in samplesdict[sname]['files']]
+        flist[(sname, 'nominal')] = [(redirector+f) for f in samplesdict[sname]['files']]
         samplesdict[sname]['year'] = samplesdict[sname]['year']
         samplesdict[sname]['xsec'] = float(samplesdict[sname]['xsec'])
         samplesdict[sname]['nEvents'] = int(samplesdict[sname]['nEvents'])
@@ -135,7 +136,7 @@ if __name__ == '__main__':
     processor_instance = simple_processor.AnalysisProcessor(samplesdict,wc_lst,do_errors,)
 
     exec_instance = processor.FuturesExecutor(workers=nworkers)
-    runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
+    runner = TupleRunner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
 
     # Run the processor and get the output
     tstart = time.time()
