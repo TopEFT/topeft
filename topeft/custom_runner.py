@@ -6,12 +6,7 @@ class TupleRunner(processor.Runner):
     """Runner variant that propagates tuple keys to processor metadata."""
 
     def run(self, fileset, processor_instance, treename=None, uproot_options=None, iteritems_options=None):
-        if uproot_options is None:
-            uproot_options = {}
-        if iteritems_options is None:
-            iteritems_options = {}
-
-        # Allow fileset keys to be tuples and pass them through in metadata
+        # Normalize tuple keys before handing off to the parent Runner
         if isinstance(fileset, Mapping):
             tuple_map = {}
             normalized = {}
@@ -22,13 +17,18 @@ class TupleRunner(processor.Runner):
                     tuple_map[dataset_name] = key
                 else:
                     normalized[key] = val
-            chunks = list(super().preprocess(normalized, treename))
-            for chunk in chunks:
-                ds = chunk.dataset
-                tup = tuple_map.get(ds, ds)
-                if chunk.usermeta is None:
-                    chunk.usermeta = {}
-                chunk.usermeta["tuple"] = tup
-            return super().run(chunks, processor_instance, treename, uproot_options, iteritems_options)
-        # fall back to default behaviour
+            self._tuple_map = tuple_map
+            return super().run(normalized, processor_instance, treename, uproot_options, iteritems_options)
+
+        # No special handling needed
+        self._tuple_map = {}
         return super().run(fileset, processor_instance, treename, uproot_options, iteritems_options)
+
+    def preprocess(self, fileset, treename=None):
+        for chunk in super().preprocess(fileset, treename):
+            ds = chunk.dataset
+            tup = getattr(self, "_tuple_map", {}).get(ds, ds)
+            if chunk.usermeta is None:
+                chunk.usermeta = {}
+            chunk.usermeta["tuple"] = tup
+            yield chunk
