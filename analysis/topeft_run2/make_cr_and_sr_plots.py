@@ -621,7 +621,7 @@ def make_cr_fig(h_mc,h_mc_sumw2,h_data,unit_norm_bool,axis='process',var='lj0pt'
     err_p_stat = np.append(err_p_stat, err_p_stat[-1])                     #Check: Is it even okay to do this?
     err_ratio_m_stat = np.append(err_ratio_m_stat, err_ratio_m_stat[-1])   #Check: Is it even okay to do this?
     err_ratio_p_stat = np.append(err_ratio_p_stat, err_ratio_p_stat[-1])   #Check: Is it even okay to do this?
-    
+
     #also a good idea to keep bin edges arr handy
     bin_edges_arr = h_mc.axes[var].edges
 
@@ -958,8 +958,10 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
             samples_to_rm_from_mc_hist.append(sample_name)
         if sample_name not in data_sample_lst:
             samples_to_rm_from_data_hist.append(sample_name)
-        if "nonprompt" not in sample_name:
-            samples_to_rm_from_mc_sumw2_hist.append(sample_name) 
+        #if "nonprompt" not in sample_name:
+        #REVISIT: We are currently using sumw2 information for all but signal processes
+        if any(proc in sample_name for proc in ["ttH","ttlnu","ttll","tllq","tHq","tttt"]):
+            samples_to_rm_from_mc_sumw2_hist.append(sample_name)
     print("\nAll samples:",all_samples)
     print("\nMC samples:",mc_sample_lst)
     print("\nData samples:",data_sample_lst)
@@ -1038,8 +1040,6 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
 
         # Loop over channels
         channels_lst = yt.get_cat_lables(dict_of_hists[var_name],"channel")
-        print("channels:",channels_lst)
-        print("channels in hist_sumw2: ", yt.get_cat_lables(dict_of_sumw2[var_name],"channel"))
         #for chan_name in channels_lst: # For each channel individually
         for chan_name in SR_CHAN_DICT.keys():
             #hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",chan_name) # For each channel individually
@@ -1050,9 +1050,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
                 continue
             hist_mc = hist_mc_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
             channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_mc_sumw2.axes['channel']]
-            #Check: We don't do nonprompt lepton estimation for 4l channels. Could someone verify?
-            if "4l" not in chan_name:
-                hist_sumw2 = hist_mc_sumw2.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
+            hist_sumw2 = hist_mc_sumw2.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
             channels = [chan for chan in SR_CHAN_DICT[chan_name] if chan in hist_data_orig.axes['channel']]
             hist_data = hist_data_orig.integrate("systematic","nominal").integrate("channel",channels)[{'channel': sum}]
 
@@ -1298,7 +1296,10 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             samples_to_rm_from_mc_hist.append(sample_name)
         if sample_name not in data_sample_lst:
             samples_to_rm_from_data_hist.append(sample_name)
-        if "nonprompt" not in sample_name:
+        #if "nonprompt" not in sample_name:
+        #    samples_to_rm_from_mc_sumw2_hist.append(sample_name)
+        #REVISIT IN FUTURE: We are currently storing sumw2 information for all but signal processes.
+        if any(proc in sample_name for proc in ["ttH","ttlnu","ttll","tllq","tHq","tttt"]):
             samples_to_rm_from_mc_sumw2_hist.append(sample_name)
     print("\nAll samples:",all_samples)
     print("\nMC samples:",mc_sample_lst)
