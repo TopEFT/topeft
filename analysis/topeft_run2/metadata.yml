@@ -1,0 +1,83 @@
+channels:
+  - 2lss_m_4j
+  - 2lss_m_5j
+  - 2lss_m_6j
+  - 2lss_m_7j
+  - 2lss_p_4j
+  - 2lss_p_5j
+  - 2lss_p_6j
+  - 2lss_p_7j
+  - 3l_onZ_1b
+  - 3l_onZ_2b
+  - 3l_m_offZ_1b
+  - 3l_m_offZ_2b
+  - 3l_p_offZ_1b
+  - 3l_p_offZ_2b
+  - 4l
+applications:
+  - isAR_2lSS_OS
+  - isSR_2lSS
+  - isAR_2lSS
+  - isSR_3l
+  - isAR_3l
+  - isSR_4l
+channel_applications:
+  2lss_m_4j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_m_5j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_m_6j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_m_7j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_p_4j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_p_5j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_p_6j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_p_7j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  3l_onZ_1b: [isSR_3l, isAR_3l]
+  3l_onZ_2b: [isSR_3l, isAR_3l]
+  3l_m_offZ_1b: [isSR_3l, isAR_3l]
+  3l_m_offZ_2b: [isSR_3l, isAR_3l]
+  3l_p_offZ_1b: [isSR_3l, isAR_3l]
+  3l_p_offZ_2b: [isSR_3l, isAR_3l]
+  4l: [isSR_4l]
+systematics:
+  - nominal
+  - lepSF_muonUp
+  - lepSF_muonDown
+  - lepSF_elecUp
+  - lepSF_elecDown
+  - btagSFbc_corrUp
+  - btagSFbc_corrDown
+  - btagSFlight_corrUp
+  - btagSFlight_corrDown
+  - PUUp
+  - PUDown
+  - PreFiringUp
+  - PreFiringDown
+  - FSRUp
+  - FSRDown
+  - ISRUp
+  - ISRDown
+  - renormUp
+  - renormDown
+  - factUp
+  - factDown
+variables:
+  - invmass
+  - ptbl
+  - ptz
+  - njets
+  - nbtagsl
+  - l0pt
+  - l1pt
+  - l1eta
+  - j0pt
+  - b0pt
+  - l0eta
+  - j0eta
+  - ht
+  - met
+  - ljptsum
+  - o0pt
+  - bl0pt
+  - lj0pt
+  - ptz_wtau
+  - tau0pt
+  - lt
