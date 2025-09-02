@@ -466,29 +466,30 @@ if __name__ == "__main__":
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
-            "manager_name": f"{os.environ['USER']}-{executor}-coffea",
+            "manager_name": f"{os.environ['USER'].capitalize()}-{executor}-coffea",
             # find a port to run work queue in this range:
             "port": port,
-            "debug_log": "debug.log",
-            "transactions_log": "tr.log",
-            "stats_log": "stats.log",
-            "tasks_accum_log": "tasks.log",
+            "debug_log": f"/tmp/{os.environ['USER']}/debug.log",
+            "transactions_log": f"/tmp/{os.environ['USER']}/tr.log",
+            "stats_log": f"/tmp/{os.environ['USER']}/stats.log",
+            "tasks_accum_log": f"/tmp/{os.environ['USER']}/tasks.log",
             "environment_file": remote_environment.get_environment(
                 extra_pip_local={"topeft": ["topeft", "setup.py"]},
+                extra_conda=["pyyaml"],
             ),
             "extra_input_files": ["analysis_processor.py"],
             "retries": 15,
             # use mid-range compression for chunks results.
             # Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
-            "compression": 1,
+            "compression": 8,
             # automatically find an adequate resource allocation for tasks.
             # tasks are first tried using the maximum resources seen of previously ran
             # tasks. on resource exhaustion, they are retried with the maximum resource
             # values, if specified below. if a maximum is not specified, the task waits
             # forever until a larger worker connects.
-            'resource_monitor': True,
-            #"resource_monitor": "measure",
+            #'resource_monitor': True,
+            "resource_monitor": "measure",
             "resources_mode": "auto",
             'filepath': f'/tmp/{os.environ["USER"]}', ##Placeholder to comment out if you don't want to save wq-factory dirs in $HOME
             # this resource values may be omitted when using
@@ -506,9 +507,9 @@ if __name__ == "__main__":
             # 'disk': 8000,   #MB
             # 'memory': 10000, #MB
             # control the size of accumulation tasks.
-            "treereduction": 10,
-            #'chunks_per_accum': 25,
-            #'chunks_accum_in_mem': 2,
+            #"treereduction": 10,
+            'chunks_per_accum': 25,
+            'chunks_accum_in_mem': 2,
             # terminate workers on which tasks have been running longer than average.
             # This is useful for temporary conditions on worker nodes where a task will
             # be finish faster is ran in another worker.
@@ -565,10 +566,15 @@ if __name__ == "__main__":
         )
 
     output = {}
+    key_lst = key_lst[:1]
     for key in key_lst:
+        print("\n\n\n\nkey: ", key)
         sample = key[3]
         sample_dict = {sample: samplesdict[sample]}
         sample_flist = {sample: flist[sample]}
+        print("sample_flist: ", sample_flist)
+        print("sample_dict: ", sample_dict)
+        print("\n\n\n\n")
         processor_instance = analysis_processor.AnalysisProcessor(
             sample_dict,
             wc_lst,
@@ -583,7 +589,6 @@ if __name__ == "__main__":
             tau_h_analysis=tau_h_analysis,
             fwd_analysis=fwd_analysis,
         )
-
         out = runner(sample_flist, treename, processor_instance)
         output.update(out)
 
