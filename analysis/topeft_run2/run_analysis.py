@@ -453,14 +453,16 @@ if __name__ == "__main__":
     ch_app_map = metadata.get("channel_applications", {})
     syst_lst = metadata["systematics"]
     var_lst = hist_lst if hist_lst is not None else metadata["variables"]
-    process_lst = list(set([samplesdict[k]["histAxisName"] for k in samplesdict.keys()]))
+
+    sample_lst = list(samplesdict.keys())
+
     key_lst = []
     for var in var_lst:
         for ch in ch_lst:
             for appl in ch_app_map.get(ch, []):
-                for process in process_lst:
+                for sample in sample_lst:
                     for syst in syst_lst:
-                        key_lst.append((var, ch, appl, process, syst))
+                        key_lst.append((var, ch, appl, sample, syst))
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
@@ -564,8 +566,11 @@ if __name__ == "__main__":
 
     output = {}
     for key in key_lst:
+        sample = key[3]
+        sample_dict = {sample: samplesdict[sample]}
+        sample_flist = {sample: flist[sample]}
         processor_instance = analysis_processor.AnalysisProcessor(
-            samplesdict,
+            sample_dict,
             wc_lst,
             key,
             ecut_threshold,
@@ -578,10 +583,9 @@ if __name__ == "__main__":
             tau_h_analysis=tau_h_analysis,
             fwd_analysis=fwd_analysis,
         )
-        out = runner(flist, treename, processor_instance)
-        for k, v in out.items():
-            output[k] = v
 
+        out = runner(sample_flist, treename, processor_instance)
+        output.update(out)
 
     dt = time.time() - tstart
 

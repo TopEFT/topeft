@@ -77,7 +77,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         if hist_key is None:
             raise ValueError("hist_key must be provided and cannot be None")
 
-        var, ch, appl, proc, syst = hist_key
+        var, ch, appl, sample, syst = hist_key
+
         if var not in metadata["variables"]:
             raise ValueError(f"Unknown variable {var}")
         if ch not in metadata["channels"]:
@@ -87,23 +88,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         if syst not in metadata["systematics"]:
             raise ValueError(f"Unknown systematic {syst}")
 
-        sumw2_key = (var + "_sumw2", ch, appl, proc, syst)
-        #key_lst = [("lj0pt", "2lss_m_4j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #           ("lj0pt", "2lss_m_5j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #           ("lj0pt", "2lss_m_6j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #           ("lj0pt", "2lss_m_7j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #           ("lj0pt", "2lss_p_4j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #           ("lj0pt", "2lss_p_5j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #           ("lj0pt", "2lss_p_6j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #           ("lj0pt", "2lss_p_7j", "isSR_2lSS", "tttt_privateUL16APV", "nominal")]
-        #sumw2_key_lst = [("lj0pt_sumw2", "2lss_m_4j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #                 ("lj0pt_sumw2", "2lss_m_5j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #                 ("lj0pt_sumw2", "2lss_m_6j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #                 ("lj0pt_sumw2", "2lss_m_7j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #                 ("lj0pt_sumw2", "2lss_p_4j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #                 ("lj0pt_sumw2", "2lss_p_5j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #                 ("lj0pt_sumw2", "2lss_p_6j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
-        #                 ("lj0pt_sumw2", "2lss_p_7j", "isSR_2lSS", "tttt_privateUL16APV", "nominal")]
+        sumw2_key = (var + "_sumw2", ch, appl, sample, syst)
         
         info = axes_info[hist_key[0]]
         if not rebin and "variable" in info:
@@ -1143,16 +1128,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         else:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-                                        hist_key = (dense_axis_name, ch_name, appl, histAxisName, wgt_fluct)
-                                        if hist_key not in hout.keys(): continue
-                                        #hout[dense_axis_name].fill(**axes_fill_info_dict)
+                                        hist_key = (dense_axis_name, ch_name, appl, dataset, wgt_fluct)
+                                        if hist_key not in hout.keys():
+                                            continue
                                         hout[hist_key].fill(**axes_fill_info_dict)
-                                        print("")
-                                        print(ch_name)
-                                        print(appl)
-                                        print(histAxisName)
-                                        print(wgt_fluct)
-                                        print("")
                                         axes_fill_info_dict = {
                                             dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
                                             #"channel"       : ch_name,
@@ -1162,9 +1141,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             "weight"        : np.square(weights_flat),
                                             "eft_coeff"     : eft_coeffs_cut,
                                         }
-                                        hist_key = (dense_axis_name+"_sumw2", ch_name, appl, histAxisName, wgt_fluct)
-                                        if hist_key not in hout.keys(): continue
-                                        #hout[dense_axis_name+"_sumw2"].fill(**axes_fill_info_dict)
+                                        hist_key = (dense_axis_name+"_sumw2", ch_name, appl, dataset, wgt_fluct)
+                                        if hist_key not in hout.keys():
+                                            continue
                                         hout[hist_key].fill(**axes_fill_info_dict)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
