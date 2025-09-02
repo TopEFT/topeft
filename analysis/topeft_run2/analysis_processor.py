@@ -4,6 +4,8 @@ import coffea
 import numpy as np
 import awkward as ak
 import json
+import os
+import yaml
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
@@ -57,7 +59,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_lst=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
+    def __init__(self, samples, wc_names_lst=[], hist_key=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
 
         self._samples = samples
         self._wc_names_lst = wc_names_lst
@@ -66,39 +68,26 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.tau_h_analysis = tau_h_analysis
         self.fwd_analysis = fwd_analysis
 
-        proc_axis = hist.axis.StrCategory([], name="process", growth=True)
-        chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
-        syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
-        appl_axis = hist.axis.StrCategory([], name="appl", label=r"AR/SR", growth=True)
-
         histogram = {}
-        ch_lst = ["2lss_m_4j", "2lss_m_5j", "2lss_m_6j", "2lss_m_7j", "2lss_p_4j", "2lss_p_5j", "2lss_p_6j", "2lss_p_7j",
-                  "3l_onZ_1b", "3l_onZ_2b", "3l_m_offZ_1b", "3l_m_offZ_2b", "3l_p_offZ_1b", "3l_p_offZ_2b", "4l"]
-        appl_lst = ["isAR_2lSS_OS", "isSR_2lSS", "isAR_2lSS", "isSR_3l", "isAR_3l", "isSR_4l"]
-        process_lst = ["tttt_privateUL16APV", "tHq_privateUL16APV", "tllq_privateUL16APV", "ttllJet_privateUL16APV", "ttlnuJet_privateUL16APV", "ttHJet_privateUL16APV",
-                       "tttt_privateUL16", "tHq_privateUL16", "tllq_privateUL16", "ttllJet_privateUL16", "ttlnuJet_privateUL16", "ttHJet_privateUL16",
-                       "tttt_privateUL17", "tHq_privateUL17", "tllq_privateUL17", "ttllJet_privateUL17", "ttlnuJet_privateUL17", "ttHJet_privateUL17",
-                       "tttt_privateUL18", "tHq_privateUL18", "tllq_privateUL18", "ttllJet_privateUL18", "ttlnuJet_privateUL18", "ttHJet_privateUL18",]
-        syst_lst = ["nominal", "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown", "btagSFbc_corrUp","btagSFbc_corrDown", "btagSFlight_corrUp","btagSFlight_corrDown",
-                     "PUUp","PUDown","PreFiringUp","PreFiringDown", "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown"]
-        var_lst = ["lj0pt", "ptz"]
-        key_lst = []
-        sumw2_key_lst = []
-        for var in var_lst:
-            for ch in ch_lst:
-                for appl in appl_lst:
-                    if "2lSS" in appl and "2lss" not in ch:
-                        continue
-                    if "3l" in appl and "3l" not in ch:
-                        continue
-                    if "4l" in appl and "4l" not in ch:
-                        continue
-                    for process in process_lst:
-                        for syst in syst_lst:
-                            key = (var, ch, appl, process, syst)
-                            key_lst.append(key)
-                            sumw2_key = (var+"_sumw2", ch, appl, process, syst)
-                            sumw2_key_lst.append(sumw2_key)
+
+        metadata_path = os.path.join(os.path.dirname(__file__), "metadata.yml")
+        with open(metadata_path, "r") as f:
+            metadata = yaml.safe_load(f)
+
+        if hist_key is None:
+            raise ValueError("hist_key must be provided and cannot be None")
+
+        var, ch, appl, proc, syst = hist_key
+        if var not in metadata["variables"]:
+            raise ValueError(f"Unknown variable {var}")
+        if ch not in metadata["channels"]:
+            raise ValueError(f"Unknown channel {ch}")
+        if appl not in metadata["applications"]:
+            raise ValueError(f"Unknown application region {appl}")
+        if syst not in metadata["systematics"]:
+            raise ValueError(f"Unknown systematic {syst}")
+
+        sumw2_key = (var + "_sumw2", ch, appl, proc, syst)
         #key_lst = [("lj0pt", "2lss_m_4j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
         #           ("lj0pt", "2lss_m_5j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
         #           ("lj0pt", "2lss_m_6j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
@@ -116,57 +105,37 @@ class AnalysisProcessor(processor.ProcessorABC):
         #                 ("lj0pt_sumw2", "2lss_p_6j", "isSR_2lSS", "tttt_privateUL16APV", "nominal"),
         #                 ("lj0pt_sumw2", "2lss_p_7j", "isSR_2lSS", "tttt_privateUL16APV", "nominal")]
         
-        for name, info in axes_info.items():
-            if not rebin and "variable" in info:
-                dense_axis = hist.axis.Variable(
-                    info["variable"], name=name, label=info["label"]
-                )
-                sumw2_axis = hist.axis.Variable(
-                    info["variable"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
-                )
-            else:
-                dense_axis = hist.axis.Regular(
-                    *info["regular"], name=name, label=info["label"]
-                )
-                sumw2_axis = hist.axis.Regular(
-                    *info["regular"], name=name+"_sumw2", label=info["label"] + " sum of w^2"
-                )
+        info = axes_info[hist_key[0]]
+        if not rebin and "variable" in info:
+            dense_axis = hist.axis.Variable(
+                info["variable"], name=hist_key[0], label=info["label"]
+            )
+            sumw2_axis = hist.axis.Variable(
+                info["variable"], name=hist_key[0]+"_sumw2", label=info["label"] + " sum of w^2"
+            )
+        else:
+            dense_axis = hist.axis.Regular(
+                *info["regular"], name=hist_key[0], label=info["label"]
+            )
+            sumw2_axis = hist.axis.Regular(
+                *info["regular"], name=hist_key[0]+"_sumw2", label=info["label"] + " sum of w^2"
+            )
 
-            if name == "lj0pt":
-                print("HERE!!!")
-                print("")
-                for hist_key in key_lst:
-                    histogram[hist_key] = HistEFT(
-                        dense_axis,
-                        wc_names=wc_names_lst,
-                        label=r"Events",
-                    )
-                for hist_key in sumw2_key_lst:
-                    histogram[hist_key] = HistEFT(
-                        sumw2_axis,
-                        wc_names=wc_names_lst,
-                        label=r"Events",
-                    )
-            histogram['meta'] = {}
-            histogram['meta']['channel'] = ch_lst
-            histogram['meta']['variable'] = var_lst
-            histogram['meta']['systematic'] = syst_lst
-            histogram['meta']['appl'] = appl_lst
-            histogram['meta']['process'] = process_lst
-            
+        histogram[hist_key] = HistEFT(
+            dense_axis,
+            wc_names=wc_names_lst,
+            label=r"Events",
+        )
+        histogram[sumw2_key] = HistEFT(
+            sumw2_axis,
+            wc_names=wc_names_lst,
+            label=r"Events",
+        )
+
         self._accumulator = histogram
 
         # Set the list of hists to fill
-        #if hist_lst is None:
-        if True:
-            # If the hist list is none, assume we want to fill all hists
-            self._hist_lst = list(self._accumulator.keys())
-        else:
-            # Otherwise, just fill the specified subset of hists
-            for hist_to_include in hist_lst:
-                if hist_to_include not in self._accumulator.keys():
-                    raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
-            self._hist_lst = hist_lst # Which hists to fill
+        self._hist_lst = [hist_key[0]]
 
         # Set the energy threshold to cut on
         self._ecut_threshold = ecut_threshold
