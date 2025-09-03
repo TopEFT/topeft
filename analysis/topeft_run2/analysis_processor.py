@@ -116,6 +116,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             wc_names=wc_names_lst,
             label=r"Events",
         )
+        histogram["tuple_counts"] = hist.Hist(
+            "Events",
+            hist.Cat("tuple", "tuple"),
+            hist.Bin("counts", "Counts", 1, 0, 2),
+        )
 
         self._accumulator = histogram
 
@@ -146,7 +151,11 @@ class AnalysisProcessor(processor.ProcessorABC):
     def process(self, events):
 
         # Dataset parameters
-        dataset = events.metadata["dataset"]
+        meta_tuple = events.metadata.get("tuple")
+        if isinstance(meta_tuple, tuple):
+            dataset = meta_tuple[3]
+        else:
+            dataset = events.metadata["dataset"]
         isEFT   = self._samples[dataset]["WCnames"] != []
 
         isData             = self._samples[dataset]["isData"]
@@ -1130,7 +1139,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
                                         hist_key = (dense_axis_name, ch_name, appl, dataset, wgt_fluct)
                                         if hist_key not in hout.keys():
-                                            continue
+                                            info = axes_info[dense_axis_name]
+                                            if "variable" in info:
+                                                axis = hist.axis.Variable(
+                                                    info["variable"], name=dense_axis_name, label=info["label"]
+                                                )
+                                            else:
+                                                axis = hist.axis.Regular(
+                                                    *info["regular"], name=dense_axis_name, label=info["label"]
+                                                )
+                                            hout[hist_key] = HistEFT(
+                                                axis, wc_names=self._wc_names_lst, label=r"Events"
+                                            )
                                         hout[hist_key].fill(**axes_fill_info_dict)
                                         axes_fill_info_dict = {
                                             dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
@@ -1143,7 +1163,22 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         }
                                         hist_key = (dense_axis_name+"_sumw2", ch_name, appl, dataset, wgt_fluct)
                                         if hist_key not in hout.keys():
-                                            continue
+                                            info = axes_info[dense_axis_name]
+                                            if "variable" in info:
+                                                axis = hist.axis.Variable(
+                                                    info["variable"],
+                                                    name=dense_axis_name+"_sumw2",
+                                                    label=info["label"] + " sum of w^2",
+                                                )
+                                            else:
+                                                axis = hist.axis.Regular(
+                                                    *info["regular"],
+                                                    name=dense_axis_name+"_sumw2",
+                                                    label=info["label"] + " sum of w^2",
+                                                )
+                                            hout[hist_key] = HistEFT(
+                                                axis, wc_names=self._wc_names_lst, label=r"Events"
+                                            )
                                         hout[hist_key].fill(**axes_fill_info_dict)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
@@ -1151,6 +1186,12 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                             # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
                             if dense_axis_name == "njets": break
+
+        tuple_val = events.metadata.get("tuple")
+        if tuple_val is not None:
+            n_events = len(events)
+            if n_events:
+                hout["tuple_counts"].fill(tuple=str(tuple_val), counts=np.ones(n_events))
 
         return hout
 
