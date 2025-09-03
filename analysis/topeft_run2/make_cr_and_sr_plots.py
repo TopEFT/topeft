@@ -87,15 +87,15 @@ SR_CHAN_DICT = {
     "4l_SR" : [
         "4l_2j", "4l_3j", "4l_4j",
     ]
-    #"4l_2j" : [
-    #    "4l_2j",
-    #],
-    #"4l_3j" : [
-    #    "4l_3j",
-    #],
-    #"4l_4j" : [
-    #    "4l_4j",
-    #]
+    "4l_2j" : [
+        "4l_2j",
+    ],
+    "4l_3j" : [
+        "4l_3j",
+    ],
+    "4l_4j" : [
+        "4l_4j",
+    ]
 }
 
 
@@ -226,21 +226,6 @@ def group_bins(histo,bin_map,axis_name="process",drop_unspecified=False):
 
 # Match a given sample name to whatever it is called in the json
 # Will return None if a match is not found
-#def get_scale_name(sample_name,sample_group_map):
-#    scale_name_for_json = None
-#    if sample_name in sample_group_map["Conv"]:
-#        scale_name_for_json = "convs"
-#    elif sample_name in sample_group_map["Diboson"]:
-#        scale_name_for_json = "Diboson"
-#    elif sample_name in sample_group_map["Triboson"]:
-#        scale_name_for_json = "Triboson"
-#    elif sample_name in sample_group_map["Signal"]:
-#        for proc_str in ["ttH","tllq","ttlnu","ttll","tHq","tttt"]:
-#            if proc_str in sample_name:
-#                # This should only match once, but maybe we should put a check to enforce this
-#                scale_name_for_json = proc_str
-#    return scale_name_for_json
-#
 def get_scale_name(sample_name,sample_group_map,group_type="CR"):
     scale_name_for_json = None
     if sample_name in sample_group_map["Conv"]:
@@ -675,7 +660,7 @@ def make_cr_fig(h_mc,h_mc_sumw2,h_data,unit_norm_bool,axis='process',var='lj0pt'
     rax.set_ylabel('Ratio', loc='center',fontsize=17)
     rax.set_ylim(0.5,1.5)
     labels = [item.get_text() for item in rax.get_xticklabels()]
-    #labels[-1] = '>500'
+    labels[-1] = '>500'
     rax.set_xticklabels(labels)
     rax.tick_params(axis='both',which='major',direction='in',labelsize=15, length=9,top=True,right=True)
     rax.set_xlabel(axes_info[var]['label'],loc='right',fontsize=20)
@@ -1016,7 +1001,7 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
     # Loop over hists and make plots
     skip_lst = ['ptz', 'njets'] # Skip this hist
 
-    #CHANGE: a separate dict to just include sumw2 hist
+    #create a separate dict to just include sumw2 hist
     dict_of_sumw2 = {}
     #first let's collect all sumw2 hists
     for var_name in dict_of_hists.keys():
@@ -1341,7 +1326,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
     skip_lst = [] # Skip these hists
     #skip_wlst = ["njets"] # Skip all but these hists
 
-    #a separate dict to just include sumw2 hist
+    #create a separate dict to just include sumw2 hist
     dict_of_sumw2 = {}
     for var_name in dict_of_hists.keys():
         if var_name.endswith('sumw2'):
