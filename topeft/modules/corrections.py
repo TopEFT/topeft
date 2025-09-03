@@ -548,7 +548,7 @@ SFevaluator = extLepSF.make_evaluator()
 
 ffSysts=['','_up','_down','_be1','_be2','_pt1','_pt2']
 
-def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
+def ApplyTES(year, taus, isData):
     if isData:
         return (taus.pt, taus.mass)
 
@@ -586,10 +586,23 @@ def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
         arg_tau = ["pt", "eta", "decayMode", "genPartFlav"]
         pt_mask_flat = ak.flatten((pt>0) & (pt<1000))
 
+        # Placeholder: remove once tau corrections are validated with correctionlib
         deep_tau_cuts = [
-            ("DeepTau2017v2p1VSjet", ak.flatten(padded_taus[f"is{vsJetWP}"]>0), ("pt", "decayMode", "genPartFlav", vsJetWP)),
-            ("DeepTau2017v2p1VSe", ak.flatten(padded_taus["iseTight"]>0), ("eta", "genPartFlav", "VVLoose")),
-            ("DeepTau2017v2p1VSmu", ak.flatten(padded_taus["ismTight"]>0), ("eta", "genPartFlav", "Loose")),
+            (
+                "DeepTau2017v2p1VSjet",
+                ak.flatten(padded_taus["isTight"] > 0),
+                ("pt", "decayMode", "genPartFlav", "Tight"),
+            ),
+            (
+                "DeepTau2017v2p1VSe",
+                ak.flatten(padded_taus["iseTight"] > 0),
+                ("eta", "genPartFlav", "VVLoose"),
+            ),
+            (
+                "DeepTau2017v2p1VSmu",
+                ak.flatten(padded_taus["ismTight"] > 0),
+                ("eta", "genPartFlav", "Loose"),
+            ),
         ]
 
         DT_sf_list = []
@@ -657,9 +670,9 @@ def ApplyTES(year, taus, isData, tagger, syst_name, vsJetWP):
 
 def ApplyTESSystematic(year, taus, isData, syst_name):
     if not syst_name.startswith('TES'):
-        return (taus.pt)
+        return (taus.pt, taus.mass)
     if isData:
-        return (taus.pt)
+        return (taus.pt, taus.mass)
 
     pt  = taus.pt
     dm  = taus.decayMode
@@ -680,9 +693,9 @@ def ApplyTESSystematic(year, taus, isData, syst_name):
 
 def ApplyFESSystematic(year, taus, isData, syst_name):
     if not syst_name.startswith('FES'):
-        return (taus.pt)
+        return (taus.pt, taus.mass)
     if isData:
-        return (taus.pt)
+        return (taus.pt, taus.mass)
 
     pt  = taus.pt
     eta  = taus.eta

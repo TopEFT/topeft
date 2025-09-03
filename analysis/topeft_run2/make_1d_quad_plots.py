@@ -55,7 +55,7 @@ def main():
         print(f"({wc_name} crosses {threshold} at: {values_at_threshold}")
 
     # Make 1d quad plots for all the WCs
-    yaxis_str = "$\sigma/\sigma_{SM}$"
+    yaxis_str = r"$\sigma/\sigma_{SM}$"
     for wc_name in wc_names_lst:
         fit_coeffs_1d = qft.get_1d_fit(wc_fit_dict,wc_name)
         xaxis_lims = qft.ARXIV1901_LIMS.get(wc_name,qft.TOP19001_LIMS.get(wc_name,[-10,10])) # Use lim from 1901 theory paper if it exists, or TOP-19-001 if it exists, or -10,10 otherwise
