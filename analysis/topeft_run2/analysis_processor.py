@@ -70,6 +70,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         histogram = {}
 
+        print("\n\n\n\n\n", "samples.keys(): ", self._samples.keys(), "\n\n\n\n")
+
         metadata_path = os.path.join(os.path.dirname(__file__), "metadata.yml")
         with open(metadata_path, "r") as f:
             metadata = yaml.safe_load(f)
@@ -77,7 +79,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         if hist_key is None:
             raise ValueError("hist_key must be provided and cannot be None")
 
-        var, ch, appl, sample, syst = hist_key
+        sample, var, ch, appl, syst = hist_key
 
         if var not in metadata["variables"]:
             raise ValueError(f"Unknown variable {var}")
@@ -88,9 +90,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         if syst not in metadata["systematics"]:
             raise ValueError(f"Unknown systematic {syst}")
 
-        sumw2_key = (var + "_sumw2", ch, appl, sample, syst)
+        sumw2_key = (var + "_sumw2", sample, ch, appl, syst)
         
-        info = axes_info[hist_key[0]]
+        info = axes_info[var]
         if not rebin and "variable" in info:
             dense_axis = hist.axis.Variable(
                 info["variable"], name=hist_key[0], label=info["label"]
@@ -120,7 +122,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._accumulator = histogram
 
         # Set the list of hists to fill
-        self._hist_lst = [hist_key[0]]
+        self._var = var
+        self._channel = ch
+        self._appregion = appl
+        self._syst = syst
 
         # Set the energy threshold to cut on
         self._ecut_threshold = ecut_threshold
@@ -147,13 +152,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Dataset parameters
         dataset = events.metadata["dataset"]
-        isEFT   = self._samples[dataset]["WCnames"] != []
+        isEFT   = self._samples["WCnames"] != []
 
-        isData             = self._samples[dataset]["isData"]
-        histAxisName       = self._samples[dataset]["histAxisName"]
-        year               = self._samples[dataset]["year"]
-        xsec               = self._samples[dataset]["xsec"]
-        sow                = self._samples[dataset]["nSumOfWeights"]
+        isData             = self._samples["isData"]
+        histAxisName       = self._samples["histAxisName"]
+        year               = self._samples["year"]
+        xsec               = self._samples["xsec"]
+        sow                = self._samples["nSumOfWeights"]
 
         is_run3 = False
         if year.startswith("202"):
@@ -162,7 +167,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         run_era = None
         if isData:
-            run_era = self._samples[dataset]["path"].split("/")[2].split("-")[0][-1]
+            run_era = self._samples["path"].split("/")[2].split("-")[0][-1]
 
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
@@ -170,30 +175,30 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # We have a LO xsec for these samples, so for these systs we will have e.g. xsec_LO*(N_pass_up/N_gen_nom)
                 # Thus these systs will cover the cross section uncty and the acceptance and effeciency and shape
                 # So no NLO rate uncty for xsec should be applied in the text data card
-                sow_ISRUp          = self._samples[dataset]["nSumOfWeights"]
-                sow_ISRDown        = self._samples[dataset]["nSumOfWeights"]
-                sow_FSRUp          = self._samples[dataset]["nSumOfWeights"]
-                sow_FSRDown        = self._samples[dataset]["nSumOfWeights"]
-                sow_renormUp       = self._samples[dataset]["nSumOfWeights"]
-                sow_renormDown     = self._samples[dataset]["nSumOfWeights"]
-                sow_factUp         = self._samples[dataset]["nSumOfWeights"]
-                sow_factDown       = self._samples[dataset]["nSumOfWeights"]
-                sow_renormfactUp   = self._samples[dataset]["nSumOfWeights"]
-                sow_renormfactDown = self._samples[dataset]["nSumOfWeights"]
+                sow_ISRUp          = self._samples["nSumOfWeights"]
+                sow_ISRDown        = self._samples["nSumOfWeights"]
+                sow_FSRUp          = self._samples["nSumOfWeights"]
+                sow_FSRDown        = self._samples["nSumOfWeights"]
+                sow_renormUp       = self._samples["nSumOfWeights"]
+                sow_renormDown     = self._samples["nSumOfWeights"]
+                sow_factUp         = self._samples["nSumOfWeights"]
+                sow_factDown       = self._samples["nSumOfWeights"]
+                sow_renormfactUp   = self._samples["nSumOfWeights"]
+                sow_renormfactDown = self._samples["nSumOfWeights"]
             else:
                 # Otherwise we have an NLO xsec, so for these systs we will have e.g. xsec_NLO*(N_pass_up/N_gen_up)
                 # Thus these systs should only affect acceptance and effeciency and shape
                 # The uncty on xsec comes from NLO and is applied as a rate uncty in the text datacard
-                sow_ISRUp          = self._samples[dataset]["nSumOfWeights_ISRUp"          ]
-                sow_ISRDown        = self._samples[dataset]["nSumOfWeights_ISRDown"        ]
-                sow_FSRUp          = self._samples[dataset]["nSumOfWeights_FSRUp"          ]
-                sow_FSRDown        = self._samples[dataset]["nSumOfWeights_FSRDown"        ]
-                sow_renormUp       = self._samples[dataset]["nSumOfWeights_renormUp"       ]
-                sow_renormDown     = self._samples[dataset]["nSumOfWeights_renormDown"     ]
-                sow_factUp         = self._samples[dataset]["nSumOfWeights_factUp"         ]
-                sow_factDown       = self._samples[dataset]["nSumOfWeights_factDown"       ]
-                sow_renormfactUp   = self._samples[dataset]["nSumOfWeights_renormfactUp"   ]
-                sow_renormfactDown = self._samples[dataset]["nSumOfWeights_renormfactDown" ]
+                sow_ISRUp          = self._samples["nSumOfWeights_ISRUp"          ]
+                sow_ISRDown        = self._samples["nSumOfWeights_ISRDown"        ]
+                sow_FSRUp          = self._samples["nSumOfWeights_FSRUp"          ]
+                sow_FSRDown        = self._samples["nSumOfWeights_FSRDown"        ]
+                sow_renormUp       = self._samples["nSumOfWeights_renormUp"       ]
+                sow_renormDown     = self._samples["nSumOfWeights_renormDown"     ]
+                sow_factUp         = self._samples["nSumOfWeights_factUp"         ]
+                sow_factDown       = self._samples["nSumOfWeights_factDown"       ]
+                sow_renormfactUp   = self._samples["nSumOfWeights_renormfactUp"   ]
+                sow_renormfactDown = self._samples["nSumOfWeights_renormfactDown" ]
         else:
             sow_ISRUp          = -1
             sow_ISRDown        = -1
@@ -271,8 +276,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
         if eft_coeffs is not None:
             # Check to see if the ordering of WCs for this sample matches what want
-            if self._samples[dataset]["WCnames"] != self._wc_names_lst:
-                eft_coeffs = efth.remap_coeffs(self._samples[dataset]["WCnames"], self._wc_names_lst, eft_coeffs)
+            if self._samples["WCnames"] != self._wc_names_lst:
+                eft_coeffs = efth.remap_coeffs(self._samples["WCnames"], self._wc_names_lst, eft_coeffs)
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
         # Initialize the out object
         hout = self.accumulator
@@ -1008,149 +1013,148 @@ class AnalysisProcessor(processor.ProcessorABC):
                         raise Exception(f"The key {k} is in both CR and SR dictionaries.")
 
             # Loop over the hists we want to fill
-            for dense_axis_name, dense_axis_vals in varnames.items():
-                if dense_axis_name not in self._hist_lst:
-                    continue
+            dense_axis_name = self._var
+            dense_axis_vals = varnames[dense_axis_name]
 
-                # Set up the list of syst wgt variations to loop over
-                wgt_var_lst = ["nominal"]
-                if self._do_systematics:
-                    if not isData:
-                        if (syst_var != "nominal"):
-                            # In this case, we are dealing with systs that change the kinematics of the objs (e.g. JES)
-                            # So we don't want to loop over up/down weight variations here
-                            wgt_var_lst = [syst_var]
-                        else:
-                            # Otherwise we want to loop over the up/down weight variations
-                            wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst + data_syst_lst
+            # Set up the list of syst wgt variations to loop over
+            wgt_var_lst = ["nominal"]
+            if self._do_systematics:
+                if not isData:
+                    if (syst_var != "nominal"):
+                        # In this case, we are dealing with systs that change the kinematics of the objs (e.g. JES)
+                        # So we don't want to loop over up/down weight variations here
+                        wgt_var_lst = [syst_var]
                     else:
-                        # This is data, so we want to loop over just up/down variations relevant for data (i.e. FF up and down)
-                        wgt_var_lst = wgt_var_lst + data_syst_lst
+                        # Otherwise we want to loop over the up/down weight variations
+                        wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst + data_syst_lst
+                else:
+                    # This is data, so we want to loop over just up/down variations relevant for data (i.e. FF up and down)
+                    wgt_var_lst = wgt_var_lst + data_syst_lst
 
-                # Loop over the systematics
-                for wgt_fluct in wgt_var_lst:
+            # Loop over the systematics
+            for wgt_fluct in wgt_var_lst:
 
-                    # Loop over nlep categories "2l", "3l", "4l"
-                    for nlep_cat in cat_dict.keys():
-                        # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
-                        # Need to do this inside of nlep cat loop since some wgts depend on lep cat
-                        weights_object = weights_dict[nlep_cat]
-                        if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
-                            # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
-                            weight = weights_object.weight(None)
+                # Loop over nlep categories "2l", "3l", "4l"
+                for nlep_cat in cat_dict.keys():
+                    # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
+                    # Need to do this inside of nlep cat loop since some wgts depend on lep cat
+                    weights_object = weights_dict[nlep_cat]
+                    if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
+                        # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
+                        weight = weights_object.weight(None)
+                    else:
+                        # Otherwise get the weight from the Weights object
+                        if wgt_fluct in weights_object.variations:
+                            weight = weights_object.weight(wgt_fluct)
                         else:
-                            # Otherwise get the weight from the Weights object
-                            if wgt_fluct in weights_object.variations:
-                                weight = weights_object.weight(wgt_fluct)
-                            else:
-                                # Note in this case there is no up/down fluct for this cateogry, so we don't want to fill a hist for it
-                                continue
+                            # Note in this case there is no up/down fluct for this cateogry, so we don't want to fill a hist for it
+                            continue
 
-                        # This is a check ot make sure we guard against any unintentional variations being applied to data
-                        if self._do_systematics and isData:
-                            # Should not have any up/down variations for data in 4l (since we don't estimate the fake rate there)
-                            if nlep_cat == "4l":
-                                if weights_object.variations != set([]): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{[]}\" but have \"{weights_object.variations}\".")
-                            # In all other cases, the up/down variations should correspond to only the ones in the data list
-                            else:
-                                if weights_object.variations != set(data_syst_lst): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst)}\" but have \"{weights_object.variations}\".")
+                    # This is a check ot make sure we guard against any unintentional variations being applied to data
+                    if self._do_systematics and isData:
+                        # Should not have any up/down variations for data in 4l (since we don't estimate the fake rate there)
+                        if nlep_cat == "4l":
+                            if weights_object.variations != set([]): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{[]}\" but have \"{weights_object.variations}\".")
+                        # In all other cases, the up/down variations should correspond to only the ones in the data list
+                        else:
+                            if weights_object.variations != set(data_syst_lst): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst)}\" but have \"{weights_object.variations}\".")
 
-                        # Get a mask for events that pass any of the njet requiremens in this nlep cat
-                        # Useful in cases like njets hist where we don't store njets in a sparse axis
-                        njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
+                    # Get a mask for events that pass any of the njet requiremens in this nlep cat
+                    # Useful in cases like njets hist where we don't store njets in a sparse axis
+                    njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
 
-                        # Loop over the njets list for each channel
-                        for njet_val in cat_dict[nlep_cat].keys():
+                    # Loop over the njets list for each channel
+                    for njet_val in cat_dict[nlep_cat].keys():
 
-                            # Loop over the appropriate AR and SR for this channel
-                            for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
+                        # Loop over the appropriate AR and SR for this channel
+                        for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
 
-                                # We don't want or need to fill SR histos with the FF variations
-                                if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
+                            # We don't want or need to fill SR histos with the FF variations
+                            if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
 
-                                # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
-                                for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
-                                    # Loop over the lep flavor list for each channel
-                                    for lep_flav in cat_dict[nlep_cat][njet_val]["lep_flav_lst"]:
-                                        # Construct the hist name
-                                        flav_ch = None
-                                        njet_ch = None
-                                        cuts_lst = [appl,lep_chan]
+                            # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
+                            for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
+                                # Loop over the lep flavor list for each channel
+                                for lep_flav in cat_dict[nlep_cat][njet_val]["lep_flav_lst"]:
+                                    # Construct the hist name
+                                    flav_ch = None
+                                    njet_ch = None
+                                    cuts_lst = [appl,lep_chan]
 
-                                        if isData:
-                                            cuts_lst.append("is_good_lumi")
-                                        if self._split_by_lepton_flavor:
-                                            flav_ch = lep_flav
-                                            cuts_lst.append(lep_flav)
-                                        if dense_axis_name != "njets":
-                                            njet_ch = njet_val
-                                            cuts_lst.append(njet_val)
-                                        ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
+                                    if isData:
+                                        cuts_lst.append("is_good_lumi")
+                                    if self._split_by_lepton_flavor:
+                                        flav_ch = lep_flav
+                                        cuts_lst.append(lep_flav)
+                                    if dense_axis_name != "njets":
+                                        njet_ch = njet_val
+                                        cuts_lst.append(njet_val)
+                                    ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
 
-                                        # Get the cuts mask for all selections
-                                        if dense_axis_name == "njets":
-                                            all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
-                                        else:
-                                            all_cuts_mask = selections.all(*cuts_lst)
+                                    # Get the cuts mask for all selections
+                                    if dense_axis_name == "njets":
+                                        all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
+                                    else:
+                                        all_cuts_mask = selections.all(*cuts_lst)
 
-                                        # Apply the optional cut on energy of the event
-                                        if self._ecut_threshold is not None:
-                                            all_cuts_mask = (all_cuts_mask & ecut_mask)
+                                    # Apply the optional cut on energy of the event
+                                    if self._ecut_threshold is not None:
+                                        all_cuts_mask = (all_cuts_mask & ecut_mask)
 
-                                        # Weights and eft coeffs
-                                        weights_flat = weight[all_cuts_mask]
-                                        eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
+                                    # Weights and eft coeffs
+                                    weights_flat = weight[all_cuts_mask]
+                                    eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
-                                        # Fill the histos
-                                        axes_fill_info_dict = {
-                                            dense_axis_name : dense_axis_vals[all_cuts_mask],
-                                            #"channel"       : ch_name,
-                                            #"appl"          : appl,
-                                            #"process"       : histAxisName,
-                                            #"systematic"    : wgt_fluct,
-                                            "weight"        : weights_flat,
-                                            "eft_coeff"     : eft_coeffs_cut,
-                                        }
+                                    # Fill the histos
+                                    axes_fill_info_dict = {
+                                        dense_axis_name : dense_axis_vals[all_cuts_mask],
+                                        #"channel"       : ch_name,
+                                        #"appl"          : appl,
+                                        #"process"       : histAxisName,
+                                        #"systematic"    : wgt_fluct,
+                                        "weight"        : weights_flat,
+                                        "eft_coeff"     : eft_coeffs_cut,
+                                    }
 
-                                        # Skip histos that are not defined (or not relevant) to given categories
-                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
-                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
-                                        if self.offZ_3l_split:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
-                                        elif self.tau_h_analysis:
-                                            if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
-                                            if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
-                                            if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))): continue
+                                    # Skip histos that are not defined (or not relevant) to given categories
+                                    if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
+                                    if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
+                                    if self.offZ_3l_split:
+                                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
+                                    elif self.tau_h_analysis:
+                                        if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
+                                        if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
+                                        if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))): continue
 
-                                        elif self.fwd_analysis:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                            if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
-                                        else:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                        if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-                                        hist_key = (dense_axis_name, ch_name, appl, dataset, wgt_fluct)
-                                        if hist_key not in hout.keys():
-                                            continue
-                                        hout[hist_key].fill(**axes_fill_info_dict)
-                                        axes_fill_info_dict = {
-                                            dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
-                                            #"channel"       : ch_name,
-                                            #"appl"          : appl,
-                                            #"process"       : histAxisName,
-                                            #"systematic"    : wgt_fluct,
-                                            "weight"        : np.square(weights_flat),
-                                            "eft_coeff"     : eft_coeffs_cut,
-                                        }
-                                        hist_key = (dense_axis_name+"_sumw2", ch_name, appl, dataset, wgt_fluct)
-                                        if hist_key not in hout.keys():
-                                            continue
-                                        hout[hist_key].fill(**axes_fill_info_dict)
+                                    elif self.fwd_analysis:
+                                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                        if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
+                                    else:
+                                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
+                                    if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
+                                    hist_key = (dense_axis_name, ch_name, appl, dataset, wgt_fluct)
+                                    if hist_key not in hout.keys():
+                                        continue
+                                    hout[hist_key].fill(**axes_fill_info_dict)
+                                    axes_fill_info_dict = {
+                                        dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
+                                        #"channel"       : ch_name,
+                                        #"appl"          : appl,
+                                        #"process"       : histAxisName,
+                                        #"systematic"    : wgt_fluct,
+                                        "weight"        : np.square(weights_flat),
+                                        "eft_coeff"     : eft_coeffs_cut,
+                                    }
+                                    hist_key = (dense_axis_name+"_sumw2", ch_name, appl, dataset, wgt_fluct)
+                                    if hist_key not in hout.keys():
+                                        continue
+                                    hout[hist_key].fill(**axes_fill_info_dict)
 
-                                        # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
-                                        if not self._split_by_lepton_flavor: break
+                                    # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
+                                    if not self._split_by_lepton_flavor: break
 
-                            # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
-                            if dense_axis_name == "njets": break
+                        # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
+                        if dense_axis_name == "njets": break
 
         return hout
 

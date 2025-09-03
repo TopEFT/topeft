@@ -381,9 +381,7 @@ if __name__ == "__main__":
     flist = {}
     nevts_total = 0
     for sname in samplesdict.keys():
-
         samplesdict[sname]["files"] = samplesdict[sname]["files"]  # [0:1]
-
         redirector = samplesdict[sname]["redirector"]
         flist[sname] = [(redirector + f) for f in samplesdict[sname]["files"]]
         samplesdict[sname]["year"] = samplesdict[sname]["year"]
@@ -454,15 +452,16 @@ if __name__ == "__main__":
     syst_lst = metadata["systematics"]
     var_lst = hist_lst if hist_lst is not None else metadata["variables"]
 
-    sample_lst = list(samplesdict.keys())
-
     key_lst = []
-    for var in var_lst:
-        for ch in ch_lst:
-            for appl in ch_app_map.get(ch, []):
-                for sample in sample_lst:
+
+    samples_lst = list(samplesdict.keys())
+    
+    for sample in samples_lst:
+        for var in var_lst:
+            for ch in ch_lst:
+                for appl in ch_app_map.get(ch, []):
                     for syst in syst_lst:
-                        key_lst.append((var, ch, appl, sample, syst))
+                        key_lst.append((sample, var, ch, appl, syst))
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
@@ -568,13 +567,10 @@ if __name__ == "__main__":
     output = {}
     key_lst = key_lst[:1]
     for key in key_lst:
-        print("\n\n\n\nkey: ", key)
-        sample = key[3]
-        sample_dict = {sample: samplesdict[sample]}
-        sample_flist = {sample: flist[sample]}
-        print("sample_flist: ", sample_flist)
-        print("sample_dict: ", sample_dict)
-        print("\n\n\n\n")
+        sample = key[0]
+        sample_dict = samplesdict[sample]
+        sample_flist = flist[sample]
+
         processor_instance = analysis_processor.AnalysisProcessor(
             sample_dict,
             wc_lst,
@@ -589,7 +585,7 @@ if __name__ == "__main__":
             tau_h_analysis=tau_h_analysis,
             fwd_analysis=fwd_analysis,
         )
-        out = runner(sample_flist, treename, processor_instance)
+        out = runner({sample: sample_flist}, treename, processor_instance)
         output.update(out)
 
     dt = time.time() - tstart
