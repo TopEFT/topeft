@@ -2,13 +2,11 @@
 
 # PrintUsage: display script usage information
 PrintUsage() {
-  echo "Usage: $0 [-y YEAR] [-t TAG] [-s CHUNKSIZE] [-c NCHUNKS] --cr | --sr [run_analysis options]"
+  echo "Usage: $0 [-y YEAR] [-t TAG] --cr | --sr [run_analysis options]"
   echo
   echo "Options:"
   echo "  -y YEAR    Year identifier (e.g., 2022, 2022EE, 2023, 2023BPix)"
   echo "  -t TAG     Git tag or commit identifier"
-  echo "  -s CHUNKSIZE  Number of events per chunk (default: 100000)"
-  echo "  -c NCHUNKS   Number of chunks to run (default: all)"
   echo "  --cr       Generate control-region histograms"
   echo "  --sr       Generate signal-region histograms"
   echo "  -h, --help Show this help message"
@@ -20,12 +18,8 @@ PrintUsage() {
 # Default values
 DEFAULT_YEAR="2022"
 DEFAULT_TAG="fec79a60_PNet"
-DEFAULT_CHUNKSIZE=100000
-DEFAULT_NCHUNKS=""
 FLAG_CR=false
 FLAG_SR=false
-CHUNKSIZE="$DEFAULT_CHUNKSIZE"
-NCHUNKS="$DEFAULT_NCHUNKS"
 EXTRA_ARGS=()
 
 # Parse command-line arguments
@@ -46,14 +40,6 @@ while [[ $# -gt 0 ]]; do
     --sr)
       FLAG_SR=true
       shift
-      ;;
-    -s)
-      CHUNKSIZE="$2"
-      shift 2
-      ;;
-    -c)
-      NCHUNKS="$2"
-      shift 2
       ;;
     -h|--help)
       PrintUsage
@@ -100,17 +86,13 @@ CFGS="${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg,${CFGS_PATH}/NDSkim_${Y
 
 # Define options based on mode
 if [[ "$FLAG_CR" == "true" ]]; then
-  OPTIONS="--hist-list cr --skip-sr --split-lep-flavor -p /scratch365/$USER/ -o $OUT_NAME -x work_queue --do-np"
+  OPTIONS="--hist-list cr --skip-sr -s 50000 --split-lep-flavor -p /scratch365/$USER/ -o $OUT_NAME -x work_queue --do-np"
 else
-  OPTIONS="--hist-list ana --skip-cr --do-systs --do-np -o $OUT_NAME"
+  OPTIONS="--hist-list ana --skip-cr --do-systs -s 50000 --do-np -o $OUT_NAME"
 fi
 
 # Build and run the command
-RUN_CMD=(python run_analysis.py $CFGS $OPTIONS -s "$CHUNKSIZE")
-if [[ -n "$NCHUNKS" ]]; then
-  RUN_CMD+=(-c "$NCHUNKS")
-fi
-RUN_CMD+=("${EXTRA_ARGS[@]}")
+RUN_CMD=(python run_analysis.py $CFGS $OPTIONS "${EXTRA_ARGS[@]}")
 
 printf "\nRunning the following command:\n%s\n\n" "${RUN_CMD[*]}"
 
