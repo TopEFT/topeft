@@ -10,33 +10,19 @@ class TupleRunner(processor.Runner):
         if isinstance(fileset, Mapping):
             tuple_map = {}
             normalized = {}
-
-            for idx, (key, val) in enumerate(fileset.items()):
+            for key, val in fileset.items():
                 if isinstance(key, tuple):
-                    dataset_name = f"{key[3]}_{idx}"
+                    dataset_name = key[0]
                     normalized[dataset_name] = val
                     tuple_map[dataset_name] = key
                 else:
                     normalized[key] = val
             self._tuple_map = tuple_map
-
-            return super().run(
-                normalized,
-                processor_instance,
-                treename=treename,
-                uproot_options=uproot_options,
-                iteritems_options=iteritems_options,
-            )
+            return super().run(normalized, processor_instance, treename, uproot_options, iteritems_options)
 
         # No special handling needed
         self._tuple_map = {}
-        return super().run(
-            fileset,
-            processor_instance,
-            treename=treename,
-            uproot_options=uproot_options,
-            iteritems_options=iteritems_options,
-        )
+        return super().run(fileset, processor_instance, treename, uproot_options, iteritems_options)
 
     def preprocess(self, fileset, treename=None):
         for chunk in super().preprocess(fileset, treename):
