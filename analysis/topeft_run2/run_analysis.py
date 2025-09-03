@@ -10,6 +10,7 @@ import yaml
 
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
+from topeft.custom_runner import TupleRunner
 
 import topcoffea.modules.utils as utils
 import topcoffea.modules.remote_environment as remote_environment
@@ -538,12 +539,12 @@ if __name__ == "__main__":
 
     if executor == "futures":
         exec_instance = processor.futures_executor(workers=nworkers)
-        runner = processor.Runner(
+        runner = TupleRunner(
             exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks
         )
     elif executor == "work_queue":
         executor = processor.WorkQueueExecutor(**executor_args)
-        runner = processor.Runner(
+        runner = TupleRunner(
             executor,
             schema=NanoAODSchema,
             chunksize=chunksize,
@@ -556,7 +557,7 @@ if __name__ == "__main__":
             executor = processor.TaskVineExecutor(**executor_args)
         except AttributeError:
             raise RuntimeError("TaskVineExecutor not available.")
-        runner = processor.Runner(
+        runner = TupleRunner(
             executor,
             schema=NanoAODSchema,
             chunksize=chunksize,
@@ -565,32 +566,23 @@ if __name__ == "__main__":
             xrootdtimeout=300,
         )
 
-    output = {}
-    key_lst = key_lst[:1]
-    for key in key_lst:
-        print("\n\n\n\nkey: ", key)
-        sample = key[3]
-        sample_dict = {sample: samplesdict[sample]}
-        sample_flist = {sample: flist[sample]}
-        print("sample_flist: ", sample_flist)
-        print("sample_dict: ", sample_dict)
-        print("\n\n\n\n")
-        processor_instance = analysis_processor.AnalysisProcessor(
-            sample_dict,
-            wc_lst,
-            key,
-            ecut_threshold,
-            do_errors,
-            do_systs,
-            split_lep_flavor,
-            skip_sr,
-            skip_cr,
-            offZ_split=offZ_split,
-            tau_h_analysis=tau_h_analysis,
-            fwd_analysis=fwd_analysis,
-        )
-        out = runner(sample_flist, treename, processor_instance)
-        output.update(out)
+    fileset = {key: flist[key[3]] for key in key_lst}
+    processor_instance = analysis_processor.AnalysisProcessor(
+        samplesdict,
+        wc_lst,
+        key_lst[0],
+        ecut_threshold,
+        do_errors,
+        do_systs,
+        split_lep_flavor,
+        skip_sr,
+        skip_cr,
+        offZ_split=offZ_split,
+        tau_h_analysis=tau_h_analysis,
+        fwd_analysis=fwd_analysis,
+    )
+    processor_instance._hist_lst = list({k[0] for k in key_lst})
+    output = runner(fileset, treename, processor_instance)
 
     dt = time.time() - tstart
 

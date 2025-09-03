@@ -24,6 +24,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             'j0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0pt",   "Leading jet  $p_{T}$ (GeV)", 10, 0, 600)),
             'j0eta'   : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("j0eta",  "Leading jet  $\eta$", 10, -3.0, 3.0)),
             'l0pt'    : HistEFT("Events", wc_names_lst, hist.Cat("sample", "sample"), hist.Cat("channel", "channel"), hist.Cat("cut", "cut"), hist.Bin("l0pt",   "Leading lep $p_{T}$ (GeV)", 15, 0, 400)),
+            'tuple_counts' : hist.Hist("Events", hist.Cat("tuple", "tuple"), hist.Bin("counts", "Counts", 1, 0, 2)),
         })
 
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
@@ -42,6 +43,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Dataset parameters
         dataset = events.metadata['dataset']
+        tuple_id = events.metadata.get('tuple')
         year   = self._samples[dataset]['year']
         xsec   = self._samples[dataset]['xsec']
         sow    = self._samples[dataset]['nSumOfWeights' ]
@@ -161,8 +163,8 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         print("\nFilling hists now...\n")
         hout = self.accumulator.identity()
+        cut = selections.all("2l2j")
         for var, v in varnames.items():
-            cut = selections.all("2l2j")
             values = v[cut]
             eft_coeffs_cut = eft_coeffs[cut] if eft_coeffs is not None else None
             eft_w2_coeffs_cut = eft_w2_coeffs[cut] if eft_w2_coeffs is not None else None
@@ -176,6 +178,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 hout[var].fill(j0eta=values, sample=dataset, channel="2l", cut="2l", eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
             elif var == "l0pt":
                 hout[var].fill(l0pt=values, sample=dataset, channel="2l", cut="2l", eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
+
+        n = np.count_nonzero(np.array(cut))
+        if n > 0:
+            hout['tuple_counts'].fill(counts=np.ones(n), tuple=str(tuple_id))
 
         return hout
 
