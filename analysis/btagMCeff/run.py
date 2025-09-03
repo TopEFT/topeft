@@ -8,7 +8,6 @@ import os
 import numpy as np
 from coffea import hist, processor
 from coffea.nanoevents import NanoAODSchema
-from topeft.custom_runner import TupleRunner
 
 import btagMCeff
 
@@ -125,7 +124,7 @@ if __name__ == '__main__':
     processor_instance = btagMCeff.AnalysisProcessor(samplesdict)
 
     executor = processor.futures_executor(workers=nworkers)
-    runner = TupleRunner(executor, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
+    runner = processor.Runner(executor, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks)
 
     tstart = time.time()
     output = runner(flist, treename, processor_instance)

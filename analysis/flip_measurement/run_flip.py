@@ -7,7 +7,6 @@ import argparse
 
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
-from topeft.custom_runner import TupleRunner
 import topcoffea.modules.remote_environment as remote_environment
 
 import flip_mr_processor
@@ -162,7 +161,7 @@ elif executor ==  "work_queue":
 else:
     raise Exception(f"Executor \"{executor}\" is not known.")
 
-runner = TupleRunner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=180)
+runner = processor.Runner(exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks, skipbadfiles=False, xrootdtimeout=180)
 output = runner(flist, treename, processor_instance)
 
 dt = time.time() - tstart
