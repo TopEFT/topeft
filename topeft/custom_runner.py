@@ -10,6 +10,7 @@ class TupleRunner(processor.Runner):
         if isinstance(fileset, Mapping):
             tuple_map = {}
             normalized = {}
+
             for idx, (key, val) in enumerate(fileset.items()):
                 if isinstance(key, tuple):
                     dataset_name = f"{key[3]}_{idx}"
@@ -18,6 +19,7 @@ class TupleRunner(processor.Runner):
                 else:
                     normalized[key] = val
             self._tuple_map = tuple_map
+
             return super().run(
                 normalized,
                 processor_instance,
