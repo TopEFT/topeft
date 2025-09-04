@@ -8,6 +8,8 @@ import gzip
 import os
 import yaml
 
+from topeft.modules.paths import topeft_path
+
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
@@ -17,7 +19,6 @@ import topcoffea.modules.remote_environment as remote_environment
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
 import analysis_processor
-from topeft.modules.axes import info as axes_info
 
 LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
 
@@ -443,7 +444,7 @@ if __name__ == "__main__":
     else:
         print("No Wilson coefficients specified")
 
-    metadata_path = os.path.join(os.path.dirname(__file__), "metadata.yml")
+    metadata_path = topeft_path("params/metadata.yml")
     with open(metadata_path, "r") as f:
         metadata = yaml.safe_load(f)
 
@@ -455,13 +456,14 @@ if __name__ == "__main__":
     key_lst = []
 
     samples_lst = list(samplesdict.keys())
-    
+
     for sample in samples_lst:
         for var in var_lst:
+            var_info = metadata["variables"][var].copy()
             for ch in ch_lst:
                 for appl in ch_app_map.get(ch, []):
                     for syst in syst_lst:
-                        key_lst.append((sample, var, ch, appl, syst))
+                        key_lst.append((sample, var, ch, appl, syst, var_info))
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
@@ -567,14 +569,17 @@ if __name__ == "__main__":
     output = {}
     key_lst = key_lst[:1]
     for key in key_lst:
-        sample = key[0]
+        sample, var, ch, appl, syst, var_info = key
         sample_dict = samplesdict[sample]
         sample_flist = flist[sample]
+
+        hist_key = (var, ch, appl, sample, syst)
 
         processor_instance = analysis_processor.AnalysisProcessor(
             sample_dict,
             wc_lst,
-            key,
+            hist_key,
+            var_info,
             ecut_threshold,
             do_errors,
             do_systs,

@@ -3,6 +3,7 @@ import os
 import copy
 import datetime
 import argparse
+import yaml
 import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
@@ -11,7 +12,12 @@ from cycler import cycler
 import mplhep as hep
 import hist
 from topcoffea.modules.histEFT import HistEFT
-from topeft.modules.axes import info as axes_info
+from topeft.modules.paths import topeft_path
+
+metadata_path = topeft_path("params/metadata.yml")
+with open(metadata_path, "r") as f:
+    metadata = yaml.safe_load(f)
+axes_info = metadata["variables"]
 
 from topcoffea.scripts.make_html import make_html
 import topcoffea.modules.utils as utils
