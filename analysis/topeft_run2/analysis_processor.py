@@ -78,6 +78,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         var, ch, appl, sample_name, syst = hist_key
         info = var_info
+
         self._var_def = info.get("definition")
         if self._var_def is None:
             raise ValueError(f"No definition provided for variable {var}")
