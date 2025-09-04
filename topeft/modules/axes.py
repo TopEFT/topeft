@@ -1,78 +1,140 @@
-info = {
-    "invmass": {
-        "regular": (20, 0, 1000),
-        "label": r"$m_{\ell\ell}$ (GeV) ",
-    },
-    "ptbl": {
-        "regular": (40, 0, 1000),
-        "variable": [0, 100, 200, 400],
-        "label": r"$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) ",
-    },
-    "ptz": {
-        "regular": (12, 0, 600),
-        "variable": [0, 200, 300, 400, 500],
-        "label": r"$p_{T}$ Z (GeV) ",
-    },
-    "njets": {
-        "regular": (10, 0, 10),
-        "variable_multi": {
-            "2l": [4, 5, 6, 7],
-            "3l": [2, 3, 4, 5],
-            "4l": [2, 3, 4],
-        },
-        "label": r"Jet multiplicity ",
-    },
-    "nbtagsl": {"regular": (5, 0, 5), "label": r"Loose btag multiplicity "},
-    "l0pt": {
-        "regular": (10, 0, 500),
-        "variable": [0, 50, 100, 200],
-        "label": r"Leading lep $p_{T}$ (GeV) ",
-    },
-    "l1pt": {"regular": (10, 0, 100), "label": r"Subleading lep $p_{T}$ (GeV) "},
-    "l1eta": {"regular": (20, -2.5, 2.5), "label": r"Subleading $\eta$ "},
-    "j0pt": {"regular": (10, 0, 500), "label": r"Leading jet  $p_{T}$ (GeV) "},
-    "b0pt": {"regular": (10, 0, 500), "label": r"Leading b jet  $p_{T}$ (GeV) "},
-    "l0eta": {"regular": (20, -2.5, 2.5), "label": r"Leading lep $\eta$ "},
-    "j0eta": {"regular": (30, -3, 3), "label": r"Leading jet  $\eta$ "},
-    "ht": {
-        "regular": (20, 0, 1000),
-        "variable": [0, 300, 500, 800],
-        "label": r"H$_{T}$ (GeV) ",
-    },
-    "met": {"regular": (20, 0, 400), "label": r"MET (GeV)"},
-    "ljptsum": {
-        "regular": (11, 0, 1100),
-        "variable": [0, 400, 600, 1000],
-        "label": r"S$_{T}$ (GeV) ",
-    },
-    "o0pt": {
-        "regular": (10, 0, 500),
-        "variable": [0, 100, 200, 400],
-        "label": r"Leading l or b jet $p_{T}$ (GeV)",
-    },
-    "bl0pt": {
-        "regular": (10, 0, 500),
-        "variable": [0, 100, 200, 400],
-        "label": r"Leading (b+l) $p_{T}$ (GeV) ",
-    },
-    "lj0pt": {
-        "regular": (12, 0, 600),
-        "variable": [0, 150, 250, 500],
-        "label": r"Leading pt of pair from l+j collection (GeV) ",
-    },
-    "ptz_wtau": {
-        "regular": (12, 0, 600),
-        "variable": [0, 150, 250, 500],
-        "label": r"pt of lepton hadronic tau pair (GeV) ",
-    },
-    "tau0pt": {
-        "regular": (12, 0, 600),
-        "variable": [0, 150, 250, 500],
-        "label": r"pt of leading hadronic tau (GeV) ",
-    },
-    "lt": {
-        "regular": (12, 0, 600),
-        "variable": [0,150,250,500],
-        "label": r"Scalar sum of met at leading leptons (GeV)",
-    },
-}
+channels:
+  - 2lss_m_4j
+  - 2lss_m_5j
+  - 2lss_m_6j
+  - 2lss_m_7j
+  - 2lss_p_4j
+  - 2lss_p_5j
+  - 2lss_p_6j
+  - 2lss_p_7j
+  - 3l_onZ_1b
+  - 3l_onZ_2b
+  - 3l_m_offZ_1b
+  - 3l_m_offZ_2b
+  - 3l_p_offZ_1b
+  - 3l_p_offZ_2b
+  - 4l
+applications:
+  - isAR_2lSS_OS
+  - isSR_2lSS
+  - isAR_2lSS
+  - isSR_3l
+  - isAR_3l
+  - isSR_4l
+channel_applications:
+  2lss_m_4j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_m_5j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_m_6j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_m_7j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_p_4j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_p_5j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_p_6j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  2lss_p_7j: [isAR_2lSS_OS, isSR_2lSS, isAR_2lSS]
+  3l_onZ_1b: [isSR_3l, isAR_3l]
+  3l_onZ_2b: [isSR_3l, isAR_3l]
+  3l_m_offZ_1b: [isSR_3l, isAR_3l]
+  3l_m_offZ_2b: [isSR_3l, isAR_3l]
+  3l_p_offZ_1b: [isSR_3l, isAR_3l]
+  3l_p_offZ_2b: [isSR_3l, isAR_3l]
+  4l: [isSR_4l]
+systematics:
+  - nominal
+  - lepSF_muonUp
+  - lepSF_muonDown
+  - lepSF_elecUp
+  - lepSF_elecDown
+  - btagSFbc_corrUp
+  - btagSFbc_corrDown
+  - btagSFlight_corrUp
+  - btagSFlight_corrDown
+  - PUUp
+  - PUDown
+  - PreFiringUp
+  - PreFiringDown
+  - FSRUp
+  - FSRDown
+  - ISRUp
+  - ISRDown
+  - renormUp
+  - renormDown
+  - factUp
+  - factDown
+variables:
+  invmass:
+    regular: [20, 0, 1000]
+    label: '$m_{\ell\ell}$ (GeV) '
+  ptbl:
+    regular: [40, 0, 1000]
+    variable: [0, 100, 200, 400]
+    label: '$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) '
+  ptz:
+    regular: [12, 0, 600]
+    variable: [0, 200, 300, 400, 500]
+    label: '$p_{T}$ Z (GeV) '
+  njets:
+    regular: [10, 0, 10]
+    variable_multi:
+      '2l': [4, 5, 6, 7]
+      '3l': [2, 3, 4, 5]
+      '4l': [2, 3, 4]
+    label: 'Jet multiplicity '
+  nbtagsl:
+    regular: [5, 0, 5]
+    label: 'Loose btag multiplicity '
+  l0pt:
+    regular: [10, 0, 500]
+    variable: [0, 50, 100, 200]
+    label: 'Leading lep $p_{T}$ (GeV) '
+  l1pt:
+    regular: [10, 0, 100]
+    label: 'Subleading lep $p_{T}$ (GeV) '
+  l1eta:
+    regular: [20, -2.5, 2.5]
+    label: 'Subleading $\eta$ '
+  j0pt:
+    regular: [10, 0, 500]
+    label: 'Leading jet  $p_{T}$ (GeV) '
+  b0pt:
+    regular: [10, 0, 500]
+    label: 'Leading b jet  $p_{T}$ (GeV) '
+  l0eta:
+    regular: [20, -2.5, 2.5]
+    label: 'Leading lep $\eta$ '
+  j0eta:
+    regular: [30, -3, 3]
+    label: 'Leading jet  $\eta$ '
+  ht:
+    regular: [20, 0, 1000]
+    variable: [0, 300, 500, 800]
+    label: 'H$_{T}$ (GeV) '
+  met:
+    regular: [20, 0, 400]
+    label: 'MET (GeV)'
+  ljptsum:
+    regular: [11, 0, 1100]
+    variable: [0, 400, 600, 1000]
+    label: 'S$_{T}$ (GeV) '
+  o0pt:
+    regular: [10, 0, 500]
+    variable: [0, 100, 200, 400]
+    label: 'Leading l or b jet $p_{T}$ (GeV)'
+  bl0pt:
+    regular: [10, 0, 500]
+    variable: [0, 100, 200, 400]
+    label: 'Leading (b+l) $p_{T}$ (GeV) '
+  lj0pt:
+    regular: [12, 0, 600]
+    variable: [0, 150, 250, 500]
+    label: 'Leading pt of pair from l+j collection (GeV) '
+  ptz_wtau:
+    regular: [12, 0, 600]
+    variable: [0, 150, 250, 500]
+    label: 'pt of lepton hadronic tau pair (GeV) '
+  tau0pt:
+    regular: [12, 0, 600]
+    variable: [0, 150, 250, 500]
+    label: 'pt of leading hadronic tau (GeV) '
+  lt:
+    regular: [12, 0, 600]
+    variable: [0, 150, 250, 500]
+    label: 'Scalar sum of met at leading leptons (GeV)'

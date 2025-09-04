@@ -8,13 +8,18 @@ import os
 import re
 import json
 import time
+import yaml
 
 from collections import defaultdict
 
 from topcoffea.modules.utils import regex_match
 from topeft.modules.paths import topeft_path
-from topeft.modules.axes import info as axes_info
 from topeft.modules.compatibility import add_sumw2_stub
+
+metadata_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "analysis", "topeft_run2", "metadata.yml"))
+with open(metadata_path, "r") as f:
+    metadata = yaml.safe_load(f)
+axes_info = metadata["variables"]
 
 
 PRECISION = 6   # Decimal point precision in the text datacard output

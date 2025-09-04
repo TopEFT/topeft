@@ -20,7 +20,6 @@ import topcoffea.modules.event_selection as tc_es
 import topcoffea.modules.object_selection as tc_os
 import topcoffea.modules.corrections as tc_cor
 
-from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
 import topeft.modules.event_selection as te_es
@@ -59,7 +58,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, sample, wc_names_lst=[], hist_key=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
+    def __init__(self, sample, wc_names_lst=[], hist_key=None, var_info=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
 
         self._sample = sample
         self._wc_names_lst = wc_names_lst
@@ -74,10 +73,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         with open(metadata_path, "r") as f:
             metadata = yaml.safe_load(f)
 
-        if hist_key is None:
-            raise ValueError("hist_key must be provided and cannot be None")
+        if hist_key is None or var_info is None:
+            raise ValueError("hist_key and var_info must be provided and cannot be None")
 
-        sample, var, ch, appl, syst = hist_key
+        var, ch, appl, sample_name, syst = hist_key
+        info = var_info
 
         if var not in metadata["variables"]:
             raise ValueError(f"Unknown variable {var}")
@@ -88,22 +88,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         if syst not in metadata["systematics"]:
             raise ValueError(f"Unknown systematic {syst}")
 
-        sumw2_key = (var + "_sumw2", sample, ch, appl, syst)
-        
-        info = axes_info[var]
+        sumw2_key = (var + "_sumw2", ch, appl, sample_name, syst)
+
         if not rebin and "variable" in info:
             dense_axis = hist.axis.Variable(
-                info["variable"], name=hist_key[0], label=info["label"]
+                info["variable"], name=var, label=info["label"]
             )
             sumw2_axis = hist.axis.Variable(
-                info["variable"], name=hist_key[0]+"_sumw2", label=info["label"] + " sum of w^2"
+                info["variable"], name=var+"_sumw2", label=info["label"] + " sum of w^2"
             )
         else:
             dense_axis = hist.axis.Regular(
-                *info["regular"], name=hist_key[0], label=info["label"]
+                *info["regular"], name=var, label=info["label"]
             )
             sumw2_axis = hist.axis.Regular(
-                *info["regular"], name=hist_key[0]+"_sumw2", label=info["label"] + " sum of w^2"
+                *info["regular"], name=var+"_sumw2", label=info["label"] + " sum of w^2"
             )
 
         histogram[hist_key] = HistEFT(
