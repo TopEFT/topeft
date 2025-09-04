@@ -59,9 +59,9 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, samples, wc_names_lst=[], hist_key=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
+    def __init__(self, sample, wc_names_lst=[], hist_key=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
 
-        self._samples = samples
+        self._sample = sample
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
         self.offZ_3l_split = offZ_split
@@ -69,8 +69,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.fwd_analysis = fwd_analysis
 
         histogram = {}
-
-        print("\n\n\n\n\n", "samples.keys(): ", self._samples.keys(), "\n\n\n\n")
 
         metadata_path = os.path.join(os.path.dirname(__file__), "metadata.yml")
         with open(metadata_path, "r") as f:
@@ -132,7 +130,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Set the booleans
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
-        self._do_systematics = do_systematics # Whether to process systematic samples
+        self._do_systematics = do_systematics # Whether to process systematic sample
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
@@ -152,13 +150,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Dataset parameters
         dataset = events.metadata["dataset"]
-        isEFT   = self._samples["WCnames"] != []
+        isEFT   = self._sample["WCnames"] != []
 
-        isData             = self._samples["isData"]
-        histAxisName       = self._samples["histAxisName"]
-        year               = self._samples["year"]
-        xsec               = self._samples["xsec"]
-        sow                = self._samples["nSumOfWeights"]
+        isData             = self._sample["isData"]
+        histAxisName       = self._sample["histAxisName"]
+        year               = self._sample["year"]
+        xsec               = self._sample["xsec"]
+        sow                = self._sample["nSumOfWeights"]
 
         is_run3 = False
         if year.startswith("202"):
@@ -167,7 +165,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         run_era = None
         if isData:
-            run_era = self._samples["path"].split("/")[2].split("-")[0][-1]
+            run_era = self._sample["path"].split("/")[2].split("-")[0][-1]
 
         # Get up down weights from input dict
         if (self._do_systematics and not isData):
@@ -175,30 +173,30 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # We have a LO xsec for these samples, so for these systs we will have e.g. xsec_LO*(N_pass_up/N_gen_nom)
                 # Thus these systs will cover the cross section uncty and the acceptance and effeciency and shape
                 # So no NLO rate uncty for xsec should be applied in the text data card
-                sow_ISRUp          = self._samples["nSumOfWeights"]
-                sow_ISRDown        = self._samples["nSumOfWeights"]
-                sow_FSRUp          = self._samples["nSumOfWeights"]
-                sow_FSRDown        = self._samples["nSumOfWeights"]
-                sow_renormUp       = self._samples["nSumOfWeights"]
-                sow_renormDown     = self._samples["nSumOfWeights"]
-                sow_factUp         = self._samples["nSumOfWeights"]
-                sow_factDown       = self._samples["nSumOfWeights"]
-                sow_renormfactUp   = self._samples["nSumOfWeights"]
-                sow_renormfactDown = self._samples["nSumOfWeights"]
+                sow_ISRUp          = self._sample["nSumOfWeights"]
+                sow_ISRDown        = self._sample["nSumOfWeights"]
+                sow_FSRUp          = self._sample["nSumOfWeights"]
+                sow_FSRDown        = self._sample["nSumOfWeights"]
+                sow_renormUp       = self._sample["nSumOfWeights"]
+                sow_renormDown     = self._sample["nSumOfWeights"]
+                sow_factUp         = self._sample["nSumOfWeights"]
+                sow_factDown       = self._sample["nSumOfWeights"]
+                sow_renormfactUp   = self._sample["nSumOfWeights"]
+                sow_renormfactDown = self._sample["nSumOfWeights"]
             else:
                 # Otherwise we have an NLO xsec, so for these systs we will have e.g. xsec_NLO*(N_pass_up/N_gen_up)
                 # Thus these systs should only affect acceptance and effeciency and shape
                 # The uncty on xsec comes from NLO and is applied as a rate uncty in the text datacard
-                sow_ISRUp          = self._samples["nSumOfWeights_ISRUp"          ]
-                sow_ISRDown        = self._samples["nSumOfWeights_ISRDown"        ]
-                sow_FSRUp          = self._samples["nSumOfWeights_FSRUp"          ]
-                sow_FSRDown        = self._samples["nSumOfWeights_FSRDown"        ]
-                sow_renormUp       = self._samples["nSumOfWeights_renormUp"       ]
-                sow_renormDown     = self._samples["nSumOfWeights_renormDown"     ]
-                sow_factUp         = self._samples["nSumOfWeights_factUp"         ]
-                sow_factDown       = self._samples["nSumOfWeights_factDown"       ]
-                sow_renormfactUp   = self._samples["nSumOfWeights_renormfactUp"   ]
-                sow_renormfactDown = self._samples["nSumOfWeights_renormfactDown" ]
+                sow_ISRUp          = self._sample["nSumOfWeights_ISRUp"          ]
+                sow_ISRDown        = self._sample["nSumOfWeights_ISRDown"        ]
+                sow_FSRUp          = self._sample["nSumOfWeights_FSRUp"          ]
+                sow_FSRDown        = self._sample["nSumOfWeights_FSRDown"        ]
+                sow_renormUp       = self._sample["nSumOfWeights_renormUp"       ]
+                sow_renormDown     = self._sample["nSumOfWeights_renormDown"     ]
+                sow_factUp         = self._sample["nSumOfWeights_factUp"         ]
+                sow_factDown       = self._sample["nSumOfWeights_factDown"       ]
+                sow_renormfactUp   = self._sample["nSumOfWeights_renormfactUp"   ]
+                sow_renormfactDown = self._sample["nSumOfWeights_renormfactDown" ]
         else:
             sow_ISRUp          = -1
             sow_ISRDown        = -1
@@ -276,8 +274,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
         if eft_coeffs is not None:
             # Check to see if the ordering of WCs for this sample matches what want
-            if self._samples["WCnames"] != self._wc_names_lst:
-                eft_coeffs = efth.remap_coeffs(self._samples["WCnames"], self._wc_names_lst, eft_coeffs)
+            if self._sample["WCnames"] != self._wc_names_lst:
+                eft_coeffs = efth.remap_coeffs(self._sample["WCnames"], self._wc_names_lst, eft_coeffs)
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
         # Initialize the out object
         hout = self.accumulator
@@ -1164,5 +1162,5 @@ class AnalysisProcessor(processor.ProcessorABC):
 if __name__ == '__main__':
     # Load the .coffea files
     outpath= './coffeaFiles/'
-    samples     = load(outpath+'samples.coffea')
-    topprocessor = AnalysisProcessor(samples)
+    sample     = load(outpath+'sample.coffea')
+    topprocessor = AnalysisProcessor(sample)
