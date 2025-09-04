@@ -69,7 +69,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         histogram = {}
 
-        metadata_path = os.path.join(os.path.dirname(__file__), "metadata.yml")
+        metadata_path = topeft_path("params/metadata.yml")
         with open(metadata_path, "r") as f:
             metadata = yaml.safe_load(f)
 
@@ -78,7 +78,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         var, ch, appl, sample_name, syst = hist_key
         info = var_info
-
         self._var_def = info.get("definition")
         if self._var_def is None:
             raise ValueError(f"No definition provided for variable {var}")

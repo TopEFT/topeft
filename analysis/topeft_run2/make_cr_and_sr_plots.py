@@ -12,8 +12,9 @@ from cycler import cycler
 import mplhep as hep
 import hist
 from topcoffea.modules.histEFT import HistEFT
+from topeft.modules.paths import topeft_path
 
-metadata_path = os.path.join(os.path.dirname(__file__), "metadata.yml")
+metadata_path = topeft_path("params/metadata.yml")
 with open(metadata_path, "r") as f:
     metadata = yaml.safe_load(f)
 axes_info = metadata["variables"]

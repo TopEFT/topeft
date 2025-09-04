@@ -8,6 +8,8 @@ import gzip
 import os
 import yaml
 
+from topeft.modules.paths import topeft_path
+
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
 
@@ -442,7 +444,7 @@ if __name__ == "__main__":
     else:
         print("No Wilson coefficients specified")
 
-    metadata_path = os.path.join(os.path.dirname(__file__), "metadata.yml")
+    metadata_path = topeft_path("params/metadata.yml")
     with open(metadata_path, "r") as f:
         metadata = yaml.safe_load(f)
 
