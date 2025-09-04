@@ -60,24 +60,81 @@ systematics:
   - factUp
   - factDown
 variables:
-  - invmass
-  - ptbl
-  - ptz
-  - njets
-  - nbtagsl
-  - l0pt
-  - l1pt
-  - l1eta
-  - j0pt
-  - b0pt
-  - l0eta
-  - j0eta
-  - ht
-  - met
-  - ljptsum
-  - o0pt
-  - bl0pt
-  - lj0pt
-  - ptz_wtau
-  - tau0pt
-  - lt
+  invmass:
+    regular: [20, 0, 1000]
+    label: '$m_{\ell\ell}$ (GeV) '
+  ptbl:
+    regular: [40, 0, 1000]
+    variable: [0, 100, 200, 400]
+    label: '$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) '
+  ptz:
+    regular: [12, 0, 600]
+    variable: [0, 200, 300, 400, 500]
+    label: '$p_{T}$ Z (GeV) '
+  njets:
+    regular: [10, 0, 10]
+    variable_multi:
+      '2l': [4, 5, 6, 7]
+      '3l': [2, 3, 4, 5]
+      '4l': [2, 3, 4]
+    label: 'Jet multiplicity '
+  nbtagsl:
+    regular: [5, 0, 5]
+    label: 'Loose btag multiplicity '
+  l0pt:
+    regular: [10, 0, 500]
+    variable: [0, 50, 100, 200]
+    label: 'Leading lep $p_{T}$ (GeV) '
+  l1pt:
+    regular: [10, 0, 100]
+    label: 'Subleading lep $p_{T}$ (GeV) '
+  l1eta:
+    regular: [20, -2.5, 2.5]
+    label: 'Subleading $\eta$ '
+  j0pt:
+    regular: [10, 0, 500]
+    label: 'Leading jet  $p_{T}$ (GeV) '
+  b0pt:
+    regular: [10, 0, 500]
+    label: 'Leading b jet  $p_{T}$ (GeV) '
+  l0eta:
+    regular: [20, -2.5, 2.5]
+    label: 'Leading lep $\eta$ '
+  j0eta:
+    regular: [30, -3, 3]
+    label: 'Leading jet  $\eta$ '
+  ht:
+    regular: [20, 0, 1000]
+    variable: [0, 300, 500, 800]
+    label: 'H$_{T}$ (GeV) '
+  met:
+    regular: [20, 0, 400]
+    label: 'MET (GeV)'
+  ljptsum:
+    regular: [11, 0, 1100]
+    variable: [0, 400, 600, 1000]
+    label: 'S$_{T}$ (GeV) '
+  o0pt:
+    regular: [10, 0, 500]
+    variable: [0, 100, 200, 400]
+    label: 'Leading l or b jet $p_{T}$ (GeV)'
+  bl0pt:
+    regular: [10, 0, 500]
+    variable: [0, 100, 200, 400]
+    label: 'Leading (b+l) $p_{T}$ (GeV) '
+  lj0pt:
+    regular: [12, 0, 600]
+    variable: [0, 150, 250, 500]
+    label: 'Leading pt of pair from l+j collection (GeV) '
+  ptz_wtau:
+    regular: [12, 0, 600]
+    variable: [0, 150, 250, 500]
+    label: 'pt of lepton hadronic tau pair (GeV) '
+  tau0pt:
+    regular: [12, 0, 600]
+    variable: [0, 150, 250, 500]
+    label: 'pt of leading hadronic tau (GeV) '
+  lt:
+    regular: [12, 0, 600]
+    variable: [0, 150, 250, 500]
+    label: 'Scalar sum of met at leading leptons (GeV)'

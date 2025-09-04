@@ -20,7 +20,6 @@ import topcoffea.modules.event_selection as tc_es
 import topcoffea.modules.object_selection as tc_os
 import topcoffea.modules.corrections as tc_cor
 
-from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
 import topeft.modules.event_selection as te_es
@@ -77,7 +76,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         if hist_key is None:
             raise ValueError("hist_key must be provided and cannot be None")
 
-        sample, var, ch, appl, syst = hist_key
+        sample, var, info, ch, appl, syst = hist_key
 
         if var not in metadata["variables"]:
             raise ValueError(f"Unknown variable {var}")
@@ -89,21 +88,20 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError(f"Unknown systematic {syst}")
 
         sumw2_key = (var + "_sumw2", sample, ch, appl, syst)
-        
-        info = axes_info[var]
+
         if not rebin and "variable" in info:
             dense_axis = hist.axis.Variable(
-                info["variable"], name=hist_key[0], label=info["label"]
+                info["variable"], name=var, label=info["label"]
             )
             sumw2_axis = hist.axis.Variable(
-                info["variable"], name=hist_key[0]+"_sumw2", label=info["label"] + " sum of w^2"
+                info["variable"], name=var+"_sumw2", label=info["label"] + " sum of w^2"
             )
         else:
             dense_axis = hist.axis.Regular(
-                *info["regular"], name=hist_key[0], label=info["label"]
+                *info["regular"], name=var, label=info["label"]
             )
             sumw2_axis = hist.axis.Regular(
-                *info["regular"], name=hist_key[0]+"_sumw2", label=info["label"] + " sum of w^2"
+                *info["regular"], name=var+"_sumw2", label=info["label"] + " sum of w^2"
             )
 
         histogram[hist_key] = HistEFT(

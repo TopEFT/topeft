@@ -17,7 +17,6 @@ import topcoffea.modules.remote_environment as remote_environment
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
 import analysis_processor
-from topeft.modules.axes import info as axes_info
 
 LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
 
@@ -455,13 +454,14 @@ if __name__ == "__main__":
     key_lst = []
 
     samples_lst = list(samplesdict.keys())
-    
+
     for sample in samples_lst:
         for var in var_lst:
+            var_info = metadata["variables"][var]
             for ch in ch_lst:
                 for appl in ch_app_map.get(ch, []):
                     for syst in syst_lst:
-                        key_lst.append((sample, var, ch, appl, syst))
+                        key_lst.append((sample, var, var_info, ch, appl, syst))
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
