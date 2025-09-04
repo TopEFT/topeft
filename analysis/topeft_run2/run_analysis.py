@@ -457,7 +457,7 @@ if __name__ == "__main__":
 
     for sample in samples_lst:
         for var in var_lst:
-            var_info = metadata["variables"][var]
+            var_info = metadata["variables"][var].copy()
             for ch in ch_lst:
                 for appl in ch_app_map.get(ch, []):
                     for syst in syst_lst:
