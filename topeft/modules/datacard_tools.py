@@ -19,7 +19,6 @@ with open(topeft_path("params/metadata.yml"), "r") as f:
     metadata = yaml.safe_load(f)
 axes_info = metadata["variables"]
 
-
 PRECISION = 6   # Decimal point precision in the text datacard output
 
 def to_hist(arr,name,zero_wgts=False):
