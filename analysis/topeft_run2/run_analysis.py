@@ -461,7 +461,7 @@ if __name__ == "__main__":
             for ch in ch_lst:
                 for appl in ch_app_map.get(ch, []):
                     for syst in syst_lst:
-                        key_lst.append((sample, var, var_info, ch, appl, syst))
+                        key_lst.append((sample, var, ch, appl, syst, var_info))
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
@@ -567,14 +567,17 @@ if __name__ == "__main__":
     output = {}
     key_lst = key_lst[:1]
     for key in key_lst:
-        sample = key[0]
+        sample, var, ch, appl, syst, var_info = key
         sample_dict = samplesdict[sample]
         sample_flist = flist[sample]
+
+        hist_key = (var, ch, appl, sample, syst)
 
         processor_instance = analysis_processor.AnalysisProcessor(
             sample_dict,
             wc_lst,
-            key,
+            hist_key,
+            var_info,
             ecut_threshold,
             do_errors,
             do_systs,
