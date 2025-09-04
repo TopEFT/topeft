@@ -20,7 +20,6 @@ import topcoffea.modules.event_selection as tc_es
 import topcoffea.modules.object_selection as tc_os
 import topcoffea.modules.corrections as tc_cor
 
-from topeft.modules.axes import info as axes_info
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
 import topeft.modules.event_selection as te_es
@@ -59,7 +58,7 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, sample, wc_names_lst=[], hist_key=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
+    def __init__(self, sample, wc_names_lst=[], hist_key=None, var_info=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
 
         self._sample = sample
         self._wc_names_lst = wc_names_lst
@@ -70,14 +69,18 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         histogram = {}
 
-        metadata_path = os.path.join(os.path.dirname(__file__), "metadata.yml")
+        metadata_path = topeft_path("params/metadata.yml")
         with open(metadata_path, "r") as f:
             metadata = yaml.safe_load(f)
 
-        if hist_key is None:
-            raise ValueError("hist_key must be provided and cannot be None")
+        if hist_key is None or var_info is None:
+            raise ValueError("hist_key and var_info must be provided and cannot be None")
 
-        sample, var, ch, appl, syst = hist_key
+        var, ch, appl, sample_name, syst = hist_key
+        info = var_info
+        self._var_def = info.get("definition")
+        if self._var_def is None:
+            raise ValueError(f"No definition provided for variable {var}")
 
         if var not in metadata["variables"]:
             raise ValueError(f"Unknown variable {var}")
@@ -88,22 +91,21 @@ class AnalysisProcessor(processor.ProcessorABC):
         if syst not in metadata["systematics"]:
             raise ValueError(f"Unknown systematic {syst}")
 
-        sumw2_key = (var + "_sumw2", sample, ch, appl, syst)
-        
-        info = axes_info[var]
+        sumw2_key = (var + "_sumw2", ch, appl, sample_name, syst)
+
         if not rebin and "variable" in info:
             dense_axis = hist.axis.Variable(
-                info["variable"], name=hist_key[0], label=info["label"]
+                info["variable"], name=var, label=info["label"]
             )
             sumw2_axis = hist.axis.Variable(
-                info["variable"], name=hist_key[0]+"_sumw2", label=info["label"] + " sum of w^2"
+                info["variable"], name=var+"_sumw2", label=info["label"] + " sum of w^2"
             )
         else:
             dense_axis = hist.axis.Regular(
-                *info["regular"], name=hist_key[0], label=info["label"]
+                *info["regular"], name=var, label=info["label"]
             )
             sumw2_axis = hist.axis.Regular(
-                *info["regular"], name=hist_key[0]+"_sumw2", label=info["label"] + " sum of w^2"
+                *info["regular"], name=var+"_sumw2", label=info["label"] + " sum of w^2"
             )
 
         histogram[hist_key] = HistEFT(
@@ -473,8 +475,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Count jets
             njets = ak.num(goodJets)
             nfwdj = ak.num(fwdJets)
-            ht = ak.sum(goodJets.pt,axis=-1)
-            j0 = goodJets[ak.argmax(goodJets.pt,axis=-1,keepdims=True)]
+            if "ht" in self._var_def:
+                ht = ak.sum(goodJets.pt, axis=-1)
+            if "j0" in self._var_def:
+                j0 = goodJets[ak.argmax(goodJets.pt, axis=-1, keepdims=True)]
 
             # Loose DeepJet WP
             loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
@@ -866,82 +870,58 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("isSR_4l",  events.is4l_SR)
 
 
+
             ######### Variables for the dense axes of the hists ##########
 
-            # Calculate ptbl
-            ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
-            ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt,axis=-1,keepdims=True)] # Only save hardest b-jet
-            ptbl_lep = l_fo_conept_sorted
-            ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
-            ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
+            var_def = self._var_def
 
-            # Z pt (pt of the ll pair that form the Z for the onZ categories)
-            ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
-            if self.tau_h_analysis:
+            if ("ptbl" in var_def) or ("b0pt" in var_def) or ("bl0pt" in var_def):
+                ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
+                ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt, axis=-1, keepdims=True)]
+                ptbl_lep = l_fo_conept_sorted
+                ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
+                ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
+
+            if "ptz" in var_def:
+                ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+                if self.offZ_3l_split:
+                    ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+            if "ptz_wtau" in var_def:
                 ptz_wtau = te_es.get_Zlt_pt(l0, l1, tau0)
 
-            if self.offZ_3l_split:
-                ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
-            # Leading (b+l) pair pt
-            bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
-            bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
-            blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
-            bl0pt = ak.flatten(blpt[ak.argmax(blpt,axis=-1,keepdims=True)])
+            if "bl0pt" in var_def:
+                bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
+                bl_pairs = ak.cartesian({"b": bjetsl, "l": l_fo_conept_sorted})
+                blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
+                bl0pt = ak.flatten(blpt[ak.argmax(blpt, axis=-1, keepdims=True)])
 
-            # Collection of all objects (leptons and jets)
-            if self.tau_h_analysis:
-                l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets,cleaning_taus], axis=1),"PtEtaPhiMCollection")
-            else:
-                l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted,goodJets], axis=1),"PtEtaPhiMCollection")
+            need_lj_collection = any(t in var_def for t in ["o0pt", "lj0pt", "ljptsum"]) or (self._ecut_threshold is not None)
+            if need_lj_collection:
+                if self.tau_h_analysis:
+                    l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted, goodJets, cleaning_taus], axis=1), "PtEtaPhiMCollection")
+                else:
+                    l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted, goodJets], axis=1), "PtEtaPhiMCollection")
+                if "o0pt" in var_def:
+                    o0pt = ak.max(l_j_collection.pt, axis=-1)
+                if ("ljptsum" in var_def) or (self._ecut_threshold is not None):
+                    ljptsum = ak.sum(l_j_collection.pt, axis=-1)
+                if "lj0pt" in var_def:
+                    l_j_pairs = ak.combinations(l_j_collection, 2, fields=["o0","o1"])
+                    l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
+                    lj0pt = ak.max(l_j_pairs_pt, axis=-1)
 
-            # Leading object (j or l) pt
-            o0pt = ak.max(l_j_collection.pt,axis=-1)
+            if "lt" in var_def:
+                lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + met.pt
 
-            # Pairs of l+j
-            l_j_pairs = ak.combinations(l_j_collection,2,fields=["o0","o1"])
-            l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
-            l_j_pairs_mass = (l_j_pairs.o0 + l_j_pairs.o1).mass
-            lj0pt = ak.max(l_j_pairs_pt,axis=-1)
+            if "mll_0_1" in var_def:
+                mll_0_1 = (l0 + l1).mass
 
-            # LT
-            lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + met.pt
-
-            # Define invariant mass hists
-            mll_0_1 = (l0+l1).mass # Invmass for leading two leps
-
-            # ST (but "st" is too hard to search in the code, so call it ljptsum)
-            ljptsum = ak.sum(l_j_collection.pt,axis=-1)
             if self._ecut_threshold is not None:
-                ecut_mask = (ljptsum<self._ecut_threshold)
+                if "ljptsum" not in locals():
+                    ljptsum = ak.sum(l_j_collection.pt, axis=-1)
+                ecut_mask = (ljptsum < self._ecut_threshold)
 
-            # Counts
             counts = np.ones_like(events['event'])
-
-            # Variables we will loop over when filling hists
-            varnames = {}
-            varnames["ht"]      = ht
-            varnames["met"]     = met.pt
-            varnames["ljptsum"] = ljptsum
-            varnames["l0pt"]    = l0.conept
-            varnames["l0eta"]   = l0.eta
-            varnames["l1pt"]    = l1.conept
-            varnames["l1eta"]   = l1.eta
-            varnames["j0pt"]    = ak.flatten(j0.pt)
-            varnames["j0eta"]   = ak.flatten(j0.eta)
-            varnames["njets"]   = njets
-            varnames["nbtagsl"] = nbtagsl
-            varnames["invmass"] = mll_0_1
-            varnames["ptbl"]    = ak.flatten(ptbl)
-            varnames["ptz"]     = ptz
-            varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
-            varnames["bl0pt"]   = bl0pt
-            varnames["o0pt"]    = o0pt
-            varnames["lj0pt"]   = lj0pt
-            varnames["lt"]      = lt
-            if self.tau_h_analysis:
-
-                varnames["ptz_wtau"] = ptz_wtau
-                varnames["tau0pt"] = tau0.pt
 
             ########## Fill the histograms ##########
             cat_dict = {}
@@ -1012,7 +992,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over the hists we want to fill
             dense_axis_name = self._var
-            dense_axis_vals = varnames[dense_axis_name]
+            dense_axis_vals = eval(self._var_def, {"ak": ak, "np": np}, locals())
 
             # Set up the list of syst wgt variations to loop over
             wgt_var_lst = ["nominal"]

@@ -19,10 +19,17 @@ import mplhep as hep
 import argparse
 import time
 import json
+import os
 from topcoffea.modules.get_param_from_jsons import GetParam
 from topcoffea.modules.paths import topcoffea_path
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
-from topeft.modules.axes import info as axes_info
+import yaml
+from topeft.modules.paths import topeft_path
+
+metadata_path = topeft_path("params/metadata.yml")
+with open(metadata_path, "r") as f:
+    metadata = yaml.safe_load(f)
+axes_info = metadata["variables"]
 
 BINNING = {k: v['variable'] for k,v in axes_info.items() if 'variable' in v}
 
