@@ -288,7 +288,7 @@ if __name__ == "__main__":
             # convert single values into a range of one element
             port.append(port[0])
 
-    # Figure out which hists to include
+    # Figure out which hists to include ### TO BE REFACTORED
     if hist_list == ["ana"]:
         # Here we hardcode a list of hists used for the analysis
         hist_lst = ["njets", "lj0pt", "ptz"]
@@ -399,27 +399,27 @@ if __name__ == "__main__":
                         raise Exception(f'Missing weight variation "{wgt_var}".')
                     else:
                         samplesdict[sname][wgt_var] = float(samplesdict[sname][wgt_var])
-        # Print file info
-        print(">> " + sname)
-        print(
-            "   - isData?      : %s" % ("YES" if samplesdict[sname]["isData"] else "NO")
-        )
-        print("   - year         : %s" % samplesdict[sname]["year"])
-        print("   - xsec         : %f" % samplesdict[sname]["xsec"])
-        print("   - histAxisName : %s" % samplesdict[sname]["histAxisName"])
-        print("   - options      : %s" % samplesdict[sname]["options"])
-        print("   - tree         : %s" % samplesdict[sname]["treeName"])
-        print("   - nEvents      : %i" % samplesdict[sname]["nEvents"])
-        print("   - nGenEvents   : %i" % samplesdict[sname]["nGenEvents"])
-        print("   - SumWeights   : %i" % samplesdict[sname]["nSumOfWeights"])
-        if not samplesdict[sname]["isData"]:
-            for wgt_var in WGT_VAR_LST:
-                if wgt_var in samplesdict[sname]:
-                    print(f"   - {wgt_var}: {samplesdict[sname][wgt_var]}")
-        print("   - Prefix       : %s" % samplesdict[sname]["redirector"])
-        print("   - nFiles       : %i" % len(samplesdict[sname]["files"]))
-        for fname in samplesdict[sname]["files"]:
-            print("     %s" % fname)
+        # # Print file info
+        # print(">> " + sname)
+        # print(
+        #     "   - isData?      : %s" % ("YES" if samplesdict[sname]["isData"] else "NO")
+        # )
+        # print("   - year         : %s" % samplesdict[sname]["year"])
+        # print("   - xsec         : %f" % samplesdict[sname]["xsec"])
+        # print("   - histAxisName : %s" % samplesdict[sname]["histAxisName"])
+        # print("   - options      : %s" % samplesdict[sname]["options"])
+        # print("   - tree         : %s" % samplesdict[sname]["treeName"])
+        # print("   - nEvents      : %i" % samplesdict[sname]["nEvents"])
+        # print("   - nGenEvents   : %i" % samplesdict[sname]["nGenEvents"])
+        # print("   - SumWeights   : %i" % samplesdict[sname]["nSumOfWeights"])
+        # if not samplesdict[sname]["isData"]:
+        #     for wgt_var in WGT_VAR_LST:
+        #         if wgt_var in samplesdict[sname]:
+        #             print(f"   - {wgt_var}: {samplesdict[sname][wgt_var]}")
+        # print("   - Prefix       : %s" % samplesdict[sname]["redirector"])
+        # print("   - nFiles       : %i" % len(samplesdict[sname]["files"]))
+        # for fname in samplesdict[sname]["files"]:
+        #     print("     %s" % fname)
 
     if pretend:
         print("pretending...")
@@ -451,7 +451,7 @@ if __name__ == "__main__":
     ch_lst = metadata["channels"]
     ch_app_map = metadata.get("channel_applications", {})
     syst_lst = metadata["systematics"]
-    var_lst = hist_lst if hist_lst is not None else metadata["variables"]
+    var_lst = metadata["variables"]
 
     key_lst = []
 
@@ -464,6 +464,10 @@ if __name__ == "__main__":
                 for appl in ch_app_map.get(ch, []):
                     for syst in syst_lst:
                         key_lst.append((sample, var, ch, appl, syst, var_info))
+        #                 break  # TEMPORARY: only do one systematic
+        #             break  # TEMPORARY: only do one application
+        #         break  # TEMPORARY: only do one channel
+        # break  # TEMPORARY: only do one sample
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
@@ -567,11 +571,16 @@ if __name__ == "__main__":
         )
 
     output = {}
+    print(f"Running over {len(key_lst)} configurations") #:\n", key_lst)
+    #raise RuntimeError("Stopping here for debugging")
+    
+    # For the time being, only run one configuration at a time
     key_lst = key_lst[:1]
+
     for key in key_lst:
         sample, var, ch, appl, syst, var_info = key
         sample_dict = samplesdict[sample]
-        sample_flist = flist[sample]
+        sample_flist = flist[sample][:1]
 
         hist_key = (var, ch, appl, sample, syst)
 

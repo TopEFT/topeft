@@ -78,6 +78,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         var, ch, appl, sample_name, syst = hist_key
         info = var_info
+
+        self._var = var
+        self._channel = ch
+        self._appregion = appl
+        self._syst = syst
         self._var_def = info.get("definition")
         if self._var_def is None:
             raise ValueError(f"No definition provided for variable {var}")
@@ -119,13 +124,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             label=r"Events",
         )
 
-        self._accumulator = histogram
-
         # Set the list of hists to fill
-        self._var = var
-        self._channel = ch
-        self._appregion = appl
-        self._syst = syst
+        self._hist_keys_to_fill = [hist_key, sumw2_key]
+
+        self._accumulator = histogram
 
         # Set the energy threshold to cut on
         self._ecut_threshold = ecut_threshold
@@ -142,6 +144,34 @@ class AnalysisProcessor(processor.ProcessorABC):
     @property
     def accumulator(self):
         return self._accumulator
+
+    @property
+    def sample(self):
+        return self._sample
+
+    @property
+    def hist_keys_to_fill(self):
+        return self._hist_keys_to_fill
+
+    @property
+    def var(self):
+        return self._var
+
+    @property
+    def var_def(self):
+        return self._var_def
+
+    @property
+    def channel(self):
+        return self._channel
+
+    @property
+    def appregion(self):    
+        return self._appregion
+
+    @property
+    def syst(self):
+        return self._syst
 
     @property
     def columns(self):
@@ -345,7 +375,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 AttachTauSF(events,tau,year=year)
             tau_padded = ak.pad_none(tau, 1)
             tau0 = tau_padded[:,0]
-
         else:
             tau["isPres"]  = te_os.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
             tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
@@ -396,7 +425,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             if eft_coeffs is None:
                 genw = events["genWeight"]
             else:
-                genw= np.ones_like(events["event"])
+                genw = np.ones_like(events["event"])
 
             # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
@@ -494,7 +523,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
             nbtagsm = ak.num(goodJets[isBtagJetsMedium])
 
-
             #################### Add variables into event object so that they persist ####################
 
             # Put njets and l_fo_conept_sorted into events
@@ -513,7 +541,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             l0 = l_fo_conept_sorted_padded[:,0]
             l1 = l_fo_conept_sorted_padded[:,1]
             l2 = l_fo_conept_sorted_padded[:,2]
-
 
             ######### Event weights that do not depend on the lep cat ##########
 
@@ -873,7 +900,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             ######### Variables for the dense axes of the hists ##########
 
-            var_def = self._var_def
+            var_def = self.var_def
 
             if ("ptbl" in var_def) or ("b0pt" in var_def) or ("bl0pt" in var_def):
                 ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
@@ -993,7 +1020,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Loop over the hists we want to fill
             dense_axis_name = self._var
             dense_axis_vals = eval(self._var_def, {"ak": ak, "np": np}, locals())
-
+            
+            # print("\n\n\n\n\n\n")
+            # print(f"Filling histograms for variable: {dense_axis_name}")
+            # print("dense_axis_vals:", dense_axis_vals)
+            # print("self._var_def:", self._var_def)
+            # print("\n\n\n\n\n\n")
+            
             # Set up the list of syst wgt variations to loop over
             wgt_var_lst = ["nominal"]
             if self._do_systematics:
@@ -1069,6 +1102,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         cuts_lst.append(njet_val)
                                     ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
 
+                                    if ch_name != self.channel:
+                                        continue
+
+                                    print("\n\n\n\n\ndense_axis_name:", dense_axis_name, "ch_name:", ch_name)
+                                    print("\n\n\n\n\n")
+
                                     # Get the cuts mask for all selections
                                     if dense_axis_name == "njets":
                                         all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
@@ -1110,10 +1149,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     else:
                                         if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
                                     if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-                                    hist_key = (dense_axis_name, ch_name, appl, dataset, wgt_fluct)
-                                    if hist_key not in hout.keys():
+                                    histkey = (dense_axis_name, ch_name, appl, dataset, wgt_fluct)
+                                    if histkey not in hout.keys():
                                         continue
-                                    hout[hist_key].fill(**axes_fill_info_dict)
+                                    hout[histkey].fill(**axes_fill_info_dict)
                                     axes_fill_info_dict = {
                                         dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
                                         #"channel"       : ch_name,
@@ -1123,10 +1162,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         "weight"        : np.square(weights_flat),
                                         "eft_coeff"     : eft_coeffs_cut,
                                     }
-                                    hist_key = (dense_axis_name+"_sumw2", ch_name, appl, dataset, wgt_fluct)
-                                    if hist_key not in hout.keys():
+                                    histkey = (dense_axis_name+"_sumw2", ch_name, appl, dataset, wgt_fluct)
+                                    if histkey not in hout.keys():
                                         continue
-                                    hout[hist_key].fill(**axes_fill_info_dict)
+                                    hout[histkey].fill(**axes_fill_info_dict)
 
                                     # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                     if not self._split_by_lepton_flavor: break
