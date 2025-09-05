@@ -943,8 +943,8 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
             samples_to_rm_from_mc_hist.append(sample_name)
         if sample_name not in data_sample_lst:
             samples_to_rm_from_data_hist.append(sample_name)
+        #REVISIT: We are currently using sumw2 information for all but signal processes. Originally, only nonprompt background piece was used in the stat uncertainty calculation.
         #if "nonprompt" not in sample_name:
-        #REVISIT: We are currently using sumw2 information for all but signal processes
         if any(proc in sample_name for proc in ["ttH","ttlnu","ttll","tllq","tHq","tttt"]):
             samples_to_rm_from_mc_sumw2_hist.append(sample_name)
     print("\nAll samples:",all_samples)
@@ -1281,9 +1281,8 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             samples_to_rm_from_mc_hist.append(sample_name)
         if sample_name not in data_sample_lst:
             samples_to_rm_from_data_hist.append(sample_name)
+        #REVISIT: We are currently using sumw2 information for all but signal processes. Originally, only nonprompt background piece was used in the stat uncertainty calculation.
         #if "nonprompt" not in sample_name:
-        #    samples_to_rm_from_mc_sumw2_hist.append(sample_name)
-        #REVISIT IN FUTURE: We are currently storing sumw2 information for all but signal processes.
         if any(proc in sample_name for proc in ["ttH","ttlnu","ttll","tllq","tHq","tttt"]):
             samples_to_rm_from_mc_sumw2_hist.append(sample_name)
     print("\nAll samples:",all_samples)
