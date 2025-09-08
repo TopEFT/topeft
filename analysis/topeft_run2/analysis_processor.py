@@ -988,8 +988,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                                     if ch_name != self.channel:
                                         continue
 
-                                    print("\n\n\n\n\ndense_axis_name:", dense_axis_name, "ch_name:", ch_name)
-                                    print("\n\n\n\n\n")
+                                    # print("\n\n\n\n\ndense_axis_name:", dense_axis_name, "ch_name:", ch_name)
+                                    # print("\n\n\n\n\n")
 
                                     # Get the cuts mask for all selections
                                     if dense_axis_name == "njets":

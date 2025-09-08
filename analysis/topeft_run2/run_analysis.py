@@ -156,6 +156,7 @@ def build_channel_app_map(
             import_cr_cat_dict.update(select_cat_dict["TAU_CH_LST_CR"])
 
     def _collect(import_dict):
+        channel_app_map = {}
         for lep_cat, info in import_dict.items():
             appl_list = info["appl_lst"].copy()
             if isData and "appl_lst_data" in info:
@@ -170,16 +171,18 @@ def build_channel_app_map(
                             + "j"
                         )
                         ch_name = f"{base_ch}_{jet_suffix}"
-                        channel_app_map.setdefault(ch_name, set()).update(appl_list)
+                        channel_app_map[ch_name] = appl_list
                 else:
-                    channel_app_map.setdefault(base_ch, set()).update(appl_list)
+                    # channel_app_map[base_ch] = appl_list
+                    raise ValueError(f"Channel {base_ch} has no jet categories")
 
+        return channel_app_map
     if not skip_sr:
-        _collect(import_sr_cat_dict)
+        channel_app_dict = _collect(import_sr_cat_dict)
     if not skip_cr:
-        _collect(import_cr_cat_dict)
+        channel_app_dict = _collect(import_cr_cat_dict)
 
-    return {ch: sorted(apps) for ch, apps in channel_app_map.items()}
+    return {ch: sorted(apps) for ch, apps in channel_app_dict.items()}
 
 
 if __name__ == "__main__":
@@ -620,6 +623,11 @@ if __name__ == "__main__":
         fwd_analysis=fwd_analysis,
     )
 
+    # print("\nchannel_app_map_mc:", channel_app_map_mc)
+    # print("\nchannel_app_map_data:", channel_app_map_data)
+
+    # raise RuntimeError("\n\nStopping here for debugging")
+
     key_lst = []
 
     samples_lst = list(samplesdict.keys())
@@ -632,10 +640,10 @@ if __name__ == "__main__":
                 for appl in appl_list:
                     for syst in syst_lst:
                         key_lst.append((sample, var, ch, appl, syst, var_info))
-        #                 break  # TEMPORARY: only do one systematic
-        #             break  # TEMPORARY: only do one application
-        #         break  # TEMPORARY: only do one channel
-        # break  # TEMPORARY: only do one sample
+                        break  # TEMPORARY: only do one systematic
+                    break  # TEMPORARY: only do one application
+                break  # TEMPORARY: only do one channel
+        break  # TEMPORARY: only do one sample
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
@@ -740,7 +748,7 @@ if __name__ == "__main__":
 
     output = {}
     print(f"Running over {len(key_lst)} configurations") #:\n", key_lst)
-    #raise RuntimeError("Stopping here for debugging")
+    # raise RuntimeError("Stopping here for debugging")
     
     # For the time being, only run one configuration at a time
     key_lst = key_lst[:1]
@@ -784,6 +792,14 @@ if __name__ == "__main__":
             fwd_analysis=fwd_analysis,
             channel_dict=channel_dict,
         )
+
+        #print("\nsample_dict:", sample_dict)
+        print("\nhist_key:", hist_key)
+        #print("\nselect_cat_dict:", select_cat_dict)
+        print("\nchannel_dict:", channel_dict)
+
+        #raise RuntimeError("\n\nStopping here for debugging")
+
         out = runner({sample: sample_flist}, treename, processor_instance)
         output.update(out)
 
