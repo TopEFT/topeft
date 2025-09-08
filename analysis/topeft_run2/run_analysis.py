@@ -212,7 +212,8 @@ def build_channel_app_map(
                 if jet_list:
                     for jet_cat in jet_list:
                         jet_suffix = normalize_jet_category(jet_cat)
-                        ch_name = f"{base_ch}_{jet_suffix}"
+                        clean_suffix = jet_suffix.split("_")[-1]
+                        ch_name = f"{base_ch}_{clean_suffix}"
                         result[ch_name] = appl_list
                 else:
                     # channel_app_map[base_ch] = appl_list
@@ -678,10 +679,10 @@ if __name__ == "__main__":
         ch_map = channel_app_map_data if samplesdict[sample]["isData"] else channel_app_map_mc
         for var in var_lst:
             var_info = metadata["variables"][var].copy()
-            for ch, appl_list in ch_map.items():
+            for clean_ch, appl_list in ch_map.items():
                 for appl in appl_list:
                     for syst in syst_lst:
-                        key_lst.append((sample, var, ch, appl, syst, var_info))
+                        key_lst.append((sample, var, clean_ch, appl, syst, var_info))
                         break  # TEMPORARY: only do one systematic
                     break  # TEMPORARY: only do one application
                 break  # TEMPORARY: only do one channel
@@ -796,13 +797,13 @@ if __name__ == "__main__":
     key_lst = key_lst[:1]
 
     for key in key_lst:
-        sample, var, ch, appl, syst, var_info = key
+        sample, var, clean_ch, appl, syst, var_info = key
         sample_dict = samplesdict[sample]
         sample_flist = flist[sample][:1]
 
-        hist_key = (var, ch, appl, sample, syst)
+        hist_key = (var, clean_ch, appl, sample, syst)
         channel_dict = build_channel_dict(
-            ch,
+            clean_ch,
             appl,
             sample_dict["isData"],
             skip_sr,
