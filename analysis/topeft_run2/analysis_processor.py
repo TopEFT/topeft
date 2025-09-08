@@ -92,10 +92,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         if var not in metadata["variables"]:
             raise ValueError(f"Unknown variable {var}")
-        if ch not in metadata["channels"]:
-            raise ValueError(f"Unknown channel {ch}")
-        if appl not in metadata["applications"]:
-            raise ValueError(f"Unknown application region {appl}")
+        # if ch not in metadata["channels"]:
+        #     raise ValueError(f"Unknown channel {ch}")
+        # if appl not in metadata["applications"]:
+        #     raise ValueError(f"Unknown application region {appl}")
         if syst not in metadata["systematics"]:
             raise ValueError(f"Unknown systematic {syst}")
 

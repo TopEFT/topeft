@@ -122,11 +122,17 @@ def build_channel_dict(
     )
 
     base_ch = ch
+
+    print("\nbase_ch:", base_ch)
+
     jet_suffix = None
     m = re.search(r"_(?:exactly_|atmost_|atleast_)?(\d+j)$", ch)
     if m:
         jet_suffix = m.group(1)
         base_ch = ch[: -(len(m.group(0)))]
+
+    print("jet_suffix:", jet_suffix)
+    print("base_ch:", base_ch)
 
     nlep_cat = re.match(r"(\d+l)", base_ch).group(1)
 
@@ -834,7 +840,7 @@ if __name__ == "__main__":
         #print("\nselect_cat_dict:", select_cat_dict)
         print("\nchannel_dict:", channel_dict)
 
-        #raise RuntimeError("\n\nStopping here for debugging")
+        raise RuntimeError("\n\nStopping here for debugging")
 
         out = runner({sample: sample_flist}, treename, processor_instance)
         output.update(out)
