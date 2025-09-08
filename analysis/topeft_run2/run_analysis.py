@@ -68,6 +68,38 @@ def resolve_channel_dicts(
     return import_sr_cat_dict, import_cr_cat_dict
 
 
+def normalize_jet_category(jet_cat):
+    """Return a standardized jet category suffix.
+
+    Parameters
+    ----------
+    jet_cat : str
+        Jet category string starting with one of ``=``, ``<``, or ``>``.
+
+    Returns
+    -------
+    str
+        Normalized jet category such as ``exactly_2j``.
+
+    Raises
+    ------
+    ValueError
+        If ``jet_cat`` does not start with a recognized comparison symbol.
+    """
+
+    jet_cat = str(jet_cat).strip()
+    if jet_cat.startswith("="):
+        tag = "exactly_"
+    elif jet_cat.startswith("<"):
+        tag = "atmost_"
+    elif jet_cat.startswith(">"):
+        tag = "atleast_"
+    else:
+        raise ValueError(f"jet_cat {jet_cat} misses =,<,> !")
+
+    return f"{tag}{jet_cat[1:]}j"
+
+
 def build_channel_dict(
     ch,
     appl,
@@ -91,9 +123,9 @@ def build_channel_dict(
 
     base_ch = ch
     jet_suffix = None
-    m = re.search(r"_(\d+)j$", ch)
+    m = re.search(r"_(?:exactly_|atmost_|atleast_)?(\d+j)$", ch)
     if m:
-        jet_suffix = m.group(1) + "j"
+        jet_suffix = m.group(1)
         base_ch = ch[: -(len(m.group(0)))]
 
     nlep_cat = re.match(r"(\d+l)", base_ch).group(1)
@@ -104,18 +136,7 @@ def build_channel_dict(
         if nlep_cat not in import_dict:
             return
         for jet_cat in import_dict[nlep_cat]["jet_lst"]:
-            jettag = None
-            if jet_cat.startswith("="):
-                jettag = "exactly_"
-            elif jet_cat.startswith("<"):
-                jettag = "atmost_"
-            elif jet_cat.startswith(">"):
-                jettag = "atleast_"
-            else:
-                raise RuntimeError(f"jet_cat {jet_cat} in {nlep_cat} misses =,<,> !")
-            jet_key = (
-                jettag + str(jet_cat).replace("=", "").replace("<", "").replace(">", "") + "j"
-            )
+            jet_key = normalize_jet_category(jet_cat)
             if jet_suffix and not jet_key.endswith(jet_suffix):
                 continue
             chosen = None
@@ -184,10 +205,7 @@ def build_channel_app_map(
                 base_ch = lc[0]
                 if jet_list:
                     for jet_cat in jet_list:
-                        jet_suffix = (
-                            str(jet_cat).replace("=", "").replace("<", "").replace(">", "")
-                            + "j"
-                        )
+                        jet_suffix = normalize_jet_category(jet_cat)
                         ch_name = f"{base_ch}_{jet_suffix}"
                         result[ch_name] = appl_list
                 else:
