@@ -164,8 +164,6 @@ def build_channel_app_map(
     fwd_analysis=False,
 ): 
     """Extract channel names and their application regions from ch_lst.json."""
-    channel_app_dict = {}
-
     import_sr_cat_dict, import_cr_cat_dict = resolve_channel_dicts(
         select_cat_dict,
         skip_sr,
@@ -176,7 +174,7 @@ def build_channel_app_map(
     )
 
     def _collect(import_dict):
-        channel_app_map = {}
+        result = {}
         for lep_cat, info in import_dict.items():
             appl_list = info["appl_lst"].copy()
             if isData and "appl_lst_data" in info:
@@ -191,19 +189,18 @@ def build_channel_app_map(
                             + "j"
                         )
                         ch_name = f"{base_ch}_{jet_suffix}"
-                        channel_app_map[ch_name] = appl_list
+                        result[ch_name] = appl_list
                 else:
                     # channel_app_map[base_ch] = appl_list
                     raise ValueError(f"Channel {base_ch} has no jet categories")
 
-        return channel_app_map
+        return result
 
-    if not skip_sr:
-        channel_app_dict.update(_collect(import_sr_cat_dict))
+    result = _collect(import_sr_cat_dict) if not skip_sr else {}
     if not skip_cr:
-        channel_app_dict.update(_collect(import_cr_cat_dict))
+        result.update(_collect(import_cr_cat_dict))
 
-    return {ch: sorted(apps) for ch, apps in channel_app_dict.items()}
+    return {ch: sorted(apps) for ch, apps in result.items()}
 
 
 if __name__ == "__main__":
