@@ -37,9 +37,17 @@ WGT_VAR_LST = [
 ]
 
 
-def build_channel_dict(ch, appl, isData, skip_sr, skip_cr, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
-    with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
-        select_cat_dict = json.load(ch_json)
+def build_channel_dict(
+    ch,
+    appl,
+    isData,
+    skip_sr,
+    skip_cr,
+    select_cat_dict,
+    offZ_split=False,
+    tau_h_analysis=False,
+    fwd_analysis=False,
+):
 
     if not skip_sr:
         if offZ_split:
@@ -118,6 +126,61 @@ def build_channel_dict(ch, appl, isData, skip_sr, skip_cr, offZ_split=False, tau
         raise ValueError(f"Channel {ch} with application {appl} not found")
 
     return channel_dict
+
+
+def build_channel_app_map(
+    select_cat_dict,
+    isData,
+    skip_sr,
+    skip_cr,
+    offZ_split=False,
+    tau_h_analysis=False,
+    fwd_analysis=False,
+):
+    """Extract channel names and their application regions from ch_lst.json."""
+
+    channel_app_map = {}
+
+    if not skip_sr:
+        if offZ_split:
+            import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
+        elif tau_h_analysis:
+            import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
+        elif fwd_analysis:
+            import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
+        else:
+            import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
+    if not skip_cr:
+        import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+        if tau_h_analysis:
+            import_cr_cat_dict.update(select_cat_dict["TAU_CH_LST_CR"])
+
+    def _collect(import_dict):
+        for lep_cat, info in import_dict.items():
+            appl_list = info["appl_lst"].copy()
+            if isData and "appl_lst_data" in info:
+                appl_list += info["appl_lst_data"]
+            jet_list = info.get("jet_lst", [])
+            for lc in info["lep_chan_lst"]:
+                base_ch = lc[0]
+                if jet_list:
+                    for jet_cat in jet_list:
+                        jet_suffix = (
+                            str(jet_cat).replace("=", "").replace("<", "").replace(">", "")
+                            + "j"
+                        )
+                        ch_name = f"{base_ch}_{jet_suffix}"
+                        channel_app_map.setdefault(ch_name, set()).update(appl_list)
+                else:
+                    channel_app_map.setdefault(base_ch, set()).update(appl_list)
+
+    if not skip_sr:
+        _collect(import_sr_cat_dict)
+    if not skip_cr:
+        _collect(import_cr_cat_dict)
+
+    return {ch: sorted(apps) for ch, apps in channel_app_map.items()}
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="You can customize your run")
@@ -532,20 +595,41 @@ if __name__ == "__main__":
     with open(metadata_path, "r") as f:
         metadata = yaml.safe_load(f)
 
-    ch_lst = metadata["channels"]
-    ch_app_map = metadata.get("channel_applications", {})
     syst_lst = metadata["systematics"]
     var_lst = metadata["variables"]
+
+    with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
+        select_cat_dict = json.load(ch_json)
+
+    channel_app_map_mc = build_channel_app_map(
+        select_cat_dict,
+        isData=False,
+        skip_sr=skip_sr,
+        skip_cr=skip_cr,
+        offZ_split=offZ_split,
+        tau_h_analysis=tau_h_analysis,
+        fwd_analysis=fwd_analysis,
+    )
+    channel_app_map_data = build_channel_app_map(
+        select_cat_dict,
+        isData=True,
+        skip_sr=skip_sr,
+        skip_cr=skip_cr,
+        offZ_split=offZ_split,
+        tau_h_analysis=tau_h_analysis,
+        fwd_analysis=fwd_analysis,
+    )
 
     key_lst = []
 
     samples_lst = list(samplesdict.keys())
 
     for sample in samples_lst:
+        ch_map = channel_app_map_data if samplesdict[sample]["isData"] else channel_app_map_mc
         for var in var_lst:
             var_info = metadata["variables"][var].copy()
-            for ch in ch_lst:
-                for appl in ch_app_map.get(ch, []):
+            for ch, appl_list in ch_map.items():
+                for appl in appl_list:
                     for syst in syst_lst:
                         key_lst.append((sample, var, ch, appl, syst, var_info))
         #                 break  # TEMPORARY: only do one systematic
@@ -673,6 +757,7 @@ if __name__ == "__main__":
             sample_dict["isData"],
             skip_sr,
             skip_cr,
+            select_cat_dict,
             offZ_split=offZ_split,
             tau_h_analysis=tau_h_analysis,
             fwd_analysis=fwd_analysis,
