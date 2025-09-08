@@ -72,25 +72,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # ``channel_dict`` is expected to be a flat dictionary with keys
         # ``jet_selection``, ``chan_def_lst``, ``lep_flav_lst`` and ``appl_region``.
-        # For backward compatibility with the existing processor logic, convert
-        # this into the nested structure used internally.
-        if "chan_def_lst" in channel_dict:
-            ch_tag = channel_dict["chan_def_lst"][0]
-            nlep_cat = re.match(r"(\d+l)", ch_tag).group(1)
-            jet_key = channel_dict["jet_selection"]
-            self._channel_dict = {
-                nlep_cat: {
-                    jet_key: {
-                        "lep_chan_lst": [ch_tag],
-                        "lep_chan_def_lst": [channel_dict["chan_def_lst"]],
-                        "lep_flav_lst": channel_dict["lep_flav_lst"],
-                        "appl_lst": [channel_dict["appl_region"]],
-                    }
-                }
-            }
-        else:
-            # Already in nested format
-            self._channel_dict = channel_dict
+        # Previous versions of this processor converted this dictionary into a
+        # nested structure with several loops in ``process``.  The new logic
+        # operates directly on the flat dictionary, so simply store it.
+        self._channel_dict = channel_dict
 
         histogram = {}
 
@@ -650,65 +635,75 @@ class AnalysisProcessor(processor.ProcessorABC):
 
 
             ######### Event weights that do depend on the lep cat ###########
-            cat_dict = self._channel_dict
+            # Determine the lepton multiplicity category from the requested
+            # channel name (e.g. ``2lss_4j`` -> ``2l``).  This is used to know
+            # which set of weights to apply.
+            nlep_cat = re.match(r"\d+l", self.channel).group(0)
 
-            lep_cats = list(cat_dict.keys())
-            lep_cats_data = [lep_cat for lep_cat in lep_cats if (lep_cat.startswith("2l") and not "os" in lep_cat)]
+            # Start from the base set of weights and attach the lepton-category
+            # specific pieces.  This used to loop over all categories; now only
+            # the weights relevant to ``nlep_cat`` are constructed.
+            weights_object = copy.deepcopy(weights_obj_base_for_kinematic_syst)
 
-            weights_dict = {}
+            if nlep_cat.startswith("1l"):
+                weights_object.add("FF", events.fakefactor_1l, copy.deepcopy(events.fakefactor_1l_up), copy.deepcopy(events.fakefactor_1l_down))
+                weights_object.add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_1l_pt1/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_pt2/events.fakefactor_1l))
+                weights_object.add("FFeta", events.nom, copy.deepcopy(events.fakefactor_1l_be1/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_be2/events.fakefactor_1l))
+                weights_object.add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_1l_elclosureup/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_elclosuredown/events.fakefactor_1l))
+                weights_object.add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_1l_muclosureup/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_muclosuredown/events.fakefactor_1l))
+            elif nlep_cat.startswith("2l"):
+                weights_object.add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
+                weights_object.add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
+                weights_object.add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
+                weights_object.add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
+                weights_object.add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
+            elif nlep_cat.startswith("3l"):
+                weights_object.add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
+                weights_object.add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
+                weights_object.add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
+                weights_object.add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
+                weights_object.add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
 
-            for ch_name in lep_cats:
-                # For both data and MC
-                weights_dict[ch_name] = copy.deepcopy(weights_obj_base_for_kinematic_syst)
-                if ch_name.startswith("1l"):
-                    weights_dict[ch_name].add("FF", events.fakefactor_1l, copy.deepcopy(events.fakefactor_1l_up), copy.deepcopy(events.fakefactor_1l_down))
-                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_1l_pt1/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_pt2/events.fakefactor_1l))
-                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_1l_be1/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_be2/events.fakefactor_1l))
-                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_1l_elclosureup/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_elclosuredown/events.fakefactor_1l))
-                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_1l_muclosureup/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_muclosuredown/events.fakefactor_1l))
-                if ch_name.startswith("2l"):
-                    weights_dict[ch_name].add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
-                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
-                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
-                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
-                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
-                elif ch_name.startswith("3l"):
-                    weights_dict[ch_name].add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
-                    weights_dict[ch_name].add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
-                    weights_dict[ch_name].add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
-                    weights_dict[ch_name].add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
-                    weights_dict[ch_name].add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
+            # Additional data-only weights
+            if isData and nlep_cat.startswith("2l") and ("os" not in self.channel):
+                weights_object.add("fliprate", events.flipfactor_2l)
 
-                # For data only
-                if isData:
-                    if ch_name in lep_cats_data:
-                        weights_dict[ch_name].add("fliprate", events.flipfactor_2l)
+            # MC-only scale factors
+            if not isData:
+                if nlep_cat.startswith("1l"):
+                    weights_object.add("lepSF_muon", events.sf_1l_muon, copy.deepcopy(events.sf_1l_hi_muon), copy.deepcopy(events.sf_1l_lo_muon))
+                    weights_object.add("lepSF_elec", events.sf_1l_elec, copy.deepcopy(events.sf_1l_hi_elec), copy.deepcopy(events.sf_1l_lo_elec))
+                    if self.tau_h_analysis:
+                        weights_object.add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
+                        weights_object.add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
+                elif nlep_cat.startswith("2l"):
+                    weights_object.add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
+                    weights_object.add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
+                    if self.tau_h_analysis:
+                        weights_object.add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
+                        weights_object.add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
+                elif nlep_cat.startswith("3l"):
+                    weights_object.add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
+                    weights_object.add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
+                    if self.tau_h_analysis:
+                        weights_object.add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
+                        weights_object.add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
+                elif nlep_cat.startswith("4l"):
+                    weights_object.add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
+                    weights_object.add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
+                else:
+                    raise Exception(f"Unknown channel name: {nlep_cat}")
 
-                # For MC only
-                if not isData:
-                    if ch_name.startswith("1l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_1l_muon, copy.deepcopy(events.sf_1l_hi_muon), copy.deepcopy(events.sf_1l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_1l_elec, copy.deepcopy(events.sf_1l_hi_elec), copy.deepcopy(events.sf_1l_lo_elec))
-                        if self.tau_h_analysis:
-                            weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
-                            weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
-                    elif ch_name.startswith("2l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
-                        if self.tau_h_analysis:
-                            weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
-                            weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
-                    elif ch_name.startswith("3l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
-                        if self.tau_h_analysis:
-                            weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
-                            weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
-                    elif ch_name.startswith("4l"):
-                        weights_dict[ch_name].add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
-                        weights_dict[ch_name].add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
-                    else:
-                        raise Exception(f"Unknown channel name: {ch_name}")
+            # Ensure that for data we only have the expected systematic
+            # variations in the Weights object
+            if self._do_systematics and isData:
+                expected_vars = set(data_syst_lst)
+                if nlep_cat.startswith("2l") and ("os" not in self.channel):
+                    expected_vars.add("fliprate")
+                if weights_object.variations != expected_vars:
+                    raise Exception(
+                        f"Error: Unexpected wgt variations for data! Expected \"{expected_vars}\" but have \"{weights_object.variations}\"."
+                    )
 
 
             ######### Masks we need for the selection ##########
@@ -809,18 +804,13 @@ class AnalysisProcessor(processor.ProcessorABC):
             # 4l selection
             preselections.add("4l", (events.is4l & pass_trg))
 
-            for lep_cat, jet_dict in cat_dict.items():
-                # lep_chan definitions are the same for each jet bin, so take the first one
-                lep_ch_list = next(iter(jet_dict.values()))["lep_chan_def_lst"]
-                for lep_ch in lep_ch_list:
-                    tempmask = None
-                    chtag = lep_ch[0]
-                    for chcut in lep_ch[1:]:
-                        if tempmask is not None:
-                            tempmask = tempmask & preselections.any(chcut)
-                        else:
-                            tempmask = preselections.any(chcut)
-                    selections.add(chtag, tempmask)
+            # Build the channel mask from the provided channel definition list.
+            lep_ch = self._channel_dict["chan_def_lst"]
+            tempmask = None
+            chtag = lep_ch[0]
+            for chcut in lep_ch[1:]:
+                tempmask = tempmask & preselections.any(chcut) if tempmask is not None else preselections.any(chcut)
+            selections.add(chtag, tempmask)
 
             del preselections
 
@@ -920,163 +910,110 @@ class AnalysisProcessor(processor.ProcessorABC):
             counts = np.ones_like(events['event'])
 
             ########## Fill the histograms ##########
-            cat_dict = self._channel_dict
 
-            # Loop over the hists we want to fill
             dense_axis_name = self._var
             dense_axis_vals = eval(self._var_def, {"ak": ak, "np": np}, locals())
-            
-            # print("\n\n\n\n\n\n")
-            # print(f"Filling histograms for variable: {dense_axis_name}")
-            # print("dense_axis_vals:", dense_axis_vals)
-            # print("self._var_def:", self._var_def)
-            # print("\n\n\n\n\n\n")
-            
-            # Set up the list of syst wgt variations to loop over
+
+            # Set up the list of systematic weight variations to loop over
             wgt_var_lst = ["nominal"]
             if self._do_systematics:
                 if not isData:
-                    if (syst_var != "nominal"):
-                        # In this case, we are dealing with systs that change the kinematics of the objs (e.g. JES)
-                        # So we don't want to loop over up/down weight variations here
+                    if syst_var != "nominal":
                         wgt_var_lst = [syst_var]
                     else:
-                        # Otherwise we want to loop over the up/down weight variations
                         wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst + data_syst_lst
                 else:
-                    # This is data, so we want to loop over just up/down variations relevant for data (i.e. FF up and down)
                     wgt_var_lst = wgt_var_lst + data_syst_lst
 
-            # Loop over the systematics
+            lep_chan = self._channel_dict["chan_def_lst"][0]
+            jet_req = self._channel_dict["jet_selection"]
+            lep_flav_iter = self._channel_dict["lep_flav_lst"] if self._split_by_lepton_flavor else [None]
+
             for wgt_fluct in wgt_var_lst:
-
-                # Loop over nlep categories "2l", "3l", "4l"
-                for nlep_cat in cat_dict.keys():
-                    # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
-                    # Need to do this inside of nlep cat loop since some wgts depend on lep cat
-                    weights_object = weights_dict[nlep_cat]
-                    if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
-                        # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
-                        weight = weights_object.weight(None)
+                if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
+                    weight = weights_object.weight(None)
+                else:
+                    if wgt_fluct in weights_object.variations:
+                        weight = weights_object.weight(wgt_fluct)
                     else:
-                        # Otherwise get the weight from the Weights object
-                        if wgt_fluct in weights_object.variations:
-                            weight = weights_object.weight(wgt_fluct)
-                        else:
-                            # Note in this case there is no up/down fluct for this cateogry, so we don't want to fill a hist for it
+                        continue
+                # Skip filling SR histograms with data-driven variations
+                if self.appregion.startswith("isSR") and wgt_fluct in data_syst_lst:
+                    continue
+
+                for lep_flav in lep_flav_iter:
+                    cuts_lst = [self.appregion, lep_chan]
+                    flav_ch = None
+                    njet_ch = None
+                    if isData:
+                        cuts_lst.append("is_good_lumi")
+                    if self._split_by_lepton_flavor:
+                        flav_ch = lep_flav
+                        cuts_lst.append(lep_flav)
+                    if dense_axis_name != "njets":
+                        njet_ch = jet_req
+                        cuts_lst.append(jet_req)
+
+                    ch_name = construct_cat_name(lep_chan, njet_str=njet_ch, flav_str=flav_ch)
+                    if ch_name != self.channel:
+                        continue
+
+                    all_cuts_mask = selections.all(*cuts_lst)
+                    if self._ecut_threshold is not None:
+                        all_cuts_mask = (all_cuts_mask & ecut_mask)
+
+                    weights_flat = weight[all_cuts_mask]
+                    eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
+
+                    axes_fill_info_dict = {
+                        dense_axis_name: dense_axis_vals[all_cuts_mask],
+                        "weight": weights_flat,
+                        "eft_coeff": eft_coeffs_cut,
+                    }
+
+                    # Skip histos that are not defined (or not relevant) to given categories
+                    if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))):
+                        continue
+                    if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)):
+                        continue
+                    if self.offZ_3l_split:
+                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):
                             continue
+                    elif self.tau_h_analysis:
+                        if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)):
+                            continue
+                        if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)):
+                            continue
+                        if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))):
+                            continue
+                    elif self.fwd_analysis:
+                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
+                            continue
+                        if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)):
+                            continue
+                    else:
+                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
+                            continue
+                    if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)):
+                        continue
 
-                    # This is a check ot make sure we guard against any unintentional variations being applied to data
-                    if self._do_systematics and isData:
-                        # Should not have any up/down variations for data in 4l (since we don't estimate the fake rate there)
-                        if nlep_cat == "4l":
-                            if weights_object.variations != set([]): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{[]}\" but have \"{weights_object.variations}\".")
-                        # In all other cases, the up/down variations should correspond to only the ones in the data list
-                        else:
-                            if weights_object.variations != set(data_syst_lst): raise Exception(f"Error: Unexpected wgt variations for data! Expected \"{set(data_syst_lst)}\" but have \"{weights_object.variations}\".")
+                    histkey = (dense_axis_name, ch_name, self.appregion, dataset, wgt_fluct)
+                    if histkey not in hout.keys():
+                        continue
+                    hout[histkey].fill(**axes_fill_info_dict)
 
-                    # Get a mask for events that pass any of the njet requiremens in this nlep cat
-                    # Useful in cases like njets hist where we don't store njets in a sparse axis
-                    njets_any_mask = selections.any(*cat_dict[nlep_cat].keys())
+                    axes_fill_info_dict = {
+                        dense_axis_name + "_sumw2": dense_axis_vals[all_cuts_mask],
+                        "weight": np.square(weights_flat),
+                        "eft_coeff": eft_coeffs_cut,
+                    }
+                    histkey = (dense_axis_name + "_sumw2", ch_name, self.appregion, dataset, wgt_fluct)
+                    if histkey not in hout.keys():
+                        continue
+                    hout[histkey].fill(**axes_fill_info_dict)
 
-                    # Loop over the njets list for each channel
-                    for njet_val in cat_dict[nlep_cat].keys():
-
-                        # Loop over the appropriate AR and SR for this channel
-                        for appl in cat_dict[nlep_cat][njet_val]["appl_lst"]:
-
-                            # We don't want or need to fill SR histos with the FF variations
-                            if appl.startswith("isSR") and wgt_fluct in data_syst_lst: continue
-
-                            # Loop over the channels in each nlep cat (e.g. "3l_m_offZ_1b")
-                            for lep_chan in cat_dict[nlep_cat][njet_val]["lep_chan_lst"]:
-                                # Loop over the lep flavor list for each channel
-                                for lep_flav in cat_dict[nlep_cat][njet_val]["lep_flav_lst"]:
-                                    # Construct the hist name
-                                    flav_ch = None
-                                    njet_ch = None
-                                    cuts_lst = [appl,lep_chan]
-
-                                    if isData:
-                                        cuts_lst.append("is_good_lumi")
-                                    if self._split_by_lepton_flavor:
-                                        flav_ch = lep_flav
-                                        cuts_lst.append(lep_flav)
-                                    if dense_axis_name != "njets":
-                                        njet_ch = njet_val
-                                        cuts_lst.append(njet_val)
-                                    ch_name = construct_cat_name(lep_chan,njet_str=njet_ch,flav_str=flav_ch)
-
-                                    if ch_name != self.channel:
-                                        continue
-
-                                    # print("\n\n\n\n\ndense_axis_name:", dense_axis_name, "ch_name:", ch_name)
-                                    # print("\n\n\n\n\n")
-
-                                    # Get the cuts mask for all selections
-                                    if dense_axis_name == "njets":
-                                        all_cuts_mask = (selections.all(*cuts_lst) & njets_any_mask)
-                                    else:
-                                        all_cuts_mask = selections.all(*cuts_lst)
-
-                                    # Apply the optional cut on energy of the event
-                                    if self._ecut_threshold is not None:
-                                        all_cuts_mask = (all_cuts_mask & ecut_mask)
-
-                                    # Weights and eft coeffs
-                                    weights_flat = weight[all_cuts_mask]
-                                    eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
-
-                                    # Fill the histos
-                                    axes_fill_info_dict = {
-                                        dense_axis_name : dense_axis_vals[all_cuts_mask],
-                                        #"channel"       : ch_name,
-                                        #"appl"          : appl,
-                                        #"process"       : histAxisName,
-                                        #"systematic"    : wgt_fluct,
-                                        "weight"        : weights_flat,
-                                        "eft_coeff"     : eft_coeffs_cut,
-                                    }
-
-                                    # Skip histos that are not defined (or not relevant) to given categories
-                                    if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
-                                    if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
-                                    if self.offZ_3l_split:
-                                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
-                                    elif self.tau_h_analysis:
-                                        if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
-                                        if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
-                                        if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))): continue
-
-                                    elif self.fwd_analysis:
-                                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                        if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
-                                    else:
-                                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                    if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-                                    histkey = (dense_axis_name, ch_name, appl, dataset, wgt_fluct)
-                                    if histkey not in hout.keys():
-                                        continue
-                                    hout[histkey].fill(**axes_fill_info_dict)
-                                    axes_fill_info_dict = {
-                                        dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
-                                        #"channel"       : ch_name,
-                                        #"appl"          : appl,
-                                        #"process"       : histAxisName,
-                                        #"systematic"    : wgt_fluct,
-                                        "weight"        : np.square(weights_flat),
-                                        "eft_coeff"     : eft_coeffs_cut,
-                                    }
-                                    histkey = (dense_axis_name+"_sumw2", ch_name, appl, dataset, wgt_fluct)
-                                    if histkey not in hout.keys():
-                                        continue
-                                    hout[histkey].fill(**axes_fill_info_dict)
-
-                                    # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
-                                    if not self._split_by_lepton_flavor: break
-
-                        # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
-                        if dense_axis_name == "njets": break
+                    if not self._split_by_lepton_flavor:
+                        break
 
         return hout
 
