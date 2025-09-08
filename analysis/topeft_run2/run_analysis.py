@@ -37,6 +37,37 @@ WGT_VAR_LST = [
 ]
 
 
+def resolve_channel_dicts(
+    select_cat_dict,
+    skip_sr,
+    skip_cr,
+    offZ_split=False,
+    tau_h_analysis=False,
+    fwd_analysis=False,
+):
+    """Return the SR and CR channel dictionaries based on analysis flags."""
+
+    import_sr_cat_dict = None
+    import_cr_cat_dict = None
+
+    if not skip_sr:
+        if offZ_split:
+            import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
+        elif tau_h_analysis:
+            import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
+        elif fwd_analysis:
+            import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
+        else:
+            import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
+
+    if not skip_cr:
+        import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+        if tau_h_analysis:
+            import_cr_cat_dict.update(select_cat_dict["TAU_CH_LST_CR"])
+
+    return import_sr_cat_dict, import_cr_cat_dict
+
+
 def build_channel_dict(
     ch,
     appl,
@@ -49,19 +80,14 @@ def build_channel_dict(
     fwd_analysis=False,
 ):
 
-    if not skip_sr:
-        if offZ_split:
-            import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
-        elif tau_h_analysis:
-            import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
-        elif fwd_analysis:
-            import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
-        else:
-            import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
-    if not skip_cr:
-        import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
-        if tau_h_analysis:
-            import_cr_cat_dict.update(select_cat_dict["TAU_CH_LST_CR"])
+    import_sr_cat_dict, import_cr_cat_dict = resolve_channel_dicts(
+        select_cat_dict,
+        skip_sr,
+        skip_cr,
+        offZ_split=offZ_split,
+        tau_h_analysis=tau_h_analysis,
+        fwd_analysis=fwd_analysis,
+    )
 
     base_ch = ch
     jet_suffix = None
@@ -141,19 +167,14 @@ def build_channel_app_map(
 
     channel_app_map = {}
 
-    if not skip_sr:
-        if offZ_split:
-            import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
-        elif tau_h_analysis:
-            import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
-        elif fwd_analysis:
-            import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
-        else:
-            import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
-    if not skip_cr:
-        import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
-        if tau_h_analysis:
-            import_cr_cat_dict.update(select_cat_dict["TAU_CH_LST_CR"])
+    import_sr_cat_dict, import_cr_cat_dict = resolve_channel_dicts(
+        select_cat_dict,
+        skip_sr,
+        skip_cr,
+        offZ_split=offZ_split,
+        tau_h_analysis=tau_h_analysis,
+        fwd_analysis=fwd_analysis,
+    )
 
     def _collect(import_dict):
         channel_app_map = {}
