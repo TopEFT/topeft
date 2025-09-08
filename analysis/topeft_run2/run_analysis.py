@@ -136,49 +136,45 @@ def build_channel_dict(
 
     nlep_cat = re.match(r"(\d+l)", base_ch).group(1)
 
-    channel_dict = {}
-
-    def _fill(import_dict):
+    def _find(import_dict):
+        """Search import_dict for matching channel and application."""
         if nlep_cat not in import_dict:
-            return
-        for jet_cat in import_dict[nlep_cat]["jet_lst"]:
+            return None
+        info = import_dict[nlep_cat]
+        for jet_cat in info.get("jet_lst", []):
             jet_key = normalize_jet_category(jet_cat)
             if jet_suffix and not jet_key.endswith(jet_suffix):
                 continue
-            chosen = None
-            for lc in import_dict[nlep_cat]["lep_chan_lst"]:
-                if lc[0] == base_ch:
-                    chosen = lc
-                    break
-            if chosen is None:
-                continue
-            appl_list = import_dict[nlep_cat]["appl_lst"].copy()
-            if isData and "appl_lst_data" in import_dict[nlep_cat]:
-                appl_list += import_dict[nlep_cat]["appl_lst_data"]
-            if appl not in appl_list:
-                continue
-            channel_dict.setdefault(nlep_cat, {})[jet_key] = {
-                "lep_chan_lst": [chosen[0]],
-                "lep_chan_def_lst": [chosen],
-                "lep_flav_lst": import_dict[nlep_cat]["lep_flav_lst"],
-                "appl_lst": [appl],
-            }
+            for lc in info["lep_chan_lst"]:
+                if lc[0] != base_ch:
+                    continue
+                appl_list = info["appl_lst"].copy()
+                if isData and "appl_lst_data" in info:
+                    appl_list += info["appl_lst_data"]
+                if appl not in appl_list:
+                    continue
+                return {
+                    "jet_selection": jet_key,
+                    "chan_def_lst": lc,
+                    "lep_flav_lst": info["lep_flav_lst"],
+                    "appl_region": appl,
+                }
+        return None
 
+    ch_info = None
     if not skip_sr:
-        _fill(import_sr_cat_dict)
-    if not skip_cr:
-        _fill(import_cr_cat_dict)
+        ch_info = _find(import_sr_cat_dict)
+    if ch_info is None and not skip_cr:
+        ch_info = _find(import_cr_cat_dict)
 
-    if not channel_dict:
+    if ch_info is None:
         # Respect skip flags: if the requested application region was skipped,
         # return an empty dictionary so the caller can ignore this configuration.
         if (appl.startswith("isSR") and skip_sr) or (appl.startswith("isCR") and skip_cr):
             return {}
-        # Otherwise, the channel/application combination is genuinely missing
-        # from the definitions and should raise an error.
         raise ValueError(f"Channel {ch} with application {appl} not found")
 
-    return channel_dict
+    return ch_info
 
 
 def build_channel_app_map(
@@ -200,32 +196,26 @@ def build_channel_app_map(
         fwd_analysis=fwd_analysis,
     )
 
-    def _collect(import_dict):
-        result = {}
-        for lep_cat, info in import_dict.items():
+    def _collect(import_dict, result):
+        for info in import_dict.values():
             appl_list = info["appl_lst"].copy()
             if isData and "appl_lst_data" in info:
                 appl_list += info["appl_lst_data"]
-            jet_list = info.get("jet_lst", [])
             for lc in info["lep_chan_lst"]:
                 base_ch = lc[0]
-                if jet_list:
-                    for jet_cat in jet_list:
-                        jet_suffix = normalize_jet_category(jet_cat)
-                        clean_suffix = jet_suffix.split("_")[-1]
-                        ch_name = f"{base_ch}_{clean_suffix}"
-                        result[ch_name] = appl_list
-                else:
-                    # channel_app_map[base_ch] = appl_list
-                    raise ValueError(f"Channel {base_ch} has no jet categories")
+                for jet_cat in info.get("jet_lst", []):
+                    jet_suffix = normalize_jet_category(jet_cat)
+                    clean_suffix = jet_suffix.split("_")[-1]
+                    ch_name = f"{base_ch}_{clean_suffix}"
+                    result.setdefault(ch_name, set()).update(appl_list)
 
-        return result
-
-    result = _collect(import_sr_cat_dict) if not skip_sr else {}
+    result = {}
+    if not skip_sr:
+        _collect(import_sr_cat_dict, result)
     if not skip_cr:
-        result.update(_collect(import_cr_cat_dict))
+        _collect(import_cr_cat_dict, result)
 
-    return {ch: sorted(apps) for ch, apps in result.items()}
+    return {ch: sorted(list(apps)) for ch, apps in result.items()}
 
 
 if __name__ == "__main__":
@@ -840,8 +830,6 @@ if __name__ == "__main__":
         print("\nhist_key:", hist_key)
         #print("\nselect_cat_dict:", select_cat_dict)
         print("\nchannel_dict:", channel_dict)
-
-        raise RuntimeError("\n\nStopping here for debugging")
 
         out = runner({sample: sample_flist}, treename, processor_instance)
         output.update(out)

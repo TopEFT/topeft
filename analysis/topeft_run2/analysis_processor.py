@@ -6,6 +6,7 @@ import awkward as ak
 import json
 import os
 import yaml
+import re
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
@@ -68,7 +69,28 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.fwd_analysis = fwd_analysis
         if channel_dict is None:
             raise ValueError("channel_dict must be provided and cannot be None")
-        self._channel_dict = channel_dict
+
+        # ``channel_dict`` is expected to be a flat dictionary with keys
+        # ``jet_selection``, ``chan_def_lst``, ``lep_flav_lst`` and ``appl_region``.
+        # For backward compatibility with the existing processor logic, convert
+        # this into the nested structure used internally.
+        if "chan_def_lst" in channel_dict:
+            ch_tag = channel_dict["chan_def_lst"][0]
+            nlep_cat = re.match(r"(\d+l)", ch_tag).group(1)
+            jet_key = channel_dict["jet_selection"]
+            self._channel_dict = {
+                nlep_cat: {
+                    jet_key: {
+                        "lep_chan_lst": [ch_tag],
+                        "lep_chan_def_lst": [channel_dict["chan_def_lst"]],
+                        "lep_flav_lst": channel_dict["lep_flav_lst"],
+                        "appl_lst": [channel_dict["appl_region"]],
+                    }
+                }
+            }
+        else:
+            # Already in nested format
+            self._channel_dict = channel_dict
 
         histogram = {}
 
