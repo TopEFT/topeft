@@ -6,6 +6,7 @@ import time
 import cloudpickle
 import gzip
 import os
+import re
 import yaml
 
 from topeft.modules.paths import topeft_path
@@ -34,6 +35,89 @@ WGT_VAR_LST = [
     "nSumOfWeights_renormfactUp",
     "nSumOfWeights_renormfactDown",
 ]
+
+
+def build_channel_dict(ch, appl, isData, skip_sr, skip_cr, offZ_split=False, tau_h_analysis=False, fwd_analysis=False):
+    with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
+        select_cat_dict = json.load(ch_json)
+
+    if not skip_sr:
+        if offZ_split:
+            import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
+        elif tau_h_analysis:
+            import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
+        elif fwd_analysis:
+            import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
+        else:
+            import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
+    if not skip_cr:
+        import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+        if tau_h_analysis:
+            import_cr_cat_dict.update(select_cat_dict["TAU_CH_LST_CR"])
+
+    base_ch = ch
+    jet_suffix = None
+    m = re.search(r"_(\d+)j$", ch)
+    if m:
+        jet_suffix = m.group(1) + "j"
+        base_ch = ch[: -(len(m.group(0)))]
+
+    nlep_cat = re.match(r"(\d+l)", base_ch).group(1)
+
+    channel_dict = {}
+
+    def _fill(import_dict):
+        if nlep_cat not in import_dict:
+            return
+        for jet_cat in import_dict[nlep_cat]["jet_lst"]:
+            jettag = None
+            if jet_cat.startswith("="):
+                jettag = "exactly_"
+            elif jet_cat.startswith("<"):
+                jettag = "atmost_"
+            elif jet_cat.startswith(">"):
+                jettag = "atleast_"
+            else:
+                raise RuntimeError(f"jet_cat {jet_cat} in {nlep_cat} misses =,<,> !")
+            jet_key = (
+                jettag + str(jet_cat).replace("=", "").replace("<", "").replace(">", "") + "j"
+            )
+            if jet_suffix and not jet_key.endswith(jet_suffix):
+                continue
+            chosen = None
+            for lc in import_dict[nlep_cat]["lep_chan_lst"]:
+                if lc[0] == base_ch:
+                    chosen = lc
+                    break
+            if chosen is None:
+                continue
+            appl_list = import_dict[nlep_cat]["appl_lst"].copy()
+            if isData and "appl_lst_data" in import_dict[nlep_cat]:
+                appl_list += import_dict[nlep_cat]["appl_lst_data"]
+            if appl not in appl_list:
+                continue
+            channel_dict.setdefault(nlep_cat, {})[jet_key] = {
+                "lep_chan_lst": [chosen[0]],
+                "lep_chan_def_lst": [chosen],
+                "lep_flav_lst": import_dict[nlep_cat]["lep_flav_lst"],
+                "appl_lst": [appl],
+            }
+
+    if not skip_sr:
+        _fill(import_sr_cat_dict)
+    if not skip_cr:
+        _fill(import_cr_cat_dict)
+
+    if not channel_dict:
+        # Respect skip flags: if the requested application region was skipped,
+        # return an empty dictionary so the caller can ignore this configuration.
+        if (appl.startswith("isSR") and skip_sr) or (appl.startswith("isCR") and skip_cr):
+            return {}
+        # Otherwise, the channel/application combination is genuinely missing
+        # from the definitions and should raise an error.
+        raise ValueError(f"Channel {ch} with application {appl} not found")
+
+    return channel_dict
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="You can customize your run")
@@ -583,6 +667,21 @@ if __name__ == "__main__":
         sample_flist = flist[sample][:1]
 
         hist_key = (var, ch, appl, sample, syst)
+        channel_dict = build_channel_dict(
+            ch,
+            appl,
+            sample_dict["isData"],
+            skip_sr,
+            skip_cr,
+            offZ_split=offZ_split,
+            tau_h_analysis=tau_h_analysis,
+            fwd_analysis=fwd_analysis,
+        )
+
+        # If the channel dictionary is empty, this configuration corresponds
+        # to a skipped signal/control region. Skip running the processor for it.
+        if not channel_dict:
+            continue
 
         processor_instance = analysis_processor.AnalysisProcessor(
             sample_dict,
@@ -598,6 +697,7 @@ if __name__ == "__main__":
             offZ_split=offZ_split,
             tau_h_analysis=tau_h_analysis,
             fwd_analysis=fwd_analysis,
+            channel_dict=channel_dict,
         )
         out = runner({sample: sample_flist}, treename, processor_instance)
         output.update(out)
