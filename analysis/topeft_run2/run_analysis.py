@@ -181,6 +181,7 @@ def build_channel_app_map(
 
     return {ch: sorted(apps) for ch, apps in channel_app_map.items()}
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="You can customize your run")
     parser.add_argument(
