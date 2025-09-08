@@ -109,6 +109,12 @@ def build_channel_dict(ch, appl, isData, skip_sr, skip_cr, offZ_split=False, tau
         _fill(import_cr_cat_dict)
 
     if not channel_dict:
+        # Respect skip flags: if the requested application region was skipped,
+        # return an empty dictionary so the caller can ignore this configuration.
+        if (appl.startswith("isSR") and skip_sr) or (appl.startswith("isCR") and skip_cr):
+            return {}
+        # Otherwise, the channel/application combination is genuinely missing
+        # from the definitions and should raise an error.
         raise ValueError(f"Channel {ch} with application {appl} not found")
 
     return channel_dict
@@ -671,6 +677,11 @@ if __name__ == "__main__":
             tau_h_analysis=tau_h_analysis,
             fwd_analysis=fwd_analysis,
         )
+
+        # If the channel dictionary is empty, this configuration corresponds
+        # to a skipped signal/control region. Skip running the processor for it.
+        if not channel_dict:
+            continue
 
         processor_instance = analysis_processor.AnalysisProcessor(
             sample_dict,
