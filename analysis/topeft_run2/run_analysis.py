@@ -162,10 +162,9 @@ def build_channel_app_map(
     offZ_split=False,
     tau_h_analysis=False,
     fwd_analysis=False,
-):
+): 
     """Extract channel names and their application regions from ch_lst.json."""
-
-    channel_app_map = {}
+    channel_app_dict = {}
 
     import_sr_cat_dict, import_cr_cat_dict = resolve_channel_dicts(
         select_cat_dict,
@@ -198,10 +197,11 @@ def build_channel_app_map(
                     raise ValueError(f"Channel {base_ch} has no jet categories")
 
         return channel_app_map
+
     if not skip_sr:
-        channel_app_dict = _collect(import_sr_cat_dict)
+        channel_app_dict.update(_collect(import_sr_cat_dict))
     if not skip_cr:
-        channel_app_dict = _collect(import_cr_cat_dict)
+        channel_app_dict.update(_collect(import_cr_cat_dict))
 
     return {ch: sorted(apps) for ch, apps in channel_app_dict.items()}
 
