@@ -640,10 +640,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             # which set of weights to apply.
             nlep_cat = re.match(r"\d+l", self.channel).group(0)
 
-            # Start from the base set of weights and attach the lepton-category
-            # specific pieces.  This used to loop over all categories; now only
-            # the weights relevant to ``nlep_cat`` are constructed.
-            weights_object = copy.deepcopy(weights_obj_base_for_kinematic_syst)
+            # Start from the base set of weights and attach the
+            # lepton-category specific pieces.  The weights object for the
+            # requested ``nlep_cat`` is fetched from a dictionary so that this
+            # happens once per systematic variation.
+            weights_dict = {nlep_cat: copy.deepcopy(weights_obj_base_for_kinematic_syst)}
+            weights_object = weights_dict[nlep_cat]
 
             if nlep_cat.startswith("1l"):
                 weights_object.add("FF", events.fakefactor_1l, copy.deepcopy(events.fakefactor_1l_up), copy.deepcopy(events.fakefactor_1l_down))
@@ -930,13 +932,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             lep_flav_iter = self._channel_dict["lep_flav_lst"] if self._split_by_lepton_flavor else [None]
 
             for wgt_fluct in wgt_var_lst:
-                if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
+                if wgt_fluct == "nominal":
                     weight = weights_object.weight(None)
+                elif wgt_fluct in weights_object.variations:
+                    weight = weights_object.weight(wgt_fluct)
                 else:
-                    if wgt_fluct in weights_object.variations:
-                        weight = weights_object.weight(wgt_fluct)
-                    else:
-                        continue
+                    continue
                 # Skip filling SR histograms with data-driven variations
                 if self.appregion.startswith("isSR") and wgt_fluct in data_syst_lst:
                     continue
