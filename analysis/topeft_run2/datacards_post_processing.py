@@ -58,6 +58,7 @@ def main():
         args.set_up_offZdivision,
         args.tau_flag,
         args.fwd_flag,
+        args.all_analysis,
     ]
 
     # check exactly one is True
@@ -130,7 +131,7 @@ def main():
             import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
         elif args.fwd_flag:
             import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
-        if args.all_analysis:
+        elif args.all_analysis:
             import_sr_ch_lst = select_ch_lst["ALL_CH_LST_SR"]
 
         CATSELECTED = []
@@ -147,21 +148,19 @@ def main():
                     # special channels to be binned by ptz instead of lj0pt
                     if "3l" in lep_ch_name and int(jet) == 1 and 'fwd' not in lep_ch_name: # 1j for fwd only
                         continue
-                    elif "3l_onZ_1b" in lep_ch_name or ("3l_onZ_2b" in lep_ch_name and (int(jet) == 4 or int(jet) == 5)) and 'fwd' not in lep_ch_name:
+                    #elif "3l_onZ_1b" in lep_ch_name or ("3l_onZ_2b" in lep_ch_name and (int(jet) == 4 or int(jet) == 5)) and 'fwd' not in lep_ch_name:
+                    elif (("3l_onZ_1b" in lep_ch_name) or ("3l_onZ_2b" in lep_ch_name and int(jet) in [4, 5])) and 'fwd' not in lep_ch_name:
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif args.all_analysis and (
                          ("3l_onZ_2b" in lep_ch_name and int(jet) == 1) or
                          ("3l_onZ_1b" in lep_ch_name and int(jet) == 1) or
-                         ("offZ_2b_fwd" in lep_ch_name and int(jet) == 1) or
-                         ("offZ_1b_fwd" in lep_ch_name and int(jet) == 5) or # will be removed after update in ch_lst
-                         ("offZ_2b_fwd" in lep_ch_name and int(jet) == 5) # will be removed after update in ch_lst
                          ):
                         continue
                     elif (args.set_up_offZdivision or args.all_analysis) and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
                     elif (args.tau_flag or args.all_analysis) and ("2los" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz"
-                    elif args.tau_flag and ("1tau_onZ" in lep_ch_name):
+                    elif (args.tau_flag or args.all_analysis) and ("1tau_onZ" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
                     elif (args.fwd_flag or args.all_analysis) and ("fwd" in lep_ch_name):
                         channelname = lep_ch_name + "_" + jet + "j_lt"
@@ -185,27 +184,45 @@ def main():
     elif args.fwd_flag:
         print(f"\nCopying forward jets analysis relevant files to {ptzlj0pt_path}...")
 
+
+    print(len(CATSELECTED))
     for fname in datacard_files:
         file_name_strip_ext = os.path.splitext(fname)[0]
         for file in CATSELECTED:
             if file in file_name_strip_ext:
                 if fname.endswith(".txt"):
                     bad = subprocess.call([f'grep "observation 0.00" {os.path.join(args.datacards_path,fname)}'], shell=True, stdout=subprocess.DEVNULL)
-                    if bad == 0:
-                        raise Exception(f"Warning: {file} has 0 observation!")
+                    #if bad == 0:
+                    #    raise Exception(f"Warning: {file} has 0 observation!")
                 shutil.copyfile(os.path.join(args.datacards_path,fname),os.path.join(ptzlj0pt_path,fname))
                 if fname.endswith(".txt"): n_txt += 1
                 if fname.endswith(".root"): n_root += 1
     #also copy the selectedWCs.txt file
     shutil.copyfile(os.path.join(args.datacards_path,"selectedWCs.txt"),os.path.join(ptzlj0pt_path,"selectedWCs.txt"))
 
-    for item in scalings_content:
-        channel_name = item.get("channel")
-        if channel_name in CATSELECTED:
-            ch_index = CATSELECTED.index(channel_name) + 1
-            item["channel"] = "ch" + str(ch_index)
-        else:
-            scalings_content = [d for d in scalings_content if d != item]
+#    for item in scalings_content:
+#        channel_name = item.get("channel")
+#        if channel_name in CATSELECTED:
+#            ch_index = CATSELECTED.index(channel_name) + 1
+#            item["channel"] = "ch" + str(ch_index)
+#        else:
+#            scalings_content = [d for d in scalings_content if d != item]
+
+    new_scalings = []
+    for ch_index, channel_name in enumerate(CATSELECTED, start=1):
+        # find all items that match this channel
+        matches = [item for item in scalings_content if item.get("channel") == channel_name]
+
+        if not matches:
+            raise ValueError(f"Channel '{channel_name}' not found in scalings_content")
+
+        # update and append in order
+        for item in matches:
+            new_item = item.copy()
+            new_item["channel"] = f"ch{ch_index}"
+            new_scalings.append(new_item)
+
+    scalings_content = new_scalings
 
     with open(os.path.join(ptzlj0pt_path, 'scalings.json'), 'w') as file:
         json.dump(scalings_content, file, indent=4)

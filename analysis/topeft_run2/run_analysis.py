@@ -73,7 +73,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--chunksize",
         "-s",
-        default=100000,
+        default=50000,
         help="Number of events per chunk",
     )
     parser.add_argument(
@@ -128,6 +128,11 @@ if __name__ == "__main__":
         "--fwd-analysis",
         action="store_true",
         help="Add fwd channels",
+    )
+    parser.add_argument(
+        "--all-analysis",
+        action="store_true",
+        help="Add channels from all contributions",
     )
     parser.add_argument(
         "--skip-sr",
@@ -202,6 +207,7 @@ if __name__ == "__main__":
     offZ_split = args.offZ_split
     tau_h_analysis = args.tau_h_analysis
     fwd_analysis = args.fwd_analysis
+    all_analysis = args.all_analysis
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
@@ -232,6 +238,7 @@ if __name__ == "__main__":
         offZ_split = ops.pop("offZ_split",offZ_split)
         tau_h_analysis = ops.pop("tau_h_analysis",tau_h_analysis)
         fwd_analysis = ops.pop("fwd_analysis",fwd_analysis)
+        all_analysis = ops.pop("all_analysis", all_analysis)
         skip_sr = ops.pop("skip_sr",skip_sr)
         skip_cr = ops.pop("skip_cr",skip_cr)
         do_np = ops.pop("do_np",do_np)
@@ -289,9 +296,9 @@ if __name__ == "__main__":
     if hist_list == ["ana"]:
         # Here we hardcode a list of hists used for the analysis
         hist_lst = ["njets", "lj0pt", "ptz"]
-        if tau_h_analysis:
+        if tau_h_analysis or all_analysis:
             hist_lst.append("ptz_wtau")
-        if fwd_analysis:
+        if fwd_analysis or all_analysis:
             hist_lst.append("lt")
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
@@ -456,11 +463,12 @@ if __name__ == "__main__":
         offZ_split=offZ_split,
         tau_h_analysis=tau_h_analysis,
         fwd_analysis=fwd_analysis,
+        all_analysis=all_analysis
     )
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
-            "manager_name": f"{os.environ['USER']}-{executor}-coffea",
+            "manager_name": f"{os.environ['USER']}-workqueue-coffea",
             # find a port to run work queue in this range:
             "port": port,
             "debug_log": "debug.log",
@@ -472,19 +480,20 @@ if __name__ == "__main__":
             ),
             "extra_input_files": ["analysis_processor.py"],
             "retries": 15,
+            "filepath": '/tmp',
             # use mid-range compression for chunks results.
             # Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
-            "compression": 0,
+            "compression": 8,
             # automatically find an adequate resource allocation for tasks.
             # tasks are first tried using the maximum resources seen of previously ran
             # tasks. on resource exhaustion, they are retried with the maximum resource
             # values, if specified below. if a maximum is not specified, the task waits
             # forever until a larger worker connects.
-            # 'resource_monitor': True,
-            "resource_monitor": "measure",
+            "resource_monitor": True,
+         #   "resource_monitor": "measure",
             "resources_mode": "auto",
-            'filepath': f'/tmp/{os.environ["USER"]}', ##Placeholder to comment out if you don't want to save wq-factory dirs in $HOME
+            #'filepath': f'/tmp/{os.environ["USER"]}', ##Placeholder to comment out if you don't want to save wq-factory dirs in $HOME
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
             # of a workflow run a little bit faster.
@@ -500,7 +509,7 @@ if __name__ == "__main__":
             # 'disk': 8000,   #MB
             # 'memory': 10000, #MB
             # control the size of accumulation tasks.
-            "treereduction": 10,
+        #    "treereduction": 10,
             # terminate workers on which tasks have been running longer than average.
             # This is useful for temporary conditions on worker nodes where a task will
             # be finish faster is ran in another worker.
@@ -519,6 +528,8 @@ if __name__ == "__main__":
             # off print_stdout for all tasks.
             "verbose": True,
             "print_stdout": False,
+            'chunks_per_accum': 25,
+            'chunks_accum_in_mem': 2,
         }
 
     # Run the processor and get the output
