@@ -234,9 +234,16 @@ class AnalysisProcessor(processor.ProcessorABC):
         if is_run3:
             AttachElectronCorrections(ele, run, year, isData) #need to apply electron energy corrections before calculating conept
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-            #btagAlgo = "btagDeepFlavB" #DeepJet branch
+            ## TO USE FOR DEEPJET AND NOT PNET
+            # btagAlgo = "btagDeepFlavB" #DeepJet branch
+            # btagAlgo_alt = "btagPNetB" #PNet branch (alternative)
+
+            ## TO USE FOR PNET AND NOT DJET, PNET AND DJET
             btagAlgo = "btagPNetB"    #PNet branch
-            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger=btagAlgo)
+            btagAlgo_alt = "btagDeepFlavB" #DeepJet branch (alternative)
+            
+            btagAlgo_lep = "btagDeepFlavB" # Use DeepJet for lep-jet b tagging
+            leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger=btagAlgo_lep)
         elif is_run2:
             jetsRho = events.fixedGridRhoFastjetAll
             btagAlgo = "btagDeepFlavB"
@@ -244,8 +251,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not btagAlgo in ["btagDeepFlavB", "btagPNetB"]:
             raise ValueError("b-tagging algorithm not recognized!")
         
-        te_os.lepJetBTagAdder(ele, btagger=btagAlgo)
-        te_os.lepJetBTagAdder(mu, btagger=btagAlgo)
+        te_os.lepJetBTagAdder(ele, btagger=btagAlgo_lep)
+        te_os.lepJetBTagAdder(mu, btagger=btagAlgo_lep)
 
         # An array of lenght events that is just 1 for each event
         # Probably there's a better way to do this, but we use this method elsewhere so I guess why not..
@@ -496,21 +503,54 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             if btagAlgo == "btagDeepFlavB":
                 btagRef = ""
+                btagRefAlt = "PNet_"
             elif btagAlgo == "btagPNetB":
                 btagRef = "PNet_"
+                btagRefAlt = ""
 
             # Loose DeepJet WP
             loose_tag = "btag_wp_loose_" + btagRef + year.replace("201", "UL1")
+            loose_tag_alt = "btag_wp_loose_" + btagRefAlt + year.replace("201", "UL1")
             btagwpl = get_tc_param(loose_tag)
-            isBtagJetsLoose = (goodJets[btagAlgo] > btagwpl)
+            btagwpl_alt = get_tc_param(loose_tag_alt)
+            isBtagJetsLooseMain = (goodJets[btagAlgo] > btagwpl)
+            isBtagJetsLooseAlt  = (goodJets[btagAlgo_alt] > btagwpl_alt)
+            isBtagJetsLoose = isBtagJetsLooseMain & ~(isBtagJetsLooseAlt)
+            # isBtagJetsLoose = isBtagJetsLooseMain & (isBtagJetsLooseAlt)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
             # Medium DeepJet WP
             medium_tag = "btag_wp_medium_" + btagRef + year.replace("201", "UL1")
+            medium_tag_alt = "btag_wp_medium_" + btagRefAlt + year.replace("201", "UL1")
             btagwpm = get_tc_param(medium_tag)
-            isBtagJetsMedium = (goodJets[btagAlgo] > btagwpm)
+            btagwpm_alt = get_tc_param(medium_tag_alt)
+            isBtagJetsMediumMain = (goodJets[btagAlgo] > btagwpm)
+            isBtagJetsMediumAlt  = (goodJets[btagAlgo_alt] > btagwpm_alt)
+            isBtagJetsMedium = isBtagJetsMediumMain & ~(isBtagJetsMediumAlt)
+            # isBtagJetsMedium = isBtagJetsMediumMain & (isBtagJetsMediumAlt)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
             nbtagsm = ak.num(goodJets[isBtagJetsMedium])
+            if isData:
+                goodJets["partonFlavour"] = ak.full_like(goodJets.pt, -5)
+            isGluonJet = (goodJets.partonFlavour == 21)
+            goodJets["isGluonJet"] = (goodJets.partonFlavour == 21)
+
+            # print("\n\n\n\n\n\nisBtagJetsMedium", ak.to_list(ak.flatten(isBtagJetsMedium[isBtagJetsMedium])))
+            # print("isBtagJetsMediumMain", ak.to_list(ak.flatten(isBtagJetsMediumMain[isBtagJetsMedium])))
+            # print("isBtagJetsMediumAlt", ak.to_list(ak.flatten(isBtagJetsMediumAlt[isBtagJetsMedium])))
+            # print("goodJets.partonFlavour", ak.to_list(ak.flatten(goodJets[isBtagJetsMedium].partonFlavour)))
+            # #print("goodJets.hadronFlavour", ak.to_list(goodJets[isBtagJetsMedium].hadronFlavour))
+            # print("goodJets.pt", ak.to_list(ak.flatten(goodJets[isBtagJetsMedium].pt)))
+            # print("goodJets.eta", ak.to_list(ak.flatten(goodJets[isBtagJetsMedium].eta)))
+            # print("\n")
+            # print("isBtagJetsMedium", ak.to_list(ak.flatten(isBtagJetsMedium[(isBtagJetsMedium & isGluonJet)])))
+            # print("isBtagJetsMediumMain", ak.to_list(ak.flatten(isBtagJetsMediumMain[(isBtagJetsMedium & isGluonJet)])))
+            # print("isBtagJetsMediumAlt", ak.to_list(ak.flatten(isBtagJetsMediumAlt[(isBtagJetsMedium & isGluonJet)])))
+            # print("goodJets.partonFlavour", ak.to_list(ak.flatten(goodJets[(isBtagJetsMedium & isGluonJet)].partonFlavour)))
+            # #print("goodJets.hadronFlavour", ak.to_list(goodJets[(isBtagJetsMedium & isGluonJet)].hadronFlavour))
+            # print("goodJets.pt", ak.to_list(ak.flatten(goodJets[(isBtagJetsMedium & isGluonJet)].pt)))
+            # print("goodJets.eta", ak.to_list(ak.flatten(goodJets[(isBtagJetsMedium & isGluonJet)].eta)))
+            # print("\n\n\n\n\n\n\n")
             #################### Add variables into event object so that they persist ####################
 
             # Put njets and l_fo_conept_sorted into events
@@ -954,6 +994,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["ptbl"]    = ak.flatten(ptbl)
             varnames["ptz"]     = ptz
             varnames["b0pt"]    = ak.flatten(ptbl_bjet.pt)
+            varnames['b0mpt']   = ak.fill_none(b0m.pt, 1000)
+            varnames['b1mpt']   = ak.fill_none(b1m.pt, 1000)
+            varnames['b0meta']  = ak.fill_none(b0m.eta, 1000)
+            varnames['b1meta']  = ak.fill_none(b1m.eta, 1000)
             varnames["bl0pt"]   = bl0pt
             varnames["o0pt"]    = o0pt
             varnames["lj0pt"]   = lj0pt
@@ -988,30 +1032,30 @@ class AnalysisProcessor(processor.ProcessorABC):
                 b1m_genpFlav = ak.fill_none(b1m.matched_gen.partonFlavour, -1)
 
             else:
-                l0_gen_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
-                l1_gen_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
-                l2_gen_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
-                l0_genParent_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
-                l1_genParent_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
-                l2_genParent_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
+                l0_gen_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -5)
+                l1_gen_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -5)
+                l2_gen_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -5)
+                l0_genParent_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -5)
+                l1_genParent_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -5)
+                l2_genParent_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -5)
 
-                b0l_hFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
-                b0l_pFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
-                b1l_hFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
-                b1l_pFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
-                b0l_genhFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
-                b0l_genpFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
-                b1l_genhFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
-                b1l_genpFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+                b0l_hFlav = ak.fill_none(ak.zeros_like(b0l.pt), -5)
+                b0l_pFlav = ak.fill_none(ak.zeros_like(b0l.pt), -5)
+                b1l_hFlav = ak.fill_none(ak.zeros_like(b1l.pt), -5)
+                b1l_pFlav = ak.fill_none(ak.zeros_like(b1l.pt), -5)
+                b0l_genhFlav = ak.fill_none(ak.zeros_like(b0l.pt), -5)
+                b0l_genpFlav = ak.fill_none(ak.zeros_like(b0l.pt), -5)
+                b1l_genhFlav = ak.fill_none(ak.zeros_like(b1l.pt), -5)
+                b1l_genpFlav = ak.fill_none(ak.zeros_like(b1l.pt), -5)
                 
-                b0m_hFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
-                b0m_pFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
-                b1m_hFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
-                b1m_pFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
-                b0m_genhFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
-                b0m_genpFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
-                b1m_genhFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
-                b1m_genpFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+                b0m_hFlav = ak.fill_none(ak.zeros_like(b0m.pt), -5)
+                b0m_pFlav = ak.fill_none(ak.zeros_like(b0m.pt), -5)
+                b1m_hFlav = ak.fill_none(ak.zeros_like(b1m.pt), -5)
+                b1m_pFlav = ak.fill_none(ak.zeros_like(b1m.pt), -5)
+                b0m_genhFlav = ak.fill_none(ak.zeros_like(b0m.pt), -5)
+                b0m_genpFlav = ak.fill_none(ak.zeros_like(b0m.pt), -5)
+                b1m_genhFlav = ak.fill_none(ak.zeros_like(b1m.pt), -5)
+                b1m_genpFlav = ak.fill_none(ak.zeros_like(b1m.pt), -5)
 
             varnames["l0_gen_pdgId"] = l0_gen_pdgId
             varnames["l1_gen_pdgId"] = l1_gen_pdgId

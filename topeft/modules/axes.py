@@ -143,51 +143,50 @@ info = {
        "regular": (28, -1.5, 26.5),
        "label": r"pdgid of l2 genparent",
     },
-
     "b0l_hFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"Hadron Flavor of leading loose b jet",
-   },
+    },
     "b0l_pFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"Parton Flavor of leading loose b jet",
-   },
+    },
     "b0m_hFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"Hadron Flavor of leading medium b jet",
-   },
+    },
     "b0m_pFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"Parton Flavor of leading medium b jet",
-   },
+    },
     "b1l_hFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"Hadron Flavor of subleading loose b jet",
-   },
+    },
     "b1l_pFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"Parton Flavor of subleading loose b jet",
-   },
+    },
     "b1m_hFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"Hadron Flavor of subleading medium b jet",
-   },
+    },
     "b1m_pFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"Parton Flavor of subleading medium b jet",
-   },
+    },
     "b0l_genhFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"GenHadron Flavor of leading loose b jet",
-   },
+    },
     "b0l_genpFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"GenParton Flavor of leading loose b jet",
-   },
+    },
     "b0m_genhFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"GenHadron Flavor of leading medium b jet",
-   },
+    },
     "b0m_genpFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"GenParton Flavor of leading medium b jet",
@@ -207,5 +206,21 @@ info = {
     "b1m_genpFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"GenParton Flavor of subleading medium b jet",
-   }
+   },
+    "b0mpt": {
+        "regular": (40, 0, 200),
+        "label": r"Leading medium b jet $p_{T}$ (GeV) "
+    },
+    "b1mpt": {
+        "regular": (40, 0, 200),
+        "label": r"Subleading medium b jet $p_{T}$ (GeV) "
+    },
+    "b0meta": {
+        "regular": (60, -3, 3),
+        "label": r"Leading medium b jet $\eta$ "
+    },
+    "b1meta": {
+        "regular": (60, -3, 3),
+        "label": r"Subleading medium b jet $\eta$ "
+    }
 }
