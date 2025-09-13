@@ -889,6 +889,14 @@ class DatacardMaker():
                             raise RuntimeError("filling obs data more than once!")
                         for sp_key,arr in data_sm.items():
                             data_obs += arr
+                    if not self.use_real_data and wcs_dict is not None:
+                        # Create asimov dataset, 'vals' are WCs specified at the command-line
+                        vals = wcs_dict
+                        decomposed_templates = self.decompose(proc_hist,proc_sumw2,wcs,vals)
+                        data_sm = decomposed_templates.pop("sm")
+                        for sp_key,arr in data_sm.items():
+                            if sp_key.systematic == "nominal":
+                                data_obs += arr
                 if not self.use_AAC:
                     decomposed_templates = {k: v for k, v in decomposed_templates.items() if k == 'sm'}
                 for base,v in decomposed_templates.items():
@@ -927,12 +935,9 @@ class DatacardMaker():
                         if syst == "nominal" and base == "sm":
                             if self.verbose:
                                 print(f"\t{proc_name:<12}: {sum_arr:.4f} {arr[0]}")
-                            if not self.use_real_data:
+                            if not self.use_real_data and wcs_dict is None:
                                 # Create asimov dataset
-                                vals = wcs_dict # set wcs to certain values from command line
-                                decomposed_templates_Asimov = self.decompose(proc_hist,proc_sumw2,wcs,vals)
-                                data_sm = decomposed_templates_Asimov.pop("sm")
-                                data_obs += data_sm[sp_key]
+                                data_obs += arr
                         if syst == "nominal":
                             hist_name = f"{proc_name}"
                             text_card_info[proc_name]["rate"] = sum_arr
@@ -995,10 +1000,10 @@ class DatacardMaker():
                 # obtain the scalings for scalings.json file
                 if p in self.SIGNALS:
                     if self.wc_scalings:
-                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(self.wc_scalings)
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(flow='show', wc_list=self.wc_scalings)
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,self.wc_scalings,scalings)
                     else:
-                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling()
+                        scalings = h[{'channel':ch,'process':p,'systematic':'nominal'}].make_scaling(flow='show')
                         self.scalings_json = self.make_scalings_json(self.scalings,ch,km_dist,p,h.wc_names,scalings)
             f["data_obs"] = to_hist(data_obs,"data_obs")
 
@@ -1138,6 +1143,7 @@ class DatacardMaker():
                 f.write("* autoMCStats 10\n")
             else:
                 f.write("* autoMCStats -1\n")
+
         dt = time.time() - tic
         print(f"File Write Time: {dt:.2f} s")
         print(f"Total Hists Written: {num_h}")
