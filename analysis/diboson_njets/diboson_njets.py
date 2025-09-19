@@ -1,9 +1,6 @@
 #!/usr/bin/env python
-import coffea
 import numpy as np
-import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
-import hist
 import argparse
 import pickle
 import gzip
@@ -22,8 +19,8 @@ hists = {}
 with gzip.open(fin) as fin:
     hin = pickle.load(fin)
     for k in hin.keys():
-      if k in hists: hists[k]+=hin[k]
-      else:               hists[k]=hin[k]
+        if k in hists: hists[k]+=hin[k]
+        else:               hists[k]=hin[k]
 
 h = hists['njets']
 #h_data = h.integrate('sample',  [proc for proc in h.axis('sample').identifiers() if 'data' in proc.name]).integrate('channel',  [chan for chan in h.axis('channel').identifiers() if '3l_CR' in chan.name]).integrate('systematic',  'nominal').integrate('appl',  'isSR_3l').to_hist()
@@ -33,7 +30,7 @@ h_data = h[{'process': [proc for proc in h.axes['process'] if 'data' in proc], '
 h_diboson = h[{'process': [proc for proc in h.axes['process'] if any(p == proc[:4] for p in ['WWTo', 'WZTo', 'ZZTo'])], 'channel': [chan for chan in h.axes['channel'] if '3l_CR' in chan], 'systematic': 'nominal', 'appl': 'isSR_3l'}][{'process': sum, 'channel': sum}]
 h_bkg = h[{'process': [proc for proc in h.axes['process'] if 'data' not in proc and not any(p == proc[:4] for p in ['WWTo', 'WZTo', 'ZZTo'])], 'channel': [chan for chan in h.axes['channel'] if '3l_CR' in chan], 'systematic': 'nominal', 'appl': 'isSR_3l'}][{'process': sum, 'channel': sum}]
 
- 
+
 h_nodi = h_data - h_bkg
 print(h_diboson.axes['njets'].edges[:-1])
 print(((h_data - h_bkg).eval({})[()] / h_diboson.eval({})[()])[1:-1])
