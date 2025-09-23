@@ -7,6 +7,7 @@ import hist
 import os
 import re
 import json
+import yaml
 import time
 
 from collections import defaultdict
@@ -306,6 +307,31 @@ class DatacardMaker():
         # get wc ranges from json
         with open(topeft_path("params/wc_ranges.json"), "r") as wc_ranges_json:
             self.wc_ranges = json.load(wc_ranges_json)
+
+        self.rotate = {}
+        with open(topeft_path("params/SMEFTsim-topU3l_dim6top.yml")) as f:
+            yml = yaml.load(f,Loader=yaml.CLoader)
+
+        self.rotate["CW"] = yml.pop("CW")
+        self.rotate["SW"] = eval(yml.pop("SW").format(CW=self.rotate["CW"]))
+
+        for k,v in yml.items():
+            if isinstance(v, list):
+                kwargs = {}
+                for wc in v[1]:
+                    lo,hi = self.wc_ranges[wc]
+                    kwargs[wc] = f"{wc}[0,{lo},{hi}]"
+                if "{CW}" in v[0]:
+                    kwargs["CW"] = self.rotate["CW"]
+                if "{SW}" in v[0]:
+                    kwargs["SW"] = self.rotate["SW"]
+                self.rotate[k] = v[0].format(**kwargs)
+            if isinstance(v, str):
+                if v not in self.wc_ranges:
+                    raise Exception("The WC {v} was not found in params/wc_ranges.json!")
+                lo,hi = self.wc_ranges[v]
+                v = v.replace(v,f"{v}[0,{lo},{hi}]")
+                self.rotate[k] = v
 
         if self.year_lst:
             for yr in self.year_lst:
@@ -789,6 +815,8 @@ class DatacardMaker():
         return scalings_json
 
     def format_wc(self,wcname):
+        if wcname in self.rotate:
+            return self.rotate[wcname]
         lo, hi = self.wc_ranges[wcname]
         return "%s[0,%.1f,%.1f]" % (wcname, lo, hi)
 
@@ -1065,7 +1093,9 @@ class DatacardMaker():
                     elif syst_name == "missing_parton":
                         v = rate_syst.get_process(proc_name)
                         if "2los" in ch:
-                            ch = ch.replace("2los", "2lss").replace("_onZ", "_p")
+                            ch_key = ch.replace("2los", "2lss").replace("_onZ", "_p")
+                        else:
+                            ch_key = ch
                         # First strip off any njet and/or bjet labels
                         ch_key = ch.replace(f"_{num_j}j","").replace(f"_{num_b}b","").replace("_1tau", "")
                         # Now construct the category key, matching names in the missing_parton file to the current category
@@ -1076,7 +1106,7 @@ class DatacardMaker():
                             ch_key = f"{ch_key}_{num_b}b"
                         elif num_l == 3:
                             njet_offset = 2
-                            if "_onZ" in ch:
+                            if "_onZ" in ch or "tau" in ch:
                                 ch_key = f"{num_l}l_sfz_{num_b}b"
                             elif "_p_offZ" in ch:
                                 ch_key = f"{num_l}l{num_b}b_p"

@@ -597,7 +597,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # If we are not skipping the signal regions, we will import the SR categories
                 # This dictionary keeps track of which selections go with which SR categories
                 if self.offZ_3l_split:
-                    import_sr_cat_dict = select_cat_dict["OFFZ_TAU_SPLIT_CH_LST_SR"]
+                    import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
                 elif self.tau_h_analysis:
                     import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
                 elif self.fwd_analysis:
@@ -660,6 +660,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if ch_name.startswith("1l"):
                         weights_dict[ch_name].add("lepSF_muon", events.sf_1l_muon, copy.deepcopy(events.sf_1l_hi_muon), copy.deepcopy(events.sf_1l_lo_muon))
                         weights_dict[ch_name].add("lepSF_elec", events.sf_1l_elec, copy.deepcopy(events.sf_1l_hi_elec), copy.deepcopy(events.sf_1l_lo_elec))
+<<<<<<< HEAD
                         if self.tau_h_analysis or self.all_analysis:
                             weights_dict[ch_name].add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
                             weights_dict[ch_name].add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
@@ -716,6 +717,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
             charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
+
             if self.tau_h_analysis or self.all_analysis:
                 tau_F_mask = (ak.num(tau[tau["isVLoose"]>0]) >=1)
                 tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) >=1)
@@ -744,6 +746,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             preselections.add("bmask_atmost2m", (bmask_atmost2med))
             preselections.add("fwdjet_mask", (fwdjet_mask))
             preselections.add("~fwdjet_mask", (~fwdjet_mask))
+
             if self.tau_h_analysis or self.all_analysis:
                 preselections.add("1l", (events.is1l & pass_trg))
                 preselections.add("1tau", (tau_L_mask))
@@ -858,6 +861,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
             selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0)
             selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0)
+
             if self.tau_h_analysis or self.all_analysis:
                 selections.add("isSR_1l",    ( events.is1l_SR))
 
@@ -877,11 +881,13 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+
             if self.tau_h_analysis or self.all_analysis:
                 ptz_wtau = te_es.get_Zlt_pt(l0, l1, tau0)
 
             if self.offZ_3l_split or self.all_analysis:
                 ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
             bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})

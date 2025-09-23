@@ -154,6 +154,8 @@ def main():
                     elif args.all_analysis and (
                          ("3l_onZ_2b" in lep_ch_name and int(jet) == 1) or
                          ("3l_onZ_1b" in lep_ch_name and int(jet) == 1) or
+                         ("offZ_2b_fwd" in lep_ch_name and int(jet) == 1) or
+                         ("fwd_p_1tau_offZ" in lep_ch_name and int(jet) > 5)
                          ):
                         continue
                     elif (args.set_up_offZdivision or args.all_analysis) and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
@@ -184,8 +186,6 @@ def main():
     elif args.fwd_flag:
         print(f"\nCopying forward jets analysis relevant files to {ptzlj0pt_path}...")
 
-
-    print(len(CATSELECTED))
     for fname in datacard_files:
         file_name_strip_ext = os.path.splitext(fname)[0]
         for file in CATSELECTED:
@@ -199,14 +199,6 @@ def main():
                 if fname.endswith(".root"): n_root += 1
     #also copy the selectedWCs.txt file
     shutil.copyfile(os.path.join(args.datacards_path,"selectedWCs.txt"),os.path.join(ptzlj0pt_path,"selectedWCs.txt"))
-
-#    for item in scalings_content:
-#        channel_name = item.get("channel")
-#        if channel_name in CATSELECTED:
-#            ch_index = CATSELECTED.index(channel_name) + 1
-#            item["channel"] = "ch" + str(ch_index)
-#        else:
-#            scalings_content = [d for d in scalings_content if d != item]
 
     new_scalings = []
     for ch_index, channel_name in enumerate(CATSELECTED, start=1):
