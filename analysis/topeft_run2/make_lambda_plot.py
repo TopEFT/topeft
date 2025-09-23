@@ -196,7 +196,7 @@ def main():
     make_plot(
         wc_lst=WC_LST,
         range_dict_a = lambda_dict_top22006,
-        tag_a = r"TOP-21-006 2$\sigma$ profiled asimov",
+        tag_a = "TOP-21-006 2$\sigma$ profiled asimov",
         save_name="lambda_lims_b",
         xlog = True,
     )

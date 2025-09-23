@@ -33,8 +33,7 @@ def get_hists(fname, path, process):
 
     nom = {}; up = {}; down = {}
 
-    nom = {proc.strip(';1'): fin[proc].values() for proc in fin if 'sm;' in proc}
-    #nom = {proc.strip(';1'): fin[proc].values() for proc in fin if 'sm;' in proc and (process in proc or process.replace('ll','Z') in proc)}
+    nom = {proc.strip(';1'): fin[proc].values() for proc in fin if 'sm;' in proc and (process in proc or process.replace('ll','Z') in proc)}
     for val in nom.values():
         val = [x if not math.isinf(x) else 0 for x in val]
 
