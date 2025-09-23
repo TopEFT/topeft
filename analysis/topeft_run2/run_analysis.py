@@ -480,7 +480,7 @@ if __name__ == "__main__":
             ),
             "extra_input_files": ["analysis_processor.py"],
             "retries": 15,
-            "filepath": '/tmp',
+
             # use mid-range compression for chunks results.
             # Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
