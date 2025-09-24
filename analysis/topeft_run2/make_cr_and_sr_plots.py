@@ -997,6 +997,8 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
     #}
     analysis_bins['ptz'] = axes_info['ptz']['variable']
     analysis_bins['lj0pt'] = axes_info['lj0pt']['variable']
+    analysis_bins['l0eta'] = axes_info['l0eta']['variable']
+    analysis_bins['l1eta'] = axes_info['l1eta']['variable']
 
     # Loop over hists and make plots
     skip_lst = ['njets'] # Skip this hist
@@ -1055,19 +1057,6 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path,unblind=False,ski
             save_dir_path_tmp = os.path.join(save_dir_path,chan_name)
             if not os.path.exists(save_dir_path_tmp):
                 os.mkdir(save_dir_path_tmp)
-
-            # Rebin into analysis bins
-            '''
-            if var_name in analysis_bins.keys():
-                lep_bin = chan_name[:2]
-                # histEFT doesn't support rebinning for now
-                if var_name == "njets":
-                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name][lep_bin]))
-                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name][lep_bin]))
-                else:
-                    hist_mc = hist_mc.rebin(var_name, hist.Bin(var_name,  hist_mc.axes[var_name].label, analysis_bins[var_name]))
-                    hist_data = hist_data.rebin(var_name, hist.Bin(var_name,  hist_data.axes[var_name].label, analysis_bins[var_name]))
-            '''
 
             if not hist_mc.eval({}):
                 print("Warning: empty mc histo, continuing")
@@ -1191,19 +1180,6 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
                     print("Warning: empty mc histo, continuing")
                     continue
                 fig = make_single_fig(hist_sig_integrated_ch,unit_norm_bool,bins=axes_info[var_name]['variable'])
-                #fig = make_cr_fig(
-                #    hist_sig_integrated_ch,
-                #    hist_data_integrated,
-                #    unit_norm_bool,
-                #    var=var_name,
-                #    group=group,#CR_GRP_MAP,
-                #    bins=axes_info[var_name]['variable'],
-                #    set_x_lim = x_range,
-                #    err_p = p_err_arr,
-                #    err_m = m_err_arr,
-                #    err_ratio_p = p_err_arr_ratio,
-                #    err_ratio_m = m_err_arr_ratio
-                #)
                 title = hist_cat+"_"+var_name
                 if unit_norm_bool: title = title + "_unitnorm"
                 fig.savefig(os.path.join(save_dir_path_tmp,title))
@@ -1246,19 +1222,6 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
 
                     # Make plots
                     fig = make_single_fig(hist_sig_grouped_tmp[{'channel': sr_cat_dict[grouped_hist_cat]}][{'channel': sum}],unit_norm_bool,bins=axes_info[var_name]['variable'])
-                    #fig = make_cr_fig(
-                    #    hist_mc_integrated,
-                    #    hist_data_integrated,
-                    #    unit_norm_bool,
-                    #    var=var_name,
-                    #    group=group,#CR_GRP_MAP,
-                    #    bins=axes_info[var_name]['variable'],
-                    #    set_x_lim = x_range,
-                    #    err_p = p_err_arr,
-                    #    err_m = m_err_arr,
-                    #    err_ratio_p = p_err_arr_ratio,
-                    #    err_ratio_m = m_err_arr_ratio
-                    #)
                     title = proc_name+"_"+grouped_hist_cat+"_"+var_name
                     if unit_norm_bool: title = title + "_unitnorm"
                     fig.savefig(os.path.join(save_dir_path_tmp,title))
@@ -1497,9 +1460,9 @@ def main():
 
     # Make the plots
     #make_all_cr_plots(hin_dict,args.year,args.skip_syst,unit_norm_bool,save_dir_path)
-    #make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
+    make_all_sr_plots(hin_dict,args.year,unit_norm_bool,save_dir_path)
     # Blinded plots (Asimov data)
-    make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,unblind=False)
+    #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,unblind=False)
     # Unblinded plots (real data)
     #make_all_sr_data_mc_plots(hin_dict,args.year,save_dir_path,unblind=True)
     #make_all_sr_sys_plots(hin_dict,args.year,save_dir_path)
