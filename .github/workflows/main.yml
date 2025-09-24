@@ -105,7 +105,7 @@ jobs:
 
       - name: Download root files
         run: |
-          wget --no-verbose http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root
+          wget --no-verbose "http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root"
 
       - name: Pytest setup
         run: |
