@@ -105,7 +105,7 @@ jobs:
 
       - name: Download root files
         run: |
-          wget -O ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root https://cernbox.cern.ch/s/UxLNvr9BIXWqwpu/download
+          wget --no-verbose -O ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root https://cernbox.cern.ch/s/UxLNvr9BIXWqwpu/download
 
       - name: Pytest setup
         run: |
