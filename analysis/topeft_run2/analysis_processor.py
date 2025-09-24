@@ -329,6 +329,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
         m_fo['convVeto'] = ak.ones_like(m_fo.charge)
         m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
+        m_fo['seediEtaOriX'] = ak.zeros_like(m_fo.charge)
+        m_fo['seediPhiOriY'] = ak.zeros_like(m_fo.charge)
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
@@ -932,7 +934,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                 
             # Counts
             counts = np.ones_like(events['event'])
-            
+            is_l0_electron = (abs(l0.pdgId)==11)
+            seed_etaorx = l0[is_l0_electron].seediEtaOriX
+            seed_phiory = l0[is_l0_electron].seediPhiOriY
+
+            # print("\n\n\n\n\n\n\n")
+            # print("seed_etaorx:",ak.to_list(seed_etaorx))
+            # print("seed_phiory:",ak.to_list(seed_phiory))
+            # print("\n\n\n\n\n\n\n")
+
             # Variables we will loop over when filling hists
             varnames = {}
             varnames["ht"]      = ht
@@ -960,7 +970,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lt"]      = lt
             varnames["npvs"]    = pv.npvs
             varnames["npvsGood"]= pv.npvsGood
-            
+            varnames["eleseedetax"] = seed_etaorx
+            varnames["eleseedphiy"] = seed_phiory
+
             if not isData:
                 l0_gen_pdgId = ak.fill_none(l0["gen_pdgId"], -1)
                 l1_gen_pdgId = ak.fill_none(l1["gen_pdgId"], -1)
