@@ -234,8 +234,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         if is_run3:
             AttachElectronCorrections(ele, run, year, isData) #need to apply electron energy corrections before calculating conept
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-            #btagAlgo = "btagDeepFlavB" #DeepJet branch
-            btagAlgo = "btagPNetB"    #PNet branch
+            btagAlgo = "btagDeepFlavB" #DeepJet branch
+            #btagAlgo = "btagPNetB"    #PNet branch
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger=btagAlgo)
         elif is_run2:
             jetsRho = events.fixedGridRhoFastjetAll
