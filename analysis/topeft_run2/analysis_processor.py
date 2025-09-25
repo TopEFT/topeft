@@ -314,10 +314,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
         eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
         if eft_coeffs is not None:
-            # Check to see if the ordering of WCs for this sample matches what want
+            # Check to see if the ordering of WCs for this sample matches what wanted
             if self._sample["WCnames"] != self._wc_names_lst:
                 eft_coeffs = efth.remap_coeffs(self._sample["WCnames"], self._wc_names_lst, eft_coeffs)
         eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
+        
         # Initialize the out object
         hout = self.accumulator
 
