@@ -8,7 +8,7 @@ info = {
         "label": r"Number of Good reco primary vertices ",
     },
     "invmass": {
-        "regular": (30, 0, 150),
+        "regular": (40, 60, 140),
         "label": r"$m_{\ell\ell}$ (GeV) ",
     },
     "ptbl": {
