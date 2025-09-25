@@ -5,13 +5,11 @@ import numpy as np
 import awkward as ak
 import json
 import os
-import yaml
 import re
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
 from coffea import processor
-from coffea.util import load
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
 
@@ -59,7 +57,27 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
 
 class AnalysisProcessor(processor.ProcessorABC):
 
-    def __init__(self, sample, wc_names_lst=[], hist_key=None, var_info=None, ecut_threshold=None, do_errors=False, do_systematics=False, split_by_lepton_flavor=False, skip_signal_regions=False, skip_control_regions=False, muonSyst='nominal', dtype=np.float32, rebin=False, offZ_split=False, tau_h_analysis=False, fwd_analysis=False, channel_dict=None):
+    def __init__(
+        self,
+        sample,
+        wc_names_lst=[],
+        hist_key=None,
+        var_info=None,
+        ecut_threshold=None,
+        do_errors=False,
+        do_systematics=False,
+        split_by_lepton_flavor=False,
+        skip_signal_regions=False,
+        skip_control_regions=False,
+        muonSyst='nominal',
+        dtype=np.float32,
+        rebin=False,
+        offZ_split=False,
+        tau_h_analysis=False,
+        fwd_analysis=False,
+        channel_dict=None,
+        golden_json_path=None,
+    ):
 
         self._sample = sample
         self._wc_names_lst = wc_names_lst
@@ -79,9 +97,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         histogram = {}
 
-        metadata_path = topeft_path("params/metadata.yml")
-        with open(metadata_path, "r") as f:
-            metadata = yaml.safe_load(f)
+        self._golden_json_path = golden_json_path
+        if self._sample.get("isData") and not self._golden_json_path:
+            raise ValueError("golden_json_path must be provided for data samples")
 
         if hist_key is None or var_info is None:
             raise ValueError("hist_key and var_info must be provided and cannot be None")
@@ -283,20 +301,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
             mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
 
-        # Get the lumi mask for data
-        if year == "2016" or year == "2016APV":
-            golden_json_path = topcoffea_path("data/goldenJsons/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt")
-        elif year == "2017":
-            golden_json_path = topcoffea_path("data/goldenJsons/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt")
-        elif year == "2018":
-            golden_json_path = topcoffea_path("data/goldenJsons/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt")
-        elif year == "2022":
-            golden_json_path = topcoffea_path("data/goldenJsons/Cert_Collisions2022_355100_362760_Golden.txt")
-        elif year == "2023":
-            golden_json_path = topcoffea_path("data/goldenJsons/Cert_Collisions2023_366442_370790_Golden.txt")
-        else:
-            raise ValueError(f"Error: Unknown year \"{year}\".")
-        lumi_mask = LumiMask(golden_json_path)(events.run,events.luminosityBlock)
+        # Initialize lumi mask to ``True`` for all events so simulated samples
+        # see an identity mask.  Data samples replace it with the configured
+        # golden JSON selection below.
+        lumi_mask = ak.ones_like(events.run, dtype=bool)
+        if isData:
+            lumi_mask = LumiMask(self._golden_json_path)(events.run, events.luminosityBlock)
 
         ######### EFT coefficients ##########
 
@@ -1010,8 +1020,3 @@ class AnalysisProcessor(processor.ProcessorABC):
     def postprocess(self, accumulator):
         return accumulator
 
-if __name__ == '__main__':
-    # Load the .coffea files
-    outpath= './coffeaFiles/'
-    sample     = load(outpath+'sample.coffea')
-    topprocessor = AnalysisProcessor(sample)

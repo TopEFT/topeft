@@ -10,6 +10,7 @@ import re
 import yaml
 
 from topeft.modules.paths import topeft_path
+from topcoffea.modules.paths import topcoffea_path
 
 from coffea import processor
 from coffea.nanoevents import NanoAODSchema
@@ -631,6 +632,10 @@ if __name__ == "__main__":
     with open(metadata_path, "r") as f:
         metadata = yaml.safe_load(f)
 
+    golden_jsons = metadata.get("golden_jsons", {}) if metadata else {}
+    if not golden_jsons:
+        raise ValueError("golden_jsons mapping missing from metadata.")
+
     syst_lst = metadata["systematics"]
     var_lst = metadata["variables"]
 
@@ -809,6 +814,19 @@ if __name__ == "__main__":
         if not channel_dict:
             continue
 
+        golden_json_path = None
+        if sample_dict["isData"]:
+            year_key = str(sample_dict["year"])
+            try:
+                golden_json_relpath = golden_jsons[year_key]
+            except KeyError as exc:
+                raise ValueError(f"No golden JSON configured for data year '{year_key}'.") from exc
+            golden_json_path = topcoffea_path(golden_json_relpath)
+            if not os.path.exists(golden_json_path):
+                raise FileNotFoundError(
+                    f"Golden JSON file '{golden_json_path}' for year '{year_key}' was not found."
+                )
+
         processor_instance = analysis_processor.AnalysisProcessor(
             sample_dict,
             wc_lst,
@@ -824,6 +842,7 @@ if __name__ == "__main__":
             tau_h_analysis=tau_h_analysis,
             fwd_analysis=fwd_analysis,
             channel_dict=channel_dict,
+            golden_json_path=golden_json_path,
         )
 
         #print("\nsample_dict:", sample_dict)
