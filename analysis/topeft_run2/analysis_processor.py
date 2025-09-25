@@ -97,15 +97,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         if self._var_def is None:
             raise ValueError(f"No definition provided for variable {var}")
 
-        if var not in metadata["variables"]:
-            raise ValueError(f"Unknown variable {var}")
-        # if ch not in metadata["channels"]:
-        #     raise ValueError(f"Unknown channel {ch}")
-        # if appl not in metadata["applications"]:
-        #     raise ValueError(f"Unknown application region {appl}")
-        if syst not in metadata["systematics"]:
-            raise ValueError(f"Unknown systematic {syst}")
-
         sumw2_key = (var + "_sumw2", ch, appl, sample_name, syst)
 
         if not rebin and "variable" in info:
@@ -148,7 +139,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
-
 
 
     @property
@@ -272,7 +262,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         mu   = events.Muon
         tau  = events.Tau
         jets = events.Jet
-
 
         if is_run3:
             leptonSelection = te_os.run3leptonselection()
