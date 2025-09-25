@@ -447,19 +447,68 @@ class AnalysisProcessor(processor.ProcessorABC):
             elif is_run3:
                 l1prefiring_args = [ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom)]
 
-            # Attach PS weights (ISR/FSR) and scale weights (renormalization/factorization) and PDF weights
-            tc_cor.AttachPSWeights(events) #Run3 ready
-            tc_cor.AttachScaleWeights(events) #Run3 ready (with caveat on "nominal")
-            #AttachPdfWeights(events) #TODO
-            # FSR/ISR weights -- corrections come from AttachPSWeights
-            weights_obj_base.add('ISR', events.nom, events.ISRUp*(sow/sow_ISRUp), events.ISRDown*(sow/sow_ISRDown))
-            weights_obj_base.add('FSR', events.nom, events.FSRUp*(sow/sow_FSRUp), events.FSRDown*(sow/sow_FSRDown))
-            # renorm/fact scale  -- corrections come from AttachScaleWeights
-            weights_obj_base.add('renorm', events.nom, events.renormUp*(sow/sow_renormUp), events.renormDown*(sow/sow_renormDown))
-            weights_obj_base.add('fact', events.nom, events.factUp*(sow/sow_factUp), events.factDown*(sow/sow_factDown))
+            current_syst = self.syst or "nominal"
+
+            include_ISR = self._do_systematics and current_syst in {"nominal", "ISRUp", "ISRDown"}
+            include_FSR = self._do_systematics and current_syst in {"nominal", "FSRUp", "FSRDown"}
+            need_ps_weights = include_ISR or include_FSR
+            if need_ps_weights:
+                # Attach PS weights (ISR/FSR)
+                tc_cor.AttachPSWeights(events)  # Run3 ready
+                if include_ISR:
+                    weights_obj_base.add(
+                        "ISR",
+                        events.nom,
+                        events.ISRUp * (sow / sow_ISRUp),
+                        events.ISRDown * (sow / sow_ISRDown),
+                    )
+                if include_FSR:
+                    weights_obj_base.add(
+                        "FSR",
+                        events.nom,
+                        events.FSRUp * (sow / sow_FSRUp),
+                        events.FSRDown * (sow / sow_FSRDown),
+                    )
+
+            include_renorm = self._do_systematics and current_syst in {"nominal", "renormUp", "renormDown"}
+            include_fact = self._do_systematics and current_syst in {"nominal", "factUp", "factDown"}
+            need_scale_weights = include_renorm or include_fact
+            if need_scale_weights:
+                # Attach renorm/fact scale weights
+                tc_cor.AttachScaleWeights(events)  # Run3 ready (with caveat on "nominal")
+                if include_renorm:
+                    weights_obj_base.add(
+                        "renorm",
+                        events.nom,
+                        events.renormUp * (sow / sow_renormUp),
+                        events.renormDown * (sow / sow_renormDown),
+                    )
+                if include_fact:
+                    weights_obj_base.add(
+                        "fact",
+                        events.nom,
+                        events.factUp * (sow / sow_factUp),
+                        events.factDown * (sow / sow_factDown),
+                    )
+
             # Prefiring and PU (note prefire weights only available in nanoAODv9 and for Run2)
-            weights_obj_base.add('PreFiring', *l1prefiring_args) #Run3 ready
-            weights_obj_base.add('PU', tc_cor.GetPUSF((events.Pileup.nTrueInt), year), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'up'), tc_cor.GetPUSF(events.Pileup.nTrueInt, year, 'down')) #Run3 ready
+            include_prefiring_vars = self._do_systematics and current_syst in {"nominal", "PreFiringUp", "PreFiringDown"}
+            if include_prefiring_vars:
+                weights_obj_base.add("PreFiring", *l1prefiring_args)  # Run3 ready
+            else:
+                weights_obj_base.add("PreFiring", l1prefiring_args[0])
+
+            pu_central = tc_cor.GetPUSF(events.Pileup.nTrueInt, year)
+            include_pu_vars = self._do_systematics and current_syst in {"nominal", "PUUp", "PUDown"}
+            if include_pu_vars:
+                weights_obj_base.add(
+                    "PU",
+                    pu_central,
+                    tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "up"),
+                    tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "down"),
+                )  # Run3 ready
+            else:
+                weights_obj_base.add("PU", pu_central)
 
 
         ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
