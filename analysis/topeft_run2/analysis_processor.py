@@ -970,8 +970,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lt"]      = lt
             varnames["npvs"]    = pv.npvs
             varnames["npvsGood"]= pv.npvsGood
-            varnames["eleseedetax"] = seed_etaorx
-            varnames["eleseedphiy"] = seed_phiory
+            #varnames["eleseedetax"] = seed_etaorx
+            #varnames["eleseedphiy"] = seed_phiory
 
             if not isData:
                 l0_gen_pdgId = ak.fill_none(l0["gen_pdgId"], -1)
