@@ -266,7 +266,9 @@ class SystematicsHelper:
         variations.sort(key=lambda item: (item.name != "nominal", item.name))
         return variations
 
-    def variations_for_sample(self, sample: Dict[str, object], include_systematics: bool) -> List[SystematicVariation]:
+    def variations_for_sample(
+        self, sample: Dict[str, object], include_systematics: bool
+    ) -> List[SystematicVariation]:
         """Return the list of variations to run for the given sample."""
 
         sample_year = str(sample.get("year")) if sample.get("year") is not None else None
@@ -284,6 +286,21 @@ class SystematicsHelper:
             return [variation for variation in applicable if variation.name == "nominal"]
 
         return applicable
+
+    def names_by_type(
+        self, sample: Dict[str, object], include_systematics: bool
+    ) -> Dict[str, Sequence[str]]:
+        """Return variation names grouped by type for the given sample."""
+
+        variations = self.variations_for_sample(sample, include_systematics)
+
+        grouped: Dict[str, List[str]] = {}
+        for variation in variations:
+            grouped.setdefault(variation.type, []).append(variation.name)
+
+        # Return immutable sequences to prevent callers from mutating the
+        # cached information by mistake.
+        return {key: tuple(names) for key, names in grouped.items()}
 
 
 __all__ = ["SystematicVariation", "SystematicsHelper"]
