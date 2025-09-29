@@ -289,7 +289,7 @@ if __name__ == "__main__":
         if len(port) > 2:
             raise ValueError("More than one port range was specified.")
         if len(port) == 1:
-            # convert single values into a range of one element
+            # convert singale values into a range of one element
             port.append(port[0])
 
     # Figure out which hists to include
@@ -472,7 +472,7 @@ if __name__ == "__main__":
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
-            "manager_name": f"{os.environ['USER']}-{executor}-coffea",
+            "manager_name": f"{os.environ['USER']}-workqueue-coffea",
             # find a port to run work queue in this range:
             "port": port,
             "debug_log": "debug.log",
@@ -496,7 +496,8 @@ if __name__ == "__main__":
             # 'resource_monitor': True,
             "resource_monitor": "measure",
             "resources_mode": "auto",
-            'filepath': f'/tmp/{os.environ["USER"]}-workers', ##Placeholder to comment out if you don't want to save wq-factory dirs in $HOME
+            #'filepath': f'/tmp/{os.environ["USER"]}-workers', ##Placeholder to comment out if you don't want to save wq-factory dirs in $HOME
+            "filepath": '/tmp',
             # this resource values may be omitted when using
             # resources_mode: 'auto', but they do make the initial portion
             # of a workflow run a little bit faster.

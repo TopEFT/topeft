@@ -118,7 +118,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 if hist_to_include not in self._accumulator.keys():
                     raise Exception(f"Error: Cannot specify hist \"{hist_to_include}\", it is not defined in the processor.")
             self._hist_lst = hist_lst # Which hists to fill
-        self._hist_lst = ["njets","lj0pt","ptz", "ptz_wtau"]
+
         # Set the energy threshold to cut on
         self._ecut_threshold = ecut_threshold
 
@@ -234,8 +234,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         if is_run3:
             AttachElectronCorrections(ele, run, year, isData) #need to apply electron energy corrections before calculating conept
             jetsRho = events.Rho["fixedGridRhoFastjetAll"]
-            #btagAlgo = "btagDeepFlavB" #DeepJet branch
-            btagAlgo = "btagPNetB"    #PNet branch
+            btagAlgo = "btagDeepFlavB" #DeepJet branch
+            #btagAlgo = "btagPNetB"    #PNet branch
             leptonSelection = te_os.run3leptonselection(useMVA=self.useRun3MVA, btagger=btagAlgo)
             tauSelection = te_os.run3TauSelection()
         elif is_run2:
