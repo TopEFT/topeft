@@ -579,9 +579,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
 
         # If we're doing systematics and this isn't data, we will loop over the obj_correction_syst_lst list
-        if self._do_systematics and not isData: syst_var_list = ["nominal"] + obj_correction_syst_lst
-        # Otherwise loop juse once, for nominal
-        else: syst_var_list = ['nominal']
+        if self._systematic_info is not None:
+            syst_name = self._systematic_info.name
+            syst_type = getattr(self._systematic_info, "type", None)
+            if syst_name == "nominal":
+                syst_var_list = ["nominal"]
+            elif (
+                syst_type == "object"
+                and syst_name in obj_correction_syst_lst
+            ):
+                syst_var_list = [syst_name]
+            else:
+                syst_var_list = ["nominal"]
+        elif self._do_systematics and not isData:
+            syst_var_list = ["nominal"] + obj_correction_syst_lst
+        else:
+            syst_var_list = ['nominal']
 
         # Loop over the list of systematic variations we've constructed
         met_raw=met
