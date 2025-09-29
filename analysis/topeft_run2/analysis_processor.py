@@ -549,9 +549,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         object_variation = "nominal"
         weight_variations_to_run = ["nominal"]
 
-        if variation_type == "object" and current_variation_name in object_systematics:
+        if variation_type == "object":
+            if current_variation_name not in object_systematics:
+                raise ValueError(
+                    f"Requested object systematic '{current_variation_name}' is not available in the mapping"
+                )
             object_variation = current_variation_name
-            weight_variations_to_run = [object_variation]
         elif variation_type in {"weight", "theory", "data_weight"} and current_variation_name != "nominal":
             variation_pool = {
                 "weight": weight_systematics,
@@ -1015,6 +1018,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         else:
             wgt_var_lst = ["nominal"]
 
+        hist_variation_label = current_variation_name or "nominal"
+
         lep_chan = self._channel_dict["chan_def_lst"][0]
         jet_req = self._channel_dict["jet_selection"]
         lep_flav_iter = self._channel_dict["lep_flav_lst"] if self._split_by_lepton_flavor else [None]
@@ -1086,7 +1091,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)):
                     continue
 
-                histkey = (dense_axis_name, ch_name, self.appregion, dataset, wgt_fluct)
+                histkey = (
+                    dense_axis_name,
+                    ch_name,
+                    self.appregion,
+                    dataset,
+                    hist_variation_label,
+                )
                 if histkey not in hout.keys():
                     continue
                 hout[histkey].fill(**axes_fill_info_dict)
@@ -1096,7 +1107,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                     "weight": np.square(weights_flat),
                     "eft_coeff": eft_coeffs_cut,
                 }
-                histkey = (dense_axis_name + "_sumw2", ch_name, self.appregion, dataset, wgt_fluct)
+                histkey = (
+                    dense_axis_name + "_sumw2",
+                    ch_name,
+                    self.appregion,
+                    dataset,
+                    hist_variation_label,
+                )
                 if histkey not in hout.keys():
                     continue
                 hout[histkey].fill(**axes_fill_info_dict)
