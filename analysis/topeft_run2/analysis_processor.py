@@ -208,6 +208,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         xsec               = self._sample["xsec"]
         sow                = self._sample["nSumOfWeights"]
 
+        current_syst = self.syst or "nominal"
+
         is_run3 = False
         if year.startswith("202"):
             is_run3 = True
@@ -218,46 +220,44 @@ class AnalysisProcessor(processor.ProcessorABC):
             run_era = self._sample["path"].split("/")[2].split("-")[0][-1]
 
         # Get up down weights from input dict
-        if (self._do_systematics and not isData):
-            if histAxisName in get_te_param("lo_xsec_samples"):
-                # We have a LO xsec for these samples, so for these systs we will have e.g. xsec_LO*(N_pass_up/N_gen_nom)
-                # Thus these systs will cover the cross section uncty and the acceptance and effeciency and shape
-                # So no NLO rate uncty for xsec should be applied in the text data card
-                sow_ISRUp          = self._sample["nSumOfWeights"]
-                sow_ISRDown        = self._sample["nSumOfWeights"]
-                sow_FSRUp          = self._sample["nSumOfWeights"]
-                sow_FSRDown        = self._sample["nSumOfWeights"]
-                sow_renormUp       = self._sample["nSumOfWeights"]
-                sow_renormDown     = self._sample["nSumOfWeights"]
-                sow_factUp         = self._sample["nSumOfWeights"]
-                sow_factDown       = self._sample["nSumOfWeights"]
-                sow_renormfactUp   = self._sample["nSumOfWeights"]
-                sow_renormfactDown = self._sample["nSumOfWeights"]
-            else:
-                # Otherwise we have an NLO xsec, so for these systs we will have e.g. xsec_NLO*(N_pass_up/N_gen_up)
-                # Thus these systs should only affect acceptance and effeciency and shape
-                # The uncty on xsec comes from NLO and is applied as a rate uncty in the text datacard
-                sow_ISRUp          = self._sample["nSumOfWeights_ISRUp"          ]
-                sow_ISRDown        = self._sample["nSumOfWeights_ISRDown"        ]
-                sow_FSRUp          = self._sample["nSumOfWeights_FSRUp"          ]
-                sow_FSRDown        = self._sample["nSumOfWeights_FSRDown"        ]
-                sow_renormUp       = self._sample["nSumOfWeights_renormUp"       ]
-                sow_renormDown     = self._sample["nSumOfWeights_renormDown"     ]
-                sow_factUp         = self._sample["nSumOfWeights_factUp"         ]
-                sow_factDown       = self._sample["nSumOfWeights_factDown"       ]
-                sow_renormfactUp   = self._sample["nSumOfWeights_renormfactUp"   ]
-                sow_renormfactDown = self._sample["nSumOfWeights_renormfactDown" ]
-        else:
-            sow_ISRUp          = -1
-            sow_ISRDown        = -1
-            sow_FSRUp          = -1
-            sow_FSRDown        = -1
-            sow_renormUp       = -1
-            sow_renormDown     = -1
-            sow_factUp         = -1
-            sow_factDown       = -1
-            sow_renormfactUp   = -1
-            sow_renormfactDown = -1
+        sow_variation_key_map = {
+            "ISRUp": "nSumOfWeights_ISRUp",
+            "ISRDown": "nSumOfWeights_ISRDown",
+            "FSRUp": "nSumOfWeights_FSRUp",
+            "FSRDown": "nSumOfWeights_FSRDown",
+            "renormUp": "nSumOfWeights_renormUp",
+            "renormDown": "nSumOfWeights_renormDown",
+            "factUp": "nSumOfWeights_factUp",
+            "factDown": "nSumOfWeights_factDown",
+            "renormfactUp": "nSumOfWeights_renormfactUp",
+            "renormfactDown": "nSumOfWeights_renormfactDown",
+        }
+
+        sow_variations = {"nominal": sow}
+
+        requested_sow_variations = set()
+        variation_groups = {
+            "ISR": {"ISRUp", "ISRDown"},
+            "FSR": {"FSRUp", "FSRDown"},
+            "renorm": {"renormUp", "renormDown"},
+            "fact": {"factUp", "factDown"},
+            "renormfact": {"renormfactUp", "renormfactDown"},
+        }
+
+        for variations in variation_groups.values():
+            if current_syst in variations:
+                requested_sow_variations.update(variations)
+
+        is_lo_sample = histAxisName in get_te_param("lo_xsec_samples")
+
+        if self._do_systematics and not isData:
+            for variation in requested_sow_variations:
+                if is_lo_sample:
+                    sow_variations[variation] = sow
+                else:
+                    key = sow_variation_key_map.get(variation)
+                    if key is not None and key in self._sample:
+                        sow_variations[variation] = self._sample[key]
 
         datasets = ["Muon", "SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
         for d in datasets:
@@ -447,8 +447,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             elif is_run3:
                 l1prefiring_args = [ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom)]
 
-            current_syst = self.syst or "nominal"
-
             include_ISR = self._do_systematics and current_syst in {"ISRUp", "ISRDown"}
             include_FSR = self._do_systematics and current_syst in {"FSRUp", "FSRDown"}
             need_ps_weights = include_ISR or include_FSR
@@ -456,7 +454,32 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Attach PS weights (ISR/FSR)
                 tc_cor.AttachPSWeights(events)  # Run3 ready
 
+            def get_sow_value(label):
+                if label in sow_variations:
+                    return sow_variations[label]
+
+                if is_lo_sample:
+                    sow_variations[label] = sow
+                    return sow
+
+                key = sow_variation_key_map.get(label)
+                if key is None:
+                    raise KeyError(
+                        f"Unsupported sum-of-weights variation '{label}' requested while processing '{current_syst}'"
+                    )
+
+                if key not in self._sample:
+                    raise KeyError(
+                        f"Sample '{histAxisName}' is missing required sum-of-weights entry '{key}' for '{label}' variation"
+                    )
+
+                value = self._sample[key]
+                sow_variations[label] = value
+                return value
+
             if include_ISR:
+                sow_ISRUp = get_sow_value("ISRUp")
+                sow_ISRDown = get_sow_value("ISRDown")
                 weights_obj_base.add(
                     "ISR",
                     events.nom,
@@ -467,6 +490,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_obj_base.add("ISR", events.nom)
 
             if include_FSR:
+                sow_FSRUp = get_sow_value("FSRUp")
+                sow_FSRDown = get_sow_value("FSRDown")
                 weights_obj_base.add(
                     "FSR",
                     events.nom,
@@ -482,6 +507,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             tc_cor.AttachScaleWeights(events)  # Run3 ready (with caveat on "nominal")
 
             if include_renorm:
+                sow_renormUp = get_sow_value("renormUp")
+                sow_renormDown = get_sow_value("renormDown")
                 weights_obj_base.add(
                     "renorm",
                     events.nom,
@@ -492,6 +519,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_obj_base.add("renorm", events.nom)
 
             if include_fact:
+                sow_factUp = get_sow_value("factUp")
+                sow_factDown = get_sow_value("factDown")
                 weights_obj_base.add(
                     "fact",
                     events.nom,
