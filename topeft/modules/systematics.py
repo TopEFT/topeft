@@ -288,14 +288,44 @@ class SystematicsHelper:
         return applicable
 
     def names_by_type(
-        self, sample: Dict[str, object], include_systematics: bool
+        self,
+        applies_to: Optional[str] = None,
+        include_systematics: bool = True,
     ) -> Dict[str, Sequence[str]]:
-        """Return variation names grouped by type for the given sample."""
+        """Return variation names grouped by type.
 
-        variations = self.variations_for_sample(sample, include_systematics)
+        Parameters
+        ----------
+        applies_to:
+            Optional sample category filter.  When set to ``"mc"`` or
+            ``"data"`` only variations applying to that sample type are
+            returned.
+        include_systematics:
+            If ``False`` only the nominal variation is returned.
+        """
+
+        if applies_to is not None:
+            normalized = applies_to.lower()
+            if normalized not in {"mc", "data"}:
+                raise ValueError(
+                    "applies_to must be either 'mc', 'data' or None"
+                )
+            applies_to = normalized
 
         grouped: Dict[str, List[str]] = {}
-        for variation in variations:
+
+        for variation in self._variations:
+            if not include_systematics and variation.name != "nominal":
+                continue
+
+            if variation.tau_only and not self._tau_analysis:
+                continue
+
+            if applies_to is not None:
+                allowed_targets = {applies_to, "all"}
+                if not (variation.applies_to & allowed_targets):
+                    continue
+
             grouped.setdefault(variation.type, []).append(variation.name)
 
         # Return immutable sequences to prevent callers from mutating the

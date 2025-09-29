@@ -680,17 +680,21 @@ if __name__ == "__main__":
 
     # raise RuntimeError("\n\nStopping here for debugging")
 
+    available_systematics_by_sample_type = {
+        "mc": syst_helper.names_by_type("mc", include_systematics=do_systs),
+        "data": syst_helper.names_by_type("data", include_systematics=do_systs),
+    }
+
     key_lst = []
 
     for sample in samples_lst:
-        ch_map = channel_app_map_data if samplesdict[sample]["isData"] else channel_app_map_mc
         sample_info = samplesdict[sample]
+        ch_map = channel_app_map_data if sample_info["isData"] else channel_app_map_mc
         variations = syst_helper.variations_for_sample(
             sample_info, include_systematics=do_systs
         )
-        available_systematics = syst_helper.names_by_type(
-            sample_info, include_systematics=do_systs
-        )
+        sample_type_key = "data" if sample_info["isData"] else "mc"
+        available_systematics = available_systematics_by_sample_type[sample_type_key]
         for var in var_lst:
             var_info = var_defs[var].copy()
             for clean_ch, appl_list in ch_map.items():
