@@ -684,15 +684,29 @@ if __name__ == "__main__":
 
     for sample in samples_lst:
         ch_map = channel_app_map_data if samplesdict[sample]["isData"] else channel_app_map_mc
+        sample_info = samplesdict[sample]
         variations = syst_helper.variations_for_sample(
-            samplesdict[sample], include_systematics=do_systs
+            sample_info, include_systematics=do_systs
+        )
+        available_systematics = syst_helper.names_by_type(
+            sample_info, include_systematics=do_systs
         )
         for var in var_lst:
             var_info = var_defs[var].copy()
             for clean_ch, appl_list in ch_map.items():
                 for appl in appl_list:
                     for variation in variations:
-                        key_lst.append((sample, var, clean_ch, appl, variation, var_info))
+                        key_lst.append(
+                            (
+                                sample,
+                                var,
+                                clean_ch,
+                                appl,
+                                variation,
+                                var_info,
+                                available_systematics,
+                            )
+                        )
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
@@ -800,7 +814,7 @@ if __name__ == "__main__":
     # raise RuntimeError("Stopping here for debugging")
 
     for key in key_lst:
-        sample, var, clean_ch, appl, syst_info, var_info = key
+        sample, var, clean_ch, appl, syst_info, var_info, available_systematics = key
         sample_dict = samplesdict[sample]
         sample_flist = flist[sample][:1]
 
@@ -852,6 +866,7 @@ if __name__ == "__main__":
             channel_dict=channel_dict,
             golden_json_path=golden_json_path,
             systematic_info=syst_info,
+            available_systematics=available_systematics,
         )
 
         #print("\nsample_dict:", sample_dict)

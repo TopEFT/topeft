@@ -3,7 +3,6 @@ import copy
 import coffea
 import numpy as np
 import awkward as ak
-import json
 import os
 import re
 
@@ -78,6 +77,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         channel_dict=None,
         golden_json_path=None,
         systematic_info=None,
+        available_systematics=None,
     ):
 
         self._sample = sample
@@ -96,6 +96,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # operates directly on the flat dictionary, so simply store it.
         self._channel_dict = channel_dict
         self._systematic_info = systematic_info
+        if available_systematics is None:
+            raise ValueError("available_systematics must be provided and cannot be None")
+        self._available_systematics = {
+            key: tuple(value) for key, value in available_systematics.items()
+        }
 
         histogram = {}
 
@@ -198,6 +203,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         return self._systematic_info
 
     @property
+    def available_systematics(self):
+        return self._available_systematics
+
+    @property
     def columns(self):
         return self._columns
 
@@ -215,6 +224,12 @@ class AnalysisProcessor(processor.ProcessorABC):
         sow                = self._sample["nSumOfWeights"]
 
         current_syst = self.syst or "nominal"
+        variation_base = self._systematic_info.base if self._systematic_info is not None else None
+        variation_type = (
+            getattr(self._systematic_info, "type", None)
+            if self._systematic_info is not None
+            else None
+        )
 
         is_run3 = False
         if year.startswith("202"):
@@ -244,33 +259,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                     for name, info in group_info.items()
                     if info.get("sum_of_weights")
                 }
-
-        if not sow_variation_key_map:
-            sow_variation_key_map = {
-                "ISRUp": "nSumOfWeights_ISRUp",
-                "ISRDown": "nSumOfWeights_ISRDown",
-                "FSRUp": "nSumOfWeights_FSRUp",
-                "FSRDown": "nSumOfWeights_FSRDown",
-                "renormUp": "nSumOfWeights_renormUp",
-                "renormDown": "nSumOfWeights_renormDown",
-                "factUp": "nSumOfWeights_factUp",
-                "factDown": "nSumOfWeights_factDown",
-                "renormfactUp": "nSumOfWeights_renormfactUp",
-                "renormfactDown": "nSumOfWeights_renormfactDown",
-            }
-
-        if not requested_sow_variations and self._do_systematics:
-            variation_groups = {
-                "ISR": {"ISRUp", "ISRDown"},
-                "FSR": {"FSRUp", "FSRDown"},
-                "renorm": {"renormUp", "renormDown"},
-                "fact": {"factUp", "factDown"},
-                "renormfact": {"renormfactUp", "renormfactDown"},
-            }
-
-            for variations in variation_groups.values():
-                if current_syst in variations:
-                    requested_sow_variations.update(variations)
 
         sow_variations = {"nominal": sow}
 
@@ -420,36 +408,11 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### Systematics ###########
 
-        # Define the lists of systematics we include
-        obj_jes_entries = []
-        with open(topeft_path('modules/jerc_dict.json'), 'r') as f:
-            jerc_dict = json.load(f)
-            for junc in jerc_dict[year]['junc']:
-                junc = junc.replace("Regrouped_", "")
-                obj_jes_entries.append(f'JES_{junc}Up')
-                obj_jes_entries.append(f'JES_{junc}Down')
-        obj_correction_syst_lst = [
-            f'JER_{year}Up', f'JER_{year}Down'
-        ] + obj_jes_entries
-        if self.tau_h_analysis:
-            obj_correction_syst_lst.append("TESUp")
-            obj_correction_syst_lst.append("TESDown")
-            obj_correction_syst_lst.append("FESUp")
-            obj_correction_syst_lst.append("FESDown")
-
-        wgt_correction_syst_lst = [
-            "lepSF_muonUp","lepSF_muonDown","lepSF_elecUp","lepSF_elecDown",f"btagSFbc_{year}Up",f"btagSFbc_{year}Down","btagSFbc_corrUp","btagSFbc_corrDown",f"btagSFlight_{year}Up",f"btagSFlight_{year}Down","btagSFlight_corrUp","btagSFlight_corrDown","PUUp","PUDown","PreFiringUp","PreFiringDown",f"triggerSF_{year}Up",f"triggerSF_{year}Down", # Exp systs
-            "FSRUp","FSRDown","ISRUp","ISRDown","renormUp","renormDown","factUp","factDown", # Theory systs
-        ]
-        if self.tau_h_analysis:
-            wgt_correction_syst_lst.append("lepSF_taus_realUp")
-            wgt_correction_syst_lst.append("lepSF_taus_realDown")
-            wgt_correction_syst_lst.append("lepSF_taus_fakeUp")
-            wgt_correction_syst_lst.append("lepSF_taus_fakeDown")
-
-        data_syst_lst = [
-            "FFUp","FFDown","FFptUp","FFptDown","FFetaUp","FFetaDown",f"FFcloseEl_{year}Up",f"FFcloseEl_{year}Down",f"FFcloseMu_{year}Up",f"FFcloseMu_{year}Down"
-        ]
+        # Define the lists of systematics provided by the metadata helper
+        obj_correction_syst_lst = list(self._available_systematics.get("object", ()))
+        wgt_correction_syst_lst = list(self._available_systematics.get("weight", ()))
+        theory_correction_syst_lst = list(self._available_systematics.get("theory", ()))
+        data_syst_lst = list(self._available_systematics.get("data_weight", ()))
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
@@ -473,8 +436,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             elif is_run3:
                 l1prefiring_args = [ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom)]
 
-            include_ISR = self._do_systematics and current_syst in {"ISRUp", "ISRDown"}
-            include_FSR = self._do_systematics and current_syst in {"FSRUp", "FSRDown"}
+            include_ISR = self._do_systematics and variation_base == "isr"
+            include_FSR = self._do_systematics and variation_base == "fsr"
             need_ps_weights = include_ISR or include_FSR
             if need_ps_weights:
                 # Attach PS weights (ISR/FSR)
@@ -527,8 +490,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             else:
                 weights_obj_base.add("FSR", events.nom)
 
-            include_renorm = self._do_systematics and current_syst in {"renormUp", "renormDown"}
-            include_fact = self._do_systematics and current_syst in {"factUp", "factDown"}
+            include_renorm = self._do_systematics and variation_base == "renorm"
+            include_fact = self._do_systematics and variation_base == "fact"
             # Attach renorm/fact scale weights regardless of which variations are being evaluated
             tc_cor.AttachScaleWeights(events)  # Run3 ready (with caveat on "nominal")
 
@@ -557,14 +520,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_obj_base.add("fact", events.nom)
 
             # Prefiring and PU (note prefire weights only available in nanoAODv9 and for Run2)
-            include_prefiring_vars = self._do_systematics and current_syst in {"PreFiringUp", "PreFiringDown"}
+            include_prefiring_vars = self._do_systematics and variation_base == "prefiring"
             if include_prefiring_vars:
                 weights_obj_base.add("PreFiring", *l1prefiring_args)  # Run3 ready
             else:
                 weights_obj_base.add("PreFiring", l1prefiring_args[0])
 
             pu_central = tc_cor.GetPUSF(events.Pileup.nTrueInt, year)
-            include_pu_vars = self._do_systematics and current_syst in {"PUUp", "PUDown"}
+            include_pu_vars = self._do_systematics and variation_base == "pileup"
             if include_pu_vars:
                 weights_obj_base.add(
                     "PU",
@@ -581,13 +544,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         # If we're doing systematics and this isn't data, we will loop over the obj_correction_syst_lst list
         if self._systematic_info is not None:
             syst_name = self._systematic_info.name
-            syst_type = getattr(self._systematic_info, "type", None)
             if syst_name == "nominal":
                 syst_var_list = ["nominal"]
-            elif (
-                syst_type == "object"
-                and syst_name in obj_correction_syst_lst
-            ):
+            elif variation_type == "object" and syst_name in obj_correction_syst_lst:
                 syst_var_list = [syst_name]
             else:
                 syst_var_list = ["nominal"]
@@ -1050,7 +1009,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if syst_var != "nominal":
                         wgt_var_lst = [syst_var]
                     else:
-                        wgt_var_lst = wgt_var_lst + wgt_correction_syst_lst + data_syst_lst
+                        combined_weight_systematics = wgt_correction_syst_lst + theory_correction_syst_lst
+                        wgt_var_lst = wgt_var_lst + combined_weight_systematics + data_syst_lst
                 else:
                     wgt_var_lst = wgt_var_lst + data_syst_lst
 
