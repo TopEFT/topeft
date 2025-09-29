@@ -551,6 +551,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         if variation_type == "object" and current_variation_name in object_systematics:
             object_variation = current_variation_name
+            weight_variations_to_run = [object_variation]
         elif variation_type in {"weight", "theory", "data_weight"} and current_variation_name != "nominal":
             variation_pool = {
                 "weight": weight_systematics,
@@ -1019,7 +1020,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         lep_flav_iter = self._channel_dict["lep_flav_lst"] if self._split_by_lepton_flavor else [None]
 
         for wgt_fluct in wgt_var_lst:
-            if wgt_fluct == "nominal":
+            if wgt_fluct == "nominal" or wgt_fluct == object_variation:
                 weight = weights_object.weight(None)
             elif wgt_fluct in weights_object.variations:
                 weight = weights_object.weight(wgt_fluct)
