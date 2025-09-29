@@ -20,6 +20,7 @@ import topcoffea.modules.remote_environment as remote_environment
 
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
+from topeft.modules.systematics import SystematicsHelper
 import analysis_processor
 
 LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
@@ -636,11 +637,24 @@ if __name__ == "__main__":
     if not golden_jsons:
         raise ValueError("golden_jsons mapping missing from metadata.")
 
-    syst_lst = metadata["systematics"]
-    var_lst = metadata["variables"]
+    var_defs = metadata["variables"]
+    var_lst = list(var_defs)
 
     with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
         select_cat_dict = json.load(ch_json)
+
+    samples_lst = list(samplesdict.keys())
+    sample_years = {
+        str(samplesdict[sample_name]["year"])
+        for sample_name in samples_lst
+        if "year" in samplesdict[sample_name]
+    }
+
+    syst_helper = SystematicsHelper(
+        metadata,
+        sample_years=sample_years,
+        tau_analysis=tau_h_analysis,
+    )
 
     channel_app_map_mc = build_channel_app_map(
         select_cat_dict,
@@ -668,20 +682,17 @@ if __name__ == "__main__":
 
     key_lst = []
 
-    samples_lst = list(samplesdict.keys())
-
     for sample in samples_lst:
         ch_map = channel_app_map_data if samplesdict[sample]["isData"] else channel_app_map_mc
+        variations = syst_helper.variations_for_sample(
+            samplesdict[sample], include_systematics=do_systs
+        )
         for var in var_lst:
-            var_info = metadata["variables"][var].copy()
+            var_info = var_defs[var].copy()
             for clean_ch, appl_list in ch_map.items():
                 for appl in appl_list:
-                    for syst in syst_lst:
-                        key_lst.append((sample, var, clean_ch, appl, syst, var_info))
-                        break  # TEMPORARY: only do one systematic
-                    break  # TEMPORARY: only do one application
-                break  # TEMPORARY: only do one channel
-        break  # TEMPORARY: only do one sample
+                    for variation in variations:
+                        key_lst.append((sample, var, clean_ch, appl, variation, var_info))
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
@@ -787,16 +798,13 @@ if __name__ == "__main__":
     output = {}
     print(f"Running over {len(key_lst)} configurations") #:\n", key_lst)
     # raise RuntimeError("Stopping here for debugging")
-    
-    # For the time being, only run one configuration at a time
-    key_lst = key_lst[:1]
 
     for key in key_lst:
-        sample, var, clean_ch, appl, syst, var_info = key
+        sample, var, clean_ch, appl, syst_info, var_info = key
         sample_dict = samplesdict[sample]
         sample_flist = flist[sample][:1]
 
-        hist_key = (var, clean_ch, appl, sample, syst)
+        hist_key = (var, clean_ch, appl, sample, syst_info.name)
         channel_dict = build_channel_dict(
             clean_ch,
             appl,
@@ -843,6 +851,7 @@ if __name__ == "__main__":
             fwd_analysis=fwd_analysis,
             channel_dict=channel_dict,
             golden_json_path=golden_json_path,
+            systematic_info=syst_info,
         )
 
         #print("\nsample_dict:", sample_dict)

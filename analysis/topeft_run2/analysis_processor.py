@@ -77,6 +77,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         fwd_analysis=False,
         channel_dict=None,
         golden_json_path=None,
+        systematic_info=None,
     ):
 
         self._sample = sample
@@ -94,6 +95,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # nested structure with several loops in ``process``.  The new logic
         # operates directly on the flat dictionary, so simply store it.
         self._channel_dict = channel_dict
+        self._systematic_info = systematic_info
 
         histogram = {}
 
@@ -192,6 +194,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         return self._syst
 
     @property
+    def systematic_info(self):
+        return self._systematic_info
+
+    @property
     def columns(self):
         return self._columns
 
@@ -219,34 +225,54 @@ class AnalysisProcessor(processor.ProcessorABC):
         if isData:
             run_era = self._sample["path"].split("/")[2].split("-")[0][-1]
 
-        # Get up down weights from input dict
-        sow_variation_key_map = {
-            "ISRUp": "nSumOfWeights_ISRUp",
-            "ISRDown": "nSumOfWeights_ISRDown",
-            "FSRUp": "nSumOfWeights_FSRUp",
-            "FSRDown": "nSumOfWeights_FSRDown",
-            "renormUp": "nSumOfWeights_renormUp",
-            "renormDown": "nSumOfWeights_renormDown",
-            "factUp": "nSumOfWeights_factUp",
-            "factDown": "nSumOfWeights_factDown",
-            "renormfactUp": "nSumOfWeights_renormfactUp",
-            "renormfactDown": "nSumOfWeights_renormfactDown",
-        }
+        # Get up/down sum of weights needed for the current systematic.
+        sow_variation_key_map = {}
+        requested_sow_variations = set()
+
+        if self._systematic_info is not None and self._do_systematics and not isData:
+            group_info = self._systematic_info.group or {}
+            if not group_info and self._systematic_info.metadata.get("sum_of_weights"):
+                group_info = {
+                    self._systematic_info.name: {
+                        "sum_of_weights": self._systematic_info.metadata["sum_of_weights"]
+                    }
+                }
+            if group_info:
+                requested_sow_variations = set(group_info.keys())
+                sow_variation_key_map = {
+                    name: info.get("sum_of_weights")
+                    for name, info in group_info.items()
+                    if info.get("sum_of_weights")
+                }
+
+        if not sow_variation_key_map:
+            sow_variation_key_map = {
+                "ISRUp": "nSumOfWeights_ISRUp",
+                "ISRDown": "nSumOfWeights_ISRDown",
+                "FSRUp": "nSumOfWeights_FSRUp",
+                "FSRDown": "nSumOfWeights_FSRDown",
+                "renormUp": "nSumOfWeights_renormUp",
+                "renormDown": "nSumOfWeights_renormDown",
+                "factUp": "nSumOfWeights_factUp",
+                "factDown": "nSumOfWeights_factDown",
+                "renormfactUp": "nSumOfWeights_renormfactUp",
+                "renormfactDown": "nSumOfWeights_renormfactDown",
+            }
+
+        if not requested_sow_variations and self._do_systematics:
+            variation_groups = {
+                "ISR": {"ISRUp", "ISRDown"},
+                "FSR": {"FSRUp", "FSRDown"},
+                "renorm": {"renormUp", "renormDown"},
+                "fact": {"factUp", "factDown"},
+                "renormfact": {"renormfactUp", "renormfactDown"},
+            }
+
+            for variations in variation_groups.values():
+                if current_syst in variations:
+                    requested_sow_variations.update(variations)
 
         sow_variations = {"nominal": sow}
-
-        requested_sow_variations = set()
-        variation_groups = {
-            "ISR": {"ISRUp", "ISRDown"},
-            "FSR": {"FSRUp", "FSRDown"},
-            "renorm": {"renormUp", "renormDown"},
-            "fact": {"factUp", "factDown"},
-            "renormfact": {"renormfactUp", "renormfactDown"},
-        }
-
-        for variations in variation_groups.values():
-            if current_syst in variations:
-                requested_sow_variations.update(variations)
 
         is_lo_sample = histAxisName in get_te_param("lo_xsec_samples")
 

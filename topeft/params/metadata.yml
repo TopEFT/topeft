@@ -82,27 +82,238 @@ channel_applications:
   4l:
   - isSR_4l
 systematics:
-- nominal
-- lepSF_muonUp
-- lepSF_muonDown
-- lepSF_elecUp
-- lepSF_elecDown
-- btagSFbc_corrUp
-- btagSFbc_corrDown
-- btagSFlight_corrUp
-- btagSFlight_corrDown
-- PUUp
-- PUDown
-- PreFiringUp
-- PreFiringDown
-- FSRUp
-- FSRDown
-- ISRUp
-- ISRDown
-- renormUp
-- renormDown
-- factUp
-- factDown
+  nominal:
+    type: nominal
+    applies_to:
+      - all
+    variations:
+      - value: nominal
+  jer:
+    type: object
+    applies_to:
+      - mc
+    year_dependent: true
+    template: "JER_{year}{direction}"
+    directions:
+      - Up
+      - Down
+  jes:
+    type: object
+    applies_to:
+      - mc
+    template: "JES_{component}{direction}"
+    directions:
+      - Up
+      - Down
+    components_from: jerc
+    component_strip: "Regrouped_"
+  tes:
+    type: object
+    applies_to:
+      - mc
+    tau_only: true
+    variations:
+      - value: TESUp
+        direction: Up
+      - value: TESDown
+        direction: Down
+  fes:
+    type: object
+    applies_to:
+      - mc
+    tau_only: true
+    variations:
+      - value: FESUp
+        direction: Up
+      - value: FESDown
+        direction: Down
+  lepton_sf_muon:
+    type: weight
+    applies_to:
+      - mc
+    variations:
+      - value: lepSF_muonUp
+        direction: Up
+      - value: lepSF_muonDown
+        direction: Down
+  lepton_sf_elec:
+    type: weight
+    applies_to:
+      - mc
+    variations:
+      - value: lepSF_elecUp
+        direction: Up
+      - value: lepSF_elecDown
+        direction: Down
+  lepton_sf_tau_real:
+    type: weight
+    applies_to:
+      - mc
+    tau_only: true
+    variations:
+      - value: lepSF_taus_realUp
+        direction: Up
+      - value: lepSF_taus_realDown
+        direction: Down
+  lepton_sf_tau_fake:
+    type: weight
+    applies_to:
+      - mc
+    tau_only: true
+    variations:
+      - value: lepSF_taus_fakeUp
+        direction: Up
+      - value: lepSF_taus_fakeDown
+        direction: Down
+  btag_bc_year:
+    type: weight
+    applies_to:
+      - mc
+    year_dependent: true
+    template: "btagSFbc_{year}{direction}"
+    directions:
+      - Up
+      - Down
+  btag_bc_corr:
+    type: weight
+    applies_to:
+      - mc
+    template: "btagSFbc_corr{direction}"
+    directions:
+      - Up
+      - Down
+  btag_light_year:
+    type: weight
+    applies_to:
+      - mc
+    year_dependent: true
+    template: "btagSFlight_{year}{direction}"
+    directions:
+      - Up
+      - Down
+  btag_light_corr:
+    type: weight
+    applies_to:
+      - mc
+    template: "btagSFlight_corr{direction}"
+    directions:
+      - Up
+      - Down
+  pileup:
+    type: weight
+    applies_to:
+      - mc
+    template: "PU{direction}"
+    directions:
+      - Up
+      - Down
+  prefiring:
+    type: weight
+    applies_to:
+      - mc
+    template: "PreFiring{direction}"
+    directions:
+      - Up
+      - Down
+  trigger_sf:
+    type: weight
+    applies_to:
+      - mc
+    year_dependent: true
+    template: "triggerSF_{year}{direction}"
+    directions:
+      - Up
+      - Down
+  isr:
+    type: theory
+    applies_to:
+      - mc
+    variations:
+      - value: ISRUp
+        direction: Up
+        sum_of_weights: nSumOfWeights_ISRUp
+      - value: ISRDown
+        direction: Down
+        sum_of_weights: nSumOfWeights_ISRDown
+  fsr:
+    type: theory
+    applies_to:
+      - mc
+    variations:
+      - value: FSRUp
+        direction: Up
+        sum_of_weights: nSumOfWeights_FSRUp
+      - value: FSRDown
+        direction: Down
+        sum_of_weights: nSumOfWeights_FSRDown
+  renorm:
+    type: theory
+    applies_to:
+      - mc
+    variations:
+      - value: renormUp
+        direction: Up
+        sum_of_weights: nSumOfWeights_renormUp
+      - value: renormDown
+        direction: Down
+        sum_of_weights: nSumOfWeights_renormDown
+  fact:
+    type: theory
+    applies_to:
+      - mc
+    variations:
+      - value: factUp
+        direction: Up
+        sum_of_weights: nSumOfWeights_factUp
+      - value: factDown
+        direction: Down
+        sum_of_weights: nSumOfWeights_factDown
+  renormfact:
+    type: theory
+    applies_to:
+      - mc
+    variations:
+      - value: renormfactUp
+        direction: Up
+        sum_of_weights: nSumOfWeights_renormfactUp
+      - value: renormfactDown
+        direction: Down
+        sum_of_weights: nSumOfWeights_renormfactDown
+  fake_factors:
+    type: data_weight
+    applies_to:
+      - all
+    variations:
+      - value: FFUp
+        direction: Up
+      - value: FFDown
+        direction: Down
+      - value: FFptUp
+        direction: Up
+      - value: FFptDown
+        direction: Down
+      - value: FFetaUp
+        direction: Up
+      - value: FFetaDown
+        direction: Down
+  fake_factors_close_e:
+    type: data_weight
+    applies_to:
+      - all
+    year_dependent: true
+    template: "FFcloseEl_{year}{direction}"
+    directions:
+      - Up
+      - Down
+  fake_factors_close_mu:
+    type: data_weight
+    applies_to:
+      - all
+    year_dependent: true
+    template: "FFcloseMu_{year}{direction}"
+    directions:
+      - Up
+      - Down
 variables:
   invmass:
     regular:
