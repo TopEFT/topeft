@@ -165,6 +165,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
         self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
 
+        if self._do_systematics and self._systematic_info is None:
+            raise ValueError("systematic_info must be provided when do_systematics is True")
+
 
     @property
     def accumulator(self):
@@ -409,10 +412,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         ######### Systematics ###########
 
         # Define the lists of systematics provided by the metadata helper
-        obj_correction_syst_lst = list(self._available_systematics.get("object", ()))
-        wgt_correction_syst_lst = list(self._available_systematics.get("weight", ()))
-        theory_correction_syst_lst = list(self._available_systematics.get("theory", ()))
-        data_syst_lst = list(self._available_systematics.get("data_weight", ()))
+        object_systematics = tuple(self._available_systematics.get("object", ()))
+        weight_systematics = tuple(self._available_systematics.get("weight", ()))
+        theory_systematics = tuple(self._available_systematics.get("theory", ()))
+        data_weight_systematics = tuple(self._available_systematics.get("data_weight", ()))
+        data_weight_systematics_set = set(data_weight_systematics)
 
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
@@ -541,567 +545,563 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
 
-        # If we're doing systematics and this isn't data, we will loop over the obj_correction_syst_lst list
-        if self._systematic_info is not None:
-            syst_name = self._systematic_info.name
-            if syst_name == "nominal":
-                syst_var_list = ["nominal"]
-            elif variation_type == "object" and syst_name in obj_correction_syst_lst:
-                syst_var_list = [syst_name]
+        current_variation_name = current_syst
+        object_variation = "nominal"
+        weight_variations_to_run = ["nominal"]
+
+        if variation_type == "object" and current_variation_name in object_systematics:
+            object_variation = current_variation_name
+        elif variation_type in {"weight", "theory", "data_weight"} and current_variation_name != "nominal":
+            variation_pool = {
+                "weight": weight_systematics,
+                "theory": theory_systematics,
+                "data_weight": data_weight_systematics,
+            }[variation_type]
+            if current_variation_name in variation_pool:
+                weight_variations_to_run = [current_variation_name]
             else:
-                syst_var_list = ["nominal"]
-        elif self._do_systematics and not isData:
-            syst_var_list = ["nominal"] + obj_correction_syst_lst
+                raise ValueError(
+                    f"Requested {variation_type} systematic '{current_variation_name}' is not available in the mapping"
+                )
+
+        # Make a copy of the base weights object.  In this block we add the pieces that depend on the object kinematics.
+        met_raw = met
+        weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
+
+        #################### Jets ####################
+
+        # Jet cleaning, before any jet selection
+        #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
+        if self.tau_h_analysis:
+            vetos_tocleanjets = ak.with_name(ak.concatenate([cleaning_taus, l_fo], axis=1), "PtEtaPhiMCandidate")
         else:
-            syst_var_list = ['nominal']
+            vetos_tocleanjets = ak.with_name(l_fo, "PtEtaPhiMCandidate")
+        tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
+        cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)]  # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
 
-        # Loop over the list of systematic variations we've constructed
-        met_raw=met
-        for syst_var in syst_var_list:
-            # Make a copy of the base weights object, so that each time through the loop we do not double count systs
-            # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
-            weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
+        # Selecting jets and cleaning them
+        jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
 
-            #################### Jets ####################
+        cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor) * cleanedJets.pt
+        cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor) * cleanedJets.mass
+        cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
 
-            # Jet cleaning, before any jet selection
-            #vetos_tocleanjets = ak.with_name( ak.concatenate([tau, l_fo], axis=1), "PtEtaPhiMCandidate")
+        # Jet energy corrections
+        if not isData:
+            cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
             if self.tau_h_analysis:
-                vetos_tocleanjets = ak.with_name( ak.concatenate([cleaning_taus, l_fo], axis=1), "PtEtaPhiMCandidate")
+                tau["pt"], tau["mass"] = ApplyTESSystematic(year, tau, isData, object_variation)
+                tau["pt"], tau["mass"] = ApplyFESSystematic(year, tau, isData, object_variation)
+
+        events_cache = events.caches[0]
+        cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
+        cleanedJets = ApplyJetSystematics(year, cleanedJets, object_variation)
+        met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era).build(met_raw, cleanedJets, lazy_cache=events_cache)
+
+        cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
+        cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=40.)
+        goodJets = cleanedJets[cleanedJets.isGood]
+        fwdJets = cleanedJets[cleanedJets.isFwd]
+
+        # Count jets
+        njets = ak.num(goodJets)
+        nfwdj = ak.num(fwdJets)
+        if "ht" in self._var_def:
+            ht = ak.sum(goodJets.pt, axis=-1)
+        if "j0" in self._var_def:
+            j0 = goodJets[ak.argmax(goodJets.pt, axis=-1, keepdims=True)]
+
+        # Loose DeepJet WP
+        loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
+        btagwpl = get_tc_param(loose_tag)
+        isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
+        isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
+        nbtagsl = ak.num(goodJets[isBtagJetsLoose])
+
+        # Medium DeepJet WP
+        medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
+        btagwpm = get_tc_param(medium_tag)
+        isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
+        isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
+        nbtagsm = ak.num(goodJets[isBtagJetsMedium])
+
+        #################### Add variables into event object so that they persist ####################
+
+        # Put njets and l_fo_conept_sorted into events
+        events["njets"] = njets
+        events["l_fo_conept_sorted"] = l_fo_conept_sorted
+
+        # The event selection
+        te_es.add1lMaskAndSFs(events, year, isData, sampleType)
+        te_es.add2lMaskAndSFs(events, year, isData, sampleType)
+        te_es.add3lMaskAndSFs(events, year, isData, sampleType)
+        te_es.add4lMaskAndSFs(events, year, isData)
+        te_es.addLepCatMasks(events)
+
+        # Convenient to have l0, l1, l2 on hand
+        l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
+        l0 = l_fo_conept_sorted_padded[:,0]
+        l1 = l_fo_conept_sorted_padded[:,1]
+        l2 = l_fo_conept_sorted_padded[:,2]
+
+        ######### Event weights that do not depend on the lep cat ##########
+
+        if not isData:
+            # Workaround to use UL16APV SFs for UL16 for light jets
+            if year == "2016":
+                year_light = "2016APV"
             else:
-                vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
-            tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
-            cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
+                year_light = year
 
-            # Selecting jets and cleaning them
-            jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
+            isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
 
-            cleanedJets["pt_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.pt
-            cleanedJets["mass_raw"] = (1 - cleanedJets.rawFactor)*cleanedJets.mass
-            cleanedJets["rho"] = ak.broadcast_arrays(jetsRho, cleanedJets.pt)[0]
+            light_mask = goodJets.hadronFlavour==0
+            bc_mask = goodJets.hadronFlavour>0
 
-            # Jet energy corrections
-            if not isData:
-                cleanedJets["pt_gen"] = ak.values_astype(ak.fill_none(cleanedJets.matched_gen.pt, 0), np.float32)
-                if self.tau_h_analysis:
-                    tau["pt"], tau["mass"]      = ApplyTESSystematic(year, tau, isData, syst_var)
-                    tau["pt"], tau["mass"]      = ApplyFESSystematic(year, tau, isData, syst_var)
+            jets_light = goodJets[light_mask]
+            jets_bc    = goodJets[bc_mask]
 
-            events_cache = events.caches[0]
-            cleanedJets = ApplyJetCorrections(year, corr_type='jets', isData=isData, era=run_era).build(cleanedJets, lazy_cache=events_cache)  #Run3 ready
-            cleanedJets = ApplyJetSystematics(year,cleanedJets,syst_var)
-            met = ApplyJetCorrections(year, corr_type='met', isData=isData, era=run_era).build(met_raw, cleanedJets, lazy_cache=events_cache)
+            btag_effM_light = GetBtagEff(jets_light, year, 'medium')
+            btag_effM_bc = GetBtagEff(jets_bc, year, 'medium')
+            btag_effL_light = GetBtagEff(jets_light, year, 'loose')
+            btag_effL_bc = GetBtagEff(jets_bc, year, 'loose')
+            btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M",year_light,"deepJet_incl","central")
+            btag_sfM_bc    = tc_cor.btag_sf_eval(jets_bc,    "M",year,      "deepJet_comb","central")
+            btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L",year_light,"deepJet_incl","central")
+            btag_sfL_bc    = tc_cor.btag_sf_eval(jets_bc,    "L",year,      "deepJet_comb","central")
 
-            cleanedJets["isGood"] = tc_os.is_tight_jet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, pt_cut=30., eta_cut=get_te_param("eta_j_cut"), id_cut=get_te_param("jet_id_cut"))
-            cleanedJets["isFwd"] = te_os.isFwdJet(getattr(cleanedJets, jetptname), cleanedJets.eta, cleanedJets.jetId, jetPtCut=40.)
-            goodJets = cleanedJets[cleanedJets.isGood]
-            fwdJets  = cleanedJets[cleanedJets.isFwd]
+            pData_light, pMC_light = tc_cor.get_method1a_wgt_doublewp(btag_effM_light, btag_effL_light, btag_sfM_light, btag_sfL_light, isBtagJetsMedium[light_mask], isBtagJetsLooseNotMedium[light_mask], isNotBtagJetsLoose[light_mask])
+            btag_w_light = pData_light/pMC_light
+            pData_bc, pMC_bc = tc_cor.get_method1a_wgt_doublewp(btag_effM_bc, btag_effL_bc, btag_sfM_bc, btag_sfL_bc, isBtagJetsMedium[bc_mask], isBtagJetsLooseNotMedium[bc_mask], isNotBtagJetsLoose[bc_mask])
+            btag_w_bc = pData_bc/pMC_bc
+            btag_w = btag_w_light*btag_w_bc
+            weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
 
-            # Count jets
-            njets = ak.num(goodJets)
-            nfwdj = ak.num(fwdJets)
-            if "ht" in self._var_def:
-                ht = ak.sum(goodJets.pt, axis=-1)
-            if "j0" in self._var_def:
-                j0 = goodJets[ak.argmax(goodJets.pt, axis=-1, keepdims=True)]
+            if self._do_systematics and object_variation == "nominal":
+                for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
+                    if b_syst.endswith("_corr"):
+                        corrtype = "correlated"
+                    else:
+                        corrtype = "uncorrelated"
 
-            # Loose DeepJet WP
-            loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
-            btagwpl = get_tc_param(loose_tag)
-            isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
-            isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
-            nbtagsl = ak.num(goodJets[isBtagJetsLoose])
+                    if b_syst.startswith("light_"):
+                        jets_flav = jets_light
+                        flav_mask = light_mask
+                        sys_year = year_light
+                        dJ_tag = "incl"
+                        btag_effM = btag_effM_light
+                        btag_effL = btag_effL_light
+                        pMC_flav = pMC_light
+                        fixed_btag_w = btag_w_bc
+                    elif b_syst.startswith("bc_"):
+                        jets_flav = jets_bc
+                        flav_mask = bc_mask
+                        sys_year = year
+                        dJ_tag = "comb"
+                        btag_effM = btag_effM_bc
+                        btag_effL = btag_effL_bc
+                        pMC_flav = pMC_bc
+                        fixed_btag_w = btag_w_light
+                    else:
+                        raise ValueError("btag systematics should be divided in flavor (bc or light)!")
 
-            # Medium DeepJet WP
-            medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
-            btagwpm = get_tc_param(medium_tag)
-            isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
-            isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
-            nbtagsm = ak.num(goodJets[isBtagJetsMedium])
+                    btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L",sys_year,f"deepJet_{dJ_tag}",f"up_{corrtype}")
+                    btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L",sys_year,f"deepJet_{dJ_tag}",f"down_{corrtype}")
+                    btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M",sys_year,f"deepJet_{dJ_tag}",f"up_{corrtype}")
+                    btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M",sys_year,f"deepJet_{dJ_tag}",f"down_{corrtype}")
 
-            #################### Add variables into event object so that they persist ####################
+                    pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_up, btag_sfL_up, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
+                    pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_down, btag_sfL_down, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
 
-            # Put njets and l_fo_conept_sorted into events
-            events["njets"] = njets
-            events["l_fo_conept_sorted"] = l_fo_conept_sorted
+                    btag_w_up = (pData_up/pMC_flav)
+                    btag_w_down = (pData_down/pMC_flav)
 
-            # The event selection
-            te_es.add1lMaskAndSFs(events, year, isData, sampleType)
-            te_es.add2lMaskAndSFs(events, year, isData, sampleType)
-            te_es.add3lMaskAndSFs(events, year, isData, sampleType)
-            te_es.add4lMaskAndSFs(events, year, isData)
-            te_es.addLepCatMasks(events)
+                    btag_w_up = fixed_btag_w*btag_w_up/btag_w
+                    btag_w_down = fixed_btag_w*btag_w_down/btag_w
 
-            # Convenient to have l0, l1, l2 on hand
-            l_fo_conept_sorted_padded = ak.pad_none(l_fo_conept_sorted, 3)
-            l0 = l_fo_conept_sorted_padded[:,0]
-            l1 = l_fo_conept_sorted_padded[:,1]
-            l2 = l_fo_conept_sorted_padded[:,2]
+                    weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
 
-            ######### Event weights that do not depend on the lep cat ##########
-
-            if not isData:
-                # Workaround to use UL16APV SFs for UL16 for light jets
-                if year == "2016":
-                    year_light = "2016APV"
-                else:
-                    year_light = year
-
-                isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
-
-                light_mask = goodJets.hadronFlavour==0
-                bc_mask = goodJets.hadronFlavour>0
-
-                jets_light = goodJets[light_mask]
-                jets_bc    = goodJets[bc_mask]
-
-                btag_effM_light = GetBtagEff(jets_light, year, 'medium')
-                btag_effM_bc = GetBtagEff(jets_bc, year, 'medium')
-                btag_effL_light = GetBtagEff(jets_light, year, 'loose')
-                btag_effL_bc = GetBtagEff(jets_bc, year, 'loose')
-                btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M",year_light,"deepJet_incl","central")
-                btag_sfM_bc    = tc_cor.btag_sf_eval(jets_bc,    "M",year,      "deepJet_comb","central")
-                btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L",year_light,"deepJet_incl","central")
-                btag_sfL_bc    = tc_cor.btag_sf_eval(jets_bc,    "L",year,      "deepJet_comb","central")
-
-                pData_light, pMC_light = tc_cor.get_method1a_wgt_doublewp(btag_effM_light, btag_effL_light, btag_sfM_light, btag_sfL_light, isBtagJetsMedium[light_mask], isBtagJetsLooseNotMedium[light_mask], isNotBtagJetsLoose[light_mask])
-                btag_w_light = pData_light/pMC_light
-                pData_bc, pMC_bc = tc_cor.get_method1a_wgt_doublewp(btag_effM_bc, btag_effL_bc, btag_sfM_bc, btag_sfL_bc, isBtagJetsMedium[bc_mask], isBtagJetsLooseNotMedium[bc_mask], isNotBtagJetsLoose[bc_mask])
-                btag_w_bc = pData_bc/pMC_bc
-                btag_w = btag_w_light*btag_w_bc
-                weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
-
-                if self._do_systematics and syst_var=='nominal':
-                    for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
-                        if b_syst.endswith("_corr"):
-                            corrtype = "correlated"
-                        else:
-                            corrtype = "uncorrelated"
-
-                        if b_syst.startswith("light_"):
-                            jets_flav = jets_light
-                            flav_mask = light_mask
-                            sys_year = year_light
-                            dJ_tag = "incl"
-                            btag_effM = btag_effM_light
-                            btag_effL = btag_effL_light
-                            pMC_flav = pMC_light
-                            fixed_btag_w = btag_w_bc
-                        elif b_syst.startswith("bc_"):
-                            jets_flav = jets_bc
-                            flav_mask = bc_mask
-                            sys_year = year
-                            dJ_tag = "comb"
-                            btag_effM = btag_effM_bc
-                            btag_effL = btag_effL_bc
-                            pMC_flav = pMC_bc
-                            fixed_btag_w = btag_w_light
-                        else:
-                            raise ValueError("btag systematics should be divided in flavor (bc or light)!")
-
-                        btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L",sys_year,f"deepJet_{dJ_tag}",f"up_{corrtype}")
-                        btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L",sys_year,f"deepJet_{dJ_tag}",f"down_{corrtype}")
-                        btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M",sys_year,f"deepJet_{dJ_tag}",f"up_{corrtype}")
-                        btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M",sys_year,f"deepJet_{dJ_tag}",f"down_{corrtype}")
-
-                        pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_up, btag_sfL_up, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
-                        pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_down, btag_sfL_down, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
-
-                        btag_w_up = (pData_up/pMC_flav)
-                        btag_w_down = (pData_down/pMC_flav)
-
-                        btag_w_up = fixed_btag_w*btag_w_up/btag_w
-                        btag_w_down = fixed_btag_w*btag_w_down/btag_w
-
-                        weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
-
-                # Trigger SFs
-                GetTriggerSF(year,events,l0,l1)
-                weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+        # Trigger SFs
+        GetTriggerSF(year,events,l0,l1)
+        weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
 
 
-            ######### Event weights that do depend on the lep cat ###########
-            # Determine the lepton multiplicity category from the requested
-            # channel name (e.g. ``2lss_4j`` -> ``2l``).  This is used to know
-            # which set of weights to apply.
-            nlep_cat = re.match(r"\d+l", self.channel).group(0)
+        ######### Event weights that do depend on the lep cat ###########
+        # Determine the lepton multiplicity category from the requested
+        # channel name (e.g. ``2lss_4j`` -> ``2l``).  This is used to know
+        # which set of weights to apply.
+        nlep_cat = re.match(r"\d+l", self.channel).group(0)
 
-            # Start from the base set of weights and attach the
-            # lepton-category specific pieces.  The weights object for the
-            # requested ``nlep_cat`` is fetched from a dictionary so that this
-            # happens once per systematic variation.
-            weights_dict = {nlep_cat: copy.deepcopy(weights_obj_base_for_kinematic_syst)}
-            weights_object = weights_dict[nlep_cat]
+        # Start from the base set of weights and attach the
+        # lepton-category specific pieces.  The weights object for the
+        # requested ``nlep_cat`` is fetched from a dictionary so that this
+        # happens once per systematic variation.
+        weights_dict = {nlep_cat: copy.deepcopy(weights_obj_base_for_kinematic_syst)}
+        weights_object = weights_dict[nlep_cat]
 
+        if nlep_cat.startswith("1l"):
+            weights_object.add("FF", events.fakefactor_1l, copy.deepcopy(events.fakefactor_1l_up), copy.deepcopy(events.fakefactor_1l_down))
+            weights_object.add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_1l_pt1/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_pt2/events.fakefactor_1l))
+            weights_object.add("FFeta", events.nom, copy.deepcopy(events.fakefactor_1l_be1/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_be2/events.fakefactor_1l))
+            weights_object.add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_1l_elclosureup/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_elclosuredown/events.fakefactor_1l))
+            weights_object.add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_1l_muclosureup/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_muclosuredown/events.fakefactor_1l))
+        elif nlep_cat.startswith("2l"):
+            weights_object.add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
+            weights_object.add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
+            weights_object.add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
+            weights_object.add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
+            weights_object.add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
+        elif nlep_cat.startswith("3l"):
+            weights_object.add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
+            weights_object.add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
+            weights_object.add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
+            weights_object.add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
+            weights_object.add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
+
+        # Additional data-only weights
+        if isData and nlep_cat.startswith("2l") and ("os" not in self.channel):
+            weights_object.add("fliprate", events.flipfactor_2l)
+
+        # MC-only scale factors
+        if not isData:
             if nlep_cat.startswith("1l"):
-                weights_object.add("FF", events.fakefactor_1l, copy.deepcopy(events.fakefactor_1l_up), copy.deepcopy(events.fakefactor_1l_down))
-                weights_object.add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_1l_pt1/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_pt2/events.fakefactor_1l))
-                weights_object.add("FFeta", events.nom, copy.deepcopy(events.fakefactor_1l_be1/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_be2/events.fakefactor_1l))
-                weights_object.add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_1l_elclosureup/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_elclosuredown/events.fakefactor_1l))
-                weights_object.add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_1l_muclosureup/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_muclosuredown/events.fakefactor_1l))
-            elif nlep_cat.startswith("2l"):
-                weights_object.add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
-                weights_object.add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
-                weights_object.add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
-                weights_object.add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
-                weights_object.add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
-            elif nlep_cat.startswith("3l"):
-                weights_object.add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
-                weights_object.add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
-                weights_object.add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
-                weights_object.add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
-                weights_object.add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
-
-            # Additional data-only weights
-            if isData and nlep_cat.startswith("2l") and ("os" not in self.channel):
-                weights_object.add("fliprate", events.flipfactor_2l)
-
-            # MC-only scale factors
-            if not isData:
-                if nlep_cat.startswith("1l"):
-                    weights_object.add("lepSF_muon", events.sf_1l_muon, copy.deepcopy(events.sf_1l_hi_muon), copy.deepcopy(events.sf_1l_lo_muon))
-                    weights_object.add("lepSF_elec", events.sf_1l_elec, copy.deepcopy(events.sf_1l_hi_elec), copy.deepcopy(events.sf_1l_lo_elec))
-                    if self.tau_h_analysis:
-                        weights_object.add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
-                        weights_object.add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
-                elif nlep_cat.startswith("2l"):
-                    weights_object.add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
-                    weights_object.add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
-                    if self.tau_h_analysis:
-                        weights_object.add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
-                        weights_object.add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
-                elif nlep_cat.startswith("3l"):
-                    weights_object.add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
-                    weights_object.add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
-                    if self.tau_h_analysis:
-                        weights_object.add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
-                        weights_object.add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
-                elif nlep_cat.startswith("4l"):
-                    weights_object.add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
-                    weights_object.add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
-                else:
-                    raise Exception(f"Unknown channel name: {nlep_cat}")
-
-            # Ensure that for data we only have the expected systematic
-            # variations in the Weights object
-            if self._do_systematics and isData:
-                expected_vars = set(data_syst_lst)
-                if nlep_cat.startswith("2l") and ("os" not in self.channel):
-                    expected_vars.add("fliprate")
-                if weights_object.variations != expected_vars:
-                    raise Exception(
-                        f"Error: Unexpected wgt variations for data! Expected \"{expected_vars}\" but have \"{weights_object.variations}\"."
-                    )
-
-
-            ######### Masks we need for the selection ##########
-
-            # Get mask for events that have two sf os leps close to z peak
-            sfosz_3l_OnZ_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
-            sfosz_3l_OffZ_mask = ~sfosz_3l_OnZ_mask
-            if self.offZ_3l_split:
-                sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
-                sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
-            sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
-            sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
-            if self.tau_h_analysis:
-                tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0, 30.0)
-
-            # Pass trigger mask
-            pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),te_es.dataset_dict_top22006,te_es.exclude_dict_top22006)
-
-            # b jet masks
-            bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
-            bmask_exactly0med = (nbtagsm==0) # Used for 3l CR and 2los Z CR
-            bmask_exactly1med = (nbtagsm==1) # Used for 3l SR and 2lss CR
-            bmask_exactly2med = (nbtagsm==2) # Used for CRtt
-            bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
-            bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
-            bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
-            fwdjet_mask       = (nfwdj > 0)  # Used for ttW EWK enriched regions
-
-            # Charge masks
-            chargel0_p = ak.fill_none(((l0.charge)>0),False)
-            chargel0_m = ak.fill_none(((l0.charge)<0),False)
-            charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
-            charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
-            charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
-            charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
-            if self.tau_h_analysis:
-                tau_F_mask = (ak.num(tau[tau["isVLoose"]>0]) >=1)
-                tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) >=1)
-                no_tau_mask = (ak.num(tau[tau["isLoose"]>0])==0)
-
-
-            ######### Store boolean masks with PackedSelection ##########
-
-            selections = PackedSelection(dtype='uint64')
-            preselections = PackedSelection(dtype='uint64')
-            # Lumi mask (for data)
-            selections.add("is_good_lumi",lumi_mask)
-            preselections.add("is_good_lumi",lumi_mask)
-
-            # 2lss selection
-            preselections.add("chargedl0", (chargel0_p | chargel0_m))
-            preselections.add("2l_nozeeveto", (events.is2l_nozeeveto & pass_trg))
-            preselections.add("2los", charge2l_0)
-            preselections.add("2lem", events.is_em)
-            preselections.add("2lee", events.is_ee)
-            preselections.add("2lmm", events.is_mm)
-            preselections.add("2l_onZ_as", sfasz_2l_mask)
-            preselections.add("2l_onZ", sfosz_2l_mask)
-            preselections.add("bmask_atleast3m", (bmask_atleast3med))
-            preselections.add("bmask_atleast1m2l", (bmask_atleast1med_atleast2loose))
-            preselections.add("bmask_atmost2m", (bmask_atmost2med))
-            preselections.add("fwdjet_mask", (fwdjet_mask))
-            preselections.add("~fwdjet_mask", (~fwdjet_mask))
-            if self.tau_h_analysis:
-                preselections.add("1l", (events.is1l & pass_trg))
-                preselections.add("1tau", (tau_L_mask))
-                preselections.add("1Ftau", (tau_F_mask))
-                preselections.add("0tau", (no_tau_mask))
-                preselections.add("onZ_tau", (tl_zpeak_mask))
-                preselections.add("offZ_tau", (~tl_zpeak_mask))
-            if self.fwd_analysis:
-                preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
-                preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
-                preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
-
-            # 2lss selection
-            preselections.add("2lss", (events.is2l & pass_trg))
-            preselections.add("2l_p", (chargel0_p))
-            preselections.add("2l_m", (chargel0_m))
-
-            # 3l selection
-            preselections.add("3l", (events.is3l & pass_trg))
-            preselections.add("bmask_exactly0m", (bmask_exactly0med))
-            preselections.add("bmask_exactly1m", (bmask_exactly1med))
-            preselections.add("bmask_exactly2m", (bmask_exactly2med))
-            preselections.add("bmask_atleast2m", (bmask_atleast2med))
-            preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
-            preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
-            preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
-
-            if self.offZ_3l_split:
-                preselections.add("3l_offZ_low", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask))
-                preselections.add("3l_offZ_high", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask))
-                preselections.add("3l_offZ_none", (sfosz_3l_OffZ_mask & ~sfosz_3l_OffZ_any_mask))
-            else:
-                preselections.add("3l_offZ", (sfosz_3l_OffZ_mask))
-
-            # 4l selection
-            preselections.add("4l", (events.is4l & pass_trg))
-
-            # Build the channel mask from the provided channel definition list.
-            lep_ch = self._channel_dict["chan_def_lst"]
-            tempmask = None
-            chtag = lep_ch[0]
-            for chcut in lep_ch[1:]:
-                tempmask = tempmask & preselections.any(chcut) if tempmask is not None else preselections.any(chcut)
-            selections.add(chtag, tempmask)
-
-            del preselections
-
-            # Lep flavor selection
-            selections.add("e",  events.is_e)
-            selections.add("m",  events.is_m)
-            selections.add("ee",  events.is_ee)
-            selections.add("em",  events.is_em)
-            selections.add("mm",  events.is_mm)
-            selections.add("eee", events.is_eee)
-            selections.add("eem", events.is_eem)
-            selections.add("emm", events.is_emm)
-            selections.add("mmm", events.is_mmm)
-            selections.add("llll", (events.is_eeee | events.is_eeem | events.is_eemm | events.is_emmm | events.is_mmmm | events.is_gr4l)) # Not keepting track of these separately
-
-            # Njets selection
-            selections.add("exactly_0j", (njets==0))
-            selections.add("exactly_1j", (njets==1))
-            selections.add("exactly_2j", (njets==2))
-            selections.add("exactly_3j", (njets==3))
-            selections.add("exactly_4j", (njets==4))
-            selections.add("exactly_5j", (njets==5))
-            selections.add("exactly_6j", (njets==6))
-            selections.add("atleast_1j", (njets>=1))
-            selections.add("atleast_4j", (njets>=4))
-            selections.add("atleast_5j", (njets>=5))
-            selections.add("atleast_6j", (njets>=6))
-            selections.add("atleast_7j", (njets>=7))
-            selections.add("atleast_0j", (njets>=0))
-            selections.add("atmost_3j" , (njets<=3))
-
-            # AR/SR categories
-            selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1)
-            selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1)
-            selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
-            selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0)
-            selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0)
-            if self.tau_h_analysis:
-                selections.add("isSR_1l",    ( events.is1l_SR))
-
-            selections.add("isSR_3l",  events.is3l_SR)
-            selections.add("isAR_3l", ~events.is3l_SR)
-            selections.add("isSR_4l",  events.is4l_SR)
-
-
-
-            ######### Variables for the dense axes of the hists ##########
-
-            var_def = self.var_def
-
-            if ("ptbl" in var_def) or ("b0pt" in var_def) or ("bl0pt" in var_def):
-                ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
-                ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt, axis=-1, keepdims=True)]
-                ptbl_lep = l_fo_conept_sorted
-                ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
-                ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
-
-            if "ptz" in var_def:
-                ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
-                if self.offZ_3l_split:
-                    ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
-            if "ptz_wtau" in var_def:
-                ptz_wtau = te_es.get_Zlt_pt(l0, l1, tau0)
-
-            if "bl0pt" in var_def:
-                bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
-                bl_pairs = ak.cartesian({"b": bjetsl, "l": l_fo_conept_sorted})
-                blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
-                bl0pt = ak.flatten(blpt[ak.argmax(blpt, axis=-1, keepdims=True)])
-
-            need_lj_collection = any(t in var_def for t in ["o0pt", "lj0pt", "ljptsum"]) or (self._ecut_threshold is not None)
-            if need_lj_collection:
+                weights_object.add("lepSF_muon", events.sf_1l_muon, copy.deepcopy(events.sf_1l_hi_muon), copy.deepcopy(events.sf_1l_lo_muon))
+                weights_object.add("lepSF_elec", events.sf_1l_elec, copy.deepcopy(events.sf_1l_hi_elec), copy.deepcopy(events.sf_1l_lo_elec))
                 if self.tau_h_analysis:
-                    l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted, goodJets, cleaning_taus], axis=1), "PtEtaPhiMCollection")
-                else:
-                    l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted, goodJets], axis=1), "PtEtaPhiMCollection")
-                if "o0pt" in var_def:
-                    o0pt = ak.max(l_j_collection.pt, axis=-1)
-                if ("ljptsum" in var_def) or (self._ecut_threshold is not None):
-                    ljptsum = ak.sum(l_j_collection.pt, axis=-1)
-                if "lj0pt" in var_def:
-                    l_j_pairs = ak.combinations(l_j_collection, 2, fields=["o0","o1"])
-                    l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
-                    lj0pt = ak.max(l_j_pairs_pt, axis=-1)
+                    weights_object.add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
+                    weights_object.add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
+            elif nlep_cat.startswith("2l"):
+                weights_object.add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
+                weights_object.add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
+                if self.tau_h_analysis:
+                    weights_object.add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
+                    weights_object.add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
+            elif nlep_cat.startswith("3l"):
+                weights_object.add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
+                weights_object.add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
+                if self.tau_h_analysis:
+                    weights_object.add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
+                    weights_object.add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
+            elif nlep_cat.startswith("4l"):
+                weights_object.add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
+                weights_object.add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
+            else:
+                raise Exception(f"Unknown channel name: {nlep_cat}")
 
-            if "lt" in var_def:
-                lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + met.pt
+        # Ensure that for data we only have the expected systematic
+        # variations in the Weights object
+        if self._do_systematics and isData:
+            expected_vars = set(data_weight_systematics_set)
+            if nlep_cat.startswith("2l") and ("os" not in self.channel):
+                expected_vars.add("fliprate")
+            if weights_object.variations != expected_vars:
+                raise Exception(
+                    f"Error: Unexpected wgt variations for data! Expected \"{expected_vars}\" but have \"{weights_object.variations}\"."
+                )
 
-            if "mll_0_1" in var_def:
-                mll_0_1 = (l0 + l1).mass
 
-            if self._ecut_threshold is not None:
-                if "ljptsum" not in locals():
-                    ljptsum = ak.sum(l_j_collection.pt, axis=-1)
-                ecut_mask = (ljptsum < self._ecut_threshold)
+        ######### Masks we need for the selection ##########
 
-            counts = np.ones_like(events['event'])
+        # Get mask for events that have two sf os leps close to z peak
+        sfosz_3l_OnZ_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:3],pt_window=10.0)
+        sfosz_3l_OffZ_mask = ~sfosz_3l_OnZ_mask
+        if self.offZ_3l_split:
+            sfosz_3l_OffZ_low_mask = tc_es.get_off_Z_mask_low(l_fo_conept_sorted_padded[:,0:3],pt_window=0.0)
+            sfosz_3l_OffZ_any_mask = tc_es.get_any_sfos_pair(l_fo_conept_sorted_padded[:,0:3])
+        sfosz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=10.0)
+        sfasz_2l_mask = tc_es.get_Z_peak_mask(l_fo_conept_sorted_padded[:,0:2],pt_window=30.0,flavor="as") # Any sign (do not enforce ss or os here)
+        if self.tau_h_analysis:
+            tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0, 30.0)
 
-            ########## Fill the histograms ##########
+        # Pass trigger mask
+        pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),te_es.dataset_dict_top22006,te_es.exclude_dict_top22006)
 
-            dense_axis_name = self._var
-            dense_axis_vals = eval(self._var_def, {"ak": ak, "np": np}, locals())
+        # b jet masks
+        bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
+        bmask_exactly0med = (nbtagsm==0) # Used for 3l CR and 2los Z CR
+        bmask_exactly1med = (nbtagsm==1) # Used for 3l SR and 2lss CR
+        bmask_exactly2med = (nbtagsm==2) # Used for CRtt
+        bmask_atleast2med = (nbtagsm>=2) # Used for 3l SR
+        bmask_atmost2med  = (nbtagsm< 3) # Used to make 2lss mutually exclusive from tttt enriched
+        bmask_atleast3med = (nbtagsm>=3) # Used for tttt enriched
+        fwdjet_mask       = (nfwdj > 0)  # Used for ttW EWK enriched regions
 
-            # Set up the list of systematic weight variations to loop over
+        # Charge masks
+        chargel0_p = ak.fill_none(((l0.charge)>0),False)
+        chargel0_m = ak.fill_none(((l0.charge)<0),False)
+        charge2l_0 = ak.fill_none(((l0.charge+l1.charge)==0),False)
+        charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
+        charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
+        charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
+        if self.tau_h_analysis:
+            tau_F_mask = (ak.num(tau[tau["isVLoose"]>0]) >=1)
+            tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) >=1)
+            no_tau_mask = (ak.num(tau[tau["isLoose"]>0])==0)
+
+
+        ######### Store boolean masks with PackedSelection ##########
+
+        selections = PackedSelection(dtype='uint64')
+        preselections = PackedSelection(dtype='uint64')
+        # Lumi mask (for data)
+        selections.add("is_good_lumi",lumi_mask)
+        preselections.add("is_good_lumi",lumi_mask)
+
+        # 2lss selection
+        preselections.add("chargedl0", (chargel0_p | chargel0_m))
+        preselections.add("2l_nozeeveto", (events.is2l_nozeeveto & pass_trg))
+        preselections.add("2los", charge2l_0)
+        preselections.add("2lem", events.is_em)
+        preselections.add("2lee", events.is_ee)
+        preselections.add("2lmm", events.is_mm)
+        preselections.add("2l_onZ_as", sfasz_2l_mask)
+        preselections.add("2l_onZ", sfosz_2l_mask)
+        preselections.add("bmask_atleast3m", (bmask_atleast3med))
+        preselections.add("bmask_atleast1m2l", (bmask_atleast1med_atleast2loose))
+        preselections.add("bmask_atmost2m", (bmask_atmost2med))
+        preselections.add("fwdjet_mask", (fwdjet_mask))
+        preselections.add("~fwdjet_mask", (~fwdjet_mask))
+        if self.tau_h_analysis:
+            preselections.add("1l", (events.is1l & pass_trg))
+            preselections.add("1tau", (tau_L_mask))
+            preselections.add("1Ftau", (tau_F_mask))
+            preselections.add("0tau", (no_tau_mask))
+            preselections.add("onZ_tau", (tl_zpeak_mask))
+            preselections.add("offZ_tau", (~tl_zpeak_mask))
+        if self.fwd_analysis:
+            preselections.add("2lss_fwd", (events.is2l & pass_trg & fwdjet_mask))
+            preselections.add("2l_fwd_p", (chargel0_p & fwdjet_mask))
+            preselections.add("2l_fwd_m", (chargel0_m & fwdjet_mask))
+
+        # 2lss selection
+        preselections.add("2lss", (events.is2l & pass_trg))
+        preselections.add("2l_p", (chargel0_p))
+        preselections.add("2l_m", (chargel0_m))
+
+        # 3l selection
+        preselections.add("3l", (events.is3l & pass_trg))
+        preselections.add("bmask_exactly0m", (bmask_exactly0med))
+        preselections.add("bmask_exactly1m", (bmask_exactly1med))
+        preselections.add("bmask_exactly2m", (bmask_exactly2med))
+        preselections.add("bmask_atleast2m", (bmask_atleast2med))
+        preselections.add("3l_p", (events.is3l & pass_trg & charge3l_p))
+        preselections.add("3l_m", (events.is3l & pass_trg & charge3l_m))
+        preselections.add("3l_onZ", (sfosz_3l_OnZ_mask))
+
+        if self.offZ_3l_split:
+            preselections.add("3l_offZ_low", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & sfosz_3l_OffZ_low_mask))
+            preselections.add("3l_offZ_high", (sfosz_3l_OffZ_mask & sfosz_3l_OffZ_any_mask & ~sfosz_3l_OffZ_low_mask))
+            preselections.add("3l_offZ_none", (sfosz_3l_OffZ_mask & ~sfosz_3l_OffZ_any_mask))
+        else:
+            preselections.add("3l_offZ", (sfosz_3l_OffZ_mask))
+
+        # 4l selection
+        preselections.add("4l", (events.is4l & pass_trg))
+
+        # Build the channel mask from the provided channel definition list.
+        lep_ch = self._channel_dict["chan_def_lst"]
+        tempmask = None
+        chtag = lep_ch[0]
+        for chcut in lep_ch[1:]:
+            tempmask = tempmask & preselections.any(chcut) if tempmask is not None else preselections.any(chcut)
+        selections.add(chtag, tempmask)
+
+        del preselections
+
+        # Lep flavor selection
+        selections.add("e",  events.is_e)
+        selections.add("m",  events.is_m)
+        selections.add("ee",  events.is_ee)
+        selections.add("em",  events.is_em)
+        selections.add("mm",  events.is_mm)
+        selections.add("eee", events.is_eee)
+        selections.add("eem", events.is_eem)
+        selections.add("emm", events.is_emm)
+        selections.add("mmm", events.is_mmm)
+        selections.add("llll", (events.is_eeee | events.is_eeem | events.is_eemm | events.is_emmm | events.is_mmmm | events.is_gr4l)) # Not keepting track of these separately
+
+        # Njets selection
+        selections.add("exactly_0j", (njets==0))
+        selections.add("exactly_1j", (njets==1))
+        selections.add("exactly_2j", (njets==2))
+        selections.add("exactly_3j", (njets==3))
+        selections.add("exactly_4j", (njets==4))
+        selections.add("exactly_5j", (njets==5))
+        selections.add("exactly_6j", (njets==6))
+        selections.add("atleast_1j", (njets>=1))
+        selections.add("atleast_4j", (njets>=4))
+        selections.add("atleast_5j", (njets>=5))
+        selections.add("atleast_6j", (njets>=6))
+        selections.add("atleast_7j", (njets>=7))
+        selections.add("atleast_0j", (njets>=0))
+        selections.add("atmost_3j" , (njets<=3))
+
+        # AR/SR categories
+        selections.add("isSR_2lSS",    ( events.is2l_SR) & charge2l_1)
+        selections.add("isAR_2lSS",    (~events.is2l_SR) & charge2l_1)
+        selections.add("isAR_2lSS_OS", ( events.is2l_SR) & charge2l_0) # Sideband for the charge flip
+        selections.add("isSR_2lOS",    ( events.is2l_SR) & charge2l_0)
+        selections.add("isAR_2lOS",    (~events.is2l_SR) & charge2l_0)
+        if self.tau_h_analysis:
+            selections.add("isSR_1l",    ( events.is1l_SR))
+
+        selections.add("isSR_3l",  events.is3l_SR)
+        selections.add("isAR_3l", ~events.is3l_SR)
+        selections.add("isSR_4l",  events.is4l_SR)
+
+
+
+        ######### Variables for the dense axes of the hists ##########
+
+        var_def = self.var_def
+
+        if ("ptbl" in var_def) or ("b0pt" in var_def) or ("bl0pt" in var_def):
+            ptbl_bjet = goodJets[(isBtagJetsMedium | isBtagJetsLoose)]
+            ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt, axis=-1, keepdims=True)]
+            ptbl_lep = l_fo_conept_sorted
+            ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
+            ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
+
+        if "ptz" in var_def:
+            ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+            if self.offZ_3l_split:
+                ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
+        if "ptz_wtau" in var_def:
+            ptz_wtau = te_es.get_Zlt_pt(l0, l1, tau0)
+
+        if "bl0pt" in var_def:
+            bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
+            bl_pairs = ak.cartesian({"b": bjetsl, "l": l_fo_conept_sorted})
+            blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
+            bl0pt = ak.flatten(blpt[ak.argmax(blpt, axis=-1, keepdims=True)])
+
+        need_lj_collection = any(t in var_def for t in ["o0pt", "lj0pt", "ljptsum"]) or (self._ecut_threshold is not None)
+        if need_lj_collection:
+            if self.tau_h_analysis:
+                l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted, goodJets, cleaning_taus], axis=1), "PtEtaPhiMCollection")
+            else:
+                l_j_collection = ak.with_name(ak.concatenate([l_fo_conept_sorted, goodJets], axis=1), "PtEtaPhiMCollection")
+            if "o0pt" in var_def:
+                o0pt = ak.max(l_j_collection.pt, axis=-1)
+            if ("ljptsum" in var_def) or (self._ecut_threshold is not None):
+                ljptsum = ak.sum(l_j_collection.pt, axis=-1)
+            if "lj0pt" in var_def:
+                l_j_pairs = ak.combinations(l_j_collection, 2, fields=["o0","o1"])
+                l_j_pairs_pt = (l_j_pairs.o0 + l_j_pairs.o1).pt
+                lj0pt = ak.max(l_j_pairs_pt, axis=-1)
+
+        if "lt" in var_def:
+            lt = ak.sum(l_fo_conept_sorted_padded.pt, axis=-1) + met.pt
+
+        if "mll_0_1" in var_def:
+            mll_0_1 = (l0 + l1).mass
+
+        if self._ecut_threshold is not None:
+            if "ljptsum" not in locals():
+                ljptsum = ak.sum(l_j_collection.pt, axis=-1)
+            ecut_mask = (ljptsum < self._ecut_threshold)
+
+        counts = np.ones_like(events['event'])
+
+        ########## Fill the histograms ##########
+
+        dense_axis_name = self._var
+        dense_axis_vals = eval(self._var_def, {"ak": ak, "np": np}, locals())
+
+        # Set up the list of systematic weight variations to loop over
+        if self._do_systematics:
+            wgt_var_lst = weight_variations_to_run
+        else:
             wgt_var_lst = ["nominal"]
-            if self._do_systematics:
-                if not isData:
-                    if syst_var != "nominal":
-                        wgt_var_lst = [syst_var]
-                    else:
-                        combined_weight_systematics = wgt_correction_syst_lst + theory_correction_syst_lst
-                        wgt_var_lst = wgt_var_lst + combined_weight_systematics + data_syst_lst
-                else:
-                    wgt_var_lst = wgt_var_lst + data_syst_lst
 
-            lep_chan = self._channel_dict["chan_def_lst"][0]
-            jet_req = self._channel_dict["jet_selection"]
-            lep_flav_iter = self._channel_dict["lep_flav_lst"] if self._split_by_lepton_flavor else [None]
+        lep_chan = self._channel_dict["chan_def_lst"][0]
+        jet_req = self._channel_dict["jet_selection"]
+        lep_flav_iter = self._channel_dict["lep_flav_lst"] if self._split_by_lepton_flavor else [None]
 
-            for wgt_fluct in wgt_var_lst:
-                if wgt_fluct == "nominal":
-                    weight = weights_object.weight(None)
-                elif wgt_fluct in weights_object.variations:
-                    weight = weights_object.weight(wgt_fluct)
-                else:
+        for wgt_fluct in wgt_var_lst:
+            if wgt_fluct == "nominal":
+                weight = weights_object.weight(None)
+            elif wgt_fluct in weights_object.variations:
+                weight = weights_object.weight(wgt_fluct)
+            else:
+                continue
+            # Skip filling SR histograms with data-driven variations
+            if self.appregion.startswith("isSR") and wgt_fluct in data_weight_systematics_set:
+                continue
+
+            for lep_flav in lep_flav_iter:
+                cuts_lst = [self.appregion, lep_chan]
+                flav_ch = None
+                njet_ch = None
+                if isData:
+                    cuts_lst.append("is_good_lumi")
+                if self._split_by_lepton_flavor:
+                    flav_ch = lep_flav
+                    cuts_lst.append(lep_flav)
+                if dense_axis_name != "njets":
+                    njet_ch = jet_req
+                    cuts_lst.append(jet_req)
+
+                ch_name = construct_cat_name(lep_chan, njet_str=njet_ch, flav_str=flav_ch)
+                if ch_name != self.channel:
                     continue
-                # Skip filling SR histograms with data-driven variations
-                if self.appregion.startswith("isSR") and wgt_fluct in data_syst_lst:
+
+                all_cuts_mask = selections.all(*cuts_lst)
+                if self._ecut_threshold is not None:
+                    all_cuts_mask = (all_cuts_mask & ecut_mask)
+
+                weights_flat = weight[all_cuts_mask]
+                eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
+
+                axes_fill_info_dict = {
+                    dense_axis_name: dense_axis_vals[all_cuts_mask],
+                    "weight": weights_flat,
+                    "eft_coeff": eft_coeffs_cut,
+                }
+
+                # Skip histos that are not defined (or not relevant) to given categories
+                if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))):
+                    continue
+                if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)):
+                    continue
+                if self.offZ_3l_split:
+                    if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):
+                        continue
+                elif self.tau_h_analysis:
+                    if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)):
+                        continue
+                    if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)):
+                        continue
+                    if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))):
+                        continue
+                elif self.fwd_analysis:
+                    if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
+                        continue
+                    if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)):
+                        continue
+                else:
+                    if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
+                        continue
+                if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)):
                     continue
 
-                for lep_flav in lep_flav_iter:
-                    cuts_lst = [self.appregion, lep_chan]
-                    flav_ch = None
-                    njet_ch = None
-                    if isData:
-                        cuts_lst.append("is_good_lumi")
-                    if self._split_by_lepton_flavor:
-                        flav_ch = lep_flav
-                        cuts_lst.append(lep_flav)
-                    if dense_axis_name != "njets":
-                        njet_ch = jet_req
-                        cuts_lst.append(jet_req)
+                histkey = (dense_axis_name, ch_name, self.appregion, dataset, wgt_fluct)
+                if histkey not in hout.keys():
+                    continue
+                hout[histkey].fill(**axes_fill_info_dict)
 
-                    ch_name = construct_cat_name(lep_chan, njet_str=njet_ch, flav_str=flav_ch)
-                    if ch_name != self.channel:
-                        continue
+                axes_fill_info_dict = {
+                    dense_axis_name + "_sumw2": dense_axis_vals[all_cuts_mask],
+                    "weight": np.square(weights_flat),
+                    "eft_coeff": eft_coeffs_cut,
+                }
+                histkey = (dense_axis_name + "_sumw2", ch_name, self.appregion, dataset, wgt_fluct)
+                if histkey not in hout.keys():
+                    continue
+                hout[histkey].fill(**axes_fill_info_dict)
 
-                    all_cuts_mask = selections.all(*cuts_lst)
-                    if self._ecut_threshold is not None:
-                        all_cuts_mask = (all_cuts_mask & ecut_mask)
-
-                    weights_flat = weight[all_cuts_mask]
-                    eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
-
-                    axes_fill_info_dict = {
-                        dense_axis_name: dense_axis_vals[all_cuts_mask],
-                        "weight": weights_flat,
-                        "eft_coeff": eft_coeffs_cut,
-                    }
-
-                    # Skip histos that are not defined (or not relevant) to given categories
-                    if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))):
-                        continue
-                    if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)):
-                        continue
-                    if self.offZ_3l_split:
-                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):
-                            continue
-                    elif self.tau_h_analysis:
-                        if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)):
-                            continue
-                        if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)):
-                            continue
-                        if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))):
-                            continue
-                    elif self.fwd_analysis:
-                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
-                            continue
-                        if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)):
-                            continue
-                    else:
-                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
-                            continue
-                    if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)):
-                        continue
-
-                    histkey = (dense_axis_name, ch_name, self.appregion, dataset, wgt_fluct)
-                    if histkey not in hout.keys():
-                        continue
-                    hout[histkey].fill(**axes_fill_info_dict)
-
-                    axes_fill_info_dict = {
-                        dense_axis_name + "_sumw2": dense_axis_vals[all_cuts_mask],
-                        "weight": np.square(weights_flat),
-                        "eft_coeff": eft_coeffs_cut,
-                    }
-                    histkey = (dense_axis_name + "_sumw2", ch_name, self.appregion, dataset, wgt_fluct)
-                    if histkey not in hout.keys():
-                        continue
-                    hout[histkey].fill(**axes_fill_info_dict)
-
-                    if not self._split_by_lepton_flavor:
-                        break
+                if not self._split_by_lepton_flavor:
+                    break
 
         return hout
 
