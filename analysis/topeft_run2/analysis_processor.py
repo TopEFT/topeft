@@ -995,8 +995,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             is_l1_electron = (abs(l1.pdgId)==11)
             l0_seed_etaorx = l0[is_l0_electron].seediEtaOriX
             l0_seed_phiory = l0[is_l0_electron].seediPhiOriY
-            l1_seed_etaorx = l0[is_l1_electron].seediEtaOriX
-            l1_seed_phiory = l0[is_l1_electron].seediPhiOriY
+            l1_seed_etaorx = l1[is_l1_electron].seediEtaOriX
+            l1_seed_phiory = l1[is_l1_electron].seediPhiOriY
 
             # Variables we will loop over when filling hists
             varnames = {}
@@ -1119,7 +1119,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l1_seed_etaorx,
                 "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l1_seed_phiory,
             }
-            varnames["l0_eta_vs_phi"] = {
+            varnames["l1_eta_vs_phi"] = {
                 "l1_eta_vs_phi_eta": l1.eta,
                 "l1_eta_vs_phi_phi": l1.phi,
             }

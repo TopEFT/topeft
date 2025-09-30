@@ -225,4 +225,60 @@ info_2d = {
             },
         ],
     },
+    "l0_SeedEtaOrX_vs_SeedPhiOrY": {
+        "axes": [
+            {
+                "name": "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX",
+                "regular": (400, -200, 200),
+                "label": r"Leading lep seed $\eta / x$ ",
+            },
+            {
+                "name": "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY",
+                "regular": (500, 0, 500),
+                "label": r"Leading lep seed $\phi / y$ ",
+            },
+        ],
+    },
+    "l0_eta_vs_phi": {
+        "axes": [
+            {
+                "name": "l0_eta_vs_phi_eta",
+                "regular": (120, -3, 3),
+                "label": r"Leading lep $\eta$ ",
+            },
+            {
+                "name": "l0_eta_vs_phi_phi",
+                "regular": (160, -4, 4),
+                "label": r"Leading lep $\phi$ ",
+            },
+        ],
+    },
+    "l1_SeedEtaOrX_vs_SeedPhiOrY": {
+        "axes": [
+            {
+                "name": "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX",
+                "regular": (400, -200, 200),
+                "label": r"Subleading lep seed $\eta / x$ ",
+            },
+            {
+                "name": "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY",
+                "regular": (500, 0, 500),
+                "label": r"Subleading lep seed $\phi / y$ ",
+            },
+        ],
+    },
+    "l1_eta_vs_phi": {
+        "axes": [
+            {
+                "name": "l1_eta_vs_phi_eta",
+                "regular": (120, -3, 3),
+                "label": r"Subleading lep $\eta$ ",
+            },
+            {
+                "name": "l1_eta_vs_phi_phi",
+                "regular": (160, -4, 4),
+                "label": r"Subleading lep $\phi$ ",
+            },
+        ],
+    },
 }
