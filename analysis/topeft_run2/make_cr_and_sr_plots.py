@@ -384,7 +384,15 @@ def _is_sparse_2d_hist(histo):
 
 ######### Plotting functions #########
 
-def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13"):
+def make_sparse2d_fig(
+    h_mc,
+    h_data,
+    var,
+    channel_name,
+    lumitag="138",
+    comtag="13",
+    per_panel=False,
+):
     axes_meta = axes_info_2d.get(var, {})
     axis_cfgs = axes_meta.get("axes", [])
     if len(axis_cfgs) < 2:
@@ -478,6 +486,28 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
         ratio_vmax = 1.0 + half_range
     ratio_norm = mpl.colors.TwoSlopeNorm(vmin=ratio_vmin, vcenter=1.0, vmax=ratio_vmax)
 
+    def _apply_panel_margins(fig):
+        fig.subplots_adjust(left=0.06, right=0.98, top=0.96, bottom=0.08)
+
+    def _make_single_panel(plot_hist, norm, title, colorbar_label):
+        fig = plt.figure(figsize=(8, 6))
+        hep.style.use("CMS")
+        ax = fig.add_subplot(111)
+        hep.cms.label(ax=ax, lumi=lumitag, com=comtag, fontsize=18.0)
+        artists = hep.hist2dplot(plot_hist, ax=ax, norm=norm)
+        mesh = getattr(artists, "mesh", None)
+        if mesh is not None:
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.04)
+            cbar = fig.colorbar(mesh, cax=cax, norm=norm)
+            cbar.set_label(colorbar_label)
+        ax.set_xlabel(axis_labels[0])
+        ax.set_ylabel(axis_labels[1])
+        ax.set_title(f"{channel_name} {title}" if channel_name else title)
+        ax.tick_params(axis="both", labelsize=14)
+        _apply_panel_margins(fig)
+        return fig
+
     fig = plt.figure(figsize=(20, 12))
     outer_gs = fig.add_gridspec(
         2,
@@ -534,7 +564,18 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
     ax_ratio.tick_params(axis="both", labelsize=14)
     for ax in axes_top:
         ax.set_ylabel(axis_labels[1])
-    return fig
+    _apply_panel_margins(fig)
+
+    if not per_panel:
+        return fig
+
+    single_panel_figs = {
+        "combined": fig,
+        "mc": _make_single_panel(mc_hist, mc_norm, "MC", cbar_label),
+        "data": _make_single_panel(data_hist, data_norm, "Data", cbar_label),
+        "ratio": _make_single_panel(ratio_hist, ratio_norm, "Data/MC", ratio_cbar_label),
+    }
+    return single_panel_figs
 
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
@@ -1393,6 +1434,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                     channel_name=hist_cat,
                     lumitag=LUMI_COM_PAIRS[year][0],
                     comtag=LUMI_COM_PAIRS[year][1],
+                    per_panel=True,
                 )
             else:
                 group = {k:v for k,v in CR_GRP_MAP.items() if v} # Remove empty groups
@@ -1412,7 +1454,17 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                     comtag=LUMI_COM_PAIRS[year][1]
                 )
             if unit_norm_bool: title = title + "_unitnorm"
-            fig.savefig(os.path.join(save_dir_path_tmp,title))
+            if isinstance(fig, dict):
+                combined_fig = fig["combined"]
+                combined_fig.savefig(os.path.join(save_dir_path_tmp,title))
+                suffix_map = {"mc": "_MC", "data": "_data", "ratio": "_ratio"}
+                for key, panel_fig in fig.items():
+                    if key == "combined":
+                        continue
+                    suffix = suffix_map.get(key, f"_{key}")
+                    panel_fig.savefig(os.path.join(save_dir_path_tmp, f"{title}{suffix}"))
+            else:
+                fig.savefig(os.path.join(save_dir_path_tmp,title))
 
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)
