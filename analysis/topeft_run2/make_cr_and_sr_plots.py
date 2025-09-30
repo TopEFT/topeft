@@ -404,7 +404,8 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
     with np.errstate(divide="ignore", invalid="ignore"):
         np.divide(data_vals, mc_vals, out=ratio_vals, where=mc_vals != 0)
     empty_mask = (mc_vals == 0) & (data_vals == 0)
-    ratio_vals[empty_mask] = np.nan
+    data_only_mask = (mc_vals == 0) & (data_vals != 0)
+    ratio_vals[empty_mask | data_only_mask] = np.nan
 
     ratio_hist = hist.Hist(*h_mc.axes)
     ratio_hist[...] = ratio_vals
