@@ -725,7 +725,6 @@
                     "2lss",
                     "2l_m",
                     "bmask_atleast1m2l",
-		    "~fwdjet_mask",
                     "1tau",
                     "onZ_tau"
                 ],
@@ -734,7 +733,6 @@
                     "2lss",
                     "2l_p",
                     "bmask_atleast1m2l",
-		    "~fwdjet_mask",
                     "1tau",
                     "offZ_tau"
                 ],
@@ -743,7 +741,6 @@
                     "2lss",
                     "2l_m",
                     "bmask_atleast1m2l",
-		    "~fwdjet_mask",
                     "1tau",
                     "offZ_tau"
                 ],
@@ -752,7 +749,6 @@
                     "2lss",
                     "2l_p",
                     "bmask_atleast1m2l",
-		    "~fwdjet_mask",
                     "1tau",
                     "onZ_tau"
                 ]
@@ -774,61 +770,6 @@
                 "=4",
                 "=5",
                 ">6"
-            ]
-        },
-        "2lss_1tau_fwd": {
-            "lep_chan_lst": [
-                [
-                    "2lss_fwd_m_1tau_onZ",
-                    "2lss",
-                    "2l_m",
-                    "bmask_atleast1m2l",
-		    "fwdjet_mask",
-                    "1tau",
-                    "onZ_tau"
-                ],
-                [
-                    "2lss_fwd_p_1tau_offZ",
-                    "2lss",
-                    "2l_p",
-                    "bmask_atleast1m2l",
-		    "fwdjet_mask",
-                    "1tau",
-                    "offZ_tau"
-                ],
-                [
-                    "2lss_fwd_m_1tau_offZ",
-                    "2lss",
-                    "2l_m",
-                    "bmask_atleast1m2l",
-		    "fwdjet_mask",
-                    "1tau",
-                    "offZ_tau"
-                ],
-                [
-                    "2lss_fwd_p_1tau_onZ",
-                    "2lss",
-                    "2l_p",
-                    "bmask_atleast1m2l",
-		    "fwdjet_mask",
-                    "1tau",
-                    "onZ_tau"
-                ]
-            ],
-            "lep_flav_lst": [
-                "ee",
-                "em",
-                "mm"
-            ],
-            "appl_lst": [
-                "isSR_2lSS",
-                "isAR_2lSS"
-            ],
-            "appl_lst_data": [
-                "isAR_2lSS_OS"
-            ],
-            "jet_lst": [
-                ">3"
             ]
         },
         "2los_1tau": {
@@ -875,13 +816,11 @@
                 [
                     "3l_1tau_1b",
                     "bmask_exactly1m",
-		    "~fwdjet_mask",
                     "1tau"
                 ],
                 [
                     "3l_1tau_2b",
                     "bmask_atleast2m",
-		    "~fwdjet_mask",
                     "1tau"
                 ],
                 [
@@ -999,20 +938,8 @@
                 ">5"
             ]
         },
-	"3l_1tau_fwd": {
+	"3l_fwd": {
             "lep_chan_lst": [
-                [
-                    "3l_1tau_1b_fwd",
-                    "bmask_exactly1m",
-                    "fwdjet_mask",
-                    "1tau"
-                ],
-                [
-                    "3l_1tau_2b_fwd",
-                    "bmask_atleast2m",
-                    "fwdjet_mask",
-                    "1tau"
-                ],
                 [
                     "3l_onZ_1b_fwd",
                     "3l",
@@ -1041,6 +968,7 @@
                 "isAR_3l"
             ],
             "jet_lst": [
+		"=1",
                 "=2",
                 "=3",
                 ">4"
