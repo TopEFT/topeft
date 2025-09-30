@@ -403,11 +403,24 @@ def make_sparse2d_fig(
     ratio_cbar_label = ratio_meta.get("cbar_label", "Data/MC")
 
     def _extract_weighted_values(histo):
-        view = histo.view(flow=False)
+        view = histo.view(flow=False, as_dict=True)
+        if isinstance(view, dict):
+            if len(view) == 1:
+                view = next(iter(view.values()))
+            else:
+                # Fall back to the higher-level values helper when multiple
+                # categorical entries remain. This preserves the dense layout
+                # while still supporting weighted storages.
+                view = histo.values(flow=False)
+
         if hasattr(view, "dtype") and view.dtype.fields:
             if "value" in view.dtype.fields:
                 return np.asarray(view["value"], dtype=float)
-        return np.asarray(view, dtype=float)
+
+        try:
+            return np.asarray(view, dtype=float)
+        except TypeError:
+            return np.asarray(np.array(view), dtype=float)
 
     def _dense_edges(histo):
         return [np.asarray(ax.edges, dtype=float) for ax in histo.axes]
