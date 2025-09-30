@@ -992,13 +992,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Counts
             counts = np.ones_like(events['event'])
             is_l0_electron = (abs(l0.pdgId)==11)
-            seed_etaorx = l0[is_l0_electron].seediEtaOriX
-            seed_phiory = l0[is_l0_electron].seediPhiOriY
-
-            # print("\n\n\n\n\n\n\n")
-            # print("seed_etaorx:",ak.to_list(seed_etaorx))
-            # print("seed_phiory:",ak.to_list(seed_phiory))
-            # print("\n\n\n\n\n\n\n")
+            is_l1_electron = (abs(l1.pdgId)==11)
+            l0_seed_etaorx = l0[is_l0_electron].seediEtaOriX
+            l0_seed_phiory = l0[is_l0_electron].seediPhiOriY
+            l1_seed_etaorx = l0[is_l1_electron].seediEtaOriX
+            l1_seed_phiory = l0[is_l1_electron].seediPhiOriY
 
             # Variables we will loop over when filling hists
             varnames = {}
@@ -1027,12 +1025,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lt"]      = lt
             varnames["npvs"]    = pv.npvs
             varnames["npvsGood"]= pv.npvsGood
-            lepton0_pt_raw = l0.pt_raw #ak.values_astype(ak.fill_none(l0.pt_raw, 0), np.float32)
-            lepton0_abseta = abs(l0.eta) #ak.values_astype(
-            #    ak.abs(ak.fill_none(l0.eta, 0)), np.float32
-            #)
-            #varnames["eleseedetax"] = seed_etaorx
-            #varnames["eleseedphiy"] = seed_phiory
+            lepton0_pt_raw = l0.pt_raw 
+            lepton0_abseta = abs(l0.eta) 
 
             if not isData:
                 l0_gen_pdgId = ak.fill_none(l0["gen_pdgId"], -1)
@@ -1112,6 +1106,22 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lepton_pt_vs_eta"] = {
                 "lepton_pt_vs_eta_pt": lepton0_pt_raw,
                 "lepton_pt_vs_eta_abseta": lepton0_abseta,
+            }
+            varnames["l0_SeedEtaOrX_vs_SeedPhiOrY"] = {
+                "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l0_seed_etaorx,
+                "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l0_seed_phiory,
+            }
+            varnames["l0_eta_vs_phi"] = {
+                "l0_eta_vs_phi_eta": l0.eta,
+                "l0_eta_vs_phi_phi": l0.phi,
+            }
+            varnames["l1_SeedEtaOrX_vs_SeedPhiOrY"] = {
+                "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l1_seed_etaorx,
+                "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l1_seed_phiory,
+            }
+            varnames["l0_eta_vs_phi"] = {
+                "l1_eta_vs_phi_eta": l1.eta,
+                "l1_eta_vs_phi_phi": l1.phi,
             }
 
             if self.tau_h_analysis:
