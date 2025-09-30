@@ -463,9 +463,11 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
         (mc_hist, data_hist),
         ("MC", "Data"),
     ):
-        artists = hep.hist2dplot(plot_hist, ax=ax, cbar=True, cbar_ax=cbar_ax, norm=norm)
-        if getattr(artists, "cbar", None) is not None:
-            artists.cbar.set_label(cbar_label)
+        artists = hep.hist2dplot(plot_hist, ax=ax, norm=norm)
+        mesh = getattr(artists, "mesh", None)
+        if mesh is not None:
+            cbar = fig.colorbar(mesh, cax=cbar_ax)
+            cbar.set_label(cbar_label)
         ax.set_xlabel(axis_labels[0])
         ax.set_ylabel(axis_labels[1])
         ax.set_title(f"{channel_name} {title}" if channel_name else title)
@@ -473,12 +475,12 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
     ratio_artists = hep.hist2dplot(
         ratio_hist,
         ax=ax_ratio,
-        cbar=True,
-        cbar_ax=ax_ratio_cbar,
         norm=ratio_norm,
     )
-    if getattr(ratio_artists, "cbar", None) is not None:
-        ratio_artists.cbar.set_label(ratio_cbar_label)
+    ratio_mesh = getattr(ratio_artists, "mesh", None)
+    if ratio_mesh is not None:
+        ratio_cbar = fig.colorbar(ratio_mesh, cax=ax_ratio_cbar)
+        ratio_cbar.set_label(ratio_cbar_label)
     ax_ratio.set_xlabel(axis_labels[0])
     ax_ratio.set_ylabel(axis_labels[1])
     ax_ratio.set_title(f"{channel_name} Data/MC" if channel_name else "Data/MC")
