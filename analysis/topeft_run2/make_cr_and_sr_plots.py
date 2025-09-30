@@ -433,25 +433,50 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
         ratio_vmax = 1.0 + half_range
     ratio_norm = mpl.colors.TwoSlopeNorm(vmin=ratio_vmin, vcenter=1.0, vmax=ratio_vmax)
 
-    layout = [["mc", "data"], ["ratio", "."]]
-    fig, axes_dict = plt.subplot_mosaic(layout, figsize=(20, 12), constrained_layout=True)
+    fig = plt.figure(figsize=(20, 12), constrained_layout=True)
+    gs = fig.add_gridspec(
+        2,
+        4,
+        width_ratios=[1, 0.05, 1, 0.05],
+    )
     hep.style.use("CMS")
 
-    ax_mc = axes_dict["mc"]
-    ax_data = axes_dict["data"]
-    ax_ratio = axes_dict["ratio"]
+    ax_mc = fig.add_subplot(gs[0, 0])
+    ax_mc_cbar = fig.add_subplot(gs[0, 1])
+    ax_data = fig.add_subplot(gs[0, 2])
+    ax_data_cbar = fig.add_subplot(gs[0, 3])
+    ax_ratio = fig.add_subplot(gs[1, 0])
+    ax_ratio_cbar = fig.add_subplot(gs[1, 1])
+
+    # Placeholder axes in the lower row that should remain hidden.
+    ax_placeholder_1 = fig.add_subplot(gs[1, 2])
+    ax_placeholder_2 = fig.add_subplot(gs[1, 3])
+    for ax_placeholder in (ax_placeholder_1, ax_placeholder_2):
+        ax_placeholder.set_axis_off()
+
     axes_top = [ax_mc, ax_data]
 
     hep.cms.label(ax=ax_mc, lumi=lumitag, com=comtag, fontsize=18.0)
-    for ax, plot_hist, title in zip(axes_top, (mc_hist, data_hist), ("MC", "Data")):
-        artists = hep.hist2dplot(plot_hist, ax=ax, cbar=True, norm=norm)
+    for ax, cbar_ax, plot_hist, title in zip(
+        axes_top,
+        (ax_mc_cbar, ax_data_cbar),
+        (mc_hist, data_hist),
+        ("MC", "Data"),
+    ):
+        artists = hep.hist2dplot(plot_hist, ax=ax, cbar=True, cbar_ax=cbar_ax, norm=norm)
         if getattr(artists, "cbar", None) is not None:
             artists.cbar.set_label(cbar_label)
         ax.set_xlabel(axis_labels[0])
         ax.set_ylabel(axis_labels[1])
         ax.set_title(f"{channel_name} {title}" if channel_name else title)
         ax.tick_params(axis="both", labelsize=14)
-    ratio_artists = hep.hist2dplot(ratio_hist, ax=ax_ratio, cbar=True, norm=ratio_norm)
+    ratio_artists = hep.hist2dplot(
+        ratio_hist,
+        ax=ax_ratio,
+        cbar=True,
+        cbar_ax=ax_ratio_cbar,
+        norm=ratio_norm,
+    )
     if getattr(ratio_artists, "cbar", None) is not None:
         ratio_artists.cbar.set_label(ratio_cbar_label)
     ax_ratio.set_xlabel(axis_labels[0])
