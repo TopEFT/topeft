@@ -479,8 +479,17 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
     ratio_norm = mpl.colors.TwoSlopeNorm(vmin=ratio_vmin, vcenter=1.0, vmax=ratio_vmax)
 
     fig = plt.figure(figsize=(20, 12))
-    outer_gs = fig.add_gridspec(2, 1, height_ratios=[1, 1], hspace=0.25)
-    top_gs = outer_gs[0].subgridspec(1, 2, wspace=0.3)
+    outer_gs = fig.add_gridspec(
+        2,
+        1,
+        height_ratios=[1, 1],
+        hspace=0.15,
+        left=0.06,
+        right=0.98,
+        top=0.96,
+        bottom=0.08,
+    )
+    top_gs = outer_gs[0].subgridspec(1, 2, wspace=0.12)
 
     hep.style.use("CMS")
 
@@ -501,7 +510,7 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
         mesh = getattr(artists, "mesh", None)
         if mesh is not None:
             divider = make_axes_locatable(ax)
-            cax = divider.append_axes("right", size="5%", pad=0.1)
+            cax = divider.append_axes("right", size="5%", pad=0.04)
             cbar = fig.colorbar(mesh, cax=cax, norm=norm)
             cbar.set_label(cbar_label)
         ax.set_xlabel(axis_labels[0])
@@ -516,7 +525,7 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
     ratio_mesh = getattr(ratio_artists, "mesh", None)
     if ratio_mesh is not None:
         divider = make_axes_locatable(ax_ratio)
-        cax = divider.append_axes("right", size="5%", pad=0.1)
+        cax = divider.append_axes("right", size="5%", pad=0.04)
         ratio_cbar = fig.colorbar(ratio_mesh, cax=cax, norm=ratio_norm)
         ratio_cbar.set_label(ratio_cbar_label)
     ax_ratio.set_xlabel(axis_labels[0])
