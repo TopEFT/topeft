@@ -7,6 +7,7 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 from cycler import cycler
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import mplhep as hep
 import hist
@@ -433,40 +434,30 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
         ratio_vmax = 1.0 + half_range
     ratio_norm = mpl.colors.TwoSlopeNorm(vmin=ratio_vmin, vcenter=1.0, vmax=ratio_vmax)
 
-    fig = plt.figure(figsize=(20, 12), constrained_layout=True)
-    gs = fig.add_gridspec(
-        2,
-        4,
-        width_ratios=[1, 0.05, 1, 0.05],
-    )
+    fig = plt.figure(figsize=(20, 12))
+    outer_gs = fig.add_gridspec(2, 1, height_ratios=[1, 1], hspace=0.25)
+    top_gs = outer_gs[0].subgridspec(1, 2, wspace=0.3)
+
     hep.style.use("CMS")
 
-    ax_mc = fig.add_subplot(gs[0, 0])
-    ax_mc_cbar = fig.add_subplot(gs[0, 1])
-    ax_data = fig.add_subplot(gs[0, 2])
-    ax_data_cbar = fig.add_subplot(gs[0, 3])
-    ax_ratio = fig.add_subplot(gs[1, 0])
-    ax_ratio_cbar = fig.add_subplot(gs[1, 1])
-
-    # Placeholder axes in the lower row that should remain hidden.
-    ax_placeholder_1 = fig.add_subplot(gs[1, 2])
-    ax_placeholder_2 = fig.add_subplot(gs[1, 3])
-    for ax_placeholder in (ax_placeholder_1, ax_placeholder_2):
-        ax_placeholder.set_axis_off()
+    ax_mc = fig.add_subplot(top_gs[0])
+    ax_data = fig.add_subplot(top_gs[1])
+    ax_ratio = fig.add_subplot(outer_gs[1])
 
     axes_top = [ax_mc, ax_data]
 
     hep.cms.label(ax=ax_mc, lumi=lumitag, com=comtag, fontsize=18.0)
-    for ax, cbar_ax, plot_hist, title in zip(
+    for ax, plot_hist, title in zip(
         axes_top,
-        (ax_mc_cbar, ax_data_cbar),
         (mc_hist, data_hist),
         ("MC", "Data"),
     ):
         artists = hep.hist2dplot(plot_hist, ax=ax, norm=norm)
         mesh = getattr(artists, "mesh", None)
         if mesh is not None:
-            cbar = fig.colorbar(mesh, cax=cbar_ax)
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.1)
+            cbar = fig.colorbar(mesh, cax=cax)
             cbar.set_label(cbar_label)
         ax.set_xlabel(axis_labels[0])
         ax.set_ylabel(axis_labels[1])
@@ -479,7 +470,9 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
     )
     ratio_mesh = getattr(ratio_artists, "mesh", None)
     if ratio_mesh is not None:
-        ratio_cbar = fig.colorbar(ratio_mesh, cax=ax_ratio_cbar)
+        divider = make_axes_locatable(ax_ratio)
+        cax = divider.append_axes("right", size="5%", pad=0.1)
+        ratio_cbar = fig.colorbar(ratio_mesh, cax=cax)
         ratio_cbar.set_label(ratio_cbar_label)
     ax_ratio.set_xlabel(axis_labels[0])
     ax_ratio.set_ylabel(axis_labels[1])
