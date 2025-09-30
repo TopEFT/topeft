@@ -207,5 +207,22 @@ info = {
     "b1m_genpFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"GenParton Flavor of subleading medium b jet",
-   }
+    }
+}
+
+info_2d = {
+    "lepton_pt_vs_eta": {
+        "axes": [
+            {
+                "name": "lepton_pt_vs_eta_pt",
+                "regular": (25, 0, 250),
+                "label": r"Leading lep $p_{T}$ (GeV) ",
+            },
+            {
+                "name": "lepton_pt_vs_eta_abseta",
+                "regular": (25, 0, 2.5),
+                "label": r"Leading lep $|\eta|$ ",
+            },
+        ],
+    },
 }
