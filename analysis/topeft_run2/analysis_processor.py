@@ -1027,10 +1027,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lt"]      = lt
             varnames["npvs"]    = pv.npvs
             varnames["npvsGood"]= pv.npvsGood
-            lepton0_pt_raw = ak.values_astype(ak.fill_none(l0.pt_raw, 0), np.float32)
-            lepton0_abseta = ak.values_astype(
-                ak.abs(ak.fill_none(l0.eta, 0)), np.float32
-            )
+            lepton0_pt_raw = l0.pt_raw #ak.values_astype(ak.fill_none(l0.pt_raw, 0), np.float32)
+            lepton0_abseta = abs(l0.eta) #ak.values_astype(
+            #    ak.abs(ak.fill_none(l0.eta, 0)), np.float32
+            #)
             varnames["lepton_pt_vs_eta"] = {
                 "lepton_pt_vs_eta_pt": lepton0_pt_raw,
                 "lepton_pt_vs_eta_abseta": lepton0_abseta,
