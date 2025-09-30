@@ -11,7 +11,9 @@ from cycler import cycler
 import mplhep as hep
 import hist
 from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.sparseHist import SparseHist
 from topeft.modules.axes import info as axes_info
+from topeft.modules.axes import info_2d as axes_info_2d
 
 from topcoffea.scripts.make_html import make_html
 import topcoffea.modules.utils as utils
@@ -375,7 +377,46 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
     return shift*shift
 
 
+def _is_sparse_2d_hist(histo):
+    return isinstance(histo, SparseHist) and len(histo.dense_axes) > 1
+
+
 ######### Plotting functions #########
+
+def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13"):
+    axes_meta = axes_info_2d.get(var, {})
+    axis_cfgs = axes_meta.get("axes", [])
+    if len(axis_cfgs) < 2:
+        raise ValueError(f"No 2D axis metadata configured for histogram '{var}'.")
+    axis_labels = [cfg.get("label", cfg.get("name", "")) for cfg in axis_cfgs]
+    cbar_label = axes_meta.get("cbar_label", "Events")
+
+    mc_hist = hist.Hist(*h_mc.axes)
+    mc_hist[...] = h_mc.values(flow=False)
+    data_hist = hist.Hist(*h_data.axes)
+    data_hist[...] = h_data.values(flow=False)
+
+    mc_vals = mc_hist.values()
+    data_vals = data_hist.values()
+    vmax = max(float(np.max(mc_vals, initial=0.0)), float(np.max(data_vals, initial=0.0)))
+    if not np.isfinite(vmax) or vmax <= 0:
+        vmax = 1.0
+    norm = mpl.colors.Normalize(vmin=0.0, vmax=vmax)
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6), constrained_layout=True)
+    hep.style.use("CMS")
+    hep.cms.label(ax=axes[0], lumi=lumitag, com=comtag, fontsize=18.0)
+    for ax, plot_hist, title in zip(axes, (mc_hist, data_hist), ("MC", "Data")):
+        artists = hep.hist2dplot(plot_hist, ax=ax, cbar=True, norm=norm)
+        if getattr(artists, "cbar", None) is not None:
+            artists.cbar.set_label(cbar_label)
+        ax.set_xlabel(axis_labels[0])
+        ax.set_ylabel(axis_labels[1])
+        ax.set_title(f"{channel_name} {title}" if channel_name else title)
+        ax.tick_params(axis="both", labelsize=14)
+    axes[1].set_ylabel(axis_labels[1])
+    return fig
+
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
 def make_cr_fig(h_mc, h_data, unit_norm_bool, axis='process', var='lj0pt', bins=None, group=None, set_x_lim=None, err_p=None, err_m=None, err_ratio_p=None, err_ratio_m=None, lumitag="138", comtag="13"):
@@ -659,6 +700,8 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
     skip_lst = [] # Skip this hist
     for idx, var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
+        if _is_sparse_2d_hist(dict_of_hists[var_name]):
+            continue
         if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
@@ -718,6 +761,8 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
 
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
+        if _is_sparse_2d_hist(dict_of_hists[var_name]):
+            continue
         #if var_name == "njets": continue
         #if "parton" in var_name: save_tag = "partonFlavour"
         #if "hadron" in var_name: save_tag = "hadronFlavour"
@@ -834,6 +879,8 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     #keep_lst = ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
+        if _is_sparse_2d_hist(dict_of_hists[var_name]):
+            continue
         if (var_name in skip_lst): continue
         #if (var_name not in keep_lst): continue
         print("\nVariable:",var_name)
@@ -942,6 +989,8 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     for idx,var_name in enumerate(dict_of_hists.keys()):
         #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if 'sumw2' in var_name: continue
+        if _is_sparse_2d_hist(dict_of_hists[var_name]):
+            continue
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
             continue
@@ -1116,6 +1165,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         # Extract the MC and data hists
         hist_mc = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_data = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
+        is_sparse2d = _is_sparse_2d_hist(hist_mc)
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
@@ -1156,7 +1206,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             m_err_arr = None
             p_err_arr_ratio = None
             m_err_arr_ratio = None
-            if not skip_syst_errs:
+            if not (is_sparse2d or skip_syst_errs):
                 # Get plus and minus rate and shape arrs
                 rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
                 shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated)
@@ -1173,17 +1223,27 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
 
 
-            # Group the samples by process type, and grab just nominal syst category
-            #hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
-            #hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
-            hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
-            hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
-            if hist_mc_integrated.empty():
-                print(f'Empty {hist_mc_integrated=}')
-                continue
-            if hist_data_integrated.empty():
-                print(f'Empty {hist_data_integrated=}')
-                continue
+            if is_sparse2d:
+                hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate("systematic", "nominal")
+                hist_data_nominal = hist_data_integrated[{"process": sum}].integrate("systematic", "nominal")
+                if hist_mc_nominal.empty():
+                    print(f'Empty histogram for {hist_cat=} {var_name=}, skipping 2D plot.')
+                    continue
+                if hist_data_nominal.empty():
+                    print(f'Empty data histogram for {hist_cat=} {var_name=}, skipping 2D plot.')
+                    continue
+            else:
+                # Group the samples by process type, and grab just nominal syst category
+                #hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
+                #hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
+                hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
+                hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
+                if hist_mc_integrated.empty():
+                    print(f'Empty {hist_mc_integrated=}')
+                    continue
+                if hist_data_integrated.empty():
+                    print(f'Empty {hist_data_integrated=}')
+                    continue
 
             # Print out total MC and data and the sf between them
             # For extracting the factors we apply to the flip contribution
@@ -1201,24 +1261,33 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             # Create and save the figure
             x_range = None
             if var_name == "ht": x_range = (0,250)
-            group = {k:v for k,v in CR_GRP_MAP.items() if v} # Remove empty groups
-
-            fig = make_cr_fig(
-                hist_mc_integrated,
-                hist_data_integrated,
-                unit_norm_bool,
-                var=var_name,
-                group=group,
-                set_x_lim = x_range,
-                err_p = p_err_arr,
-                err_m = m_err_arr,
-                err_ratio_p = p_err_arr_ratio,
-                err_ratio_m = m_err_arr_ratio,
-                lumitag=LUMI_COM_PAIRS[year][0],
-                comtag=LUMI_COM_PAIRS[year][1]
-            )
-
             title = hist_cat+"_"+var_name
+            if is_sparse2d:
+                fig = make_sparse2d_fig(
+                    hist_mc_nominal,
+                    hist_data_nominal,
+                    var_name,
+                    channel_name=hist_cat,
+                    lumitag=LUMI_COM_PAIRS[year][0],
+                    comtag=LUMI_COM_PAIRS[year][1],
+                )
+            else:
+                group = {k:v for k,v in CR_GRP_MAP.items() if v} # Remove empty groups
+
+                fig = make_cr_fig(
+                    hist_mc_integrated,
+                    hist_data_integrated,
+                    unit_norm_bool,
+                    var=var_name,
+                    group=group,
+                    set_x_lim = x_range,
+                    err_p = p_err_arr,
+                    err_m = m_err_arr,
+                    err_ratio_p = p_err_arr_ratio,
+                    err_ratio_m = m_err_arr_ratio,
+                    lumitag=LUMI_COM_PAIRS[year][0],
+                    comtag=LUMI_COM_PAIRS[year][1]
+                )
             if unit_norm_bool: title = title + "_unitnorm"
             fig.savefig(os.path.join(save_dir_path_tmp,title))
 
