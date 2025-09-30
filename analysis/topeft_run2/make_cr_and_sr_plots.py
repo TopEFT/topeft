@@ -402,22 +402,25 @@ def make_sparse2d_fig(
     ratio_meta = axes_meta.get("ratio", {})
     ratio_cbar_label = ratio_meta.get("cbar_label", "Data/MC")
 
-    mc_hist = hist.Hist(*h_mc.axes)
-    mc_hist[...] = h_mc.values(flow=False)
-    data_hist = hist.Hist(*h_data.axes)
-    data_hist[...] = h_data.values(flow=False)
+    def _extract_weighted_values(histo):
+        view = histo.view(flow=False)
+        if hasattr(view, "dtype") and view.dtype.fields:
+            if "value" in view.dtype.fields:
+                return np.asarray(view["value"], dtype=float)
+        return np.asarray(view, dtype=float)
 
-    mc_vals = mc_hist.values()
-    data_vals = data_hist.values()
+    def _dense_edges(histo):
+        return [np.asarray(ax.edges, dtype=float) for ax in histo.axes]
+
+    mc_vals = _extract_weighted_values(h_mc)
+    data_vals = _extract_weighted_values(h_data)
     ratio_vals = np.ones_like(data_vals, dtype=float)
     with np.errstate(divide="ignore", invalid="ignore"):
         np.divide(data_vals, mc_vals, out=ratio_vals, where=mc_vals != 0)
     empty_mask = (mc_vals == 0) & (data_vals == 0)
     data_only_mask = (mc_vals == 0) & (data_vals != 0)
     ratio_vals[empty_mask | data_only_mask] = np.nan
-
-    ratio_hist = hist.Hist(*h_mc.axes)
-    ratio_hist[...] = ratio_vals
+    dense_edges = _dense_edges(h_mc)
 
     def _norm_from_meta(meta_cfg, values):
         if not meta_cfg:
@@ -489,22 +492,32 @@ def make_sparse2d_fig(
     def _apply_panel_margins(fig):
         fig.subplots_adjust(left=0.06, right=0.98, top=0.96, bottom=0.08)
 
-    def _make_single_panel(plot_hist, norm, title, colorbar_label):
-        fig = plt.figure(figsize=(8, 6))
+    def _make_single_panel(values, norm, title, colorbar_label):
+        fig = plt.figure(figsize=(10, 9))
         hep.style.use("CMS")
         ax = fig.add_subplot(111)
-        hep.cms.label(ax=ax, lumi=lumitag, com=comtag, fontsize=18.0)
-        artists = hep.hist2dplot(plot_hist, ax=ax, norm=norm)
+        hep.cms.label(ax=ax, lumi=lumitag, com=comtag, fontsize=20.0)
+        artists = hep.hist2dplot(
+            values,
+            ax=ax,
+            norm=norm,
+            xbins=dense_edges[0],
+            ybins=dense_edges[1],
+        )
         mesh = getattr(artists, "mesh", None)
         if mesh is not None:
             divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.04)
             cbar = fig.colorbar(mesh, cax=cax, norm=norm)
-            cbar.set_label(colorbar_label)
-        ax.set_xlabel(axis_labels[0])
-        ax.set_ylabel(axis_labels[1])
-        ax.set_title(f"{channel_name} {title}" if channel_name else title)
-        ax.tick_params(axis="both", labelsize=14)
+            cbar.set_label(colorbar_label, fontsize=18)
+            cbar.ax.tick_params(labelsize=16)
+        ax.set_xlabel(axis_labels[0], fontsize=20)
+        ax.set_ylabel(axis_labels[1], fontsize=20)
+        ax.set_title(
+            f"{channel_name} {title}" if channel_name else title,
+            fontsize=22,
+        )
+        ax.tick_params(axis="both", labelsize=16, width=1.5, length=6)
         _apply_panel_margins(fig)
         return fig
 
@@ -529,41 +542,57 @@ def make_sparse2d_fig(
 
     axes_top = [ax_mc, ax_data]
 
-    hep.cms.label(ax=ax_mc, lumi=lumitag, com=comtag, fontsize=18.0)
+    hep.cms.label(ax=ax_mc, lumi=lumitag, com=comtag, fontsize=20.0)
     for ax, plot_hist, title, norm in zip(
         axes_top,
-        (mc_hist, data_hist),
+        (mc_vals, data_vals),
         ("MC", "Data"),
         (mc_norm, data_norm),
     ):
-        artists = hep.hist2dplot(plot_hist, ax=ax, norm=norm)
+        artists = hep.hist2dplot(
+            plot_hist,
+            ax=ax,
+            norm=norm,
+            xbins=dense_edges[0],
+            ybins=dense_edges[1],
+        )
         mesh = getattr(artists, "mesh", None)
         if mesh is not None:
             divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.04)
             cbar = fig.colorbar(mesh, cax=cax, norm=norm)
-            cbar.set_label(cbar_label)
-        ax.set_xlabel(axis_labels[0])
-        ax.set_ylabel(axis_labels[1])
-        ax.set_title(f"{channel_name} {title}" if channel_name else title)
-        ax.tick_params(axis="both", labelsize=14)
+            cbar.set_label(cbar_label, fontsize=18)
+            cbar.ax.tick_params(labelsize=16)
+        ax.set_xlabel(axis_labels[0], fontsize=20)
+        ax.set_ylabel(axis_labels[1], fontsize=20)
+        ax.set_title(
+            f"{channel_name} {title}" if channel_name else title,
+            fontsize=22,
+        )
+        ax.tick_params(axis="both", labelsize=16, width=1.5, length=6)
     ratio_artists = hep.hist2dplot(
-        ratio_hist,
+        ratio_vals,
         ax=ax_ratio,
         norm=ratio_norm,
+        xbins=dense_edges[0],
+        ybins=dense_edges[1],
     )
     ratio_mesh = getattr(ratio_artists, "mesh", None)
     if ratio_mesh is not None:
         divider = make_axes_locatable(ax_ratio)
         cax = divider.append_axes("right", size="5%", pad=0.04)
         ratio_cbar = fig.colorbar(ratio_mesh, cax=cax, norm=ratio_norm)
-        ratio_cbar.set_label(ratio_cbar_label)
-    ax_ratio.set_xlabel(axis_labels[0])
-    ax_ratio.set_ylabel(axis_labels[1])
-    ax_ratio.set_title(f"{channel_name} Data/MC" if channel_name else "Data/MC")
-    ax_ratio.tick_params(axis="both", labelsize=14)
+        ratio_cbar.set_label(ratio_cbar_label, fontsize=18)
+        ratio_cbar.ax.tick_params(labelsize=16)
+    ax_ratio.set_xlabel(axis_labels[0], fontsize=20)
+    ax_ratio.set_ylabel(axis_labels[1], fontsize=20)
+    ax_ratio.set_title(
+        f"{channel_name} Data/MC" if channel_name else "Data/MC",
+        fontsize=22,
+    )
+    ax_ratio.tick_params(axis="both", labelsize=16, width=1.5, length=6)
     for ax in axes_top:
-        ax.set_ylabel(axis_labels[1])
+        ax.set_ylabel(axis_labels[1], fontsize=20)
     _apply_panel_margins(fig)
 
     if not per_panel:
@@ -571,9 +600,9 @@ def make_sparse2d_fig(
 
     single_panel_figs = {
         "combined": fig,
-        "mc": _make_single_panel(mc_hist, mc_norm, "MC", cbar_label),
-        "data": _make_single_panel(data_hist, data_norm, "Data", cbar_label),
-        "ratio": _make_single_panel(ratio_hist, ratio_norm, "Data/MC", ratio_cbar_label),
+        "mc": _make_single_panel(mc_vals, mc_norm, "MC", cbar_label),
+        "data": _make_single_panel(data_vals, data_norm, "Data", cbar_label),
+        "ratio": _make_single_panel(ratio_vals, ratio_norm, "Data/MC", ratio_cbar_label),
     }
     return single_panel_figs
 
