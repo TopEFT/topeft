@@ -433,10 +433,17 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
         ratio_vmax = 1.0 + half_range
     ratio_norm = mpl.colors.TwoSlopeNorm(vmin=ratio_vmin, vcenter=1.0, vmax=ratio_vmax)
 
-    fig, axes = plt.subplots(1, 3, figsize=(20, 6), constrained_layout=True)
+    layout = [["mc", "data"], ["ratio", "."]]
+    fig, axes_dict = plt.subplot_mosaic(layout, figsize=(20, 12), constrained_layout=True)
     hep.style.use("CMS")
-    hep.cms.label(ax=axes[0], lumi=lumitag, com=comtag, fontsize=18.0)
-    for ax, plot_hist, title in zip(axes[:2], (mc_hist, data_hist), ("MC", "Data")):
+
+    ax_mc = axes_dict["mc"]
+    ax_data = axes_dict["data"]
+    ax_ratio = axes_dict["ratio"]
+    axes_top = [ax_mc, ax_data]
+
+    hep.cms.label(ax=ax_mc, lumi=lumitag, com=comtag, fontsize=18.0)
+    for ax, plot_hist, title in zip(axes_top, (mc_hist, data_hist), ("MC", "Data")):
         artists = hep.hist2dplot(plot_hist, ax=ax, cbar=True, norm=norm)
         if getattr(artists, "cbar", None) is not None:
             artists.cbar.set_label(cbar_label)
@@ -444,14 +451,14 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
         ax.set_ylabel(axis_labels[1])
         ax.set_title(f"{channel_name} {title}" if channel_name else title)
         ax.tick_params(axis="both", labelsize=14)
-    ratio_artists = hep.hist2dplot(ratio_hist, ax=axes[2], cbar=True, norm=ratio_norm)
+    ratio_artists = hep.hist2dplot(ratio_hist, ax=ax_ratio, cbar=True, norm=ratio_norm)
     if getattr(ratio_artists, "cbar", None) is not None:
         ratio_artists.cbar.set_label(ratio_cbar_label)
-    axes[2].set_xlabel(axis_labels[0])
-    axes[2].set_ylabel(axis_labels[1])
-    axes[2].set_title(f"{channel_name} Data/MC" if channel_name else "Data/MC")
-    axes[2].tick_params(axis="both", labelsize=14)
-    for ax in axes[:2]:
+    ax_ratio.set_xlabel(axis_labels[0])
+    ax_ratio.set_ylabel(axis_labels[1])
+    ax_ratio.set_title(f"{channel_name} Data/MC" if channel_name else "Data/MC")
+    ax_ratio.tick_params(axis="both", labelsize=14)
+    for ax in axes_top:
         ax.set_ylabel(axis_labels[1])
     return fig
 
