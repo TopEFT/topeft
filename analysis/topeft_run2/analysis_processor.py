@@ -1119,7 +1119,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l1_seed_etaorx,
                 "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l1_seed_phiory,
             }
-            varnames["l0_eta_vs_phi"] = {
+            varnames["l1_eta_vs_phi"] = {
                 "l1_eta_vs_phi_eta": l1.eta,
                 "l1_eta_vs_phi_phi": l1.phi,
             }
