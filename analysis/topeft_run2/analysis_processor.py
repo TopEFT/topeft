@@ -1031,10 +1031,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             lepton0_abseta = abs(l0.eta) #ak.values_astype(
             #    ak.abs(ak.fill_none(l0.eta, 0)), np.float32
             #)
-            varnames["lepton_pt_vs_eta"] = {
-                "lepton_pt_vs_eta_pt": lepton0_pt_raw,
-                "lepton_pt_vs_eta_abseta": lepton0_abseta,
-            }
             #varnames["eleseedetax"] = seed_etaorx
             #varnames["eleseedphiy"] = seed_phiory
 
@@ -1113,7 +1109,11 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["b0m_genpFlav"] = b0m_genpFlav
             varnames["b1m_genhFlav"] = b1m_genhFlav
             varnames["b1m_genpFlav"] = b1m_genpFlav
-                
+            varnames["lepton_pt_vs_eta"] = {
+                "lepton_pt_vs_eta_pt": lepton0_pt_raw,
+                "lepton_pt_vs_eta_abseta": lepton0_abseta,
+            }
+
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
@@ -1187,6 +1187,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             for dense_axis_name, dense_axis_vals in varnames.items():
                 if dense_axis_name not in self._hist_lst:
                     continue
+                if not dense_axis_name.startswith("lepton_pt_vs_eta"):
+                    continue
+
+                #print("\n\n\n\nFilling hist for dense axis:", dense_axis_name)
 
                 # Set up the list of syst wgt variations to loop over
                 wgt_var_lst = ["nominal"]
@@ -1362,6 +1366,8 @@ class AnalysisProcessor(processor.ProcessorABC):
                             # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
                             if dense_axis_name == "njets":
                                 break
+        
+        #print("Finished looping over events, hout.keys():", hout.keys())
         return hout
 
     def postprocess(self, accumulator):
