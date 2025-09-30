@@ -390,6 +390,8 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
         raise ValueError(f"No 2D axis metadata configured for histogram '{var}'.")
     axis_labels = [cfg.get("label", cfg.get("name", "")) for cfg in axis_cfgs]
     cbar_label = axes_meta.get("cbar_label", "Events")
+    ratio_meta = axes_meta.get("ratio", {})
+    ratio_cbar_label = ratio_meta.get("cbar_label", "Data/MC")
 
     mc_hist = hist.Hist(*h_mc.axes)
     mc_hist[...] = h_mc.values(flow=False)
@@ -398,15 +400,43 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
 
     mc_vals = mc_hist.values()
     data_vals = data_hist.values()
+    ratio_vals = np.ones_like(data_vals, dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        np.divide(data_vals, mc_vals, out=ratio_vals, where=mc_vals != 0)
+    empty_mask = (mc_vals == 0) & (data_vals == 0)
+    data_only_mask = (mc_vals == 0) & (data_vals != 0)
+    ratio_vals[empty_mask | data_only_mask] = np.nan
+
+    ratio_hist = hist.Hist(*h_mc.axes)
+    ratio_hist[...] = ratio_vals
+
     vmax = max(float(np.max(mc_vals, initial=0.0)), float(np.max(data_vals, initial=0.0)))
     if not np.isfinite(vmax) or vmax <= 0:
         vmax = 1.0
     norm = mpl.colors.Normalize(vmin=0.0, vmax=vmax)
 
-    fig, axes = plt.subplots(1, 2, figsize=(14, 6), constrained_layout=True)
+    finite_ratio = ratio_vals[np.isfinite(ratio_vals)]
+    if "zlim" in ratio_meta:
+        ratio_low, ratio_high = ratio_meta["zlim"]
+        span = max(abs(1.0 - ratio_low), abs(ratio_high - 1.0))
+        if not np.isfinite(span) or span <= 0:
+            span = 0.5
+        ratio_vmin = 1.0 - span
+        ratio_vmax = 1.0 + span
+    else:
+        if finite_ratio.size:
+            max_dev = float(np.max(np.abs(finite_ratio - 1.0)))
+        else:
+            max_dev = 0.0
+        half_range = max(max_dev, 0.5)
+        ratio_vmin = 1.0 - half_range
+        ratio_vmax = 1.0 + half_range
+    ratio_norm = mpl.colors.TwoSlopeNorm(vmin=ratio_vmin, vcenter=1.0, vmax=ratio_vmax)
+
+    fig, axes = plt.subplots(1, 3, figsize=(20, 6), constrained_layout=True)
     hep.style.use("CMS")
     hep.cms.label(ax=axes[0], lumi=lumitag, com=comtag, fontsize=18.0)
-    for ax, plot_hist, title in zip(axes, (mc_hist, data_hist), ("MC", "Data")):
+    for ax, plot_hist, title in zip(axes[:2], (mc_hist, data_hist), ("MC", "Data")):
         artists = hep.hist2dplot(plot_hist, ax=ax, cbar=True, norm=norm)
         if getattr(artists, "cbar", None) is not None:
             artists.cbar.set_label(cbar_label)
@@ -414,7 +444,15 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
         ax.set_ylabel(axis_labels[1])
         ax.set_title(f"{channel_name} {title}" if channel_name else title)
         ax.tick_params(axis="both", labelsize=14)
-    axes[1].set_ylabel(axis_labels[1])
+    ratio_artists = hep.hist2dplot(ratio_hist, ax=axes[2], cbar=True, norm=ratio_norm)
+    if getattr(ratio_artists, "cbar", None) is not None:
+        ratio_artists.cbar.set_label(ratio_cbar_label)
+    axes[2].set_xlabel(axis_labels[0])
+    axes[2].set_ylabel(axis_labels[1])
+    axes[2].set_title(f"{channel_name} Data/MC" if channel_name else "Data/MC")
+    axes[2].tick_params(axis="both", labelsize=14)
+    for ax in axes[:2]:
+        ax.set_ylabel(axis_labels[1])
     return fig
 
 
