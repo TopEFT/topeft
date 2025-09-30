@@ -411,10 +411,54 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
     ratio_hist = hist.Hist(*h_mc.axes)
     ratio_hist[...] = ratio_vals
 
-    vmax = max(float(np.max(mc_vals, initial=0.0)), float(np.max(data_vals, initial=0.0)))
-    if not np.isfinite(vmax) or vmax <= 0:
-        vmax = 1.0
-    norm = mpl.colors.Normalize(vmin=0.0, vmax=vmax)
+    def _norm_from_meta(meta_cfg, values):
+        if not meta_cfg:
+            return None
+
+        norm_cfg = meta_cfg.get("norm")
+        if isinstance(norm_cfg, mpl.colors.Normalize):
+            return copy.copy(norm_cfg)
+        if callable(norm_cfg):
+            generated = norm_cfg(values)
+            if isinstance(generated, mpl.colors.Normalize):
+                return generated
+
+        zlim = meta_cfg.get("zlim")
+        if zlim is not None:
+            vmin, vmax = zlim
+            finite_vals = values[np.isfinite(values)]
+            if vmin is None:
+                if finite_vals.size:
+                    vmin = float(np.nanmin(finite_vals))
+                else:
+                    vmin = 0.0
+            if vmax is None:
+                if finite_vals.size:
+                    vmax = float(np.nanmax(finite_vals))
+                else:
+                    vmax = 1.0
+            return mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+
+        return None
+
+    def _build_norm(values, dataset_key):
+        dataset_meta = axes_meta.get(dataset_key, {})
+        norm = _norm_from_meta(dataset_meta, values)
+        if norm is None:
+            norm = _norm_from_meta(axes_meta, values)
+        if norm is None:
+            finite_vals = values[np.isfinite(values)]
+            if finite_vals.size:
+                vmax = float(np.nanmax(finite_vals))
+            else:
+                vmax = 0.0
+            if not np.isfinite(vmax) or vmax <= 0:
+                vmax = 1.0
+            norm = mpl.colors.Normalize(vmin=0.0, vmax=vmax)
+        return norm
+
+    mc_norm = _build_norm(mc_vals, "mc")
+    data_norm = _build_norm(data_vals, "data")
 
     finite_ratio = ratio_vals[np.isfinite(ratio_vals)]
     if "zlim" in ratio_meta:
@@ -447,17 +491,18 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
     axes_top = [ax_mc, ax_data]
 
     hep.cms.label(ax=ax_mc, lumi=lumitag, com=comtag, fontsize=18.0)
-    for ax, plot_hist, title in zip(
+    for ax, plot_hist, title, norm in zip(
         axes_top,
         (mc_hist, data_hist),
         ("MC", "Data"),
+        (mc_norm, data_norm),
     ):
         artists = hep.hist2dplot(plot_hist, ax=ax, norm=norm)
         mesh = getattr(artists, "mesh", None)
         if mesh is not None:
             divider = make_axes_locatable(ax)
             cax = divider.append_axes("right", size="5%", pad=0.1)
-            cbar = fig.colorbar(mesh, cax=cax)
+            cbar = fig.colorbar(mesh, cax=cax, norm=norm)
             cbar.set_label(cbar_label)
         ax.set_xlabel(axis_labels[0])
         ax.set_ylabel(axis_labels[1])
@@ -472,7 +517,7 @@ def make_sparse2d_fig(h_mc, h_data, var, channel_name, lumitag="138", comtag="13
     if ratio_mesh is not None:
         divider = make_axes_locatable(ax_ratio)
         cax = divider.append_axes("right", size="5%", pad=0.1)
-        ratio_cbar = fig.colorbar(ratio_mesh, cax=cax)
+        ratio_cbar = fig.colorbar(ratio_mesh, cax=cax, norm=ratio_norm)
         ratio_cbar.set_label(ratio_cbar_label)
     ax_ratio.set_xlabel(axis_labels[0])
     ax_ratio.set_ylabel(axis_labels[1])
