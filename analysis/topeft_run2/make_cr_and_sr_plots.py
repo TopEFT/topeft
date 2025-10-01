@@ -382,7 +382,21 @@ def _is_sparse_2d_hist(histo):
     if not isinstance(histo, SparseHist):
         return False
 
-    dense_axes = [ax for ax in histo.dense_axes if getattr(ax, "name", None) != "quadratic_term"]
+    quadratic_axis = next(
+        (ax for ax in histo.dense_axes if getattr(ax, "name", None) == "quadratic_term"),
+        None,
+    )
+    if quadratic_axis is not None:
+        try:
+            # Skip the sparse 2D path only when the quadratic axis has a single bin.
+            if histo.axes["quadratic_term"].size > 1:
+                return True
+        except (KeyError, AttributeError):
+            # If the axis cannot be inspected reliably, keep the conservative 2D
+            # classification to avoid mis-shaping 1D projections.
+            return True
+
+    dense_axes = [ax for ax in histo.dense_axes if ax is not quadratic_axis]
     return len(dense_axes) > 1
 
 
