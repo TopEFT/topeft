@@ -379,7 +379,25 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
 
 
 def _is_sparse_2d_hist(histo):
-    return isinstance(histo, SparseHist) and len(histo.dense_axes) > 1
+    if not isinstance(histo, SparseHist):
+        return False
+
+    quadratic_axis = next(
+        (ax for ax in histo.dense_axes if getattr(ax, "name", None) == "quadratic_term"),
+        None,
+    )
+    if quadratic_axis is not None:
+        try:
+            # Skip the sparse 2D path only when the quadratic axis has a single bin.
+            if histo.axes["quadratic_term"].size > 1:
+                return True
+        except (KeyError, AttributeError):
+            # If the axis cannot be inspected reliably, keep the conservative 2D
+            # classification to avoid mis-shaping 1D projections.
+            return True
+
+    dense_axes = [ax for ax in histo.dense_axes if ax is not quadratic_axis]
+    return len(dense_axes) > 1
 
 
 ######### Plotting functions #########
@@ -1372,6 +1390,9 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         hist_mc = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_data = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
         is_sparse2d = _is_sparse_2d_hist(hist_mc)
+        if is_sparse2d and (var_name not in axes_info_2d) and ("_vs_" not in var_name):
+            print(f"Warning: Histogram '{var_name}' identified as sparse 2D but lacks metadata; falling back to 1D plotting.")
+            is_sparse2d = False
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
