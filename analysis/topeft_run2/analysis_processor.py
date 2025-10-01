@@ -993,10 +993,15 @@ class AnalysisProcessor(processor.ProcessorABC):
             counts = np.ones_like(events['event'])
             is_l0_electron = (abs(l0.pdgId)==11)
             is_l1_electron = (abs(l1.pdgId)==11)
-            l0_seed_etaorx = l0[is_l0_electron].seediEtaOriX
-            l0_seed_phiory = l0[is_l0_electron].seediPhiOriY
-            l1_seed_etaorx = l1[is_l1_electron].seediEtaOriX
-            l1_seed_phiory = l1[is_l1_electron].seediPhiOriY
+            #l0_seed_etaorx = l0[is_l0_electron].seediEtaOriX
+            #l0_seed_phiory = l0[is_l0_electron].seediPhiOriY
+            #l1_seed_etaorx = l1[is_l1_electron].seediEtaOriX
+            #l1_seed_phiory = l1[is_l1_electron].seediPhiOriY
+
+            l0_seed_etaorx = l0.seediEtaOriX
+            l0_seed_phiory = l0.seediPhiOriY
+            l1_seed_etaorx = l1.seediEtaOriX
+            l1_seed_phiory = l1.seediPhiOriY
 
             # Variables we will loop over when filling hists
             varnames = {}
