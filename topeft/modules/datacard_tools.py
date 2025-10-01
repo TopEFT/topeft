@@ -328,7 +328,7 @@ class DatacardMaker():
                 self.rotate[k] = v[0].format(**kwargs)
             if isinstance(v, str):
                 if v not in self.wc_ranges:
-                    raise Exception("The WC {v} was not found in params/wc_ranges.json!")
+                    raise Exception(f"The WC {v} was not found in params/wc_ranges.json!")
                 lo,hi = self.wc_ranges[v]
                 v = v.replace(v,f"{v}[0,{lo},{hi}]")
                 self.rotate[k] = v

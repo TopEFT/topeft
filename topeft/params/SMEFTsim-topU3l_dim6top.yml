@@ -12,6 +12,9 @@
 
 "cQQ1": ["expr::SEMFTsim_cQQ1('0.5 * @0', {cQQ1})", ["cQQ1"]]
 "ctt1": "ctt"
+"ctp": "ctHRe"
+"cpt": "cHt"
+"cptb": "cHtbRe"
 
 # ctG relative minus sign
 "ctG":  ["expr::ctGRe('-1 * @0', {ctG})", ["ctG"]]
