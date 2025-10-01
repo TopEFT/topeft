@@ -15,5 +15,6 @@ python make_cards.py path/to/your.pkl.gz -C --do-nuisance --var-lst lj0pt ptz -d
 
 ## Running combine
 
-The next step is to run combine. This takes place inside of a CMSSW release, outside of `topcoffea`. See the [EFTFit](https://github.com/TopEFT/EFTFit) repo for instructions.
 :warning: The EFT basis rotation does not compile correctly on `glados`. Please make your workspace on a tested machine like `lxplus`. The root limit scans can still be done on `glados`.
+
+The next step is to run combine. This takes place inside of a CMSSW release, outside of `topcoffea`. See the [EFTFit](https://github.com/TopEFT/EFTFit) repo for instructions.
