@@ -675,7 +675,7 @@ if __name__ == "__main__":
         fwd_analysis=fwd_analysis,
     )
 
-    # print("\nchannel_app_map_mc:", channel_app_map_mc)
+    print("\nchannel_app_map_mc:", channel_app_map_mc)
     # print("\nchannel_app_map_data:", channel_app_map_data)
 
     # raise RuntimeError("\n\nStopping here for debugging")
@@ -695,6 +695,7 @@ if __name__ == "__main__":
         )
         sample_type_key = "data" if sample_info["isData"] else "mc"
         available_systematics = available_systematics_by_sample_type[sample_type_key]
+        print("len(var_lst):", len(var_lst))
         for var in var_lst:
             var_info = var_defs[var].copy()
             for clean_ch, appl_list in ch_map.items():
@@ -711,6 +712,7 @@ if __name__ == "__main__":
                                 available_systematics,
                             )
                         )
+        break
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
@@ -814,9 +816,10 @@ if __name__ == "__main__":
         )
 
     output = {}
-    print(f"Running over {len(key_lst)} configurations") #:\n", key_lst)
+    print(f"Running over {len(key_lst)} configurations") #\n", key_lst)
+    print("\n\n\n\n\n\n")
     # raise RuntimeError("Stopping here for debugging")
-
+    
     for key in key_lst:
         sample, var, clean_ch, appl, syst_info, var_info, available_systematics = key
         sample_dict = samplesdict[sample]

@@ -234,6 +234,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             else None
         )
 
+        print("\n\n\n\n\n\n")
+        print("current_syst:", current_syst, " variation_base:", variation_base, " variation_type:", variation_type)
+        print("\n\n\n\n\n\n")
+
         is_run3 = False
         if year.startswith("202"):
             is_run3 = True
@@ -565,6 +569,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                     f"Requested {variation_type} systematic '{current_variation_name}' is not available in the mapping"
                 )
 
+        print("\n\n\n\n")
+        print("Running object systematic:", object_variation)
+        print("Running weight systematics:", weight_variations_to_run)
+        print("\n\n\n\n")
+        
         # Make a copy of the base weights object.  In this block we add the pieces that depend on the object kinematics.
         met_raw = met
         weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
@@ -682,15 +691,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 requested_suffix = None
                 if current_variation_name and current_variation_name.startswith("btagSF"):
                     requested_suffix = current_variation_name[len("btagSF"):]
-                elif variation_base and variation_base.startswith("btag_"):
-                    requested_suffix = variation_base[len("btag_"):]
 
                 if requested_suffix:
-                    directionless_suffix = requested_suffix
-                    for _direction in ("Up", "Down"):
-                        if directionless_suffix.endswith(_direction):
-                            directionless_suffix = directionless_suffix[: -len(_direction)]
-                            break
+                    directionless_suffix = requested_suffix.rstrip("Up").rstrip("Down")
 
                     corrtype = (
                         "correlated" if directionless_suffix.endswith("_corr") else "uncorrelated"
@@ -737,6 +740,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         isBtagJetsLooseNotMedium[flav_mask],
                         isNotBtagJetsLoose[flav_mask],
                     )
+
                     pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(
                         btag_effM,
                         btag_effL,
