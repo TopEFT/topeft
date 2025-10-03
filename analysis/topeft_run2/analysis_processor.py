@@ -679,13 +679,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
 
             if self._do_systematics and object_variation == "nominal":
-                for b_syst in ["bc_corr","light_corr",f"bc_{year}",f"light_{year}"]:
-                    if b_syst.endswith("_corr"):
-                        corrtype = "correlated"
-                    else:
-                        corrtype = "uncorrelated"
+                requested_suffix = None
+                if current_variation_name and current_variation_name.startswith("btagSF"):
+                    requested_suffix = current_variation_name[len("btagSF"):]
+                elif variation_base and variation_base.startswith("btag_"):
+                    requested_suffix = variation_base[len("btag_"):]
 
-                    if b_syst.startswith("light_"):
+                if requested_suffix:
+                    corrtype = "correlated" if requested_suffix.endswith("_corr") else "uncorrelated"
+
+                    if requested_suffix.startswith("light_"):
                         jets_flav = jets_light
                         flav_mask = light_mask
                         sys_year = year_light
@@ -694,7 +697,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         btag_effL = btag_effL_light
                         pMC_flav = pMC_light
                         fixed_btag_w = btag_w_bc
-                    elif b_syst.startswith("bc_"):
+                    else:
                         jets_flav = jets_bc
                         flav_mask = bc_mask
                         sys_year = year
@@ -703,24 +706,48 @@ class AnalysisProcessor(processor.ProcessorABC):
                         btag_effL = btag_effL_bc
                         pMC_flav = pMC_bc
                         fixed_btag_w = btag_w_light
-                    else:
-                        raise ValueError("btag systematics should be divided in flavor (bc or light)!")
 
-                    btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L",sys_year,f"deepJet_{dJ_tag}",f"up_{corrtype}")
-                    btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L",sys_year,f"deepJet_{dJ_tag}",f"down_{corrtype}")
-                    btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M",sys_year,f"deepJet_{dJ_tag}",f"up_{corrtype}")
-                    btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M",sys_year,f"deepJet_{dJ_tag}",f"down_{corrtype}")
+                    btag_sfL_up = tc_cor.btag_sf_eval(
+                        jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}"
+                    )
+                    btag_sfL_down = tc_cor.btag_sf_eval(
+                        jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}"
+                    )
+                    btag_sfM_up = tc_cor.btag_sf_eval(
+                        jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}"
+                    )
+                    btag_sfM_down = tc_cor.btag_sf_eval(
+                        jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}"
+                    )
 
-                    pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_up, btag_sfL_up, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
-                    pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_down, btag_sfL_down, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
+                    pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(
+                        btag_effM,
+                        btag_effL,
+                        btag_sfM_up,
+                        btag_sfL_up,
+                        isBtagJetsMedium[flav_mask],
+                        isBtagJetsLooseNotMedium[flav_mask],
+                        isNotBtagJetsLoose[flav_mask],
+                    )
+                    pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(
+                        btag_effM,
+                        btag_effL,
+                        btag_sfM_down,
+                        btag_sfL_down,
+                        isBtagJetsMedium[flav_mask],
+                        isBtagJetsLooseNotMedium[flav_mask],
+                        isNotBtagJetsLoose[flav_mask],
+                    )
 
-                    btag_w_up = (pData_up/pMC_flav)
-                    btag_w_down = (pData_down/pMC_flav)
+                    btag_w_up = fixed_btag_w * (pData_up / pMC_flav) / btag_w
+                    btag_w_down = fixed_btag_w * (pData_down / pMC_flav) / btag_w
 
-                    btag_w_up = fixed_btag_w*btag_w_up/btag_w
-                    btag_w_down = fixed_btag_w*btag_w_down/btag_w
-
-                    weights_obj_base_for_kinematic_syst.add(f"btagSF{b_syst}", events.nom, btag_w_up, btag_w_down)
+                    weights_obj_base_for_kinematic_syst.add(
+                        current_variation_name,
+                        events.nom,
+                        btag_w_up,
+                        btag_w_down,
+                    )
 
         # Trigger SFs
         GetTriggerSF(year,events,l0,l1)
