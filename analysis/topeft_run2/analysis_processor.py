@@ -578,6 +578,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         met_raw = met
         weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
 
+        trigger_weight_label = f"triggerSF_{year}"
+
         #################### Jets ####################
 
         # Jet cleaning, before any jet selection
@@ -771,8 +773,24 @@ class AnalysisProcessor(processor.ProcessorABC):
                     )
 
         # Trigger SFs
-        GetTriggerSF(year,events,l0,l1)
-        weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
+        GetTriggerSF(year, events, l0, l1)
+        include_trigger_vars = (
+            self._do_systematics
+            and not isData
+            and variation_base == "trigger_sf"
+        )
+        if include_trigger_vars:
+            weights_obj_base_for_kinematic_syst.add(
+                trigger_weight_label,
+                events.trigger_sf,
+                copy.deepcopy(events.trigger_sfUp),
+                copy.deepcopy(events.trigger_sfDown),
+            )
+        else:
+            weights_obj_base_for_kinematic_syst.add(
+                trigger_weight_label,
+                events.trigger_sf,
+            )
 
         ######### Event weights that do depend on the lep cat ###########
         # Determine the lepton multiplicity category from the requested
