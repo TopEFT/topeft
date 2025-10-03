@@ -686,7 +686,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                     requested_suffix = variation_base[len("btag_"):]
 
                 if requested_suffix:
-                    corrtype = "correlated" if requested_suffix.endswith("_corr") else "uncorrelated"
+                    directionless_suffix = requested_suffix
+                    for _direction in ("Up", "Down"):
+                        if directionless_suffix.endswith(_direction):
+                            directionless_suffix = directionless_suffix[: -len(_direction)]
+                            break
+
+                    corrtype = (
+                        "correlated" if directionless_suffix.endswith("_corr") else "uncorrelated"
+                    )
 
                     if requested_suffix.startswith("light_"):
                         jets_flav = jets_light
@@ -742,8 +750,17 @@ class AnalysisProcessor(processor.ProcessorABC):
                     btag_w_up = fixed_btag_w * (pData_up / pMC_flav) / btag_w
                     btag_w_down = fixed_btag_w * (pData_down / pMC_flav) / btag_w
 
+                    variation_label_base = current_variation_name
+                    if variation_label_base:
+                        for _direction in ("Up", "Down"):
+                            if variation_label_base.endswith(_direction):
+                                variation_label_base = variation_label_base[: -len(_direction)]
+                                break
+                    else:
+                        variation_label_base = f"btagSF{directionless_suffix}"
+
                     weights_obj_base_for_kinematic_syst.add(
-                        current_variation_name,
+                        variation_label_base,
                         events.nom,
                         btag_w_up,
                         btag_w_down,
