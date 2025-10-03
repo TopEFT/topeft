@@ -542,9 +542,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             else:
                 weights_obj_base.add("PU", pu_central)
 
-
-        ######### The rest of the processor is inside this loop over systs that affect object kinematics  ###########
-
         current_variation_name = current_syst
         object_variation = "nominal"
         weight_variations_to_run = ["nominal"]
@@ -728,7 +725,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Trigger SFs
         GetTriggerSF(year,events,l0,l1)
         weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
-
 
         ######### Event weights that do depend on the lep cat ###########
         # Determine the lepton multiplicity category from the requested
@@ -953,8 +949,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         selections.add("isAR_3l", ~events.is3l_SR)
         selections.add("isSR_4l",  events.is4l_SR)
 
-
-
         ######### Variables for the dense axes of the hists ##########
 
         var_def = self.var_def
@@ -1022,7 +1016,19 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         lep_chan = self._channel_dict["chan_def_lst"][0]
         jet_req = self._channel_dict["jet_selection"]
-        lep_flav_iter = self._channel_dict["lep_flav_lst"] if self._split_by_lepton_flavor else [None]
+        lep_flav_iter = self._channel_dict["lep_flav_lst"] # if self._split_by_lepton_flavor else [None]
+
+        # print("\n\n\n\n\n")
+        # print("lep_chan:", lep_chan)
+        # print("jet_req:", jet_req)
+        # print("self._channel_dict:", self._channel_dict)
+        # print("lep_flav_iter:", lep_flav_iter)
+        # print("dense_axis_name:", dense_axis_name)
+        # print("wgt_var_lst:", wgt_var_lst)
+        # print("weights_object.variations:", weights_object.variations)
+        # print("weight_object:", weights_object.weight)
+        # print("hist_variation_label:", hist_variation_label)
+        # print("\n\n\n\n\n")
 
         for wgt_fluct in wgt_var_lst:
             if wgt_fluct == "nominal" or wgt_fluct == object_variation:
@@ -1031,6 +1037,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weight = weights_object.weight(wgt_fluct)
             else:
                 continue
+
             # Skip filling SR histograms with data-driven variations
             if self.appregion.startswith("isSR") and wgt_fluct in data_weight_systematics_set:
                 continue
@@ -1098,6 +1105,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     dataset,
                     hist_variation_label,
                 )
+                
                 if histkey not in hout.keys():
                     continue
                 hout[histkey].fill(**axes_fill_info_dict)
@@ -1117,9 +1125,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 if histkey not in hout.keys():
                     continue
                 hout[histkey].fill(**axes_fill_info_dict)
-
-                if not self._split_by_lepton_flavor:
-                    break
 
         return hout
 
