@@ -426,7 +426,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         # We only calculate these values if not isData
         # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
         # Note: Here we will to the weights object the SFs that do not depend on any of the forthcoming loops
+        
         weights_obj_base = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+        
         if not isData:
             # If this is no an eft sample, get the genWeight
             if eft_coeffs is None:
@@ -621,20 +623,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         if "j0" in self._var_def:
             j0 = goodJets[ak.argmax(goodJets.pt, axis=-1, keepdims=True)]
 
-        # Loose DeepJet WP
-        loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
-        btagwpl = get_tc_param(loose_tag)
-        isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
-        isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
-        nbtagsl = ak.num(goodJets[isBtagJetsLoose])
-
-        # Medium DeepJet WP
-        medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
-        btagwpm = get_tc_param(medium_tag)
-        isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
-        isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
-        nbtagsm = ak.num(goodJets[isBtagJetsMedium])
-
         #################### Add variables into event object so that they persist ####################
 
         # Put njets and l_fo_conept_sorted into events
@@ -661,6 +649,20 @@ class AnalysisProcessor(processor.ProcessorABC):
             year_light = "2016APV"
         else:
             year_light = year
+
+        # Loose DeepJet WP
+        loose_tag = "btag_wp_loose_" + year.replace("201", "UL1")
+        btagwpl = get_tc_param(loose_tag)
+        isBtagJetsLoose = (goodJets.btagDeepFlavB > btagwpl)
+        isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
+        nbtagsl = ak.num(goodJets[isBtagJetsLoose])
+
+        # Medium DeepJet WP
+        medium_tag = "btag_wp_medium_" + year.replace("201", "UL1")
+        btagwpm = get_tc_param(medium_tag)
+        isBtagJetsMedium = (goodJets.btagDeepFlavB > btagwpm)
+        isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
+        nbtagsm = ak.num(goodJets[isBtagJetsMedium])
 
         isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
 
