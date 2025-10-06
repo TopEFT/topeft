@@ -279,41 +279,41 @@ systematics:
   #     - value: renormfactDown
   #       direction: Down
   #       sum_of_weights: nSumOfWeights_renormfactDown
-  # fake_factors:
-  #   type: data_weight
-  #   applies_to:
-  #     - all
-  #   variations:
-  #     - value: FFUp
-  #       direction: Up
-  #     - value: FFDown
-  #       direction: Down
-  #     - value: FFptUp
-  #       direction: Up
-  #     - value: FFptDown
-  #       direction: Down
-  #     - value: FFetaUp
-  #       direction: Up
-  #     - value: FFetaDown
-  #       direction: Down
-  # fake_factors_close_e:
-  #   type: data_weight
-  #   applies_to:
-  #     - all
-  #   year_dependent: true
-  #   template: "FFcloseEl_{year}{direction}"
-  #   directions:
-  #     - Up
-  #     - Down
-  # fake_factors_close_mu:
-  #   type: data_weight
-  #   applies_to:
-  #     - all
-  #   year_dependent: true
-  #   template: "FFcloseMu_{year}{direction}"
-  #   directions:
-  #     - Up
-  #     - Down
+  fake_factors:
+    type: data_weight
+    applies_to:
+      - all
+    variations:
+      - value: FFUp
+        direction: Up
+      - value: FFDown
+        direction: Down
+      - value: FFptUp
+        direction: Up
+      - value: FFptDown
+        direction: Down
+      - value: FFetaUp
+        direction: Up
+      - value: FFetaDown
+        direction: Down
+  fake_factors_close_e:
+    type: data_weight
+    applies_to:
+      - all
+    year_dependent: true
+    template: "FFcloseEl_{year}{direction}"
+    directions:
+      - Up
+      - Down
+  fake_factors_close_mu:
+    type: data_weight
+    applies_to:
+      - all
+    year_dependent: true
+    template: "FFcloseMu_{year}{direction}"
+    directions:
+      - Up
+      - Down
 variables:
   invmass:
     regular:
