@@ -54,6 +54,89 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
     return ret_str
 
 
+def _build_fake_factor_specs(channel_prefix, year):
+    base_attr = f"fakefactor_{channel_prefix}"
+    return {
+        "FF": (
+            "absolute",
+            base_attr,
+            f"{base_attr}_up",
+            f"{base_attr}_down",
+        ),
+        "FFpt": (
+            "ratio",
+            "nom",
+            f"{base_attr}_pt1",
+            f"{base_attr}_pt2",
+        ),
+        "FFeta": (
+            "ratio",
+            "nom",
+            f"{base_attr}_be1",
+            f"{base_attr}_be2",
+        ),
+        f"FFcloseEl_{year}": (
+            "ratio",
+            "nom",
+            f"{base_attr}_elclosureup",
+            f"{base_attr}_elclosuredown",
+        ),
+        f"FFcloseMu_{year}": (
+            "ratio",
+            "nom",
+            f"{base_attr}_muclosureup",
+            f"{base_attr}_muclosuredown",
+        ),
+    }
+
+
+def _add_fake_factor_weights(
+    weights_object,
+    events,
+    nlep_cat,
+    year,
+    requested_data_weight_label=None,
+):
+    """Register fake-factor weights for the requested lepton category."""
+
+    channel_prefix = nlep_cat[:2]
+    fake_factor_specs = _build_fake_factor_specs(channel_prefix, year)
+
+    requested_variations = None
+    if requested_data_weight_label:
+        spec = fake_factor_specs.get(requested_data_weight_label)
+        if spec is None:
+            raise ValueError(
+                f"Unsupported fake-factor label '{requested_data_weight_label}' for '{channel_prefix}'"
+            )
+
+        mode, central_attr, up_attr, down_attr = spec
+        if mode == "absolute":
+            up_values = getattr(events, up_attr)
+            down_values = getattr(events, down_attr)
+        elif mode == "ratio":
+            denominator = getattr(events, central_attr)
+            up_values = getattr(events, up_attr) / denominator
+            down_values = getattr(events, down_attr) / denominator
+        else:
+            raise ValueError(
+                f"Unsupported fake-factor mode '{mode}' for '{requested_data_weight_label}'"
+            )
+
+        requested_variations = (
+            copy.deepcopy(up_values),
+            copy.deepcopy(down_values),
+        )
+
+    for label, (_, central_attr, _, _) in fake_factor_specs.items():
+        central_values = getattr(events, central_attr)
+        if requested_variations is not None and label == requested_data_weight_label:
+            variations = requested_variations
+        else:
+            variations = ()
+        weights_object.add(label, central_values, *variations)
+
+
 class AnalysisProcessor(processor.ProcessorABC):
 
     def __init__(
@@ -551,6 +634,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         current_variation_name = current_syst
         object_variation = "nominal"
         weight_variations_to_run = ["nominal"]
+        requested_data_weight_label = None
 
         if variation_type == "object":
             if current_variation_name not in object_systematics:
@@ -570,6 +654,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                 raise ValueError(
                     f"Requested {variation_type} systematic '{current_variation_name}' is not available in the mapping"
                 )
+
+        if variation_type == "data_weight" and current_variation_name != "nominal":
+            requested_data_weight_label = current_variation_name
+            for _direction in ("Up", "Down"):
+                if requested_data_weight_label.endswith(_direction):
+                    requested_data_weight_label = requested_data_weight_label[: -len(_direction)]
+                    break
 
         print("\n\n\n\n")
         print("Running object systematic:", object_variation)
@@ -806,24 +897,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         weights_dict = {nlep_cat: copy.deepcopy(weights_obj_base_for_kinematic_syst)}
         weights_object = weights_dict[nlep_cat]
 
-        if nlep_cat.startswith("1l"):
-            weights_object.add("FF", events.fakefactor_1l, copy.deepcopy(events.fakefactor_1l_up), copy.deepcopy(events.fakefactor_1l_down))
-            weights_object.add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_1l_pt1/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_pt2/events.fakefactor_1l))
-            weights_object.add("FFeta", events.nom, copy.deepcopy(events.fakefactor_1l_be1/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_be2/events.fakefactor_1l))
-            weights_object.add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_1l_elclosureup/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_elclosuredown/events.fakefactor_1l))
-            weights_object.add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_1l_muclosureup/events.fakefactor_1l), copy.deepcopy(events.fakefactor_1l_muclosuredown/events.fakefactor_1l))
-        elif nlep_cat.startswith("2l"):
-            weights_object.add("FF", events.fakefactor_2l, copy.deepcopy(events.fakefactor_2l_up), copy.deepcopy(events.fakefactor_2l_down))
-            weights_object.add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_2l_pt1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_pt2/events.fakefactor_2l))
-            weights_object.add("FFeta", events.nom, copy.deepcopy(events.fakefactor_2l_be1/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_be2/events.fakefactor_2l))
-            weights_object.add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_elclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_elclosuredown/events.fakefactor_2l))
-            weights_object.add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_2l_muclosureup/events.fakefactor_2l), copy.deepcopy(events.fakefactor_2l_muclosuredown/events.fakefactor_2l))
-        elif nlep_cat.startswith("3l"):
-            weights_object.add("FF", events.fakefactor_3l, copy.deepcopy(events.fakefactor_3l_up), copy.deepcopy(events.fakefactor_3l_down))
-            weights_object.add("FFpt",  events.nom, copy.deepcopy(events.fakefactor_3l_pt1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_pt2/events.fakefactor_3l))
-            weights_object.add("FFeta", events.nom, copy.deepcopy(events.fakefactor_3l_be1/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_be2/events.fakefactor_3l))
-            weights_object.add(f"FFcloseEl_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_elclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_elclosuredown/events.fakefactor_3l))
-            weights_object.add(f"FFcloseMu_{year}", events.nom, copy.deepcopy(events.fakefactor_3l_muclosureup/events.fakefactor_3l), copy.deepcopy(events.fakefactor_3l_muclosuredown/events.fakefactor_3l))
+        channel_prefix = nlep_cat[:2]
+        if channel_prefix in {"1l", "2l", "3l"}:
+            _add_fake_factor_weights(
+                weights_object,
+                events,
+                nlep_cat,
+                year,
+                requested_data_weight_label,
+            )
 
         # Additional data-only weights
         if isData and nlep_cat.startswith("2l") and ("os" not in self.channel):
@@ -861,10 +943,26 @@ class AnalysisProcessor(processor.ProcessorABC):
             expected_vars = set(data_weight_systematics_set)
             if nlep_cat.startswith("2l") and ("os" not in self.channel):
                 expected_vars.add("fliprate")
-            if weights_object.variations != expected_vars:
+
+            variation_set = set(weights_object.variations)
+            unexpected_variations = variation_set - expected_vars
+            if unexpected_variations:
                 raise Exception(
-                    f"Error: Unexpected wgt variations for data! Expected \"{expected_vars}\" but have \"{weights_object.variations}\"."
+                    "Error: Unexpected wgt variations for data! "
+                    f"Unexpected variations: {sorted(unexpected_variations)}"
                 )
+
+            if variation_type == "data_weight" and requested_data_weight_label:
+                required_variations = {
+                    f"{requested_data_weight_label}Up",
+                    f"{requested_data_weight_label}Down",
+                }
+                missing_variations = required_variations - variation_set
+                if missing_variations:
+                    raise Exception(
+                        "Error: Missing expected fake-factor variations for data! "
+                        f"Requested '{current_variation_name}' but did not find {sorted(missing_variations)}"
+                    )
 
 
         ######### Masks we need for the selection ##########
