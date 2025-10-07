@@ -573,9 +573,9 @@ class AnalysisProcessor(processor.ProcessorABC):
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
         # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
-        # Note: Here we will to the weights object the SFs that do not depend on any of the forthcoming loops
-        
-        weights_obj_base = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
+        # Note: Build a single weights object and register SFs sequentially as we go
+
+        weights_object = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         
         if not isData:
             # If this is no an eft sample, get the genWeight
@@ -587,7 +587,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
             # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
             lumi = 1000.0*get_tc_param(f"lumi_{year}")
-            weights_obj_base.add("norm",(xsec/sow)*genw*lumi)
+            weights_object.add("norm",(xsec/sow)*genw*lumi)
 
             if is_run2:
                 l1prefiring_args = [events.L1PreFiringWeight.Nom, events.L1PreFiringWeight.Up, events.L1PreFiringWeight.Dn]
@@ -627,26 +627,26 @@ class AnalysisProcessor(processor.ProcessorABC):
             if include_ISR:
                 sow_ISRUp = get_sow_value("ISRUp")
                 sow_ISRDown = get_sow_value("ISRDown")
-                weights_obj_base.add(
+                weights_object.add(
                     "ISR",
                     events.nom,
                     events.ISRUp * (sow / sow_ISRUp),
                     events.ISRDown * (sow / sow_ISRDown),
                 )
             else:
-                weights_obj_base.add("ISR", events.nom)
+                weights_object.add("ISR", events.nom)
 
             if include_FSR:
                 sow_FSRUp = get_sow_value("FSRUp")
                 sow_FSRDown = get_sow_value("FSRDown")
-                weights_obj_base.add(
+                weights_object.add(
                     "FSR",
                     events.nom,
                     events.FSRUp * (sow / sow_FSRUp),
                     events.FSRDown * (sow / sow_FSRDown),
                 )
             else:
-                weights_obj_base.add("FSR", events.nom)
+                weights_object.add("FSR", events.nom)
 
             include_renorm = self._do_systematics and variation_base == "renorm"
             include_fact = self._do_systematics and variation_base == "fact"
@@ -656,55 +656,54 @@ class AnalysisProcessor(processor.ProcessorABC):
             if include_renorm:
                 sow_renormUp = get_sow_value("renormUp")
                 sow_renormDown = get_sow_value("renormDown")
-                weights_obj_base.add(
+                weights_object.add(
                     "renorm",
                     events.nom,
                     events.renormUp * (sow / sow_renormUp),
                     events.renormDown * (sow / sow_renormDown),
                 )
             else:
-                weights_obj_base.add("renorm", events.nom)
+                weights_object.add("renorm", events.nom)
 
             if include_fact:
                 sow_factUp = get_sow_value("factUp")
                 sow_factDown = get_sow_value("factDown")
-                weights_obj_base.add(
+                weights_object.add(
                     "fact",
                     events.nom,
                     events.factUp * (sow / sow_factUp),
                     events.factDown * (sow / sow_factDown),
                 )
             else:
-                weights_obj_base.add("fact", events.nom)
+                weights_object.add("fact", events.nom)
 
             # Prefiring and PU (note prefire weights only available in nanoAODv9 and for Run2)
             include_prefiring_vars = self._do_systematics and variation_base == "prefiring"
             if include_prefiring_vars:
-                weights_obj_base.add("PreFiring", *l1prefiring_args)  # Run3 ready
+                weights_object.add("PreFiring", *l1prefiring_args)  # Run3 ready
             else:
-                weights_obj_base.add("PreFiring", l1prefiring_args[0])
+                weights_object.add("PreFiring", l1prefiring_args[0])
 
             pu_central = tc_cor.GetPUSF(events.Pileup.nTrueInt, year)
             include_pu_vars = self._do_systematics and variation_base == "pileup"
             if include_pu_vars:
-                weights_obj_base.add(
+                weights_object.add(
                     "PU",
                     pu_central,
                     tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "up"),
                     tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "down"),
                 )  # Run3 ready
             else:
-                weights_obj_base.add("PU", pu_central)
+                weights_object.add("PU", pu_central)
 
 
         print("\n\n\n\n")
         print("Running object systematic:", object_variation)
         print("Running weight systematics:", weight_variations_to_run)
         print("\n\n\n\n")
-        
-        # Make a copy of the base weights object.  In this block we add the pieces that depend on the object kinematics.
+
+        # In this block we add the pieces that depend on the object kinematics.
         met_raw = met
-        weights_obj_base_for_kinematic_syst = copy.deepcopy(weights_obj_base)
 
         #################### Jets ####################
 
@@ -812,7 +811,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         pData_bc, pMC_bc = tc_cor.get_method1a_wgt_doublewp(btag_effM_bc, btag_effL_bc, btag_sfM_bc, btag_sfL_bc, isBtagJetsMedium[bc_mask], isBtagJetsLooseNotMedium[bc_mask], isNotBtagJetsLoose[bc_mask])
         btag_w_bc = pData_bc/pMC_bc
         btag_w = btag_w_light*btag_w_bc
-        weights_obj_base_for_kinematic_syst.add("btagSF", btag_w)
+        weights_object.add("btagSF", btag_w)
 
         if self._do_systematics and object_variation == "nominal":
             requested_suffix = None
@@ -890,7 +889,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 else:
                     variation_label_base = f"btagSF{directionless_suffix}"
 
-                weights_obj_base_for_kinematic_syst.add(
+                weights_object.add(
                     variation_label_base,
                     events.nom,
                     btag_w_up,
@@ -907,14 +906,14 @@ class AnalysisProcessor(processor.ProcessorABC):
             and variation_base == "trigger_sf"
         )
         if include_trigger_vars:
-            weights_obj_base_for_kinematic_syst.add(
+            weights_object.add(
                 trigger_weight_label,
                 events.trigger_sf,
                 copy.deepcopy(events.trigger_sfUp),
                 copy.deepcopy(events.trigger_sfDown),
             )
         else:
-            weights_obj_base_for_kinematic_syst.add(
+            weights_object.add(
                 trigger_weight_label,
                 events.trigger_sf,
             )
@@ -925,12 +924,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         # which set of weights to apply.
         nlep_cat = re.match(r"\d+l", self.channel).group(0)
 
-        # Start from the base set of weights and attach the
-        # lepton-category specific pieces.  The weights object for the
-        # requested ``nlep_cat`` is fetched from a dictionary so that this
-        # happens once per systematic variation.
-        weights_dict = {nlep_cat: copy.deepcopy(weights_obj_base_for_kinematic_syst)}
-        weights_object = weights_dict[nlep_cat]
+        # Attach the lepton-category specific pieces on top of the
+        # previously registered central and kinematic weights.
 
         channel_prefix = nlep_cat[:2]
         if channel_prefix in {"1l", "2l", "3l"}:
