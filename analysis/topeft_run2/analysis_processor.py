@@ -532,6 +532,37 @@ class AnalysisProcessor(processor.ProcessorABC):
                         f"Requested '{current_variation_name}' but did not find {sorted(missing_variations)}"
                     )
 
+        current_variation_name = current_syst
+        object_variation = "nominal"
+        weight_variations_to_run = ["nominal"]
+        requested_data_weight_label = None
+
+        if variation_type == "object":
+            if current_variation_name not in object_systematics:
+                raise ValueError(
+                    f"Requested object systematic '{current_variation_name}' is not available in the mapping"
+                )
+            object_variation = current_variation_name
+        elif variation_type in {"weight", "theory", "data_weight"} and current_variation_name != "nominal":
+            variation_pool = {
+                "weight": weight_systematics,
+                "theory": theory_systematics,
+                "data_weight": data_weight_systematics,
+            }[variation_type]
+            if current_variation_name in variation_pool:
+                weight_variations_to_run = [current_variation_name]
+            else:
+                raise ValueError(
+                    f"Requested {variation_type} systematic '{current_variation_name}' is not available in the mapping"
+                )
+
+        if variation_type == "data_weight" and current_variation_name != "nominal":
+            requested_data_weight_label = current_variation_name
+            for _direction in ("Up", "Down"):
+                if requested_data_weight_label.endswith(_direction):
+                    requested_data_weight_label = requested_data_weight_label[: -len(_direction)]
+                    break
+
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
         # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
@@ -658,36 +689,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             else:
                 weights_obj_base.add("PU", pu_central)
 
-        current_variation_name = current_syst
-        object_variation = "nominal"
-        weight_variations_to_run = ["nominal"]
-        requested_data_weight_label = None
-
-        if variation_type == "object":
-            if current_variation_name not in object_systematics:
-                raise ValueError(
-                    f"Requested object systematic '{current_variation_name}' is not available in the mapping"
-                )
-            object_variation = current_variation_name
-        elif variation_type in {"weight", "theory", "data_weight"} and current_variation_name != "nominal":
-            variation_pool = {
-                "weight": weight_systematics,
-                "theory": theory_systematics,
-                "data_weight": data_weight_systematics,
-            }[variation_type]
-            if current_variation_name in variation_pool:
-                weight_variations_to_run = [current_variation_name]
-            else:
-                raise ValueError(
-                    f"Requested {variation_type} systematic '{current_variation_name}' is not available in the mapping"
-                )
-
-        if variation_type == "data_weight" and current_variation_name != "nominal":
-            requested_data_weight_label = current_variation_name
-            for _direction in ("Up", "Down"):
-                if requested_data_weight_label.endswith(_direction):
-                    requested_data_weight_label = requested_data_weight_label[: -len(_direction)]
-                    break
 
         print("\n\n\n\n")
         print("Running object systematic:", object_variation)
