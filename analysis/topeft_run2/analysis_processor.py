@@ -570,133 +570,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                     requested_data_weight_label = requested_data_weight_label[: -len(_direction)]
                     break
 
-        # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
-        # We only calculate these values if not isData
-        # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
-        # Note: Build a single weights object and register SFs sequentially as we go
+        # These weights can go outside of the outer syst loop since they do not depend on the
+        # reconstructed muon or jet pT. Build a single weights object; the consolidated MC-only
+        # block below will register the simulated-sample scale factors sequentially as we go.
 
         weights_object = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         
-        if not isData:
-            # If this is no an eft sample, get the genWeight
-            if eft_coeffs is None:
-                genw = events["genWeight"]
-            else:
-                genw = np.ones_like(events["event"])
-
-            # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples
-            # Note that for theory systs, will need to multiply by sow/sow_wgtUP to get (xsec/sow_wgtUp)*genw and same for Down
-            lumi = 1000.0*get_tc_param(f"lumi_{year}")
-            weights_object.add("norm",(xsec/sow)*genw*lumi)
-
-            if is_run2:
-                l1prefiring_args = [events.L1PreFiringWeight.Nom, events.L1PreFiringWeight.Up, events.L1PreFiringWeight.Dn]
-            elif is_run3:
-                l1prefiring_args = [ak.ones_like(events.nom), ak.ones_like(events.nom), ak.ones_like(events.nom)]
-
-            include_ISR = self._do_systematics and variation_base == "isr"
-            include_FSR = self._do_systematics and variation_base == "fsr"
-            need_ps_weights = include_ISR or include_FSR
-            if need_ps_weights:
-                # Attach PS weights (ISR/FSR)
-                tc_cor.AttachPSWeights(events)  # Run3 ready
-
-            def get_sow_value(label):
-                if label in sow_variations:
-                    return sow_variations[label]
-
-                if is_lo_sample:
-                    sow_variations[label] = sow
-                    return sow
-
-                key = sow_variation_key_map.get(label)
-                if key is None:
-                    raise KeyError(
-                        f"Unsupported sum-of-weights variation '{label}' requested while processing '{current_syst}'"
-                    )
-
-                if key not in self._sample:
-                    raise KeyError(
-                        f"Sample '{histAxisName}' is missing required sum-of-weights entry '{key}' for '{label}' variation"
-                    )
-
-                value = self._sample[key]
-                sow_variations[label] = value
-                return value
-
-            if include_ISR:
-                sow_ISRUp = get_sow_value("ISRUp")
-                sow_ISRDown = get_sow_value("ISRDown")
-                weights_object.add(
-                    "ISR",
-                    events.nom,
-                    events.ISRUp * (sow / sow_ISRUp),
-                    events.ISRDown * (sow / sow_ISRDown),
-                )
-            else:
-                weights_object.add("ISR", events.nom)
-
-            if include_FSR:
-                sow_FSRUp = get_sow_value("FSRUp")
-                sow_FSRDown = get_sow_value("FSRDown")
-                weights_object.add(
-                    "FSR",
-                    events.nom,
-                    events.FSRUp * (sow / sow_FSRUp),
-                    events.FSRDown * (sow / sow_FSRDown),
-                )
-            else:
-                weights_object.add("FSR", events.nom)
-
-            include_renorm = self._do_systematics and variation_base == "renorm"
-            include_fact = self._do_systematics and variation_base == "fact"
-            # Attach renorm/fact scale weights regardless of which variations are being evaluated
-            tc_cor.AttachScaleWeights(events)  # Run3 ready (with caveat on "nominal")
-
-            if include_renorm:
-                sow_renormUp = get_sow_value("renormUp")
-                sow_renormDown = get_sow_value("renormDown")
-                weights_object.add(
-                    "renorm",
-                    events.nom,
-                    events.renormUp * (sow / sow_renormUp),
-                    events.renormDown * (sow / sow_renormDown),
-                )
-            else:
-                weights_object.add("renorm", events.nom)
-
-            if include_fact:
-                sow_factUp = get_sow_value("factUp")
-                sow_factDown = get_sow_value("factDown")
-                weights_object.add(
-                    "fact",
-                    events.nom,
-                    events.factUp * (sow / sow_factUp),
-                    events.factDown * (sow / sow_factDown),
-                )
-            else:
-                weights_object.add("fact", events.nom)
-
-            # Prefiring and PU (note prefire weights only available in nanoAODv9 and for Run2)
-            include_prefiring_vars = self._do_systematics and variation_base == "prefiring"
-            if include_prefiring_vars:
-                weights_object.add("PreFiring", *l1prefiring_args)  # Run3 ready
-            else:
-                weights_object.add("PreFiring", l1prefiring_args[0])
-
-            pu_central = tc_cor.GetPUSF(events.Pileup.nTrueInt, year)
-            include_pu_vars = self._do_systematics and variation_base == "pileup"
-            if include_pu_vars:
-                weights_object.add(
-                    "PU",
-                    pu_central,
-                    tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "up"),
-                    tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "down"),
-                )  # Run3 ready
-            else:
-                weights_object.add("PU", pu_central)
-
-
         print("\n\n\n\n")
         print("Running object systematic:", object_variation)
         print("Running weight systematics:", weight_variations_to_run)
@@ -797,132 +676,371 @@ class AnalysisProcessor(processor.ProcessorABC):
         jets_light = goodJets[light_mask]
         jets_bc    = goodJets[bc_mask]
 
-        btag_effM_light = GetBtagEff(jets_light, year, 'medium')
-        btag_effM_bc = GetBtagEff(jets_bc, year, 'medium')
-        btag_effL_light = GetBtagEff(jets_light, year, 'loose')
-        btag_effL_bc = GetBtagEff(jets_bc, year, 'loose')
-        btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M",year_light,"deepJet_incl","central")
-        btag_sfM_bc    = tc_cor.btag_sf_eval(jets_bc,    "M",year,      "deepJet_comb","central")
-        btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L",year_light,"deepJet_incl","central")
-        btag_sfL_bc    = tc_cor.btag_sf_eval(jets_bc,    "L",year,      "deepJet_comb","central")
-
-        pData_light, pMC_light = tc_cor.get_method1a_wgt_doublewp(btag_effM_light, btag_effL_light, btag_sfM_light, btag_sfL_light, isBtagJetsMedium[light_mask], isBtagJetsLooseNotMedium[light_mask], isNotBtagJetsLoose[light_mask])
-        btag_w_light = pData_light/pMC_light
-        pData_bc, pMC_bc = tc_cor.get_method1a_wgt_doublewp(btag_effM_bc, btag_effL_bc, btag_sfM_bc, btag_sfL_bc, isBtagJetsMedium[bc_mask], isBtagJetsLooseNotMedium[bc_mask], isNotBtagJetsLoose[bc_mask])
-        btag_w_bc = pData_bc/pMC_bc
-        btag_w = btag_w_light*btag_w_bc
-        weights_object.add("btagSF", btag_w)
-
-        if self._do_systematics and object_variation == "nominal":
-            requested_suffix = None
-            if current_variation_name and current_variation_name.startswith("btagSF"):
-                requested_suffix = current_variation_name[len("btagSF"):]
-
-            if requested_suffix:
-                directionless_suffix = requested_suffix.rstrip("Up").rstrip("Down")
-
-                corrtype = (
-                    "correlated" if directionless_suffix.endswith("_corr") else "uncorrelated"
-                )
-
-                if requested_suffix.startswith("light_"):
-                    jets_flav = jets_light
-                    flav_mask = light_mask
-                    sys_year = year_light
-                    dJ_tag = "incl"
-                    btag_effM = btag_effM_light
-                    btag_effL = btag_effL_light
-                    pMC_flav = pMC_light
-                    fixed_btag_w = btag_w_bc
-                else:
-                    jets_flav = jets_bc
-                    flav_mask = bc_mask
-                    sys_year = year
-                    dJ_tag = "comb"
-                    btag_effM = btag_effM_bc
-                    btag_effL = btag_effL_bc
-                    pMC_flav = pMC_bc
-                    fixed_btag_w = btag_w_light
-
-                btag_sfL_up = tc_cor.btag_sf_eval(
-                    jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}"
-                )
-                btag_sfL_down = tc_cor.btag_sf_eval(
-                    jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}"
-                )
-                btag_sfM_up = tc_cor.btag_sf_eval(
-                    jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}"
-                )
-                btag_sfM_down = tc_cor.btag_sf_eval(
-                    jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}"
-                )
-
-                pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(
-                    btag_effM,
-                    btag_effL,
-                    btag_sfM_up,
-                    btag_sfL_up,
-                    isBtagJetsMedium[flav_mask],
-                    isBtagJetsLooseNotMedium[flav_mask],
-                    isNotBtagJetsLoose[flav_mask],
-                )
-
-                pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(
-                    btag_effM,
-                    btag_effL,
-                    btag_sfM_down,
-                    btag_sfL_down,
-                    isBtagJetsMedium[flav_mask],
-                    isBtagJetsLooseNotMedium[flav_mask],
-                    isNotBtagJetsLoose[flav_mask],
-                )
-
-                btag_w_up = fixed_btag_w * (pData_up / pMC_flav) / btag_w
-                btag_w_down = fixed_btag_w * (pData_down / pMC_flav) / btag_w
-
-                variation_label_base = current_variation_name
-                if variation_label_base:
-                    for _direction in ("Up", "Down"):
-                        if variation_label_base.endswith(_direction):
-                            variation_label_base = variation_label_base[: -len(_direction)]
-                            break
-                else:
-                    variation_label_base = f"btagSF{directionless_suffix}"
-
-                weights_object.add(
-                    variation_label_base,
-                    events.nom,
-                    btag_w_up,
-                    btag_w_down,
-                )
-
-        # Trigger SFs
         trigger_weight_label = f"triggerSF_{year}"
-        
-        GetTriggerSF(year, events, l0, l1)
-        include_trigger_vars = (
-            self._do_systematics
-            and not isData
-            and variation_base == "trigger_sf"
-        )
-        if include_trigger_vars:
-            weights_object.add(
-                trigger_weight_label,
-                events.trigger_sf,
-                copy.deepcopy(events.trigger_sfUp),
-                copy.deepcopy(events.trigger_sfDown),
-            )
-        else:
-            weights_object.add(
-                trigger_weight_label,
-                events.trigger_sf,
-            )
 
-        ######### Event weights that do depend on the lep cat ###########
         # Determine the lepton multiplicity category from the requested
         # channel name (e.g. ``2lss_4j`` -> ``2l``).  This is used to know
-        # which set of weights to apply.
+        # which set of weights to apply when attaching lepton scale factors
+        # below.
         nlep_cat = re.match(r"\d+l", self.channel).group(0)
+
+        if not isData:
+            # Begin consolidated MC-only weight registration.
+
+            # If this is not an EFT sample, use the generator weight; otherwise
+            # default to unity.
+            if eft_coeffs is None:
+                genw = events["genWeight"]
+            else:
+                genw = np.ones_like(events["event"])
+
+            # Normalize by (xsec/sow)*genw where genw is 1 for EFT samples.
+            lumi = 1000.0 * get_tc_param(f"lumi_{year}")
+            weights_object.add("norm", (xsec / sow) * genw * lumi)
+
+            if is_run2:
+                l1prefiring_args = [
+                    events.L1PreFiringWeight.Nom,
+                    events.L1PreFiringWeight.Up,
+                    events.L1PreFiringWeight.Dn,
+                ]
+            elif is_run3:
+                l1prefiring_args = [
+                    ak.ones_like(events.nom),
+                    ak.ones_like(events.nom),
+                    ak.ones_like(events.nom),
+                ]
+
+            include_ISR = self._do_systematics and variation_base == "isr"
+            include_FSR = self._do_systematics and variation_base == "fsr"
+            need_ps_weights = include_ISR or include_FSR
+            if need_ps_weights:
+                # Attach PS weights (ISR/FSR)
+                tc_cor.AttachPSWeights(events)  # Run3 ready
+
+            def get_sow_value(label):
+                if label in sow_variations:
+                    return sow_variations[label]
+
+                if is_lo_sample:
+                    sow_variations[label] = sow
+                    return sow
+
+                key = sow_variation_key_map.get(label)
+                if key is None:
+                    raise KeyError(
+                        f"Unsupported sum-of-weights variation '{label}' requested while processing '{current_syst}'"
+                    )
+
+                if key not in self._sample:
+                    raise KeyError(
+                        f"Sample '{histAxisName}' is missing required sum-of-weights entry '{key}' for '{label}' variation"
+                    )
+
+                value = self._sample[key]
+                sow_variations[label] = value
+                return value
+
+            if include_ISR:
+                sow_ISRUp = get_sow_value("ISRUp")
+                sow_ISRDown = get_sow_value("ISRDown")
+                weights_object.add(
+                    "ISR",
+                    events.nom,
+                    events.ISRUp * (sow / sow_ISRUp),
+                    events.ISRDown * (sow / sow_ISRDown),
+                )
+            else:
+                weights_object.add("ISR", events.nom)
+
+            if include_FSR:
+                sow_FSRUp = get_sow_value("FSRUp")
+                sow_FSRDown = get_sow_value("FSRDown")
+                weights_object.add(
+                    "FSR",
+                    events.nom,
+                    events.FSRUp * (sow / sow_FSRUp),
+                    events.FSRDown * (sow / sow_FSRDown),
+                )
+            else:
+                weights_object.add("FSR", events.nom)
+
+            include_renorm = self._do_systematics and variation_base == "renorm"
+            include_fact = self._do_systematics and variation_base == "fact"
+            # Attach renorm/fact scale weights regardless of which variations are being evaluated.
+            tc_cor.AttachScaleWeights(events)  # Run3 ready (with caveat on "nominal")
+
+            if include_renorm:
+                sow_renormUp = get_sow_value("renormUp")
+                sow_renormDown = get_sow_value("renormDown")
+                weights_object.add(
+                    "renorm",
+                    events.nom,
+                    events.renormUp * (sow / sow_renormUp),
+                    events.renormDown * (sow / sow_renormDown),
+                )
+            else:
+                weights_object.add("renorm", events.nom)
+
+            if include_fact:
+                sow_factUp = get_sow_value("factUp")
+                sow_factDown = get_sow_value("factDown")
+                weights_object.add(
+                    "fact",
+                    events.nom,
+                    events.factUp * (sow / sow_factUp),
+                    events.factDown * (sow / sow_factDown),
+                )
+            else:
+                weights_object.add("fact", events.nom)
+
+            # Prefiring and pileup (prefire weights only available in nanoAODv9 for Run 2).
+            include_prefiring_vars = self._do_systematics and variation_base == "prefiring"
+            if include_prefiring_vars:
+                weights_object.add("PreFiring", *l1prefiring_args)  # Run3 ready
+            else:
+                weights_object.add("PreFiring", l1prefiring_args[0])
+
+            pu_central = tc_cor.GetPUSF(events.Pileup.nTrueInt, year)
+            include_pu_vars = self._do_systematics and variation_base == "pileup"
+            if include_pu_vars:
+                weights_object.add(
+                    "PU",
+                    pu_central,
+                    tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "up"),
+                    tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "down"),
+                )  # Run3 ready
+            else:
+                weights_object.add("PU", pu_central)
+
+            # B-tag efficiencies and central SFs are re-used for central and systematic weights.
+            btag_effM_light = GetBtagEff(jets_light, year, "medium")
+            btag_effM_bc = GetBtagEff(jets_bc, year, "medium")
+            btag_effL_light = GetBtagEff(jets_light, year, "loose")
+            btag_effL_bc = GetBtagEff(jets_bc, year, "loose")
+            btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M", year_light, "deepJet_incl", "central")
+            btag_sfM_bc = tc_cor.btag_sf_eval(jets_bc, "M", year, "deepJet_comb", "central")
+            btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L", year_light, "deepJet_incl", "central")
+            btag_sfL_bc = tc_cor.btag_sf_eval(jets_bc, "L", year, "deepJet_comb", "central")
+
+            pData_light, pMC_light = tc_cor.get_method1a_wgt_doublewp(
+                btag_effM_light,
+                btag_effL_light,
+                btag_sfM_light,
+                btag_sfL_light,
+                isBtagJetsMedium[light_mask],
+                isBtagJetsLooseNotMedium[light_mask],
+                isNotBtagJetsLoose[light_mask],
+            )
+            btag_w_light = pData_light / pMC_light
+            pData_bc, pMC_bc = tc_cor.get_method1a_wgt_doublewp(
+                btag_effM_bc,
+                btag_effL_bc,
+                btag_sfM_bc,
+                btag_sfL_bc,
+                isBtagJetsMedium[bc_mask],
+                isBtagJetsLooseNotMedium[bc_mask],
+                isNotBtagJetsLoose[bc_mask],
+            )
+            btag_w_bc = pData_bc / pMC_bc
+            btag_w = btag_w_light * btag_w_bc
+            weights_object.add("btagSF", btag_w)
+
+            if self._do_systematics and object_variation == "nominal":
+                requested_suffix = None
+                if current_variation_name and current_variation_name.startswith("btagSF"):
+                    requested_suffix = current_variation_name[len("btagSF") :]
+
+                if requested_suffix:
+                    directionless_suffix = requested_suffix.rstrip("Up").rstrip("Down")
+
+                    corrtype = (
+                        "correlated" if directionless_suffix.endswith("_corr") else "uncorrelated"
+                    )
+
+                    if requested_suffix.startswith("light_"):
+                        jets_flav = jets_light
+                        flav_mask = light_mask
+                        sys_year = year_light
+                        dJ_tag = "incl"
+                        btag_effM = btag_effM_light
+                        btag_effL = btag_effL_light
+                        pMC_flav = pMC_light
+                        fixed_btag_w = btag_w_bc
+                    else:
+                        jets_flav = jets_bc
+                        flav_mask = bc_mask
+                        sys_year = year
+                        dJ_tag = "comb"
+                        btag_effM = btag_effM_bc
+                        btag_effL = btag_effL_bc
+                        pMC_flav = pMC_bc
+                        fixed_btag_w = btag_w_light
+
+                    btag_sfL_up = tc_cor.btag_sf_eval(
+                        jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}"
+                    )
+                    btag_sfL_down = tc_cor.btag_sf_eval(
+                        jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}"
+                    )
+                    btag_sfM_up = tc_cor.btag_sf_eval(
+                        jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}"
+                    )
+                    btag_sfM_down = tc_cor.btag_sf_eval(
+                        jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}"
+                    )
+
+                    pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(
+                        btag_effM,
+                        btag_effL,
+                        btag_sfM_up,
+                        btag_sfL_up,
+                        isBtagJetsMedium[flav_mask],
+                        isBtagJetsLooseNotMedium[flav_mask],
+                        isNotBtagJetsLoose[flav_mask],
+                    )
+
+                    pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(
+                        btag_effM,
+                        btag_effL,
+                        btag_sfM_down,
+                        btag_sfL_down,
+                        isBtagJetsMedium[flav_mask],
+                        isBtagJetsLooseNotMedium[flav_mask],
+                        isNotBtagJetsLoose[flav_mask],
+                    )
+
+                    btag_w_up = fixed_btag_w * (pData_up / pMC_flav) / btag_w
+                    btag_w_down = fixed_btag_w * (pData_down / pMC_flav) / btag_w
+
+                    variation_label_base = current_variation_name
+                    if variation_label_base:
+                        for _direction in ("Up", "Down"):
+                            if variation_label_base.endswith(_direction):
+                                variation_label_base = variation_label_base[: -len(_direction)]
+                                break
+                    else:
+                        variation_label_base = f"btagSF{directionless_suffix}"
+
+                    weights_object.add(
+                        variation_label_base,
+                        events.nom,
+                        btag_w_up,
+                        btag_w_down,
+                    )
+
+            # Trigger SFs are only defined for simulated samples.
+            GetTriggerSF(year, events, l0, l1)
+            include_trigger_vars = self._do_systematics and variation_base == "trigger_sf"
+            if include_trigger_vars:
+                weights_object.add(
+                    trigger_weight_label,
+                    events.trigger_sf,
+                    copy.deepcopy(events.trigger_sfUp),
+                    copy.deepcopy(events.trigger_sfDown),
+                )
+            else:
+                weights_object.add(
+                    trigger_weight_label,
+                    events.trigger_sf,
+                )
+
+            # Lepton (and optional tau) scale factors depend on the lepton category.
+            if nlep_cat.startswith("1l"):
+                weights_object.add(
+                    "lepSF_muon",
+                    events.sf_1l_muon,
+                    copy.deepcopy(events.sf_1l_hi_muon),
+                    copy.deepcopy(events.sf_1l_lo_muon),
+                )
+                weights_object.add(
+                    "lepSF_elec",
+                    events.sf_1l_elec,
+                    copy.deepcopy(events.sf_1l_hi_elec),
+                    copy.deepcopy(events.sf_1l_lo_elec),
+                )
+                if self.tau_h_analysis:
+                    weights_object.add(
+                        "lepSF_taus_real",
+                        events.sf_2l_taus_real,
+                        copy.deepcopy(events.sf_2l_taus_real_hi),
+                        copy.deepcopy(events.sf_2l_taus_real_lo),
+                    )
+                    weights_object.add(
+                        "lepSF_taus_fake",
+                        events.sf_2l_taus_fake,
+                        copy.deepcopy(events.sf_2l_taus_fake_hi),
+                        copy.deepcopy(events.sf_2l_taus_fake_lo),
+                    )
+            elif nlep_cat.startswith("2l"):
+                weights_object.add(
+                    "lepSF_muon",
+                    events.sf_2l_muon,
+                    copy.deepcopy(events.sf_2l_hi_muon),
+                    copy.deepcopy(events.sf_2l_lo_muon),
+                )
+                weights_object.add(
+                    "lepSF_elec",
+                    events.sf_2l_elec,
+                    copy.deepcopy(events.sf_2l_hi_elec),
+                    copy.deepcopy(events.sf_2l_lo_elec),
+                )
+                if self.tau_h_analysis:
+                    weights_object.add(
+                        "lepSF_taus_real",
+                        events.sf_2l_taus_real,
+                        copy.deepcopy(events.sf_2l_taus_real_hi),
+                        copy.deepcopy(events.sf_2l_taus_real_lo),
+                    )
+                    weights_object.add(
+                        "lepSF_taus_fake",
+                        events.sf_2l_taus_fake,
+                        copy.deepcopy(events.sf_2l_taus_fake_hi),
+                        copy.deepcopy(events.sf_2l_taus_fake_lo),
+                    )
+            elif nlep_cat.startswith("3l"):
+                weights_object.add(
+                    "lepSF_muon",
+                    events.sf_3l_muon,
+                    copy.deepcopy(events.sf_3l_hi_muon),
+                    copy.deepcopy(events.sf_3l_lo_muon),
+                )
+                weights_object.add(
+                    "lepSF_elec",
+                    events.sf_3l_elec,
+                    copy.deepcopy(events.sf_3l_hi_elec),
+                    copy.deepcopy(events.sf_3l_lo_elec),
+                )
+                if self.tau_h_analysis:
+                    weights_object.add(
+                        "lepSF_taus_real",
+                        events.sf_2l_taus_real,
+                        copy.deepcopy(events.sf_2l_taus_real_hi),
+                        copy.deepcopy(events.sf_2l_taus_real_lo),
+                    )
+                    weights_object.add(
+                        "lepSF_taus_fake",
+                        events.sf_2l_taus_fake,
+                        copy.deepcopy(events.sf_2l_taus_fake_hi),
+                        copy.deepcopy(events.sf_2l_taus_fake_lo),
+                    )
+            elif nlep_cat.startswith("4l"):
+                weights_object.add(
+                    "lepSF_muon",
+                    events.sf_4l_muon,
+                    copy.deepcopy(events.sf_4l_hi_muon),
+                    copy.deepcopy(events.sf_4l_lo_muon),
+                )
+                weights_object.add(
+                    "lepSF_elec",
+                    events.sf_4l_elec,
+                    copy.deepcopy(events.sf_4l_hi_elec),
+                    copy.deepcopy(events.sf_4l_lo_elec),
+                )
+            else:
+                raise Exception(f"Unknown channel name: {nlep_cat}")
+
+        ######### Event weights that do depend on the lep cat ###########
 
         # Attach the lepton-category specific pieces on top of the
         # previously registered central and kinematic weights.
@@ -957,32 +1075,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 raise AssertionError(
                     "The 2l same-sign data branch must register the central 'fliprate' weight."
                 )
-
-        # MC-only scale factors
-        if not isData:
-            if nlep_cat.startswith("1l"):
-                weights_object.add("lepSF_muon", events.sf_1l_muon, copy.deepcopy(events.sf_1l_hi_muon), copy.deepcopy(events.sf_1l_lo_muon))
-                weights_object.add("lepSF_elec", events.sf_1l_elec, copy.deepcopy(events.sf_1l_hi_elec), copy.deepcopy(events.sf_1l_lo_elec))
-                if self.tau_h_analysis:
-                    weights_object.add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
-                    weights_object.add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
-            elif nlep_cat.startswith("2l"):
-                weights_object.add("lepSF_muon", events.sf_2l_muon, copy.deepcopy(events.sf_2l_hi_muon), copy.deepcopy(events.sf_2l_lo_muon))
-                weights_object.add("lepSF_elec", events.sf_2l_elec, copy.deepcopy(events.sf_2l_hi_elec), copy.deepcopy(events.sf_2l_lo_elec))
-                if self.tau_h_analysis:
-                    weights_object.add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
-                    weights_object.add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
-            elif nlep_cat.startswith("3l"):
-                weights_object.add("lepSF_muon", events.sf_3l_muon, copy.deepcopy(events.sf_3l_hi_muon), copy.deepcopy(events.sf_3l_lo_muon))
-                weights_object.add("lepSF_elec", events.sf_3l_elec, copy.deepcopy(events.sf_3l_hi_elec), copy.deepcopy(events.sf_3l_lo_elec))
-                if self.tau_h_analysis:
-                    weights_object.add("lepSF_taus_real", events.sf_2l_taus_real, copy.deepcopy(events.sf_2l_taus_real_hi), copy.deepcopy(events.sf_2l_taus_real_lo))
-                    weights_object.add("lepSF_taus_fake", events.sf_2l_taus_fake, copy.deepcopy(events.sf_2l_taus_fake_hi), copy.deepcopy(events.sf_2l_taus_fake_lo))
-            elif nlep_cat.startswith("4l"):
-                weights_object.add("lepSF_muon", events.sf_4l_muon, copy.deepcopy(events.sf_4l_hi_muon), copy.deepcopy(events.sf_4l_lo_muon))
-                weights_object.add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
-            else:
-                raise Exception(f"Unknown channel name: {nlep_cat}")
 
 
         ######### Masks we need for the selection ##########
