@@ -137,6 +137,35 @@ def _add_fake_factor_weights(
         weights_object.add(label, central_values, *variations)
 
 
+def _validate_data_weight_variations(
+    weights_object,
+    expected_variations,
+    requested_data_weight_label,
+    current_variation_name,
+):
+    """Ensure data weights only contain supported variations."""
+
+    variation_set = set(weights_object.variations)
+    unexpected_variations = variation_set - expected_variations
+    if unexpected_variations:
+        raise Exception(
+            "Error: Unexpected wgt variations for data! "
+            f"Unexpected variations: {sorted(unexpected_variations)}"
+        )
+
+    if requested_data_weight_label:
+        required_variations = {
+            f"{requested_data_weight_label}Up",
+            f"{requested_data_weight_label}Down",
+        }
+        missing_variations = required_variations - variation_set
+        if missing_variations:
+            raise Exception(
+                "Error: Missing expected fake-factor variations for data! "
+                f"Requested '{current_variation_name}' but did not find {sorted(missing_variations)}"
+            )
+
+
 class AnalysisProcessor(processor.ProcessorABC):
 
     def __init__(
@@ -183,6 +212,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             raise ValueError("available_systematics must be provided and cannot be None")
         self._available_systematics = {
             key: tuple(value) for key, value in available_systematics.items()
+        }
+        self._available_systematics_sets = {
+            key: set(values) for key, values in self._available_systematics.items()
         }
 
         histogram = {}
@@ -498,44 +530,19 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### Systematics ###########
 
-        # Define the lists of systematics provided by the metadata helper
-        object_systematics = tuple(self._available_systematics.get("object", ()))
-        weight_systematics = tuple(self._available_systematics.get("weight", ()))
-        theory_systematics = tuple(self._available_systematics.get("theory", ()))
-        data_weight_systematics = tuple(self._available_systematics.get("data_weight", ()))
-        data_weight_systematics_set = set(data_weight_systematics)
-
-        # Ensure that for data we only have the expected systematic
-        # variations in the Weights object.  This whitelist is limited to
-        # genuine data-weight systematics; the 2l same-sign flip-rate
-        # normalisation is validated independently above.
-        if self._do_systematics and isData:
-            expected_vars = set(data_weight_systematics_set)
-
-            variation_set = set(weights_object.variations)
-            unexpected_variations = variation_set - expected_vars
-            if unexpected_variations:
-                raise Exception(
-                    "Error: Unexpected wgt variations for data! "
-                    f"Unexpected variations: {sorted(unexpected_variations)}"
-                )
-
-            if variation_type == "data_weight" and requested_data_weight_label:
-                required_variations = {
-                    f"{requested_data_weight_label}Up",
-                    f"{requested_data_weight_label}Down",
-                }
-                missing_variations = required_variations - variation_set
-                if missing_variations:
-                    raise Exception(
-                        "Error: Missing expected fake-factor variations for data! "
-                        f"Requested '{current_variation_name}' but did not find {sorted(missing_variations)}"
-                    )
-
         current_variation_name = current_syst
         object_variation = "nominal"
         weight_variations_to_run = ["nominal"]
         requested_data_weight_label = None
+
+        # Define the lists of systematics provided by the metadata helper
+        object_systematics = self._available_systematics.get("object", ())
+        weight_systematics = self._available_systematics.get("weight", ())
+        theory_systematics = self._available_systematics.get("theory", ())
+        data_weight_systematics = self._available_systematics.get("data_weight", ())
+        data_weight_systematics_set = self._available_systematics_sets.get(
+            "data_weight", set()
+        )
 
         if variation_type == "object":
             if current_variation_name not in object_systematics:
@@ -933,6 +940,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 nlep_cat,
                 year,
                 requested_data_weight_label,
+            )
+
+        if self._do_systematics and isData:
+            _validate_data_weight_variations(
+                weights_object,
+                data_weight_systematics_set,
+                requested_data_weight_label,
+                current_variation_name,
             )
 
         # Additional data-only weights
