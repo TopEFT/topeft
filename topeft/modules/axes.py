@@ -8,7 +8,7 @@ info = {
         "label": r"Number of Good reco primary vertices ",
     },
     "invmass": {
-        "regular": (50, 0, 1000),
+        "regular": (40, 60, 140),
         "label": r"$m_{\ell\ell}$ (GeV) ",
     },
     "ptbl": {
@@ -207,5 +207,78 @@ info = {
     "b1m_genpFlav": {
        "regular": (28, -1.5, 26.5),
        "label": r"GenParton Flavor of subleading medium b jet",
-   }
+    }
+}
+
+info_2d = {
+    "lepton_pt_vs_eta": {
+        "axes": [
+            {
+                "name": "lepton_pt_vs_eta_pt",
+                "regular": (25, 0, 250),
+                "label": r"Leading lep $p_{T}$ (GeV) ",
+            },
+            {
+                "name": "lepton_pt_vs_eta_abseta",
+                "regular": (25, 0, 2.5),
+                "label": r"Leading lep $|\eta|$ ",
+            },
+        ],
+    },
+    "l0_SeedEtaOrX_vs_SeedPhiOrY": {
+        "axes": [
+            {
+                "name": "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX",
+                "regular": (400, -200, 200),
+                "label": r"Leading lep seed $\eta / x$ ",
+            },
+            {
+                "name": "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY",
+                "regular": (500, 0, 500),
+                "label": r"Leading lep seed $\phi / y$ ",
+            },
+        ],
+    },
+    "l0_eta_vs_phi": {
+        "axes": [
+            {
+                "name": "l0_eta_vs_phi_eta",
+                "regular": (120, -3, 3),
+                "label": r"Leading lep $\eta$ ",
+            },
+            {
+                "name": "l0_eta_vs_phi_phi",
+                "regular": (160, -4, 4),
+                "label": r"Leading lep $\phi$ ",
+            },
+        ],
+    },
+    "l1_SeedEtaOrX_vs_SeedPhiOrY": {
+        "axes": [
+            {
+                "name": "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX",
+                "regular": (400, -200, 200),
+                "label": r"Subleading lep seed $\eta / x$ ",
+            },
+            {
+                "name": "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY",
+                "regular": (500, 0, 500),
+                "label": r"Subleading lep seed $\phi / y$ ",
+            },
+        ],
+    },
+    "l1_eta_vs_phi": {
+        "axes": [
+            {
+                "name": "l1_eta_vs_phi_eta",
+                "regular": (120, -3, 3),
+                "label": r"Subleading lep $\eta$ ",
+            },
+            {
+                "name": "l1_eta_vs_phi_phi",
+                "regular": (160, -4, 4),
+                "label": r"Subleading lep $\phi$ ",
+            },
+        ],
+    },
 }
