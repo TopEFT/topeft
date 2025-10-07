@@ -2,11 +2,63 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import dataclass, field
 import json
-from typing import Dict, Iterable, List, Optional, Sequence, Set
+from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from topeft.modules.paths import topeft_path
+
+@dataclass(frozen=True)
+class SystematicVariationGroup:
+    """Descriptor capturing the metadata defining a variation group."""
+
+    name: str
+    members: Tuple[str, ...]
+    metadata: Tuple[Tuple[str, Tuple[Tuple[str, object], ...]], ...]
+
+    @staticmethod
+    def _freeze_value(value: object) -> object:
+        """Return a hashable representation of ``value`` suitable for grouping."""
+
+        if isinstance(value, dict):
+            return tuple(
+                (key, SystematicVariationGroup._freeze_value(val))
+                for key, val in sorted(value.items())
+            )
+        if isinstance(value, (list, tuple, set)):
+            return tuple(
+                SystematicVariationGroup._freeze_value(item)
+                for item in value
+            )
+        return value
+
+    @classmethod
+    def _freeze_mapping(
+        cls, mapping: Dict[str, object]
+    ) -> Tuple[Tuple[str, object], ...]:
+        return tuple(
+            (key, cls._freeze_value(value))
+            for key, value in sorted(mapping.items())
+        )
+
+    @classmethod
+    def from_variation(cls, variation: "SystematicVariation") -> "SystematicVariationGroup":
+        """Create a group descriptor for the provided variation."""
+
+        if variation.group:
+            metadata = tuple(
+                (name, cls._freeze_mapping(info))
+                for name, info in sorted(variation.group.items())
+            )
+            name = variation.base
+            members = tuple(name for name, _ in metadata)
+        else:
+            metadata = ((variation.name, cls._freeze_mapping(variation.metadata)),)
+            name = variation.name
+            members = (variation.name,)
+
+        return cls(name=name, members=members, metadata=metadata)
 
 
 @dataclass
@@ -287,6 +339,19 @@ class SystematicsHelper:
 
         return applicable
 
+    def grouped_variations_for_sample(
+        self, sample: Dict[str, object], include_systematics: bool
+    ) -> "OrderedDict[SystematicVariationGroup, List[SystematicVariation]]":
+        """Return systematic variations grouped by their metadata descriptors."""
+
+        grouped: "OrderedDict[SystematicVariationGroup, List[SystematicVariation]]" = OrderedDict()
+
+        for variation in self.variations_for_sample(sample, include_systematics):
+            descriptor = SystematicVariationGroup.from_variation(variation)
+            grouped.setdefault(descriptor, []).append(variation)
+
+        return grouped
+
     def names_by_type(
         self,
         applies_to: Optional[str] = None,
@@ -333,4 +398,8 @@ class SystematicsHelper:
         return {key: tuple(names) for key, names in grouped.items()}
 
 
-__all__ = ["SystematicVariation", "SystematicsHelper"]
+__all__ = [
+    "SystematicVariation",
+    "SystematicVariationGroup",
+    "SystematicsHelper",
+]
