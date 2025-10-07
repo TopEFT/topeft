@@ -7,11 +7,14 @@ import matplotlib as mpl
 mpl.use('Agg')
 import matplotlib.pyplot as plt
 from cycler import cycler
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import mplhep as hep
 import hist
 from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.sparseHist import SparseHist
 from topeft.modules.axes import info as axes_info
+from topeft.modules.axes import info_2d as axes_info_2d
 
 from topcoffea.scripts.make_html import make_html
 import topcoffea.modules.utils as utils
@@ -375,7 +378,265 @@ def get_diboson_njets_syst_arr(njets_histo_vals_arr,bin0_njets):
     return shift*shift
 
 
+def _is_sparse_2d_hist(histo):
+    if not isinstance(histo, SparseHist):
+        return False
+
+    quadratic_axis = next(
+        (ax for ax in histo.dense_axes if getattr(ax, "name", None) == "quadratic_term"),
+        None,
+    )
+    if quadratic_axis is not None:
+        try:
+            # Skip the sparse 2D path only when the quadratic axis has a single bin.
+            if histo.axes["quadratic_term"].size > 1:
+                return True
+        except (KeyError, AttributeError):
+            # If the axis cannot be inspected reliably, keep the conservative 2D
+            # classification to avoid mis-shaping 1D projections.
+            return True
+
+    dense_axes = [ax for ax in histo.dense_axes if ax is not quadratic_axis]
+    return len(dense_axes) > 1
+
+
 ######### Plotting functions #########
+
+def make_sparse2d_fig(
+    h_mc,
+    h_data,
+    var,
+    channel_name,
+    lumitag="138",
+    comtag="13",
+    per_panel=False,
+):
+    axes_meta = axes_info_2d.get(var, {})
+    axis_cfgs = axes_meta.get("axes", [])
+    if len(axis_cfgs) < 2:
+        raise ValueError(f"No 2D axis metadata configured for histogram '{var}'.")
+    axis_labels = [cfg.get("label", cfg.get("name", "")) for cfg in axis_cfgs]
+    cbar_label = axes_meta.get("cbar_label", "Events")
+    ratio_meta = axes_meta.get("ratio", {})
+    ratio_cbar_label = ratio_meta.get("cbar_label", "Data/MC")
+
+    def _extract_weighted_values(histo):
+        view = histo.view(flow=False, as_dict=True)
+        if isinstance(view, dict):
+            if len(view) == 1:
+                view = next(iter(view.values()))
+            else:
+                # Fall back to the higher-level values helper when multiple
+                # categorical entries remain. This preserves the dense layout
+                # while still supporting weighted storages.
+                view = histo.values(flow=False)
+
+        if hasattr(view, "dtype") and view.dtype.fields:
+            if "value" in view.dtype.fields:
+                return np.asarray(view["value"], dtype=float)
+
+        try:
+            return np.asarray(view, dtype=float)
+        except TypeError:
+            return np.asarray(np.array(view), dtype=float)
+
+    def _dense_edges(histo):
+        return [np.asarray(ax.edges, dtype=float) for ax in histo.axes]
+
+    mc_vals = _extract_weighted_values(h_mc)
+    data_vals = _extract_weighted_values(h_data)
+    ratio_vals = np.ones_like(data_vals, dtype=float)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        np.divide(data_vals, mc_vals, out=ratio_vals, where=mc_vals != 0)
+    empty_mask = (mc_vals == 0) & (data_vals == 0)
+    data_only_mask = (mc_vals == 0) & (data_vals != 0)
+    ratio_vals[empty_mask | data_only_mask] = np.nan
+    dense_edges = _dense_edges(h_mc)
+
+    def _norm_from_meta(meta_cfg, values):
+        if not meta_cfg:
+            return None
+
+        norm_cfg = meta_cfg.get("norm")
+        if isinstance(norm_cfg, mpl.colors.Normalize):
+            return copy.copy(norm_cfg)
+        if callable(norm_cfg):
+            generated = norm_cfg(values)
+            if isinstance(generated, mpl.colors.Normalize):
+                return generated
+
+        zlim = meta_cfg.get("zlim")
+        if zlim is not None:
+            vmin, vmax = zlim
+            finite_vals = values[np.isfinite(values)]
+            if vmin is None:
+                if finite_vals.size:
+                    vmin = float(np.nanmin(finite_vals))
+                else:
+                    vmin = 0.0
+            if vmax is None:
+                if finite_vals.size:
+                    vmax = float(np.nanmax(finite_vals))
+                else:
+                    vmax = 1.0
+            return mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+
+        return None
+
+    def _build_norm(values, dataset_key):
+        dataset_meta = axes_meta.get(dataset_key, {})
+        norm = _norm_from_meta(dataset_meta, values)
+        if norm is None:
+            norm = _norm_from_meta(axes_meta, values)
+        if norm is None:
+            finite_vals = values[np.isfinite(values)]
+            if finite_vals.size:
+                vmax = float(np.nanmax(finite_vals))
+            else:
+                vmax = 0.0
+            if not np.isfinite(vmax) or vmax <= 0:
+                vmax = 1.0
+            norm = mpl.colors.Normalize(vmin=0.0, vmax=vmax)
+        return norm
+
+    mc_norm = _build_norm(mc_vals, "mc")
+    data_norm = _build_norm(data_vals, "data")
+
+    finite_ratio = ratio_vals[np.isfinite(ratio_vals)]
+    if "zlim" in ratio_meta:
+        ratio_low, ratio_high = ratio_meta["zlim"]
+        span = max(abs(1.0 - ratio_low), abs(ratio_high - 1.0))
+        if not np.isfinite(span) or span <= 0:
+            span = 0.5
+        ratio_vmin = 1.0 - span
+        ratio_vmax = 1.0 + span
+    else:
+        if finite_ratio.size:
+            max_dev = float(np.max(np.abs(finite_ratio - 1.0)))
+        else:
+            max_dev = 0.0
+        half_range = max(max_dev, 0.5)
+        ratio_vmin = 1.0 - half_range
+        ratio_vmax = 1.0 + half_range
+    ratio_norm = mpl.colors.TwoSlopeNorm(vmin=ratio_vmin, vcenter=1.0, vmax=ratio_vmax)
+
+    def _apply_panel_margins(fig):
+        fig.subplots_adjust(left=0.06, right=0.98, top=0.96, bottom=0.08)
+
+    def _make_single_panel(values, norm, title, colorbar_label):
+        fig = plt.figure(figsize=(10, 9))
+        hep.style.use("CMS")
+        ax = fig.add_subplot(111)
+        hep.cms.label(ax=ax, lumi=lumitag, com=comtag, fontsize=20.0)
+        artists = hep.hist2dplot(
+            values,
+            ax=ax,
+            norm=norm,
+            xbins=dense_edges[0],
+            ybins=dense_edges[1],
+        )
+        mesh = getattr(artists, "mesh", None)
+        if mesh is not None:
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.04)
+            cbar = fig.colorbar(mesh, cax=cax, norm=norm)
+            cbar.set_label(colorbar_label, fontsize=18)
+            cbar.ax.tick_params(labelsize=16)
+        ax.set_xlabel(axis_labels[0], fontsize=20)
+        ax.set_ylabel(axis_labels[1], fontsize=20)
+        ax.set_title(
+            f"{channel_name} {title}" if channel_name else title,
+            fontsize=22,
+        )
+        ax.tick_params(axis="both", labelsize=16, width=1.5, length=6)
+        _apply_panel_margins(fig)
+        return fig
+
+    fig = plt.figure(figsize=(20, 12))
+    outer_gs = fig.add_gridspec(
+        2,
+        1,
+        height_ratios=[1, 1],
+        hspace=0.15,
+        left=0.06,
+        right=0.98,
+        top=0.96,
+        bottom=0.08,
+    )
+    top_gs = outer_gs[0].subgridspec(1, 2, wspace=0.12)
+
+    hep.style.use("CMS")
+
+    ax_mc = fig.add_subplot(top_gs[0])
+    ax_data = fig.add_subplot(top_gs[1])
+    ax_ratio = fig.add_subplot(outer_gs[1])
+
+    axes_top = [ax_mc, ax_data]
+
+    hep.cms.label(ax=ax_mc, lumi=lumitag, com=comtag, fontsize=20.0)
+    for ax, plot_hist, title, norm in zip(
+        axes_top,
+        (mc_vals, data_vals),
+        ("MC", "Data"),
+        (mc_norm, data_norm),
+    ):
+        artists = hep.hist2dplot(
+            plot_hist,
+            ax=ax,
+            norm=norm,
+            xbins=dense_edges[0],
+            ybins=dense_edges[1],
+        )
+        mesh = getattr(artists, "mesh", None)
+        if mesh is not None:
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.04)
+            cbar = fig.colorbar(mesh, cax=cax, norm=norm)
+            cbar.set_label(cbar_label, fontsize=18)
+            cbar.ax.tick_params(labelsize=16)
+        ax.set_xlabel(axis_labels[0], fontsize=20)
+        ax.set_ylabel(axis_labels[1], fontsize=20)
+        ax.set_title(
+            f"{channel_name} {title}" if channel_name else title,
+            fontsize=22,
+        )
+        ax.tick_params(axis="both", labelsize=16, width=1.5, length=6)
+    ratio_artists = hep.hist2dplot(
+        ratio_vals,
+        ax=ax_ratio,
+        norm=ratio_norm,
+        xbins=dense_edges[0],
+        ybins=dense_edges[1],
+    )
+    ratio_mesh = getattr(ratio_artists, "mesh", None)
+    if ratio_mesh is not None:
+        divider = make_axes_locatable(ax_ratio)
+        cax = divider.append_axes("right", size="5%", pad=0.04)
+        ratio_cbar = fig.colorbar(ratio_mesh, cax=cax, norm=ratio_norm)
+        ratio_cbar.set_label(ratio_cbar_label, fontsize=18)
+        ratio_cbar.ax.tick_params(labelsize=16)
+    ax_ratio.set_xlabel(axis_labels[0], fontsize=20)
+    ax_ratio.set_ylabel(axis_labels[1], fontsize=20)
+    ax_ratio.set_title(
+        f"{channel_name} Data/MC" if channel_name else "Data/MC",
+        fontsize=22,
+    )
+    ax_ratio.tick_params(axis="both", labelsize=16, width=1.5, length=6)
+    for ax in axes_top:
+        ax.set_ylabel(axis_labels[1], fontsize=20)
+    _apply_panel_margins(fig)
+
+    if not per_panel:
+        return fig
+
+    single_panel_figs = {
+        "combined": fig,
+        "mc": _make_single_panel(mc_vals, mc_norm, "MC", cbar_label),
+        "data": _make_single_panel(data_vals, data_norm, "Data", cbar_label),
+        "ratio": _make_single_panel(ratio_vals, ratio_norm, "Data/MC", ratio_cbar_label),
+    }
+    return single_panel_figs
+
 
 # Takes two histograms and makes a plot (with only one sparse axis, whihc should be "process"), one hist should be mc and one should be data
 def make_cr_fig(h_mc, h_data, unit_norm_bool, axis='process', var='lj0pt', bins=None, group=None, set_x_lim=None, err_p=None, err_m=None, err_ratio_p=None, err_ratio_m=None, lumitag="138", comtag="13"):
@@ -659,6 +920,8 @@ def make_all_sr_sys_plots(dict_of_hists,year,save_dir_path):
     skip_lst = [] # Skip this hist
     for idx, var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
+        if _is_sparse_2d_hist(dict_of_hists[var_name]):
+            continue
         if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
@@ -718,6 +981,8 @@ def make_simple_plots(dict_of_hists,year,save_dir_path):
 
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
+        if _is_sparse_2d_hist(dict_of_hists[var_name]):
+            continue
         #if var_name == "njets": continue
         #if "parton" in var_name: save_tag = "partonFlavour"
         #if "hadron" in var_name: save_tag = "hadronFlavour"
@@ -834,6 +1099,8 @@ def make_all_sr_data_mc_plots(dict_of_hists,year,save_dir_path):
     #keep_lst = ["njets","lj0pt","ptz","nbtagsl","nbtagsm","l0pt","j0pt"] # Skip all but these hists
     for idx,var_name in enumerate(dict_of_hists.keys()):
         if 'sumw2' in var_name: continue
+        if _is_sparse_2d_hist(dict_of_hists[var_name]):
+            continue
         if (var_name in skip_lst): continue
         #if (var_name not in keep_lst): continue
         print("\nVariable:",var_name)
@@ -942,6 +1209,8 @@ def make_all_sr_plots(dict_of_hists,year,unit_norm_bool,save_dir_path,split_by_c
     for idx,var_name in enumerate(dict_of_hists.keys()):
         #if yt.is_split_by_lepflav(dict_of_hists): raise Exception("Not set up to plot lep flav for SR, though could probably do it without too much work")
         if 'sumw2' in var_name: continue
+        if _is_sparse_2d_hist(dict_of_hists[var_name]):
+            continue
         if (var_name in skip_lst): continue
         if (var_name == "njets"):
             continue
@@ -1112,10 +1381,14 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
         if not yt.is_split_by_lepflav(dict_of_hists):
             cr_cat_dict = get_dict_with_stripped_bin_names(cr_cat_dict,"lepflav")
         print("\nVar name:",var_name)
-
+            
         # Extract the MC and data hists
         hist_mc = dict_of_hists[var_name].remove("process", samples_to_rm_from_mc_hist)
         hist_data = dict_of_hists[var_name].remove("process", samples_to_rm_from_data_hist)
+        is_sparse2d = _is_sparse_2d_hist(hist_mc)
+        if is_sparse2d and (var_name not in axes_info_2d) and ("_vs_" not in var_name):
+            print(f"Warning: Histogram '{var_name}' identified as sparse 2D but lacks metadata; falling back to 1D plotting.")
+            is_sparse2d = False
 
         # Loop over the CR categories
         for hist_cat in cr_cat_dict.keys():
@@ -1156,7 +1429,7 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             m_err_arr = None
             p_err_arr_ratio = None
             m_err_arr_ratio = None
-            if not skip_syst_errs:
+            if not (is_sparse2d or skip_syst_errs):
                 # Get plus and minus rate and shape arrs
                 rate_systs_summed_arr_m , rate_systs_summed_arr_p = get_rate_syst_arrs(hist_mc_integrated, CR_GRP_MAP)
                 shape_systs_summed_arr_m , shape_systs_summed_arr_p = get_shape_syst_arrs(hist_mc_integrated)
@@ -1173,17 +1446,27 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
                 m_err_arr_ratio = np.where(nom_arr_all>0,m_err_arr/nom_arr_all,1) # This goes in the ratio plot
 
 
-            # Group the samples by process type, and grab just nominal syst category
-            #hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
-            #hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
-            hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
-            hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
-            if hist_mc_integrated.empty():
-                print(f'Empty {hist_mc_integrated=}')
-                continue
-            if hist_data_integrated.empty():
-                print(f'Empty {hist_data_integrated=}')
-                continue
+            if is_sparse2d:
+                hist_mc_nominal = hist_mc_integrated[{"process": sum}].integrate("systematic", "nominal")
+                hist_data_nominal = hist_data_integrated[{"process": sum}].integrate("systematic", "nominal")
+                if hist_mc_nominal.empty():
+                    print(f'Empty histogram for {hist_cat=} {var_name=}, skipping 2D plot.')
+                    continue
+                if hist_data_nominal.empty():
+                    print(f'Empty data histogram for {hist_cat=} {var_name=}, skipping 2D plot.')
+                    continue
+            else:
+                # Group the samples by process type, and grab just nominal syst category
+                #hist_mc_integrated = group_bins(hist_mc_integrated,CR_GRP_MAP)
+                #hist_data_integrated = group_bins(hist_data_integrated,CR_GRP_MAP)
+                hist_mc_integrated = hist_mc_integrated.integrate("systematic","nominal")
+                hist_data_integrated = hist_data_integrated.integrate("systematic","nominal")
+                if hist_mc_integrated.empty():
+                    print(f'Empty {hist_mc_integrated=}')
+                    continue
+                if hist_data_integrated.empty():
+                    print(f'Empty {hist_data_integrated=}')
+                    continue
 
             # Print out total MC and data and the sf between them
             # For extracting the factors we apply to the flip contribution
@@ -1201,26 +1484,46 @@ def make_all_cr_plots(dict_of_hists,year,skip_syst_errs,unit_norm_bool,save_dir_
             # Create and save the figure
             x_range = None
             if var_name == "ht": x_range = (0,250)
-            group = {k:v for k,v in CR_GRP_MAP.items() if v} # Remove empty groups
-
-            fig = make_cr_fig(
-                hist_mc_integrated,
-                hist_data_integrated,
-                unit_norm_bool,
-                var=var_name,
-                group=group,
-                set_x_lim = x_range,
-                err_p = p_err_arr,
-                err_m = m_err_arr,
-                err_ratio_p = p_err_arr_ratio,
-                err_ratio_m = m_err_arr_ratio,
-                lumitag=LUMI_COM_PAIRS[year][0],
-                comtag=LUMI_COM_PAIRS[year][1]
-            )
-
             title = hist_cat+"_"+var_name
+            if is_sparse2d:
+                fig = make_sparse2d_fig(
+                    hist_mc_nominal,
+                    hist_data_nominal,
+                    var_name,
+                    channel_name=hist_cat,
+                    lumitag=LUMI_COM_PAIRS[year][0],
+                    comtag=LUMI_COM_PAIRS[year][1],
+                    per_panel=True,
+                )
+            else:
+                group = {k:v for k,v in CR_GRP_MAP.items() if v} # Remove empty groups
+
+                fig = make_cr_fig(
+                    hist_mc_integrated,
+                    hist_data_integrated,
+                    unit_norm_bool,
+                    var=var_name,
+                    group=group,
+                    set_x_lim = x_range,
+                    err_p = p_err_arr,
+                    err_m = m_err_arr,
+                    err_ratio_p = p_err_arr_ratio,
+                    err_ratio_m = m_err_arr_ratio,
+                    lumitag=LUMI_COM_PAIRS[year][0],
+                    comtag=LUMI_COM_PAIRS[year][1]
+                )
             if unit_norm_bool: title = title + "_unitnorm"
-            fig.savefig(os.path.join(save_dir_path_tmp,title))
+            if isinstance(fig, dict):
+                combined_fig = fig["combined"]
+                combined_fig.savefig(os.path.join(save_dir_path_tmp,title))
+                suffix_map = {"mc": "_MC", "data": "_data", "ratio": "_ratio"}
+                for key, panel_fig in fig.items():
+                    if key == "combined":
+                        continue
+                    suffix = suffix_map.get(key, f"_{key}")
+                    panel_fig.savefig(os.path.join(save_dir_path_tmp, f"{title}{suffix}"))
+            else:
+                fig.savefig(os.path.join(save_dir_path_tmp,title))
 
             # Make an index.html file if saving to web area
             if "www" in save_dir_path_tmp: make_html(save_dir_path_tmp)

@@ -7,6 +7,7 @@ import json
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.sparseHist import SparseHist
 from coffea import processor
 from coffea.util import load
 from coffea.analysis_tools import PackedSelection
@@ -19,6 +20,7 @@ import topcoffea.modules.object_selection as tc_os
 import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.axes import info as axes_info
+from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps
 import topeft.modules.event_selection as te_es
@@ -67,12 +69,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.fwd_analysis = fwd_analysis
         self.useRun3MVA = useRun3MVA #can be switched to False use the alternative cuts
 
+        self._hist_axis_map = {}
+        self._hist_sumw2_axis_mapping = {}
+        self._hist_requires_eft = {}
+
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
         syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
         appl_axis = hist.axis.StrCategory([], name="appl", label=r"AR/SR", growth=True)
 
         histograms = {}
+        def _build_axis(axis_cfg, *, suffix="", label_suffix=""):
+            axis_name = axis_cfg["name"] + suffix
+            axis_label = axis_cfg["label"] + label_suffix
+            if (not rebin) and ("variable" in axis_cfg):
+                return hist.axis.Variable(axis_cfg["variable"], name=axis_name, label=axis_label)
+            return hist.axis.Regular(*axis_cfg["regular"], name=axis_name, label=axis_label)
         for name, info in axes_info.items():
             if not rebin and "variable" in info:
                 dense_axis = hist.axis.Variable(
@@ -97,6 +109,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 wc_names=wc_names_lst,
                 label=r"Events",
             )
+            self._hist_axis_map[name] = [dense_axis.name]
             histograms[name+"_sumw2"] = HistEFT(
                 proc_axis,
                 chan_axis,
@@ -106,6 +119,50 @@ class AnalysisProcessor(processor.ProcessorABC):
                 wc_names=wc_names_lst,
                 label=r"Events",
             )
+            self._hist_axis_map[name+"_sumw2"] = [sumw2_axis.name]
+            self._hist_sumw2_axis_mapping[name] = {sumw2_axis.name: dense_axis.name}
+            self._hist_requires_eft[name] = True
+            self._hist_requires_eft[name+"_sumw2"] = True
+        for name, axes_cfg in axes_info_2d.items():
+            dense_axes = []
+            axis_names = []
+            for axis_cfg in axes_cfg["axes"]:
+                axis = _build_axis(axis_cfg)
+                dense_axes.append(axis)
+                axis_names.append(axis.name)
+            histograms[name] = SparseHist(
+                proc_axis,
+                chan_axis,
+                syst_axis,
+                appl_axis,
+                *dense_axes,
+                storage="Double",
+            )
+            self._hist_axis_map[name] = axis_names
+            self._hist_requires_eft[name] = False
+            sumw2_axes = []
+            sumw2_axis_names = []
+            sumw2_axis_mapping = {}
+            for axis_cfg, base_axis_name in zip(axes_cfg["axes"], axis_names):
+                sumw2_axis = _build_axis(
+                    axis_cfg,
+                    suffix="_sumw2",
+                    label_suffix=" sum of w^2",
+                )
+                sumw2_axes.append(sumw2_axis)
+                sumw2_axis_names.append(sumw2_axis.name)
+                sumw2_axis_mapping[sumw2_axis.name] = base_axis_name
+            histograms[name+"_sumw2"] = SparseHist(
+                proc_axis,
+                chan_axis,
+                syst_axis,
+                appl_axis,
+                *sumw2_axes,
+                storage="Double",
+            )
+            self._hist_axis_map[name+"_sumw2"] = sumw2_axis_names
+            self._hist_sumw2_axis_mapping[name] = sumw2_axis_mapping
+            self._hist_requires_eft[name+"_sumw2"] = False
         self._accumulator = histograms
 
         # Set the list of hists to fill
@@ -443,7 +500,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Loop over the list of systematic variations we've constructed
         met_raw=met
-
+        
         for syst_var in syst_var_list:
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
@@ -935,13 +992,16 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Counts
             counts = np.ones_like(events['event'])
             is_l0_electron = (abs(l0.pdgId)==11)
-            seed_etaorx = l0[is_l0_electron].seediEtaOriX
-            seed_phiory = l0[is_l0_electron].seediPhiOriY
+            is_l1_electron = (abs(l1.pdgId)==11)
+            #l0_seed_etaorx = l0[is_l0_electron].seediEtaOriX
+            #l0_seed_phiory = l0[is_l0_electron].seediPhiOriY
+            #l1_seed_etaorx = l1[is_l1_electron].seediEtaOriX
+            #l1_seed_phiory = l1[is_l1_electron].seediPhiOriY
 
-            # print("\n\n\n\n\n\n\n")
-            # print("seed_etaorx:",ak.to_list(seed_etaorx))
-            # print("seed_phiory:",ak.to_list(seed_phiory))
-            # print("\n\n\n\n\n\n\n")
+            l0_seed_etaorx = l0.seediEtaOriX
+            l0_seed_phiory = l0.seediPhiOriY
+            l1_seed_etaorx = l1.seediEtaOriX
+            l1_seed_phiory = l1.seediPhiOriY
 
             # Variables we will loop over when filling hists
             varnames = {}
@@ -970,8 +1030,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lt"]      = lt
             varnames["npvs"]    = pv.npvs
             varnames["npvsGood"]= pv.npvsGood
-            #varnames["eleseedetax"] = seed_etaorx
-            #varnames["eleseedphiy"] = seed_phiory
+            lepton0_pt_raw = l0.pt_raw 
+            lepton0_abseta = abs(l0.eta) 
 
             if not isData:
                 l0_gen_pdgId = ak.fill_none(l0["gen_pdgId"], -1)
@@ -1048,7 +1108,27 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["b0m_genpFlav"] = b0m_genpFlav
             varnames["b1m_genhFlav"] = b1m_genhFlav
             varnames["b1m_genpFlav"] = b1m_genpFlav
-                
+            varnames["lepton_pt_vs_eta"] = {
+                "lepton_pt_vs_eta_pt": lepton0_pt_raw,
+                "lepton_pt_vs_eta_abseta": lepton0_abseta,
+            }
+            varnames["l0_SeedEtaOrX_vs_SeedPhiOrY"] = {
+                "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l0_seed_etaorx,
+                "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l0_seed_phiory,
+            }
+            varnames["l0_eta_vs_phi"] = {
+                "l0_eta_vs_phi_eta": l0.eta,
+                "l0_eta_vs_phi_phi": l0.phi,
+            }
+            varnames["l1_SeedEtaOrX_vs_SeedPhiOrY"] = {
+                "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l1_seed_etaorx,
+                "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l1_seed_phiory,
+            }
+            varnames["l1_eta_vs_phi"] = {
+                "l1_eta_vs_phi_eta": l1.eta,
+                "l1_eta_vs_phi_phi": l1.phi,
+            }
+
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
@@ -1120,7 +1200,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over the hists we want to fill
             for dense_axis_name, dense_axis_vals in varnames.items():
-                if dense_axis_name not in self._hist_lst:
+                fill_base_hist = dense_axis_name in self._hist_lst
+                fill_sumw2_hist = (dense_axis_name+"_sumw2") in self._hist_lst
+                if not (fill_base_hist or fill_sumw2_hist):
                     continue
 
                 # Set up the list of syst wgt variations to loop over
@@ -1139,12 +1221,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                         wgt_var_lst = wgt_var_lst + data_syst_lst
 
                 # Loop over the systematics
+
                 for wgt_fluct in wgt_var_lst:
                     # Loop over nlep categories "2l", "3l", "4l"
                     for nlep_cat in cat_dict.keys():
                         # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                         # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                         weights_object = weights_dict[nlep_cat]
+
                         if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                             # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
                             weight = weights_object.weight(None)
@@ -1214,46 +1298,99 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
-                                        values_cut = dense_axis_vals[all_cuts_mask]
+                                        axis_names = self._hist_axis_map.get(
+                                            dense_axis_name,
+                                            [dense_axis_name],
+                                        )
+                                        sumw2_axis_names = self._hist_axis_map.get(
+                                            dense_axis_name+"_sumw2",
+                                            [dense_axis_name+"_sumw2"],
+                                        )
+                                        sumw2_axis_mapping = self._hist_sumw2_axis_mapping.get(
+                                            dense_axis_name,
+                                            {
+                                                sumw2_axis_names[0]: axis_names[0]
+                                            }
+                                            if (sumw2_axis_names and axis_names)
+                                            else {},
+                                        )
+
+                                        base_values_cut = None
+                                        if isinstance(dense_axis_vals, dict):
+                                            values_cut_map = {
+                                                axis_name: dense_axis_vals[axis_name][all_cuts_mask]
+                                                for axis_name in axis_names
+                                                if axis_name in dense_axis_vals
+                                            }
+                                        else:
+                                            base_values_cut = dense_axis_vals[all_cuts_mask]
+                                            base_axis_name = axis_names[0] if axis_names else dense_axis_name
+                                            values_cut_map = {
+                                                base_axis_name: base_values_cut
+                                            }
+
+                                        sumw2_values_cut_map = {}
+                                        for sumw2_axis_name, base_axis_name in sumw2_axis_mapping.items():
+                                            base_values = values_cut_map.get(base_axis_name)
+                                            if (base_values is None) and (base_values_cut is not None):
+                                                base_values = base_values_cut
+                                            if base_values is not None:
+                                                sumw2_values_cut_map[sumw2_axis_name] = base_values
 
                                         # Fill the histos
-                                        axes_fill_info_dict = {
-                                            dense_axis_name : values_cut,
-                                            "channel"       : ch_name,
-                                            "appl"          : appl,
-                                            "process"       : histAxisName,
-                                            "systematic"    : wgt_fluct,
-                                            "weight"        : weights_flat,
-                                            "eft_coeff"     : eft_coeffs_cut,
-                                        }
-
-                                        # Skip histos that are not defined (or not relevant) to given categories
-                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
-                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
+                                        skip_hist = False
+                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): skip_hist = True
+                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): skip_hist = True
                                         if self.offZ_3l_split:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):
+                                                skip_hist = True
                                         elif self.tau_h_analysis:
-                                            if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
-                                            if (("ptz" in dense_axis_name) and ("2lss" not in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
-                                            if (("ptz_wtau" in dense_axis_name) and ("1tau" not in lep_chan)): continue
+                                            if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)):
+                                                skip_hist = True
+                                            if (("ptz" in dense_axis_name) and ("2lss" not in lep_chan) and ("ptz_wtau" not in dense_axis_name)):
+                                                skip_hist = True
+                                            if (("ptz_wtau" in dense_axis_name) and ("1tau" not in lep_chan)):
+                                                skip_hist = True
                                         elif self.fwd_analysis:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                            if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
+                                                skip_hist = True
+                                            if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)):
+                                                skip_hist = True
                                         else:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                        if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
+                                                skip_hist = True
+                                        if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)):
+                                            skip_hist = True
 
-                                        hout[dense_axis_name].fill(**axes_fill_info_dict)
-                                        axes_fill_info_dict = {
-                                            dense_axis_name+"_sumw2" : values_cut,
-                                            "channel"       : ch_name,
-                                            "appl"          : appl,
-                                            "process"       : histAxisName,
-                                            "systematic"    : wgt_fluct,
-                                            "weight"        : np.square(weights_flat),
-                                            "eft_coeff"     : eft_coeffs_cut,
-                                        }
-                                        hout[dense_axis_name+"_sumw2"].fill(**axes_fill_info_dict)
+                                        if skip_hist:
+                                            continue
+
+                                        if fill_base_hist:
+                                            axes_fill_info_dict = {
+                                                **values_cut_map,
+                                                "channel"    : ch_name,
+                                                "appl"       : appl,
+                                                "process"    : histAxisName,
+                                                "systematic": wgt_fluct,
+                                                "weight"     : weights_flat,
+                                            }
+                                            if self._hist_requires_eft.get(dense_axis_name, False):
+                                                axes_fill_info_dict["eft_coeff"] = eft_coeffs_cut
+
+                                            hout[dense_axis_name].fill(**axes_fill_info_dict)
+
+                                        if fill_sumw2_hist:
+                                            sumw2_fill_info = {
+                                                **sumw2_values_cut_map,
+                                                "channel"    : ch_name,
+                                                "appl"       : appl,
+                                                "process"    : histAxisName,
+                                                "systematic": wgt_fluct,
+                                                "weight"     : np.square(weights_flat),
+                                            }
+                                            if self._hist_requires_eft.get(dense_axis_name+"_sumw2", False):
+                                                sumw2_fill_info["eft_coeff"] = eft_coeffs_cut
+                                            hout[dense_axis_name+"_sumw2"].fill(**sumw2_fill_info)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
@@ -1261,6 +1398,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                             # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
                             if dense_axis_name == "njets":
                                 break
+        
         return hout
 
     def postprocess(self, accumulator):
