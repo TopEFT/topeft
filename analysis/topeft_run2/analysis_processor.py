@@ -911,6 +911,15 @@ class AnalysisProcessor(processor.ProcessorABC):
         if isData and nlep_cat.startswith("2l") and ("os" not in self.channel):
             weights_object.add("fliprate", events.flipfactor_2l)
 
+            central_modifiers = getattr(weights_object, "weight_modifiers", None)
+            if central_modifiers is None:
+                central_modifiers = getattr(weights_object, "_names", None)
+
+            if central_modifiers is None or "fliprate" not in set(central_modifiers):
+                raise AssertionError(
+                    "The 2l same-sign data branch must register the central 'fliprate' weight."
+                )
+
         # MC-only scale factors
         if not isData:
             if nlep_cat.startswith("1l"):
@@ -938,11 +947,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 raise Exception(f"Unknown channel name: {nlep_cat}")
 
         # Ensure that for data we only have the expected systematic
-        # variations in the Weights object
+        # variations in the Weights object.  This whitelist is limited to
+        # genuine data-weight systematics; the 2l same-sign flip-rate
+        # normalisation is validated independently above.
         if self._do_systematics and isData:
             expected_vars = set(data_weight_systematics_set)
-            if nlep_cat.startswith("2l") and ("os" not in self.channel):
-                expected_vars.add("fliprate")
 
             variation_set = set(weights_object.variations)
             unexpected_variations = variation_set - expected_vars
