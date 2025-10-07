@@ -93,13 +93,16 @@ def _build_fake_factor_specs(channel_prefix, year):
 def _add_fake_factor_weights(
     weights_object,
     events,
-    nlep_cat,
+    channel_prefix,
     year,
     requested_data_weight_label=None,
 ):
     """Register fake-factor weights for the requested lepton category."""
 
-    channel_prefix = nlep_cat[:2]
+    # Preserve compatibility with callers that still pass the full channel name (e.g. "2lss")
+    # by only using the leading lepton-multiplicity prefix when building attribute names.
+    channel_prefix = channel_prefix[:2]
+
     fake_factor_specs = _build_fake_factor_specs(channel_prefix, year)
 
     requested_variations = None
@@ -683,6 +686,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         # which set of weights to apply when attaching lepton scale factors
         # below.
         nlep_cat = re.match(r"\d+l", self.channel).group(0)
+        channel_prefix = nlep_cat[:2]
 
         if not isData:
             # Begin consolidated MC-only weight registration.
@@ -946,7 +950,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 )
 
             # Lepton (and optional tau) scale factors depend on the lepton category.
-            if nlep_cat.startswith("1l"):
+            if channel_prefix == "1l":
                 weights_object.add(
                     "lepSF_muon",
                     events.sf_1l_muon,
@@ -972,7 +976,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         copy.deepcopy(events.sf_2l_taus_fake_hi),
                         copy.deepcopy(events.sf_2l_taus_fake_lo),
                     )
-            elif nlep_cat.startswith("2l"):
+            elif channel_prefix == "2l":
                 weights_object.add(
                     "lepSF_muon",
                     events.sf_2l_muon,
@@ -998,7 +1002,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         copy.deepcopy(events.sf_2l_taus_fake_hi),
                         copy.deepcopy(events.sf_2l_taus_fake_lo),
                     )
-            elif nlep_cat.startswith("3l"):
+            elif channel_prefix == "3l":
                 weights_object.add(
                     "lepSF_muon",
                     events.sf_3l_muon,
@@ -1024,7 +1028,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         copy.deepcopy(events.sf_2l_taus_fake_hi),
                         copy.deepcopy(events.sf_2l_taus_fake_lo),
                     )
-            elif nlep_cat.startswith("4l"):
+            elif channel_prefix == "4l":
                 weights_object.add(
                     "lepSF_muon",
                     events.sf_4l_muon,
@@ -1045,12 +1049,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Attach the lepton-category specific pieces on top of the
         # previously registered central and kinematic weights.
 
-        channel_prefix = nlep_cat[:2]
         if channel_prefix in {"1l", "2l", "3l"}:
             _add_fake_factor_weights(
                 weights_object,
                 events,
-                nlep_cat,
+                channel_prefix,
                 year,
                 requested_data_weight_label,
             )
@@ -1064,7 +1067,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             )
 
         # Additional data-only weights
-        if isData and nlep_cat.startswith("2l") and ("os" not in self.channel):
+        if isData and channel_prefix == "2l" and ("os" not in self.channel):
             weights_object.add("fliprate", events.flipfactor_2l)
 
             central_modifiers = getattr(weights_object, "weight_modifiers", None)
