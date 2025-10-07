@@ -500,7 +500,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Loop over the list of systematic variations we've constructed
         met_raw=met
-
+        
         for syst_var in syst_var_list:
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
@@ -1205,8 +1205,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 if not (fill_base_hist or fill_sumw2_hist):
                     continue
 
-                #print("\n\n\n\nFilling hist for dense axis:", dense_axis_name)
-
                 # Set up the list of syst wgt variations to loop over
                 wgt_var_lst = ["nominal"]
                 if self._do_systematics:
@@ -1223,12 +1221,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                         wgt_var_lst = wgt_var_lst + data_syst_lst
 
                 # Loop over the systematics
+
                 for wgt_fluct in wgt_var_lst:
                     # Loop over nlep categories "2l", "3l", "4l"
                     for nlep_cat in cat_dict.keys():
                         # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                         # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                         weights_object = weights_dict[nlep_cat]
+
                         if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                             # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
                             weight = weights_object.weight(None)
@@ -1399,7 +1399,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                             if dense_axis_name == "njets":
                                 break
         
-        #print("Finished looping over events, hout.keys():", hout.keys())
         return hout
 
     def postprocess(self, accumulator):
