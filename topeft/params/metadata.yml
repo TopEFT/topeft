@@ -82,12 +82,12 @@ channel_applications:
   # 4l:
   # - isSR_4l
 systematics:
-  nominal:
-    type: nominal
-    applies_to:
-      - all
-    variations:
-      - value: nominal
+  # nominal:
+  #   type: nominal
+  #   applies_to:
+  #     - all
+  #   variations:
+  #     - value: nominal
   # jer:
   #   type: object
   #   applies_to:

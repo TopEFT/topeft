@@ -505,6 +505,33 @@ class AnalysisProcessor(processor.ProcessorABC):
         data_weight_systematics = tuple(self._available_systematics.get("data_weight", ()))
         data_weight_systematics_set = set(data_weight_systematics)
 
+        # Ensure that for data we only have the expected systematic
+        # variations in the Weights object.  This whitelist is limited to
+        # genuine data-weight systematics; the 2l same-sign flip-rate
+        # normalisation is validated independently above.
+        if self._do_systematics and isData:
+            expected_vars = set(data_weight_systematics_set)
+
+            variation_set = set(weights_object.variations)
+            unexpected_variations = variation_set - expected_vars
+            if unexpected_variations:
+                raise Exception(
+                    "Error: Unexpected wgt variations for data! "
+                    f"Unexpected variations: {sorted(unexpected_variations)}"
+                )
+
+            if variation_type == "data_weight" and requested_data_weight_label:
+                required_variations = {
+                    f"{requested_data_weight_label}Up",
+                    f"{requested_data_weight_label}Down",
+                }
+                missing_variations = required_variations - variation_set
+                if missing_variations:
+                    raise Exception(
+                        "Error: Missing expected fake-factor variations for data! "
+                        f"Requested '{current_variation_name}' but did not find {sorted(missing_variations)}"
+                    )
+
         # These weights can go outside of the outside sys loop since they do not depend on pt of mu or jets
         # We only calculate these values if not isData
         # Note: add() will generally modify up/down weights, so if these are needed for any reason after this point, we should instead pass copies to add()
@@ -945,33 +972,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_object.add("lepSF_elec", events.sf_4l_elec, copy.deepcopy(events.sf_4l_hi_elec), copy.deepcopy(events.sf_4l_lo_elec))
             else:
                 raise Exception(f"Unknown channel name: {nlep_cat}")
-
-        # Ensure that for data we only have the expected systematic
-        # variations in the Weights object.  This whitelist is limited to
-        # genuine data-weight systematics; the 2l same-sign flip-rate
-        # normalisation is validated independently above.
-        if self._do_systematics and isData:
-            expected_vars = set(data_weight_systematics_set)
-
-            variation_set = set(weights_object.variations)
-            unexpected_variations = variation_set - expected_vars
-            if unexpected_variations:
-                raise Exception(
-                    "Error: Unexpected wgt variations for data! "
-                    f"Unexpected variations: {sorted(unexpected_variations)}"
-                )
-
-            if variation_type == "data_weight" and requested_data_weight_label:
-                required_variations = {
-                    f"{requested_data_weight_label}Up",
-                    f"{requested_data_weight_label}Down",
-                }
-                missing_variations = required_variations - variation_set
-                if missing_variations:
-                    raise Exception(
-                        "Error: Missing expected fake-factor variations for data! "
-                        f"Requested '{current_variation_name}' but did not find {sorted(missing_variations)}"
-                    )
 
 
         ######### Masks we need for the selection ##########
