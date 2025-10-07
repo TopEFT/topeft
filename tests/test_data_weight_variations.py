@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 from coffea.analysis_tools import Weights
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -89,3 +90,72 @@ def test_same_sign_data_weights_include_fliprate_and_requested_variations():
     assert "fliprate" in set(central_modifiers)
 
     assert set(weights.variations) == {"FFUp", "FFDown"}
+
+
+def test_data_weight_whitelist_accepts_requested_fake_factor_variation():
+    analysis_module = _load_analysis_processor_with_correction_stubs()
+
+    weights = Weights(2)
+    events = types.SimpleNamespace(
+        fakefactor_2l=np.full(2, 0.95),
+        fakefactor_2l_up=np.full(2, 1.05),
+        fakefactor_2l_down=np.full(2, 0.85),
+        nom=np.ones(2),
+        fakefactor_2l_pt1=np.full(2, 1.0),
+        fakefactor_2l_pt2=np.full(2, 1.0),
+        fakefactor_2l_be1=np.full(2, 1.0),
+        fakefactor_2l_be2=np.full(2, 1.0),
+        fakefactor_2l_elclosureup=np.full(2, 1.0),
+        fakefactor_2l_elclosuredown=np.full(2, 1.0),
+        fakefactor_2l_muclosureup=np.full(2, 1.0),
+        fakefactor_2l_muclosuredown=np.full(2, 1.0),
+    )
+
+    analysis_module._add_fake_factor_weights(
+        weights,
+        events,
+        "2lss",
+        "UL18",
+        requested_data_weight_label="FF",
+    )
+
+    analysis_module._validate_data_weight_variations(
+        weights,
+        {"FFUp", "FFDown", "FFptUp", "FFptDown"},
+        "FF",
+        "FFUp",
+    )
+
+
+def test_data_weight_whitelist_rejects_missing_requested_variations():
+    analysis_module = _load_analysis_processor_with_correction_stubs()
+
+    weights = Weights(1)
+    weights.add("FF", np.ones(1))
+
+    with pytest.raises(Exception) as excinfo:
+        analysis_module._validate_data_weight_variations(
+            weights,
+            {"FFUp", "FFDown"},
+            "FF",
+            "FFUp",
+        )
+
+    assert "Missing expected fake-factor variations" in str(excinfo.value)
+
+
+def test_data_weight_whitelist_rejects_unexpected_variations():
+    analysis_module = _load_analysis_processor_with_correction_stubs()
+
+    weights = Weights(1)
+    weights.add("Bad", np.ones(1), np.ones(1), np.ones(1))
+
+    with pytest.raises(Exception) as excinfo:
+        analysis_module._validate_data_weight_variations(
+            weights,
+            {"FFUp", "FFDown"},
+            "FF",
+            "FFUp",
+        )
+
+    assert "Unexpected wgt variations" in str(excinfo.value)
