@@ -99,6 +99,10 @@ def _add_fake_factor_weights(
 ):
     """Register fake-factor weights for the requested lepton category."""
 
+    # Preserve compatibility with callers that still pass the full channel name (e.g. "2lss")
+    # by only using the leading lepton-multiplicity prefix when building attribute names.
+    channel_prefix = channel_prefix[:2]
+
     fake_factor_specs = _build_fake_factor_specs(channel_prefix, year)
 
     requested_variations = None
