@@ -705,7 +705,7 @@ if __name__ == "__main__":
                         multiple_variations = len(variations) > 1
                         for variation in variations:
                             if multiple_variations:
-                                syst_label = (group_descriptor.name, variation.name)
+                                syst_label = f"{group_descriptor.name}__{variation.name}"
                             else:
                                 syst_label = variation.name
                             hist_keys[variation.name] = (
