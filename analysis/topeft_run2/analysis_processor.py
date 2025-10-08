@@ -592,6 +592,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             variation_base = variation.base if variation is not None else None
             variation_type = getattr(variation, "type", None) if variation is not None else None
 
+            print("\n\n\n\n")
+            print("\n\n\n\n")
+            print(f"Processing variation '{variation_name}' (type: {variation_type}, base: {variation_base})")
+
             object_variation = "nominal"
             weight_variations_to_run = []
             requested_data_weight_label = None
@@ -623,6 +627,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                 group_mapping = variation.group or {}
                 group_key = (variation.base, variation.component, variation.year)
                 group_info = group_mapping.get(group_key, {})
+                print("\n\n\n\n")
+                print("group_mapping:", group_mapping, "\ngroup_key:", group_key, "\ngroup_info:", group_info)
+                print("\n\n\n\n") 
                 if not group_info and variation.metadata.get("sum_of_weights"):
                     group_info = {
                         variation.name: {
