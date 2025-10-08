@@ -123,6 +123,53 @@ def main():
         else:
             sf = float(0)  # or 0, or raise an error
         scale_factors.append(sf)
+
+    # Calculate bin centers for plotting and fitting
+    bin_centers = [(bins[i] + bins[i + 1]) / 2 for i in range(len(bins) - 1)]
+
+    # Perform a linear fit of the scale factors vs. bin centers
+    if bin_centers:
+        coeffs = np.polyfit(bin_centers, scale_factors, deg=1)
+        slope, intercept = coeffs
+        fitted_values = np.polyval(coeffs, bin_centers)
+        print(f"Linear fit coefficients: slope = {slope:.6f}, intercept = {intercept:.6f}")
+
+        fit_coefficients = {"slope": float(slope), "intercept": float(intercept)}
+        fit_coeff_path = f"diboson_sf_{args.year}_linear_fit.json"
+        with open(fit_coeff_path, "w") as f:
+            json.dump(fit_coefficients, f, indent=2)
+        print(f"Saved linear fit coefficients to {fit_coeff_path}")
+    else:
+        coeffs = None
+        fitted_values = []
+
+    # Plot the scale factors and the fitted line if matplotlib is available
+    try:
+        import matplotlib.pyplot as plt  # Guarded import to keep unpickling working
+    except ImportError:
+        plt = None
+
+    if plt is not None and coeffs is not None:
+        fig, ax = plt.subplots()
+        ax.errorbar(
+            bin_centers,
+            scale_factors,
+            yerr=np.zeros_like(scale_factors, dtype=float),
+            fmt="o",
+            label="Scale factors",
+        )
+        ax.plot(bin_centers, fitted_values, label="Linear fit", linestyle="-", marker="")
+        ax.set_xlabel("N_{jets} bin center")
+        ax.set_ylabel("Scale factor")
+        ax.set_title(f"Diboson scale factors ({args.year}, {args.channel})")
+        ax.legend()
+        plot_path = f"diboson_sf_{args.year}.png"
+        fig.savefig(plot_path, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+        print(f"Saved scale factor plot to {plot_path}")
+    elif plt is None:
+        print("matplotlib not available; skipping plot generation.")
+
     make_diboson_sf_json(bins, scale_factors, year=args.year)
 
     # Output
