@@ -1414,7 +1414,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             lep_chan = self._channel_dict["chan_def_lst"][0]
             jet_req = self._channel_dict["jet_selection"]
-            lep_flav_iter = self._channel_dict["lep_flav_lst"] # if self._split_by_lepton_flavor else [None]
+            lep_flav_iter = self._channel_dict["lep_flav_lst"] if self._split_by_lepton_flavor else [None]
 
             # print("\n\n\n\n\n")
             # print("lep_chan:", lep_chan)
