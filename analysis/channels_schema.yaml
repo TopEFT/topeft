@@ -1,0 +1,665 @@
+# Draft YAML schema describing channel groups, regions, and scenarios.
+channels:
+  TOP22_006_CH_LST_SR:
+    description: >-
+      Baseline Run 2 ttH multilepton signal regions used in the TOP-22-006
+      reinterpretation. Regions are organised by lepton multiplicity with jet
+      binning and application tags derived from topeft/channels/ch_lst.json.
+    regions:
+      - lepton_category: "2l"
+        lepton_flavors:
+          - ee
+          - em
+          - mm
+        region_definitions:
+          - name: "2lss_p"
+            channel: "2lss"
+            subchannel: "2l_p"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atmost2m"
+          - name: "2lss_m"
+            channel: "2lss"
+            subchannel: "2l_m"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atmost2m"
+          - name: "2lss_4t_p"
+            channel: "2lss"
+            subchannel: "2l_p"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atleast3m"
+          - name: "2lss_4t_m"
+            channel: "2lss"
+            subchannel: "2l_m"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atleast3m"
+        jet_bins:
+          - "=4"
+          - "=5"
+          - "=6"
+          - ">7"
+        application_tags:
+          mc:
+            - "isSR_2lSS"
+            - "isAR_2lSS"
+          data:
+            - "isAR_2lSS_OS"
+      - lepton_category: "3l"
+        lepton_flavors:
+          - eee
+          - eem
+          - emm
+          - mmm
+        region_definitions:
+          - name: "3l_onZ_1b"
+            channel: "3l"
+            subchannel: "3l_onZ"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_onZ_2b"
+            channel: "3l"
+            subchannel: "3l_onZ"
+            tags:
+              - "bmask_atleast2m"
+          - name: "3l_m_offZ_1b"
+            channel: "3l_m"
+            subchannel: "3l_offZ"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_m_offZ_2b"
+            channel: "3l_m"
+            subchannel: "3l_offZ"
+            tags:
+              - "bmask_atleast2m"
+          - name: "3l_p_offZ_1b"
+            channel: "3l_p"
+            subchannel: "3l_offZ"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_p_offZ_2b"
+            channel: "3l_p"
+            subchannel: "3l_offZ"
+            tags:
+              - "bmask_atleast2m"
+        jet_bins:
+          - "=2"
+          - "=3"
+          - "=4"
+          - ">5"
+        application_tags:
+          mc:
+            - "isSR_3l"
+            - "isAR_3l"
+      - lepton_category: "4l"
+        lepton_flavors:
+          - llll
+        region_definitions:
+          - name: "4l"
+            channel: "4l"
+            tags:
+              - "bmask_atleast1m2l"
+        jet_bins:
+          - "=2"
+          - "=3"
+          - ">4"
+        application_tags:
+          mc:
+            - "isSR_4l"
+  TAU_CH_LST_SR:
+    description: >-
+      Signal regions enhanced with hadronic tau selections. Extends the baseline
+      categories with dedicated tau-enriched bins.
+    regions:
+      - lepton_category: "2lss"
+        region_definitions:
+          - name: "2lss_p"
+            channel: "2lss"
+            subchannel: "2l_p"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atmost2m"
+          - name: "2lss_m"
+            channel: "2lss"
+            subchannel: "2l_m"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atmost2m"
+          - name: "2lss_4t_p"
+            channel: "2lss"
+            subchannel: "2l_p"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atleast3m"
+          - name: "2lss_4t_m"
+            channel: "2lss"
+            subchannel: "2l_m"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atleast3m"
+        jet_bins:
+          - "=4"
+          - "=5"
+          - "=6"
+          - ">7"
+        application_tags:
+          mc:
+            - "isSR_2lSS"
+            - "isAR_2lSS"
+          data:
+            - "isAR_2lSS_OS"
+      - lepton_category: "2lss_1tau"
+        region_definitions:
+          - name: "2lss_m_1tau_onZ"
+            channel: "2lss"
+            subchannel: "2l_m"
+            tags:
+              - "bmask_atleast1m2l"
+              - "1tau"
+              - "onZ_tau"
+          - name: "2lss_p_1tau_offZ"
+            channel: "2lss"
+            subchannel: "2l_p"
+            tags:
+              - "bmask_atleast1m2l"
+              - "1tau"
+              - "offZ_tau"
+          - name: "2lss_m_1tau_offZ"
+            channel: "2lss"
+            subchannel: "2l_m"
+            tags:
+              - "bmask_atleast1m2l"
+              - "1tau"
+              - "offZ_tau"
+          - name: "2lss_p_1tau_onZ"
+            channel: "2lss"
+            subchannel: "2l_p"
+            tags:
+              - "bmask_atleast1m2l"
+              - "1tau"
+              - "onZ_tau"
+        jet_bins:
+          - "=3"
+          - "=4"
+          - "=5"
+          - ">6"
+        application_tags:
+          mc:
+            - "isSR_2lSS"
+            - "isAR_2lSS"
+          data:
+            - "isAR_2lSS_OS"
+      - lepton_category: "2los_1tau"
+        region_definitions:
+          - name: "2los_onZ_1tau"
+            channel: "2los"
+            tags:
+              - "bmask_atleast2m"
+              - "1tau"
+              - "2l_onZ"
+        jet_bins:
+          - ">5"
+        application_tags:
+          mc:
+            - "isSR_2lOS"
+            - "isAR_2lOS"
+      - lepton_category: "3l"
+        lepton_flavors:
+          - eee
+          - eem
+          - emm
+          - mmm
+        region_definitions:
+          - name: "3l_onZ_1b"
+            channel: "3l"
+            subchannel: "3l_onZ"
+            tags:
+              - "bmask_exactly1m"
+              - "0tau"
+          - name: "3l_onZ_2b"
+            channel: "3l"
+            subchannel: "3l_onZ"
+            tags:
+              - "bmask_atleast2m"
+              - "0tau"
+          - name: "3l_m_offZ_1b"
+            channel: "3l_m"
+            subchannel: "3l_offZ"
+            tags:
+              - "bmask_exactly1m"
+              - "0tau"
+          - name: "3l_m_offZ_2b"
+            channel: "3l_m"
+            subchannel: "3l_offZ"
+            tags:
+              - "bmask_atleast2m"
+              - "0tau"
+          - name: "3l_p_offZ_1b"
+            channel: "3l_p"
+            subchannel: "3l_offZ"
+            tags:
+              - "bmask_exactly1m"
+              - "0tau"
+          - name: "3l_p_offZ_2b"
+            channel: "3l_p"
+            subchannel: "3l_offZ"
+            tags:
+              - "bmask_atleast2m"
+              - "0tau"
+          - name: "3l_1tau_1b"
+            tags:
+              - "bmask_exactly1m"
+              - "1tau"
+          - name: "3l_1tau_2b"
+            tags:
+              - "bmask_atleast2m"
+              - "1tau"
+        jet_bins:
+          - "=2"
+          - "=3"
+          - "=4"
+          - ">5"
+        application_tags:
+          mc:
+            - "isSR_3l"
+            - "isAR_3l"
+      - lepton_category: "4l"
+        lepton_flavors:
+          - llll
+        region_definitions:
+          - name: "4l"
+            channel: "4l"
+        jet_bins:
+          - "=2"
+          - "=3"
+          - ">4"
+        application_tags:
+          mc:
+            - "isSR_4l"
+  TAU_CH_LST_CR:
+    description: >-
+      Control regions supporting the tau-enhanced analysis.
+    regions:
+      - lepton_category: "2los_1tau"
+        region_definitions:
+          - name: "2los_1tau_Ftau"
+            channel: "2los"
+            subchannel: "2l_nozeeveto"
+            tags:
+              - "bmask_atleast1m2l"
+              - "1Ftau"
+          - name: "2los_1tau_Ttau"
+            channel: "2los"
+            subchannel: "2l_nozeeveto"
+            tags:
+              - "bmask_atleast1m2l"
+              - "1tau"
+        jet_bins:
+          - "=2"
+          - "=3"
+          - "=4"
+        application_tags:
+          mc:
+            - "isSR_2lOS"
+      - lepton_category: "1l_1tau_CR"
+        region_definitions:
+          - name: "1l_1tau_CR"
+            channel: "1l"
+            tags:
+              - "bmask_atleast2m"
+              - "1tau"
+        jet_bins:
+          - "=2"
+          - "=3"
+          - "=4"
+        application_tags:
+          mc:
+            - "isSR_1l"
+  OFFZ_SPLIT_CH_LST_SR:
+    description: >-
+      Alternative signal-region grouping with finer off-Z splitting for the
+      trilepton channel.
+    regions:
+      - lepton_category: "2l"
+        region_definitions:
+          - name: "2lss_p"
+            channel: "2lss"
+            subchannel: "2l_p"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atmost2m"
+          - name: "2lss_m"
+            channel: "2lss"
+            subchannel: "2l_m"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atmost2m"
+          - name: "2lss_4t_p"
+            channel: "2lss"
+            subchannel: "2l_p"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atleast3m"
+          - name: "2lss_4t_m"
+            channel: "2lss"
+            subchannel: "2l_m"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atleast3m"
+        jet_bins:
+          - "=4"
+          - "=5"
+          - "=6"
+          - ">7"
+        application_tags:
+          mc:
+            - "isSR_2lSS"
+            - "isAR_2lSS"
+          data:
+            - "isAR_2lSS_OS"
+      - lepton_category: "3l"
+        lepton_flavors:
+          - eee
+          - eem
+          - emm
+          - mmm
+        region_definitions:
+          - name: "3l_onZ_1b"
+            channel: "3l"
+            subchannel: "3l_onZ"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_onZ_2b"
+            channel: "3l"
+            subchannel: "3l_onZ"
+            tags:
+              - "bmask_atleast2m"
+          - name: "3l_m_offZ_low_1b"
+            channel: "3l_m"
+            subchannel: "3l_offZ_low"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_m_offZ_high_1b"
+            channel: "3l_m"
+            subchannel: "3l_offZ_high"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_m_offZ_none_1b"
+            channel: "3l_m"
+            subchannel: "3l_offZ_none"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_m_offZ_low_2b"
+            channel: "3l_m"
+            subchannel: "3l_offZ_low"
+            tags:
+              - "bmask_atleast2m"
+          - name: "3l_m_offZ_high_2b"
+            channel: "3l_m"
+            subchannel: "3l_offZ_high"
+            tags:
+              - "bmask_atleast2m"
+          - name: "3l_m_offZ_none_2b"
+            channel: "3l_m"
+            subchannel: "3l_offZ_none"
+            tags:
+              - "bmask_atleast2m"
+          - name: "3l_p_offZ_low_1b"
+            channel: "3l_p"
+            subchannel: "3l_offZ_low"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_p_offZ_high_1b"
+            channel: "3l_p"
+            subchannel: "3l_offZ_high"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_p_offZ_none_1b"
+            channel: "3l_p"
+            subchannel: "3l_offZ_none"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_p_offZ_low_2b"
+            channel: "3l_p"
+            subchannel: "3l_offZ_low"
+            tags:
+              - "bmask_atleast2m"
+          - name: "3l_p_offZ_high_2b"
+            channel: "3l_p"
+            subchannel: "3l_offZ_high"
+            tags:
+              - "bmask_atleast2m"
+          - name: "3l_p_offZ_none_2b"
+            channel: "3l_p"
+            subchannel: "3l_offZ_none"
+            tags:
+              - "bmask_atleast2m"
+        jet_bins:
+          - "=2"
+          - "=3"
+          - "=4"
+          - ">5"
+        application_tags:
+          mc:
+            - "isSR_3l"
+            - "isAR_3l"
+      - lepton_category: "4l"
+        lepton_flavors:
+          - llll
+        region_definitions:
+          - name: "4l"
+            channel: "4l"
+            tags:
+              - "bmask_atleast1m2l"
+        jet_bins:
+          - "=2"
+          - "=3"
+          - ">4"
+        application_tags:
+          mc:
+            - "isSR_4l"
+  CH_LST_CR:
+    description: >-
+      Shared control regions for fake, charge-flip, and validation studies.
+    regions:
+      - lepton_category: "2l_CR"
+        region_definitions:
+          - name: "2lss_CR"
+            channel: "2lss_CR"
+        jet_bins:
+          - "=1"
+          - "=2"
+          - "=3"
+        application_tags:
+          mc:
+            - "isSR_2lSS"
+            - "isAR_2lSS"
+          data:
+            - "isAR_2lSS_OS"
+      - lepton_category: "2l_CRflip"
+        region_definitions:
+          - name: "2lss_CRflip"
+            channel: "2lss_CRflip"
+        jet_bins:
+          - "<3"
+        application_tags:
+          mc:
+            - "isSR_2lSS"
+            - "isAR_2lSS"
+          data:
+            - "isAR_2lSS_OS"
+      - lepton_category: "2los_CRZ"
+        region_definitions:
+          - name: "2los_CRZ"
+            channel: "2los_CRZ"
+        jet_bins:
+          - ">0"
+        application_tags:
+          mc:
+            - "isSR_2lOS"
+            - "isAR_2lOS"
+      - lepton_category: "2los_CRtt"
+        region_definitions:
+          - name: "2los_CRtt"
+            channel: "2los_CRtt"
+        jet_bins:
+          - "=2"
+        application_tags:
+          mc:
+            - "isSR_2lOS"
+            - "isAR_2lOS"
+      - lepton_category: "3l_CR"
+        region_definitions:
+          - name: "3l_CR"
+            channel: "3l_CR"
+        jet_bins:
+          - "=0"
+          - ">1"
+        application_tags:
+          mc:
+            - "isSR_3l"
+            - "isAR_3l"
+  FWD_CH_LST_SR:
+    description: >-
+      Forward-enriched signal regions targeting events with forward leptons.
+    regions:
+      - lepton_category: "2l"
+        lepton_flavors:
+          - ee
+          - em
+          - mm
+        region_definitions:
+          - name: "2lss_p"
+            channel: "2lss"
+            subchannel: "2l_p"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atmost2m"
+          - name: "2lss_m"
+            channel: "2lss"
+            subchannel: "2l_m"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atmost2m"
+          - name: "2lss_4t_p"
+            channel: "2lss"
+            subchannel: "2l_p"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atleast3m"
+          - name: "2lss_4t_m"
+            channel: "2lss"
+            subchannel: "2l_m"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atleast3m"
+          - name: "2lss_fwd_p"
+            channel: "2lss_fwd"
+            subchannel: "2l_fwd_p"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atmost2m"
+          - name: "2lss_fwd_m"
+            channel: "2lss_fwd"
+            subchannel: "2l_fwd_m"
+            tags:
+              - "bmask_atleast1m2l"
+              - "bmask_atmost2m"
+        jet_bins:
+          - "=4"
+          - "=5"
+          - "=6"
+          - ">7"
+        application_tags:
+          mc:
+            - "isSR_2lSS"
+            - "isAR_2lSS"
+          data:
+            - "isAR_2lSS_OS"
+      - lepton_category: "3l"
+        lepton_flavors:
+          - eee
+          - eem
+          - emm
+          - mmm
+        region_definitions:
+          - name: "3l_onZ_1b"
+            channel: "3l"
+            subchannel: "3l_onZ"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_onZ_2b"
+            channel: "3l"
+            subchannel: "3l_onZ"
+            tags:
+              - "bmask_atleast2m"
+          - name: "3l_m_offZ_1b"
+            channel: "3l_m"
+            subchannel: "3l_offZ"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_m_offZ_2b"
+            channel: "3l_m"
+            subchannel: "3l_offZ"
+            tags:
+              - "bmask_atleast2m"
+          - name: "3l_p_offZ_1b"
+            channel: "3l_p"
+            subchannel: "3l_offZ"
+            tags:
+              - "bmask_exactly1m"
+          - name: "3l_p_offZ_2b"
+            channel: "3l_p"
+            subchannel: "3l_offZ"
+            tags:
+              - "bmask_atleast2m"
+        jet_bins:
+          - "=2"
+          - "=3"
+          - "=4"
+          - ">5"
+        application_tags:
+          mc:
+            - "isSR_3l"
+            - "isAR_3l"
+      - lepton_category: "4l"
+        lepton_flavors:
+          - llll
+        region_definitions:
+          - name: "4l"
+            channel: "4l"
+            tags:
+              - "bmask_atleast1m2l"
+        jet_bins:
+          - "=2"
+          - "=3"
+          - ">4"
+        application_tags:
+          mc:
+            - "isSR_4l"
+scenarios:
+  - name: "TOP_22_006"
+    description: >-
+      Default Run 2 reinterpretation that combines the baseline signal regions
+      with shared control regions and, where needed, the off-Z trilepton split.
+    groups:
+      - "TOP22_006_CH_LST_SR"
+      - "CH_LST_CR"
+      - "OFFZ_SPLIT_CH_LST_SR"
+  - name: "tau_analysis"
+    description: >-
+      Analysis variant focusing on hadronic tau categories, pairing tau-enriched
+      signal regions with their dedicated control regions and the common control set.
+    groups:
+      - "TAU_CH_LST_SR"
+      - "TAU_CH_LST_CR"
+      - "CH_LST_CR"
+  - name: "fwd_analysis"
+    description: >-
+      Forward-lepton signal-region focus that reuses the common control regions
+      to constrain backgrounds.
+    groups:
+      - "FWD_CH_LST_SR"
+      - "CH_LST_CR"
