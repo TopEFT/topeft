@@ -706,20 +706,18 @@ if __name__ == "__main__":
                 for appl in appl_list:
                     for group_descriptor, variations in grouped_variations.items():
                         #print("\n", group_descriptor.name, [v.name for v in variations])
-                        hist_keys = {}
-                        multiple_variations = len(variations) > 1
-                        for variation in variations:
-                            if multiple_variations:
-                                syst_label = (group_descriptor.name, variation.name)
-                            else:
-                                syst_label = variation.name
-                            hist_keys[variation.name] = (
+                        hist_keys = {
+                            variation.name: (
                                 var,
                                 clean_ch,
                                 appl,
                                 sample,
-                                syst_label,
+                                (group_descriptor.name, variation.name)
+                                if len(variations) > 1
+                                else variation.name,
                             )
+                            for variation in variations
+                        }
                         key_lst.append(
                             (
                                 sample,
