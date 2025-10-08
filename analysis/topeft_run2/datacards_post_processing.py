@@ -2,7 +2,9 @@ import os
 import shutil
 import argparse
 import json
+import yaml
 from topeft.modules.paths import topeft_path
+from topeft.modules.channel_metadata import ChannelMetadataHelper
 
 # This script does some basic checks of the cards and templates produced by the `make_cards.py` script.
 #   - It also can parse the condor log files and dump a summary of the contents
@@ -33,6 +35,46 @@ def ignore_line(line_to_check,list_of_str_to_ignore=IGNORE_LINES):
 
 def extract_number(item):
     return str(''.join(char for char in item if char.isdigit()))
+
+
+def determine_histogram_suffix(region, jet_value, analysis_mode):
+    """Infer the histogram name suffix for a region based on metadata tags."""
+
+    tags = set(region.tags)
+    subchannel = region.subchannel or ""
+    channel = region.channel or ""
+    name = region.name
+    jet_value = str(jet_value) if jet_value is not None else ""
+
+    if "onZ_tau" in tags:
+        return "ptz_wtau"
+
+    if analysis_mode == "fwd":
+        if channel and "2lss_fwd" in channel:
+            return "lt"
+        if "~fwdjet_mask" in tags and channel == "2lss":
+            return "lt"
+
+    if subchannel == "3l_onZ" or channel == "3l_onZ":
+        if name == "3l_onZ_2b" and jet_value not in {"4", "5"}:
+            return "lj0pt"
+        return "ptz"
+
+    if analysis_mode == "offZdivision" and (
+        "offZ_low" in subchannel or "offZ_high" in subchannel
+    ):
+        return "ptz"
+
+    if "offZ_tau" in tags:
+        return "ptz"
+
+    if "2l_onZ" in tags or "2l_onZ_as" in tags:
+        return "ptz"
+
+    if analysis_mode == "tau" and channel == "2los":
+        return "ptz"
+
+    return "lj0pt"
 
 # Check the output of the datacard maekr
 def main():
@@ -115,42 +157,41 @@ def main():
 
 
     ####### Copy the TOP-22-006 relevant files to their own dir ######
-    with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
-        select_ch_lst = json.load(ch_json)
-        #reading the macro analysis setup
-        if args.set_up_top22006:
-            import_sr_ch_lst = select_ch_lst["TOP22_006_CH_LST_SR"]
-        elif args.set_up_offZdivision:
-            import_sr_ch_lst = select_ch_lst["OFFZ_SPLIT_CH_LST_SR"]
-        elif args.tau_flag:
-            import_sr_ch_lst = select_ch_lst["TAU_CH_LST_SR"]
-        elif args.fwd_flag:
-            import_sr_ch_lst = select_ch_lst["FWD_CH_LST_SR"]
+    metadata_path = topeft_path("params/metadata.yml")
+    with open(metadata_path, "r") as metadata_file:
+        metadata = yaml.safe_load(metadata_file)
 
-        CATSELECTED = []
+    channels_metadata = metadata.get("channels") if metadata else None
+    if not channels_metadata:
+        raise ValueError("Channel metadata missing from params/metadata.yml")
 
-        #looping over 2l, 3l and 4l
-        for lep_cat, lep_cat_dict in import_sr_ch_lst.items():
-            lep_ch_list = lep_cat_dict['lep_chan_lst']
-            jet_list = lep_cat_dict['jet_lst']
-            jet_list = [extract_number(item) for item in jet_list]
-            #looping over each region within the lep category
-            for lep_ch in lep_ch_list:
-                lep_ch_name = lep_ch[0]
-                for jet in jet_list:
-                    # special channels to be binned by ptz instead of lj0pt
-                    if lep_ch_name == "3l_onZ_1b" or (lep_ch_name == "3l_onZ_2b" and (int(jet) == 4 or int(jet) == 5)):
-                        channelname = lep_ch_name + "_" + jet + "j_ptz"
-                    elif args.set_up_offZdivision and ( "high" in lep_ch_name  or "low" in lep_ch_name ): # extra channels from offZ division binned by ptz
-                        channelname = lep_ch_name + "_" + jet + "j_ptz"
-                    elif args.tau_flag and ("2los" in lep_ch_name):
-                        channelname = lep_ch_name + "_" + jet + "j_ptz"
-                    elif args.tau_flag and ("1tau_onZ" in lep_ch_name):
-                        channelname = lep_ch_name + "_" + jet + "j_ptz_wtau"
-                    elif args.fwd_flag and ("fwd" in lep_ch_name or "2lss_p" in lep_ch_name or "2lss_m" in lep_ch_name):
-                        channelname = lep_ch_name + "_" + jet + "j_lt"
-                    else:
-                        channelname = lep_ch_name + "_" + jet + "j_lj0pt"
+    channel_helper = ChannelMetadataHelper(channels_metadata)
+
+    if args.set_up_top22006:
+        selected_groups = [channel_helper.group("TOP22_006_CH_LST_SR")]
+        analysis_mode = "top22006"
+    elif args.set_up_offZdivision:
+        selected_groups = [channel_helper.group("OFFZ_SPLIT_CH_LST_SR")]
+        analysis_mode = "offZdivision"
+    elif args.tau_flag:
+        selected_groups = [channel_helper.group("TAU_CH_LST_SR")]
+        analysis_mode = "tau"
+    elif args.fwd_flag:
+        selected_groups = [channel_helper.group("FWD_CH_LST_SR")]
+        analysis_mode = "fwd"
+
+    CATSELECTED = []
+    for group in selected_groups:
+        for category in group.categories():
+            jet_bins = [extract_number(item) for item in category.jet_bins]
+            if not jet_bins:
+                continue
+            for region in category.region_definitions:
+                for jet in jet_bins:
+                    if not jet:
+                        continue
+                    hist_suffix = determine_histogram_suffix(region, jet, analysis_mode)
+                    channelname = f"{region.name}_{jet}j_{hist_suffix}"
                     CATSELECTED.append(channelname)
 
     CATSELECTED = sorted(CATSELECTED)

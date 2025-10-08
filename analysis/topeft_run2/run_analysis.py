@@ -21,6 +21,7 @@ import topcoffea.modules.remote_environment as remote_environment
 from topeft.modules.dataDrivenEstimation import DataDrivenProducer
 from topeft.modules.get_renormfact_envelope import get_renormfact_envelope
 from topeft.modules.systematics import SystematicsHelper
+from topeft.modules.channel_metadata import ChannelMetadataHelper
 import analysis_processor
 
 LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
@@ -39,35 +40,38 @@ WGT_VAR_LST = [
 ]
 
 
-def resolve_channel_dicts(
-    select_cat_dict,
+def resolve_channel_groups(
+    channel_helper,
     skip_sr,
     skip_cr,
     offZ_split=False,
     tau_h_analysis=False,
     fwd_analysis=False,
 ):
-    """Return the SR and CR channel dictionaries based on analysis flags."""
+    """Return the SR and CR channel groups based on analysis flags."""
 
-    import_sr_cat_dict = None
-    import_cr_cat_dict = None
+    sr_groups = []
+    cr_groups = []
+
+    def _get_group(name):
+        return channel_helper.group(name)
 
     if not skip_sr:
         if offZ_split:
-            import_sr_cat_dict = select_cat_dict["OFFZ_SPLIT_CH_LST_SR"]
+            sr_groups.append(_get_group("OFFZ_SPLIT_CH_LST_SR"))
         elif tau_h_analysis:
-            import_sr_cat_dict = select_cat_dict["TAU_CH_LST_SR"]
+            sr_groups.append(_get_group("TAU_CH_LST_SR"))
         elif fwd_analysis:
-            import_sr_cat_dict = select_cat_dict["FWD_CH_LST_SR"]
+            sr_groups.append(_get_group("FWD_CH_LST_SR"))
         else:
-            import_sr_cat_dict = select_cat_dict["TOP22_006_CH_LST_SR"]
+            sr_groups.append(_get_group("TOP22_006_CH_LST_SR"))
 
     if not skip_cr:
-        import_cr_cat_dict = select_cat_dict["CH_LST_CR"]
+        cr_groups.append(_get_group("CH_LST_CR"))
         if tau_h_analysis:
-            import_cr_cat_dict.update(select_cat_dict["TAU_CH_LST_CR"])
+            cr_groups.append(_get_group("TAU_CH_LST_CR"))
 
-    return import_sr_cat_dict, import_cr_cat_dict
+    return sr_groups, cr_groups
 
 
 def normalize_jet_category(jet_cat):
@@ -108,14 +112,14 @@ def build_channel_dict(
     isData,
     skip_sr,
     skip_cr,
-    select_cat_dict,
+    channel_helper,
     offZ_split=False,
     tau_h_analysis=False,
     fwd_analysis=False,
 ):
 
-    import_sr_cat_dict, import_cr_cat_dict = resolve_channel_dicts(
-        select_cat_dict,
+    import_sr_groups, import_cr_groups = resolve_channel_groups(
+        channel_helper,
         skip_sr,
         skip_cr,
         offZ_split=offZ_split,
@@ -136,38 +140,55 @@ def build_channel_dict(
     # print("jet_suffix:", jet_suffix)
     # print("base_ch:", base_ch)
 
-    nlep_cat = re.match(r"(\d+l)", base_ch).group(1)
+    nlep_match = re.match(r"(\d+l)", base_ch)
+    nlep_cat = nlep_match.group(1) if nlep_match else None
 
-    def _find(import_dict):
-        """Search import_dict for matching channel and application."""
-        if nlep_cat not in import_dict:
-            return None
-        info = import_dict[nlep_cat]
-        for jet_cat in info.get("jet_lst", []):
-            jet_key = normalize_jet_category(jet_cat)
-            if jet_suffix and not jet_key.endswith(jet_suffix):
-                continue
-            for lc in info["lep_chan_lst"]:
-                if lc[0] != base_ch:
-                    continue
-                appl_list = info["appl_lst"].copy()
-                if isData and "appl_lst_data" in info:
-                    appl_list += info["appl_lst_data"]
+    def _find(groups):
+        """Search the provided channel groups for matching metadata."""
+
+        for group in groups:
+            candidate_categories = []
+
+            # Prefer categories whose region names directly match ``base_ch``.
+            for category in group.categories():
+                if any(region.name == base_ch for region in category.region_definitions):
+                    candidate_categories.append(category)
+
+            # Fall back to the lepton-multiplicity key if needed.
+            if not candidate_categories and nlep_cat is not None:
+                category = group.category(nlep_cat)
+                if category is not None:
+                    candidate_categories.append(category)
+
+            for category in candidate_categories:
+                appl_list = category.application_tags(isData)
                 if appl not in appl_list:
                     continue
-                return {
-                    "jet_selection": jet_key,
-                    "chan_def_lst": lc,
-                    "lep_flav_lst": info["lep_flav_lst"],
-                    "appl_region": appl,
-                }
+                for region in category.region_definitions:
+                    if region.name != base_ch:
+                        continue
+                    jet_bins = category.jet_bins or [None]
+                    for jet_cat in jet_bins:
+                        jet_key = None
+                        if jet_cat is not None:
+                            jet_key = normalize_jet_category(jet_cat)
+                            if jet_suffix and not jet_key.endswith(jet_suffix):
+                                continue
+                        elif jet_suffix:
+                            continue
+                        return {
+                            "jet_selection": jet_key,
+                            "chan_def_lst": region.to_legacy_list(),
+                            "lep_flav_lst": category.lepton_flavors,
+                            "appl_region": appl,
+                        }
         return None
 
     ch_info = None
     if not skip_sr:
-        ch_info = _find(import_sr_cat_dict)
+        ch_info = _find(import_sr_groups)
     if ch_info is None and not skip_cr:
-        ch_info = _find(import_cr_cat_dict)
+        ch_info = _find(import_cr_groups)
 
     if ch_info is None:
         # Respect skip flags: if the requested application region was skipped,
@@ -180,17 +201,17 @@ def build_channel_dict(
 
 
 def build_channel_app_map(
-    select_cat_dict,
+    channel_helper,
     isData,
     skip_sr,
     skip_cr,
     offZ_split=False,
     tau_h_analysis=False,
     fwd_analysis=False,
-): 
-    """Extract channel names and their application regions from ch_lst.json."""
-    import_sr_cat_dict, import_cr_cat_dict = resolve_channel_dicts(
-        select_cat_dict,
+):
+    """Extract channel names and their application regions from metadata."""
+    import_sr_groups, import_cr_groups = resolve_channel_groups(
+        channel_helper,
         skip_sr,
         skip_cr,
         offZ_split=offZ_split,
@@ -198,24 +219,28 @@ def build_channel_app_map(
         fwd_analysis=fwd_analysis,
     )
 
-    def _collect(import_dict, result):
-        for info in import_dict.values():
-            appl_list = info["appl_lst"].copy()
-            if isData and "appl_lst_data" in info:
-                appl_list += info["appl_lst_data"]
-            for lc in info["lep_chan_lst"]:
-                base_ch = lc[0]
-                for jet_cat in info.get("jet_lst", []):
-                    jet_suffix = normalize_jet_category(jet_cat)
-                    clean_suffix = jet_suffix.split("_")[-1]
-                    ch_name = f"{base_ch}_{clean_suffix}"
-                    result.setdefault(ch_name, set()).update(appl_list)
+    def _collect(groups, result):
+        for group in groups:
+            for category in group.categories():
+                appl_list = category.application_tags(isData)
+                if not appl_list:
+                    continue
+                for region in category.region_definitions:
+                    base_ch = region.name
+                    jet_bins = category.jet_bins or [None]
+                    for jet_cat in jet_bins:
+                        if jet_cat is None:
+                            continue
+                        jet_suffix = normalize_jet_category(jet_cat)
+                        clean_suffix = jet_suffix.split("_")[-1]
+                        ch_name = f"{base_ch}_{clean_suffix}"
+                        result.setdefault(ch_name, set()).update(appl_list)
 
     result = {}
     if not skip_sr:
-        _collect(import_sr_cat_dict, result)
+        _collect(import_sr_groups, result)
     if not skip_cr:
-        _collect(import_cr_cat_dict, result)
+        _collect(import_cr_groups, result)
 
     return {ch: sorted(list(apps)) for ch, apps in result.items()}
 
@@ -640,8 +665,10 @@ if __name__ == "__main__":
     var_defs = metadata["variables"]
     var_lst = list(var_defs)
 
-    with open(topeft_path("channels/ch_lst.json"), "r") as ch_json:
-        select_cat_dict = json.load(ch_json)
+    channels_metadata = metadata.get("channels") if metadata else None
+    if not channels_metadata:
+        raise ValueError("Channel metadata is missing from params/metadata.yml")
+    channel_helper = ChannelMetadataHelper(channels_metadata)
 
     samples_lst = list(samplesdict.keys())
     sample_years = {
@@ -657,7 +684,7 @@ if __name__ == "__main__":
     )
 
     channel_app_map_mc = build_channel_app_map(
-        select_cat_dict,
+        channel_helper,
         isData=False,
         skip_sr=skip_sr,
         skip_cr=skip_cr,
@@ -666,7 +693,7 @@ if __name__ == "__main__":
         fwd_analysis=fwd_analysis,
     )
     channel_app_map_data = build_channel_app_map(
-        select_cat_dict,
+        channel_helper,
         isData=True,
         skip_sr=skip_sr,
         skip_cr=skip_cr,
@@ -866,7 +893,7 @@ if __name__ == "__main__":
             sample_dict["isData"],
             skip_sr,
             skip_cr,
-            select_cat_dict,
+            channel_helper,
             offZ_split=offZ_split,
             tau_h_analysis=tau_h_analysis,
             fwd_analysis=fwd_analysis,
@@ -909,7 +936,7 @@ if __name__ == "__main__":
 
         # # print("\nsample_dict:", sample_dict)
         # print("\nhist_keys:", hist_keys)
-        # # print("\nselect_cat_dict:", select_cat_dict)
+        # # print("\nchannel_helper groups:", channel_helper.group_names())
         # print("\nchannel_dict:", channel_dict)
 
         out = runner({sample: sample_flist}, treename, processor_instance)
