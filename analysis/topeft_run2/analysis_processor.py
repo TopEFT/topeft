@@ -583,6 +583,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         events_cache = events.caches[0]
 
+        # print("\n\n\n\n")
+        # print("variation_contexts:", [(v.name if v is not None else None, l) for v, l in variation_contexts])
+        # print("\n\n\n\n")
+
         for variation, hist_label in variation_contexts:
             variation_name = variation.name if variation is not None else "nominal"
             variation_base = variation.base if variation is not None else None
@@ -675,10 +679,10 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             weights_object = coffea.analysis_tools.Weights(len(events),storeIndividual=True)
         
-            print("\n\n\n\n")
-            print("Running object systematic:", object_variation)
-            print("Running weight systematics:", weight_variations_to_run)
-            print("\n\n\n\n")
+            # print("\n\n\n\n")
+            # print("Running object systematic:", object_variation)
+            # print("Running weight systematics:", weight_variations_to_run)
+            # print("\n\n\n\n")
 
             # In this block we add the pieces that depend on the object kinematics.
             met_raw = met

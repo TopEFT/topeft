@@ -695,12 +695,17 @@ if __name__ == "__main__":
         )
         sample_type_key = "data" if sample_info["isData"] else "mc"
         available_systematics = available_systematics_by_sample_type[sample_type_key]
-        print("len(var_lst):", len(var_lst))
+
+        print("\n")
+        print("grouped_variations:", {k.name: [v.name for v in vs] for k, vs in grouped_variations.items()})
+        print("\n")
+
         for var in var_lst:
             var_info = var_defs[var].copy()
             for clean_ch, appl_list in ch_map.items():
                 for appl in appl_list:
                     for group_descriptor, variations in grouped_variations.items():
+                        #print("\n", group_descriptor.name, [v.name for v in variations])
                         hist_keys = {}
                         multiple_variations = len(variations) > 1
                         for variation in variations:
@@ -728,7 +733,11 @@ if __name__ == "__main__":
                                 available_systematics,
                             )
                         )
-        break
+                        break # For debugging, only run one group_descriptor
+                    break # For debugging, only run one application region
+                break  # For debugging, only run one channel
+            break # For debugging, only run one variable
+        break # For debugging, only run one sample
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
@@ -833,6 +842,8 @@ if __name__ == "__main__":
 
     output = {}
     print(f"Running over {len(key_lst)} configurations") #\n", key_lst)
+    for key in key_lst:
+        print(" -", key[:-1])
     print("\n\n\n\n\n\n")
     # raise RuntimeError("Stopping here for debugging")
     
