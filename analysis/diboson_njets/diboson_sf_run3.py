@@ -32,15 +32,20 @@ def get_yields_in_bins(hin_dict, proc_list, bins, hist_name, channel_name):
         yields[proc] = []
 
         try:
-        # Slice to process and channel
+            # Slice to process and channel
             h_sel = h[{"process": proc, "channel": channel_name}]
 
-            # #If "l0eta" is not the only axis, integrate over the others
-            # for ax in h_sel.axes:
-            #     if ax.name != "njets":
-            #         h_sel = h_sel.integrate(ax.name)
+            if hist_name not in [ax.name for ax in h_sel.axes]:
+                raise ValueError(f"Axis '{hist_name}' not found for histogram '{hist_name}'")
+
+            # Project onto the histogram of interest to make sure we can access
+            # a simple 1D array of bin contents and variances.
+            if len(h_sel.axes) > 1:
+                h_sel = h_sel.project(hist_name)
+
             axis = h_sel.axes[hist_name]
             edges = axis.edges
+
             values = np.asarray(h_sel.values(flow=False), dtype=float)
             variances = h_sel.variances(flow=False)
             if variances is None:
@@ -53,14 +58,16 @@ def get_yields_in_bins(hin_dict, proc_list, bins, hist_name, channel_name):
 
         except Exception as e:
             print(f"\n\n  Error slicing/integrating for proc {proc}: {e}")
-            yields[proc] = [(None, None)] * (len(bins) - 1)
-            break
+            yields[proc] = [(0.0, 0.0)] * (len(bins) - 1)
+            continue
 
         for i in range(len(bins) - 1):
             low, high = bins[i], bins[i + 1]
-            axis_edges = np.asarray(axis.edges)
+            axis_edges = np.asarray(axis.edges, dtype=float)
             start = np.searchsorted(axis_edges, low, side="left")
             stop = np.searchsorted(axis_edges, high, side="left")
+            start = max(start, 0)
+            stop = min(stop, len(view_flatten))
             val = float(np.sum(view_flatten[start:stop]))
             err = float(np.sqrt(np.sum(var_flatten[start:stop])))
             yields[proc].append((val, err))
