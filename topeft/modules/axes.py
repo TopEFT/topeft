@@ -22,7 +22,7 @@ info = {
         "label": r"$p_{T}$ Z (GeV) ",
     },
     "njets": {
-        "regular": (10, 0, 10),
+        "regular": (6, 0, 6),
         "variable_multi": {
             "2l": [4, 5, 6, 7],
             "3l": [2, 3, 4, 5],
