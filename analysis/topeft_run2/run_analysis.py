@@ -731,7 +731,7 @@ if __name__ == "__main__":
                                 available_systematics,
                             )
                         )
-                        break # For debugging, only run one group_descriptor
+                        #break # For debugging, only run one group_descriptor
                     break # For debugging, only run one application region
                 break  # For debugging, only run one channel
             break # For debugging, only run one variable
@@ -915,7 +915,7 @@ if __name__ == "__main__":
         out = runner({sample: sample_flist}, treename, processor_instance)
         output.update(out)
 
-        break
+        #break
 
     dt = time.time() - tstart
 
