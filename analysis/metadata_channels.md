@@ -1,51 +1,24 @@
 # Metadata Channel and Application Structure
 
 ## Source
-Information extracted from `topeft/params/metadata.yml` (sections `channels`, `applications`, and `channel_applications`).
+Information extracted from the grouped schema embedded in `topeft/params/metadata.yml` under `channels.groups` and `channels.scenarios`. The content mirrors `analysis/channels_schema.yaml` so that metadata consumers no longer need to cross-reference separate lists of channels and applications.
 
-## Structure Overview
-- **`channels`**
-  - YAML sequence of channel identifiers.
-  - Ordered list preserves physics category groupings (2lss, 3l, 4l).
-  - Entries:
-    1. `2lss_m_4j`
-    2. `2lss_m_5j`
-    3. `2lss_m_6j`
-    4. `2lss_m_7j`
-    5. `2lss_p_4j`
-    6. `2lss_p_5j`
-    7. `2lss_p_6j`
-    8. `2lss_p_7j`
-    9. `3l_onZ_1b`
-    10. `3l_onZ_2b`
-    11. `3l_m_offZ_1b`
-    12. `3l_m_offZ_2b`
-    13. `3l_p_offZ_1b`
-    14. `3l_p_offZ_2b`
-    15. `4l`
-- **`applications`**
-  - YAML sequence of boolean-flag names describing selection regions.
-  - Entries appear in assumed priority order for evaluation: `isAR_2lSS_OS`, `isSR_2lSS`, `isAR_2lSS`, `isSR_3l`, `isAR_3l`, `isSR_4l`.
-- **`channel_applications`**
-  - Mapping keyed by channel identifiers (same spellings as `channels`).
-  - Values are YAML sequences of application flags that are considered valid for each channel.
-  - Ordering within each channel list matches `applications` ordering where relevant.
+## Group Overview
+Each entry in `channels.groups` represents a coherent collection of regions with shared descriptions, jet-bin definitions, and application tags. Scenario lists attached to each group indicate where the configuration is valid.
 
-## Region-to-Application Flag Mapping
-- **2lSS channels** (`2lss_m_*`, `2lss_p_*`)
-  - Associated applications: `isAR_2lSS_OS`, `isSR_2lSS`, `isAR_2lSS` (in that order).
-  - Implies that both same-sign signal (`isSR_2lSS`) and two control regions (`isAR_2lSS_OS`, `isAR_2lSS`) are valid per jet multiplicity and charge category.
-- **3l channels** (`3l_onZ_*`, `3l_m_offZ_*`, `3l_p_offZ_*`)
-  - Associated applications: `isSR_3l`, `isAR_3l`.
-  - `onZ` vs `offZ` and charge asymmetry (`m`/`p`) plus b-jet multiplicity determine channel, but application flags do not distinguish these subcategories.
-- **4l channel** (`4l`)
-  - Associated application: `isSR_4l` only (no control-region applications defined).
+- **`TOP22_006_CH_LST_SR`** – Baseline Run 2 ttH multilepton signal regions for the TOP-22-006 reinterpretation. Provides 2ℓSS (charge-split, 4–≥7 jets), 3ℓ (on-Z/off-Z split with 1–2 b-tags), and 4ℓ categories with both signal and associated control application tags for MC and data.【F:topeft/params/metadata.yml†L9-L74】
+- **`TAU_CH_LST_SR`** – Tau-enhanced signal regions extending the baseline bins with explicit tau-enriched selections (0τ, 1τ, and opposite-sign tau channels) plus corresponding jet bins and application tags.【F:topeft/params/metadata.yml†L75-L178】
+- **`TAU_CH_LST_CR`** – Control regions supporting the tau analysis, including fake-tau and real-tau validation bins alongside 1ℓ1τ control categories.【F:topeft/params/metadata.yml†L179-L226】
+- **`OFFZ_SPLIT_CH_LST_SR`** – Alternative signal-region grouping with finer 3ℓ off-Z splitting (low/high/none) at both 1b and 2b levels, while keeping the standard 2ℓSS and 4ℓ bins.【F:topeft/params/metadata.yml†L227-L362】
+- **`CH_LST_CR`** – Shared control regions for fake, charge-flip, and validation studies, covering 2ℓSS/OS validation, Zee veto variants, and inclusive 3ℓ control bins.【F:topeft/params/metadata.yml†L363-L498】
+- **`FWD_CH_LST_SR`** – Forward-enriched signal regions extending the 2ℓSS categories with forward-jet tags while reusing the multilepton jet binning and application tags.【F:topeft/params/metadata.yml†L499-L596】
 
-## Implicit Assumptions Identified
-1. **Channel list mirrors channel keys in mapping.** The `channel_applications` dictionary assumes the `channels` list is the authoritative source for channel naming and ordering; duplication suggests manual synchronization.
-2. **Application ordering indicates precedence.** Repeated ordering between `applications` and per-channel lists implies evaluation priority (signal before control or vice versa) though not explicitly encoded.
-3. **Shared application flags across related channels.** For every 2lSS channel regardless of charge (`m`/`p`) or jet count (`4j`-`7j`), the same trio of applications is valid, implying uniform region definitions across subchannels.
-4. **No year or era dependence.** Regions and their application flags are assumed to be global across all data-taking years.
-5. **4l region lacks an associated control region.** Absence of `isAR_4l` suggests either such a control region does not exist or is handled outside this metadata.
-6. **3l applications do not differentiate onZ/offZ or charge.** Control/signal flags are reused for all 3l channels, implying that any onZ/offZ or charge-specific treatment occurs elsewhere.
+## Scenario Overview
+`channels.scenarios` documents how channel groups combine for different analyses:
+
+- **`TOP_22_006`** – Combines baseline signal regions, shared control regions, and the off-Z trilepton split.【F:topeft/params/metadata.yml†L597-L606】
+- **`tau_analysis`** – Pairs tau-enriched signal and control regions with the shared control set.【F:topeft/params/metadata.yml†L607-L613】
+- **`fwd_analysis`** – Uses forward-focused signal regions plus the common control suite.【F:topeft/params/metadata.yml†L614-L619】
+
+Consumers can use these scenario definitions to pick the appropriate set of channel groups without manually synchronising individual channel lists and application flags.
 
