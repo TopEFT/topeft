@@ -616,7 +616,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             sow_variations = {"nominal": sow}
 
             if variation is not None and self._systematic_variations and not isData:
-                group_info = variation.group or {}
+                group_mapping = variation.group or {}
+                group_key = (variation.base, variation.component, variation.year)
+                group_info = group_mapping.get(group_key, {})
                 if not group_info and variation.metadata.get("sum_of_weights"):
                     group_info = {
                         variation.name: {

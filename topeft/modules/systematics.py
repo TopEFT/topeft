@@ -15,7 +15,10 @@ class SystematicVariationGroup:
 
     name: str
     members: Tuple[str, ...]
-    metadata: Tuple[Tuple[str, Tuple[Tuple[str, object], ...]], ...]
+    metadata: Tuple[
+        Tuple[Tuple[str, Optional[str], Optional[str]], Tuple[Tuple[str, object], ...]],
+        ...,
+    ]
 
     @staticmethod
     def _freeze_value(value: object) -> object:
@@ -47,14 +50,22 @@ class SystematicVariationGroup:
         """Create a group descriptor for the provided variation."""
 
         if variation.group:
-            metadata = tuple(
-                (name, cls._freeze_mapping(info))
-                for name, info in sorted(variation.group.items())
+            group_key = (variation.base, variation.component, variation.year)
+            grouped_variations = variation.group.get(group_key, {})
+            metadata = (
+                (
+                    group_key,
+                    tuple(
+                        (member_name, cls._freeze_mapping(info))
+                        for member_name, info in sorted(grouped_variations.items())
+                    ),
+                ),
             )
             name = variation.base
-            members = tuple(name for name, _ in metadata)
+            members = tuple(sorted(grouped_variations.keys()))
         else:
-            metadata = ((variation.name, cls._freeze_mapping(variation.metadata)),)
+            group_key = (variation.name, None, None)
+            metadata = ((group_key, cls._freeze_mapping(variation.metadata)),)
             name = variation.name
             members = (variation.name,)
 
@@ -87,10 +98,11 @@ class SystematicVariation:
         Additional metadata associated with the variation (sum-of-weights keys,
         etc.).
     group:
-        Mapping describing the group of variations this one belongs to.  The
-        mapping is keyed by variation name and stores a dictionary with at least
-        the same metadata keys present for the corresponding variation.  This is
-        mainly used for theory uncertainties that require the up/down sum of
+        Mapping describing the groups of variations defined for the base.  Each
+        key is a ``(base, component, year)`` tuple whose value maps variation
+        names to metadata dictionaries.  The dictionaries include the
+        variation's metadata along with ``component`` and ``year`` entries. This
+        is mainly used for theory uncertainties that require the up/down sum of
         weights simultaneously.
     """
 
@@ -103,7 +115,9 @@ class SystematicVariation:
     direction: Optional[str] = None
     component: Optional[str] = None
     metadata: Dict[str, object] = field(default_factory=dict)
-    group: Dict[str, Dict[str, object]] = field(default_factory=dict)
+    group: Dict[
+        Tuple[str, Optional[str], Optional[str]], Dict[str, Dict[str, object]]
+    ] = field(default_factory=dict)
 
     def matches_sample(self, is_data: bool, sample_year: Optional[str], tau_analysis: bool) -> bool:
         """Return ``True`` if this variation should be run for the sample."""
@@ -303,15 +317,23 @@ class SystematicsHelper:
             variations_by_base.setdefault(variation.base, []).append(variation)
 
         for base_variations in variations_by_base.values():
-            group_map = {
-                var.name: {**var.metadata}
-                for var in base_variations
-                if var.metadata.get("sum_of_weights")
-            }
-            if not group_map:
-                continue
+            grouped_by_key: Dict[
+                Tuple[str, Optional[str], Optional[str]], Dict[str, Dict[str, object]]
+            ] = {}
+
             for var in base_variations:
-                var.group = group_map
+                group_key = (var.base, var.component, var.year)
+                members = grouped_by_key.setdefault(group_key, {})
+                member_metadata = {**var.metadata}
+                member_metadata.setdefault("component", var.component)
+                member_metadata.setdefault("year", var.year)
+                members[var.name] = member_metadata
+
+            if not grouped_by_key:
+                continue
+
+            for var in base_variations:
+                var.group = grouped_by_key
 
         # Ensure nominal is always first for convenience and stable ordering of
         # the rest.

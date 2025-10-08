@@ -24,6 +24,14 @@ def _build_metadata():
                     {"value": "ISRDown", "direction": "Down", "sum_of_weights": "nSumOfWeights_ISRDown"},
                 ],
             },
+            "trigger_sf": {
+                "type": "weight",
+                "applies_to": ["mc"],
+                "variations": [
+                    {"value": "TriggerSFUp", "direction": "Up", "year": "2018"},
+                    {"value": "TriggerSFDown", "direction": "Down", "year": "2018"},
+                ],
+            },
             "pileup": {
                 "type": "weight",
                 "applies_to": ["mc"],
@@ -73,3 +81,35 @@ def test_grouped_variations_for_data_sample_excludes_mc_theory():
     for _, variations in grouped.items():
         for variation in variations:
             assert variation.type != "theory"
+
+
+def test_grouped_variations_include_metadata_groups():
+    metadata = _build_metadata()
+    helper = SystematicsHelper(metadata, sample_years=["2018"])
+    sample = {"year": "2018", "isData": False}
+
+    grouped = helper.grouped_variations_for_sample(sample, include_systematics=True)
+
+    for base_name in ("trigger_sf", "pileup", "fake_factors"):
+        matching = [item for item in grouped.items() if item[0].name == base_name]
+        assert len(matching) == 1
+
+        descriptor, variations = matching[0]
+        assert len(variations) == 2
+        assert set(descriptor.members) == {variation.name for variation in variations}
+
+        assert len(descriptor.metadata) == 1
+        (group_key, members_metadata) = descriptor.metadata[0]
+
+        expected_year = "2018" if base_name == "trigger_sf" else None
+        assert group_key == (base_name, None, expected_year)
+
+        members_info = {
+            name: dict(metadata_items)
+            for name, metadata_items in members_metadata
+        }
+        assert set(members_info) == {variation.name for variation in variations}
+
+        for info in members_info.values():
+            assert info.get("component") is None
+            assert info.get("year") == expected_year
