@@ -705,7 +705,7 @@ if __name__ == "__main__":
                         multiple_variations = len(variations) > 1
                         for variation in variations:
                             if multiple_variations:
-                                syst_label = f"{group_descriptor.name}__{variation.name}"
+                                syst_label = (group_descriptor.name, variation.name)
                             else:
                                 syst_label = variation.name
                             hist_keys[variation.name] = (
@@ -885,10 +885,10 @@ if __name__ == "__main__":
             sample_dict,
             wc_lst,
             hist_keys=hist_keys,
-            var_info=var_info,
-            ecut_threshold=ecut_threshold,
-            do_errors=do_errors,
-            split_by_lepton_flavor=split_lep_flavor,
+            var_info,
+            ecut_threshold,
+            do_errors,
+            split_lep_flavor,
             offZ_split=offZ_split,
             tau_h_analysis=tau_h_analysis,
             fwd_analysis=fwd_analysis,
