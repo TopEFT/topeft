@@ -1,10 +1,9 @@
 '''
-        This script is made specifically for run3 flip scale factor calculation based on l0eta distribution.
-        Default eta bins are [-3, -1.479, 0, 1.479, 3], for +/- endcap/barrel regions. Hence there will be total of four sfs.
+        This script is made specifically for run3 diboson scale factor calculation based on njets distribution.
+        Default njet bins are [0, 1, 2, 3, 4, 5, 6].
 
         Run the following command:
         python diboson_sf_run3.py {/path/to/np.pkl.gz} -y {year}
-
 '''
 
 import argparse
