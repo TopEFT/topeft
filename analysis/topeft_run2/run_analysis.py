@@ -140,36 +140,48 @@ def build_channel_dict(
     # print("jet_suffix:", jet_suffix)
     # print("base_ch:", base_ch)
 
-    nlep_cat = re.match(r"(\d+l)", base_ch).group(1)
+    nlep_match = re.match(r"(\d+l)", base_ch)
+    nlep_cat = nlep_match.group(1) if nlep_match else None
 
     def _find(groups):
         """Search the provided channel groups for matching metadata."""
 
         for group in groups:
-            category = group.category(nlep_cat)
-            if category is None:
-                continue
-            appl_list = category.application_tags(isData)
-            if appl not in appl_list:
-                continue
-            for region in category.region_definitions:
-                if region.name != base_ch:
+            candidate_categories = []
+
+            # Prefer categories whose region names directly match ``base_ch``.
+            for category in group.categories():
+                if any(region.name == base_ch for region in category.region_definitions):
+                    candidate_categories.append(category)
+
+            # Fall back to the lepton-multiplicity key if needed.
+            if not candidate_categories and nlep_cat is not None:
+                category = group.category(nlep_cat)
+                if category is not None:
+                    candidate_categories.append(category)
+
+            for category in candidate_categories:
+                appl_list = category.application_tags(isData)
+                if appl not in appl_list:
                     continue
-                jet_bins = category.jet_bins or [None]
-                for jet_cat in jet_bins:
-                    jet_key = None
-                    if jet_cat is not None:
-                        jet_key = normalize_jet_category(jet_cat)
-                        if jet_suffix and not jet_key.endswith(jet_suffix):
-                            continue
-                    elif jet_suffix:
+                for region in category.region_definitions:
+                    if region.name != base_ch:
                         continue
-                    return {
-                        "jet_selection": jet_key,
-                        "chan_def_lst": region.to_legacy_list(),
-                        "lep_flav_lst": category.lepton_flavors,
-                        "appl_region": appl,
-                    }
+                    jet_bins = category.jet_bins or [None]
+                    for jet_cat in jet_bins:
+                        jet_key = None
+                        if jet_cat is not None:
+                            jet_key = normalize_jet_category(jet_cat)
+                            if jet_suffix and not jet_key.endswith(jet_suffix):
+                                continue
+                        elif jet_suffix:
+                            continue
+                        return {
+                            "jet_selection": jet_key,
+                            "chan_def_lst": region.to_legacy_list(),
+                            "lep_flav_lst": category.lepton_flavors,
+                            "appl_region": appl,
+                        }
         return None
 
     ch_info = None
