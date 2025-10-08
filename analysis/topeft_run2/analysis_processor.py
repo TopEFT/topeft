@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import copy
 from collections import OrderedDict
+from dataclasses import dataclass
 import coffea
 import numpy as np
 import awkward as ak
@@ -12,7 +13,7 @@ from topcoffea.modules.histEFT import HistEFT
 from coffea import processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
@@ -27,6 +28,8 @@ import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
+
+from topeft.modules.systematics import SystematicVariation
 
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 
@@ -169,6 +172,15 @@ def _validate_data_weight_variations(
                 "Error: Missing expected fake-factor variations for data! "
                 f"Requested '{current_variation_name}' but did not find {sorted(missing_variations)}"
             )
+
+
+@dataclass(frozen=True)
+class SystematicContext:
+    """Container describing a single systematic variation context."""
+
+    variation: SystematicVariation
+    hist_label: str
+    key: str
 
 
 class AnalysisProcessor(processor.ProcessorABC):
@@ -323,6 +335,26 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._systematic_variations = systematic_variations
         self._systematic_info = systematic_variations[0] if systematic_variations else None
 
+        self._variation_contexts: Tuple[SystematicContext, ...] = ()
+        if self._systematic_variations:
+            contexts: List[SystematicContext] = []
+            for variation in self._systematic_variations:
+                variation_key = variation.name
+                hist_key_entry = histogram_key_map.get(variation_key)
+                if hist_key_entry is None:
+                    raise KeyError(
+                        f"Histogram key mapping is missing an entry for systematic variation '{variation_key}'"
+                    )
+                hist_label = hist_key_entry[4]
+                contexts.append(
+                    SystematicContext(
+                        variation=variation,
+                        hist_label=hist_label,
+                        key=variation_key,
+                    )
+                )
+            self._variation_contexts = tuple(contexts)
+
         if self._systematic_variations and self._systematic_info is None:
             raise ValueError("systematic_variations must contain at least one entry when provided")
 
@@ -371,47 +403,29 @@ class AnalysisProcessor(processor.ProcessorABC):
     def columns(self):
         return self._columns
 
-    # Main function: run on a given dataset
+    # Main entry point: build variation-agnostic inputs then dispatch to helper
     def process(self, events):
 
-        # Dataset parameters
         dataset = events.metadata["dataset"]
-        isEFT   = self._sample["WCnames"] != []
+        isEFT = self._sample["WCnames"] != []
 
-        isData             = self._sample["isData"]
-        histAxisName       = self._sample["histAxisName"]
-        year               = self._sample["year"]
-        xsec               = self._sample["xsec"]
-        sow                = self._sample["nSumOfWeights"]
+        isData = self._sample["isData"]
+        histAxisName = self._sample["histAxisName"]
+        year = self._sample["year"]
+        xsec = self._sample["xsec"]
+        sow = self._sample["nSumOfWeights"]
 
         current_syst = self.syst or "nominal"
-        variation_base = self._systematic_info.base if self._systematic_info is not None else None
-        variation_type = (
-            getattr(self._systematic_info, "type", None)
-            if self._systematic_info is not None
-            else None
-        )
 
-        variation_names = [variation.name for variation in self._systematic_variations]
-        current_variation_for_label = variation_names[0] if variation_names else current_syst
-
-        print("\n\n\n\n\n\n")
-        print("current_syst:", current_syst, " variation_base:", variation_base, " variation_type:", variation_type)
-        print("\n\n\n\n\n\n")
-
-        is_run3 = False
-        if year.startswith("202"):
-            is_run3 = True
+        is_run3 = year.startswith("202")
         is_run2 = not is_run3
 
         run_era = None
         if isData:
             run_era = self._sample["path"].split("/")[2].split("-")[0][-1]
 
-        # Get up/down sum of weights needed for the current systematic.
-        sow_variation_key_map = {}
         requested_sow_variations = set()
-
+        sow_variation_key_map: Dict[str, str] = {}
         if self._systematic_info is not None and self._systematic_variations and not isData:
             group_info = self._systematic_info.group or {}
             if not group_info and self._systematic_info.metadata.get("sum_of_weights"):
@@ -441,20 +455,141 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if key is not None and key in self._sample:
                         sow_variations[variation] = self._sample[key]
 
-        datasets = ["Muon", "SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
+        dataset_label = dataset
+        datasets = [
+            "Muon",
+            "SingleMuon",
+            "SingleElectron",
+            "EGamma",
+            "MuonEG",
+            "DoubleMuon",
+            "DoubleElectron",
+            "DoubleEG",
+        ]
         for d in datasets:
-            if dataset.startswith(d):
-                dataset = dataset.split('_')[0]
+            if dataset_label.startswith(d):
+                dataset_label = dataset_label.split('_')[0]
+                break
 
-        # Set the sampleType (used for MC matching requirement)
         sampleType = "prompt"
         if isData:
             sampleType = "data"
         elif histAxisName in get_te_param("conv_samples"):
             sampleType = "conversions"
         elif histAxisName in get_te_param("prompt_and_conv_samples"):
-            # Just DY (since we care about prompt DY for Z CR, and conv DY for 3l CR)
             sampleType = "prompt_and_conversions"
+
+        lumi_mask = ak.ones_like(events.run, dtype=bool)
+        if isData:
+            lumi_mask = LumiMask(self._golden_json_path)(events.run, events.luminosityBlock)
+
+        eft_coeffs = (
+            ak.to_numpy(events["EFTfitCoefficients"])
+            if hasattr(events, "EFTfitCoefficients")
+            else None
+        )
+        if eft_coeffs is not None:
+            if self._sample["WCnames"] != self._wc_names_lst:
+                eft_coeffs = efth.remap_coeffs(self._sample["WCnames"], self._wc_names_lst, eft_coeffs)
+        eft_w2_coeffs = (
+            efth.calc_w2_coeffs(eft_coeffs, self._dtype)
+            if (self._do_errors and eft_coeffs is not None)
+            else None
+        )
+
+        hout = self.accumulator
+
+        base_inputs = {
+            "dataset": dataset_label,
+            "isEFT": isEFT,
+            "isData": isData,
+            "histAxisName": histAxisName,
+            "year": year,
+            "xsec": xsec,
+            "sow": sow,
+            "is_run2": is_run2,
+            "is_run3": is_run3,
+            "run_era": run_era,
+            "requested_sow_variations": requested_sow_variations,
+            "sow_variation_key_map": sow_variation_key_map,
+            "sow_variations": sow_variations,
+            "is_lo_sample": is_lo_sample,
+            "sampleType": sampleType,
+            "lumi_mask": lumi_mask,
+            "eft_coeffs": eft_coeffs,
+            "eft_w2_coeffs": eft_w2_coeffs,
+            "hout": hout,
+            "current_syst": current_syst,
+        }
+
+        contexts = self._variation_contexts
+
+        def clone_events():
+            return self._clone_events_for_context(events)
+
+        self._run_single_variation(clone_events(), None, base_inputs)
+
+        for context in contexts:
+            self._run_single_variation(clone_events(), context, base_inputs)
+
+        return base_inputs["hout"]
+
+    # Main function: run one variation context on a given dataset
+    def _clone_events_for_context(self, events):
+        """Create an independent copy of the events record for a systematic call."""
+
+        if hasattr(events, "copy"):
+            try:
+                return events.copy()
+            except Exception:
+                pass
+
+        layout = getattr(events, "layout", None)
+        if layout is not None:
+            try:
+                copied_layout = layout.copy()
+                behavior = getattr(events, "behavior", None)
+                if behavior is not None:
+                    return events.__class__(copied_layout, behavior=behavior)
+                return events.__class__(copied_layout)
+            except Exception:
+                pass
+
+        return copy.deepcopy(events)
+
+    def _run_single_variation(self, events, context: Optional[SystematicContext], base_inputs):
+
+        dataset = base_inputs["dataset"]
+        isEFT = base_inputs["isEFT"]
+        isData = base_inputs["isData"]
+        histAxisName = base_inputs["histAxisName"]
+        year = base_inputs["year"]
+        xsec = base_inputs["xsec"]
+        sow = base_inputs["sow"]
+        is_run2 = base_inputs["is_run2"]
+        is_run3 = base_inputs["is_run3"]
+        run_era = base_inputs["run_era"]
+        requested_sow_variations = base_inputs["requested_sow_variations"]
+        sow_variation_key_map = base_inputs["sow_variation_key_map"]
+        sow_variations = base_inputs["sow_variations"]
+        is_lo_sample = base_inputs["is_lo_sample"]
+        sampleType = base_inputs["sampleType"]
+        lumi_mask = base_inputs["lumi_mask"]
+        eft_coeffs = base_inputs["eft_coeffs"]
+        eft_w2_coeffs = base_inputs["eft_w2_coeffs"]
+        hout = base_inputs["hout"]
+
+        variation = context.variation if context is not None else None
+        current_syst = context.key if context is not None else base_inputs["current_syst"]
+        variation_base = variation.base if variation is not None else None
+        variation_type = variation.type if variation is not None else None
+
+        variation_names = [context.key] if context is not None else []
+        current_variation_for_label = variation_names[0] if variation_names else current_syst
+
+        print("\n\n\n\n\n\n")
+        print("current_syst:", current_syst, " variation_base:", variation_base, " variation_type:", variation_type)
+        print("\n\n\n\n\n\n")
 
         # Initialize objects
         met  = events.MET
@@ -482,27 +617,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isData:
             ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
             mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
-
-        # Initialize lumi mask to ``True`` for all events so simulated samples
-        # see an identity mask.  Data samples replace it with the configured
-        # golden JSON selection below.
-        lumi_mask = ak.ones_like(events.run, dtype=bool)
-        if isData:
-            lumi_mask = LumiMask(self._golden_json_path)(events.run, events.luminosityBlock)
-
-        ######### EFT coefficients ##########
-
-        # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
-        # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
-        eft_coeffs = ak.to_numpy(events["EFTfitCoefficients"]) if hasattr(events, "EFTfitCoefficients") else None
-        if eft_coeffs is not None:
-            # Check to see if the ordering of WCs for this sample matches what wanted
-            if self._sample["WCnames"] != self._wc_names_lst:
-                eft_coeffs = efth.remap_coeffs(self._sample["WCnames"], self._wc_names_lst, eft_coeffs)
-        eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
-        
-        # Initialize the out object
-        hout = self.accumulator
 
         ################### Electron selection ####################
 
@@ -1378,15 +1492,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             if self.appregion.startswith("isSR") and wgt_fluct in data_weight_systematics_set:
                 continue
 
-            if wgt_fluct == "nominal":
-                if variation_type == "object":
-                    hist_variation_label = self._histogram_label_lookup.get(
-                        object_variation, object_variation
-                    )
-                else:
-                    hist_variation_label = self._histogram_label_lookup.get(
-                        "nominal", "nominal"
-                    )
+            if context is not None:
+                hist_variation_label = context.hist_label
+            elif wgt_fluct == "nominal":
+                hist_variation_label = self._histogram_label_lookup.get(
+                    "nominal", "nominal"
+                )
             elif wgt_fluct == object_variation:
                 hist_variation_label = self._histogram_label_lookup.get(
                     object_variation, object_variation
