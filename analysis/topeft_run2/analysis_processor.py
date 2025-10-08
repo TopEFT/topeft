@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import copy
+from collections import OrderedDict
 import coffea
 import numpy as np
 import awkward as ak
@@ -11,6 +12,7 @@ from topcoffea.modules.histEFT import HistEFT
 from coffea import processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
+from typing import Dict, List, Tuple
 
 from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
@@ -175,14 +177,11 @@ class AnalysisProcessor(processor.ProcessorABC):
         self,
         sample,
         wc_names_lst=[],
-        hist_key=None,
+        hist_keys=None,
         var_info=None,
         ecut_threshold=None,
         do_errors=False,
-        do_systematics=False,
         split_by_lepton_flavor=False,
-        skip_signal_regions=False,
-        skip_control_regions=False,
         muonSyst='nominal',
         dtype=np.float32,
         rebin=False,
@@ -191,7 +190,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         fwd_analysis=False,
         channel_dict=None,
         golden_json_path=None,
-        systematic_info=None,
+        systematic_variations=None,
         available_systematics=None,
     ):
 
@@ -210,7 +209,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         # nested structure with several loops in ``process``.  The new logic
         # operates directly on the flat dictionary, so simply store it.
         self._channel_dict = channel_dict
-        self._systematic_info = systematic_info
         if available_systematics is None:
             raise ValueError("available_systematics must be provided and cannot be None")
         self._available_systematics = {
@@ -220,56 +218,93 @@ class AnalysisProcessor(processor.ProcessorABC):
             key: set(values) for key, values in self._available_systematics.items()
         }
 
-        histogram = {}
-
         self._golden_json_path = golden_json_path
         if self._sample.get("isData") and not self._golden_json_path:
             raise ValueError("golden_json_path must be provided for data samples")
 
-        if hist_key is None or var_info is None:
-            raise ValueError("hist_key and var_info must be provided and cannot be None")
+        if var_info is None:
+            raise ValueError("var_info must be provided and cannot be None")
 
-        var, ch, appl, sample_name, syst = hist_key
+        if hist_keys is None:
+            raise ValueError("hist_keys must be provided and cannot be None")
+
+        if not isinstance(hist_keys, dict):
+            raise TypeError("hist_keys must be a mapping of variation name to histogram key")
+
+        histogram_key_map = OrderedDict(hist_keys)
+
+        if not histogram_key_map:
+            raise ValueError("hist_keys must contain at least one entry")
+
         info = var_info
+
+        histogram = {}
+        self._hist_keys_to_fill: List[Tuple[str, ...]] = []
+        self._histogram_label_lookup: Dict[str, object] = {}
+
+        first_label, first_hist_key = next(iter(histogram_key_map.items()))
+        if len(first_hist_key) != 5:
+            raise ValueError("histogram keys must be 5-element tuples")
+
+        var, ch, appl, sample_name, _ = first_hist_key
 
         self._var = var
         self._channel = ch
         self._appregion = appl
-        self._syst = syst
+        self._syst = first_label
         self._var_def = info.get("definition")
         if self._var_def is None:
             raise ValueError(f"No definition provided for variable {var}")
 
-        sumw2_key = (var + "_sumw2", ch, appl, sample_name, syst)
+        for variation_label, hist_key_entry in histogram_key_map.items():
+            if len(hist_key_entry) != 5:
+                raise ValueError("histogram keys must be 5-element tuples")
+            key_var, key_ch, key_appl, key_sample, syst_label = hist_key_entry
+            if key_var != self._var or key_ch != self._channel or key_appl != self._appregion:
+                raise ValueError("All histogram keys must refer to the same variable, channel and application")
 
-        if not rebin and "variable" in info:
-            dense_axis = hist.axis.Variable(
-                info["variable"], name=var, label=info["label"]
-            )
-            sumw2_axis = hist.axis.Variable(
-                info["variable"], name=var+"_sumw2", label=info["label"] + " sum of w^2"
-            )
-        else:
-            dense_axis = hist.axis.Regular(
-                *info["regular"], name=var, label=info["label"]
-            )
-            sumw2_axis = hist.axis.Regular(
-                *info["regular"], name=var+"_sumw2", label=info["label"] + " sum of w^2"
+            sumw2_key = (
+                f"{self._var}_sumw2",
+                key_ch,
+                key_appl,
+                key_sample,
+                syst_label,
             )
 
-        histogram[hist_key] = HistEFT(
-            dense_axis,
-            wc_names=wc_names_lst,
-            label=r"Events",
-        )
-        histogram[sumw2_key] = HistEFT(
-            sumw2_axis,
-            wc_names=wc_names_lst,
-            label=r"Events",
-        )
+            if not rebin and "variable" in info:
+                dense_axis = hist.axis.Variable(
+                    info["variable"], name=self._var, label=info["label"]
+                )
+                sumw2_axis = hist.axis.Variable(
+                    info["variable"],
+                    name=f"{self._var}_sumw2",
+                    label=info["label"] + " sum of w^2",
+                )
+            else:
+                dense_axis = hist.axis.Regular(
+                    *info["regular"], name=self._var, label=info["label"]
+                )
+                sumw2_axis = hist.axis.Regular(
+                    *info["regular"],
+                    name=f"{self._var}_sumw2",
+                    label=info["label"] + " sum of w^2",
+                )
 
-        # Set the list of hists to fill
-        self._hist_keys_to_fill = [hist_key, sumw2_key]
+            histogram[hist_key_entry] = HistEFT(
+                dense_axis,
+                wc_names=wc_names_lst,
+                label=r"Events",
+            )
+            histogram[sumw2_key] = HistEFT(
+                sumw2_axis,
+                wc_names=wc_names_lst,
+                label=r"Events",
+            )
+
+            self._hist_keys_to_fill.extend([hist_key_entry, sumw2_key])
+            self._histogram_label_lookup[variation_label] = syst_label
+
+        self._histogram_key_map = histogram_key_map
 
         self._accumulator = histogram
 
@@ -278,13 +313,18 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Set the booleans
         self._do_errors = do_errors # Whether to calculate and store the w**2 coefficients
-        self._do_systematics = do_systematics # Whether to process systematic sample
         self._split_by_lepton_flavor = split_by_lepton_flavor # Whether to keep track of lepton flavors individually
-        self._skip_signal_regions = skip_signal_regions # Whether to skip the SR categories
-        self._skip_control_regions = skip_control_regions # Whether to skip the CR categories
 
-        if self._do_systematics and self._systematic_info is None:
-            raise ValueError("systematic_info must be provided when do_systematics is True")
+        if systematic_variations is None:
+            systematic_variations = ()
+        else:
+            systematic_variations = tuple(systematic_variations)
+
+        self._systematic_variations = systematic_variations
+        self._systematic_info = systematic_variations[0] if systematic_variations else None
+
+        if self._systematic_variations and self._systematic_info is None:
+            raise ValueError("systematic_variations must contain at least one entry when provided")
 
 
     @property
@@ -352,6 +392,9 @@ class AnalysisProcessor(processor.ProcessorABC):
             else None
         )
 
+        variation_names = [variation.name for variation in self._systematic_variations]
+        current_variation_for_label = variation_names[0] if variation_names else current_syst
+
         print("\n\n\n\n\n\n")
         print("current_syst:", current_syst, " variation_base:", variation_base, " variation_type:", variation_type)
         print("\n\n\n\n\n\n")
@@ -369,7 +412,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         sow_variation_key_map = {}
         requested_sow_variations = set()
 
-        if self._systematic_info is not None and self._do_systematics and not isData:
+        if self._systematic_info is not None and self._systematic_variations and not isData:
             group_info = self._systematic_info.group or {}
             if not group_info and self._systematic_info.metadata.get("sum_of_weights"):
                 group_info = {
@@ -389,7 +432,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         is_lo_sample = histAxisName in get_te_param("lo_xsec_samples")
 
-        if self._do_systematics and not isData:
+        if self._systematic_variations and not isData:
             for variation in requested_sow_variations:
                 if is_lo_sample:
                     sow_variations[variation] = sow
@@ -533,7 +576,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ######### Systematics ###########
 
-        current_variation_name = current_syst
+        current_variation_name = current_variation_for_label
         object_variation = "nominal"
         weight_variations_to_run = ["nominal"]
         requested_data_weight_label = None
@@ -553,18 +596,32 @@ class AnalysisProcessor(processor.ProcessorABC):
                     f"Requested object systematic '{current_variation_name}' is not available in the mapping"
                 )
             object_variation = current_variation_name
-        elif variation_type in {"weight", "theory", "data_weight"} and current_variation_name != "nominal":
+        elif variation_type in {"weight", "theory", "data_weight"}:
             variation_pool = {
                 "weight": weight_systematics,
                 "theory": theory_systematics,
                 "data_weight": data_weight_systematics,
             }[variation_type]
-            if current_variation_name in variation_pool:
+
+            names_to_run = variation_names if variation_names else [current_variation_name]
+            filtered_names = []
+            for name in names_to_run:
+                if name == "nominal":
+                    continue
+                if name not in variation_pool:
+                    raise ValueError(
+                        f"Requested {variation_type} systematic '{name}' is not available in the mapping"
+                    )
+                filtered_names.append(name)
+
+            if filtered_names:
+                weight_variations_to_run = filtered_names
+            elif current_variation_name != "nominal":
+                if current_variation_name not in variation_pool:
+                    raise ValueError(
+                        f"Requested {variation_type} systematic '{current_variation_name}' is not available in the mapping"
+                    )
                 weight_variations_to_run = [current_variation_name]
-            else:
-                raise ValueError(
-                    f"Requested {variation_type} systematic '{current_variation_name}' is not available in the mapping"
-                )
 
         if variation_type == "data_weight" and current_variation_name != "nominal":
             requested_data_weight_label = current_variation_name
@@ -715,8 +772,9 @@ class AnalysisProcessor(processor.ProcessorABC):
                     ak.ones_like(events.nom),
                 ]
 
-            include_ISR = self._do_systematics and variation_base == "isr"
-            include_FSR = self._do_systematics and variation_base == "fsr"
+            have_systematics = bool(self._systematic_variations)
+            include_ISR = have_systematics and variation_base == "isr"
+            include_FSR = have_systematics and variation_base == "fsr"
             need_ps_weights = include_ISR or include_FSR
             if need_ps_weights:
                 # Attach PS weights (ISR/FSR)
@@ -769,8 +827,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             else:
                 weights_object.add("FSR", events.nom)
 
-            include_renorm = self._do_systematics and variation_base == "renorm"
-            include_fact = self._do_systematics and variation_base == "fact"
+            include_renorm = have_systematics and variation_base == "renorm"
+            include_fact = have_systematics and variation_base == "fact"
             # Attach renorm/fact scale weights regardless of which variations are being evaluated.
             tc_cor.AttachScaleWeights(events)  # Run3 ready (with caveat on "nominal")
 
@@ -799,14 +857,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 weights_object.add("fact", events.nom)
 
             # Prefiring and pileup (prefire weights only available in nanoAODv9 for Run 2).
-            include_prefiring_vars = self._do_systematics and variation_base == "prefiring"
+            include_prefiring_vars = have_systematics and variation_base == "prefiring"
             if include_prefiring_vars:
                 weights_object.add("PreFiring", *l1prefiring_args)  # Run3 ready
             else:
                 weights_object.add("PreFiring", l1prefiring_args[0])
 
             pu_central = tc_cor.GetPUSF(events.Pileup.nTrueInt, year)
-            include_pu_vars = self._do_systematics and variation_base == "pileup"
+            include_pu_vars = have_systematics and variation_base == "pileup"
             if include_pu_vars:
                 weights_object.add(
                     "PU",
@@ -850,7 +908,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             btag_w = btag_w_light * btag_w_bc
             weights_object.add("btagSF", btag_w)
 
-            if self._do_systematics and object_variation == "nominal":
+            if self._systematic_variations and object_variation == "nominal":
                 requested_suffix = None
                 if current_variation_name and current_variation_name.startswith("btagSF"):
                     requested_suffix = current_variation_name[len("btagSF") :]
@@ -935,7 +993,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Trigger SFs are only defined for simulated samples.
             GetTriggerSF(year, events, l0, l1)
-            include_trigger_vars = self._do_systematics and variation_base == "trigger_sf"
+            include_trigger_vars = bool(self._systematic_variations) and variation_base == "trigger_sf"
             if include_trigger_vars:
                 weights_object.add(
                     trigger_weight_label,
@@ -1058,7 +1116,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 requested_data_weight_label,
             )
 
-        if self._do_systematics and isData:
+        if self._systematic_variations and isData:
             _validate_data_weight_variations(
                 weights_object,
                 data_weight_systematics_set,
@@ -1287,12 +1345,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         dense_axis_vals = eval(self._var_def, {"ak": ak, "np": np}, locals())
 
         # Set up the list of systematic weight variations to loop over
-        if self._do_systematics:
+        if self._systematic_variations:
             wgt_var_lst = weight_variations_to_run
         else:
             wgt_var_lst = ["nominal"]
-
-        hist_variation_label = current_variation_name or "nominal"
 
         lep_chan = self._channel_dict["chan_def_lst"][0]
         jet_req = self._channel_dict["jet_selection"]
@@ -1321,6 +1377,24 @@ class AnalysisProcessor(processor.ProcessorABC):
             # Skip filling SR histograms with data-driven variations
             if self.appregion.startswith("isSR") and wgt_fluct in data_weight_systematics_set:
                 continue
+
+            if wgt_fluct == "nominal":
+                if variation_type == "object":
+                    hist_variation_label = self._histogram_label_lookup.get(
+                        object_variation, object_variation
+                    )
+                else:
+                    hist_variation_label = self._histogram_label_lookup.get(
+                        "nominal", "nominal"
+                    )
+            elif wgt_fluct == object_variation:
+                hist_variation_label = self._histogram_label_lookup.get(
+                    object_variation, object_variation
+                )
+            else:
+                hist_variation_label = self._histogram_label_lookup.get(
+                    wgt_fluct, wgt_fluct
+                )
 
             for lep_flav in lep_flav_iter:
                 cuts_lst = [self.appregion, lep_chan]

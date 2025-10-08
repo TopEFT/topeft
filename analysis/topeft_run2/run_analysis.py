@@ -690,7 +690,7 @@ if __name__ == "__main__":
     for sample in samples_lst:
         sample_info = samplesdict[sample]
         ch_map = channel_app_map_data if sample_info["isData"] else channel_app_map_mc
-        variations = syst_helper.variations_for_sample(
+        grouped_variations = syst_helper.grouped_variations_for_sample(
             sample_info, include_systematics=do_systs
         )
         sample_type_key = "data" if sample_info["isData"] else "mc"
@@ -700,14 +700,30 @@ if __name__ == "__main__":
             var_info = var_defs[var].copy()
             for clean_ch, appl_list in ch_map.items():
                 for appl in appl_list:
-                    for variation in variations:
+                    for group_descriptor, variations in grouped_variations.items():
+                        hist_keys = {}
+                        multiple_variations = len(variations) > 1
+                        for variation in variations:
+                            if multiple_variations:
+                                syst_label = (group_descriptor.name, variation.name)
+                            else:
+                                syst_label = variation.name
+                            hist_keys[variation.name] = (
+                                var,
+                                clean_ch,
+                                appl,
+                                sample,
+                                syst_label,
+                            )
                         key_lst.append(
                             (
                                 sample,
                                 var,
                                 clean_ch,
                                 appl,
-                                variation,
+                                group_descriptor,
+                                tuple(variations),
+                                hist_keys,
                                 var_info,
                                 available_systematics,
                             )
@@ -821,11 +837,20 @@ if __name__ == "__main__":
     # raise RuntimeError("Stopping here for debugging")
     
     for key in key_lst:
-        sample, var, clean_ch, appl, syst_info, var_info, available_systematics = key
+        (
+            sample,
+            var,
+            clean_ch,
+            appl,
+            group_descriptor,
+            systematic_variations,
+            hist_keys,
+            var_info,
+            available_systematics,
+        ) = key
         sample_dict = samplesdict[sample]
         sample_flist = flist[sample][:1]
 
-        hist_key = (var, clean_ch, appl, sample, syst_info.name)
         channel_dict = build_channel_dict(
             clean_ch,
             appl,
@@ -859,25 +884,22 @@ if __name__ == "__main__":
         processor_instance = analysis_processor.AnalysisProcessor(
             sample_dict,
             wc_lst,
-            hist_key,
-            var_info,
-            ecut_threshold,
-            do_errors,
-            do_systs,
-            split_lep_flavor,
-            skip_sr,
-            skip_cr,
+            hist_keys=hist_keys,
+            var_info=var_info,
+            ecut_threshold=ecut_threshold,
+            do_errors=do_errors,
+            split_by_lepton_flavor=split_lep_flavor,
             offZ_split=offZ_split,
             tau_h_analysis=tau_h_analysis,
             fwd_analysis=fwd_analysis,
             channel_dict=channel_dict,
             golden_json_path=golden_json_path,
-            systematic_info=syst_info,
+            systematic_variations=systematic_variations,
             available_systematics=available_systematics,
         )
 
         # # print("\nsample_dict:", sample_dict)
-        # print("\nhist_key:", hist_key)
+        # print("\nhist_keys:", hist_keys)
         # # print("\nselect_cat_dict:", select_cat_dict)
         # print("\nchannel_dict:", channel_dict)
 
