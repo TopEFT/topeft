@@ -359,47 +359,6 @@ channels:
       scenarios:
         - TOP_22_006
       regions:
-        - lepton_category: 2l
-          lepton_flavors:
-            - ee
-            - em
-            - mm
-          region_definitions:
-            - name: 2lss_p
-              channel: 2lss
-              subchannel: 2l_p
-              tags:
-                - bmask_atleast1m2l
-                - bmask_atmost2m
-            - name: 2lss_m
-              channel: 2lss
-              subchannel: 2l_m
-              tags:
-                - bmask_atleast1m2l
-                - bmask_atmost2m
-            - name: 2lss_4t_p
-              channel: 2lss
-              subchannel: 2l_p
-              tags:
-                - bmask_atleast1m2l
-                - bmask_atleast3m
-            - name: 2lss_4t_m
-              channel: 2lss
-              subchannel: 2l_m
-              tags:
-                - bmask_atleast1m2l
-                - bmask_atleast3m
-          jet_bins:
-            - '=4'
-            - '=5'
-            - '=6'
-            - '>7'
-          application_tags:
-            mc:
-              - isSR_2lSS
-              - isAR_2lSS
-            data:
-              - isAR_2lSS_OS
         - lepton_category: 3l
           lepton_flavors:
             - eee
@@ -486,21 +445,6 @@ channels:
             mc:
               - isSR_3l
               - isAR_3l
-        - lepton_category: 4l
-          lepton_flavors:
-            - llll
-          region_definitions:
-            - name: 4l
-              channel: 4l
-              tags:
-                - bmask_atleast1m2l
-          jet_bins:
-            - '=2'
-            - '=3'
-            - '>4'
-          application_tags:
-            mc:
-              - isSR_4l
     CH_LST_CR:
       description: Shared control regions for fake, charge-flip, and validation
         studies.
