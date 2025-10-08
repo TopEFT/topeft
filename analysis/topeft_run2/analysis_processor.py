@@ -1048,7 +1048,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                         events.trigger_sf,
                     )
 
-                if self.tau_h_analysis:
+                if self.tau_h_analysis and not isData:
                     AttachTauSF(events, tau, year=year)
 
                 # Lepton (and optional tau) scale factors depend on the lepton category.
@@ -1389,7 +1389,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             dense_axis_vals = eval(self._var_def, {"ak": ak, "np": np}, locals())
 
             # Set up the list of systematic weight variations to loop over
-            wgt_var_lst = ["nominal"]
+            if weight_variations_to_run:
+                wgt_var_lst = []
+            else:
+                wgt_var_lst = ["nominal"]
             for name in weight_variations_to_run:
                 if name not in wgt_var_lst:
                     wgt_var_lst.append(name)
