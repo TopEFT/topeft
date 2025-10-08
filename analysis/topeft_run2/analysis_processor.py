@@ -524,14 +524,39 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         contexts = self._variation_contexts
 
-        self._run_single_variation(events, None, base_inputs)
+        def clone_events():
+            return self._clone_events_for_context(events)
+
+        self._run_single_variation(clone_events(), None, base_inputs)
 
         for context in contexts:
-            self._run_single_variation(events, context, base_inputs)
+            self._run_single_variation(clone_events(), context, base_inputs)
 
         return base_inputs["hout"]
 
     # Main function: run one variation context on a given dataset
+    def _clone_events_for_context(self, events):
+        """Create an independent copy of the events record for a systematic call."""
+
+        if hasattr(events, "copy"):
+            try:
+                return events.copy()
+            except Exception:
+                pass
+
+        layout = getattr(events, "layout", None)
+        if layout is not None:
+            try:
+                copied_layout = layout.copy()
+                behavior = getattr(events, "behavior", None)
+                if behavior is not None:
+                    return events.__class__(copied_layout, behavior=behavior)
+                return events.__class__(copied_layout)
+            except Exception:
+                pass
+
+        return copy.deepcopy(events)
+
     def _run_single_variation(self, events, context: Optional[SystematicContext], base_inputs):
 
         dataset = base_inputs["dataset"]
