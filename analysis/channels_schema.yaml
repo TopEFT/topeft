@@ -465,9 +465,16 @@ channels:
       Shared control regions for fake, charge-flip, and validation studies.
     regions:
       - lepton_category: "2l_CR"
+        lepton_flavors:
+          - ee
+          - em
+          - mm
         region_definitions:
           - name: "2lss_CR"
-            channel: "2lss_CR"
+            channel: "chargedl0"
+            subchannel: "2lss"
+            tags:
+              - "bmask_exactly1m"
         jet_bins:
           - "=1"
           - "=2"
@@ -479,9 +486,14 @@ channels:
           data:
             - "isAR_2lSS_OS"
       - lepton_category: "2l_CRflip"
+        lepton_flavors:
+          - ee
         region_definitions:
           - name: "2lss_CRflip"
-            channel: "2lss_CRflip"
+            channel: "2l_nozeeveto"
+            subchannel: "2lee"
+            tags:
+              - "2l_onZ_as"
         jet_bins:
           - "<3"
         application_tags:
@@ -491,9 +503,16 @@ channels:
           data:
             - "isAR_2lSS_OS"
       - lepton_category: "2los_CRZ"
+        lepton_flavors:
+          - ee
+          - mm
         region_definitions:
           - name: "2los_CRZ"
-            channel: "2los_CRZ"
+            channel: "2l_nozeeveto"
+            subchannel: "2los"
+            tags:
+              - "2l_onZ"
+              - "bmask_exactly0m"
         jet_bins:
           - ">0"
         application_tags:
@@ -501,9 +520,15 @@ channels:
             - "isSR_2lOS"
             - "isAR_2lOS"
       - lepton_category: "2los_CRtt"
+        lepton_flavors:
+          - em
         region_definitions:
           - name: "2los_CRtt"
-            channel: "2los_CRtt"
+            channel: "2l_nozeeveto"
+            subchannel: "2los"
+            tags:
+              - "2lem"
+              - "bmask_exactly2m"
         jet_bins:
           - "=2"
         application_tags:
@@ -511,9 +536,16 @@ channels:
             - "isSR_2lOS"
             - "isAR_2lOS"
       - lepton_category: "3l_CR"
+        lepton_flavors:
+          - eee
+          - eem
+          - emm
+          - mmm
         region_definitions:
           - name: "3l_CR"
-            channel: "3l_CR"
+            channel: "3l"
+            tags:
+              - "bmask_exactly0m"
         jet_bins:
           - "=0"
           - ">1"
