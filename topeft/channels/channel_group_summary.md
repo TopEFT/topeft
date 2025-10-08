@@ -1,6 +1,6 @@
 # Channel Group Summary
 
-This document consolidates the lepton categories and associated configuration lists defined in `ch_lst.json`, highlighting overlaps that could be deduplicated in future maintenance.
+This document consolidates the lepton categories and associated configuration lists defined in `params/metadata.yml` under `channels.groups`, highlighting overlaps that could be deduplicated in future maintenance.
 
 ## TOP22_006_CH_LST_SR
 

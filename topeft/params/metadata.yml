@@ -10,8 +10,9 @@ channels:
     TOP22_006_CH_LST_SR:
       description: Baseline Run 2 ttH multilepton signal regions used in the
         TOP-22-006 reinterpretation. Regions are organised by lepton multiplicity
-        with jet binning and application tags derived from
-        topeft/channels/ch_lst.json.
+        with jet binning and application tags derived from the legacy
+        ``ch_lst.json`` lists and consolidated here for metadata-driven
+        configuration.
       scenarios:
         - TOP_22_006
       regions:
