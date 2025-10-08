@@ -39,9 +39,9 @@ channels:
               - bmask_atleast1m2l
               - bmask_atleast3m
         jet_bins:
-          - =4
-          - =5
-          - =6
+          - '=4'
+          - '=5'
+          - '=6'
           - '>7'
         application_tags:
           mc:
@@ -87,9 +87,9 @@ channels:
             tags:
               - bmask_atleast2m
         jet_bins:
-          - =2
-          - =3
-          - =4
+          - '=2'
+          - '=3'
+          - '=4'
           - '>5'
         application_tags:
           mc:
@@ -104,8 +104,8 @@ channels:
             tags:
               - bmask_atleast1m2l
         jet_bins:
-          - =2
-          - =3
+          - '=2'
+          - '=3'
           - '>4'
         application_tags:
           mc:
@@ -151,9 +151,9 @@ channels:
               - bmask_atleast3m
               - 0tau
         jet_bins:
-          - =4
-          - =5
-          - =6
+          - '=4'
+          - '=5'
+          - '=6'
           - '>7'
         application_tags:
           mc:
@@ -196,9 +196,9 @@ channels:
               - 1tau
               - onZ_tau
         jet_bins:
-          - =3
-          - =4
-          - =5
+          - '=3'
+          - '=4'
+          - '=5'
           - '>6'
         application_tags:
           mc:
@@ -276,9 +276,9 @@ channels:
               - bmask_atleast2m
               - 1tau
         jet_bins:
-          - =2
-          - =3
-          - =4
+          - '=2'
+          - '=3'
+          - '=4'
           - '>5'
         application_tags:
           mc:
@@ -293,8 +293,8 @@ channels:
             tags:
               - bmask_atleast1m2l
         jet_bins:
-          - =2
-          - =3
+          - '=2'
+          - '=3'
           - '>4'
         application_tags:
           mc:
@@ -323,9 +323,9 @@ channels:
               - bmask_atleast1m2l
               - 1tau
         jet_bins:
-          - =2
-          - =3
-          - =4
+          - '=2'
+          - '=3'
+          - '=4'
         application_tags:
           mc:
             - isSR_2lOS
@@ -340,9 +340,9 @@ channels:
               - bmask_atleast2m
               - 1tau
         jet_bins:
-          - =2
-          - =3
-          - =4
+          - '=2'
+          - '=3'
+          - '=4'
         application_tags:
           mc:
             - isSR_1l
@@ -383,9 +383,9 @@ channels:
               - bmask_atleast1m2l
               - bmask_atleast3m
         jet_bins:
-          - =4
-          - =5
-          - =6
+          - '=4'
+          - '=5'
+          - '=6'
           - '>7'
         application_tags:
           mc:
@@ -471,9 +471,9 @@ channels:
             tags:
               - bmask_atleast2m
         jet_bins:
-          - =2
-          - =3
-          - =4
+          - '=2'
+          - '=3'
+          - '=4'
           - '>5'
         application_tags:
           mc:
@@ -488,8 +488,8 @@ channels:
             tags:
               - bmask_atleast1m2l
         jet_bins:
-          - =2
-          - =3
+          - '=2'
+          - '=3'
           - '>4'
         application_tags:
           mc:
@@ -514,9 +514,9 @@ channels:
             tags:
               - bmask_exactly1m
         jet_bins:
-          - =1
-          - =2
-          - =3
+          - '=1'
+          - '=2'
+          - '=3'
         application_tags:
           mc:
             - isSR_2lSS
@@ -533,7 +533,7 @@ channels:
             tags:
               - 2l_onZ_as
         jet_bins:
-          - <3
+          - '<3'
         application_tags:
           mc:
             - isSR_2lSS
@@ -568,7 +568,7 @@ channels:
               - 2lem
               - bmask_exactly2m
         jet_bins:
-          - =2
+          - '=2'
         application_tags:
           mc:
             - isSR_2lOS
@@ -585,7 +585,7 @@ channels:
             tags:
               - bmask_exactly0m
         jet_bins:
-          - =0
+          - '=0'
           - '>1'
         application_tags:
           mc:
@@ -642,9 +642,9 @@ channels:
               - bmask_atleast1m2l
               - bmask_atmost2m
         jet_bins:
-          - =4
-          - =5
-          - =6
+          - '=4'
+          - '=5'
+          - '=6'
           - '>7'
         application_tags:
           mc:
@@ -690,9 +690,9 @@ channels:
             tags:
               - bmask_atleast2m
         jet_bins:
-          - =2
-          - =3
-          - =4
+          - '=2'
+          - '=3'
+          - '=4'
           - '>5'
         application_tags:
           mc:
@@ -707,8 +707,8 @@ channels:
             tags:
               - bmask_atleast1m2l
         jet_bins:
-          - =2
-          - =3
+          - '=2'
+          - '=3'
           - '>4'
         application_tags:
           mc:
