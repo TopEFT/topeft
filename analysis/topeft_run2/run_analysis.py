@@ -787,10 +787,10 @@ if __name__ == "__main__":
     for sample in samples_lst:
         sample_info = samplesdict[sample]
         print("\nSample:", sample)
-        if not sample_info["isData"]:
-            print("\nchannel_app_map_mc:", channel_app_map_mc)
-        else:
-            print("\nchannel_app_map_data:", channel_app_map_data)
+        # if not sample_info["isData"]:
+        #     print("\nchannel_app_map_mc:", channel_app_map_mc)
+        # else:
+        #     print("\nchannel_app_map_data:", channel_app_map_data)
 
         ch_map = channel_app_map_data if sample_info["isData"] else channel_app_map_mc
         grouped_variations = syst_helper.grouped_variations_for_sample(
@@ -909,8 +909,8 @@ if __name__ == "__main__":
     # Run the processor and get the output
     tstart = time.time()
 
-    print("chunksize: ", chunksize)
-    print("nchunks: ", nchunks)
+    # print("chunksize: ", chunksize)
+    # print("nchunks: ", nchunks)
 
     if executor == "futures":
         exec_instance = processor.futures_executor(workers=nworkers)
@@ -942,10 +942,10 @@ if __name__ == "__main__":
         )
 
     output = {}
-    print(f"Running over {len(key_lst)} configurations") #\n", key_lst)
-    for key in key_lst:
-        print(" -", key[:-1])
-    print("\n\n\n\n\n\n")
+    # print(f"Running over {len(key_lst)} configurations") #\n", key_lst)
+    # for key in key_lst:
+    #     print(" -", key[:-1])
+    # print("\n\n\n\n\n\n")
     # raise RuntimeError("Stopping here for debugging")
     
     for key in key_lst:
