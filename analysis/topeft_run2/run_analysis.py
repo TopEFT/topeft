@@ -496,7 +496,7 @@ if __name__ == "__main__":
 
     if executor in ["work_queue", "taskvine"]:
         executor_args = {
-            "manager_name": f"{os.environ['USER']}-workqueue-coffea",
+            "master_name": f"{os.environ['USER']}-workqueue-coffea",
             # find a port to run work queue in this range:
             "port": port,
             "debug_log": "debug.log",
