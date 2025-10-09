@@ -6,6 +6,7 @@ import numpy as np
 import awkward as ak
 import os
 import re
+import logging
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
@@ -25,6 +26,8 @@ from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMu
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
+
+logger = logging.getLogger(__name__)
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 
@@ -787,12 +790,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
 
-            light_mask = goodJets.hadronFlavour==0
-            bc_mask = goodJets.hadronFlavour>0
-
-            jets_light = goodJets[light_mask]
-            jets_bc    = goodJets[bc_mask]
-
             trigger_weight_label = f"triggerSF_{year}"
 
             # Determine the lepton multiplicity category from the requested
@@ -802,7 +799,25 @@ class AnalysisProcessor(processor.ProcessorABC):
             nlep_cat = re.match(r"\d+l", self.channel).group(0)
             channel_prefix = nlep_cat[:2]
 
+            default_flavour_mask = ak.values_astype(
+                ak.zeros_like(goodJets.pt, highlevel=True), np.bool_
+            )
+
             if not isData:
+                if hasattr(goodJets, "hadronFlavour"):
+                    light_mask = goodJets.hadronFlavour == 0
+                    bc_mask = goodJets.hadronFlavour > 0
+                else:
+                    logger.warning(
+                        "Missing 'hadronFlavour' for MC sample '%s'; defaulting to empty jet flavour masks.",
+                        dataset,
+                    )
+                    light_mask = default_flavour_mask
+                    bc_mask = default_flavour_mask
+
+                jets_light = goodJets[light_mask]
+                jets_bc = goodJets[bc_mask]
+
                 # Begin consolidated MC-only weight registration.
 
                 # If this is not an EFT sample, use the generator weight; otherwise
@@ -1161,7 +1176,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                     )
                 else:
                     raise Exception(f"Unknown channel name: {nlep_cat}")
-
             ######### Event weights that do depend on the lep cat ###########
 
             # Attach the lepton-category specific pieces on top of the
