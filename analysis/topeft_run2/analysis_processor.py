@@ -395,18 +395,18 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         ################### Tau selection ####################
 
+        if is_run2:
+            vsjet_disc = tau.idDeepTau2017v2p1VSjet
+            vse_disc = tau.idDeepTau2017v2p1VSe
+            vsmu_disc = tau.idDeepTau2017v2p1VSmu
+        else:
+            vsjet_disc = tau.idDeepTau2018v2p5VSjet
+            vse_disc = tau.idDeepTau2018v2p5VSe
+            vsmu_disc = tau.idDeepTau2018v2p5VSmu
+
         if self.tau_h_analysis:
             tau_vsjet_wp = "Loose"
             tau["pt"], tau["mass"] = ApplyTES(year, tau, isData, vsJetWP=tau_vsjet_wp)
-
-            if is_run2:
-                vsjet_disc = tau.idDeepTau2017v2p1VSjet
-                vse_disc = tau.idDeepTau2017v2p1VSe
-                vsmu_disc = tau.idDeepTau2017v2p1VSmu
-            else:
-                vsjet_disc = tau.idDeepTau2018v2p5VSjet
-                vse_disc = tau.idDeepTau2018v2p5VSe
-                vsmu_disc = tau.idDeepTau2018v2p5VSmu
 
             tau["isVLoose"] = tauSelection.isVLooseTau(vsjet_disc)
             tau["isLoose"] = tauSelection.isLooseTau(vsjet_disc)
@@ -439,15 +439,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             tau0 = tau_padded[:,0]
 
         else:
-            if is_run2:
-                vsjet_disc = tau.idDeepTau2017v2p1VSjet
-                vse_disc = tau.idDeepTau2017v2p1VSe
-                vsmu_disc = tau.idDeepTau2017v2p1VSmu
-            else:
-                vsjet_disc = tau.idDeepTau2018v2p5VSjet
-                vse_disc = tau.idDeepTau2018v2p5VSe
-                vsmu_disc = tau.idDeepTau2018v2p5VSmu
-
             tau["isPres"] = tauSelection.isPresTau(
                 tau.pt,
                 tau.eta,
