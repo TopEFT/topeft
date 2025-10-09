@@ -121,6 +121,8 @@ channels:
     TAU_CH_LST_SR:
       description: Signal regions enhanced with hadronic tau selections. Extends
         the baseline categories with dedicated tau-enriched bins.
+      features:
+        - requires_tau
       scenarios:
         - tau_analysis
       regions:
@@ -357,6 +359,8 @@ channels:
     OFFZ_SPLIT_CH_LST_SR:
       description: Alternative signal-region grouping with finer off-Z splitting
         for the trilepton channel.
+      features:
+        - offz_split
       scenarios:
         - TOP_22_006
       regions:
@@ -546,6 +550,8 @@ channels:
     FWD_CH_LST_SR:
       description: Forward-enriched signal regions targeting events with forward
         leptons.
+      features:
+        - requires_forward
       scenarios:
         - fwd_analysis
       regions:

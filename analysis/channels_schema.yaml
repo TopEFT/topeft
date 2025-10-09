@@ -1,4 +1,10 @@
 # YAML schema describing channel groups, regions, and scenarios.
+#
+# Channel groups may optionally expose a ``features`` list containing
+# metadata flags that toggle behaviour in downstream consumers. Current
+# feature tags include ``offz_split`` (refined off-Z categories),
+# ``requires_tau`` (tau-enriched selections), and ``requires_forward``
+# (forward-jet requirements).
 channels:
   TOP22_006_CH_LST_SR:
     description: Baseline Run 2 ttH multilepton signal regions used in the
@@ -111,8 +117,10 @@ channels:
           mc:
             - isSR_4l
   TAU_CH_LST_SR:
-    description: Signal regions enhanced with hadronic tau selections. Extends 
+    description: Signal regions enhanced with hadronic tau selections. Extends
       the baseline categories with dedicated tau-enriched bins.
+    features:
+      - requires_tau
     scenarios:
       - tau_analysis
     regions:
@@ -347,8 +355,10 @@ channels:
           mc:
             - isSR_1l
   OFFZ_SPLIT_CH_LST_SR:
-    description: Alternative signal-region grouping with finer off-Z splitting 
+    description: Alternative signal-region grouping with finer off-Z splitting
       for the trilepton channel.
+    features:
+      - offz_split
     scenarios:
       - TOP_22_006
     regions:
@@ -592,8 +602,10 @@ channels:
             - isSR_3l
             - isAR_3l
   FWD_CH_LST_SR:
-    description: Forward-enriched signal regions targeting events with forward 
+    description: Forward-enriched signal regions targeting events with forward
       leptons.
+    features:
+      - requires_forward
     scenarios:
       - fwd_analysis
     regions:

@@ -63,6 +63,14 @@ class ChannelGroup:
     def __init__(self, name: str, group_metadata: Mapping[str, object]):
         self.name = name
         self.description = group_metadata.get("description", "")
+        features = group_metadata.get("features", [])
+        if features is None:
+            features = []
+        if isinstance(features, str) or not isinstance(features, Sequence):
+            raise TypeError(
+                f"Channel group {name!r} features must be a sequence of strings"
+            )
+        self._features: Tuple[str, ...] = tuple(str(feature) for feature in features)
         self._categories: List[ChannelCategory] = []
         for category in group_metadata.get("regions", []):
             lepton_category = category["lepton_category"]
@@ -92,6 +100,12 @@ class ChannelGroup:
         self._category_map: Dict[str, ChannelCategory] = {
             category.lepton_category: category for category in self._categories
         }
+
+    @property
+    def features(self) -> Tuple[str, ...]:
+        """Return the feature tags declared for this group."""
+
+        return self._features
 
     def categories(self) -> Sequence[ChannelCategory]:
         """Return the lepton categories belonging to this group."""
