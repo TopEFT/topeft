@@ -13,6 +13,9 @@ By default the script expects the first pkl file to be an EFT file and the secon
 If you pass the argument `--private` it will understand that the _second_ pkl file is also a private sample.
 There is a special flag `--skip` which tells the script _not_ to draw a reweighted histogram for the second pkl file.
 This is useful when comparing Run 3 to Run 2 (at the SM) since some of the WC names have changed.
+If you pass the argument `--central` it will assume _both_ pkl files are central samples.
+
+The flag `--abs` will not normalize the ratios.
 
 
 Labels:
@@ -62,6 +65,7 @@ parser.add_argument('--flow'   , action='store_true' , help = 'Overflow')
 parser.add_argument('--var'    , default=None , help = 'Variable to plot')
 parser.add_argument('--private', action='store_true' , help = 'Use private key for second hist')
 parser.add_argument('--central', action='store_true' , help = 'Use central key for first hist')
+parser.add_argument('--abs'    , action='store_true' , help = 'Use absolute scale for ratio')
 parser.add_argument('--skip'   , action='store_true' , help = 'Use private key for second hist')
 parser.add_argument('json'     , default='', help = 'Json file(s) containing files and metadata')
 parser.add_argument('--small'   , action='store_true', help = 'Remove all |WCs| >100')
@@ -331,7 +335,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     plt.sca(rax)
     (sm/sm).plot1d(yerr=err, ax=rax, flow=flow)
     norm = np.sum(sm.values()) / np.sum(eft.values())
-    #norm = 1
+    if args.abs: norm = 1
     (eft/sm * norm).plot1d(yerr=False, ax=rax, flow=flow)
 
     ax2 = fig.add_axes([0.7, 0.55, 0.15, 0.15])
