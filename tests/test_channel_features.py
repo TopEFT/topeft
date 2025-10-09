@@ -189,6 +189,19 @@ def test_build_channel_dict_includes_tau_features_for_control(channel_helper):
     assert "requires_tau" in channel_dict["features"]
 
 
+def test_build_channel_dict_preserves_features_when_sr_skipped(channel_helper):
+    channel_dict = build_channel_dict(
+        "2los_1tau_Ftau_2j",
+        "isSR_2lOS",
+        isData=False,
+        skip_sr=True,
+        skip_cr=False,
+        channel_helper=channel_helper,
+        tau_h_analysis=True,
+    )
+    assert "requires_tau" in channel_dict["features"]
+
+
 def test_build_channel_dict_includes_forward_features(channel_helper):
     channel_dict = build_channel_dict(
         "2lss_fwd_p_4j",

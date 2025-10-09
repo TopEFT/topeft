@@ -54,26 +54,34 @@ def resolve_channel_groups(
     cr_groups = []
     active_features = set()
 
-    def _register_group(name, destination):
+    def _load_group(name):
         group = channel_helper.group(name)
-        destination.append(group)
         active_features.update(group.features)
         return group
 
+    if offZ_split:
+        sr_group_name = "OFFZ_SPLIT_CH_LST_SR"
+    elif tau_h_analysis:
+        sr_group_name = "TAU_CH_LST_SR"
+    elif fwd_analysis:
+        sr_group_name = "FWD_CH_LST_SR"
+    else:
+        sr_group_name = "TOP22_006_CH_LST_SR"
+
+    sr_group = _load_group(sr_group_name)
     if not skip_sr:
-        if offZ_split:
-            _register_group("OFFZ_SPLIT_CH_LST_SR", sr_groups)
-        elif tau_h_analysis:
-            _register_group("TAU_CH_LST_SR", sr_groups)
-        elif fwd_analysis:
-            _register_group("FWD_CH_LST_SR", sr_groups)
-        else:
-            _register_group("TOP22_006_CH_LST_SR", sr_groups)
+        sr_groups.append(sr_group)
 
     if not skip_cr:
-        _register_group("CH_LST_CR", cr_groups)
+        cr_group = _load_group("CH_LST_CR")
+        cr_groups.append(cr_group)
+
         if tau_h_analysis:
-            _register_group("TAU_CH_LST_CR", cr_groups)
+            tau_cr_group = _load_group("TAU_CH_LST_CR")
+            cr_groups.append(tau_cr_group)
+    elif tau_h_analysis:
+        _load_group("TAU_CH_LST_CR")
+
 
     return sr_groups, cr_groups, frozenset(active_features)
 
