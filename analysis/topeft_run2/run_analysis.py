@@ -94,10 +94,20 @@ def resolve_channel_groups(
             _register_group(group_name)
 
     if required_feature_set:
+        feature_matched_groups = set()
         for group_name in channel_helper.group_names():
             group = channel_helper.group(group_name)
             if set(group.features) & required_feature_set:
+                feature_matched_groups.add(group_name)
                 _register_group(group_name)
+
+        if feature_matched_groups:
+            for scenario_name in channel_helper.scenario_names():
+                scenario_groups = channel_helper.scenario_groups(scenario_name)
+                if any(group_name in scenario_groups for group_name in feature_matched_groups):
+                    for group_name in scenario_groups:
+                        if group_name not in feature_matched_groups:
+                            _register_group(group_name)
 
     if not sr_groups and not cr_groups and not seen_groups:
         raise ValueError(

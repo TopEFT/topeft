@@ -229,3 +229,17 @@ def test_build_channel_dict_includes_forward_features(channel_helper):
     assert "requires_forward" in channel_dict["features"]
 
 
+def test_resolve_channel_groups_infers_tau_control_regions(channel_helper):
+    sr_groups, cr_groups, features = resolve_channel_groups(
+        channel_helper,
+        skip_sr=False,
+        skip_cr=False,
+        scenario_names=None,
+        required_features=["requires_tau"],
+    )
+
+    assert any(group.name == "TAU_CH_LST_SR" for group in sr_groups)
+    assert any(group.name == "TAU_CH_LST_CR" for group in cr_groups)
+    assert "requires_tau" in features
+
+
