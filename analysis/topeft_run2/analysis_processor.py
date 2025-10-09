@@ -185,9 +185,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         muonSyst='nominal',
         dtype=np.float32,
         rebin=False,
-        offZ_split=False,
-        tau_h_analysis=False,
-        fwd_analysis=False,
         channel_dict=None,
         golden_json_path=None,
         systematic_variations=None,
@@ -197,9 +194,6 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._sample = sample
         self._wc_names_lst = wc_names_lst
         self._dtype = dtype
-        self.offZ_3l_split = offZ_split
-        self.tau_h_analysis = tau_h_analysis
-        self.fwd_analysis = fwd_analysis
         if channel_dict is None:
             raise ValueError("channel_dict must be provided and cannot be None")
 
@@ -209,6 +203,13 @@ class AnalysisProcessor(processor.ProcessorABC):
         # nested structure with several loops in ``process``.  The new logic
         # operates directly on the flat dictionary, so simply store it.
         self._channel_dict = channel_dict
+        channel_features = channel_dict.get("features", ())
+        if channel_features is None:
+            channel_features = ()
+        self._channel_features = frozenset(channel_features)
+        self.offZ_3l_split = "offz_split" in self._channel_features
+        self.tau_h_analysis = "requires_tau" in self._channel_features
+        self.fwd_analysis = "requires_forward" in self._channel_features
         if available_systematics is None:
             raise ValueError("available_systematics must be provided and cannot be None")
         self._available_systematics = {

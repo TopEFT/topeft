@@ -48,30 +48,42 @@ def resolve_channel_groups(
     tau_h_analysis=False,
     fwd_analysis=False,
 ):
-    """Return the SR and CR channel groups based on analysis flags."""
+    """Return the SR and CR channel groups along with their feature flags."""
 
     sr_groups = []
     cr_groups = []
+    active_features = set()
 
-    def _get_group(name):
-        return channel_helper.group(name)
+    def _load_group(name):
+        group = channel_helper.group(name)
+        active_features.update(group.features)
+        return group
 
+    if offZ_split:
+        sr_group_name = "OFFZ_SPLIT_CH_LST_SR"
+    elif tau_h_analysis:
+        sr_group_name = "TAU_CH_LST_SR"
+    elif fwd_analysis:
+        sr_group_name = "FWD_CH_LST_SR"
+    else:
+        sr_group_name = "TOP22_006_CH_LST_SR"
+
+    sr_group = _load_group(sr_group_name)
     if not skip_sr:
-        if offZ_split:
-            sr_groups.append(_get_group("OFFZ_SPLIT_CH_LST_SR"))
-        elif tau_h_analysis:
-            sr_groups.append(_get_group("TAU_CH_LST_SR"))
-        elif fwd_analysis:
-            sr_groups.append(_get_group("FWD_CH_LST_SR"))
-        else:
-            sr_groups.append(_get_group("TOP22_006_CH_LST_SR"))
+        sr_groups.append(sr_group)
 
     if not skip_cr:
-        cr_groups.append(_get_group("CH_LST_CR"))
-        if tau_h_analysis:
-            cr_groups.append(_get_group("TAU_CH_LST_CR"))
+        cr_group = _load_group("CH_LST_CR")
+        cr_groups.append(cr_group)
 
-    return sr_groups, cr_groups
+        if tau_h_analysis:
+            tau_cr_group = _load_group("TAU_CH_LST_CR")
+            cr_groups.append(tau_cr_group)
+    elif tau_h_analysis:
+        _load_group("TAU_CH_LST_CR")
+
+
+    return sr_groups, cr_groups, frozenset(active_features)
 
 
 def normalize_jet_category(jet_cat):
@@ -118,7 +130,7 @@ def build_channel_dict(
     fwd_analysis=False,
 ):
 
-    import_sr_groups, import_cr_groups = resolve_channel_groups(
+    import_sr_groups, import_cr_groups, active_features = resolve_channel_groups(
         channel_helper,
         skip_sr,
         skip_cr,
@@ -176,11 +188,14 @@ def build_channel_dict(
                                 continue
                         elif jet_suffix:
                             continue
+                        features = set(active_features)
+                        features.update(group.features)
                         return {
                             "jet_selection": jet_key,
                             "chan_def_lst": region.to_legacy_list(),
                             "lep_flav_lst": category.lepton_flavors,
                             "appl_region": appl,
+                            "features": tuple(sorted(features)),
                         }
         return None
 
@@ -210,7 +225,7 @@ def build_channel_app_map(
     fwd_analysis=False,
 ):
     """Extract channel names and their application regions from metadata."""
-    import_sr_groups, import_cr_groups = resolve_channel_groups(
+    import_sr_groups, import_cr_groups, _ = resolve_channel_groups(
         channel_helper,
         skip_sr,
         skip_cr,
@@ -925,9 +940,6 @@ if __name__ == "__main__":
             ecut_threshold=ecut_threshold,
             do_errors=do_errors,
             split_by_lepton_flavor=split_lep_flavor,
-            offZ_split=offZ_split,
-            tau_h_analysis=tau_h_analysis,
-            fwd_analysis=fwd_analysis,
             channel_dict=channel_dict,
             golden_json_path=golden_json_path,
             systematic_variations=systematic_variations,
