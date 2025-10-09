@@ -673,6 +673,7 @@ def ApplyTESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
         return (taus.pt, taus.mass)
 
     pt  = taus.pt
+    eta = taus.eta
     dm  = taus.decayMode
     gen = taus.genPartFlav
     eta = taus.eta
@@ -688,7 +689,7 @@ def ApplyTESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
 
     if syst_name.endswith("Up"):
         syst = "up"
-        syst_lab += '_up'
+        syst_suffix = "_up"
     elif syst_name.endswith("Down"):
         syst = "down"
         syst_lab += '_down'
@@ -717,7 +718,6 @@ def ApplyTESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
         kinFlag = (flat_pt>20) & (flat_pt<205) & (flat_gen==5)
         dmFlag = ((flat_dm==0) | (flat_dm==1) | (flat_dm==10) | (flat_dm==11))
         whereFlag = kinFlag & dmFlag
-        syst_lab = f'TauTES_{year}'
 
         flat_all_pt = ak.flatten(pt, axis=1)
         full_tes_syst = np.ones_like(flat_all_pt, dtype=np.float32)
@@ -757,8 +757,11 @@ def ApplyFESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
 
     is_run3 = not is_run2
 
+    syst = "nom"
     syst_lab = f'TauFES_{year}'
 
+    syst_suffix = ""
+    syst = "nom"
     if syst_name.endswith("Up"):
         syst = "up"
         syst_lab += '_up'
