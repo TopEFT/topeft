@@ -6,6 +6,7 @@ import numpy as np
 import awkward as ak
 import os
 import re
+import logging
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
@@ -25,6 +26,8 @@ from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMu
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
+
+logger = logging.getLogger(__name__)
 get_tc_param = GetParam(topcoffea_path("params/params.json"))
 get_te_param = GetParam(topeft_path("params/params.json"))
 
@@ -787,12 +790,6 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             isBtagJetsLooseNotMedium = (isBtagJetsLoose & isNotBtagJetsMedium)
 
-            light_mask = goodJets.hadronFlavour==0
-            bc_mask = goodJets.hadronFlavour>0
-
-            jets_light = goodJets[light_mask]
-            jets_bc    = goodJets[bc_mask]
-
             trigger_weight_label = f"triggerSF_{year}"
 
             # Determine the lepton multiplicity category from the requested
@@ -802,7 +799,26 @@ class AnalysisProcessor(processor.ProcessorABC):
             nlep_cat = re.match(r"\d+l", self.channel).group(0)
             channel_prefix = nlep_cat[:2]
 
+            default_flavour_mask = ak.values_astype(
+                ak.zeros_like(goodJets.pt, highlevel=True), np.bool_
+            )
+
             if not isData:
+                has_hadron_flavour = hasattr(goodJets, "hadronFlavour")
+                if has_hadron_flavour:
+                    light_mask = goodJets.hadronFlavour == 0
+                    bc_mask = goodJets.hadronFlavour > 0
+                else:
+                    logger.warning(
+                        "Missing 'hadronFlavour' for MC sample '%s'; defaulting to empty jet flavour masks.",
+                        dataset,
+                    )
+                    light_mask = default_flavour_mask
+                    bc_mask = default_flavour_mask
+
+                jets_light = goodJets[light_mask]
+                jets_bc = goodJets[bc_mask]
+
                 # Begin consolidated MC-only weight registration.
 
                 # If this is not an EFT sample, use the generator weight; otherwise
@@ -932,121 +948,124 @@ class AnalysisProcessor(processor.ProcessorABC):
                 else:
                     weights_object.add("PU", pu_central)
 
-                # B-tag efficiencies and central SFs are re-used for central and systematic weights.
-                btag_effM_light = GetBtagEff(jets_light, year, "medium")
-                btag_effM_bc = GetBtagEff(jets_bc, year, "medium")
-                btag_effL_light = GetBtagEff(jets_light, year, "loose")
-                btag_effL_bc = GetBtagEff(jets_bc, year, "loose")
-                btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M", year_light, "deepJet_incl", "central")
-                btag_sfM_bc = tc_cor.btag_sf_eval(jets_bc, "M", year, "deepJet_comb", "central")
-                btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L", year_light, "deepJet_incl", "central")
-                btag_sfL_bc = tc_cor.btag_sf_eval(jets_bc, "L", year, "deepJet_comb", "central")
+                if has_hadron_flavour:
+                    # B-tag efficiencies and central SFs are re-used for central and systematic weights.
+                    btag_effM_light = GetBtagEff(jets_light, year, "medium")
+                    btag_effM_bc = GetBtagEff(jets_bc, year, "medium")
+                    btag_effL_light = GetBtagEff(jets_light, year, "loose")
+                    btag_effL_bc = GetBtagEff(jets_bc, year, "loose")
+                    btag_sfM_light = tc_cor.btag_sf_eval(jets_light, "M", year_light, "deepJet_incl", "central")
+                    btag_sfM_bc = tc_cor.btag_sf_eval(jets_bc, "M", year, "deepJet_comb", "central")
+                    btag_sfL_light = tc_cor.btag_sf_eval(jets_light, "L", year_light, "deepJet_incl", "central")
+                    btag_sfL_bc = tc_cor.btag_sf_eval(jets_bc, "L", year, "deepJet_comb", "central")
 
-                pData_light, pMC_light = tc_cor.get_method1a_wgt_doublewp(
-                    btag_effM_light,
-                    btag_effL_light,
-                    btag_sfM_light,
-                    btag_sfL_light,
-                    isBtagJetsMedium[light_mask],
-                    isBtagJetsLooseNotMedium[light_mask],
-                    isNotBtagJetsLoose[light_mask],
-                )
-                btag_w_light = pData_light / pMC_light
-                pData_bc, pMC_bc = tc_cor.get_method1a_wgt_doublewp(
-                    btag_effM_bc,
-                    btag_effL_bc,
-                    btag_sfM_bc,
-                    btag_sfL_bc,
-                    isBtagJetsMedium[bc_mask],
-                    isBtagJetsLooseNotMedium[bc_mask],
-                    isNotBtagJetsLoose[bc_mask],
-                )
-                btag_w_bc = pData_bc / pMC_bc
-                btag_w = btag_w_light * btag_w_bc
-                weights_object.add("btagSF", btag_w)
+                    pData_light, pMC_light = tc_cor.get_method1a_wgt_doublewp(
+                        btag_effM_light,
+                        btag_effL_light,
+                        btag_sfM_light,
+                        btag_sfL_light,
+                        isBtagJetsMedium[light_mask],
+                        isBtagJetsLooseNotMedium[light_mask],
+                        isNotBtagJetsLoose[light_mask],
+                    )
+                    btag_w_light = pData_light / pMC_light
+                    pData_bc, pMC_bc = tc_cor.get_method1a_wgt_doublewp(
+                        btag_effM_bc,
+                        btag_effL_bc,
+                        btag_sfM_bc,
+                        btag_sfL_bc,
+                        isBtagJetsMedium[bc_mask],
+                        isBtagJetsLooseNotMedium[bc_mask],
+                        isNotBtagJetsLoose[bc_mask],
+                    )
+                    btag_w_bc = pData_bc / pMC_bc
+                    btag_w = btag_w_light * btag_w_bc
+                    weights_object.add("btagSF", btag_w)
 
-                if self._systematic_variations and object_variation == "nominal":
-                    requested_suffix = None
-                    if variation_name and variation_name.startswith("btagSF"):
-                        requested_suffix = variation_name[len("btagSF") :]
+                    if self._systematic_variations and object_variation == "nominal":
+                        requested_suffix = None
+                        if variation_name and variation_name.startswith("btagSF"):
+                            requested_suffix = variation_name[len("btagSF") :]
 
-                    if requested_suffix:
-                        directionless_suffix = requested_suffix.rstrip("Up").rstrip("Down")
+                        if requested_suffix:
+                            directionless_suffix = requested_suffix.rstrip("Up").rstrip("Down")
 
-                        corrtype = (
-                            "correlated" if directionless_suffix.endswith("_corr") else "uncorrelated"
-                        )
+                            corrtype = (
+                                "correlated" if directionless_suffix.endswith("_corr") else "uncorrelated"
+                            )
 
-                        if requested_suffix.startswith("light_"):
-                            jets_flav = jets_light
-                            flav_mask = light_mask
-                            sys_year = year_light
-                            dJ_tag = "incl"
-                            btag_effM = btag_effM_light
-                            btag_effL = btag_effL_light
-                            pMC_flav = pMC_light
-                            fixed_btag_w = btag_w_bc
-                        else:
-                            jets_flav = jets_bc
-                            flav_mask = bc_mask
-                            sys_year = year
-                            dJ_tag = "comb"
-                            btag_effM = btag_effM_bc
-                            btag_effL = btag_effL_bc
-                            pMC_flav = pMC_bc
-                            fixed_btag_w = btag_w_light
+                            if requested_suffix.startswith("light_"):
+                                jets_flav = jets_light
+                                flav_mask = light_mask
+                                sys_year = year_light
+                                dJ_tag = "incl"
+                                btag_effM = btag_effM_light
+                                btag_effL = btag_effL_light
+                                pMC_flav = pMC_light
+                                fixed_btag_w = btag_w_bc
+                            else:
+                                jets_flav = jets_bc
+                                flav_mask = bc_mask
+                                sys_year = year
+                                dJ_tag = "comb"
+                                btag_effM = btag_effM_bc
+                                btag_effL = btag_effL_bc
+                                pMC_flav = pMC_bc
+                                fixed_btag_w = btag_w_light
 
-                        btag_sfL_up = tc_cor.btag_sf_eval(
-                            jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}"
-                        )
-                        btag_sfL_down = tc_cor.btag_sf_eval(
-                            jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}"
-                        )
-                        btag_sfM_up = tc_cor.btag_sf_eval(
-                            jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}"
-                        )
-                        btag_sfM_down = tc_cor.btag_sf_eval(
-                            jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}"
-                        )
+                            btag_sfL_up = tc_cor.btag_sf_eval(
+                                jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}"
+                            )
+                            btag_sfL_down = tc_cor.btag_sf_eval(
+                                jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}"
+                            )
+                            btag_sfM_up = tc_cor.btag_sf_eval(
+                                jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}"
+                            )
+                            btag_sfM_down = tc_cor.btag_sf_eval(
+                                jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}"
+                            )
 
-                        pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(
-                            btag_effM,
-                            btag_effL,
-                            btag_sfM_up,
-                            btag_sfL_up,
-                            isBtagJetsMedium[flav_mask],
-                            isBtagJetsLooseNotMedium[flav_mask],
-                            isNotBtagJetsLoose[flav_mask],
-                        )
+                            pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(
+                                btag_effM,
+                                btag_effL,
+                                btag_sfM_up,
+                                btag_sfL_up,
+                                isBtagJetsMedium[flav_mask],
+                                isBtagJetsLooseNotMedium[flav_mask],
+                                isNotBtagJetsLoose[flav_mask],
+                            )
 
-                        pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(
-                            btag_effM,
-                            btag_effL,
-                            btag_sfM_down,
-                            btag_sfL_down,
-                            isBtagJetsMedium[flav_mask],
-                            isBtagJetsLooseNotMedium[flav_mask],
-                            isNotBtagJetsLoose[flav_mask],
-                        )
+                            pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(
+                                btag_effM,
+                                btag_effL,
+                                btag_sfM_down,
+                                btag_sfL_down,
+                                isBtagJetsMedium[flav_mask],
+                                isBtagJetsLooseNotMedium[flav_mask],
+                                isNotBtagJetsLoose[flav_mask],
+                            )
 
-                        btag_w_up = fixed_btag_w * (pData_up / pMC_flav) / btag_w
-                        btag_w_down = fixed_btag_w * (pData_down / pMC_flav) / btag_w
+                            btag_w_up = fixed_btag_w * (pData_up / pMC_flav) / btag_w
+                            btag_w_down = fixed_btag_w * (pData_down / pMC_flav) / btag_w
 
-                        variation_label_base = variation_name
-                        if variation_label_base:
-                            for _direction in ("Up", "Down"):
-                                if variation_label_base.endswith(_direction):
-                                    variation_label_base = variation_label_base[: -len(_direction)]
-                                    break
-                        else:
-                            variation_label_base = f"btagSF{directionless_suffix}"
+                            variation_label_base = variation_name
+                            if variation_label_base:
+                                for _direction in ("Up", "Down"):
+                                    if variation_label_base.endswith(_direction):
+                                        variation_label_base = variation_label_base[: -len(_direction)]
+                                        break
+                            else:
+                                variation_label_base = f"btagSF{directionless_suffix}"
 
-                        weights_object.add(
-                            variation_label_base,
-                            events.nom,
-                            btag_w_up,
-                            btag_w_down,
-                        )
+                            weights_object.add(
+                                variation_label_base,
+                                events.nom,
+                                btag_w_up,
+                                btag_w_down,
+                            )
+                else:
+                    weights_object.add("btagSF", ak.ones_like(events.nom))
 
                 # Trigger SFs are only defined for simulated samples.
                 GetTriggerSF(year, events, l0, l1)
@@ -1161,7 +1180,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                     )
                 else:
                     raise Exception(f"Unknown channel name: {nlep_cat}")
-
             ######### Event weights that do depend on the lep cat ###########
 
             # Attach the lepton-category specific pieces on top of the
