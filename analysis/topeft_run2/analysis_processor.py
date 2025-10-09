@@ -26,6 +26,13 @@ from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMu
 from topeft.modules.btag_weights import register_btag_sf_weights
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
+from topeft.modules.systematics import (
+    add_fake_factor_weights,
+    apply_theory_weight_variations,
+    register_lepton_sf_weight,
+    register_weight_variation,
+    validate_data_weight_variations,
+)
 from topcoffea.modules.get_param_from_jsons import GetParam
 
 logger = logging.getLogger(__name__)
@@ -58,121 +65,6 @@ def construct_cat_name(chan_str,njet_str=None,flav_str=None):
         if component is None: continue
         ret_str = "_".join([ret_str,component])
     return ret_str
-
-
-def _build_fake_factor_specs(channel_prefix, year):
-    base_attr = f"fakefactor_{channel_prefix}"
-    return {
-        "FF": (
-            "absolute",
-            base_attr,
-            f"{base_attr}_up",
-            f"{base_attr}_down",
-        ),
-        "FFpt": (
-            "ratio",
-            "nom",
-            f"{base_attr}_pt1",
-            f"{base_attr}_pt2",
-        ),
-        "FFeta": (
-            "ratio",
-            "nom",
-            f"{base_attr}_be1",
-            f"{base_attr}_be2",
-        ),
-        f"FFcloseEl_{year}": (
-            "ratio",
-            "nom",
-            f"{base_attr}_elclosureup",
-            f"{base_attr}_elclosuredown",
-        ),
-        f"FFcloseMu_{year}": (
-            "ratio",
-            "nom",
-            f"{base_attr}_muclosureup",
-            f"{base_attr}_muclosuredown",
-        ),
-    }
-
-
-def _add_fake_factor_weights(
-    weights_object,
-    events,
-    channel_prefix,
-    year,
-    requested_data_weight_label=None,
-):
-    """Register fake-factor weights for the requested lepton category."""
-
-    # Preserve compatibility with callers that still pass the full channel name (e.g. "2lss")
-    # by only using the leading lepton-multiplicity prefix when building attribute names.
-    channel_prefix = channel_prefix[:2]
-
-    fake_factor_specs = _build_fake_factor_specs(channel_prefix, year)
-
-    requested_variations = None
-    if requested_data_weight_label:
-        spec = fake_factor_specs.get(requested_data_weight_label)
-        if spec is None:
-            raise ValueError(
-                f"Unsupported fake-factor label '{requested_data_weight_label}' for '{channel_prefix}'"
-            )
-
-        mode, central_attr, up_attr, down_attr = spec
-        if mode == "absolute":
-            up_values = getattr(events, up_attr)
-            down_values = getattr(events, down_attr)
-        elif mode == "ratio":
-            denominator = getattr(events, central_attr)
-            up_values = getattr(events, up_attr) / denominator
-            down_values = getattr(events, down_attr) / denominator
-        else:
-            raise ValueError(
-                f"Unsupported fake-factor mode '{mode}' for '{requested_data_weight_label}'"
-            )
-
-        requested_variations = (
-            copy.deepcopy(up_values),
-            copy.deepcopy(down_values),
-        )
-
-    for label, (_, central_attr, _, _) in fake_factor_specs.items():
-        central_values = getattr(events, central_attr)
-        if requested_variations is not None and label == requested_data_weight_label:
-            variations = requested_variations
-        else:
-            variations = ()
-        weights_object.add(label, central_values, *variations)
-
-
-def _validate_data_weight_variations(
-    weights_object,
-    expected_variations,
-    requested_data_weight_label,
-    current_variation_name,
-):
-    """Ensure data weights only contain supported variations."""
-
-    variation_set = set(weights_object.variations)
-    unexpected_variations = variation_set - expected_variations
-    if unexpected_variations:
-        raise Exception(
-            "Error: Unexpected wgt variations for data! "
-            f"Unexpected variations: {sorted(unexpected_variations)}"
-        )
-
-    if requested_data_weight_label:
-        required_variations = {
-            f"{requested_data_weight_label}Up",
-            f"{requested_data_weight_label}Down",
-        }
-        missing_variations = required_variations - variation_set
-        if missing_variations:
-            raise Exception(
-                "Error: Missing expected fake-factor variations for data! "
-                f"Requested '{current_variation_name}' but did not find {sorted(missing_variations)}"
-            )
 
 
 class AnalysisProcessor(processor.ProcessorABC):
@@ -375,107 +267,6 @@ class AnalysisProcessor(processor.ProcessorABC):
     @property
     def columns(self):
         return self._columns
-
-    def _apply_theory_weight_variations(
-        self,
-        *,
-        events,
-        variation,
-        variation_base,
-        have_systematics,
-        sow,
-        sow_variations,
-        sow_variation_key_map,
-        is_lo_sample,
-        hist_axis_name,
-    ):
-        """Return the coffea weight arguments for the theory variations.
-
-        The helper attaches parton shower weights on demand, resolves the
-        sum-of-weights entries declared in the variation metadata and returns a
-        mapping suitable for ``Weights.add`` calls.  Missing sum-of-weights keys
-        raise a :class:`KeyError` with the same descriptive message emitted by
-        the inline logic this helper replaces, so the processor continues to
-        surface a clear exception when inputs are misconfigured.
-        """
-
-        if variation is not None:
-            group_mapping = variation.group or {}
-            group_key = (variation.base, variation.component, variation.year)
-            group_info = group_mapping.get(group_key, {})
-
-            if not group_info and variation.metadata.get("sum_of_weights"):
-                group_info = {
-                    variation.name: {
-                        "sum_of_weights": variation.metadata["sum_of_weights"]
-                    }
-                }
-
-            for member_name, info in group_info.items():
-                sumw_key = info.get("sum_of_weights")
-                if sumw_key:
-                    sow_variation_key_map.setdefault(member_name, sumw_key)
-
-        include_flags = {
-            "ISR": have_systematics and variation_base == "isr",
-            "FSR": have_systematics and variation_base == "fsr",
-            "renorm": have_systematics and variation_base == "renorm",
-            "fact": have_systematics and variation_base == "fact",
-            "renormfact": have_systematics and variation_base == "renormfact",
-        }
-
-        if include_flags["ISR"] or include_flags["FSR"]:
-            tc_cor.AttachPSWeights(events)
-
-        result = {label: (events.nom,) for label in include_flags}
-
-        variation_field_map = {
-            "ISR": ("ISRUp", "ISRDown"),
-            "FSR": ("FSRUp", "FSRDown"),
-            "renorm": ("renormUp", "renormDown"),
-            "fact": ("factUp", "factDown"),
-            "renormfact": ("renormfactUp", "renormfactDown"),
-        }
-
-        current_variation_name = variation.name if variation is not None else "nominal"
-
-        def get_sow_value(label):
-            if label in sow_variations:
-                return sow_variations[label]
-
-            if is_lo_sample:
-                sow_variations[label] = sow
-                return sow
-
-            key = sow_variation_key_map.get(label)
-            if key is None:
-                raise KeyError(
-                    f"Unsupported sum-of-weights variation '{label}' requested while processing '{current_variation_name}'"
-                )
-
-            if key not in self._sample:
-                raise KeyError(
-                    f"Sample '{hist_axis_name}' is missing required sum-of-weights entry '{key}' for '{label}' variation"
-                )
-
-            value = self._sample[key]
-            sow_variations[label] = value
-            return value
-
-        for label, (up_field, down_field) in variation_field_map.items():
-            if not include_flags[label]:
-                continue
-
-            sow_up = get_sow_value(up_field)
-            sow_down = get_sow_value(down_field)
-
-            result[label] = (
-                events.nom,
-                getattr(events, up_field) * (sow / sow_up),
-                getattr(events, down_field) * (sow / sow_down),
-            )
-
-        return result
 
     # Main function: run on a given dataset
     def process(self, events):
@@ -982,7 +773,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Attach renorm/fact scale weights regardless of which variations are being evaluated.
                 tc_cor.AttachScaleWeights(events)  # Run3 ready (with caveat on "nominal")
 
-                theory_weight_arguments = self._apply_theory_weight_variations(
+                theory_weight_arguments = apply_theory_weight_variations(
                     events=events,
                     variation=variation,
                     variation_base=variation_base,
@@ -992,44 +783,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                     sow_variation_key_map=sow_variation_key_map,
                     is_lo_sample=is_lo_sample,
                     hist_axis_name=histAxisName,
+                    sample=self._sample,
                 )
 
                 for label, args in theory_weight_arguments.items():
                     weights_object.add(label, *args)
-
-                def register_weight_variation(
-                    weights,
-                    label,
-                    central,
-                    up=None,
-                    down=None,
-                    *,
-                    active=False,
-                ):
-                    """Register a weight with optional variations.
-
-                    The up/down values may be provided directly or as callables. Callables
-                    are only evaluated when ``active`` is ``True`` so that expensive
-                    computations can be deferred until they are required.
-                    """
-
-                    def _materialize(value, copy_value):
-                        if value is None:
-                            return None
-                        result = value() if callable(value) else value
-                        return copy.deepcopy(result) if copy_value else result
-
-                    central_value = _materialize(central, copy_value=False)
-
-                    variation_values = ()
-                    if active:
-                        up_value = _materialize(up, copy_value=True)
-                        down_value = _materialize(down, copy_value=True)
-                        variation_values = tuple(
-                            value for value in (up_value, down_value) if value is not None
-                        )
-
-                    weights.add(label, central_value, *variation_values)
 
                 # Prefiring and pileup (prefire weights only available in nanoAODv9 for Run 2).
                 include_prefiring_vars = have_systematics and variation_base == "prefiring"
@@ -1138,133 +896,166 @@ class AnalysisProcessor(processor.ProcessorABC):
                     AttachTauSF(events, tau, year=year)
 
                 # Lepton (and optional tau) scale factors depend on the lepton category.
-            def _register_lepton_sf_weight(label, central_attr, up_attr, down_attr, include_variations):
-                central_values = getattr(events, central_attr)
-                variation_values = ()
-                if include_variations:
-                    missing_attrs = [
-                        attr_name
-                        for attr_name in (up_attr, down_attr)
-                        if not hasattr(events, attr_name)
-                    ]
-                    if missing_attrs:
-                        logger.warning(
-                            "Requested lepton SF variation '%s' for weight '%s' but missing arrays: %s",
-                            variation_name,
-                            label,
-                            ", ".join(missing_attrs),
-                        )
-                    else:
-                        variation_values = (
-                            copy.deepcopy(getattr(events, up_attr)),
-                            copy.deepcopy(getattr(events, down_attr)),
-                        )
-                weights_object.add(label, central_values, *variation_values)
-
             if channel_prefix == "1l":
-                _register_lepton_sf_weight(
+                register_lepton_sf_weight(
+                    weights_object,
+                    events,
                     "lepSF_muon",
                     "sf_1l_muon",
                     "sf_1l_hi_muon",
                     "sf_1l_lo_muon",
                     include_muon_sf_variations,
+                    variation_name=variation_name,
+                    logger_obj=logger,
                 )
-                _register_lepton_sf_weight(
+                register_lepton_sf_weight(
+                    weights_object,
+                    events,
                     "lepSF_elec",
                     "sf_1l_elec",
                     "sf_1l_hi_elec",
                     "sf_1l_lo_elec",
                     include_elec_sf_variations,
+                    variation_name=variation_name,
+                    logger_obj=logger,
                 )
                 if self.tau_h_analysis:
-                    _register_lepton_sf_weight(
+                    register_lepton_sf_weight(
+                        weights_object,
+                        events,
                         "lepSF_taus_real",
                         "sf_2l_taus_real",
                         "sf_2l_taus_real_hi",
                         "sf_2l_taus_real_lo",
                         include_tau_real_sf_variations,
+                        variation_name=variation_name,
+                        logger_obj=logger,
                     )
-                    _register_lepton_sf_weight(
+                    register_lepton_sf_weight(
+                        weights_object,
+                        events,
                         "lepSF_taus_fake",
                         "sf_2l_taus_fake",
                         "sf_2l_taus_fake_hi",
                         "sf_2l_taus_fake_lo",
                         include_tau_fake_sf_variations,
+                        variation_name=variation_name,
+                        logger_obj=logger,
                     )
             elif channel_prefix == "2l":
-                _register_lepton_sf_weight(
+                register_lepton_sf_weight(
+                    weights_object,
+                    events,
                     "lepSF_muon",
                     "sf_2l_muon",
                     "sf_2l_hi_muon",
                     "sf_2l_lo_muon",
                     include_muon_sf_variations,
+                    variation_name=variation_name,
+                    logger_obj=logger,
                 )
-                _register_lepton_sf_weight(
+                register_lepton_sf_weight(
+                    weights_object,
+                    events,
                     "lepSF_elec",
                     "sf_2l_elec",
                     "sf_2l_hi_elec",
                     "sf_2l_lo_elec",
                     include_elec_sf_variations,
+                    variation_name=variation_name,
+                    logger_obj=logger,
                 )
                 if self.tau_h_analysis:
-                    _register_lepton_sf_weight(
+                    register_lepton_sf_weight(
+                        weights_object,
+                        events,
                         "lepSF_taus_real",
                         "sf_2l_taus_real",
                         "sf_2l_taus_real_hi",
                         "sf_2l_taus_real_lo",
                         include_tau_real_sf_variations,
+                        variation_name=variation_name,
+                        logger_obj=logger,
                     )
-                    _register_lepton_sf_weight(
+                    register_lepton_sf_weight(
+                        weights_object,
+                        events,
                         "lepSF_taus_fake",
                         "sf_2l_taus_fake",
                         "sf_2l_taus_fake_hi",
                         "sf_2l_taus_fake_lo",
                         include_tau_fake_sf_variations,
+                        variation_name=variation_name,
+                        logger_obj=logger,
                     )
             elif channel_prefix == "3l":
-                _register_lepton_sf_weight(
+                register_lepton_sf_weight(
+                    weights_object,
+                    events,
                     "lepSF_muon",
                     "sf_3l_muon",
                     "sf_3l_hi_muon",
                     "sf_3l_lo_muon",
                     include_muon_sf_variations,
+                    variation_name=variation_name,
+                    logger_obj=logger,
                 )
-                _register_lepton_sf_weight(
+                register_lepton_sf_weight(
+                    weights_object,
+                    events,
                     "lepSF_elec",
                     "sf_3l_elec",
                     "sf_3l_hi_elec",
                     "sf_3l_lo_elec",
                     include_elec_sf_variations,
+                    variation_name=variation_name,
+                    logger_obj=logger,
                 )
                 if self.tau_h_analysis:
-                    _register_lepton_sf_weight(
+                    register_lepton_sf_weight(
+                        weights_object,
+                        events,
                         "lepSF_taus_real",
                         "sf_2l_taus_real",
                         "sf_2l_taus_real_hi",
                         "sf_2l_taus_real_lo",
                         include_tau_real_sf_variations,
+                        variation_name=variation_name,
+                        logger_obj=logger,
                     )
-                    _register_lepton_sf_weight(
+                    register_lepton_sf_weight(
+                        weights_object,
+                        events,
                         "lepSF_taus_fake",
                         "sf_2l_taus_fake",
                         "sf_2l_taus_fake_hi",
                         "sf_2l_taus_fake_lo",
                         include_tau_fake_sf_variations,
+                        variation_name=variation_name,
+                        logger_obj=logger,
                     )
             elif channel_prefix == "4l":
-                _register_lepton_sf_weight(
+                register_lepton_sf_weight(
+                    weights_object,
+                    events,
                     "lepSF_muon",
                     "sf_4l_muon",
                     "sf_4l_hi_muon",
                     "sf_4l_lo_muon",
                     include_muon_sf_variations,
+                    variation_name=variation_name,
+                    logger_obj=logger,
                 )
-                _register_lepton_sf_weight(
+                register_lepton_sf_weight(
+                    weights_object,
+                    events,
                     "lepSF_elec",
                     "sf_4l_elec",
                     "sf_4l_hi_elec",
                     "sf_4l_lo_elec",
                     include_elec_sf_variations,
+                    variation_name=variation_name,
+                    logger_obj=logger,
                 )
             else:
                 raise Exception(f"Unknown channel name: {nlep_cat}")
@@ -1274,7 +1065,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             # previously registered central and kinematic weights.
 
             if channel_prefix in {"1l", "2l", "3l"}:
-                _add_fake_factor_weights(
+                add_fake_factor_weights(
                     weights_object,
                     events,
                     channel_prefix,
@@ -1283,7 +1074,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 )
 
             if self._systematic_variations and isData:
-                _validate_data_weight_variations(
+                validate_data_weight_variations(
                     weights_object,
                     data_weight_systematics_set,
                     requested_data_weight_label,
