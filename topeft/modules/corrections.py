@@ -685,22 +685,22 @@ def ApplyTESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
 
     is_run3 = not is_run2
 
-    syst_lab_base = f"TauTES_{year}"
-    syst_suffix = ""
-    syst = "nom"
+    syst_lab = f'TauTES_{year}'
+
     if syst_name.endswith("Up"):
         syst = "up"
         syst_suffix = "_up"
     elif syst_name.endswith("Down"):
         syst = "down"
-        syst_suffix = "_down"
+        syst_lab += '_down'
+    else:
+        syst = "nom"
 
     if is_run2:
 
         kinFlag = (pt>20) & (pt<205) & (gen==5)
         dmFlag = ((dm==0) | (dm==1) | (dm==10) | (dm==11))
         whereFlag = kinFlag & dmFlag
-        syst_lab = f"{syst_lab_base}{syst_suffix}"
 
         #tes_syst = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1) #from John?
         tes_syst = np.where(whereFlag, SFevaluator[syst_lab](dm,pt), 1)
@@ -764,12 +764,12 @@ def ApplyFESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
     syst = "nom"
     if syst_name.endswith("Up"):
         syst = "up"
-        syst_suffix = "_up"
+        syst_lab += '_up'
     elif syst_name.endswith("Down"):
         syst = "down"
-        syst_suffix = "_down"
-
-    syst_lab = f"{syst_lab}{syst_suffix}"
+        syst_lab += '_down'
+    else:
+        syst = "nom"
 
     if is_run2:
         kinFlag = (pt>20) & (pt<205) & (gen==5)
