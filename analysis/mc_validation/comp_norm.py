@@ -61,6 +61,7 @@ parser.add_argument('--density', action='store_true' , help = 'Normalize')
 parser.add_argument('--flow'   , action='store_true' , help = 'Overflow')
 parser.add_argument('--var'    , default=None , help = 'Variable to plot')
 parser.add_argument('--private', action='store_true' , help = 'Use private key for second hist')
+parser.add_argument('--central', action='store_true' , help = 'Use central key for first hist')
 parser.add_argument('--skip'   , action='store_true' , help = 'Use private key for second hist')
 parser.add_argument('json'     , default='', help = 'Json file(s) containing files and metadata')
 parser.add_argument('--small'   , action='store_true', help = 'Remove all |WCs| >100')
@@ -68,6 +69,8 @@ parser.add_argument('--no-lumi' , action='store_true', help = 'Don\t rescale the
 args  = parser.parse_args()
 fin1   = args.fin1
 fin2   = args.fin2
+
+assert args.private != args.central, 'Please use either `--private` OR `--central`, not both'
 
 with gzip.open(fin1) as fin1:
     hin = pickle.load(fin1)
@@ -309,12 +312,12 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     if args.small:
         st_pt = {wc:(val if abs(val) < 100 else 0) for wc,val in st_pt.items()}
 
-    print(f'Using {st_pt=}')
-    eft_err = np.sqrt(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt).variances(flow=(flow=='show')))
+    if not args.central: print(f'Using {st_pt=}')
+    if not args.central: eft_err = np.sqrt(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt).variances(flow=(flow=='show')))
     eft_err = False
     #if flow=='show': eft_err = eft_err[1:]
-    hep.histplot(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt), label=f'{args.str1} pt.', ax=ax, density=density, flow=flow, ls='--', yerr=eft_err)
-    if args.private and not args.skip: #FIXME
+    if not args.central: hep.histplot(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt), label=f'{args.str1} pt.', ax=ax, density=density, flow=flow, ls='--', yerr=eft_err)
+    if args.private and not args.skip and not args.central: #FIXME
         hep.histplot(hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt), label=f'{str2} EFT pt.', ax=ax, density=density, flow=flow, yerr=False, ls='--')
     #eft_st = hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt).values()
     #eft_err = np.sqrt(eft_st)/np.sum(eft_st)
@@ -338,17 +341,17 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     eb2 = ax2.errorbar([1], eft_sm_norm / np.sum(sm.values(flow=True)), xerr=0.05)
     plt.gca().set_xticks([])
 
-    eft = hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt)
+    if not args.central: eft = hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt)
     eft_err = np.sqrt(eft.variances(flow=(flow=='show')))/np.sum(eft.values(flow=(flow=='show')))
     if flow=='show': eft_err = eft_err[1:]
     norm = np.sum(sm.values()) / np.sum(eft.values())
-    (eft/sm * norm).plot1d(yerr=eft_err, ax=rax, flow=flow, ls='--')
+    if not args.central: (eft/sm * norm).plot1d(yerr=eft_err, ax=rax, flow=flow, ls='--')
 
     eft_start_norm = np.sum(eft.values(flow=True)[()]) #/ sm_scale
     if 'fixed' in args.fin2:
         eb3 = ax2.errorbar([1], eft_start_norm / np.sum(sm.values(flow=True)), xerr=0.05, linestyle='--')
 
-    if args.private and wc and not args.skip: #FIXME
+    if args.private and wc and not args.skip and not args.central: #FIXME
         eft = hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt)
         norm = np.sum(sm.values()) / np.sum(eft.values())
         (eft/sm * norm).plot1d(yerr=False, ax=rax, flow=flow, ls='--')
