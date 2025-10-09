@@ -376,6 +376,107 @@ class AnalysisProcessor(processor.ProcessorABC):
     def columns(self):
         return self._columns
 
+    def _apply_theory_weight_variations(
+        self,
+        *,
+        events,
+        variation,
+        variation_base,
+        have_systematics,
+        sow,
+        sow_variations,
+        sow_variation_key_map,
+        is_lo_sample,
+        hist_axis_name,
+    ):
+        """Return the coffea weight arguments for the theory variations.
+
+        The helper attaches parton shower weights on demand, resolves the
+        sum-of-weights entries declared in the variation metadata and returns a
+        mapping suitable for ``Weights.add`` calls.  Missing sum-of-weights keys
+        raise a :class:`KeyError` with the same descriptive message emitted by
+        the inline logic this helper replaces, so the processor continues to
+        surface a clear exception when inputs are misconfigured.
+        """
+
+        if variation is not None:
+            group_mapping = variation.group or {}
+            group_key = (variation.base, variation.component, variation.year)
+            group_info = group_mapping.get(group_key, {})
+
+            if not group_info and variation.metadata.get("sum_of_weights"):
+                group_info = {
+                    variation.name: {
+                        "sum_of_weights": variation.metadata["sum_of_weights"]
+                    }
+                }
+
+            for member_name, info in group_info.items():
+                sumw_key = info.get("sum_of_weights")
+                if sumw_key:
+                    sow_variation_key_map.setdefault(member_name, sumw_key)
+
+        include_flags = {
+            "ISR": have_systematics and variation_base == "isr",
+            "FSR": have_systematics and variation_base == "fsr",
+            "renorm": have_systematics and variation_base == "renorm",
+            "fact": have_systematics and variation_base == "fact",
+            "renormfact": have_systematics and variation_base == "renormfact",
+        }
+
+        if include_flags["ISR"] or include_flags["FSR"]:
+            tc_cor.AttachPSWeights(events)
+
+        result = {label: (events.nom,) for label in include_flags}
+
+        variation_field_map = {
+            "ISR": ("ISRUp", "ISRDown"),
+            "FSR": ("FSRUp", "FSRDown"),
+            "renorm": ("renormUp", "renormDown"),
+            "fact": ("factUp", "factDown"),
+            "renormfact": ("renormfactUp", "renormfactDown"),
+        }
+
+        current_variation_name = variation.name if variation is not None else "nominal"
+
+        def get_sow_value(label):
+            if label in sow_variations:
+                return sow_variations[label]
+
+            if is_lo_sample:
+                sow_variations[label] = sow
+                return sow
+
+            key = sow_variation_key_map.get(label)
+            if key is None:
+                raise KeyError(
+                    f"Unsupported sum-of-weights variation '{label}' requested while processing '{current_variation_name}'"
+                )
+
+            if key not in self._sample:
+                raise KeyError(
+                    f"Sample '{hist_axis_name}' is missing required sum-of-weights entry '{key}' for '{label}' variation"
+                )
+
+            value = self._sample[key]
+            sow_variations[label] = value
+            return value
+
+        for label, (up_field, down_field) in variation_field_map.items():
+            if not include_flags[label]:
+                continue
+
+            sow_up = get_sow_value(up_field)
+            sow_down = get_sow_value(down_field)
+
+            result[label] = (
+                events.nom,
+                getattr(events, up_field) * (sow / sow_up),
+                getattr(events, down_field) * (sow / sow_down),
+            )
+
+        return result
+
     # Main function: run on a given dataset
     def process(self, events):
 
@@ -878,88 +979,23 @@ class AnalysisProcessor(processor.ProcessorABC):
                     ]
 
                 have_systematics = bool(self._systematic_variations)
-                include_ISR = have_systematics and variation_base == "isr"
-                include_FSR = have_systematics and variation_base == "fsr"
-                need_ps_weights = include_ISR or include_FSR
-                if need_ps_weights:
-                    # Attach PS weights (ISR/FSR)
-                    tc_cor.AttachPSWeights(events)  # Run3 ready
-
-                def get_sow_value(label):
-                    if label in sow_variations:
-                        return sow_variations[label]
-
-                    if is_lo_sample:
-                        sow_variations[label] = sow
-                        return sow
-
-                    key = sow_variation_key_map.get(label)
-                    if key is None:
-                        raise KeyError(
-                            f"Unsupported sum-of-weights variation '{label}' requested while processing '{current_syst}'"
-                        )
-
-                    if key not in self._sample:
-                        raise KeyError(
-                            f"Sample '{histAxisName}' is missing required sum-of-weights entry '{key}' for '{label}' variation"
-                        )
-
-                    value = self._sample[key]
-                    sow_variations[label] = value
-                    return value
-
-                if include_ISR:
-                    sow_ISRUp = get_sow_value("ISRUp")
-                    sow_ISRDown = get_sow_value("ISRDown")
-                    weights_object.add(
-                        "ISR",
-                        events.nom,
-                        events.ISRUp * (sow / sow_ISRUp),
-                        events.ISRDown * (sow / sow_ISRDown),
-                    )
-                else:
-                    weights_object.add("ISR", events.nom)
-
-                if include_FSR:
-                    sow_FSRUp = get_sow_value("FSRUp")
-                    sow_FSRDown = get_sow_value("FSRDown")
-                    weights_object.add(
-                        "FSR",
-                        events.nom,
-                        events.FSRUp * (sow / sow_FSRUp),
-                        events.FSRDown * (sow / sow_FSRDown),
-                    )
-                else:
-                    weights_object.add("FSR", events.nom)
-
-                include_renorm = have_systematics and variation_base == "renorm"
-                include_fact = have_systematics and variation_base == "fact"
                 # Attach renorm/fact scale weights regardless of which variations are being evaluated.
                 tc_cor.AttachScaleWeights(events)  # Run3 ready (with caveat on "nominal")
 
-                if include_renorm:
-                    sow_renormUp = get_sow_value("renormUp")
-                    sow_renormDown = get_sow_value("renormDown")
-                    weights_object.add(
-                        "renorm",
-                        events.nom,
-                        events.renormUp * (sow / sow_renormUp),
-                        events.renormDown * (sow / sow_renormDown),
-                    )
-                else:
-                    weights_object.add("renorm", events.nom)
+                theory_weight_arguments = self._apply_theory_weight_variations(
+                    events=events,
+                    variation=variation,
+                    variation_base=variation_base,
+                    have_systematics=have_systematics,
+                    sow=sow,
+                    sow_variations=sow_variations,
+                    sow_variation_key_map=sow_variation_key_map,
+                    is_lo_sample=is_lo_sample,
+                    hist_axis_name=histAxisName,
+                )
 
-                if include_fact:
-                    sow_factUp = get_sow_value("factUp")
-                    sow_factDown = get_sow_value("factDown")
-                    weights_object.add(
-                        "fact",
-                        events.nom,
-                        events.factUp * (sow / sow_factUp),
-                        events.factDown * (sow / sow_factDown),
-                    )
-                else:
-                    weights_object.add("fact", events.nom)
+                for label, args in theory_weight_arguments.items():
+                    weights_object.add(label, *args)
 
                 # Prefiring and pileup (prefire weights only available in nanoAODv9 for Run 2).
                 include_prefiring_vars = have_systematics and variation_base == "prefiring"
