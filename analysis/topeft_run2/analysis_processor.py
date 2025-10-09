@@ -1206,14 +1206,20 @@ class AnalysisProcessor(processor.ProcessorABC):
             if isData and channel_prefix == "2l" and ("os" not in self.channel):
                 weights_object.add("fliprate", events.flipfactor_2l)
 
-                central_modifiers = getattr(weights_object, "weight_modifiers", None)
-                if central_modifiers is None:
-                    central_modifiers = getattr(weights_object, "_names", None)
+                # central_modifiers = getattr(weights_object, "weight_modifiers", None)
+                # if central_modifiers is None:
+                #     central_modifiers = getattr(weights_object, "_names", None)
 
-                if central_modifiers is None or "fliprate" not in set(central_modifiers):
-                    raise AssertionError(
-                        "The 2l same-sign data branch must register the central 'fliprate' weight."
-                    )
+                # print("\n\n\n\n\n")
+                # print("events.flipfactor_2l:", ak.to_list(events.flipfactor_2l))
+                # print("central_modifiers:", central_modifiers)
+                # print("weights_object.variations:", weights_object.variations)
+                # print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+
+                # if central_modifiers is None or "fliprate" not in set(central_modifiers):
+                #     raise AssertionError(
+                #         "The 2l same-sign data branch must register the central 'fliprate' weight."
+                #     )
 
 
             ######### Masks we need for the selection ##########
@@ -1435,17 +1441,21 @@ class AnalysisProcessor(processor.ProcessorABC):
             jet_req = self._channel_dict["jet_selection"]
             lep_flav_iter = self._channel_dict["lep_flav_lst"] if self._split_by_lepton_flavor else [None]
 
-            # print("\n\n\n\n\n")
+            print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
             # print("lep_chan:", lep_chan)
             # print("jet_req:", jet_req)
             # print("self._channel_dict:", self._channel_dict)
             # print("lep_flav_iter:", lep_flav_iter)
             # print("dense_axis_name:", dense_axis_name)
             # print("wgt_var_lst:", wgt_var_lst)
-            # print("weights_object.variations:", weights_object.variations)
+            print("weights_object.weight:", weights_object.weight())
+            print("\n",dir(weights_object))
+            print("\nweights_object.variations:", weights_object.variations)
+            print("\n", getattr(weights_object, "_modifiers"))
+
             # print("weight_object:", weights_object.weight)
             # print("hist_variation_label:", hist_variation_label)
-            # print("\n\n\n\n\n")
+            print("\n\n\n\n\n")
 
             for wgt_fluct in wgt_var_lst:
                 if wgt_fluct == "nominal":

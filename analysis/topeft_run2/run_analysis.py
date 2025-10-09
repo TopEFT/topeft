@@ -834,7 +834,7 @@ if __name__ == "__main__":
                                 available_systematics,
                             )
                         )
-                        break # For debugging, only run one group_descriptor
+                        #break # For debugging, only run one group_descriptor
                     break # For debugging, only run one application region
                 break  # For debugging, only run one channel
             break # For debugging, only run one variable
