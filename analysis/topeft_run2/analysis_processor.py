@@ -997,24 +997,61 @@ class AnalysisProcessor(processor.ProcessorABC):
                 for label, args in theory_weight_arguments.items():
                     weights_object.add(label, *args)
 
+                def register_weight_variation(
+                    weights,
+                    label,
+                    central,
+                    up=None,
+                    down=None,
+                    *,
+                    active=False,
+                ):
+                    """Register a weight with optional variations.
+
+                    The up/down values may be provided directly or as callables. Callables
+                    are only evaluated when ``active`` is ``True`` so that expensive
+                    computations can be deferred until they are required.
+                    """
+
+                    def _materialize(value, copy_value):
+                        if value is None:
+                            return None
+                        result = value() if callable(value) else value
+                        return copy.deepcopy(result) if copy_value else result
+
+                    central_value = _materialize(central, copy_value=False)
+
+                    variation_values = ()
+                    if active:
+                        up_value = _materialize(up, copy_value=True)
+                        down_value = _materialize(down, copy_value=True)
+                        variation_values = tuple(
+                            value for value in (up_value, down_value) if value is not None
+                        )
+
+                    weights.add(label, central_value, *variation_values)
+
                 # Prefiring and pileup (prefire weights only available in nanoAODv9 for Run 2).
                 include_prefiring_vars = have_systematics and variation_base == "prefiring"
-                if include_prefiring_vars:
-                    weights_object.add("PreFiring", *l1prefiring_args)  # Run3 ready
-                else:
-                    weights_object.add("PreFiring", l1prefiring_args[0])
+                register_weight_variation(
+                    weights_object,
+                    "PreFiring",
+                    l1prefiring_args[0],
+                    up=lambda: l1prefiring_args[1],
+                    down=lambda: l1prefiring_args[2],
+                    active=include_prefiring_vars,
+                )
 
                 pu_central = tc_cor.GetPUSF(events.Pileup.nTrueInt, year)
                 include_pu_vars = have_systematics and variation_base == "pileup"
-                if include_pu_vars:
-                    weights_object.add(
-                        "PU",
-                        pu_central,
-                        tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "up"),
-                        tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "down"),
-                    )  # Run3 ready
-                else:
-                    weights_object.add("PU", pu_central)
+                register_weight_variation(
+                    weights_object,
+                    "PU",
+                    pu_central,
+                    up=lambda: tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "up"),
+                    down=lambda: tc_cor.GetPUSF(events.Pileup.nTrueInt, year, "down"),
+                    active=include_pu_vars,
+                )
 
                 if has_hadron_flavour:
                     # B-tag efficiencies and central SFs are re-used for central and systematic weights.
@@ -1088,18 +1125,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 # Trigger SFs are only defined for simulated samples.
                 GetTriggerSF(year, events, l0, l1)
                 include_trigger_vars = bool(self._systematic_variations) and variation_base == "trigger_sf"
-                if include_trigger_vars:
-                    weights_object.add(
-                        trigger_weight_label,
-                        events.trigger_sf,
-                        copy.deepcopy(events.trigger_sfUp),
-                        copy.deepcopy(events.trigger_sfDown),
-                    )
-                else:
-                    weights_object.add(
-                        trigger_weight_label,
-                        events.trigger_sf,
-                    )
+                register_weight_variation(
+                    weights_object,
+                    trigger_weight_label,
+                    events.trigger_sf,
+                    up=lambda: events.trigger_sfUp,
+                    down=lambda: events.trigger_sfDown,
+                    active=include_trigger_vars,
+                )
 
                 if self.tau_h_analysis and not isData:
                     AttachTauSF(events, tau, year=year)
