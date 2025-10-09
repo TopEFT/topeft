@@ -869,6 +869,8 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
         real_sf_up = real_sf_loose_up
         real_sf_down = real_sf_loose_down
 
+    deep_tau_cuts = []
+
     if is_run3:
         clib_year = clib_year_map[year]
         json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
