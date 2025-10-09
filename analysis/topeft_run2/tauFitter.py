@@ -15,7 +15,8 @@ import argparse
 import math
 from cycler import cycler
 
-from coffea import hist
+#from coffea import hist
+import hist
 
 import sys
 import re
@@ -38,24 +39,95 @@ yt = YieldTools()
 Ftau = ["2los_ee_1tau_Ftau_2j", "2los_em_1tau_Ftau_2j", "2los_mm_1tau_Ftau_2j", "2los_ee_1tau_Ftau_3j", "2los_em_1tau_Ftau_3j", "2los_mm_1tau_Ftau_3j", "2los_ee_1tau_Ftau_4j", "2los_em_1tau_Ftau_4j", "2los_mm_1tau_Ftau_4j"]
 Ttau = ["2los_ee_1tau_Ttau_2j", "2los_em_1tau_Ttau_2j", "2los_mm_1tau_Ttau_2j", "2los_ee_1tau_Ttau_3j", "2los_em_1tau_Ttau_3j", "2los_mm_1tau_Ttau_3j", "2los_ee_1tau_Ttau_4j", "2los_em_1tau_Ttau_4j", "2los_mm_1tau_Ttau_4j"]
 
+#CR_GRP_MAP = {
+#    "DY" : [],
+#    "Ttbar" : [],
+#    "Ttbarpowheg" : [],
+#    "ZGamma" : [],
+#    "Diboson" : [],
+#    "Triboson" : [],
+#    "Single top" : [],
+#    "Singleboson" : [],
+#    "Conv": [],
+#    "Nonprompt" : [],
+#    "Flips" : [],
+#    "Signal" : [],
+#    "Data" : [],
+#}
+
 CR_GRP_MAP = {
-    "DY" : [],
-    "Ttbar" : [],
-    "Ttbarpowheg" : [],
-    "ZGamma" : [],
-    "Diboson" : [],
-    "Triboson" : [],
-    "Single top" : [],
-    "Singleboson" : [],
-    "Conv": [],
-    "Nonprompt" : [],
-    "Flips" : [],
-    "Signal" : [],
-    "Data" : [],
+        "Data" : [],
+        "Ttbar" : [],
+    }
+
+CR_GRP_MAP_full = {
+    "DY": [
+        "DYJetsToLL_MLL-50_central2022",
+        "DYJetsToLL_MLL-10to50_central2022"
+    ],
+    "Ttbar": [
+        "TTto2L2Nu_central2022",
+        "TTtoLNu2Q_central2022",
+        "TTto4Q_central2022",
+        "TTLL_MLL-4to50_central2022"
+    ],
+    "ZGamma": [
+        "ZGto2LG-1Jets_ntgc_5f_central2022"
+    ],
+    "Diboson": [
+        "ZZTo4L_central2022",
+        "WWTo2L2Nu_central2022",
+        "WZTo3LNu_central2022",
+        "WWZ_central2022",
+        "WZZ_central2022",
+        "ggToZZTo2mu2tau_central2022",
+        "ggToZZTo2e2tau_central2022",
+        "ggToZZTo4e_central2022",
+        "ggToZZTo4mu_central2022",
+        "ggToZZTo4tau_central2022"
+    ],
+    "Triboson": [
+        "WWW_central2022",
+        "ZZZ_central2022",
+        "TWZ_Tto2Q_WtoLNu_Zto2L_central2022",
+        "TWZ_TtoLNu_WtoLNu_Zto2L_central2022"
+    ],
+    "Single top": [
+        "ST_tW_Leptonic_central2022",
+        "ST_tW_Semileptonic_central2022",
+        "ST_tbarW_Leptonic_central2022",
+        "ST_tbarW_Semileptonic_central2022",
+        "ST_top_s-channel_central2022",
+        "ST_top_t-channel_central2022",
+        "ST_antitop_t-channel_central2022"
+    ],
+    "Singleboson": [
+        "WJetsToLNu_central2022"
+    ],
+    "TtG": [
+        "TTG-1Jets_PTG-10to100_central2022",
+        "TTG-1Jets_PTG-100to200_central2022",
+        "TTG-1Jets_PTG-200_central2022"
+    ],
+    "Nonprompt": ["nonprompt2022"],
+    "Flips": ["flips2022"],
+    "Signal": [
+        "TWZ_TtoLNu_Wto2Q_Zto2L_central2022"  # fill with your actual signal samples if needed
+    ],
+    "Data": [
+        "data2022"
+    ]
 }
 
+
+#def sqrt_list(numbers):
+#    return [math.sqrt(num) for num in numbers]
+
 def sqrt_list(numbers):
-    return [math.sqrt(num) for num in numbers]
+    arr = np.array(numbers.flatten())
+    arr = np.clip(arr, 0, None)
+    return arr.tolist()
+
 
 def linear(x,a,b):
     return b*x+a
@@ -97,29 +169,46 @@ def group_bins_original(histo,bin_map,axis_name="sample",drop_unspecified=True):
 
     return new_histo
 
-# Group bins in a hist, returns a new hist
-def group_bins(histo,bin_map,axis_name="process",drop_unspecified=False):
+def group_bins(histo, bin_map, axis_name="process", drop_unspecified=False):
+    bin_map = copy.deepcopy(bin_map)  # Avoid editing original
 
-    bin_map = copy.deepcopy(bin_map) # Don't want to edit the original
+    axis_cats = list(histo.axes[axis_name])
 
-    # Construct the map of bins to remap
-    bins_to_remap_lst = []
-    for grp_name,bins_in_grp in bin_map.items():
-        bins_to_remap_lst.extend(bins_in_grp)
+    # Build new bin_map that only contains categories that exist in the hist
+    new_bin_map = {}
+    for grp_name, cat_list in bin_map.items():
+        filtered = [c for c in cat_list if c in axis_cats]  # Only keep existing categories
+        if filtered:
+            new_bin_map[grp_name] = filtered
+
     if not drop_unspecified:
-        for bin_name in yt.get_cat_lables(histo,axis_name):
-            if bin_name not in bins_to_remap_lst:
-                bin_map[bin_name] = bin_name
-    bin_map = {m:bin_map[m] for m in bin_map if any(a in list(histo.axes[axis_name]) for a in bin_map[m])}
+        specified_cats = [c for lst in new_bin_map.values() for c in lst]
+        for cat in axis_cats:
+            if cat not in specified_cats:
+                new_bin_map[cat] = [cat]
 
-    # Remap the bins
-    old_ax = histo.axes[axis_name]
-    #new_ax = hist.axis.StrCategory([], name=old_ax.name, label=old_ax.label, growth=True)
-    #new_histo = group(histo, axis_name, axis_name, bin_map)
-    new_histo = histo.group(axis_name, bin_map)
+    new_histo = histo.group(axis_name, new_bin_map)
 
     return new_histo
 
+def unwrap(hist, flow=True):
+    """
+    Unwrap a coffea.hist.Hist or HistEFT object into numpy arrays for values and errors.
+    """
+    # If it's already a dict (from coffea), use it directly
+    if isinstance(hist, dict):
+        vals = list(hist.values())[0]
+        vars_ = list(hist.values())[0]  # if variances already computed elsewhere
+    else:
+        vals = hist.values(flow=flow)
+        vars_ = hist.variances(flow=flow)
+        if isinstance(vals, dict):
+            vals = list(vals.values())[0]
+        if isinstance(vars_, dict):
+            vars_ = list(vars_.values())[0]
+
+    errs = np.sqrt(vars_)
+    return vals, errs
 
 def getPoints(dict_of_hists):
     # Construct list of MC samples
@@ -134,8 +223,7 @@ def getPoints(dict_of_hists):
     all_samples = yt.get_cat_lables(dict_of_hists,"process")
     mc_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=mc_wl,substr_blacklist=mc_bl)
     data_sample_lst = utils.filter_lst_of_strs(all_samples,substr_whitelist=data_wl,substr_blacklist=data_bl)
-    print(mc_sample_lst)
-    print(data_sample_lst)
+
     for sample_name in all_samples:
         if sample_name not in mc_sample_lst:
             samples_to_rm_from_mc_hist.append(sample_name)
@@ -151,62 +239,55 @@ def getPoints(dict_of_hists):
             CR_GRP_MAP["Ttbar"].append(proc_name)
 
     var_name = "tau0pt"
-    #cr_cat_dict = CR_CHAN_DICT
-    for sample in samples_to_rm_from_mc_hist:
-        print(sample)
-    for	sample in samples_to_rm_from_data_hist:
-        print(sample)
-
     hist_mc = dict_of_hists[var_name].remove("process",samples_to_rm_from_mc_hist)
     hist_data = dict_of_hists[var_name].remove("process",samples_to_rm_from_data_hist)
 
-    for ax in hist_mc.axes:
-        print(f"{ax.name}: {type(ax)}")
-    if hasattr(ax, "categories"):
-        print(f"  categories: {ax.categories}")
-    elif hasattr(ax, "edges"):
-        print(f"  bin edges: {ax.edges}")
 
     # Integrate to get the categories we want
     mc_fake     = hist_mc.integrate("channel", Ftau)
     mc_tight    = hist_mc.integrate("channel", Ttau)
     data_fake     = hist_data.integrate("channel", Ftau)
     data_tight    = hist_data.integrate("channel", Ttau)
-    mc_fake     = group_bins(mc_fake,CR_GRP_MAP,"channel",drop_unspecified=True)
-    mc_tight    = group_bins(mc_tight,CR_GRP_MAP,"channel",drop_unspecified=True)
-    data_fake   = group_bins(data_fake,CR_GRP_MAP,"channel",drop_unspecified=True)
-    data_tight  = group_bins(data_tight,CR_GRP_MAP,"channel",drop_unspecified=True)
+  
+    mc_fake     = group_bins(mc_fake,CR_GRP_MAP,"process",drop_unspecified=True)
+    mc_tight    = group_bins(mc_tight,CR_GRP_MAP,"process",drop_unspecified=True)
+    data_fake   = group_bins(data_fake,CR_GRP_MAP,"process",drop_unspecified=True)
+    data_tight  = group_bins(data_tight,CR_GRP_MAP,"process",drop_unspecified=True)
 
     mc_fake     = mc_fake.integrate("systematic","nominal")
     mc_tight    = mc_tight.integrate("systematic","nominal")
     data_fake   = data_fake.integrate("systematic","nominal")
+
     data_tight  = data_tight.integrate("systematic","nominal")
 
-    ## note for run3 update: mc_fake.values() is returning empty bins at this point, still fixing
+    mc_fake_view = mc_fake.view()  # dictionary: keys are SparseHistTuple, values are arrays
+    mc_tight_view = mc_tight.view()
+    for key, vals in mc_fake_view.items():
+        proc = key[0]
+        chan = key[1]
+        mc_fake_e = sqrt_list(vals)
+        mc_fake_vals = vals
 
-    #print(mc_tight.values(sumw2=True))
+    for key, vals in mc_tight_view.items():
+        proc = key[0]
+        chan = key[1]
+        mc_tight_e = sqrt_list(vals)
+        mc_tight_vals = vals
 
-    #for sample in mc_fake._sumw2:
-    for item in (mc_tight.values(sumw2=True)):
-        mc_fake_e = sqrt_list(mc_fake.values(sumw2=True)[item][1])
-        mc_tight_e = sqrt_list(mc_tight.values(sumw2=True)[item][1])
-    for sample in mc_tight.values():
-        mc_fake_vals  = mc_fake.values()[sample]
-        mc_tight_vals = mc_tight.values()[sample]
-        print("mc fake = ", mc_fake.values()[sample])
-        print("mc tight = ", mc_tight.values()[sample])
-    for sample in data_fake.values():
-        print("data fake = ", data_fake.values()[sample])
-        print("data tight = ", data_tight.values()[sample])
-        data_fake_vals  = data_fake.values()[sample]
-        data_tight_vals = data_tight.values()[sample]
-        data_fake_e = []
-        data_tight_e = []
-        for item in data_fake_vals:
-            data_fake_e.append(math.sqrt(item*(1-(item/sum(data_fake_vals)))))
-        for item in data_tight_vals:
-            data_tight_e.append(math.sqrt(item*(1-(item/sum(data_tight_vals)))))
-        
+
+    data_fake_view = data_fake.view()  # dictionary: keys are SparseHistTuple, values are arrays
+    data_tight_view = data_tight.view()
+    for key, vals in data_fake_view.items():
+        proc = key[0]
+        chan = key[1]
+        data_fake_e = sqrt_list(vals)
+        data_fake_vals = vals
+
+    for key, vals in data_tight_view.items():
+        proc = key[0]
+        chan = key[1]
+        data_tight_e = sqrt_list(vals)
+        data_tight_vals = vals
 
     mc_x = [20, 30, 40, 50, 60, 80, 100]
     mc_y = []
@@ -217,8 +298,6 @@ def getPoints(dict_of_hists):
     tight = 0
     f_err = 0
     t_err = 0
-    print(mc_fake_e)
-    print(mc_tight_e)
     for index in range(2, len(mc_fake_vals)):
         fake  += mc_fake_vals[index]
         tight += mc_tight_vals[index]
@@ -256,15 +335,20 @@ def getPoints(dict_of_hists):
         if x in bin_div:
             if fake != 0.0:
                 y = tight/fake
+                print("check t/f: ", y)
                 y_err =t_err/fake + tight*f_err/(fake*fake)
             else:
                 y = 0.0
                 y_err =0.0
             data_y.append(y)
-            if (y+y_err)/y < 1.02:
-                data_e.append(1.02*y-y)
+            if y != 0.0:
+                if (y + y_err) / y < 1.02:
+                    data_e.append(1.02 * y - y)
+                else:
+                    data_e.append(y_err)
             else:
-                data_e.append(y_err)
+                data_e.append(0.0)
+        
             fake = 0.0
             tight = 0.0
             f_err = 0.0
@@ -292,15 +376,21 @@ def main():
 
     # Get the histograms
     hin_dict = utils.get_hist_from_pkl(args.pkl_file_path,allow_empty=False)
-    #print("Available axes:", hin_dict)
     x_mc,y_mc,yerr_mc,x_data,y_data,yerr_data = getPoints(hin_dict)
+
+    y_data = np.array(y_data, dtype=float).flatten()
+    y_mc   = np.array(y_mc, dtype=float).flatten()
+    yerr_data = np.array(yerr_data, dtype=float).flatten()
+    yerr_mc   = np.array(yerr_mc, dtype=float).flatten()
+    x_data    = np.array(x_data, dtype=float).flatten()
+
 
     print("fr data = ", y_data)
     print("fr mc = ", y_mc)
     SF = y_data/y_mc
     SF_e = yerr_data/y_mc + y_data*yerr_mc/(y_mc**2)
         
-
+    SF_e = np.where(SF_e <= 0, 1e-3, SF_e)
     print('SF',SF)
     print('sfERR',SF_e)
     print('x',x_data)
@@ -343,8 +433,8 @@ def main():
     print('nom',c0,c1)
     print('up1',c0 + np.sqrt(l0)*v00,(c1 + np.sqrt(l0)*v01))
     print('up2',c0 + np.sqrt(l1)*v10,(c1 + np.sqrt(l0)*v01))
-    c0 = 1.16534
-    c1 = -0.0017
+    #c0 = 1.16534
+    #c1 = -0.0017
     c2 = (c1 + np.sqrt(l0)*v01)
     c3 = np.sqrt(l0)*v00+c0
     bin_div = [30, 40, 50, 60, 80, 100, 200]
