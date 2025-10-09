@@ -1425,9 +1425,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):
                                                 skip_hist = True
                                         elif self.tau_h_analysis:
-                                            if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
-                                            if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
-                                            if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))): continue
+                                            if (("ptz" in dense_axis_name) and ("ptz_wtau" not in dense_axis_name) and ("2lss" not in lep_chan)):
+                                                continue
+                                            if (("ptz_wtau" in dense_axis_name) and ("1tau" not in lep_chan)):
+                                                continue
 
                                         elif self.fwd_analysis:
                                             if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
