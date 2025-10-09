@@ -676,6 +676,7 @@ def ApplyTESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
     eta = taus.eta
     dm  = taus.decayMode
     gen = taus.genPartFlav
+    eta = taus.eta
 
     clib_year = clib_year_map[year]
     is_run2 = False
@@ -756,6 +757,7 @@ def ApplyFESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
 
     is_run3 = not is_run2
 
+    syst = "nom"
     syst_lab = f'TauFES_{year}'
 
     syst_suffix = ""
