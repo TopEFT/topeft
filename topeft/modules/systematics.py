@@ -2,12 +2,29 @@
 
 from __future__ import annotations
 
+import copy
+import logging
 from collections import OrderedDict
 from dataclasses import dataclass, field
 import json
-from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
+
+import numpy as np
+import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.paths import topeft_path
+
+logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class SystematicVariationGroup:
@@ -420,8 +437,294 @@ class SystematicsHelper:
         return {key: tuple(names) for key, names in grouped.items()}
 
 
+def build_fake_factor_specs(channel_prefix: str, year: str) -> Dict[str, Tuple[str, str, str, str]]:
+    """Return the fake-factor attribute specifications for the given channel."""
+
+    base_attr = f"fakefactor_{channel_prefix}"
+    return {
+        "FF": (
+            "absolute",
+            base_attr,
+            f"{base_attr}_up",
+            f"{base_attr}_down",
+        ),
+        "FFpt": (
+            "ratio",
+            "nom",
+            f"{base_attr}_pt1",
+            f"{base_attr}_pt2",
+        ),
+        "FFeta": (
+            "ratio",
+            "nom",
+            f"{base_attr}_be1",
+            f"{base_attr}_be2",
+        ),
+        f"FFcloseEl_{year}": (
+            "ratio",
+            "nom",
+            f"{base_attr}_elclosureup",
+            f"{base_attr}_elclosuredown",
+        ),
+        f"FFcloseMu_{year}": (
+            "ratio",
+            "nom",
+            f"{base_attr}_muclosureup",
+            f"{base_attr}_muclosuredown",
+        ),
+    }
+
+
+def add_fake_factor_weights(
+    weights_object,
+    events,
+    channel_prefix: str,
+    year: str,
+    requested_data_weight_label: Optional[str] = None,
+) -> None:
+    """Register fake-factor weights for the requested lepton category."""
+
+    # Preserve compatibility with callers that still pass the full channel name
+    # (e.g. "2lss") by only using the leading lepton-multiplicity prefix when
+    # building attribute names.
+    channel_prefix = channel_prefix[:2]
+
+    fake_factor_specs = build_fake_factor_specs(channel_prefix, year)
+
+    requested_variations = None
+    if requested_data_weight_label:
+        spec = fake_factor_specs.get(requested_data_weight_label)
+        if spec is None:
+            raise ValueError(
+                f"Unsupported fake-factor label '{requested_data_weight_label}' for '{channel_prefix}'"
+            )
+
+        mode, central_attr, up_attr, down_attr = spec
+        if mode == "absolute":
+            up_values = getattr(events, up_attr)
+            down_values = getattr(events, down_attr)
+        elif mode == "ratio":
+            denominator = getattr(events, central_attr)
+            up_values = getattr(events, up_attr) / denominator
+            down_values = getattr(events, down_attr) / denominator
+        else:
+            raise ValueError(
+                f"Unsupported fake-factor mode '{mode}' for '{requested_data_weight_label}'"
+            )
+
+        requested_variations = (
+            copy.deepcopy(up_values),
+            copy.deepcopy(down_values),
+        )
+
+    for label, (_, central_attr, _, _) in fake_factor_specs.items():
+        central_values = getattr(events, central_attr)
+        if requested_variations is not None and label == requested_data_weight_label:
+            variations = requested_variations
+        else:
+            variations = ()
+        weights_object.add(label, central_values, *variations)
+
+
+def validate_data_weight_variations(
+    weights_object,
+    expected_variations: Iterable[str],
+    requested_data_weight_label: Optional[str],
+    current_variation_name: str,
+) -> None:
+    """Ensure data weights only contain supported variations."""
+
+    variation_set = set(weights_object.variations)
+    expected_variation_set = set(expected_variations)
+    unexpected_variations = variation_set - expected_variation_set
+    if unexpected_variations:
+        raise Exception(
+            "Error: Unexpected wgt variations for data! "
+            f"Unexpected variations: {sorted(unexpected_variations)}"
+        )
+
+    if requested_data_weight_label:
+        required_variations = {
+            f"{requested_data_weight_label}Up",
+            f"{requested_data_weight_label}Down",
+        }
+        missing_variations = required_variations - variation_set
+        if missing_variations:
+            raise Exception(
+                "Error: Missing expected fake-factor variations for data! "
+                f"Requested '{current_variation_name}' but did not find {sorted(missing_variations)}"
+            )
+
+
+def apply_theory_weight_variations(
+    *,
+    events,
+    variation,
+    variation_base: Optional[str],
+    have_systematics: bool,
+    sow: np.ndarray,
+    sow_variations: MutableMapping[str, np.ndarray],
+    sow_variation_key_map: MutableMapping[str, str],
+    is_lo_sample: bool,
+    hist_axis_name: str,
+    sample: Mapping[str, np.ndarray],
+) -> Dict[str, Tuple[np.ndarray, ...]]:
+    """Return the coffea weight arguments for the theory variations."""
+
+    if variation is not None:
+        group_mapping = variation.group or {}
+        group_key = (variation.base, variation.component, variation.year)
+        group_info = group_mapping.get(group_key, {})
+
+        if not group_info and variation.metadata.get("sum_of_weights"):
+            group_info = {
+                variation.name: {
+                    "sum_of_weights": variation.metadata["sum_of_weights"]
+                }
+            }
+
+        for member_name, info in group_info.items():
+            sumw_key = info.get("sum_of_weights")
+            if sumw_key:
+                sow_variation_key_map.setdefault(member_name, sumw_key)
+
+    include_flags = {
+        "ISR": have_systematics and variation_base == "isr",
+        "FSR": have_systematics and variation_base == "fsr",
+        "renorm": have_systematics and variation_base == "renorm",
+        "fact": have_systematics and variation_base == "fact",
+        "renormfact": have_systematics and variation_base == "renormfact",
+    }
+
+    if include_flags["ISR"] or include_flags["FSR"]:
+        tc_cor.AttachPSWeights(events)
+
+    result: Dict[str, Tuple[np.ndarray, ...]] = {label: (events.nom,) for label in include_flags}
+
+    variation_field_map = {
+        "ISR": ("ISRUp", "ISRDown"),
+        "FSR": ("FSRUp", "FSRDown"),
+        "renorm": ("renormUp", "renormDown"),
+        "fact": ("factUp", "factDown"),
+        "renormfact": ("renormfactUp", "renormfactDown"),
+    }
+
+    current_variation_name = variation.name if variation is not None else "nominal"
+
+    def get_sow_value(label: str) -> np.ndarray:
+        if label in sow_variations:
+            return sow_variations[label]
+
+        if is_lo_sample:
+            sow_variations[label] = sow
+            return sow
+
+        key = sow_variation_key_map.get(label)
+        if key is None:
+            raise KeyError(
+                f"Unsupported sum-of-weights variation '{label}' requested while processing '{current_variation_name}'"
+            )
+
+        if key not in sample:
+            raise KeyError(
+                f"Sample '{hist_axis_name}' is missing required sum-of-weights entry '{key}' for '{label}' variation"
+            )
+
+        value = sample[key]
+        sow_variations[label] = value
+        return value
+
+    for label, (up_field, down_field) in variation_field_map.items():
+        if not include_flags[label]:
+            continue
+
+        sow_up = get_sow_value(up_field)
+        sow_down = get_sow_value(down_field)
+
+        result[label] = (
+            events.nom,
+            getattr(events, up_field) * (sow / sow_up),
+            getattr(events, down_field) * (sow / sow_down),
+        )
+
+    return result
+
+
+def register_weight_variation(
+    weights,
+    label: str,
+    central,
+    up=None,
+    down=None,
+    *,
+    active: bool = False,
+) -> None:
+    """Register a weight with optional variations."""
+
+    def _materialize(value, copy_value: bool):
+        if value is None:
+            return None
+        result = value() if callable(value) else value
+        return copy.deepcopy(result) if copy_value else result
+
+    central_value = _materialize(central, copy_value=False)
+
+    variation_values = ()
+    if active:
+        up_value = _materialize(up, copy_value=True)
+        down_value = _materialize(down, copy_value=True)
+        variation_values = tuple(value for value in (up_value, down_value) if value is not None)
+
+    weights.add(label, central_value, *variation_values)
+
+
+def register_lepton_sf_weight(
+    weights_object,
+    events,
+    label: str,
+    central_attr: str,
+    up_attr: str,
+    down_attr: str,
+    include_variations: bool,
+    *,
+    variation_name: Optional[str] = None,
+    logger_obj: Optional[logging.Logger] = None,
+) -> None:
+    """Register a lepton scale-factor weight, warning about missing variations."""
+
+    central_values = getattr(events, central_attr)
+    variation_values = ()
+
+    if include_variations:
+        missing_attrs = [
+            attr_name
+            for attr_name in (up_attr, down_attr)
+            if not hasattr(events, attr_name)
+        ]
+        if missing_attrs:
+            (logger_obj or logger).warning(
+                "Requested lepton SF variation '%s' for weight '%s' but missing arrays: %s",
+                variation_name,
+                label,
+                ", ".join(missing_attrs),
+            )
+        else:
+            variation_values = (
+                copy.deepcopy(getattr(events, up_attr)),
+                copy.deepcopy(getattr(events, down_attr)),
+            )
+
+    weights_object.add(label, central_values, *variation_values)
+
+
 __all__ = [
     "SystematicVariation",
     "SystematicVariationGroup",
     "SystematicsHelper",
+    "add_fake_factor_weights",
+    "apply_theory_weight_variations",
+    "build_fake_factor_specs",
+    "register_lepton_sf_weight",
+    "register_weight_variation",
+    "validate_data_weight_variations",
 ]
