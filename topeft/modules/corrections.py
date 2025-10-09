@@ -635,7 +635,7 @@ def ApplyTES(year, taus, isData, vsJetWP="Loose"):
 
         es_list = []
         tes_kinFlag   = (flat_pt > 20) & (flat_pt < 205) & (flat_gen == 5)
-        tes_dmFlag = (flat_dm == 0) | (flat_dm == 1) | (flat_dm == 2) | (flat_dm == 10) | (flat_dm == 11)
+        tes_dmFlag = (flat_dm == 0) | (flat_dm == 1) | (flat_dm == 10) | (flat_dm == 11)
         tes_whereFlag = tes_kinFlag & tes_dmFlag  # also flat
 
         fes_kinFlag = (flat_pt > 20) & (flat_pt < 205) & (flat_gen >= 1) & (flat_gen <= 4)
