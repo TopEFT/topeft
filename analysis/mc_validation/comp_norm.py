@@ -221,7 +221,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     if flow=='show':
         err = err[1:]
     if not args.private: hists2[var][{'process': [s for s in hists2[var].axes['process'] if 'central' in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).plot1d(yerr=err, label=str2 + ' SM', ax=ax, density=density, flow=flow)
-    else: hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).plot1d(yerr=err, label=str2, ax=ax, density=density, flow=flow)
+    else: hists2[var][{'process': [s for s in hists2[var].axes['process'] if proc2 in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist({}).plot1d(yerr=err, label=str2 + ' @ SM', ax=ax, density=density, flow=flow)
 
     #hists1[var] *=  143723.62086377045 / 47358.43419695908
     #hists1[var] *= 1 + 47358.43419695908 / 143723.62086377045
@@ -310,7 +310,7 @@ def plot(var=None, fin1=None, fin2=None, flow=None, private=False, hists1=None, 
     if st_pt is None:
         st_pt = dict(zip(wc, val))
     if args.small:
-        st_pt = {wc:(val if abs(val) < 100 else 0) for wc,val in st_pt.items()}
+        st_pt = {wc:(val*.1 if abs(val) < 100 else 0) for wc,val in st_pt.items()}
 
     if not args.central: print(f'Using {st_pt=}')
     if not args.central: eft_err = np.sqrt(hists1[var][{'process': [s for s in hists1[var].axes['process'] if proc in s], 'channel': chan, 'systematic': 'nominal', 'appl': appl}][{'process': sum}].as_hist(st_pt).variances(flow=(flow=='show')))
