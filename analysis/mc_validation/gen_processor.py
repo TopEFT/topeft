@@ -335,6 +335,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         tops_pt = gen_top.sum().pt
         tX      = gen_top.sum() + gen_bos.sum()
+        tX      = gen_top[:,0:1].sum() + gen_bos[:,0]#.sum()
 
         # Pt of the t(t)X system
         #tX_system = ak.concatenate([gen_top,gen_l_from_zg],axis=1)
