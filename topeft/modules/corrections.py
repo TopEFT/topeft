@@ -672,11 +672,10 @@ def ApplyTESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
     if not syst_name.startswith('TES') or isData:
         return (taus.pt, taus.mass)
 
-    pt  = taus.pt
+    pt = taus.pt
     eta = taus.eta
-    dm  = taus.decayMode
+    dm = taus.decayMode
     gen = taus.genPartFlav
-    eta = taus.eta
 
     clib_year = clib_year_map[year]
     is_run2 = False
@@ -685,14 +684,14 @@ def ApplyTESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
 
     is_run3 = not is_run2
 
-    syst_lab = f'TauTES_{year}'
+    syst_lab = f"TauTES_{year}"
 
     if syst_name.endswith("Up"):
         syst = "up"
-        syst_suffix = "_up"
+        syst_lab += "_up"
     elif syst_name.endswith("Down"):
         syst = "down"
-        syst_lab += '_down'
+        syst_lab += "_down"
     else:
         syst = "nom"
 
@@ -757,17 +756,13 @@ def ApplyFESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
 
     is_run3 = not is_run2
 
-    syst = "nom"
-    syst_lab = f'TauFES_{year}'
-
-    syst_suffix = ""
-    syst = "nom"
+    syst_lab = f"TauFES_{year}"
     if syst_name.endswith("Up"):
         syst = "up"
-        syst_lab += '_up'
+        syst_lab += "_up"
     elif syst_name.endswith("Down"):
         syst = "down"
-        syst_lab += '_down'
+        syst_lab += "_down"
     else:
         syst = "nom"
 
@@ -902,51 +897,48 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
             ),
         ]
 
-    for idx, deep_tau_cut in enumerate(deep_tau_cuts):
-        discr = deep_tau_cut[0]
-        id_mask_flat = ak.fill_none(deep_tau_cut[1], False)
-        arg_list = (deep_tau_cut[2])
-        gen_mask_flat = ak.fill_none(deep_tau_cut[3], False)
-        tau_mask_flat = ak.fill_none(id_mask_flat & pt_mask_flat & gen_mask_flat, False)
+    if deep_tau_cuts:
+        for idx, deep_tau_cut in enumerate(deep_tau_cuts):
+            discr = deep_tau_cut[0]
+            id_mask_flat = ak.fill_none(deep_tau_cut[1], False)
+            arg_list = deep_tau_cut[2]
+            gen_mask_flat = ak.fill_none(deep_tau_cut[3], False)
+            tau_mask_flat = ak.fill_none(id_mask_flat & pt_mask_flat & gen_mask_flat, False)
 
-        if "VSjet" in discr:
-            arg_sf = arg_list + ("nom", "pt")
-        else:
-            arg_sf = arg_list + ("nom",)
-        DT_sf_list.append(
-            ak.where(
-                ~tau_mask_flat,
-                1,
-                ceval[discr].evaluate(*arg_sf)
+            if "VSjet" in discr:
+                arg_sf = arg_list + ("nom", "pt")
+            else:
+                arg_sf = arg_list + ("nom",)
+            DT_sf_list.append(
+                ak.where(
+                    ~tau_mask_flat,
+                    1,
+                    ceval[discr].evaluate(*arg_sf)
+                )
             )
-        )
 
-        if "VSjet" in discr:
-            arg_up = arg_list + ("up", "pt")
-        else:
-            arg_up = arg_list + ("up",)
-        DT_up_list.append(
-            ak.where(
-                ~tau_mask_flat,
-                1,
-                ceval[discr].evaluate(*arg_up)
+            if "VSjet" in discr:
+                arg_up = arg_list + ("up", "pt")
+            else:
+                arg_up = arg_list + ("up",)
+            DT_up_list.append(
+                ak.where(
+                    ~tau_mask_flat,
+                    1,
+                    ceval[discr].evaluate(*arg_up)
+                )
             )
-        )
-        if "VSjet" in discr:
-            arg_down = arg_list + ("down", "pt")
-        else:
-            arg_down = arg_list + ("down",)
-        DT_do_list.append(
-            ak.where(
-                ~tau_mask_flat,
-                1,
-                ceval[discr].evaluate(*arg_down)
+            if "VSjet" in discr:
+                arg_down = arg_list + ("down", "pt")
+            else:
+                arg_down = arg_list + ("down",)
+            DT_do_list.append(
+                ak.where(
+                    ~tau_mask_flat,
+                    1,
+                    ceval[discr].evaluate(*arg_down)
+                )
             )
-        )
-
-        DT_sf_flat = None
-        DT_up_flat = None
-        DT_do_flat = None
 
         for idr, DT_sf_discr in enumerate(DT_sf_list):
             DT_sf_discr = ak.to_numpy(DT_sf_discr)
