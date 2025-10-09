@@ -154,7 +154,21 @@ MINIMAL_CHANNEL_METADATA = {
                 }
             ],
         },
-    }
+    },
+    "scenarios": [
+        {
+            "name": "TOP_22_006",
+            "groups": ["TOP22_006_CH_LST_SR", "OFFZ_SPLIT_CH_LST_SR", "CH_LST_CR"],
+        },
+        {
+            "name": "tau_analysis",
+            "groups": ["TAU_CH_LST_SR", "TAU_CH_LST_CR", "CH_LST_CR"],
+        },
+        {
+            "name": "fwd_analysis",
+            "groups": ["FWD_CH_LST_SR", "CH_LST_CR"],
+        },
+    ],
 }
 
 
@@ -171,7 +185,7 @@ def test_build_channel_dict_includes_offz_features(channel_helper):
         skip_sr=False,
         skip_cr=False,
         channel_helper=channel_helper,
-        offZ_split=True,
+        scenario_names=["TOP_22_006"],
     )
     assert "offz_split" in channel_dict["features"]
 
@@ -184,7 +198,7 @@ def test_build_channel_dict_includes_tau_features_for_control(channel_helper):
         skip_sr=False,
         skip_cr=False,
         channel_helper=channel_helper,
-        tau_h_analysis=True,
+        scenario_names=["tau_analysis"],
     )
     assert "requires_tau" in channel_dict["features"]
 
@@ -197,7 +211,7 @@ def test_build_channel_dict_preserves_features_when_sr_skipped(channel_helper):
         skip_sr=True,
         skip_cr=False,
         channel_helper=channel_helper,
-        tau_h_analysis=True,
+        scenario_names=["tau_analysis"],
     )
     assert "requires_tau" in channel_dict["features"]
 
@@ -210,8 +224,22 @@ def test_build_channel_dict_includes_forward_features(channel_helper):
         skip_sr=False,
         skip_cr=False,
         channel_helper=channel_helper,
-        fwd_analysis=True,
+        scenario_names=["fwd_analysis"],
     )
     assert "requires_forward" in channel_dict["features"]
+
+
+def test_resolve_channel_groups_infers_tau_control_regions(channel_helper):
+    sr_groups, cr_groups, features = resolve_channel_groups(
+        channel_helper,
+        skip_sr=False,
+        skip_cr=False,
+        scenario_names=None,
+        required_features=["requires_tau"],
+    )
+
+    assert any(group.name == "TAU_CH_LST_SR" for group in sr_groups)
+    assert any(group.name == "TAU_CH_LST_CR" for group in cr_groups)
+    assert "requires_tau" in features
 
 
