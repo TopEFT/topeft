@@ -775,9 +775,6 @@ if __name__ == "__main__":
         if "requires_tau" in active_channel_features:
             hist_lst.append("tau0pt")
 
-    print("\nchannel_app_map_mc:", channel_app_map_mc)
-    # print("\nchannel_app_map_data:", channel_app_map_data)
-
     # raise RuntimeError("\n\nStopping here for debugging")
 
     available_systematics_by_sample_type = {
@@ -789,6 +786,12 @@ if __name__ == "__main__":
 
     for sample in samples_lst:
         sample_info = samplesdict[sample]
+        print("\nSample:", sample)
+        if not sample_info["isData"]:
+            print("\nchannel_app_map_mc:", channel_app_map_mc)
+        else:
+            print("\nchannel_app_map_data:", channel_app_map_data)
+
         ch_map = channel_app_map_data if sample_info["isData"] else channel_app_map_mc
         grouped_variations = syst_helper.grouped_variations_for_sample(
             sample_info, include_systematics=do_systs
