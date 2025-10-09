@@ -612,14 +612,14 @@ def ApplyTES(year, taus, isData, vsJetWP="Loose"):
 
     if is_run2:
 
-        kinFlag = (pt>20) & (pt<205) & (gen==5)
-        dmFlag = ((dm==0) | (dm==1) | (dm==10) | (dm==11))
-        whereFlag = kinFlag & dmFlag #((pt>20) & (pt<205) & (gen==5) & (dm==0 | dm==1 | dm==10 | dm==11))
+        tes_kinFlag = (pt>20) & (pt<205) & (gen==5)
+        tes_dmFlag = ((dm==0) | (dm==1) | (dm==10) | (dm==11))
+        whereFlag = tes_kinFlag & tes_dmFlag #((pt>20) & (pt<205) & (gen==5) & (dm==0 | dm==1 | dm==10 | dm==11))
         tes = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1)
 
-        kinFlag = (pt>20) & (pt<205) & (gen>=1) & (gen<=4)
-        dmFlag = ((dm==0) | (dm==1))
-        whereFlag = kinFlag & dmFlag
+        fes_kinFlag = (pt>20) & (pt<205) & (gen>=1) & (gen<=4)
+        fes_dmFlag = ((dm==0) | (dm==1))
+        whereFlag = fes_kinFlag & fes_dmFlag
         fes = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1)
 
     if is_run3:
@@ -634,13 +634,13 @@ def ApplyTES(year, taus, isData, vsJetWP="Loose"):
         flat_gen = ak.flatten(ak.fill_none(gen, 0), axis=1)
 
         es_list = []
-        kinFlag   = (flat_pt > 20) & (flat_pt < 205) & (flat_gen == 5)
-        dmFlag = (flat_dm == 0) | (flat_dm == 1) | (flat_dm == 2) | (flat_dm == 10) | (flat_dm == 11)
-        tes_whereFlag = kinFlag & dmFlag  # also flat
+        tes_kinFlag   = (flat_pt > 20) & (flat_pt < 205) & (flat_gen == 5)
+        tes_dmFlag = (flat_dm == 0) | (flat_dm == 1) | (flat_dm == 2) | (flat_dm == 10) | (flat_dm == 11)
+        tes_whereFlag = tes_kinFlag & tes_dmFlag  # also flat
 
-        kinFlag = (flat_pt > 20) & (flat_pt < 205) & (flat_gen >= 1) & (flat_gen <= 4)
-        dmFlag = ((flat_dm==0) | (flat_dm==1))
-        fes_whereFlag = kinFlag & dmFlag  # also flat
+        fes_kinFlag = (flat_pt > 20) & (flat_pt < 205) & (flat_gen >= 1) & (flat_gen <= 4)
+        fes_dmFlag = ((flat_dm==0) | (flat_dm==1))
+        fes_whereFlag = fes_kinFlag & fes_dmFlag  # also flat
         es_list.append(tes_whereFlag)
         es_list.append(fes_whereFlag)
 
@@ -697,9 +697,9 @@ def ApplyTESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
 
     if is_run2:
 
-        kinFlag = (pt>20) & (pt<205) & (gen==5)
-        dmFlag = ((dm==0) | (dm==1) | (dm==10) | (dm==11))
-        whereFlag = kinFlag & dmFlag
+        tes_kinFlag = (pt>20) & (pt<205) & (gen==5)
+        tes_dmFlag = ((dm==0) | (dm==1) | (dm==10) | (dm==11))
+        whereFlag = tes_kinFlag & tes_dmFlag
 
         #tes_syst = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1) #from John?
         tes_syst = np.where(whereFlag, SFevaluator[syst_lab](dm,pt), 1)
@@ -714,9 +714,9 @@ def ApplyTESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
         flat_dm  = ak.flatten(ak.fill_none(dm, -1), axis=1)
         flat_gen = ak.flatten(ak.fill_none(gen, 0), axis=1)
 
-        kinFlag = (flat_pt>20) & (flat_pt<205) & (flat_gen==5)
-        dmFlag = ((flat_dm==0) | (flat_dm==1) | (flat_dm==10) | (flat_dm==11))
-        whereFlag = kinFlag & dmFlag
+        tes_kinFlag = (flat_pt>20) & (flat_pt<205) & (flat_gen==5)
+        tes_dmFlag = ((flat_dm==0) | (flat_dm==1) | (flat_dm==10) | (flat_dm==11))
+        whereFlag = tes_kinFlag & tes_dmFlag
 
         flat_all_pt = ak.flatten(pt, axis=1)
         full_tes_syst = np.ones_like(flat_all_pt, dtype=np.float32)
@@ -767,9 +767,9 @@ def ApplyFESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
         syst = "nom"
 
     if is_run2:
-        kinFlag = (pt>20) & (pt<205) & (gen>=1) & (gen<=4)
-        dmFlag = ((taus.decayMode==0) | (taus.decayMode==1))
-        whereFlag = kinFlag & dmFlag
+        fes_kinFlag = (pt>20) & (pt<205) & (gen>=1) & (gen<=4)
+        fes_dmFlag = ((taus.decayMode==0) | (taus.decayMode==1))
+        whereFlag = fes_kinFlag & fes_dmFlag
 
         #fes_syst = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1) #from John ?
         fes_syst = np.where(whereFlag, SFevaluator[syst_lab](eta,dm), 1)
@@ -784,9 +784,9 @@ def ApplyFESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
         flat_dm  = ak.flatten(ak.fill_none(dm, -1), axis=1)
         flat_gen = ak.flatten(ak.fill_none(gen, 0), axis=1)
 
-        kinFlag = (flat_pt>20) & (flat_pt<205) & (flat_gen>=1) & (flat_gen<=4)
-        dmFlag = ((flat_dm==0) | (flat_dm==1))
-        whereFlag = kinFlag & dmFlag
+        fes_kinFlag = (flat_pt>20) & (flat_pt<205) & (flat_gen>=1) & (flat_gen<=4)
+        fes_dmFlag = ((flat_dm==0) | (flat_dm==1))
+        whereFlag = fes_kinFlag & fes_dmFlag
 
         flat_all_pt = ak.flatten(pt, axis=1)
         full_fes_syst = np.ones_like(flat_all_pt, dtype=np.float32)
