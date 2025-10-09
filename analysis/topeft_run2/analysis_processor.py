@@ -23,6 +23,7 @@ import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.paths import topeft_path
 from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
+from topeft.modules.btag_weights import register_btag_sf_weights
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -1010,91 +1011,41 @@ class AnalysisProcessor(processor.ProcessorABC):
                         isNotBtagJetsLoose[bc_mask],
                     )
                     btag_w_bc = pData_bc / pMC_bc
-                    btag_w = btag_w_light * btag_w_bc
-                    weights_object.add("btagSF", btag_w)
 
-                    if self._systematic_variations and object_variation == "nominal":
-                        requested_suffix = None
-                        if variation_name and variation_name.startswith("btagSF"):
-                            requested_suffix = variation_name[len("btagSF") :]
+                    btag_result = register_btag_sf_weights(
+                        jets_light=jets_light,
+                        jets_bc=jets_bc,
+                        efficiencies={
+                            "light": {"M": btag_effM_light, "L": btag_effL_light},
+                            "bc": {"M": btag_effM_bc, "L": btag_effL_bc},
+                        },
+                        central_values={
+                            "light": {"weight": btag_w_light, "pMC": pMC_light},
+                            "bc": {"weight": btag_w_bc, "pMC": pMC_bc},
+                        },
+                        selection_masks={
+                            "medium": isBtagJetsMedium,
+                            "loose_not_medium": isBtagJetsLooseNotMedium,
+                            "not_loose": isNotBtagJetsLoose,
+                            "light": light_mask,
+                            "bc": bc_mask,
+                        },
+                        years={"light": year_light, "bc": year},
+                        systematic_descriptor={
+                            "has_systematics": bool(self._systematic_variations),
+                            "object_variation": object_variation,
+                            "variation_name": variation_name,
+                        },
+                    )
+                    weights_object.add("btagSF", btag_result.central)
 
-                        if requested_suffix:
-                            directionless_suffix = requested_suffix.rstrip("Up").rstrip("Down")
-
-                            corrtype = (
-                                "correlated" if directionless_suffix.endswith("_corr") else "uncorrelated"
-                            )
-
-                            if requested_suffix.startswith("light_"):
-                                jets_flav = jets_light
-                                flav_mask = light_mask
-                                sys_year = year_light
-                                dJ_tag = "incl"
-                                btag_effM = btag_effM_light
-                                btag_effL = btag_effL_light
-                                pMC_flav = pMC_light
-                                fixed_btag_w = btag_w_bc
-                            else:
-                                jets_flav = jets_bc
-                                flav_mask = bc_mask
-                                sys_year = year
-                                dJ_tag = "comb"
-                                btag_effM = btag_effM_bc
-                                btag_effL = btag_effL_bc
-                                pMC_flav = pMC_bc
-                                fixed_btag_w = btag_w_light
-
-                            btag_sfL_up = tc_cor.btag_sf_eval(
-                                jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}"
-                            )
-                            btag_sfL_down = tc_cor.btag_sf_eval(
-                                jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}"
-                            )
-                            btag_sfM_up = tc_cor.btag_sf_eval(
-                                jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}"
-                            )
-                            btag_sfM_down = tc_cor.btag_sf_eval(
-                                jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}"
-                            )
-
-                            pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(
-                                btag_effM,
-                                btag_effL,
-                                btag_sfM_up,
-                                btag_sfL_up,
-                                isBtagJetsMedium[flav_mask],
-                                isBtagJetsLooseNotMedium[flav_mask],
-                                isNotBtagJetsLoose[flav_mask],
-                            )
-
-                            pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(
-                                btag_effM,
-                                btag_effL,
-                                btag_sfM_down,
-                                btag_sfL_down,
-                                isBtagJetsMedium[flav_mask],
-                                isBtagJetsLooseNotMedium[flav_mask],
-                                isNotBtagJetsLoose[flav_mask],
-                            )
-
-                            btag_w_up = fixed_btag_w * (pData_up / pMC_flav) / btag_w
-                            btag_w_down = fixed_btag_w * (pData_down / pMC_flav) / btag_w
-
-                            variation_label_base = variation_name
-                            if variation_label_base:
-                                for _direction in ("Up", "Down"):
-                                    if variation_label_base.endswith(_direction):
-                                        variation_label_base = variation_label_base[: -len(_direction)]
-                                        break
-                            else:
-                                variation_label_base = f"btagSF{directionless_suffix}"
-
-                            weights_object.add(
-                                variation_label_base,
-                                events.nom,
-                                btag_w_up,
-                                btag_w_down,
-                            )
+                    if btag_result.variation_label is not None:
+                        weights_object.add(
+                            btag_result.variation_label,
+                            events.nom,
+                            btag_result.variation_up,
+                            btag_result.variation_down,
+                        )
                 else:
                     weights_object.add("btagSF", ak.ones_like(events.nom))
 
