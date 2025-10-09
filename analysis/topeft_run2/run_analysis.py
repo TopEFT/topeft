@@ -301,6 +301,26 @@ if __name__ == "__main__":
             hist_lst.append("tau0pt")
         if fwd_analysis:
             hist_lst.append("lt")
+        if "lepton_pt_vs_eta" not in hist_lst:
+            hist_lst.append("lepton_pt_vs_eta")
+        if "l0_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
+            hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY")
+        if "l0_eta_vs_phi" not in hist_lst:
+            hist_lst.append("l0_eta_vs_phi")
+        if "l1_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
+            hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY")
+        if "l1_eta_vs_phi" not in hist_lst:
+            hist_lst.append("l1_eta_vs_phi")
+        if do_errors and "lepton_pt_vs_eta_sumw2" not in hist_lst:
+            hist_lst.append("lepton_pt_vs_eta_sumw2")
+        if do_errors and "l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
+            hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
+        if do_errors and "l0_eta_vs_phi_sumw2" not in hist_lst:
+            hist_lst.append("l0_eta_vs_phi_sumw2")
+        if do_errors and "l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
+            hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
+        if do_errors and "l1_eta_vs_phi_sumw2" not in hist_lst:
+            hist_lst.append("l1_eta_vs_phi_sumw2")
     elif args.hist_list == ["cr"]:
         # Here we hardcode a list of hists used for the CRs
         hist_lst = [
@@ -309,8 +329,12 @@ if __name__ == "__main__":
             "met",
             "ljptsum",
             "l0pt",
+            "l0ptcorr",
+            "l0conept",
             "l0eta",
             "l1pt",
+            "l1ptcorr",
+            "l1conept",
             "l1eta",
             "j0pt",
             "j0eta",
@@ -567,6 +591,8 @@ if __name__ == "__main__":
         )
 
     output = runner(flist, treename, processor_instance)
+
+    print("Finished running the processor... output keys:", output.keys())
 
     dt = time.time() - tstart
 

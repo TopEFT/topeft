@@ -14,6 +14,6 @@
 
 YEAR="2022"
 TYPE="" #Central"
-COMMIT="d86b067_DeepJet"
+COMMIT="1e421ac9_PNet"
 #python make_cr_and_sr_plots.py -f histoR3/2022_run3_object_selection_test.pkl.gz -o /scratch365/apiccine/run3plots -t -y 2022 -s -n mytest22
 python make_cr_and_sr_plots.py -f /scratch365/ywan2/${YEAR}CRs_fixTauCut_np.pkl.gz -o histos/CR_plots -t -y $YEAR -s -n ${YEAR}CRs_fixTauCut

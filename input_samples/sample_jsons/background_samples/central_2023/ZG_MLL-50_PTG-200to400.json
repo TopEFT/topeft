@@ -1,0 +1,30 @@
+{
+  "xsec": 0.04331,
+  "year": "2023",
+  "treeName": "Events",
+  "histAxisName": "ZG_MLL-50_PTG-200to400_central2023",
+  "options": "",
+  "WCnames": [],
+  "files": [
+    "/store/mc/Run3Summer23NanoAODv12/DYGto2LG-1Jets_MLL-50_PTG-200to400_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/50000/ad98c4dc-77be-4212-a343-d6e508c9a476.root",
+    "/store/mc/Run3Summer23NanoAODv12/DYGto2LG-1Jets_MLL-50_PTG-200to400_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/50000/53f43840-090e-4ba0-b448-63caffffcf20.root",
+    "/store/mc/Run3Summer23NanoAODv12/DYGto2LG-1Jets_MLL-50_PTG-200to400_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/50000/738c4cfe-bbae-49e8-aa3a-4d591edbb7b7.root",
+    "/store/mc/Run3Summer23NanoAODv12/DYGto2LG-1Jets_MLL-50_PTG-200to400_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/50000/f7e93467-f305-418c-85b3-7bd967ba31ae.root",
+    "/store/mc/Run3Summer23NanoAODv12/DYGto2LG-1Jets_MLL-50_PTG-200to400_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/NANOAODSIM/130X_mcRun3_2023_realistic_v15-v4/50000/7087d68d-4556-4e44-84cc-1e0beaddfba0.root"
+  ],
+  "nEvents": 981022,
+  "nGenEvents": 981022,
+  "nSumOfWeights": 145899.45812024,
+  "isData": false,
+  "path": "/DYGto2LG-1Jets_MLL-50_PTG-200to400_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v4/NANOAODSIM",
+  "nSumOfWeights_ISRUp": 147150.5323365252,
+  "nSumOfWeights_ISRDown": 144336.03911586138,
+  "nSumOfWeights_FSRUp": 145836.47518821247,
+  "nSumOfWeights_FSRDown": 146114.95656350814,
+  "nSumOfWeights_renormUp": 139011.1556682021,
+  "nSumOfWeights_renormDown": 153563.32731427037,
+  "nSumOfWeights_factUp": 144791.7292006726,
+  "nSumOfWeights_factDown": 147710.27262375323,
+  "nSumOfWeights_renormDown_factUp": 152948.27004473502,
+  "nSumOfWeights_renormUp_factDown": 141032.82337548758
+}

@@ -8,7 +8,7 @@ info = {
         "label": r"Number of Good reco primary vertices ",
     },
     "invmass": {
-        "regular": (50, 0, 1000),
+        "regular": (40, 60, 140),
         "label": r"$m_{\ell\ell}$ (GeV) ",
     },
     "ptbl": {
@@ -117,5 +117,168 @@ info = {
         "regular": (12, 0, 600),
         "variable": [0,150,250,500],
         "label": r"Scalar sum of met at leading leptons (GeV)",
+    },
+
+    "l0_gen_pdgId": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"pdgid of l0 genparticle",
+    },
+    "l1_gen_pdgId": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"pdgid of l1 genparticle",
+    },
+    "l2_gen_pdgId": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"pdgid of l2 genparticle",
+    },
+    "l0_genParent_pdgId": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"pdgid of l0 genparent",
+    },
+    "l1_genParent_pdgId": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"pdgid of l1 genparent",
+    },
+    "l2_genParent_pdgId": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"pdgid of l2 genparent",
+    },
+
+    "b0l_hFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"Hadron Flavor of leading loose b jet",
+   },
+    "b0l_pFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"Parton Flavor of leading loose b jet",
+   },
+    "b0m_hFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"Hadron Flavor of leading medium b jet",
+   },
+    "b0m_pFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"Parton Flavor of leading medium b jet",
+   },
+    "b1l_hFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"Hadron Flavor of subleading loose b jet",
+   },
+    "b1l_pFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"Parton Flavor of subleading loose b jet",
+   },
+    "b1m_hFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"Hadron Flavor of subleading medium b jet",
+   },
+    "b1m_pFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"Parton Flavor of subleading medium b jet",
+   },
+    "b0l_genhFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"GenHadron Flavor of leading loose b jet",
+   },
+    "b0l_genpFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"GenParton Flavor of leading loose b jet",
+   },
+    "b0m_genhFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"GenHadron Flavor of leading medium b jet",
+   },
+    "b0m_genpFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"GenParton Flavor of leading medium b jet",
+   },
+    "b1l_genhFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"GenHadron Flavor of subleading loose b jet",
+   },
+    "b1l_genpFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"GenParton Flavor of subleading loose b jet",
+   },
+    "b1m_genhFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"GenHadron Flavor of subleading medium b jet",
+   },
+    "b1m_genpFlav": {
+       "regular": (28, -1.5, 26.5),
+       "label": r"GenParton Flavor of subleading medium b jet",
+    }
+}
+
+info_2d = {
+    "lepton_pt_vs_eta": {
+        "axes": [
+            {
+                "name": "lepton_pt_vs_eta_pt",
+                "regular": (25, 0, 250),
+                "label": r"Leading lep $p_{T}$ (GeV) ",
+            },
+            {
+                "name": "lepton_pt_vs_eta_abseta",
+                "regular": (25, 0, 2.5),
+                "label": r"Leading lep $|\eta|$ ",
+            },
+        ],
+    },
+    "l0_SeedEtaOrX_vs_SeedPhiOrY": {
+        "axes": [
+            {
+                "name": "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX",
+                "regular": (400, -200, 200),
+                "label": r"Leading lep seed $\eta / x$ ",
+            },
+            {
+                "name": "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY",
+                "regular": (500, 0, 500),
+                "label": r"Leading lep seed $\phi / y$ ",
+            },
+        ],
+    },
+    "l0_eta_vs_phi": {
+        "axes": [
+            {
+                "name": "l0_eta_vs_phi_eta",
+                "regular": (120, -3, 3),
+                "label": r"Leading lep $\eta$ ",
+            },
+            {
+                "name": "l0_eta_vs_phi_phi",
+                "regular": (160, -4, 4),
+                "label": r"Leading lep $\phi$ ",
+            },
+        ],
+    },
+    "l1_SeedEtaOrX_vs_SeedPhiOrY": {
+        "axes": [
+            {
+                "name": "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX",
+                "regular": (400, -200, 200),
+                "label": r"Subleading lep seed $\eta / x$ ",
+            },
+            {
+                "name": "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY",
+                "regular": (500, 0, 500),
+                "label": r"Subleading lep seed $\phi / y$ ",
+            },
+        ],
+    },
+    "l1_eta_vs_phi": {
+        "axes": [
+            {
+                "name": "l1_eta_vs_phi_eta",
+                "regular": (120, -3, 3),
+                "label": r"Subleading lep $\eta$ ",
+            },
+            {
+                "name": "l1_eta_vs_phi_phi",
+                "regular": (160, -4, 4),
+                "label": r"Subleading lep $\phi$ ",
+            },
+        ],
     },
 }
