@@ -44,44 +44,65 @@ def resolve_channel_groups(
     channel_helper,
     skip_sr,
     skip_cr,
-    offZ_split=False,
-    tau_h_analysis=False,
-    fwd_analysis=False,
+    scenario_names=None,
+    required_features=None,
 ):
-    """Return the SR and CR channel groups along with their feature flags."""
+    """Return the SR and CR channel groups along with their feature flags.
+
+    Parameters
+    ----------
+    channel_helper : ChannelMetadataHelper
+        Helper providing access to the grouped channel metadata.
+    skip_sr : bool
+        Whether signal-region categories should be skipped.
+    skip_cr : bool
+        Whether control-region categories should be skipped.
+    scenario_names : Sequence[str], optional
+        Scenario names defined in the metadata that specify which channel groups
+        should participate in the run. Multiple entries are combined in order.
+    required_features : Sequence[str], optional
+        Feature tags used to locate additional channel groups. Any group whose
+        declared features intersect with this set will be scheduled in addition
+        to the selected scenarios.
+    """
 
     sr_groups = []
     cr_groups = []
     active_features = set()
+    seen_groups = set()
+    required_feature_set = set(required_features or [])
 
     def _load_group(name):
         group = channel_helper.group(name)
-        active_features.update(group.features)
+        if name not in seen_groups:
+            active_features.update(group.features)
+            seen_groups.add(name)
         return group
 
-    if offZ_split:
-        sr_group_name = "OFFZ_SPLIT_CH_LST_SR"
-    elif tau_h_analysis:
-        sr_group_name = "TAU_CH_LST_SR"
-    elif fwd_analysis:
-        sr_group_name = "FWD_CH_LST_SR"
-    else:
-        sr_group_name = "TOP22_006_CH_LST_SR"
+    def _register_group(name):
+        group = _load_group(name)
+        if name.endswith("_CR"):
+            if not skip_cr and group not in cr_groups:
+                cr_groups.append(group)
+        else:
+            if not skip_sr and group not in sr_groups:
+                sr_groups.append(group)
 
-    sr_group = _load_group(sr_group_name)
-    if not skip_sr:
-        sr_groups.append(sr_group)
+    scenario_names = list(scenario_names or [])
+    for scenario_name in scenario_names:
+        for group_name in channel_helper.scenario_groups(scenario_name):
+            _register_group(group_name)
 
-    if not skip_cr:
-        cr_group = _load_group("CH_LST_CR")
-        cr_groups.append(cr_group)
+    if required_feature_set:
+        for group_name in channel_helper.group_names():
+            group = channel_helper.group(group_name)
+            if set(group.features) & required_feature_set:
+                _register_group(group_name)
 
-        if tau_h_analysis:
-            tau_cr_group = _load_group("TAU_CH_LST_CR")
-            cr_groups.append(tau_cr_group)
-    elif tau_h_analysis:
-        _load_group("TAU_CH_LST_CR")
-
+    if not sr_groups and not cr_groups and not seen_groups:
+        raise ValueError(
+            "No channel groups selected. Please specify a scenario or feature tag"
+        )
 
     return sr_groups, cr_groups, frozenset(active_features)
 
@@ -125,18 +146,16 @@ def build_channel_dict(
     skip_sr,
     skip_cr,
     channel_helper,
-    offZ_split=False,
-    tau_h_analysis=False,
-    fwd_analysis=False,
+    scenario_names=None,
+    required_features=None,
 ):
 
     import_sr_groups, import_cr_groups, active_features = resolve_channel_groups(
         channel_helper,
         skip_sr,
         skip_cr,
-        offZ_split=offZ_split,
-        tau_h_analysis=tau_h_analysis,
-        fwd_analysis=fwd_analysis,
+        scenario_names=scenario_names,
+        required_features=required_features,
     )
 
     base_ch = ch
@@ -220,18 +239,16 @@ def build_channel_app_map(
     isData,
     skip_sr,
     skip_cr,
-    offZ_split=False,
-    tau_h_analysis=False,
-    fwd_analysis=False,
+    scenario_names=None,
+    required_features=None,
 ):
     """Extract channel names and their application regions from metadata."""
     import_sr_groups, import_cr_groups, _ = resolve_channel_groups(
         channel_helper,
         skip_sr,
         skip_cr,
-        offZ_split=offZ_split,
-        tau_h_analysis=tau_h_analysis,
-        fwd_analysis=fwd_analysis,
+        scenario_names=scenario_names,
+        required_features=required_features,
     )
 
     def _collect(groups, result):
@@ -343,19 +360,23 @@ if __name__ == "__main__":
         help="Split up categories by lepton flavor",
     )
     parser.add_argument(
-        "--offZ-split",
-        action="store_true",
-        help="Split up 3l offZ categories",
+        "--scenario",
+        dest="scenarios",
+        action="append",
+        help=(
+            "Scenario name defined in metadata to select channel groups."
+            " Defaults to 'TOP_22_006' when not provided. Can be supplied"
+            " multiple times to combine scenarios."
+        ),
     )
     parser.add_argument(
-        "--tau_h_analysis",
-        action="store_true",
-        help="Add tau channels",
-    )
-    parser.add_argument(
-        "--fwd-analysis",
-        action="store_true",
-        help="Add fwd channels",
+        "--channel-feature",
+        dest="channel_features",
+        action="append",
+        help=(
+            "Include channel groups advertising the specified feature tag"
+            " (for example 'offz_split' or 'requires_tau')."
+        ),
     )
     parser.add_argument(
         "--skip-sr",
@@ -427,9 +448,8 @@ if __name__ == "__main__":
     do_errors = args.do_errors
     do_systs = args.do_systs
     split_lep_flavor = args.split_lep_flavor
-    offZ_split = args.offZ_split
-    tau_h_analysis = args.tau_h_analysis
-    fwd_analysis = args.fwd_analysis
+    scenario_names = list(args.scenarios) if args.scenarios else []
+    channel_feature_tags = list(args.channel_features) if args.channel_features else []
     skip_sr    = args.skip_sr
     skip_cr    = args.skip_cr
     do_np      = args.do_np
@@ -437,7 +457,7 @@ if __name__ == "__main__":
     wc_lst = args.wc_list if args.wc_list is not None else []
     ecut = args.ecut
     port = args.port
-    hist_list = args.hist_list
+    hist_list_request = args.hist_list
 
     if args.options:
         import yaml
@@ -457,17 +477,45 @@ if __name__ == "__main__":
         do_errors = ops.pop("do_errors",do_errors)
         do_systs = ops.pop("do_systs",do_systs)
         split_lep_flavor = ops.pop("split_lep_flavor",split_lep_flavor)
-        offZ_split = ops.pop("offZ_split",offZ_split)
-        tau_h_analysis = ops.pop("tau_h_analysis",tau_h_analysis)
-        fwd_analysis = ops.pop("fwd_analysis",fwd_analysis)
+        scenario_names = ops.pop("scenarios", scenario_names)
+        channel_feature_tags = ops.pop("channel_features", channel_feature_tags)
         skip_sr = ops.pop("skip_sr",skip_sr)
         skip_cr = ops.pop("skip_cr",skip_cr)
         do_np = ops.pop("do_np",do_np)
         do_renormfact_envelope = ops.pop("do_renormfact_envelope",do_renormfact_envelope)
         wc_lst = ops.pop("wc_list",wc_lst)
-        hist_list = ops.pop("hist_list",hist_list)
+        hist_list_request = ops.pop("hist_list",hist_list_request)
         port = ops.pop("port",port)
         ecut = ops.pop("ecut",ecut)
+
+    def _normalize_sequence(value):
+        if value is None:
+            return []
+        if isinstance(value, (list, tuple, set)):
+            result = []
+            for item in value:
+                result.extend(_normalize_sequence(item))
+            return result
+        return [str(value)]
+
+    def _unique_preserving_order(values):
+        seen = set()
+        result = []
+        for value in values:
+            if value in seen:
+                continue
+            seen.add(value)
+            result.append(value)
+        return result
+
+    scenario_names = _unique_preserving_order(_normalize_sequence(scenario_names))
+    channel_feature_tags = _unique_preserving_order(
+        _normalize_sequence(channel_feature_tags)
+    )
+    if hist_list_request is not None:
+        hist_list_request = _normalize_sequence(hist_list_request)
+    if not scenario_names:
+        scenario_names = ["TOP_22_006"]
 
     # Check if we have valid options
     if executor not in LST_OF_KNOWN_EXECUTORS:
@@ -512,38 +560,6 @@ if __name__ == "__main__":
         if len(port) == 1:
             # convert single values into a range of one element
             port.append(port[0])
-
-    # Figure out which hists to include ### TO BE REFACTORED
-    if hist_list == ["ana"]:
-        # Here we hardcode a list of hists used for the analysis
-        hist_lst = ["njets", "lj0pt", "ptz"]
-        if tau_h_analysis:
-            hist_lst.append("ptz_wtau")
-        if fwd_analysis:
-            hist_lst.append("lt")
-    elif args.hist_list == ["cr"]:
-        # Here we hardcode a list of hists used for the CRs
-        hist_lst = [
-            "lj0pt",
-            "ptz",
-            "met",
-            "ljptsum",
-            "l0pt",
-            "l0eta",
-            "l1pt",
-            "l1eta",
-            "j0pt",
-            "j0eta",
-            "njets",
-            "nbtagsl",
-            "invmass",
-        ]
-        if tau_h_analysis:
-            hist_lst.append("tau0pt")
-    else:
-        # We want to specify a custom list
-        # If we don't specify this argument, it will be None, and the processor will fill all hists
-        hist_lst = args.hist_list
 
     ### Load samples from json
     samplesdict = {}
@@ -685,6 +701,14 @@ if __name__ == "__main__":
         raise ValueError("Channel metadata is missing from params/metadata.yml")
     channel_helper = ChannelMetadataHelper(channels_metadata)
 
+    _, _, active_channel_features = resolve_channel_groups(
+        channel_helper,
+        skip_sr=skip_sr,
+        skip_cr=skip_cr,
+        scenario_names=scenario_names,
+        required_features=channel_feature_tags,
+    )
+
     samples_lst = list(samplesdict.keys())
     sample_years = {
         str(samplesdict[sample_name]["year"])
@@ -695,7 +719,7 @@ if __name__ == "__main__":
     syst_helper = SystematicsHelper(
         metadata,
         sample_years=sample_years,
-        tau_analysis=tau_h_analysis,
+        tau_analysis="requires_tau" in active_channel_features,
     )
 
     channel_app_map_mc = build_channel_app_map(
@@ -703,19 +727,43 @@ if __name__ == "__main__":
         isData=False,
         skip_sr=skip_sr,
         skip_cr=skip_cr,
-        offZ_split=offZ_split,
-        tau_h_analysis=tau_h_analysis,
-        fwd_analysis=fwd_analysis,
+        scenario_names=scenario_names,
+        required_features=channel_feature_tags,
     )
     channel_app_map_data = build_channel_app_map(
         channel_helper,
         isData=True,
         skip_sr=skip_sr,
         skip_cr=skip_cr,
-        offZ_split=offZ_split,
-        tau_h_analysis=tau_h_analysis,
-        fwd_analysis=fwd_analysis,
+        scenario_names=scenario_names,
+        required_features=channel_feature_tags,
     )
+
+    hist_lst = hist_list_request
+    if hist_list_request == ["ana"]:
+        hist_lst = ["njets", "lj0pt", "ptz"]
+        if "requires_tau" in active_channel_features:
+            hist_lst.append("ptz_wtau")
+        if "requires_forward" in active_channel_features:
+            hist_lst.append("lt")
+    elif hist_list_request == ["cr"]:
+        hist_lst = [
+            "lj0pt",
+            "ptz",
+            "met",
+            "ljptsum",
+            "l0pt",
+            "l0eta",
+            "l1pt",
+            "l1eta",
+            "j0pt",
+            "j0eta",
+            "njets",
+            "nbtagsl",
+            "invmass",
+        ]
+        if "requires_tau" in active_channel_features:
+            hist_lst.append("tau0pt")
 
     print("\nchannel_app_map_mc:", channel_app_map_mc)
     # print("\nchannel_app_map_data:", channel_app_map_data)
@@ -909,9 +957,8 @@ if __name__ == "__main__":
             skip_sr,
             skip_cr,
             channel_helper,
-            offZ_split=offZ_split,
-            tau_h_analysis=tau_h_analysis,
-            fwd_analysis=fwd_analysis,
+            scenario_names=scenario_names,
+            required_features=channel_feature_tags,
         )
 
         # If the channel dictionary is empty, this configuration corresponds

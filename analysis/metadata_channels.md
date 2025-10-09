@@ -22,3 +22,11 @@ Each entry in `channels.groups` represents a coherent collection of regions with
 
 Consumers can use these scenario definitions to pick the appropriate set of channel groups without manually synchronising individual channel lists and application flags.
 
+### Selecting scenarios in `run_analysis.py`
+The command-line front-end now accepts ``--scenario`` to activate one or more of the
+metadata-defined combinations above (defaulting to ``TOP_22_006`` when unspecified).
+Additional channel groups can be pulled in by advertising feature tags via
+``--channel-feature`` (for example ``--channel-feature requires_tau``). The helper
+functions resolve the requested scenarios and features to determine which regions and
+systematics should run.
+

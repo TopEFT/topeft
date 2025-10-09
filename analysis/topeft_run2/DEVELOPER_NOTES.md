@@ -1,10 +1,12 @@
-# Analysis Flag Dependencies
+# Analysis Feature Dependencies
 
-This note summarizes how the Run 2 analysis processor uses several feature flags. The
-information is distilled from `analysis_processor.py` so future metadata-driven
-refactors can reproduce the same behavior.
+This note summarizes how the Run 2 analysis processor reacts to the channel feature
+tags declared in the metadata.  Scenarios selected via ``run_analysis.py``'s
+``--scenario`` option or direct ``--channel-feature`` requests enable the behaviors
+described below. The information is distilled from `analysis_processor.py` so future
+metadata-driven refactors can reproduce the same logic.
 
-## `offZ_3l_split`
+## `offz_split`
 
 When enabled, the three-lepton off-Z control region is divided into multiple categories
 and several helpers switch behavior:
@@ -23,9 +25,9 @@ and several helpers switch behavior:
   - While looping over histogram fills skip `ptz` templates for categories that are not the new
     off-Z split channels to avoid mismatched definitions.
 
-## `tau_h_analysis`
+## `requires_tau`
 
-This flag activates the hadronic-tau analysis branch and propagates through selection,
+This feature activates the hadronic-tau analysis branch and propagates through selection,
 weights, and observables.
 
 - **Object preparation:**
@@ -47,9 +49,9 @@ weights, and observables.
   - Restrict `ptz`/`ptz_wtau` templates to the tau-enabled categories so the shapes stay consistent
     with the modified definitions.
 
-## `fwd_analysis`
+## `requires_forward`
 
-This switch exposes forward-jet enriched categories for the same-sign dilepton channels.
+This feature exposes forward-jet enriched categories for the same-sign dilepton channels.
 
 - **Masks:**
   - Register `fwdjet_mask` and its complement, then add preselection entries `2lss_fwd`,
