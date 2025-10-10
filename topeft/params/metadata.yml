@@ -458,44 +458,44 @@ channels:
         - tau_analysis
         - fwd_analysis
       regions:
-        - lepton_category: 2l_CR
-          lepton_flavors:
-            - ee
-            - em
-            - mm
-          region_definitions:
-            - name: 2lss_CR
-              channel: chargedl0
-              subchannel: 2lss
-              tags:
-                - bmask_exactly1m
-          jet_bins:
-            - '=1'
-            - '=2'
-            - '=3'
-          application_tags:
-            mc:
-              - isSR_2lSS
-              - isAR_2lSS
-            data:
-              - isAR_2lSS_OS
-        - lepton_category: 2l_CRflip
-          lepton_flavors:
-            - ee
-          region_definitions:
-            - name: 2lss_CRflip
-              channel: 2l_nozeeveto
-              subchannel: 2lee
-              tags:
-                - 2l_onZ_as
-          jet_bins:
-            - '<3'
-          application_tags:
-            mc:
-              - isSR_2lSS
-              - isAR_2lSS
-            data:
-              - isAR_2lSS_OS
+        # - lepton_category: 2l_CR
+        #   lepton_flavors:
+        #     - ee
+        #     - em
+        #     - mm
+        #   region_definitions:
+        #     - name: 2lss_CR
+        #       channel: chargedl0
+        #       subchannel: 2lss
+        #       tags:
+        #         - bmask_exactly1m
+        #   jet_bins:
+        #     - '=1'
+        #     - '=2'
+        #     - '=3'
+        #   application_tags:
+        #     mc:
+        #       - isSR_2lSS
+        #       - isAR_2lSS
+        #     data:
+        #       - isAR_2lSS_OS
+        # - lepton_category: 2l_CRflip
+        #   lepton_flavors:
+        #     - ee
+        #   region_definitions:
+        #     - name: 2lss_CRflip
+        #       channel: 2l_nozeeveto
+        #       subchannel: 2lee
+        #       tags:
+        #         - 2l_onZ_as
+        #   jet_bins:
+        #     - '<3'
+        #   application_tags:
+        #     mc:
+        #       - isSR_2lSS
+        #       - isAR_2lSS
+        #     data:
+        #       - isAR_2lSS_OS
         - lepton_category: 2los_CRZ
           lepton_flavors:
             - ee
@@ -512,41 +512,41 @@ channels:
           application_tags:
             mc:
               - isSR_2lOS
-              - isAR_2lOS
-        - lepton_category: 2los_CRtt
-          lepton_flavors:
-            - em
-          region_definitions:
-            - name: 2los_CRtt
-              channel: 2l_nozeeveto
-              subchannel: 2los
-              tags:
-                - 2lem
-                - bmask_exactly2m
-          jet_bins:
-            - '=2'
-          application_tags:
-            mc:
-              - isSR_2lOS
-              - isAR_2lOS
-        - lepton_category: 3l_CR
-          lepton_flavors:
-            - eee
-            - eem
-            - emm
-            - mmm
-          region_definitions:
-            - name: 3l_CR
-              channel: 3l
-              tags:
-                - bmask_exactly0m
-          jet_bins:
-            - '=0'
-            - '>1'
-          application_tags:
-            mc:
-              - isSR_3l
-              - isAR_3l
+              # - isAR_2lOS
+        # - lepton_category: 2los_CRtt
+        #   lepton_flavors:
+        #     - em
+        #   region_definitions:
+        #     - name: 2los_CRtt
+        #       channel: 2l_nozeeveto
+        #       subchannel: 2los
+        #       tags:
+        #         - 2lem
+        #         - bmask_exactly2m
+        #   jet_bins:
+        #     - '=2'
+        #   application_tags:
+        #     mc:
+        #       - isSR_2lOS
+        #       # - isAR_2lOS
+        # - lepton_category: 3l_CR
+        #   lepton_flavors:
+        #     - eee
+        #     - eem
+        #     - emm
+        #     - mmm
+        #   region_definitions:
+        #     - name: 3l_CR
+        #       channel: 3l
+        #       tags:
+        #         - bmask_exactly0m
+        #   jet_bins:
+        #     - '=0'
+        #     - '>1'
+        #   application_tags:
+        #     mc:
+        #       - isSR_3l
+        #       - isAR_3l
     FWD_CH_LST_SR:
       description: Forward-enriched signal regions targeting events with forward
         leptons.

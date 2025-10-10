@@ -1444,6 +1444,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     print("Filling for channel:", ch_name)
                     print("base channel:", base_ch_name)
 
+                    for cut in cuts_lst:
+                        print("  cut:", cut)
+                        print("    n passed:", selections.all(cut))
+
                     all_cuts_mask = selections.all(*cuts_lst)
                     if self._ecut_threshold is not None:
                         all_cuts_mask = (all_cuts_mask & ecut_mask)
@@ -1502,11 +1506,15 @@ class AnalysisProcessor(processor.ProcessorABC):
                         if fallback_histkey not in hout:
                             continue
                         histkey = fallback_histkey
+                    
                     hout[histkey].fill(**axes_fill_info_dict)
 
-                    print("\n\n\n\n\n\n\n")
+                    print("\n")
                     print("Filling histkey:", histkey)
+                    print("  all_cuts_mask:", all_cuts_mask)
                     print("  with axes_fill_info_dict:", axes_fill_info_dict)
+                    print("  dense_axis_vals[all_cuts_mask]", ak.to_list(dense_axis_vals[all_cuts_mask]))
+                    #print("  dense_axis_vals", dense_axis_vals)
                     print("\n\n\n\n\n\n\n")
 
                     axes_fill_info_dict = {
