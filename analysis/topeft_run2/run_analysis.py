@@ -895,7 +895,7 @@ if __name__ == "__main__":
         if not samplesdict[sname]["isData"]:
             for wgt_var in WGT_VAR_LST:
                 # Check that MC samples have all needed weight sums (only needed if doing systs)
-                if do_systs:
+                if config.do_systs:
                     if wgt_var not in samplesdict[sname]:
                         raise Exception(f'Missing weight variation "{wgt_var}".')
                     else:
