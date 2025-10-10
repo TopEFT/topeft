@@ -7,6 +7,7 @@ import json
 
 import hist
 from topcoffea.modules.histEFT import HistEFT
+from topcoffea.modules.sparseHist import SparseHist
 from coffea import processor
 from coffea.util import load
 from coffea.analysis_tools import PackedSelection
@@ -19,8 +20,9 @@ import topcoffea.modules.object_selection as tc_os
 import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.axes import info as axes_info
+from topeft.modules.axes import info_2d as axes_info_2d
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
+from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachElectronCorrections, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF, ApplyJetVetoMaps
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
 from topcoffea.modules.get_param_from_jsons import GetParam
@@ -67,12 +69,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.fwd_analysis = fwd_analysis
         self.useRun3MVA = useRun3MVA #can be switched to False use the alternative cuts
 
+        self._hist_axis_map = {}
+        self._hist_sumw2_axis_mapping = {}
+        self._hist_requires_eft = {}
+
         proc_axis = hist.axis.StrCategory([], name="process", growth=True)
         chan_axis = hist.axis.StrCategory([], name="channel", growth=True)
         syst_axis = hist.axis.StrCategory([], name="systematic", label=r"Systematic Uncertainty", growth=True)
         appl_axis = hist.axis.StrCategory([], name="appl", label=r"AR/SR", growth=True)
 
         histograms = {}
+        def _build_axis(axis_cfg, *, suffix="", label_suffix=""):
+            axis_name = axis_cfg["name"] + suffix
+            axis_label = axis_cfg["label"] + label_suffix
+            if (not rebin) and ("variable" in axis_cfg):
+                return hist.axis.Variable(axis_cfg["variable"], name=axis_name, label=axis_label)
+            return hist.axis.Regular(*axis_cfg["regular"], name=axis_name, label=axis_label)
         for name, info in axes_info.items():
             if not rebin and "variable" in info:
                 dense_axis = hist.axis.Variable(
@@ -97,6 +109,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 wc_names=wc_names_lst,
                 label=r"Events",
             )
+            self._hist_axis_map[name] = [dense_axis.name]
             histograms[name+"_sumw2"] = HistEFT(
                 proc_axis,
                 chan_axis,
@@ -106,6 +119,50 @@ class AnalysisProcessor(processor.ProcessorABC):
                 wc_names=wc_names_lst,
                 label=r"Events",
             )
+            self._hist_axis_map[name+"_sumw2"] = [sumw2_axis.name]
+            self._hist_sumw2_axis_mapping[name] = {sumw2_axis.name: dense_axis.name}
+            self._hist_requires_eft[name] = True
+            self._hist_requires_eft[name+"_sumw2"] = True
+        for name, axes_cfg in axes_info_2d.items():
+            dense_axes = []
+            axis_names = []
+            for axis_cfg in axes_cfg["axes"]:
+                axis = _build_axis(axis_cfg)
+                dense_axes.append(axis)
+                axis_names.append(axis.name)
+            histograms[name] = SparseHist(
+                proc_axis,
+                chan_axis,
+                syst_axis,
+                appl_axis,
+                *dense_axes,
+                storage="Double",
+            )
+            self._hist_axis_map[name] = axis_names
+            self._hist_requires_eft[name] = False
+            sumw2_axes = []
+            sumw2_axis_names = []
+            sumw2_axis_mapping = {}
+            for axis_cfg, base_axis_name in zip(axes_cfg["axes"], axis_names):
+                sumw2_axis = _build_axis(
+                    axis_cfg,
+                    suffix="_sumw2",
+                    label_suffix=" sum of w^2",
+                )
+                sumw2_axes.append(sumw2_axis)
+                sumw2_axis_names.append(sumw2_axis.name)
+                sumw2_axis_mapping[sumw2_axis.name] = base_axis_name
+            histograms[name+"_sumw2"] = SparseHist(
+                proc_axis,
+                chan_axis,
+                syst_axis,
+                appl_axis,
+                *sumw2_axes,
+                storage="Double",
+            )
+            self._hist_axis_map[name+"_sumw2"] = sumw2_axis_names
+            self._hist_sumw2_axis_mapping[name] = sumw2_axis_mapping
+            self._hist_requires_eft[name+"_sumw2"] = False
         self._accumulator = histograms
 
         # Set the list of hists to fill
@@ -245,7 +302,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             tauSelection = te_os.run2TauSelection()
         if not btagAlgo in ["btagDeepFlavB", "btagPNetB"]:
             raise ValueError("b-tagging algorithm not recognized!")
-
+        
         te_os.lepJetBTagAdder(ele, btagger=btagAlgo)
         te_os.lepJetBTagAdder(mu, btagger=btagAlgo)
 
@@ -260,6 +317,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isData:
             ele["gen_pdgId"] = ak.fill_none(ele.matched_gen.pdgId, 0)
             mu["gen_pdgId"] = ak.fill_none(mu.matched_gen.pdgId, 0)
+            ele["genParent_pdgId"] = ak.fill_none(ele.matched_gen.distinctParent.pdgId, 0)
+            mu["genParent_pdgId"] = ak.fill_none(mu.matched_gen.distinctParent.pdgId, 0)
 
         # Get the lumi mask for data
         if year == "2016" or year == "2016APV":
@@ -329,6 +388,8 @@ class AnalysisProcessor(processor.ProcessorABC):
         AttachPerLeptonFR(m_fo, flavor = "Muon", year=year)
         m_fo['convVeto'] = ak.ones_like(m_fo.charge)
         m_fo['lostHits'] = ak.zeros_like(m_fo.charge)
+        m_fo['seediEtaOriX'] = ak.zeros_like(m_fo.charge)
+        m_fo['seediPhiOriY'] = ak.zeros_like(m_fo.charge)
         l_fo = ak.with_name(ak.concatenate([e_fo, m_fo], axis=1), 'PtEtaPhiMCandidate')
         l_fo_conept_sorted = l_fo[ak.argsort(l_fo.conept, axis=-1,ascending=False)]
 
@@ -455,6 +516,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         # Loop over the list of systematic variations we've constructed
         met_raw=met
+        
         for syst_var in syst_var_list:
             # Make a copy of the base weights object, so that each time through the loop we do not double count systs
             # In this loop over systs that impact kinematics, we will add to the weights objects the SFs that depend on the object kinematics
@@ -470,6 +532,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                 vetos_tocleanjets = ak.with_name( l_fo, "PtEtaPhiMCandidate")
             tmp = ak.cartesian([ak.local_index(jets.pt), vetos_tocleanjets.jetIdx], nested=True)
             cleanedJets = jets[~ak.any(tmp.slot0 == tmp.slot1, axis=-1)] # this line should go before *any selection*, otherwise lep.jetIdx is not aligned with the jet index
+
+            # Jet Veto Maps
+            # Removes events that have ANY jet in a specific eta-phi space (not required for Run 2)
+            # Zero is passing the veto map, so Run 2 will be assigned an array of length events with all zeros
+            veto_map_array = ApplyJetVetoMaps(cleanedJets, year) if is_run3 else ak.zeros_like(met.pt)
+            veto_map_mask = (veto_map_array == 0)
 
             # Selecting jets and cleaning them
             jetptname = "pt_nom" if hasattr(cleanedJets, "pt_nom") else "pt"
@@ -512,15 +580,12 @@ class AnalysisProcessor(processor.ProcessorABC):
             isBtagJetsLoose = (goodJets[btagAlgo] > btagwpl)
             isNotBtagJetsLoose = np.invert(isBtagJetsLoose)
             nbtagsl = ak.num(goodJets[isBtagJetsLoose])
-
             # Medium DeepJet WP
             medium_tag = "btag_wp_medium_" + btagRef + year.replace("201", "UL1")
             btagwpm = get_tc_param(medium_tag)
             isBtagJetsMedium = (goodJets[btagAlgo] > btagwpm)
             isNotBtagJetsMedium = np.invert(isBtagJetsMedium)
             nbtagsm = ak.num(goodJets[isBtagJetsMedium])
-
-
             #################### Add variables into event object so that they persist ####################
 
             # Put njets and l_fo_conept_sorted into events
@@ -577,7 +642,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                         
                     btag_method_bc    = f"{btagName}_{suffix_bc}"
                     btag_method_light = f"{btagName}_{suffix_light}"
-
                 btag_effM_light = GetBtagEff(jets_light, year, 'medium', btagAlgo)
                 btag_effM_bc = GetBtagEff(jets_bc, year, 'medium', btagAlgo)
                 btag_effL_light = GetBtagEff(jets_light, year, 'loose', btagAlgo)
@@ -626,10 +690,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                         else:
                             raise ValueError("btag systematics should be divided in flavor (bc or light)!")
 
-                        btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}")
-                        btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}")
-                        btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"up_{corrtype}")
-                        btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"deepJet_{dJ_tag}", f"down_{corrtype}")
+                        btag_sfL_up   = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"{btagName}_{dJ_tag}", f"up_{corrtype}")
+                        btag_sfL_down = tc_cor.btag_sf_eval(jets_flav, "L", sys_year, f"{btagName}_{dJ_tag}", f"down_{corrtype}")
+                        btag_sfM_up   = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"{btagName}_{dJ_tag}", f"up_{corrtype}")
+                        btag_sfM_down = tc_cor.btag_sf_eval(jets_flav, "M", sys_year, f"{btagName}_{dJ_tag}", f"down_{corrtype}")
 
                         pData_up, pMC_up = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_up, btag_sfL_up, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
                         pData_down, pMC_down = tc_cor.get_method1a_wgt_doublewp(btag_effM, btag_effL, btag_sfM_down, btag_sfL_down, isBtagJetsMedium[flav_mask], isBtagJetsLooseNotMedium[flav_mask], isNotBtagJetsLoose[flav_mask])
@@ -786,6 +850,10 @@ class AnalysisProcessor(processor.ProcessorABC):
             selections.add("is_good_lumi",lumi_mask)
             preselections.add("is_good_lumi",lumi_mask)
 
+            # Jet veto mask (for Run 3)
+            selections.add("jet_veto", veto_map_mask)
+            preselections.add("jet_veto", veto_map_mask)
+
             # 2lss selection
             preselections.add("chargedl0", (chargel0_p | chargel0_m))
             preselections.add("2l_nozeeveto", (events.is2l_nozeeveto & pass_trg))
@@ -937,9 +1005,17 @@ class AnalysisProcessor(processor.ProcessorABC):
                 ptz = te_es.get_ll_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
             # Leading (b+l) pair pt
             bjetsl = goodJets[isBtagJetsLoose][ak.argsort(goodJets[isBtagJetsLoose].pt, axis=-1, ascending=False)]
+            bjetsm = goodJets[isBtagJetsMedium][ak.argsort(goodJets[isBtagJetsMedium].pt, axis=-1, ascending=False)]
             bl_pairs = ak.cartesian({"b":bjetsl,"l":l_fo_conept_sorted})
             blpt = (bl_pairs["b"] + bl_pairs["l"]).pt
             bl0pt = ak.flatten(blpt[ak.argmax(blpt,axis=-1,keepdims=True)])
+
+            bjetsl_padded = ak.pad_none(bjetsl, 2)
+            b0l = bjetsl_padded[:,0]
+            b1l = bjetsl_padded[:,1]
+            bjetsm_padded = ak.pad_none(bjetsm, 2)
+            b0m = bjetsm_padded[:,0]
+            b1m = bjetsm_padded[:,1]
 
             # Collection of all objects (leptons and jets)
             if self.tau_h_analysis:
@@ -966,9 +1042,20 @@ class AnalysisProcessor(processor.ProcessorABC):
             ljptsum = ak.sum(l_j_collection.pt,axis=-1)
             if self._ecut_threshold is not None:
                 ecut_mask = (ljptsum<self._ecut_threshold)
-
+                
             # Counts
             counts = np.ones_like(events['event'])
+            is_l0_electron = (abs(l0.pdgId)==11)
+            is_l1_electron = (abs(l1.pdgId)==11)
+            #l0_seed_etaorx = l0[is_l0_electron].seediEtaOriX
+            #l0_seed_phiory = l0[is_l0_electron].seediPhiOriY
+            #l1_seed_etaorx = l1[is_l1_electron].seediEtaOriX
+            #l1_seed_phiory = l1[is_l1_electron].seediPhiOriY
+
+            l0_seed_etaorx = l0.seediEtaOriX
+            l0_seed_phiory = l0.seediPhiOriY
+            l1_seed_etaorx = l1.seediEtaOriX
+            l1_seed_phiory = l1.seediPhiOriY
 
             # Variables we will loop over when filling hists
             varnames = {}
@@ -997,6 +1084,105 @@ class AnalysisProcessor(processor.ProcessorABC):
             varnames["lt"]      = lt
             varnames["npvs"]    = pv.npvs
             varnames["npvsGood"]= pv.npvsGood
+            lepton0_pt_raw = l0.pt_raw 
+            lepton0_abseta = abs(l0.eta) 
+
+            if not isData:
+                l0_gen_pdgId = ak.fill_none(l0["gen_pdgId"], -1)
+                l1_gen_pdgId = ak.fill_none(l1["gen_pdgId"], -1)
+                l2_gen_pdgId = ak.fill_none(l2["gen_pdgId"], -1)
+                l0_genParent_pdgId = ak.fill_none(l0["genParent_pdgId"], -1)
+                l1_genParent_pdgId = ak.fill_none(l1["genParent_pdgId"], -1)
+                l2_genParent_pdgId = ak.fill_none(l2["genParent_pdgId"], -1)
+
+                b0l_hFlav = ak.fill_none(b0l.hadronFlavour, -1) 
+                b0l_pFlav = ak.fill_none(b0l.partonFlavour, -1)
+                b1l_hFlav = ak.fill_none(b1l.hadronFlavour, -1) 
+                b1l_pFlav = ak.fill_none(b1l.partonFlavour, -1)
+                b0l_genhFlav = ak.fill_none(b0l.matched_gen.hadronFlavour, -1) 
+                b0l_genpFlav = ak.fill_none(b0l.matched_gen.partonFlavour, -1)
+                b1l_genhFlav = ak.fill_none(b1l.matched_gen.hadronFlavour, -1) 
+                b1l_genpFlav = ak.fill_none(b1l.matched_gen.partonFlavour, -1)
+
+                b0m_hFlav = ak.fill_none(b0m.hadronFlavour, -1) 
+                b0m_pFlav = ak.fill_none(b0m.partonFlavour, -1)
+                b1m_hFlav = ak.fill_none(b1m.hadronFlavour, -1) 
+                b1m_pFlav = ak.fill_none(b1m.partonFlavour, -1)
+                b0m_genhFlav = ak.fill_none(b0m.matched_gen.hadronFlavour, -1) 
+                b0m_genpFlav = ak.fill_none(b0m.matched_gen.partonFlavour, -1)
+                b1m_genhFlav = ak.fill_none(b1m.matched_gen.hadronFlavour, -1) 
+                b1m_genpFlav = ak.fill_none(b1m.matched_gen.partonFlavour, -1)
+
+            else:
+                l0_gen_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
+                l1_gen_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
+                l2_gen_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
+                l0_genParent_pdgId = ak.fill_none(ak.zeros_like(l0.pt), -1)
+                l1_genParent_pdgId = ak.fill_none(ak.zeros_like(l1.pt), -1)
+                l2_genParent_pdgId = ak.fill_none(ak.zeros_like(l2.pt), -1)
+
+                b0l_hFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+                b0l_pFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+                b1l_hFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+                b1l_pFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+                b0l_genhFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+                b0l_genpFlav = ak.fill_none(ak.zeros_like(b0l.pt), -1)
+                b1l_genhFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+                b1l_genpFlav = ak.fill_none(ak.zeros_like(b1l.pt), -1)
+                
+                b0m_hFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+                b0m_pFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+                b1m_hFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+                b1m_pFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+                b0m_genhFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+                b0m_genpFlav = ak.fill_none(ak.zeros_like(b0m.pt), -1)
+                b1m_genhFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+                b1m_genpFlav = ak.fill_none(ak.zeros_like(b1m.pt), -1)
+
+            varnames["l0_gen_pdgId"] = l0_gen_pdgId
+            varnames["l1_gen_pdgId"] = l1_gen_pdgId
+            varnames["l2_gen_pdgId"] = l2_gen_pdgId
+            varnames["l0_genParent_pdgId"] = l0_genParent_pdgId
+            varnames["l1_genParent_pdgId"] = l1_genParent_pdgId
+            varnames["l2_genParent_pdgId"] = l2_genParent_pdgId
+            
+            varnames["b0l_hFlav"] = b0l_hFlav
+            varnames["b0l_pFlav"] = b0l_pFlav
+            varnames["b1l_hFlav"] = b1l_hFlav
+            varnames["b1l_pFlav"] = b1l_pFlav
+            varnames["b0l_genhFlav"] = b0l_genhFlav
+            varnames["b0l_genpFlav"] = b0l_genpFlav
+            varnames["b1l_genhFlav"] = b1l_genhFlav
+            varnames["b1l_genpFlav"] = b1l_genpFlav
+            varnames["b0m_hFlav"] = b0m_hFlav
+            varnames["b0m_pFlav"] = b0m_pFlav
+            varnames["b1m_hFlav"] = b1m_hFlav
+            varnames["b1m_pFlav"] = b1m_pFlav
+            varnames["b0m_genhFlav"] = b0m_genhFlav
+            varnames["b0m_genpFlav"] = b0m_genpFlav
+            varnames["b1m_genhFlav"] = b1m_genhFlav
+            varnames["b1m_genpFlav"] = b1m_genpFlav
+            varnames["lepton_pt_vs_eta"] = {
+                "lepton_pt_vs_eta_pt": lepton0_pt_raw,
+                "lepton_pt_vs_eta_abseta": lepton0_abseta,
+            }
+            varnames["l0_SeedEtaOrX_vs_SeedPhiOrY"] = {
+                "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l0_seed_etaorx,
+                "l0_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l0_seed_phiory,
+            }
+            varnames["l0_eta_vs_phi"] = {
+                "l0_eta_vs_phi_eta": l0.eta,
+                "l0_eta_vs_phi_phi": l0.phi,
+            }
+            varnames["l1_SeedEtaOrX_vs_SeedPhiOrY"] = {
+                "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedEtaOrX": l1_seed_etaorx,
+                "l1_SeedEtaOrX_vs_SeedPhiOrY_SeedPhiOrY": l1_seed_phiory,
+            }
+            varnames["l1_eta_vs_phi"] = {
+                "l1_eta_vs_phi_eta": l1.eta,
+                "l1_eta_vs_phi_phi": l1.phi,
+            }
+
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
                 varnames["tau0pt"] = tau0.pt
@@ -1071,7 +1257,9 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             # Loop over the hists we want to fill
             for dense_axis_name, dense_axis_vals in varnames.items():
-                if dense_axis_name not in self._hist_lst:
+                fill_base_hist = dense_axis_name in self._hist_lst
+                fill_sumw2_hist = (dense_axis_name+"_sumw2") in self._hist_lst
+                if not (fill_base_hist or fill_sumw2_hist):
                     continue
 
                 # Set up the list of syst wgt variations to loop over
@@ -1090,12 +1278,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                         wgt_var_lst = wgt_var_lst + data_syst_lst
 
                 # Loop over the systematics
+
                 for wgt_fluct in wgt_var_lst:
                     # Loop over nlep categories "2l", "3l", "4l"
                     for nlep_cat in cat_dict.keys():
                         # Get the appropriate Weights object for the nlep cat and get the weight to be used when filling the hist
                         # Need to do this inside of nlep cat loop since some wgts depend on lep cat
                         weights_object = weights_dict[nlep_cat]
+
                         if (wgt_fluct == "nominal") or (wgt_fluct in obj_correction_syst_lst):
                             # In the case of "nominal", or the jet energy systematics, no weight systematic variation is used
                             weight = weights_object.weight(None)
@@ -1138,8 +1328,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         njet_ch = None
                                         cuts_lst = [appl,lep_chan]
 
+                                        #Selections applied everywhere
                                         if isData:
                                             cuts_lst.append("is_good_lumi")
+                                        cuts_lst.append("jet_veto")
+
                                         if self._split_by_lepton_flavor:
                                             flav_ch = lep_flav
                                             cuts_lst.append(lep_flav)
@@ -1161,44 +1354,97 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         weights_flat = weight[all_cuts_mask]
                                         eft_coeffs_cut = eft_coeffs[all_cuts_mask] if eft_coeffs is not None else None
 
-                                        # Fill the histos
-                                        axes_fill_info_dict = {
-                                            dense_axis_name : dense_axis_vals[all_cuts_mask],
-                                            "channel"       : ch_name,
-                                            "appl"          : appl,
-                                            "process"       : histAxisName,
-                                            "systematic"    : wgt_fluct,
-                                            "weight"        : weights_flat,
-                                            "eft_coeff"     : eft_coeffs_cut,
-                                        }
+                                        axis_names = self._hist_axis_map.get(
+                                            dense_axis_name,
+                                            [dense_axis_name],
+                                        )
+                                        sumw2_axis_names = self._hist_axis_map.get(
+                                            dense_axis_name+"_sumw2",
+                                            [dense_axis_name+"_sumw2"],
+                                        )
+                                        sumw2_axis_mapping = self._hist_sumw2_axis_mapping.get(
+                                            dense_axis_name,
+                                            {
+                                                sumw2_axis_names[0]: axis_names[0]
+                                            }
+                                            if (sumw2_axis_names and axis_names)
+                                            else {},
+                                        )
 
-                                        # Skip histos that are not defined (or not relevant) to given categories
-                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): continue
-                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): continue
+                                        base_values_cut = None
+                                        if isinstance(dense_axis_vals, dict):
+                                            values_cut_map = {
+                                                axis_name: dense_axis_vals[axis_name][all_cuts_mask]
+                                                for axis_name in axis_names
+                                                if axis_name in dense_axis_vals
+                                            }
+                                        else:
+                                            base_values_cut = dense_axis_vals[all_cuts_mask]
+                                            base_axis_name = axis_names[0] if axis_names else dense_axis_name
+                                            values_cut_map = {
+                                                base_axis_name: base_values_cut
+                                            }
+
+                                        sumw2_values_cut_map = {}
+                                        for sumw2_axis_name, base_axis_name in sumw2_axis_mapping.items():
+                                            base_values = values_cut_map.get(base_axis_name)
+                                            if (base_values is None) and (base_values_cut is not None):
+                                                base_values = base_values_cut
+                                            if base_values is not None:
+                                                sumw2_values_cut_map[sumw2_axis_name] = base_values
+
+                                        # Fill the histos
+                                        skip_hist = False
+                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))): skip_hist = True
+                                        if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)): skip_hist = True
                                         if self.offZ_3l_split:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):continue
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):
+                                                skip_hist = True
                                         elif self.tau_h_analysis:
                                             if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)): continue
                                             if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)): continue
                                             if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))): continue
 
                                         elif self.fwd_analysis:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                            if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)): continue
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
+                                                skip_hist = True
+                                            if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)):
+                                                skip_hist = True
                                         else:
-                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)): continue
-                                        if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)): continue
-                                        hout[dense_axis_name].fill(**axes_fill_info_dict)
-                                        axes_fill_info_dict = {
-                                            dense_axis_name+"_sumw2" : dense_axis_vals[all_cuts_mask],
-                                            "channel"       : ch_name,
-                                            "appl"          : appl,
-                                            "process"       : histAxisName,
-                                            "systematic"    : wgt_fluct,
-                                            "weight"        : np.square(weights_flat),
-                                            "eft_coeff"     : eft_coeffs_cut,
-                                        }
-                                        hout[dense_axis_name+"_sumw2"].fill(**axes_fill_info_dict)
+                                            if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
+                                                skip_hist = True
+                                        if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)):
+                                            skip_hist = True
+
+                                        if skip_hist:
+                                            continue
+
+                                        if fill_base_hist:
+                                            axes_fill_info_dict = {
+                                                **values_cut_map,
+                                                "channel"    : ch_name,
+                                                "appl"       : appl,
+                                                "process"    : histAxisName,
+                                                "systematic": wgt_fluct,
+                                                "weight"     : weights_flat,
+                                            }
+                                            if self._hist_requires_eft.get(dense_axis_name, False):
+                                                axes_fill_info_dict["eft_coeff"] = eft_coeffs_cut
+
+                                            hout[dense_axis_name].fill(**axes_fill_info_dict)
+
+                                        if fill_sumw2_hist:
+                                            sumw2_fill_info = {
+                                                **sumw2_values_cut_map,
+                                                "channel"    : ch_name,
+                                                "appl"       : appl,
+                                                "process"    : histAxisName,
+                                                "systematic": wgt_fluct,
+                                                "weight"     : np.square(weights_flat),
+                                            }
+                                            if self._hist_requires_eft.get(dense_axis_name+"_sumw2", False):
+                                                sumw2_fill_info["eft_coeff"] = eft_coeffs_cut
+                                            hout[dense_axis_name+"_sumw2"].fill(**sumw2_fill_info)
 
                                         # Do not loop over lep flavors if not self._split_by_lepton_flavor, it's a waste of time and also we'd fill the hists too many times
                                         if not self._split_by_lepton_flavor: break
@@ -1206,6 +1452,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                             # Do not loop over njets if hist is njets (otherwise we'd fill the hist too many times)
                             if dense_axis_name == "njets":
                                 break
+        
         return hout
 
     def postprocess(self, accumulator):

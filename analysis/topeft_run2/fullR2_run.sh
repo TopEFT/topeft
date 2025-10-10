@@ -10,7 +10,6 @@ OUT_NAME="${TAG}_${COMMIT}"
 CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg,../../input_samples/cfgs/mc_background_samples_NDSkim.cfg,../../input_samples/cfgs/data_samples_NDSkim.cfg"
 OPTIONS="--hist-list ana --skip-cr --do-systs -s 50000 --do-np -o $OUT_NAME --tau_h_analysis" # For analysis
 
-
 # Build the run command for filling CR histos
 #TAG="${TAG}_SRs"
 #OUT_NAME="${TAG}_${COMMIT}"

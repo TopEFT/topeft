@@ -12,6 +12,7 @@ setuptools.setup(
             "channels/*",
             "params/*",
             "data/fliprates/*.pkl.gz",
+            "data/fliprates/*.json",
             "data/fakerates/*.json",
             "data/triggerSF/*.pkl.gz",
             "data/btagSF/*/*.pkl.gz",

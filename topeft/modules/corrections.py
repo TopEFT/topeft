@@ -261,6 +261,17 @@ jerc_dict = {
     }
 }
 
+jet_veto_dict = {
+    "2016APV": "Summer19UL16_V1",
+    "2016": "Summer19UL16_V1",
+    "2017": "Summer19UL17_V1",
+    "2018": "Summer19UL18_V1",
+    "2022": "Summer22_23Sep2023_RunCD_V1",
+    "2022EE": "Summer22EE_23Sep2023_RunEFG_V1",
+    "2023": "Summer23Prompt23_RunC_V1",
+    "2023BPix": "Summer23BPixPrompt23_RunD_V1"
+}
+
 with open(topeft_path('modules/jerc_dict.json'), 'r') as f:
     jerc_dict = json.load(f)
 
@@ -544,6 +555,34 @@ extLepSF.add_weight_sets(["TauSF_dm_2018 TauSF/dm_value %s"%topcoffea_path('data
 extLepSF.add_weight_sets(["TauFakeSF TauSF/pt_value %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 extLepSF.add_weight_sets(["TauFakeSF_up TauSF/pt_up %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
 extLepSF.add_weight_sets(["TauFakeSF_down TauSF/pt_down %s"%topcoffea_path('data/TauSF/TauFakeSF.json')])
+
+# Jet Veto Maps
+def ApplyJetVetoMaps(jets, year):
+    jme_year = clib_year_map[year]
+    key = jet_veto_dict[year]
+    json_path = topcoffea_path(f"data/POG/JME/{jme_year}/jetvetomaps.json.gz")
+
+    # Grab the json
+    ceval = correctionlib.CorrectionSet.from_file(json_path)
+
+    # Flatten the inputs
+    eta_flat = ak.flatten(jets.eta)
+    phi_flat = ak.flatten(jets.phi)
+
+    #Put mins and maxes on the accepted values
+    eta_flat_bound = ak.where(eta_flat>5.19, 5.19, ak.where(eta_flat<-5.19, -5.19, eta_flat))
+    phi_flat_bound = ak.where(phi_flat>3.14159,3.14159, ak.where(phi_flat<-3.14159,-3.14159, phi_flat))
+
+    #Get pass/fail values for each jet (0 is pass and >0 is fail)
+    jet_vetomap_flat = ceval[key].evaluate('jetvetomap',eta_flat_bound,phi_flat_bound)
+    
+    #Unflatten the array
+    jet_vetomap_score = ak.unflatten(jet_vetomap_flat,ak.num(jets.phi))
+
+    #Sum the outputs for each event (if the sum is >0, the event will fail)
+    veto_map_event = ak.sum(jet_vetomap_score, axis=-1)
+
+    return veto_map_event
 
 # Fake rate
 for year in ['2016APV_2016', 2017, 2018]:
@@ -986,16 +1025,13 @@ def AttachPerLeptonFR(leps, flavor, year):
         flip_year_name = year
         with gzip.open(topeft_path(f"data/fliprates/flip_probs_topcoffea_{flip_year_name}.pkl.gz")) as fin:
             flip_hist = pickle.load(fin)
-            flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["abseta"].edges])
+            flip_lookup = lookup_tools.dense_lookup.dense_lookup(flip_hist.values()[()],[flip_hist.axes["pt"].edges,flip_hist.axes["eta"].edges])
 
-        # Get the fliprate scaling factor for the given year
-        chargeflip_sf = get_te_param("chargeflip_sf_dict")[flip_year_name]
-
+        # Apply scaling factor for electrons
         if flavor == "Elec":
-            leps['fliprate'] = (chargeflip_sf)*(flip_lookup(leps.pt,abs(leps.eta)))
+            leps['fliprate'] = (get_flipsf(leps.eta, year))*(flip_lookup(leps.pt,abs(leps.eta)))
         else:
             leps['fliprate'] = np.zeros_like(leps.pt)
-
 
         json_path = topeft_path("data/fakerates/fake_rates_Run3.json")
         ceval = correctionlib.CorrectionSet.from_file(json_path)
@@ -1028,6 +1064,24 @@ def AttachPerLeptonFR(leps, flavor, year):
     for flav in ['el','mu']:
         leps['fakefactor_%sclosuredown' % flav] = leps['fakefactor'] / leps['fakefactor_%sclosurefactor' % flav]
         leps['fakefactor_%sclosureup' % flav]   = leps['fakefactor'] * leps['fakefactor_%sclosurefactor' % flav]
+
+def get_flipsf(eta_array, year):
+    # Get flip scaling factors for run3
+
+    json_path = topeft_path(f"data/fliprates/flip_sf_{year}.json")
+    with open(json_path, 'r') as f:
+        chargeflip_sf_dict = json.load(f)
+
+    flip_sf = ak.full_like(eta_array, 1.0)  # default value
+
+    for bin_str, sf in chargeflip_sf_dict["FlipSF_eta"].items():
+        # Parse bin string like "[-3,-1.479]"
+        low, high = map(float, bin_str.strip("[]").split(","))
+        # Apply mask
+        mask = ((eta_array >= low) & (eta_array < high)) | ((eta_array == 2.5) & (high == 2.5))
+        flip_sf = ak.where(mask, sf, flip_sf)
+
+    return flip_sf
 
 def fakeRateWeight1l(events, lep1):
     for syst in ffSysts+['_elclosureup','_elclosuredown','_muclosureup','_muclosuredown']:
@@ -1848,7 +1902,7 @@ def ApplyJetSystematics(year,cleanedJets,syst_var):
         return cleanedJets.JES_jes.down
     elif (syst_var == 'nominal'):
         return cleanedJets
-    elif (syst_var in ['nominal','MuonESUp','MuonESDown']):
+    elif (syst_var in ['nominal','MuonESUp','MuonESDown', 'TESUp', 'TESDown', 'FESUp', 'FESDown']):
         return cleanedJets
     elif ('JES_FlavorQCD' in syst_var in syst_var):
         # Overwrite FlavorQCD with the proper jet flavor uncertainty

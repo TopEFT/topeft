@@ -1,0 +1,26 @@
+{
+    "CH_LST_CR": {
+        "3l_CR": {
+            "lep_chan_lst": [
+                [
+                    "3l_CR",
+                    "3l",
+                    "bmask_exactly0m"
+                ]
+            ],
+            "lep_flav_lst": [
+                "eee",
+                "eem",
+                "emm",
+                "mmm"
+            ],
+            "appl_lst": [
+                "isSR_3l",
+                "isAR_3l"
+            ],
+            "jet_lst": [
+                ">=0"
+            ]
+        }
+    }
+}
