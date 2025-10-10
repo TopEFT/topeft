@@ -244,6 +244,15 @@ class AnalysisProcessor(processor.ProcessorABC):
     def var_def(self):
         return self._var_def
 
+    def _build_channel_names(self, lep_chan, njet_ch, flav_ch):
+        ch_name = construct_cat_name(
+            lep_chan, njet_str=njet_ch, flav_str=flav_ch
+        )
+        base_ch_name = construct_cat_name(
+            lep_chan, njet_str=njet_ch, flav_str=None
+        )
+        return ch_name, base_ch_name
+
     @property
     def channel(self):
         return self._channel
@@ -1361,8 +1370,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                         njet_ch = jet_req
                         cuts_lst.append(jet_req)
 
-                    ch_name = construct_cat_name(lep_chan, njet_str=njet_ch, flav_str=flav_ch)
-                    if ch_name != self.channel:
+                    ch_name, base_ch_name = self._build_channel_names(
+                        lep_chan, njet_ch, flav_ch
+                    )
+                    if base_ch_name != self.channel:
                         continue
 
                     all_cuts_mask = selections.all(*cuts_lst)
