@@ -1376,6 +1376,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if base_ch_name != self.channel:
                         continue
 
+                    print("\n\n\n\n\n\n")
+                    print("Filling for channel:", ch_name)
+                    print("base channel:", base_ch_name)
+
                     all_cuts_mask = selections.all(*cuts_lst)
                     if self._ecut_threshold is not None:
                         all_cuts_mask = (all_cuts_mask & ecut_mask)
@@ -1417,7 +1421,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     histkey = (
                         dense_axis_name,
-                        base_ch_name,
+                        ch_name,
                         self.appregion,
                         dataset,
                         hist_variation_label,
@@ -1426,6 +1430,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if histkey not in hout.keys():
                         continue
                     hout[histkey].fill(**axes_fill_info_dict)
+
+                    print("\n\n\n\n\n\n\n")
+                    print("Filling histkey:", histkey)
+                    print("  with axes_fill_info_dict:", axes_fill_info_dict)
+                    print("\n\n\n\n\n\n\n")
 
                     axes_fill_info_dict = {
                         dense_axis_name + "_sumw2": dense_axis_vals[all_cuts_mask],

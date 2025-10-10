@@ -7,7 +7,7 @@ OUT_NAME="refact_250901_c1"
 OUT_NAME+="_SRs"
 CFGS="../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg" #,../../input_samples/cfgs/mc_background_samples_NDSkim.cfg,../../input_samples/cfgs/data_samples_NDSkim.cfg"
 #CFGS="../../input_samples/cfgs/data_samples_NDSkim.cfg"
-OPTIONS="--hist-list ana --skip-cr --do-systs -o $OUT_NAME -c 1 -s 5 -x futures " # Add "--scenario tau_analysis" or "--channel-feature requires_tau" for tau studies
+OPTIONS="--hist-list ana --skip-cr --do-systs -o $OUT_NAME -c 1 -s 5 -x futures --split-lep-flavor " # Add "--scenario tau_analysis" or "--channel-feature requires_tau" for tau studies
 
 
 # Build the run command for filling CR histos

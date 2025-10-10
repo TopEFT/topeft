@@ -695,12 +695,12 @@ channels:
         - FWD_CH_LST_SR
         - CH_LST_CR
 systematics:
-  # nominal:
-  #   type: nominal
-  #   applies_to:
-  #     - all
-  #   variations:
-  #     - value: nominal
+  nominal:
+    type: nominal
+    applies_to:
+      - all
+    variations:
+      - value: nominal
   # jer:
   #   type: object
   #   applies_to:
@@ -837,17 +837,17 @@ systematics:
   #   directions:
   #     - Up
   #     - Down
-  isr:
-    type: theory
-    applies_to:
-      - mc
-    variations:
-      - value: ISRUp
-        direction: Up
-        sum_of_weights: nSumOfWeights_ISRUp
-      - value: ISRDown
-        direction: Down
-        sum_of_weights: nSumOfWeights_ISRDown
+  # isr:
+  #   type: theory
+  #   applies_to:
+  #     - mc
+  #   variations:
+  #     - value: ISRUp
+  #       direction: Up
+  #       sum_of_weights: nSumOfWeights_ISRUp
+  #     - value: ISRDown
+  #       direction: Down
+  #       sum_of_weights: nSumOfWeights_ISRDown
   # fsr:
   #   type: theory
   #   applies_to:
