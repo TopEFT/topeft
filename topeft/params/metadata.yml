@@ -51,6 +51,9 @@ channels:
             - '=5'
             - '=6'
             - '>7'
+          histogram_variables:
+            exclude:
+              - ptz
           application_tags:
             mc:
               - isSR_2lSS
@@ -79,21 +82,33 @@ channels:
               subchannel: 3l_offZ
               tags:
                 - bmask_exactly1m
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_m_offZ_2b
               channel: 3l_m
               subchannel: 3l_offZ
               tags:
                 - bmask_atleast2m
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_p_offZ_1b
               channel: 3l_p
               subchannel: 3l_offZ
               tags:
                 - bmask_exactly1m
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_p_offZ_2b
               channel: 3l_p
               subchannel: 3l_offZ
               tags:
                 - bmask_atleast2m
+              histogram_variables:
+                exclude:
+                  - ptz
           jet_bins:
             - '=2'
             - '=3'
@@ -115,6 +130,9 @@ channels:
             - '=2'
             - '=3'
             - '>4'
+          histogram_variables:
+            exclude:
+              - ptz
           application_tags:
             mc:
               - isSR_4l
@@ -165,6 +183,9 @@ channels:
             - '=5'
             - '=6'
             - '>7'
+          histogram_variables:
+            exclude:
+              - ptz
           application_tags:
             mc:
               - isSR_2lSS
@@ -191,6 +212,9 @@ channels:
                 - bmask_atleast1m2l
                 - 1tau
                 - offZ_tau
+              histogram_variables:
+                exclude:
+                  - ptz_wtau
             - name: 2lss_m_1tau_offZ
               channel: 2lss
               subchannel: 2l_m
@@ -198,6 +222,9 @@ channels:
                 - bmask_atleast1m2l
                 - 1tau
                 - offZ_tau
+              histogram_variables:
+                exclude:
+                  - ptz_wtau
             - name: 2lss_p_1tau_onZ
               channel: 2lss
               subchannel: 2l_p
@@ -210,6 +237,9 @@ channels:
             - '=4'
             - '=5'
             - '>6'
+          histogram_variables:
+            exclude:
+              - ptz
           application_tags:
             mc:
               - isSR_2lSS
@@ -230,6 +260,9 @@ channels:
                 - 2l_onZ
           jet_bins:
             - '>5'
+          histogram_variables:
+            exclude:
+              - ptz_wtau
           application_tags:
             mc:
               - isSR_2lOS
@@ -259,32 +292,50 @@ channels:
               tags:
                 - bmask_exactly1m
                 - 0tau
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_m_offZ_2b
               channel: 3l_m
               subchannel: 3l_offZ
               tags:
                 - bmask_atleast2m
                 - 0tau
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_p_offZ_1b
               channel: 3l_p
               subchannel: 3l_offZ
               tags:
                 - bmask_exactly1m
                 - 0tau
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_p_offZ_2b
               channel: 3l_p
               subchannel: 3l_offZ
               tags:
                 - bmask_atleast2m
                 - 0tau
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_1tau_1b
               tags:
                 - bmask_exactly1m
                 - 1tau
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_1tau_2b
               tags:
                 - bmask_atleast2m
                 - 1tau
+              histogram_variables:
+                exclude:
+                  - ptz
           jet_bins:
             - '=2'
             - '=3'
@@ -306,6 +357,9 @@ channels:
             - '=2'
             - '=3'
             - '>4'
+          histogram_variables:
+            exclude:
+              - ptz
           application_tags:
             mc:
               - isSR_4l
@@ -336,6 +390,13 @@ channels:
             - '=2'
             - '=3'
             - '=4'
+          histogram_variables:
+            exclude:
+              - j0pt
+              - j0eta
+              - o0pt
+              - b0pt
+              - bl0pt
           application_tags:
             mc:
               - isSR_2lOS
@@ -353,6 +414,13 @@ channels:
             - '=2'
             - '=3'
             - '=4'
+          histogram_variables:
+            exclude:
+              - j0pt
+              - j0eta
+              - o0pt
+              - b0pt
+              - bl0pt
           application_tags:
             mc:
               - isSR_1l
@@ -396,6 +464,9 @@ channels:
               subchannel: 3l_offZ_none
               tags:
                 - bmask_exactly1m
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_m_offZ_low_2b
               channel: 3l_m
               subchannel: 3l_offZ_low
@@ -411,6 +482,9 @@ channels:
               subchannel: 3l_offZ_none
               tags:
                 - bmask_atleast2m
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_p_offZ_low_1b
               channel: 3l_p
               subchannel: 3l_offZ_low
@@ -426,6 +500,9 @@ channels:
               subchannel: 3l_offZ_none
               tags:
                 - bmask_exactly1m
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_p_offZ_low_2b
               channel: 3l_p
               subchannel: 3l_offZ_low
@@ -441,6 +518,9 @@ channels:
               subchannel: 3l_offZ_none
               tags:
                 - bmask_atleast2m
+              histogram_variables:
+                exclude:
+                  - ptz
           jet_bins:
             - '=2'
             - '=3'
@@ -509,6 +589,14 @@ channels:
                 - bmask_exactly0m
           jet_bins:
             - '>0'
+          histogram_variables:
+            exclude:
+              - ptz
+              - j0pt
+              - j0eta
+              - o0pt
+              - b0pt
+              - bl0pt
           application_tags:
             mc:
               - isSR_2lOS
@@ -604,6 +692,9 @@ channels:
             - '=5'
             - '=6'
             - '>7'
+          histogram_variables:
+            exclude:
+              - ptz
           application_tags:
             mc:
               - isSR_2lSS
@@ -632,26 +723,41 @@ channels:
               subchannel: 3l_offZ
               tags:
                 - bmask_exactly1m
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_m_offZ_2b
               channel: 3l_m
               subchannel: 3l_offZ
               tags:
                 - bmask_atleast2m
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_p_offZ_1b
               channel: 3l_p
               subchannel: 3l_offZ
               tags:
                 - bmask_exactly1m
+              histogram_variables:
+                exclude:
+                  - ptz
             - name: 3l_p_offZ_2b
               channel: 3l_p
               subchannel: 3l_offZ
               tags:
                 - bmask_atleast2m
+              histogram_variables:
+                exclude:
+                  - ptz
           jet_bins:
             - '=2'
             - '=3'
             - '=4'
             - '>5'
+          histogram_variables:
+            exclude:
+              - lt
           application_tags:
             mc:
               - isSR_3l
@@ -668,6 +774,10 @@ channels:
             - '=2'
             - '=3'
             - '>4'
+          histogram_variables:
+            exclude:
+              - ptz
+              - lt
           application_tags:
             mc:
               - isSR_4l

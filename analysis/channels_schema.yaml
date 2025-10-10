@@ -5,6 +5,11 @@
 # feature tags include ``offz_split`` (refined off-Z categories),
 # ``requires_tau`` (tau-enriched selections), and ``requires_forward``
 # (forward-jet requirements).
+#
+# Categories and individual regions may additionally provide a
+# ``histogram_variables`` mapping with ``include`` and ``exclude`` lists.
+# Downstream consumers can use these lists to determine which histogram
+# variables are enabled for a given region without hard-coded logic.
 channels:
   TOP22_006_CH_LST_SR:
     description: Baseline Run 2 ttH multilepton signal regions used in the
@@ -49,6 +54,9 @@ channels:
           - '=5'
           - '=6'
           - '>7'
+        histogram_variables:
+          exclude:
+            - ptz
         application_tags:
           mc:
             - isSR_2lSS
@@ -77,6 +85,9 @@ channels:
             subchannel: 3l_offZ
             tags:
               - bmask_exactly1m
+            histogram_variables:
+              exclude:
+                - ptz
           - name: 3l_m_offZ_2b
             channel: 3l_m
             subchannel: 3l_offZ

@@ -217,6 +217,12 @@ def build_channel_dict(
                                 continue
                         elif jet_suffix:
                             continue
+                        include_set = set(category.histogram_includes)
+                        exclude_set = set(category.histogram_excludes)
+                        include_set.update(region.include_histograms)
+                        exclude_set.update(region.exclude_histograms)
+                        if include_set:
+                            exclude_set.difference_update(include_set)
                         features = set(active_features)
                         features.update(group.features)
                         return {
@@ -225,6 +231,10 @@ def build_channel_dict(
                             "lep_flav_lst": category.lepton_flavors,
                             "appl_region": appl,
                             "features": tuple(sorted(features)),
+                            "channel_var_whitelist": tuple(sorted(include_set))
+                            if include_set
+                            else (),
+                            "channel_var_blacklist": tuple(sorted(exclude_set)),
                         }
         return None
 
@@ -807,25 +817,40 @@ if __name__ == "__main__":
             var_info = var_defs[var].copy()
             for clean_ch, appl_list in ch_map.items():
                 for appl in appl_list:
+                    try:
+                        channel_metadata = build_channel_dict(
+                            clean_ch,
+                            appl,
+                            sample_info["isData"],
+                            skip_sr,
+                            skip_cr,
+                            channel_helper,
+                            scenario_names=scenario_names,
+                            required_features=channel_feature_tags,
+                        )
+                    except ValueError:
+                        channel_metadata = None
+
+                    if not channel_metadata:
+                        continue
+
+                    whitelist = tuple(
+                        channel_metadata.get("channel_var_whitelist") or ()
+                    )
+                    blacklist = set(
+                        channel_metadata.get("channel_var_blacklist") or ()
+                    )
+
+                    if whitelist and var not in whitelist:
+                        continue
+                    if var in blacklist:
+                        continue
+
                     for group_descriptor, variations in grouped_variations.items():
                         #print("\n", group_descriptor.name, [v.name for v in variations])
                         flavored_channel_names = ()
                         if split_lep_flavor:
                             flavored_candidates = []
-                            try:
-                                channel_metadata = build_channel_dict(
-                                    clean_ch,
-                                    appl,
-                                    sample_info["isData"],
-                                    skip_sr,
-                                    skip_cr,
-                                    channel_helper,
-                                    scenario_names=scenario_names,
-                                    required_features=channel_feature_tags,
-                                )
-                            except ValueError:
-                                channel_metadata = None
-
                             if channel_metadata:
                                 lep_flavors = channel_metadata.get("lep_flav_lst") or []
                                 lep_chan_defs = channel_metadata.get("chan_def_lst") or []

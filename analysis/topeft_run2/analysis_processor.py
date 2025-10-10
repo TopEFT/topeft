@@ -1461,32 +1461,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                         "eft_coeff": eft_coeffs_cut,
                     }
 
-                    # Skip histos that are not defined (or not relevant) to given categories
-                    if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & (("CRZ" in ch_name) or ("CRflip" in ch_name))):
-                        continue
-                    if ((("j0" in dense_axis_name) and ("lj0pt" not in dense_axis_name)) & ("0j" in ch_name)):
-                        continue
-                    if self.offZ_3l_split:
-                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan) & ("offZ_high" not in lep_chan) & ("offZ_low" not in lep_chan)):
-                            continue
-                    elif self.tau_h_analysis:
-                        if (("ptz" in dense_axis_name) and ("onZ" not in lep_chan)):
-                            continue
-                        if (("ptz" in dense_axis_name) and ("2lss" in lep_chan) and ("ptz_wtau" not in dense_axis_name)):
-                            continue
-                        if (("ptz_wtau" in dense_axis_name) and (("1tau" not in lep_chan) or ("onZ" not in lep_chan) or ("2lss" not in lep_chan))):
-                            continue
-                    elif self.fwd_analysis:
-                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
-                            continue
-                        if (("lt" in dense_axis_name) and ("2lss" not in lep_chan)):
-                            continue
-                    else:
-                        if (("ptz" in dense_axis_name) & ("onZ" not in lep_chan)):
-                            continue
-                    if ((dense_axis_name in ["o0pt","b0pt","bl0pt"]) & ("CR" in ch_name)):
-                        continue
-
                     histkey = (
                         dense_axis_name,
                         ch_name,
