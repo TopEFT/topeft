@@ -1417,7 +1417,7 @@ class AnalysisProcessor(processor.ProcessorABC):
 
                     histkey = (
                         dense_axis_name,
-                        ch_name,
+                        base_ch_name,
                         self.appregion,
                         dataset,
                         hist_variation_label,
@@ -1434,7 +1434,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                     }
                     histkey = (
                         dense_axis_name + "_sumw2",
-                        ch_name,
+                        base_ch_name,
                         self.appregion,
                         dataset,
                         hist_variation_label,
