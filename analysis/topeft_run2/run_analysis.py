@@ -809,18 +809,67 @@ if __name__ == "__main__":
                 for appl in appl_list:
                     for group_descriptor, variations in grouped_variations.items():
                         #print("\n", group_descriptor.name, [v.name for v in variations])
-                        hist_keys = {
-                            variation.name: (
+                        flavored_channel_names = ()
+                        if split_lep_flavor:
+                            flavored_candidates = []
+                            try:
+                                channel_metadata = build_channel_dict(
+                                    clean_ch,
+                                    appl,
+                                    sample_info["isData"],
+                                    skip_sr,
+                                    skip_cr,
+                                    channel_helper,
+                                    scenario_names=scenario_names,
+                                    required_features=channel_feature_tags,
+                                )
+                            except ValueError:
+                                channel_metadata = None
+
+                            if channel_metadata:
+                                lep_flavors = channel_metadata.get("lep_flav_lst") or []
+                                lep_chan_defs = channel_metadata.get("chan_def_lst") or []
+                                jet_selection = channel_metadata.get("jet_selection")
+                                lep_base = lep_chan_defs[0] if lep_chan_defs else None
+                                if lep_base:
+                                    for lep_flavor in lep_flavors:
+                                        if not lep_flavor:
+                                            continue
+                                        flavored_name = analysis_processor.construct_cat_name(
+                                            lep_base,
+                                            njet_str=jet_selection,
+                                            flav_str=lep_flavor,
+                                        )
+                                        flavored_candidates.append(flavored_name)
+                            flavored_channel_names = tuple(flavored_candidates)
+
+                        hist_keys = {}
+                        for variation in variations:
+                            syst_label = (
+                                (group_descriptor.name, variation.name)
+                                if len(variations) > 1
+                                else variation.name
+                            )
+                            base_entry = (
                                 var,
                                 clean_ch,
                                 appl,
                                 sample,
-                                (group_descriptor.name, variation.name)
-                                if len(variations) > 1
-                                else variation.name,
+                                syst_label,
                             )
-                            for variation in variations
-                        }
+                            key_entries = [base_entry]
+                            if flavored_channel_names:
+                                key_entries.extend(
+                                    (
+                                        var,
+                                        flavored_name,
+                                        appl,
+                                        sample,
+                                        syst_label,
+                                    )
+                                    for flavored_name in flavored_channel_names
+                                )
+                            hist_keys[variation.name] = tuple(key_entries)
                         key_lst.append(
                             (
                                 sample,
