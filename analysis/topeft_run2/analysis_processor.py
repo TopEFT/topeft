@@ -128,20 +128,38 @@ class AnalysisProcessor(processor.ProcessorABC):
         if not isinstance(hist_keys, dict):
             raise TypeError("hist_keys must be a mapping of variation name to histogram key")
 
-        histogram_key_map = OrderedDict(hist_keys)
+        raw_histogram_key_map = OrderedDict(hist_keys)
 
-        if not histogram_key_map:
+        if not raw_histogram_key_map:
             raise ValueError("hist_keys must contain at least one entry")
+
+        histogram_key_map: "OrderedDict[str, Tuple[Tuple[str, ...], ...]]" = OrderedDict()
+        for variation_label, key_entries in raw_histogram_key_map.items():
+            if isinstance(key_entries, tuple) and len(key_entries) == 5 and not isinstance(key_entries[0], (tuple, list)):
+                normalized_entries = (tuple(key_entries),)
+            else:
+                try:
+                    normalized_entries = tuple(tuple(entry) for entry in key_entries)
+                except TypeError as exc:
+                    raise TypeError(
+                        "hist_keys values must be 5-element tuples or an iterable of such tuples"
+                    ) from exc
+            if not normalized_entries:
+                raise ValueError("hist_keys entries must contain at least one histogram key")
+            for entry in normalized_entries:
+                if len(entry) != 5:
+                    raise ValueError("histogram keys must be 5-element tuples")
+            histogram_key_map[variation_label] = normalized_entries
 
         info = var_info
 
         histogram = {}
         self._hist_keys_to_fill: List[Tuple[str, ...]] = []
         self._histogram_label_lookup: Dict[str, object] = {}
+        self._flavored_channel_lookup: Dict[str, str] = {}
 
-        first_label, first_hist_key = next(iter(histogram_key_map.items()))
-        if len(first_hist_key) != 5:
-            raise ValueError("histogram keys must be 5-element tuples")
+        first_label, first_hist_keys = next(iter(histogram_key_map.items()))
+        first_hist_key = first_hist_keys[0]
 
         var, ch, appl, sample_name, _ = first_hist_key
 
@@ -153,53 +171,73 @@ class AnalysisProcessor(processor.ProcessorABC):
         if self._var_def is None:
             raise ValueError(f"No definition provided for variable {var}")
 
-        for variation_label, hist_key_entry in histogram_key_map.items():
-            if len(hist_key_entry) != 5:
-                raise ValueError("histogram keys must be 5-element tuples")
-            key_var, key_ch, key_appl, key_sample, syst_label = hist_key_entry
-            if key_var != self._var or key_ch != self._channel or key_appl != self._appregion:
-                raise ValueError("All histogram keys must refer to the same variable, channel and application")
+        for variation_label, hist_key_entries in histogram_key_map.items():
+            base_syst_label = hist_key_entries[0][4]
+            self._histogram_label_lookup[variation_label] = base_syst_label
 
-            sumw2_key = (
-                f"{self._var}_sumw2",
-                key_ch,
-                key_appl,
-                key_sample,
-                syst_label,
-            )
+            for idx, hist_key_entry in enumerate(hist_key_entries):
+                key_var, key_ch, key_appl, key_sample, syst_label = hist_key_entry
+                if key_var != self._var or key_appl != self._appregion:
+                    raise ValueError(
+                        "All histogram keys must refer to the same variable and application"
+                    )
+                if key_sample != sample_name:
+                    raise ValueError("Histogram keys must refer to the configured sample")
 
-            if not rebin and "variable" in info:
-                dense_axis = hist.axis.Variable(
-                    info["variable"], name=self._var, label=info["label"]
-                )
-                sumw2_axis = hist.axis.Variable(
-                    info["variable"],
-                    name=f"{self._var}_sumw2",
-                    label=info["label"] + " sum of w^2",
-                )
-            else:
-                dense_axis = hist.axis.Regular(
-                    *info["regular"], name=self._var, label=info["label"]
-                )
-                sumw2_axis = hist.axis.Regular(
-                    *info["regular"],
-                    name=f"{self._var}_sumw2",
-                    label=info["label"] + " sum of w^2",
+                if key_ch != self._channel:
+                    mapped_channel = self._flavored_channel_lookup.get(key_ch)
+                    if mapped_channel is None:
+                        self._flavored_channel_lookup[key_ch] = self._channel
+                    elif mapped_channel != self._channel:
+                        raise ValueError(
+                            f"Histogram key for channel '{key_ch}' does not match base channel '{self._channel}'"
+                        )
+
+                if not rebin and "variable" in info:
+                    dense_axis = hist.axis.Variable(
+                        info["variable"], name=self._var, label=info["label"]
+                    )
+                else:
+                    dense_axis = hist.axis.Regular(
+                        *info["regular"], name=self._var, label=info["label"]
+                    )
+
+                histogram[hist_key_entry] = HistEFT(
+                    dense_axis,
+                    wc_names=wc_names_lst,
+                    label=r"Events",
                 )
 
-            histogram[hist_key_entry] = HistEFT(
-                dense_axis,
-                wc_names=wc_names_lst,
-                label=r"Events",
-            )
-            histogram[sumw2_key] = HistEFT(
-                sumw2_axis,
-                wc_names=wc_names_lst,
-                label=r"Events",
-            )
+                self._hist_keys_to_fill.append(hist_key_entry)
 
-            self._hist_keys_to_fill.extend([hist_key_entry, sumw2_key])
-            self._histogram_label_lookup[variation_label] = syst_label
+                if idx == 0:
+                    if not rebin and "variable" in info:
+                        sumw2_axis = hist.axis.Variable(
+                            info["variable"],
+                            name=f"{self._var}_sumw2",
+                            label=info["label"] + " sum of w^2",
+                        )
+                    else:
+                        sumw2_axis = hist.axis.Regular(
+                            *info["regular"],
+                            name=f"{self._var}_sumw2",
+                            label=info["label"] + " sum of w^2",
+                        )
+
+                    sumw2_key = (
+                        f"{self._var}_sumw2",
+                        self._channel,
+                        key_appl,
+                        key_sample,
+                        syst_label,
+                    )
+
+                    histogram[sumw2_key] = HistEFT(
+                        sumw2_axis,
+                        wc_names=wc_names_lst,
+                        label=r"Events",
+                    )
+                    self._hist_keys_to_fill.append(sumw2_key)
 
         self._histogram_key_map = histogram_key_map
 
@@ -1427,8 +1465,17 @@ class AnalysisProcessor(processor.ProcessorABC):
                         hist_variation_label,
                     )
                 
-                    if histkey not in hout.keys():
-                        continue
+                    if histkey not in hout:
+                        fallback_histkey = (
+                            dense_axis_name,
+                            base_ch_name,
+                            self.appregion,
+                            dataset,
+                            hist_variation_label,
+                        )
+                        if fallback_histkey not in hout:
+                            continue
+                        histkey = fallback_histkey
                     hout[histkey].fill(**axes_fill_info_dict)
 
                     print("\n\n\n\n\n\n\n")
