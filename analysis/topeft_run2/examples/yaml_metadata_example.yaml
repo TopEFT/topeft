@@ -1,0 +1,23 @@
+# Example configuration for analysis/topeft_run2/run_analysis.py
+# The paths are relative to the analysis/topeft_run2 directory.
+jsonFiles:
+  - ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
+prefix: ""
+executor: work_queue
+nworkers: 4
+chunksize: 160000
+outpath: example_outputs_yaml
+scenarios:
+  - TOP_22_006
+channel_features:
+  - default
+skip_cr: false
+skip_sr: false
+do_np: true
+do_systs: false
+wc_list:
+  - ctZ
+  - cpt
+hist_list:
+  - ana
+port: 9123-9130

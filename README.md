@@ -44,13 +44,20 @@ Now all of the dependencies have been installed and the `topeft` repository is r
 
 ### To run an example job 
 
-First `cd` into `analysis/topeft_run2` and run the `run_analysis.py` script, passing it the path to your config file or json file. In this example we'll process a single root file locally, using a json file that is already set up. 
+First `cd` into `analysis/topeft_run2` and run the `run_analysis.py` script, passing it the path to your config file or json file. In this example we'll process a single root file locally, using a json file that is already set up.
 ```
 cd analysis/topeft_run2
 wget -nc http://www.crc.nd.edu/~kmohrman/files/root_files/for_ci/ttHJet_UL17_R1B14_NAOD-00000_10194_NDSkim.root
 python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json -x futures
 
 ```
+Executable examples for both the CLI-only and YAML-metadata workflows are provided in `analysis/topeft_run2/examples/`:
+
+```bash
+./analysis/topeft_run2/examples/run_with_cli.sh
+./analysis/topeft_run2/examples/run_with_yaml.sh
+```
+The YAML script uses `analysis/topeft_run2/examples/yaml_metadata_example.yaml` to supply configuration values that mirror the refactored options loader.
 To make use of distributed resources, the `work queue` executor can be used. To use the work queue executor, just change the executor option to  `-x work_queue` and run the run script as before. Next, you will need to request some workers to execute the tasks on the distributed resources. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
 ```
 conda activate coffea-env

@@ -7,6 +7,9 @@ import cloudpickle
 import gzip
 import os
 import re
+from dataclasses import dataclass, field
+from typing import Any, Dict, Iterable, List, Optional, Sequence
+
 import yaml
 
 from topeft.modules.paths import topeft_path
@@ -38,6 +41,323 @@ WGT_VAR_LST = [
     "nSumOfWeights_renormfactUp",
     "nSumOfWeights_renormfactDown",
 ]
+
+
+def _normalize_sequence(value: Any) -> List[str]:
+    """Flatten ``value`` into a list of strings."""
+
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        result: List[str] = []
+        for item in value:
+            result.extend(_normalize_sequence(item))
+        return result
+    return [str(value)]
+
+
+def _unique_preserving_order(values: Iterable[str]) -> List[str]:
+    """Return a list containing only the first occurrence of every value."""
+
+    seen = set()
+    result = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
+
+
+def _coerce_bool(value: Any) -> Optional[bool]:
+    """Convert ``value`` into a boolean if possible."""
+
+    if value is None or isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "y"}:
+            return True
+        if normalized in {"false", "0", "no", "n"}:
+            return False
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return bool(value)
+
+
+def _coerce_int(value: Any, allow_none: bool = False) -> Optional[int]:
+    """Convert ``value`` to an integer, optionally accepting ``None``."""
+
+    if value is None:
+        if allow_none:
+            return None
+        raise ValueError("Integer value required")
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped == "":
+            if allow_none:
+                return None
+            raise ValueError("Integer value required")
+        return int(stripped)
+    return int(value)
+
+
+def _coerce_json_files(value: Any) -> List[str]:
+    """Normalize JSON file inputs to a list of paths."""
+
+    if value is None:
+        return []
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return []
+        if "," in value:
+            tokens = [token for token in value.replace(" ", "").split(",") if token]
+            return tokens
+        return [value]
+    if isinstance(value, Iterable) and not isinstance(value, (bytes, bytearray)):
+        result: List[str] = []
+        for item in value:
+            result.extend(_coerce_json_files(item))
+        return result
+    return [str(value)]
+
+
+def _coerce_optional_float(value: Any) -> Optional[float]:
+    """Return ``value`` as a float or ``None`` if unset."""
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped == "":
+            return None
+        return float(stripped)
+    return float(value)
+
+
+def _coerce_port(value: Any) -> str:
+    """Return a Work Queue port specification as ``min-max``."""
+
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, Iterable):
+        ints = [str(_coerce_int(v, allow_none=False)) for v in value if v is not None]
+        if not ints:
+            return ""
+        if len(ints) == 1:
+            return ints[0]
+        return f"{ints[0]}-{ints[1]}"
+    return str(value)
+
+
+def _coerce_optional_sequence(value: Any) -> Optional[List[str]]:
+    """Normalize ``value`` into a list of strings or ``None``."""
+
+    if value is None:
+        return None
+    return _normalize_sequence(value)
+
+
+@dataclass
+class RunConfig:
+    """Normalized configuration for ``run_analysis.py``.
+
+    The dataclass captures every command-line option and its YAML alias after
+    type coercion. Values are seeded with the script defaults, then updated by
+    command-line arguments, and finally overridden by entries in the optional
+    YAML options file. The attributes mirror the existing local variables:
+
+    ``json_files``
+        Flattened list of input JSON/CFG paths from the positional argument or
+        ``jsonFiles`` YAML entry.
+    ``prefix``
+        Redirector/prefix applied when expanding file paths. Config files may
+        overwrite this during parsing.
+    ``executor``
+        Execution backend requested via ``--executor``. Validated against
+        :data:`LST_OF_KNOWN_EXECUTORS` before dispatch.
+    ``test``
+        Fast-test flag (``--test``) that triggers the runtime overrides for
+        ``nchunks``, ``chunksize`` and ``nworkers``.
+    ``pretend``
+        ``--pretend`` flag controlling whether the analysis exits after
+        inspecting the inputs.
+    ``nworkers``/``chunksize``/``nchunks``
+        Worker and chunking controls coerced to integers, with ``nchunks`` being
+        optional. ``--test`` mutates these fields downstream.
+    ``outname``/``outpath``
+        Output naming controls consumed when writing the pickled results.
+    ``treename``
+        Name of the tree to hand to coffea's runner.
+    ``do_errors`` and ``do_systs``
+        Booleans toggling covariance output and systematic processing.
+    ``split_lep_flavor``
+        Controls the flavor splitting logic in histogram key construction.
+    ``scenario_names``/``channel_feature_tags``
+        Scenario selection and feature tags resolved via metadata helpers. Empty
+        scenarios default to ``["TOP_22_006"]`` for backward compatibility.
+    ``skip_sr``/``skip_cr``
+        Region filters inherited by all channel lookups.
+    ``do_np``/``do_renormfact_envelope``
+        Post-processing toggles. ``do_renormfact_envelope`` remains dependent on
+        both ``do_systs`` and ``do_np`` as enforced in the main routine.
+    ``wc_list``
+        Normalized list of Wilson coefficients, extended from the sample
+        metadata when not explicitly provided.
+    ``hist_list``
+        Optional list of histogram names used to specialize requests such as
+        ``["ana"]`` or ``["cr"]``.
+    ``port``
+        Work Queue port range stored as ``min-max`` string; converted to an
+        integer range when the backend requires it.
+    ``ecut``
+        Optional floating energy threshold applied during processor
+        instantiation.
+    """
+
+    json_files: List[str] = field(default_factory=list)
+    prefix: str = ""
+    executor: str = "work_queue"
+    test: bool = False
+    pretend: bool = False
+    nworkers: int = 8
+    chunksize: int = 100000
+    nchunks: Optional[int] = None
+    outname: str = "plotsTopEFT"
+    outpath: str = "histos"
+    treename: str = "Events"
+    do_errors: bool = False
+    do_systs: bool = False
+    split_lep_flavor: bool = False
+    scenario_names: List[str] = field(default_factory=list)
+    channel_feature_tags: List[str] = field(default_factory=list)
+    skip_sr: bool = False
+    skip_cr: bool = False
+    do_np: bool = False
+    do_renormfact_envelope: bool = False
+    wc_list: List[str] = field(default_factory=list)
+    hist_list: Optional[List[str]] = None
+    port: str = "9123-9130"
+    ecut: Optional[float] = None
+
+
+def build_run_config(
+    args: argparse.Namespace,
+    defaults: argparse.Namespace,
+    options_path: Optional[str],
+) -> RunConfig:
+    """Return a fully merged :class:`RunConfig` instance.
+
+    Parameters
+    ----------
+    args
+        Parsed command-line arguments produced by ``argparse``.
+    defaults
+        Namespace containing the ``argparse`` default values. Used to detect
+        which command-line options were explicitly provided by the user so
+        they can take precedence over YAML overrides.
+    options_path
+        Path to a YAML file containing option overrides. When provided, values
+        from the YAML file override the script defaults, while command-line
+        arguments explicitly provided by the user take precedence over both the
+        defaults and the YAML configuration.
+    """
+
+    config = RunConfig()
+
+    field_specs: Dict[str, Any] = {
+        "jsonFiles": ("json_files", _coerce_json_files),
+        "json_files": ("json_files", _coerce_json_files),
+        "prefix": ("prefix", lambda v: "" if v is None else str(v)),
+        "executor": ("executor", lambda v: "" if v is None else str(v)),
+        "test": ("test", _coerce_bool),
+        "pretend": ("pretend", _coerce_bool),
+        "nworkers": ("nworkers", lambda v: _coerce_int(v, allow_none=False)),
+        "chunksize": ("chunksize", lambda v: _coerce_int(v, allow_none=False)),
+        "nchunks": ("nchunks", lambda v: _coerce_int(v, allow_none=True)),
+        "outname": ("outname", lambda v: "" if v is None else str(v)),
+        "outpath": ("outpath", lambda v: "" if v is None else str(v)),
+        "treename": ("treename", lambda v: "" if v is None else str(v)),
+        "do_errors": ("do_errors", _coerce_bool),
+        "do_systs": ("do_systs", _coerce_bool),
+        "split_lep_flavor": ("split_lep_flavor", _coerce_bool),
+        "scenarios": ("scenario_names", _normalize_sequence),
+        "channel_features": ("channel_feature_tags", _normalize_sequence),
+        "skip_sr": ("skip_sr", _coerce_bool),
+        "skip_cr": ("skip_cr", _coerce_bool),
+        "do_np": ("do_np", _coerce_bool),
+        "do_renormfact_envelope": ("do_renormfact_envelope", _coerce_bool),
+        "wc_list": ("wc_list", _normalize_sequence),
+        "hist_list": ("hist_list", _coerce_optional_sequence),
+        "ecut": ("ecut", _coerce_optional_float),
+        "port": ("port", _coerce_port),
+    }
+
+    def _apply_source(source: Dict[str, Any]):
+        for key, value in source.items():
+            if key not in field_specs:
+                continue
+            field_name, coercer = field_specs[key]
+            coerced = coercer(value)
+            setattr(config, field_name, coerced)
+
+    if options_path:
+        with open(options_path, "r") as handle:
+            options = yaml.safe_load(handle) or {}
+        if not isinstance(options, dict):
+            raise TypeError("Options YAML must define a mapping of overrides")
+        _apply_source(options)
+
+    cli_attr_map = {
+        "jsonFiles": "jsonFiles",
+        "prefix": "prefix",
+        "executor": "executor",
+        "test": "test",
+        "pretend": "pretend",
+        "nworkers": "nworkers",
+        "chunksize": "chunksize",
+        "nchunks": "nchunks",
+        "outname": "outname",
+        "outpath": "outpath",
+        "treename": "treename",
+        "do_errors": "do_errors",
+        "do_systs": "do_systs",
+        "split_lep_flavor": "split_lep_flavor",
+        "scenarios": "scenarios",
+        "channel_features": "channel_features",
+        "skip_sr": "skip_sr",
+        "skip_cr": "skip_cr",
+        "do_np": "do_np",
+        "do_renormfact_envelope": "do_renormfact_envelope",
+        "wc_list": "wc_list",
+        "hist_list": "hist_list",
+        "ecut": "ecut",
+        "port": "port",
+    }
+
+    cli_values: Dict[str, Any] = {}
+    for key, attr_name in cli_attr_map.items():
+        if not hasattr(args, attr_name):
+            continue
+        current_value = getattr(args, attr_name)
+        default_value = getattr(defaults, attr_name, None)
+        if current_value != default_value:
+            cli_values[key] = current_value
+
+    _apply_source(cli_values)
+
+    config.scenario_names = _unique_preserving_order(config.scenario_names)
+    if not config.scenario_names:
+        config.scenario_names = ["TOP_22_006"]
+    config.channel_feature_tags = _unique_preserving_order(config.channel_feature_tags)
+    config.wc_list = _unique_preserving_order(config.wc_list)
+    if config.hist_list is not None:
+        config.hist_list = _normalize_sequence(config.hist_list)
+
+    return config
 
 
 def resolve_channel_groups(
@@ -453,124 +773,45 @@ if __name__ == "__main__":
         help="YAML file that specifies command-line options. Options explicitly set at command-line take precedence",
     )
 
+    parser_defaults = parser.parse_args([])
     args = parser.parse_args()
-    jsonFiles = args.jsonFiles
-    prefix = args.prefix
-    executor = args.executor
-    dotest = args.test
-    nworkers = int(args.nworkers)
-    chunksize = int(args.chunksize)
-    nchunks = int(args.nchunks) if args.nchunks is not None else args.nchunks
-    outname = args.outname
-    outpath = args.outpath
-    pretend = args.pretend
-    treename = args.treename
-    do_errors = args.do_errors
-    do_systs = args.do_systs
-    split_lep_flavor = args.split_lep_flavor
-    scenario_names = list(args.scenarios) if args.scenarios else []
-    channel_feature_tags = list(args.channel_features) if args.channel_features else []
-    skip_sr    = args.skip_sr
-    skip_cr    = args.skip_cr
-    do_np      = args.do_np
-    do_renormfact_envelope = args.do_renormfact_envelope
-    wc_lst = args.wc_list if args.wc_list is not None else []
-    ecut = args.ecut
-    port = args.port
-    hist_list_request = args.hist_list
-
-    if args.options:
-        import yaml
-        with open(args.options,'r') as f:
-            ops = yaml.load(f,Loader=yaml.Loader)
-        jsonFiles = ops.pop("jsonFiles",jsonFiles)
-        prefix = ops.pop("prefix",prefix)
-        executor = ops.pop("executor",executor)
-        dotest = ops.pop("test",dotest)
-        nworkers = ops.pop("nworkers",nworkers)
-        chunksize = ops.pop("chunksize",chunksize)
-        nchunks = ops.pop("nchunks",nchunks)
-        outname = ops.pop("outname",outname)
-        outpath = ops.pop("outpath",outpath)
-        pretend = ops.pop("pretend",pretend)
-        treename = ops.pop("treename",treename)
-        do_errors = ops.pop("do_errors",do_errors)
-        do_systs = ops.pop("do_systs",do_systs)
-        split_lep_flavor = ops.pop("split_lep_flavor",split_lep_flavor)
-        scenario_names = ops.pop("scenarios", scenario_names)
-        channel_feature_tags = ops.pop("channel_features", channel_feature_tags)
-        skip_sr = ops.pop("skip_sr",skip_sr)
-        skip_cr = ops.pop("skip_cr",skip_cr)
-        do_np = ops.pop("do_np",do_np)
-        do_renormfact_envelope = ops.pop("do_renormfact_envelope",do_renormfact_envelope)
-        wc_lst = ops.pop("wc_list",wc_lst)
-        hist_list_request = ops.pop("hist_list",hist_list_request)
-        port = ops.pop("port",port)
-        ecut = ops.pop("ecut",ecut)
-
-    def _normalize_sequence(value):
-        if value is None:
-            return []
-        if isinstance(value, (list, tuple, set)):
-            result = []
-            for item in value:
-                result.extend(_normalize_sequence(item))
-            return result
-        return [str(value)]
-
-    def _unique_preserving_order(values):
-        seen = set()
-        result = []
-        for value in values:
-            if value in seen:
-                continue
-            seen.add(value)
-            result.append(value)
-        return result
-
-    scenario_names = _unique_preserving_order(_normalize_sequence(scenario_names))
-    channel_feature_tags = _unique_preserving_order(
-        _normalize_sequence(channel_feature_tags)
-    )
-    if hist_list_request is not None:
-        hist_list_request = _normalize_sequence(hist_list_request)
-    if not scenario_names:
-        scenario_names = ["TOP_22_006"]
+    config = build_run_config(args, parser_defaults, args.options)
 
     # Check if we have valid options
-    if executor not in LST_OF_KNOWN_EXECUTORS:
+    if config.executor not in LST_OF_KNOWN_EXECUTORS:
         raise Exception(
-            f'The "{executor}" executor is not known. Please specify an executor from the known executors ({LST_OF_KNOWN_EXECUTORS}). Exiting.'
+            f'The "{config.executor}" executor is not known. Please specify an executor from the known executors ({LST_OF_KNOWN_EXECUTORS}). Exiting.'
         )
-    if do_renormfact_envelope:
-        if not do_systs:
+    if config.do_renormfact_envelope:
+        if not config.do_systs:
             raise Exception(
                 "Error: Cannot specify do_renormfact_envelope if we are not including systematics."
             )
-        if not do_np:
+        if not config.do_np:
             raise Exception(
                 "Error: Cannot specify do_renormfact_envelope if we have not already done the integration across the appl axis that occurs in the data driven estimator step."
             )
-    if dotest:
-        if executor == "futures":
-            nchunks = 2
-            chunksize = 100
-            nworkers = 1
+    if config.test:
+        if config.executor == "futures":
+            config.nchunks = 2
+            config.chunksize = 100
+            config.nworkers = 1
             print(
                 "Running a fast test with %i workers, %i chunks of %i events"
-                % (nworkers, nchunks, chunksize)
+                % (config.nworkers, config.nchunks, config.chunksize)
             )
         else:
             raise Exception(
-                f'The "test" option is not set up to work with the {executor} executor. Exiting.'
+                f'The "test" option is not set up to work with the {config.executor} executor. Exiting.'
             )
 
     # Set the threshold for the ecut (if not applying a cut, should be None)
-    ecut_threshold = ecut
+    ecut_threshold = config.ecut
     if ecut_threshold is not None:
-        ecut_threshold = float(ecut)
+        ecut_threshold = float(ecut_threshold)
 
-    if executor in ["work_queue", "taskvine"]:
+    port = config.port
+    if config.executor in ["work_queue", "taskvine"]:
         # construct wq port range
         port = list(map(int, port.split("-")))
         if len(port) < 1:
@@ -595,11 +836,10 @@ if __name__ == "__main__":
             samplesdict[sampleName] = json.load(jf)
             samplesdict[sampleName]["redirector"] = prefix
 
-    if isinstance(jsonFiles, str) and "," in jsonFiles:
-        jsonFiles = jsonFiles.replace(" ", "").split(",")
-    elif isinstance(jsonFiles, str):
-        jsonFiles = [jsonFiles]
-    for jsonFile in jsonFiles:
+    json_files = config.json_files
+    prefix = config.prefix
+
+    for jsonFile in json_files:
         if os.path.isdir(jsonFile):
             if not jsonFile.endswith("/"):
                 jsonFile += "/"
@@ -682,25 +922,25 @@ if __name__ == "__main__":
         # for fname in samplesdict[sname]["files"]:
         #     print("     %s" % fname)
 
-    if pretend:
+    if config.pretend:
         print("pretending...")
         exit()
 
     # Extract the list of all WCs, as long as we haven't already specified one.
-    if len(wc_lst) == 0:
+    if len(config.wc_list) == 0:
         for k in samplesdict.keys():
             for wc in samplesdict[k]["WCnames"]:
-                if wc not in wc_lst:
-                    wc_lst.append(wc)
+                if wc not in config.wc_list:
+                    config.wc_list.append(wc)
 
-    if len(wc_lst) > 0:
+    if len(config.wc_list) > 0:
         # Yes, why not have the output be in correct English?
-        if len(wc_lst) == 1:
-            wc_print = wc_lst[0]
-        elif len(wc_lst) == 2:
-            wc_print = wc_lst[0] + " and " + wc_lst[1]
+        if len(config.wc_list) == 1:
+            wc_print = config.wc_list[0]
+        elif len(config.wc_list) == 2:
+            wc_print = config.wc_list[0] + " and " + config.wc_list[1]
         else:
-            wc_print = ", ".join(wc_lst[:-1]) + ", and " + wc_lst[-1]
+            wc_print = ", ".join(config.wc_list[:-1]) + ", and " + config.wc_list[-1]
             print("Wilson Coefficients: {}.".format(wc_print))
     else:
         print("No Wilson coefficients specified")
@@ -723,10 +963,10 @@ if __name__ == "__main__":
 
     _, _, active_channel_features = resolve_channel_groups(
         channel_helper,
-        skip_sr=skip_sr,
-        skip_cr=skip_cr,
-        scenario_names=scenario_names,
-        required_features=channel_feature_tags,
+        skip_sr=config.skip_sr,
+        skip_cr=config.skip_cr,
+        scenario_names=config.scenario_names,
+        required_features=config.channel_feature_tags,
     )
 
     samples_lst = list(samplesdict.keys())
@@ -745,20 +985,21 @@ if __name__ == "__main__":
     channel_app_map_mc = build_channel_app_map(
         channel_helper,
         isData=False,
-        skip_sr=skip_sr,
-        skip_cr=skip_cr,
-        scenario_names=scenario_names,
-        required_features=channel_feature_tags,
+        skip_sr=config.skip_sr,
+        skip_cr=config.skip_cr,
+        scenario_names=config.scenario_names,
+        required_features=config.channel_feature_tags,
     )
     channel_app_map_data = build_channel_app_map(
         channel_helper,
         isData=True,
-        skip_sr=skip_sr,
-        skip_cr=skip_cr,
-        scenario_names=scenario_names,
-        required_features=channel_feature_tags,
+        skip_sr=config.skip_sr,
+        skip_cr=config.skip_cr,
+        scenario_names=config.scenario_names,
+        required_features=config.channel_feature_tags,
     )
 
+    hist_list_request = config.hist_list
     hist_lst = hist_list_request
     if hist_list_request == ["ana"]:
         hist_lst = ["njets", "lj0pt", "ptz"]
@@ -788,8 +1029,8 @@ if __name__ == "__main__":
     # raise RuntimeError("\n\nStopping here for debugging")
 
     available_systematics_by_sample_type = {
-        "mc": syst_helper.names_by_type("mc", include_systematics=do_systs),
-        "data": syst_helper.names_by_type("data", include_systematics=do_systs),
+        "mc": syst_helper.names_by_type("mc", include_systematics=config.do_systs),
+        "data": syst_helper.names_by_type("data", include_systematics=config.do_systs),
     }
 
     key_lst = []
@@ -804,7 +1045,7 @@ if __name__ == "__main__":
 
         ch_map = channel_app_map_data if sample_info["isData"] else channel_app_map_mc
         grouped_variations = syst_helper.grouped_variations_for_sample(
-            sample_info, include_systematics=do_systs
+            sample_info, include_systematics=config.do_systs
         )
         sample_type_key = "data" if sample_info["isData"] else "mc"
         available_systematics = available_systematics_by_sample_type[sample_type_key]
@@ -822,11 +1063,11 @@ if __name__ == "__main__":
                             clean_ch,
                             appl,
                             sample_info["isData"],
-                            skip_sr,
-                            skip_cr,
+                            config.skip_sr,
+                            config.skip_cr,
                             channel_helper,
-                            scenario_names=scenario_names,
-                            required_features=channel_feature_tags,
+                            scenario_names=config.scenario_names,
+                            required_features=config.channel_feature_tags,
                         )
                     except ValueError:
                         channel_metadata = None
@@ -849,7 +1090,7 @@ if __name__ == "__main__":
                     for group_descriptor, variations in grouped_variations.items():
                         #print("\n", group_descriptor.name, [v.name for v in variations])
                         flavored_channel_names = ()
-                        if split_lep_flavor:
+                        if config.split_lep_flavor:
                             flavored_candidates = []
                             if channel_metadata:
                                 lep_flavors = channel_metadata.get("lep_flav_lst") or []
@@ -914,9 +1155,9 @@ if __name__ == "__main__":
             break # For debugging, only run one variable
         break # For debugging, only run one sample
 
-    if executor in ["work_queue", "taskvine"]:
+    if config.executor in ["work_queue", "taskvine"]:
         executor_args = {
-            "manager_name": f"{os.environ['USER'].capitalize()}-{executor}-coffea",
+            "manager_name": f"{os.environ['USER'].capitalize()}-{config.executor}-coffea",
             # find a port to run work queue in this range:
             "port": port,
             "debug_log": f"/tmp/{os.environ['USER']}/debug.log",
@@ -983,34 +1224,37 @@ if __name__ == "__main__":
     # Run the processor and get the output
     tstart = time.time()
 
-    # print("chunksize: ", chunksize)
-    # print("nchunks: ", nchunks)
+    # print("chunksize: ", config.chunksize)
+    # print("nchunks: ", config.nchunks)
 
-    if executor == "futures":
-        exec_instance = processor.futures_executor(workers=nworkers)
+    if config.executor == "futures":
+        exec_instance = processor.futures_executor(workers=config.nworkers)
         runner = processor.Runner(
-            exec_instance, schema=NanoAODSchema, chunksize=chunksize, maxchunks=nchunks
-        )
-    elif executor == "work_queue":
-        executor = processor.WorkQueueExecutor(**executor_args)
-        runner = processor.Runner(
-            executor,
+            exec_instance,
             schema=NanoAODSchema,
-            chunksize=chunksize,
-            maxchunks=nchunks,
+            chunksize=config.chunksize,
+            maxchunks=config.nchunks,
+        )
+    elif config.executor == "work_queue":
+        executor_instance = processor.WorkQueueExecutor(**executor_args)
+        runner = processor.Runner(
+            executor_instance,
+            schema=NanoAODSchema,
+            chunksize=config.chunksize,
+            maxchunks=config.nchunks,
             skipbadfiles=False,
             xrootdtimeout=180,
         )
-    elif executor == "taskvine":
+    elif config.executor == "taskvine":
         try:
-            executor = processor.TaskVineExecutor(**executor_args)
+            executor_instance = processor.TaskVineExecutor(**executor_args)
         except AttributeError:
             raise RuntimeError("TaskVineExecutor not available.")
         runner = processor.Runner(
-            executor,
+            executor_instance,
             schema=NanoAODSchema,
-            chunksize=chunksize,
-            maxchunks=nchunks,
+            chunksize=config.chunksize,
+            maxchunks=config.nchunks,
             skipbadfiles=True,
             xrootdtimeout=300,
         )
@@ -1041,11 +1285,11 @@ if __name__ == "__main__":
             clean_ch,
             appl,
             sample_dict["isData"],
-            skip_sr,
-            skip_cr,
+            config.skip_sr,
+            config.skip_cr,
             channel_helper,
-            scenario_names=scenario_names,
-            required_features=channel_feature_tags,
+            scenario_names=config.scenario_names,
+            required_features=config.channel_feature_tags,
         )
 
         # If the channel dictionary is empty, this configuration corresponds
@@ -1068,12 +1312,12 @@ if __name__ == "__main__":
 
         processor_instance = analysis_processor.AnalysisProcessor(
             sample_dict,
-            wc_lst,
+            config.wc_list,
             hist_keys=hist_keys,
             var_info=var_info,
             ecut_threshold=ecut_threshold,
-            do_errors=do_errors,
-            split_by_lepton_flavor=split_lep_flavor,
+            do_errors=config.do_errors,
+            split_by_lepton_flavor=config.split_lep_flavor,
             channel_dict=channel_dict,
             golden_json_path=golden_json_path,
             systematic_variations=systematic_variations,
@@ -1085,49 +1329,49 @@ if __name__ == "__main__":
         # # print("\nchannel_helper groups:", channel_helper.group_names())
         # print("\nchannel_dict:", channel_dict)
 
-        out = runner({sample: sample_flist}, treename, processor_instance)
+        out = runner({sample: sample_flist}, config.treename, processor_instance)
         output.update(out)
 
         #break
 
     dt = time.time() - tstart
 
-    if executor in ["work_queue", "taskvine"]:
+    if config.executor in ["work_queue", "taskvine"]:
         print(
             "Processed {} events in {} seconds ({:.2f} evts/sec).".format(
                 nevts_total, dt, nevts_total / dt
             )
         )
 
-    if executor == "futures":
+    if config.executor == "futures":
         print(
             "Processing time: %1.2f s with %i workers (%.2f s cpu overall)"
             % (
                 dt,
-                nworkers,
-                dt * nworkers,
+                config.nworkers,
+                dt * config.nworkers,
             )
         )
 
     # Save the output
-    if not os.path.isdir(outpath):
-        os.system("mkdir -p %s" % outpath)
-    out_pkl_file = os.path.join(outpath, outname + ".pkl.gz")
+    if not os.path.isdir(config.outpath):
+        os.system("mkdir -p %s" % config.outpath)
+    out_pkl_file = os.path.join(config.outpath, config.outname + ".pkl.gz")
     print(f"\nSaving output in {out_pkl_file}...")
     with gzip.open(out_pkl_file, "wb") as fout:
         cloudpickle.dump(output, fout)
     print("Done!")
 
     # Run the data driven estimation, save the output
-    if do_np:
+    if config.do_np:
         print("\nDoing the nonprompt estimation...")
-        out_pkl_file_name_np = os.path.join(outpath, outname + "_np.pkl.gz")
+        out_pkl_file_name_np = os.path.join(config.outpath, config.outname + "_np.pkl.gz")
         ddp = DataDrivenProducer(out_pkl_file, out_pkl_file_name_np)
         print(f"Saving output in {out_pkl_file_name_np}...")
         ddp.dumpToPickle()
         print("Done!")
         # Run the renorm fact envelope calculation
-        if do_renormfact_envelope:
+        if config.do_renormfact_envelope:
             print("\nDoing the renorm. fact. envelope calculation...")
             dict_of_histos = utils.get_hist_from_pkl(
                 out_pkl_file_name_np, allow_empty=False
