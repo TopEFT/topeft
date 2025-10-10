@@ -315,11 +315,35 @@ class AnalysisProcessor(processor.ProcessorABC):
     def columns(self):
         return self._columns
 
+    def _resolve_dataset_names(self, dataset_name: str) -> Tuple[str, str]:
+        """Return the dataset label for histogram keys and the trigger dataset name."""
+
+        dataset_for_histograms = dataset_name
+        dataset_for_triggers = dataset_name
+
+        dataset_prefixes = (
+            "Muon",
+            "SingleMuon",
+            "SingleElectron",
+            "EGamma",
+            "MuonEG",
+            "DoubleMuon",
+            "DoubleElectron",
+            "DoubleEG",
+        )
+        for prefix in dataset_prefixes:
+            if dataset_for_triggers.startswith(prefix):
+                dataset_for_triggers = dataset_for_triggers.split("_")[0]
+                break
+
+        return dataset_for_histograms, dataset_for_triggers
+
     # Main function: run on a given dataset
     def process(self, events):
 
         # Dataset parameters
-        dataset = events.metadata["dataset"]
+        raw_dataset_name = events.metadata["dataset"]
+        dataset, trigger_dataset = self._resolve_dataset_names(raw_dataset_name)
         isEFT = self._sample["WCnames"] != []
 
         isData = self._sample["isData"]
@@ -351,11 +375,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             run_era = self._sample["path"].split("/")[2].split("-")[0][-1]
 
         is_lo_sample = histAxisName in get_te_param("lo_xsec_samples")
-
-        datasets = ["Muon", "SingleMuon", "SingleElectron", "EGamma", "MuonEG", "DoubleMuon", "DoubleElectron", "DoubleEG"]
-        for d in datasets:
-            if dataset.startswith(d):
-                dataset = dataset.split('_')[0]
 
         # Set the sampleType (used for MC matching requirement)
         sampleType = "prompt"
@@ -1153,7 +1172,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 tl_zpeak_mask = te_es.lt_Z_mask(l0, l1, tau0, 30.0)
 
             # Pass trigger mask
-            pass_trg = tc_es.trg_pass_no_overlap(events,isData,dataset,str(year),te_es.dataset_dict_top22006,te_es.exclude_dict_top22006)
+            pass_trg = tc_es.trg_pass_no_overlap(
+                events,
+                isData,
+                trigger_dataset,
+                str(year),
+                te_es.dataset_dict_top22006,
+                te_es.exclude_dict_top22006,
+            )
 
             # b jet masks
             bmask_atleast1med_atleast2loose = ((nbtagsm>=1)&(nbtagsl>=2)) # Used for 2lss and 4l
