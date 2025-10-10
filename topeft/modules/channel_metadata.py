@@ -13,6 +13,35 @@ from dataclasses import dataclass
 from typing import Dict, Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple
 
 
+def _normalize_histogram_list(
+    values: Optional[object], *, context: str, field_name: str
+) -> Tuple[str, ...]:
+    """Return ``values`` as a tuple of strings with simple validation."""
+
+    if values is None:
+        return ()
+    if isinstance(values, str):
+        iterable = [values]
+    elif isinstance(values, Sequence):
+        iterable = values
+    else:
+        raise TypeError(
+            f"{context} {field_name} must be a sequence of strings when provided"
+        )
+
+    normalized: List[str] = []
+    for value in iterable:
+        if not isinstance(value, str):
+            raise TypeError(
+                f"{context} {field_name} entries must be strings; got {type(value)!r}"
+            )
+        stripped = value.strip()
+        if stripped:
+            normalized.append(stripped)
+
+    return tuple(normalized)
+
+
 @dataclass(frozen=True)
 class ChannelRegionDefinition:
     """Metadata describing a single region within a lepton category."""
@@ -23,6 +52,8 @@ class ChannelRegionDefinition:
     channel: Optional[str]
     subchannel: Optional[str]
     tags: Tuple[str, ...]
+    include_histograms: Tuple[str, ...]
+    exclude_histograms: Tuple[str, ...]
 
     def to_legacy_list(self) -> List[str]:
         """Return the region definition in the legacy ``ch_lst.json`` format."""
@@ -47,6 +78,8 @@ class ChannelCategory:
     application_tags_mc: List[str]
     application_tags_data: List[str]
     region_definitions: List[ChannelRegionDefinition]
+    histogram_includes: Tuple[str, ...]
+    histogram_excludes: Tuple[str, ...]
 
     def application_tags(self, include_data: bool) -> List[str]:
         """Return MC application tags plus data tags when requested."""
@@ -75,6 +108,24 @@ class ChannelGroup:
         for category in group_metadata.get("regions", []):
             lepton_category = category["lepton_category"]
             application_tags = category.get("application_tags", {})
+            histogram_variables = category.get("histogram_variables", {})
+            if histogram_variables is None:
+                histogram_variables = {}
+            if histogram_variables and not isinstance(histogram_variables, Mapping):
+                raise TypeError(
+                    f"Category {lepton_category!r} in group {name!r} must define"
+                    " histogram_variables as a mapping"
+                )
+            category_hist_include = _normalize_histogram_list(
+                histogram_variables.get("include"),
+                context=f"Category {lepton_category!r} in group {name!r}",
+                field_name="histogram_variables.include",
+            )
+            category_hist_exclude = _normalize_histogram_list(
+                histogram_variables.get("exclude"),
+                context=f"Category {lepton_category!r} in group {name!r}",
+                field_name="histogram_variables.exclude",
+            )
             region_definitions = [
                 ChannelRegionDefinition(
                     group_name=name,
@@ -83,6 +134,22 @@ class ChannelGroup:
                     channel=region_def.get("channel"),
                     subchannel=region_def.get("subchannel"),
                     tags=tuple(region_def.get("tags", [])),
+                    include_histograms=_normalize_histogram_list(
+                        (region_def.get("histogram_variables") or {}).get("include"),
+                        context=(
+                            f"Region {region_def.get('name', '<unknown>')!r}"
+                            f" in group {name!r}"
+                        ),
+                        field_name="histogram_variables.include",
+                    ),
+                    exclude_histograms=_normalize_histogram_list(
+                        (region_def.get("histogram_variables") or {}).get("exclude"),
+                        context=(
+                            f"Region {region_def.get('name', '<unknown>')!r}"
+                            f" in group {name!r}"
+                        ),
+                        field_name="histogram_variables.exclude",
+                    ),
                 )
                 for region_def in category.get("region_definitions", [])
             ]
@@ -95,6 +162,8 @@ class ChannelGroup:
                     application_tags_mc=list(application_tags.get("mc", [])),
                     application_tags_data=list(application_tags.get("data", [])),
                     region_definitions=region_definitions,
+                    histogram_includes=category_hist_include,
+                    histogram_excludes=category_hist_exclude,
                 )
             )
         self._category_map: Dict[str, ChannelCategory] = {
