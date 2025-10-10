@@ -4,6 +4,9 @@ import types
 from pathlib import Path
 from typing import Callable
 
+
+_DATASET_NAME = "SingleMuon_A-UL2018"
+
 try:
     import numpy as np
 except ModuleNotFoundError:
@@ -394,21 +397,21 @@ def processor(tmp_path, monkeypatch):
                 "dummy",
                 "3l_p_offZ_1b_2j",
                 "isSR_3l",
-                "DummySample",
+                _DATASET_NAME,
                 "nominal",
             ),
             (
                 "dummy",
                 "3l_eee_p_offZ_1b_2j",
                 "isSR_3l",
-                "DummySample",
+                _DATASET_NAME,
                 "nominal",
             ),
             (
                 "dummy",
                 "3l_emm_p_offZ_1b_2j",
                 "isSR_3l",
-                "DummySample",
+                _DATASET_NAME,
                 "nominal",
             ),
         )
@@ -470,21 +473,21 @@ def test_flavor_split_registers_flavored_histograms(processor):
         "dummy",
         "3l_p_offZ_1b_2j",
         "isSR_3l",
-        "DummySample",
+        _DATASET_NAME,
         "nominal",
     )
     flavored_hist_key = (
         "dummy",
         "3l_eee_p_offZ_1b_2j",
         "isSR_3l",
-        "DummySample",
+        _DATASET_NAME,
         "nominal",
     )
     base_sumw2_key = (
         "dummy_sumw2",
         "3l_p_offZ_1b_2j",
         "isSR_3l",
-        "DummySample",
+        _DATASET_NAME,
         "nominal",
     )
 
@@ -495,7 +498,7 @@ def test_flavor_split_registers_flavored_histograms(processor):
         "dummy_sumw2",
         "3l_eee_p_offZ_1b_2j",
         "isSR_3l",
-        "DummySample",
+        _DATASET_NAME,
         "nominal",
     ) not in processor.accumulator
 
@@ -509,3 +512,39 @@ def test_flavor_split_registers_flavored_histograms(processor):
     assert (
         processor._flavored_channel_lookup["3l_eee_p_offZ_1b_2j"] == processor.channel
     )
+
+
+def test_dataset_name_resolution_preserves_full_hist_key(processor):
+    dataset_hist, dataset_trig = processor._resolve_dataset_names(_DATASET_NAME)
+
+    assert dataset_hist == _DATASET_NAME
+    assert dataset_trig == "SingleMuon"
+
+
+def test_histogram_fallback_finds_base_channel(processor):
+    dataset_hist, _ = processor._resolve_dataset_names(_DATASET_NAME)
+
+    dense_axis_name = processor.var
+    hist_variation_label = processor.syst
+    base_ch_name = processor.channel
+    missing_flavor_channel = "3l_eem_p_offZ_1b_2j"
+
+    histkey = (
+        dense_axis_name,
+        missing_flavor_channel,
+        processor.appregion,
+        dataset_hist,
+        hist_variation_label,
+    )
+    fallback_histkey = (
+        dense_axis_name,
+        base_ch_name,
+        processor.appregion,
+        dataset_hist,
+        hist_variation_label,
+    )
+
+    hout = processor.accumulator
+
+    assert histkey not in hout
+    assert fallback_histkey in hout
