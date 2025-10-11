@@ -45,6 +45,7 @@ MINIMAL_CHANNEL_METADATA = {
                     "lepton_flavors": ["eee"],
                     "jet_bins": ["=2"],
                     "application_tags": {"mc": ["isSR_3l"]},
+                    "histogram_variables": {"exclude": ["ptz_wtau", "tau0pt"]},
                     "region_definitions": [
                         {
                             "name": "3l_p_offZ_1b",
@@ -65,6 +66,7 @@ MINIMAL_CHANNEL_METADATA = {
                     "lepton_flavors": ["eee"],
                     "jet_bins": ["=2"],
                     "application_tags": {"mc": ["isSR_3l"]},
+                    "histogram_variables": {"include": ["lt"]},
                     "region_definitions": [
                         {
                             "name": "3l_p_offZ_low_1b",
@@ -241,5 +243,29 @@ def test_resolve_channel_groups_infers_tau_control_regions(channel_helper):
     assert any(group.name == "TAU_CH_LST_SR" for group in sr_groups)
     assert any(group.name == "TAU_CH_LST_CR" for group in cr_groups)
     assert "requires_tau" in features
+
+
+def test_build_channel_dict_respects_histogram_filters(channel_helper):
+    sr_channel = build_channel_dict(
+        "3l_p_offZ_1b_2j",
+        "isSR_3l",
+        isData=False,
+        skip_sr=False,
+        skip_cr=False,
+        channel_helper=channel_helper,
+        scenario_names=["TOP_22_006"],
+    )
+    assert "tau0pt" in set(sr_channel.get("channel_var_blacklist", ()))
+
+    fwd_channel = build_channel_dict(
+        "3l_p_offZ_low_1b_2j",
+        "isSR_3l",
+        isData=False,
+        skip_sr=False,
+        skip_cr=False,
+        channel_helper=channel_helper,
+        scenario_names=["TOP_22_006"],
+    )
+    assert "lt" in set(fwd_channel.get("channel_var_whitelist", ()))
 
 

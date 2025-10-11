@@ -8,7 +8,7 @@ import gzip
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Mapping, Set
 
 import yaml
 
@@ -41,6 +41,14 @@ WGT_VAR_LST = [
     "nSumOfWeights_renormfactUp",
     "nSumOfWeights_renormfactDown",
 ]
+
+
+# Histogram variables that are only valid when specific channel features are active.
+VARIABLE_FEATURE_REQUIREMENTS: Dict[str, Set[str]] = {
+    "ptz_wtau": {"requires_tau"},
+    "tau0pt": {"requires_tau"},
+    "lt": {"requires_forward"},
+}
 
 
 def _normalize_sequence(value: Any) -> List[str]:
@@ -954,7 +962,9 @@ if __name__ == "__main__":
         raise ValueError("golden_jsons mapping missing from metadata.")
 
     var_defs = metadata["variables"]
-    var_lst = list(var_defs)
+    if not isinstance(var_defs, Mapping):
+        raise TypeError("metadata['variables'] must be a mapping of histogram definitions")
+    available_histograms = list(var_defs)
 
     channels_metadata = metadata.get("channels") if metadata else None
     if not channels_metadata:
@@ -999,32 +1009,46 @@ if __name__ == "__main__":
         required_features=config.channel_feature_tags,
     )
 
-    hist_list_request = config.hist_list
-    hist_lst = hist_list_request
-    if hist_list_request == ["ana"]:
-        hist_lst = ["njets", "lj0pt", "ptz"]
-        if "requires_tau" in active_channel_features:
-            hist_lst.append("ptz_wtau")
-        if "requires_forward" in active_channel_features:
-            hist_lst.append("lt")
-    elif hist_list_request == ["cr"]:
-        hist_lst = [
-            "lj0pt",
-            "ptz",
-            "met",
-            "ljptsum",
-            "l0pt",
-            "l0eta",
-            "l1pt",
-            "l1eta",
-            "j0pt",
-            "j0eta",
-            "njets",
-            "nbtagsl",
-            "invmass",
+    hist_list_request = config.hist_list or []
+    if hist_list_request:
+        hist_lst = list(hist_list_request)
+    else:
+        hist_lst = list(available_histograms)
+
+    hist_lst = _unique_preserving_order(hist_lst)
+    if not hist_lst:
+        raise ValueError("Histogram selection resolved to an empty list")
+
+    missing_histograms = [var for var in hist_lst if var not in var_defs]
+    if missing_histograms:
+        missing = ", ".join(missing_histograms)
+        available = ", ".join(sorted(var_defs.keys()))
+        raise ValueError(
+            f"Requested histograms {missing} are not defined in metadata['variables']. "
+            f"Available histograms: {available}"
+        )
+
+    incompatible_variables: List[str] = []
+    for var in hist_lst:
+        required_features = VARIABLE_FEATURE_REQUIREMENTS.get(var)
+        if not required_features:
+            continue
+        missing_features = [
+            feature for feature in required_features if feature not in active_channel_features
         ]
-        if "requires_tau" in active_channel_features:
-            hist_lst.append("tau0pt")
+        if missing_features:
+            incompatible_variables.append(
+                f"{var} (requires: {', '.join(sorted(required_features))})"
+            )
+
+    if incompatible_variables:
+        raise ValueError(
+            "The following histogram variables are incompatible with the selected "
+            "channel features: "
+            + "; ".join(incompatible_variables)
+        )
+
+    var_lst = hist_lst
 
     # raise RuntimeError("\n\nStopping here for debugging")
 
