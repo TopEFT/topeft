@@ -1185,15 +1185,15 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
-                varnames["tau0pt"] = ak.values_astype(ak.fill_none(tau0.pt, -100), np.float32)
+                varnames["tau0pt"] = tau0.pt
                 pass
 
             for varname, var in varnames.items():
                 if isinstance(var, dict):
                     for subvarname, subvar in var.items():
-                        varnames[varname][subvarname] = ak.values_astype(ak.fill_none(subvar, -100), np.float32)
+                        varnames[varname][subvarname] = subvar
                 else:
-                    varnames[varname] = ak.values_astype(ak.fill_none(var, -100), np.float32)
+                    varnames[varname] = var
 
             ########## Fill the histograms ##########
             cat_dict = {}
@@ -1263,6 +1263,18 @@ class AnalysisProcessor(processor.ProcessorABC):
                         raise Exception(f"The key {k} is in both CR and SR dictionaries.")
 
             # Loop over the hists we want to fill
+            def _prepare_axis_values(axis_value):
+                if isinstance(axis_value, dict):
+                    cast_values = {}
+                    validity_masks = {}
+                    for axis_name, axis_component in axis_value.items():
+                        cast_values[axis_name] = ak.values_astype(axis_component, np.float32)
+                        validity_masks[axis_name] = ~ak.is_none(axis_component)
+                    return cast_values, validity_masks
+                cast_value = ak.values_astype(axis_value, np.float32)
+                validity_mask = ~ak.is_none(axis_value)
+                return cast_value, validity_mask
+
             for dense_axis_name, dense_axis_vals in varnames.items():
                 fill_base_hist = dense_axis_name in self._hist_lst
                 fill_sumw2_hist = (dense_axis_name+"_sumw2") in self._hist_lst
@@ -1379,18 +1391,41 @@ class AnalysisProcessor(processor.ProcessorABC):
                                         )
 
                                         base_values_cut = None
-                                        if isinstance(dense_axis_vals, dict):
-                                            values_cut_map = {
-                                                axis_name: dense_axis_vals[axis_name][all_cuts_mask]
-                                                for axis_name in axis_names
-                                                if axis_name in dense_axis_vals
-                                            }
+                                        prepared_axis_vals, axis_validity = _prepare_axis_values(dense_axis_vals)
+                                        combined_axis_mask = None
+                                        if isinstance(prepared_axis_vals, dict):
+                                            values_cut_map = {}
+                                            for axis_name in axis_names:
+                                                if axis_name not in prepared_axis_vals:
+                                                    continue
+                                                axis_values = prepared_axis_vals[axis_name][all_cuts_mask]
+                                                values_cut_map[axis_name] = axis_values
+                                                axis_mask = axis_validity.get(axis_name)
+                                                if axis_mask is not None:
+                                                    axis_mask_cut = axis_mask[all_cuts_mask]
+                                                    combined_axis_mask = (
+                                                        axis_mask_cut
+                                                        if combined_axis_mask is None
+                                                        else (combined_axis_mask & axis_mask_cut)
+                                                    )
                                         else:
-                                            base_values_cut = dense_axis_vals[all_cuts_mask]
+                                            base_values_cut = prepared_axis_vals[all_cuts_mask]
                                             base_axis_name = axis_names[0] if axis_names else dense_axis_name
                                             values_cut_map = {
                                                 base_axis_name: base_values_cut
                                             }
+                                            combined_axis_mask = axis_validity[all_cuts_mask]
+
+                                        if combined_axis_mask is not None:
+                                            values_cut_map = {
+                                                axis_name: axis_values[combined_axis_mask]
+                                                for axis_name, axis_values in values_cut_map.items()
+                                            }
+                                            weights_flat = weights_flat[combined_axis_mask]
+                                            if eft_coeffs_cut is not None:
+                                                eft_coeffs_cut = eft_coeffs_cut[combined_axis_mask]
+                                            if base_values_cut is not None:
+                                                base_values_cut = base_values_cut[combined_axis_mask]
 
                                         sumw2_values_cut_map = {}
                                         for sumw2_axis_name, base_axis_name in sumw2_axis_mapping.items():
