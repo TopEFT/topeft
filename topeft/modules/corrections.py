@@ -668,13 +668,14 @@ def ApplyTES(year, taus, isData, vsJetWP="Loose"):
 
     return (taus.pt*tes*fes, taus.mass*tes*fes)
 
-def ApplyTESSystematic(year, taus, isData, syst_name):
+def ApplyTESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
     if not syst_name.startswith('TES') or isData:
         return (taus.pt, taus.mass)
 
     pt  = taus.pt
     dm  = taus.decayMode
     gen = taus.genPartFlav
+    eta = taus.eta
 
     clib_year = clib_year_map[year]
     is_run2 = False
@@ -683,6 +684,8 @@ def ApplyTESSystematic(year, taus, isData, syst_name):
 
     is_run3 = not is_run2
 
+    syst_lab = f'TauTES_{year}'
+    syst = "nom"
     if syst_name.endswith("Up"):
         syst = "up"
         syst_lab += '_up'
@@ -695,10 +698,8 @@ def ApplyTESSystematic(year, taus, isData, syst_name):
         kinFlag = (pt>20) & (pt<205) & (gen==5)
         dmFlag = ((dm==0) | (dm==1) | (dm==10) | (dm==11))
         whereFlag = kinFlag & dmFlag
-        syst_lab = f'TauTES_{year}'
 
-        #tes_syst = np.where(whereFlag, SFevaluator['TauTES_{year}'.format(year=year)](dm,pt), 1) #from John?
-        tes_syst = np.where(whereFlag, SFevaluator[syst_lab.format(year=year)](dm,pt), 1)
+        tes_syst = np.where(whereFlag, SFevaluator[syst_lab](dm,pt), 1)
 
     if is_run3:
         json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")
@@ -713,7 +714,6 @@ def ApplyTESSystematic(year, taus, isData, syst_name):
         kinFlag = (flat_pt>20) & (flat_pt<205) & (flat_gen==5)
         dmFlag = ((flat_dm==0) | (flat_dm==1) | (flat_dm==10) | (flat_dm==11))
         whereFlag = kinFlag & dmFlag
-        syst_lab = f'TauTES_{year}'
 
         flat_all_pt = ak.flatten(pt, axis=1)
         full_tes_syst = np.ones_like(flat_all_pt, dtype=np.float32)
@@ -737,7 +737,7 @@ def ApplyTESSystematic(year, taus, isData, syst_name):
 
     return (taus.pt*tes_syst, taus.mass*tes_syst)
 
-def ApplyFESSystematic(year, taus, isData, syst_name):
+def ApplyFESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
     if not syst_name.startswith('FES') or isData:
         return (taus.pt, taus.mass)
 
@@ -754,10 +754,13 @@ def ApplyFESSystematic(year, taus, isData, syst_name):
     is_run3 = not is_run2
 
     syst_lab = f'TauFES_{year}'
+    syst = "nom"
 
     if syst_name.endswith("Up"):
+        syst = "up"
         syst_lab += '_up'
     elif syst_name.endswith("Down"):
+        syst = "down"
         syst_lab += '_down'
 
     if is_run2:
@@ -765,8 +768,7 @@ def ApplyFESSystematic(year, taus, isData, syst_name):
         dmFlag = ((taus.decayMode==0) | (taus.decayMode==1))
         whereFlag = kinFlag & dmFlag
 
-        #fes_syst = np.where(whereFlag, SFevaluator['TauFES_{year}'.format(year=year)](eta,dm), 1) #from John ?
-        fes_syst = np.where(whereFlag, SFevaluator[syst_lab.format(year=year)](eta,dm), 1)
+        fes_syst = np.where(whereFlag, SFevaluator[syst_lab](eta,dm), 1)
 
     if is_run3:
         json_path = topcoffea_path(f"data/POG/TAU/{clib_year}/tau.json.gz")

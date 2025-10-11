@@ -31,7 +31,7 @@ class YieldTools():
             "tttt"  : ["tttt_centralUL16APV"   ,"tttt_centralUL16"   ,"tttt_centralUL17","tttt_centralUL18", "tttt_privateUL18"     , "tttt_privateUL17"     , "tttt_privateUL16"     , "tttt_privateUL16APV", "TTTT_central2022", "TTTT_central2022EE"],
 
             "flips" : ["flipsUL16"            ,"flipsUL16APV"            ,"flipsUL17"            ,"flipsUL18"           ,"flips2022"        ,"flips2022EE"      ,"flips2023"        ,"flips2023BPix"],
-            "fakes" : ["nonpromptUL16"        ,"nonpromptUL16APV"        ,"nonpromptUL17"        ,"nonpromptUL18"       ,"nonprompt2022"    ,"nonpromtp2022EE"      ,"nonprompt2023"        ,"nonprompt2023BPix"],
+            "fakes" : ["nonpromptUL16"        ,"nonpromptUL16APV"        ,"nonpromptUL17"        ,"nonpromptUL18"       ,"nonprompt2022"    ,"nonprompt2022EE"      ,"nonprompt2023"        ,"nonprompt2023BPix"],
             "conv"  : ["TTGamma_centralUL16"  ,"TTGamma_centralUL16APV"  ,"TTGamma_centralUL17"  ,"TTGamma_centralUL18"  ,"TTGamma_central2022"],
             "WW"    : ["WWTo2L2Nu_centralUL16","WWTo2L2Nu_centralUL16APV","WWTo2L2Nu_centralUL17","WWTo2L2Nu_centralUL18","WWTo2L2Nu_central2022", "WWTo2L2Nu_central2022EE", "WWTo2L2Nu_central2023", "WWTo2L2Nu_central2023BPix"],
             "WZ"    : ["WZTo3LNu_centralUL16" ,"WZTo3LNu_centralUL16APV" ,"WZTo3LNu_centralUL17" ,"WZTo3LNu_centralUL18","WZTo3LNu_central2022","WZTo3LNu_central2022EE", "WZTo3LNu_central2023", "WZTo3LNu_central2023BPix"],

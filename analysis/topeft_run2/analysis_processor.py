@@ -408,7 +408,7 @@ class AnalysisProcessor(processor.ProcessorABC):
                 tau["isLoose"]   = tauSelection.isLooseTau(tau.idDeepTau2018v2p5VSjet)
                 tau["iseTight"]  = tauSelection.iseTightTau(tau.idDeepTau2018v2p5VSe)
                 tau["ismTight"]  = tauSelection.ismTightTau(tau.idDeepTau2018v2p5VSmu)
-                tau["isPres"]  = tauSelection.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2018v2p5VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2018v2p5VSmu, minpt=20)
+                tau["isPres"]  = tauSelection.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2018v2p5VSjet, tau.idDeepTau2018v2p5VSe, tau.idDeepTau2018v2p5VSmu, minpt=20)
 
             tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.3)
             tau["isGood"]  =  tau["isClean"] & tau["isPres"]
@@ -428,7 +428,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             if is_run2: 
                 tau["isPres"]  = tauSelection.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2017v2p1VSmu, minpt=20)
             if is_run3:
-                tau["isPres"]  = tauSelection.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2017v2p1VSjet, tau.idDeepTau2017v2p1VSe, tau.idDeepTau2018v2p5VSmu, minpt=20)
+                tau["isPres"]  = tauSelection.isPresTau(tau.pt, tau.eta, tau.dxy, tau.dz, tau.idDeepTau2018v2p5VSjet, tau.idDeepTau2018v2p5VSe, tau.idDeepTau2018v2p5VSmu, minpt=20)
             tau["isClean"] = te_os.isClean(tau, l_loose, drmin=0.3)
             tau["isGood"]  =  tau["isClean"] & tau["isPres"]
             tau = tau[tau.isGood] # use these to clean jets
