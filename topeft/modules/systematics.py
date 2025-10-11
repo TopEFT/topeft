@@ -717,6 +717,62 @@ def register_lepton_sf_weight(
     weights_object.add(label, central_values, *variation_values)
 
 
+def register_trigger_sf_weight(
+    weights_object,
+    *,
+    year: str,
+    events,
+    lepton0,
+    lepton1,
+    label: str,
+    variation_descriptor: Optional[Mapping[str, object]] = None,
+    logger_obj: Optional[logging.Logger] = None,
+) -> None:
+    """Register the trigger scale factor weight and optional variations."""
+
+    from topeft.modules.corrections import GetTriggerSF
+
+    GetTriggerSF(year, events, lepton0, lepton1)
+
+    include_variations = False
+    variation_name = None
+    if variation_descriptor is not None:
+        include_variations = (
+            variation_descriptor.get("has_systematics", False)
+            and variation_descriptor.get("variation_base") == "trigger_sf"
+        )
+        variation_name = variation_descriptor.get("variation_name")
+
+    up_value = down_value = None
+    variations_active = False
+    if include_variations:
+        missing_attrs = [
+            attr_name
+            for attr_name in ("trigger_sfUp", "trigger_sfDown")
+            if not hasattr(events, attr_name)
+        ]
+        if missing_attrs:
+            (logger_obj or logger).warning(
+                "Requested trigger SF variation '%s' for weight '%s' but missing arrays: %s",
+                variation_name,
+                label,
+                ", ".join(missing_attrs),
+            )
+        else:
+            up_value = copy.deepcopy(getattr(events, "trigger_sfUp"))
+            down_value = copy.deepcopy(getattr(events, "trigger_sfDown"))
+            variations_active = True
+
+    register_weight_variation(
+        weights_object,
+        label,
+        getattr(events, "trigger_sf"),
+        up=up_value,
+        down=down_value,
+        active=variations_active,
+    )
+
+
 __all__ = [
     "SystematicVariation",
     "SystematicVariationGroup",
@@ -725,6 +781,7 @@ __all__ = [
     "apply_theory_weight_variations",
     "build_fake_factor_specs",
     "register_lepton_sf_weight",
+    "register_trigger_sf_weight",
     "register_weight_variation",
     "validate_data_weight_variations",
 ]

@@ -22,7 +22,7 @@ import topcoffea.modules.object_selection as tc_os
 import topcoffea.modules.corrections as tc_cor
 
 from topeft.modules.paths import topeft_path
-from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics, GetTriggerSF
+from topeft.modules.corrections import ApplyJetCorrections, GetBtagEff, AttachMuonSF, AttachElectronSF, AttachTauSF, ApplyTES, ApplyTESSystematic, ApplyFESSystematic, AttachPerLeptonFR, ApplyRochesterCorrections, ApplyJetSystematics
 from topeft.modules.btag_weights import register_btag_sf_weights
 import topeft.modules.event_selection as te_es
 import topeft.modules.object_selection as te_os
@@ -30,6 +30,7 @@ from topeft.modules.systematics import (
     add_fake_factor_weights,
     apply_theory_weight_variations,
     register_lepton_sf_weight,
+    register_trigger_sf_weight,
     register_weight_variation,
     validate_data_weight_variations,
 )
@@ -947,15 +948,19 @@ class AnalysisProcessor(processor.ProcessorABC):
                     weights_object.add("btagSF", ak.ones_like(events.nom))
 
                 # Trigger SFs are only defined for simulated samples.
-                GetTriggerSF(year, events, l0, l1)
-                include_trigger_vars = bool(self._systematic_variations) and variation_base == "trigger_sf"
-                register_weight_variation(
+                register_trigger_sf_weight(
                     weights_object,
-                    trigger_weight_label,
-                    events.trigger_sf,
-                    up=lambda: events.trigger_sfUp,
-                    down=lambda: events.trigger_sfDown,
-                    active=include_trigger_vars,
+                    year=year,
+                    events=events,
+                    lepton0=l0,
+                    lepton1=l1,
+                    label=trigger_weight_label,
+                    variation_descriptor={
+                        "has_systematics": bool(self._systematic_variations),
+                        "variation_base": variation_base,
+                        "variation_name": variation_name,
+                    },
+                    logger_obj=logger,
                 )
 
                 if self.tau_h_analysis and not isData:
