@@ -212,10 +212,6 @@ channels:
                 - bmask_atleast1m2l
                 - 1tau
                 - offZ_tau
-              histogram_variables:
-                exclude:
-                  - ptz_wtau
-                  - tau0pt
             - name: 2lss_m_1tau_offZ
               channel: 2lss
               subchannel: 2l_m
@@ -223,10 +219,6 @@ channels:
                 - bmask_atleast1m2l
                 - 1tau
                 - offZ_tau
-              histogram_variables:
-                exclude:
-                  - ptz_wtau
-                  - tau0pt
             - name: 2lss_p_1tau_onZ
               channel: 2lss
               subchannel: 2l_p
@@ -262,10 +254,6 @@ channels:
                 - 2l_onZ
           jet_bins:
             - '>5'
-          histogram_variables:
-            exclude:
-              - ptz_wtau
-              - tau0pt
           application_tags:
             mc:
               - isSR_2lOS
