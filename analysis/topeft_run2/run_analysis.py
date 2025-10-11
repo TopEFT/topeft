@@ -373,26 +373,26 @@ if __name__ == "__main__":
         ]
         if tau_h_analysis:
             hist_lst.append("tau0pt")
-        if "lepton_pt_vs_eta" not in hist_lst:
-            hist_lst.append("lepton_pt_vs_eta")
-        if "l0_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
-            hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY")
-        if "l0_eta_vs_phi" not in hist_lst:
-            hist_lst.append("l0_eta_vs_phi")
-        if "l1_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
-            hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY")
-        if "l1_eta_vs_phi" not in hist_lst:
-            hist_lst.append("l1_eta_vs_phi")
-        if do_errors and "lepton_pt_vs_eta_sumw2" not in hist_lst:
-            hist_lst.append("lepton_pt_vs_eta_sumw2")
-        if do_errors and "l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
-            hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
-        if do_errors and "l0_eta_vs_phi_sumw2" not in hist_lst:
-            hist_lst.append("l0_eta_vs_phi_sumw2")
-        if do_errors and "l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
-            hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
-        if do_errors and "l1_eta_vs_phi_sumw2" not in hist_lst:
-            hist_lst.append("l1_eta_vs_phi_sumw2")
+        # if "lepton_pt_vs_eta" not in hist_lst:
+        #     hist_lst.append("lepton_pt_vs_eta")
+        # if "l0_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
+        #     hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY")
+        # if "l0_eta_vs_phi" not in hist_lst:
+        #     hist_lst.append("l0_eta_vs_phi")
+        # if "l1_SeedEtaOrX_vs_SeedPhiOrY" not in hist_lst:
+        #     hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY")
+        # if "l1_eta_vs_phi" not in hist_lst:
+        #     hist_lst.append("l1_eta_vs_phi")
+        # if do_errors and "lepton_pt_vs_eta_sumw2" not in hist_lst:
+        #     hist_lst.append("lepton_pt_vs_eta_sumw2")
+        # if do_errors and "l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
+        #     hist_lst.append("l0_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
+        # if do_errors and "l0_eta_vs_phi_sumw2" not in hist_lst:
+        #     hist_lst.append("l0_eta_vs_phi_sumw2")
+        # if do_errors and "l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2" not in hist_lst:
+        #     hist_lst.append("l1_SeedEtaOrX_vs_SeedPhiOrY_sumw2")
+        # if do_errors and "l1_eta_vs_phi_sumw2" not in hist_lst:
+        #     hist_lst.append("l1_eta_vs_phi_sumw2")
     else:
         # We want to specify a custom list
         # If we don't specify this argument, it will be None, and the processor will fill all hists

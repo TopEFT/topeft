@@ -1185,8 +1185,15 @@ class AnalysisProcessor(processor.ProcessorABC):
 
             if self.tau_h_analysis:
                 varnames["ptz_wtau"] = ptz_wtau
-                varnames["tau0pt"] = tau0.pt
+                varnames["tau0pt"] = ak.values_astype(ak.fill_none(tau0.pt, -100), np.float32)
                 pass
+
+            for varname, var in varnames.items():
+                if isinstance(var, dict):
+                    for subvarname, subvar in var.items():
+                        varnames[varname][subvarname] = ak.values_astype(ak.fill_none(subvar, -100), np.float32)
+                else:
+                    varnames[varname] = ak.values_astype(ak.fill_none(var, -100), np.float32)
 
             ########## Fill the histograms ##########
             cat_dict = {}
@@ -1431,8 +1438,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                                             if self._hist_requires_eft.get(dense_axis_name, False):
                                                 axes_fill_info_dict["eft_coeff"] = eft_coeffs_cut
 
+                                            # print("\n\n\n\n\n\n\n")
+                                            # print(f"Filling hist {dense_axis_name} for process {histAxisName}, channel {ch_name}, appl {appl}, systematic {wgt_fluct}, n events {len(axes_fill_info_dict['weight'])}")
+                                            # print(axes_fill_info_dict)
+                                            
                                             hout[dense_axis_name].fill(**axes_fill_info_dict)
-
+                                            
+                                            # print("Done\n\n\n\n\n\n\n\n\n\n\n\n")
+                                        
                                         if fill_sumw2_hist:
                                             sumw2_fill_info = {
                                                 **sumw2_values_cut_map,
