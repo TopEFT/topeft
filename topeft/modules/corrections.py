@@ -633,38 +633,53 @@ def ApplyTES(year, taus, isData, vsJetWP="Loose"):
         flat_dm  = ak.flatten(ak.fill_none(dm, -1), axis=1)
         flat_gen = ak.flatten(ak.fill_none(gen, 0), axis=1)
 
-        es_list = []
-        kinFlag   = (flat_pt > 20) & (flat_pt < 205) & (flat_gen == 5)
-        dmFlag = (flat_dm == 0) | (flat_dm == 1) | (flat_dm == 2) | (flat_dm == 10) | (flat_dm == 11)
-        tes_whereFlag = kinFlag & dmFlag  # also flat
+        flat_all_pt = ak.flatten(ak.fill_none(pt, 0.0), axis=1)
+        flat_all_pt_np = ak.to_numpy(flat_all_pt)
+        counts = ak.num(pt, axis=1)
 
-        kinFlag = (flat_pt>20) & (flat_pt<205) & (flat_gen>=1) & (flat_gen<=4)
-        dmFlag = ((flat_dm==0) | (flat_dm==1))
-        fes_whereFlag = kinFlag & dmFlag  # also flat
-        es_list.append(tes_whereFlag)
-        es_list.append(fes_whereFlag)
+        # Genuine taus (genmatch==5) receive the TES weights
+        tes_kin = (flat_pt > 20) & (flat_pt < 205)
+        tes_dm  = (flat_dm == 0) | (flat_dm == 1) | (flat_dm == 2) | (flat_dm == 10) | (flat_dm == 11)
+        tes_where = tes_kin & tes_dm & (flat_gen == 5)
 
-        for idx, whereFlag in enumerate(es_list):
-            flat_all_pt = ak.flatten(pt, axis=1)
-            full_es = np.ones_like(flat_all_pt, dtype=np.float32)
-            indices = np.nonzero(ak.to_numpy(whereFlag))[0]
-            es_values = corr.evaluate(
-                ak.to_numpy((flat_pt[whereFlag])),
-                ak.to_numpy((flat_eta[whereFlag])),
-                ak.to_numpy((flat_dm[whereFlag])),
-                1,
+        full_tes = np.ones_like(flat_all_pt_np, dtype=np.float32)
+        tes_indices = np.nonzero(ak.to_numpy(tes_where))[0]
+        if len(tes_indices) > 0:
+            tes_values = corr.evaluate(
+                ak.to_numpy(flat_pt[tes_where]),
+                ak.to_numpy(flat_eta[tes_where]),
+                ak.to_numpy(flat_dm[tes_where]),
+                ak.to_numpy(flat_gen[tes_where]),
                 "DeepTau2018v2p5",
                 vsJetWP,
                 "VVLoose",
-                "nom"
+                "nom",
             )
-            counts = ak.num(pt,axis=1)
-            full_es = ak.to_numpy(full_es)
-            full_es[indices] = es_values
-            if idx == 0:
-                tes = ak.unflatten(full_es, counts)
-            if idx == 1:
-                fes = ak.unflatten(full_es, counts)
+            full_tes = ak.to_numpy(full_tes)
+            full_tes[tes_indices] = tes_values
+        tes = ak.unflatten(full_tes, counts)
+
+        # Electron/muon fakes (genmatch 1-4) receive the FES weights
+        fes_kin = (flat_pt > 20) & (flat_pt < 205)
+        fes_dm  = (flat_dm == 0) | (flat_dm == 1)
+        fes_where = fes_kin & fes_dm & (flat_gen >= 1) & (flat_gen <= 4)
+
+        full_fes = np.ones_like(flat_all_pt_np, dtype=np.float32)
+        fes_indices = np.nonzero(ak.to_numpy(fes_where))[0]
+        if len(fes_indices) > 0:
+            fes_values = corr.evaluate(
+                ak.to_numpy(flat_pt[fes_where]),
+                ak.to_numpy(flat_eta[fes_where]),
+                ak.to_numpy(flat_dm[fes_where]),
+                ak.to_numpy(flat_gen[fes_where]),
+                "DeepTau2018v2p5",
+                vsJetWP,
+                "VVLoose",
+                "nom",
+            )
+            full_fes = ak.to_numpy(full_fes)
+            full_fes[fes_indices] = fes_values
+        fes = ak.unflatten(full_fes, counts)
 
     return (taus.pt*tes*fes, taus.mass*tes*fes)
 
