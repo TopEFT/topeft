@@ -67,7 +67,16 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - This script runs over the provided json files and calculates the properer sum of weights
     - Example usage: `python run_sow.py ../../topcoffea/json/signal_samples/private_UL/UL17_tHq_b1.json --xrd root://deepthought.crc.nd.edu/`
 
-* `fullR2_run.sh`: Wrapper script for making the full TOP-22-006 pkl file with `run_topeft.py`. 
+* `fullR2_run.sh`: Wrapper script for making the full TOP-22-006 pkl file with `run_topeft.py`.
+    - The same SR/CR presets are now available through
+      `analysis/topeft_run2/configs/fullR2_run.yml`.  Load them directly with::
+
+          python run_analysis.py --options analysis/topeft_run2/configs/fullR2_run.yml
+
+      By default this launches the control-region job (matching the script).
+      Add `--options-profile sr` to switch to the signal-region inputs, or pass
+      any other command-line flag to override the YAML values (for example,
+      `--skip-cr` or `--outname refact_250901_c1_custom`).
 
 
 ### Scripts for finding, comparing and plotting yields from histograms (from the processor)

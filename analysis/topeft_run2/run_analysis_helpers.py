@@ -317,6 +317,7 @@ class RunConfigBuilder:
         self,
         args: "argparse.Namespace",
         options_path: Optional[str],
+        options_profile: Optional[str] = None,
     ) -> RunConfig:
         config = RunConfig()
 
@@ -362,7 +363,49 @@ class RunConfigBuilder:
                 options = yaml.safe_load(handle) or {}
             if not isinstance(options, Mapping):
                 raise TypeError("Options YAML must define a mapping of overrides")
-            _apply_source(options)
+            yaml_sections: List[Mapping[str, Any]] = []
+
+            defaults_section = options.get("defaults")
+            if defaults_section is not None:
+                if not isinstance(defaults_section, Mapping):
+                    raise TypeError("'defaults' in options YAML must be a mapping")
+                yaml_sections.append(defaults_section)
+
+            selected_profile: Optional[str] = options_profile
+            profiles_section = options.get("profiles")
+            if profiles_section is not None:
+                if not isinstance(profiles_section, Mapping):
+                    raise TypeError("'profiles' in options YAML must be a mapping of mappings")
+                if selected_profile is None:
+                    default_profile = options.get("default_profile")
+                    if default_profile is not None:
+                        if not isinstance(default_profile, str):
+                            raise TypeError("'default_profile' in options YAML must be a string")
+                        selected_profile = default_profile
+                    elif len(profiles_section) == 1:
+                        selected_profile = next(iter(profiles_section))
+                if selected_profile is not None:
+                    if selected_profile not in profiles_section:
+                        raise KeyError(
+                            f"Profile '{selected_profile}' was not found in the options YAML"
+                        )
+                    profile_mapping = profiles_section[selected_profile]
+                    if not isinstance(profile_mapping, Mapping):
+                        raise TypeError(
+                            f"Profile '{selected_profile}' must define a mapping of overrides"
+                        )
+                    yaml_sections.append(profile_mapping)
+
+            passthrough_keys = {
+                key: value
+                for key, value in options.items()
+                if key not in {"defaults", "profiles", "default_profile"}
+            }
+            if passthrough_keys:
+                yaml_sections.append(passthrough_keys)
+
+            for section in yaml_sections:
+                _apply_source(section)
 
         cli_attr_map = {
             "jsonFiles": "jsonFiles",
