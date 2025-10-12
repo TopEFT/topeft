@@ -744,8 +744,6 @@ class AnalysisProcessor(processor.ProcessorABC):
                 GetTriggerSF(year,events,l0,l1)
                 weights_obj_base_for_kinematic_syst.add(f"{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
 
-                weights_obj_base_for_kinematic_syst.add(f"triggerSF_{year}", events.trigger_sf, copy.deepcopy(events.trigger_sfUp), copy.deepcopy(events.trigger_sfDown))            # In principle does not have to be in the lep cat loop
-
             ######### Event weights that do depend on the lep cat ###########
             select_cat_dict = None
             with open(topeft_path("channels/ch_lst.json"), "r") as ch_json_test:
