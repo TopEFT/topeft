@@ -8,12 +8,10 @@ metadata-driven refactors can reproduce the same logic.
 
 ## Histogram variables
 
-Each histogram defined in ``metadata['variables']`` is always available by name, while
-``run_analysis.py`` enforces scenario compatibility via the
-``VARIABLE_FEATURE_REQUIREMENTS`` map. The helper verifies the active channel features
-against this table and raises a descriptive error if an incompatible variable is
-requested. Channel and region ``histogram_variables`` blocks provide optional
-per-channel include/exclude lists that reference variables directly.
+Each histogram defined in ``metadata['variables']`` is scheduled by default. Channel
+and region ``histogram_variables`` blocks provide optional per-channel include and
+exclude lists that reference variables directly; these metadata entries are the sole
+mechanism for limiting histogram production in ``run_analysis.py``.
 
 ## `offz_split`
 
@@ -53,9 +51,8 @@ weights, and observables.
     weights for the 1l, 2l, and 3l channel prefixes.
 - **Variables:**
   - Permit tau-sensitive observables by building `l_j_collection` with the tau candidates and, when
-    requested, computing `ptz_wtau` for tau-inclusive signal regions. Tau-specific histograms such as
-    `ptz_wtau` and `tau0pt` are guarded by ``VARIABLE_FEATURE_REQUIREMENTS`` so they can only be
-    requested when tau features are active.
+    requested, computing `ptz_wtau` for tau-inclusive signal regions. Metadata-level histogram
+    exclusions keep tau-specific templates scoped to the appropriate categories.
 - **Histogram filling rules:**
   - Restrict `ptz`/`ptz_wtau` templates to the tau-enabled categories so the shapes stay consistent
     with the modified definitions.
@@ -71,8 +68,7 @@ This feature exposes forward-jet enriched categories for the same-sign dilepton 
 - **Histogram filling rules:**
   - While filling templates skip `ptz` outside on-Z channels (matching the forward configuration)
     and restrict `lt` histograms to the same-sign leptonic categories that include the forward
-    requirement. The ``VARIABLE_FEATURE_REQUIREMENTS`` map enforces that `lt` can only be requested
-    when forward features are enabled.
+    requirement via metadata-provided include/exclude lists.
 
 These notes capture the behaviors that must be replicated when the analysis configuration
 migrates to metadata-driven definitions.

@@ -203,13 +203,16 @@ class ChannelMetadataHelper:
         }
 
         scenarios_metadata = channels_metadata.get("scenarios", [])
-        self._scenarios: Dict[str, Tuple[str, ...]] = {}
+        self._scenarios: Dict[str, ChannelScenario] = {}
         for scenario in scenarios_metadata:
             name = scenario.get("name")
             if not name:
                 continue
             groups = tuple(scenario.get("groups", []))
-            self._scenarios[name] = groups
+            self._scenarios[name] = ChannelScenario(
+                name=name,
+                groups=groups,
+            )
 
     def group(self, name: str) -> ChannelGroup:
         """Return the :class:`ChannelGroup` registered under ``name``."""
@@ -239,6 +242,13 @@ class ChannelMetadataHelper:
         """Return the group names participating in ``scenario_name``."""
 
         try:
-            return self._scenarios[scenario_name]
+            return self._scenarios[scenario_name].groups
         except KeyError as exc:
             raise KeyError(f"Scenario {scenario_name!r} not found in metadata") from exc
+
+@dataclass(frozen=True)
+class ChannelScenario:
+    """Metadata describing the channel groups associated with a scenario."""
+
+    name: str
+    groups: Tuple[str, ...]

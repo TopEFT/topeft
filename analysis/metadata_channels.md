@@ -30,3 +30,9 @@ Additional channel groups can be pulled in by advertising feature tags via
 functions resolve the requested scenarios and features to determine which regions and
 systematics should run.
 
+## Histogram variables
+Histogram requests now mirror every entry declared under ``metadata['variables']`` so
+the runner no longer depends on metadata-side profile aliases. Per-channel include and
+exclude lists remain available through ``histogram_variables`` blocks and are solely
+responsible for scoping observables to specific regions.【F:topeft/params/metadata.yml†L1270-L1290】
+
