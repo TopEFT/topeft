@@ -26,10 +26,13 @@ df_pt_j = output["pt_j"].value
 ### 1. Use the output histogram from `topeft.py`
 
 * When initializing the histogram, adjust the bins to include the top events with clear divisions. If the bin is not there, add the event quantity to the variable list. Then add the bin to the histogram.
-* Run `topeft.py` on the MC samples for a specific group of events. An example of top jet multiplicity events in signal samples:
+* Run `topeft.py` on the MC samples for a specific group of events. Histogram contents are now
+  controlled through the `histogram_variables` include/exclude lists in `params/metadata.yml`.
+  Adjust those metadata entries if additional observables are required. An example command for
+  top jet multiplicity events in signal samples:
 
 ```
-python work_queue_run.py ../../topcoffea/cfg/mc_signal_samples_NDSkim.cfg --hist-list njets --skip-cr --do-np
+python work_queue_run.py ../../topcoffea/cfg/mc_signal_samples_NDSkim.cfg --skip-cr --do-np
 ```
 
 * Run `get_histo_yield.py` to get the yields. 

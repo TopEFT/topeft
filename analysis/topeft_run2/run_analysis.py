@@ -6,9 +6,8 @@ import time
 import cloudpickle
 import gzip
 import os
-import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Mapping, Set
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Mapping
 
 import yaml
 
@@ -41,14 +40,6 @@ WGT_VAR_LST = [
     "nSumOfWeights_renormfactUp",
     "nSumOfWeights_renormfactDown",
 ]
-
-
-# Histogram variables that are only valid when specific channel features are active.
-VARIABLE_FEATURE_REQUIREMENTS: Dict[str, Set[str]] = {
-    "ptz_wtau": {"requires_tau"},
-    "tau0pt": {"requires_tau"},
-    "lt": {"requires_forward"},
-}
 
 
 def _normalize_sequence(value: Any) -> List[str]:
@@ -161,14 +152,6 @@ def _coerce_port(value: Any) -> str:
     return str(value)
 
 
-def _coerce_optional_sequence(value: Any) -> Optional[List[str]]:
-    """Normalize ``value`` into a list of strings or ``None``."""
-
-    if value is None:
-        return None
-    return _normalize_sequence(value)
-
-
 @dataclass
 class RunConfig:
     """Normalized configuration for ``run_analysis.py``.
@@ -215,9 +198,6 @@ class RunConfig:
     ``wc_list``
         Normalized list of Wilson coefficients, extended from the sample
         metadata when not explicitly provided.
-    ``hist_list``
-        Optional list of histogram names used to specialize requests such as
-        ``["ana"]`` or ``["cr"]``.
     ``port``
         Work Queue port range stored as ``min-max`` string; converted to an
         integer range when the backend requires it.
@@ -247,7 +227,6 @@ class RunConfig:
     do_np: bool = False
     do_renormfact_envelope: bool = False
     wc_list: List[str] = field(default_factory=list)
-    hist_list: Optional[List[str]] = None
     port: str = "9123-9130"
     ecut: Optional[float] = None
 
@@ -299,7 +278,6 @@ def build_run_config(
         "do_np": ("do_np", _coerce_bool),
         "do_renormfact_envelope": ("do_renormfact_envelope", _coerce_bool),
         "wc_list": ("wc_list", _normalize_sequence),
-        "hist_list": ("hist_list", _coerce_optional_sequence),
         "ecut": ("ecut", _coerce_optional_float),
         "port": ("port", _coerce_port),
     }
@@ -341,7 +319,6 @@ def build_run_config(
         "do_np": "do_np",
         "do_renormfact_envelope": "do_renormfact_envelope",
         "wc_list": "wc_list",
-        "hist_list": "hist_list",
         "ecut": "ecut",
         "port": "port",
     }
@@ -362,9 +339,6 @@ def build_run_config(
         config.scenario_names = ["TOP_22_006"]
     config.channel_feature_tags = _unique_preserving_order(config.channel_feature_tags)
     config.wc_list = _unique_preserving_order(config.wc_list)
-    if config.hist_list is not None:
-        config.hist_list = _normalize_sequence(config.hist_list)
-
     return config
 
 
@@ -487,6 +461,8 @@ def build_channel_dict(
     scenario_names=None,
     required_features=None,
 ):
+
+    import re
 
     import_sr_groups, import_cr_groups, active_features = resolve_channel_groups(
         channel_helper,
@@ -760,12 +736,6 @@ if __name__ == "__main__":
         help="Specify a list of Wilson coefficients to use in filling histograms.",
     )
     parser.add_argument(
-        "--hist-list",
-        action="extend",
-        nargs="+",
-        help="Specify a list of histograms to fill.",
-    )
-    parser.add_argument(
         "--ecut",
         default=None,
         help="Energy cut threshold i.e. throw out events above this (GeV)",
@@ -964,8 +934,6 @@ if __name__ == "__main__":
     var_defs = metadata["variables"]
     if not isinstance(var_defs, Mapping):
         raise TypeError("metadata['variables'] must be a mapping of histogram definitions")
-    available_histograms = list(var_defs)
-
     channels_metadata = metadata.get("channels") if metadata else None
     if not channels_metadata:
         raise ValueError("Channel metadata is missing from params/metadata.yml")
@@ -1009,62 +977,7 @@ if __name__ == "__main__":
         required_features=config.channel_feature_tags,
     )
 
-    hist_list_request = config.hist_list
-    using_default_hist_list = not hist_list_request
-    if hist_list_request:
-        hist_lst = list(hist_list_request)
-    else:
-        hist_lst = list(available_histograms)
-
-    hist_lst = _unique_preserving_order(hist_lst)
-    if not hist_lst:
-        raise ValueError("Histogram selection resolved to an empty list")
-
-    missing_histograms = [var for var in hist_lst if var not in var_defs]
-    if missing_histograms:
-        missing = ", ".join(missing_histograms)
-        available = ", ".join(sorted(var_defs.keys()))
-        raise ValueError(
-            f"Requested histograms {missing} are not defined in metadata['variables']. "
-            f"Available histograms: {available}"
-        )
-
-    incompatible_variables: List[str] = []
-    filtered_histograms: List[str] = []
-    for var in hist_lst:
-        required_features = VARIABLE_FEATURE_REQUIREMENTS.get(var)
-        if not required_features:
-            filtered_histograms.append(var)
-            continue
-        missing_features = [
-            feature for feature in required_features if feature not in active_channel_features
-        ]
-        if missing_features:
-            if using_default_hist_list:
-                print(
-                    "Skipping histogram '",
-                    var,
-                    "' because it requires inactive channel features: ",
-                    ", ".join(sorted(required_features)),
-                    sep="",
-                )
-                continue
-            incompatible_variables.append(
-                f"{var} (requires: {', '.join(sorted(required_features))})"
-            )
-            continue
-        filtered_histograms.append(var)
-
-    if using_default_hist_list:
-        hist_lst = filtered_histograms
-
-    if incompatible_variables:
-        raise ValueError(
-            "The following histogram variables are incompatible with the selected "
-            "channel features: "
-            + "; ".join(incompatible_variables)
-        )
-
+    hist_lst: List[str] = _unique_preserving_order(var_defs.keys())
     if not hist_lst:
         raise ValueError("Histogram selection resolved to an empty list")
 
@@ -1119,6 +1032,8 @@ if __name__ == "__main__":
                     if not channel_metadata:
                         continue
 
+                    chan_def_list = channel_metadata.get("chan_def_lst") or ()
+                    region_name = chan_def_list[0] if chan_def_list else ""
                     whitelist = tuple(
                         channel_metadata.get("channel_var_whitelist") or ()
                     )

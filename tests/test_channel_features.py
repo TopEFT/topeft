@@ -1,5 +1,4 @@
 import ast
-import re
 from pathlib import Path
 
 import pytest
@@ -267,5 +266,3 @@ def test_build_channel_dict_respects_histogram_filters(channel_helper):
         scenario_names=["TOP_22_006"],
     )
     assert "lt" in set(fwd_channel.get("channel_var_whitelist", ()))
-
-
