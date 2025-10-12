@@ -856,7 +856,7 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
         fake_muon_sf_up = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_up'](np.abs(eta)), 1)
         fake_muon_sf_down = np.where(whereFlag, SFevaluator[f'Tau_muonFakeSF_{year}_down'](np.abs(eta)), 1)
 
-        whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus["is{vsJetWP}"]>0))
+        whereFlag = ((pt>20) & (pt<205) & (gen!=5) & (gen!=4) & (gen!=3) & (gen!=2) & (gen!=1) & (taus[f"is{vsJetWP}"]>0))
         new_fake_sf = np.where(whereFlag, SFevaluator['TauFakeSF'](pt), 1)
         new_fake_sf_up = np.where(whereFlag, SFevaluator['TauFakeSF_up'](pt), 1)
         new_fake_sf_down = np.where(whereFlag, SFevaluator['TauFakeSF_down'](pt), 1)
@@ -896,47 +896,47 @@ def AttachTauSF(events, taus, year, vsJetWP="Loose"):
             ),
         ]
 
-    for idx, deep_tau_cut in enumerate(deep_tau_cuts):
-        discr = deep_tau_cut[0]
-        id_mask_flat = ak.fill_none(deep_tau_cut[1], False)
-        arg_list = (deep_tau_cut[2])
-        gen_mask_flat = ak.fill_none(deep_tau_cut[3], False)
-        tau_mask_flat = ak.fill_none(id_mask_flat & pt_mask_flat & gen_mask_flat, False)
+        for idx, deep_tau_cut in enumerate(deep_tau_cuts):
+            discr = deep_tau_cut[0]
+            id_mask_flat = ak.fill_none(deep_tau_cut[1], False)
+            arg_list = (deep_tau_cut[2])
+            gen_mask_flat = ak.fill_none(deep_tau_cut[3], False)
+            tau_mask_flat = ak.fill_none(id_mask_flat & pt_mask_flat & gen_mask_flat, False)
 
-        if "VSjet" in discr:
-            arg_sf = arg_list + ("nom", "pt")
-        else:
-            arg_sf = arg_list + ("nom",)
-        DT_sf_list.append(
-            ak.where(
-                ~tau_mask_flat,
-                1,
-                ceval[discr].evaluate(*arg_sf)
+            if "VSjet" in discr:
+                arg_sf = arg_list + ("nom", "pt")
+            else:
+                arg_sf = arg_list + ("nom",)
+            DT_sf_list.append(
+                ak.where(
+                    ~tau_mask_flat,
+                    1,
+                    ceval[discr].evaluate(*arg_sf)
+                )
             )
-        )
 
-        if "VSjet" in discr:
-            arg_up = arg_list + ("up", "pt")
-        else:
-            arg_up = arg_list + ("up",)
-        DT_up_list.append(
-            ak.where(
-                ~tau_mask_flat,
-                1,
-                ceval[discr].evaluate(*arg_up)
+            if "VSjet" in discr:
+                arg_up = arg_list + ("up", "pt")
+            else:
+                arg_up = arg_list + ("up",)
+            DT_up_list.append(
+                ak.where(
+                    ~tau_mask_flat,
+                    1,
+                    ceval[discr].evaluate(*arg_up)
+                )
             )
-        )
-        if "VSjet" in discr:
-            arg_down = arg_list + ("down", "pt")
-        else:
-            arg_down = arg_list + ("down",)
-        DT_do_list.append(
-            ak.where(
-                ~tau_mask_flat,
-                1,
-                ceval[discr].evaluate(*arg_down)
+            if "VSjet" in discr:
+                arg_down = arg_list + ("down", "pt")
+            else:
+                arg_down = arg_list + ("down",)
+            DT_do_list.append(
+                ak.where(
+                    ~tau_mask_flat,
+                    1,
+                    ceval[discr].evaluate(*arg_down)
+                )
             )
-        )
 
         DT_sf_flat = None
         DT_up_flat = None
