@@ -739,7 +739,7 @@ def ApplyTESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
                 ak.to_numpy((flat_pt[whereFlag])),
                 ak.to_numpy((flat_eta[whereFlag])),
                 ak.to_numpy((flat_dm[whereFlag])),
-                1,
+                ak.to_numpy((flat_gen[whereFlag])),
                 "DeepTau2018v2p5",
                 vsJetWP,
                 "VVLoose",
