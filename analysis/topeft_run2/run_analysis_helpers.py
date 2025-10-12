@@ -14,7 +14,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
-import yaml
+try:  # pragma: no cover - optional dependency
+    import yaml
+except ImportError:  # pragma: no cover
+    yaml = None  # type: ignore
 
 try:  # pragma: no cover - typing import for static analyzers only
     import argparse
@@ -353,6 +356,8 @@ class RunConfigBuilder:
                 setattr(config, field_name, coerced)
 
         if options_path:
+            if yaml is None:
+                raise ImportError("PyYAML is required to load options from a file")
             with open(options_path, "r") as handle:
                 options = yaml.safe_load(handle) or {}
             if not isinstance(options, Mapping):
