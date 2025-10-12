@@ -715,24 +715,26 @@ def ApplyTESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
         dmFlag = ((flat_dm==0) | (flat_dm==1) | (flat_dm==10) | (flat_dm==11))
         whereFlag = kinFlag & dmFlag
 
-        flat_all_pt = ak.flatten(pt, axis=1)
+        flat_all_pt = ak.flatten(ak.fill_none(pt, 0.0), axis=1)
         full_tes_syst = np.ones_like(flat_all_pt, dtype=np.float32)
         indices = np.nonzero(ak.to_numpy(whereFlag))[0]
 
-        tes_syst_values = corr.evaluate(
-            ak.to_numpy((flat_pt[whereFlag])),
-            ak.to_numpy((flat_eta[whereFlag])),
-            ak.to_numpy((flat_dm[whereFlag])),
-            1,
-            "DeepTau2018v2p5",
-            vsJetWP,
-            "VVLoose",
-            syst
+        if len(indices) > 0:
+            tes_syst_values = corr.evaluate(
+                ak.to_numpy((flat_pt[whereFlag])),
+                ak.to_numpy((flat_eta[whereFlag])),
+                ak.to_numpy((flat_dm[whereFlag])),
+                1,
+                "DeepTau2018v2p5",
+                vsJetWP,
+                "VVLoose",
+                syst
             )
 
+            full_tes_syst = ak.to_numpy(full_tes_syst)
+            full_tes_syst[indices] = tes_syst_values
+
         counts = ak.num(pt,axis=1)
-        full_tes_syst = ak.to_numpy(full_tes_syst)
-        full_tes_syst[indices] = tes_syst_values
         tes_syst = ak.unflatten(full_tes_syst, counts)
 
     return (taus.pt*tes_syst, taus.mass*tes_syst)
@@ -784,23 +786,26 @@ def ApplyFESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
         dmFlag = ((flat_dm==0) | (flat_dm==1))
         whereFlag = kinFlag & dmFlag
 
-        flat_all_pt = ak.flatten(pt, axis=1)
+        flat_all_pt = ak.flatten(ak.fill_none(pt, 0.0), axis=1)
         full_fes_syst = np.ones_like(flat_all_pt, dtype=np.float32)
         indices = np.nonzero(ak.to_numpy(whereFlag))[0]
 
-        fes_syst_values = corr.evaluate(
-            ak.to_numpy((flat_pt[whereFlag])),
-            ak.to_numpy((flat_eta[whereFlag])),
-            ak.to_numpy((flat_dm[whereFlag])),
-            1,
-            "DeepTau2018v2p5",
-            vsJetWP,
-            "VVLoose",
-            syst
+        if len(indices) > 0:
+            fes_syst_values = corr.evaluate(
+                ak.to_numpy((flat_pt[whereFlag])),
+                ak.to_numpy((flat_eta[whereFlag])),
+                ak.to_numpy((flat_dm[whereFlag])),
+                1,
+                "DeepTau2018v2p5",
+                vsJetWP,
+                "VVLoose",
+                syst
             )
+
+            full_fes_syst = ak.to_numpy(full_fes_syst)
+            full_fes_syst[indices] = fes_syst_values
+
         counts = ak.num(pt,axis=1)
-        full_fes_syst = ak.to_numpy(full_fes_syst)
-        full_fes_syst[indices] = fes_syst_values
         fes_syst = ak.unflatten(full_fes_syst, counts)
 
     return (taus.pt*fes_syst, taus.mass*fes_syst)
