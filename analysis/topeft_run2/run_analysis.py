@@ -9,7 +9,14 @@ from typing import Sequence
 
 from run_analysis_helpers import RunConfigBuilder
 
-from .workflow import run_workflow
+if __package__ in (None, ""):
+    import pathlib
+    import sys
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+    from analysis.topeft_run2.workflow import run_workflow
+else:
+    from .workflow import run_workflow
 
 
 def build_parser() -> argparse.ArgumentParser:
