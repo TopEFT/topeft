@@ -71,7 +71,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
     - The same SR/CR presets are now available through
       `analysis/topeft_run2/configs/fullR2_run.yml`.  Load them directly with::
 
-          python run_analysis.py --options analysis/topeft_run2/configs/fullR2_run.yml
+          python run_analysis.py --options configs/fullR2_run.yml
 
       By default this launches the control-region job (matching the script).
       Add `--options-profile sr` to switch to the signal-region inputs, or pass
