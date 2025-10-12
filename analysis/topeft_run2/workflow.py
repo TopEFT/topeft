@@ -539,7 +539,7 @@ class RunWorkflow:
     def run(self) -> None:
         from topeft.modules.systematics import SystematicsHelper
         from topcoffea.modules.paths import topcoffea_path
-        import analysis_processor
+        from . import analysis_processor
 
         self._validate_config()
 
