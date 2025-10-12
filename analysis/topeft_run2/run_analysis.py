@@ -6,9 +6,8 @@ import time
 import cloudpickle
 import gzip
 import os
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Mapping, Tuple
+import warnings
+from typing import Any, Dict, List, Optional, Mapping, Tuple
 
 import yaml
 
@@ -27,410 +26,16 @@ from topeft.modules.systematics import SystematicsHelper
 from topeft.modules.channel_metadata import ChannelMetadataHelper
 import analysis_processor
 
+from run_analysis_helpers import (
+    DEFAULT_WEIGHT_VARIATIONS,
+    RunConfig,
+    RunConfigBuilder,
+    SampleLoader,
+    unique_preserving_order,
+    weight_variations_from_metadata,
+)
+
 LST_OF_KNOWN_EXECUTORS = ["futures", "work_queue", "taskvine"]
-
-WGT_VAR_LST = [
-    "nSumOfWeights_ISRUp",
-    "nSumOfWeights_ISRDown",
-    "nSumOfWeights_FSRUp",
-    "nSumOfWeights_FSRDown",
-    "nSumOfWeights_renormUp",
-    "nSumOfWeights_renormDown",
-    "nSumOfWeights_factUp",
-    "nSumOfWeights_factDown",
-    "nSumOfWeights_renormfactUp",
-    "nSumOfWeights_renormfactDown",
-]
-
-
-def _normalize_sequence(value: Any) -> List[str]:
-    """Flatten ``value`` into a list of strings."""
-
-    if value is None:
-        return []
-    if isinstance(value, (list, tuple, set)):
-        result: List[str] = []
-        for item in value:
-            result.extend(_normalize_sequence(item))
-        return result
-    return [str(value)]
-
-
-def _unique_preserving_order(values: Iterable[str]) -> List[str]:
-    """Return a list containing only the first occurrence of every value."""
-
-    seen = set()
-    result = []
-    for value in values:
-        if value in seen:
-            continue
-        seen.add(value)
-        result.append(value)
-    return result
-
-
-def _coerce_bool(value: Any) -> Optional[bool]:
-    """Convert ``value`` into a boolean if possible."""
-
-    if value is None or isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {"true", "1", "yes", "y"}:
-            return True
-        if normalized in {"false", "0", "no", "n"}:
-            return False
-    if isinstance(value, (int, float)):
-        return bool(value)
-    return bool(value)
-
-
-def _coerce_int(value: Any, allow_none: bool = False) -> Optional[int]:
-    """Convert ``value`` to an integer, optionally accepting ``None``."""
-
-    if value is None:
-        if allow_none:
-            return None
-        raise ValueError("Integer value required")
-    if isinstance(value, str):
-        stripped = value.strip()
-        if stripped == "":
-            if allow_none:
-                return None
-            raise ValueError("Integer value required")
-        return int(stripped)
-    return int(value)
-
-
-def _coerce_json_files(value: Any) -> List[str]:
-    """Normalize JSON file inputs to a list of paths."""
-
-    if value is None:
-        return []
-    if isinstance(value, str):
-        value = value.strip()
-        if not value:
-            return []
-        if "," in value:
-            tokens = [token for token in value.replace(" ", "").split(",") if token]
-            return tokens
-        return [value]
-    if isinstance(value, Iterable) and not isinstance(value, (bytes, bytearray)):
-        result: List[str] = []
-        for item in value:
-            result.extend(_coerce_json_files(item))
-        return result
-    return [str(value)]
-
-
-def collect_sample_configs(
-    json_files: Sequence[str], default_prefix: str
-) -> List[Tuple[Path, str]]:
-    """Expand JSON/CFG inputs into explicit sample specifications."""
-
-    def _expand_path(path: Path, prefix: str) -> List[Tuple[Path, str]]:
-        if path.is_dir():
-            return [
-                (json_path.resolve(strict=True), prefix)
-                for json_path in sorted(path.glob("*.json"))
-            ]
-        if path.suffix.lower() == ".cfg":
-            return _parse_cfg_file(path.resolve(strict=True), prefix)
-        if path.suffix.lower() == ".json":
-            return [(path.resolve(strict=True), prefix)]
-        raise ValueError(f"Unsupported input type: {path}")
-
-    def _parse_cfg_file(cfg_path: Path, starting_prefix: str) -> List[Tuple[Path, str]]:
-        entries: List[Tuple[Path, str]] = []
-        prefix = starting_prefix
-        with cfg_path.open() as stream:
-            for raw_line in stream:
-                stripped = raw_line.split("#", 1)[0].strip()
-                if not stripped:
-                    continue
-                for token in (segment.strip() for segment in stripped.split(",")):
-                    if not token:
-                        continue
-                    candidate = Path(token).expanduser()
-                    if not candidate.is_absolute():
-                        candidate = cfg_path.parent / candidate
-                    suffix = candidate.suffix.lower()
-                    if suffix == ".cfg":
-                        entries.extend(
-                            _parse_cfg_file(candidate.resolve(strict=True), prefix)
-                        )
-                    elif suffix == ".json":
-                        entries.append((candidate.resolve(strict=True), prefix))
-                    elif candidate.exists():
-                        resolved = candidate.resolve(strict=True)
-                        if resolved.is_dir():
-                            entries.extend(_expand_path(resolved, prefix))
-                        else:
-                            entries.append((resolved, prefix))
-                    else:
-                        prefix = token
-        return entries
-
-    expanded: List[Tuple[Path, str]] = []
-    for json_file in json_files:
-        input_path = Path(json_file).expanduser()
-        if not input_path.is_absolute():
-            input_path = (Path.cwd() / input_path).resolve(strict=True)
-        else:
-            input_path = input_path.resolve(strict=True)
-        expanded.extend(_expand_path(input_path, default_prefix))
-    return expanded
-
-
-def load_samples(
-    sample_specs: Sequence[Tuple[Path, str]]
-) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, List[str]]]:
-    """Load JSON metadata and normalize numeric fields for each sample."""
-
-    samplesdict: Dict[str, Dict[str, Any]] = {}
-    flist: Dict[str, List[str]] = {}
-    for json_path, prefix in sample_specs:
-        prefix = prefix or ""
-        json_path = Path(json_path)
-        if not json_path.is_file():
-            raise FileNotFoundError(f"Input file {json_path} not found!")
-        sample_name = json_path.stem
-        with json_path.open() as jf:
-            sample_info = json.load(jf)
-        sample_info["redirector"] = prefix
-        files = list(sample_info.get("files", []))
-        sample_info["files"] = files
-        flist[sample_name] = [prefix + f for f in files]
-        sample_info["xsec"] = float(sample_info["xsec"])
-        sample_info["nEvents"] = int(sample_info["nEvents"])
-        sample_info["nGenEvents"] = int(sample_info["nGenEvents"])
-        sample_info["nSumOfWeights"] = float(sample_info["nSumOfWeights"])
-        if not sample_info.get("isData", False):
-            for wgt_var in WGT_VAR_LST:
-                if wgt_var in sample_info:
-                    sample_info[wgt_var] = float(sample_info[wgt_var])
-        samplesdict[sample_name] = sample_info
-    return samplesdict, flist
-
-
-def _coerce_optional_float(value: Any) -> Optional[float]:
-    """Return ``value`` as a float or ``None`` if unset."""
-
-    if value is None:
-        return None
-    if isinstance(value, str):
-        stripped = value.strip()
-        if stripped == "":
-            return None
-        return float(stripped)
-    return float(value)
-
-
-def _coerce_port(value: Any) -> str:
-    """Return a Work Queue port specification as ``min-max``."""
-
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value.strip()
-    if isinstance(value, Iterable):
-        ints = [str(_coerce_int(v, allow_none=False)) for v in value if v is not None]
-        if not ints:
-            return ""
-        if len(ints) == 1:
-            return ints[0]
-        return f"{ints[0]}-{ints[1]}"
-    return str(value)
-
-
-@dataclass
-class RunConfig:
-    """Normalized configuration for ``run_analysis.py``.
-
-    The dataclass captures every command-line option and its YAML alias after
-    type coercion. Values are seeded with the script defaults, then updated by
-    command-line arguments, and finally overridden by entries in the optional
-    YAML options file. The attributes mirror the existing local variables:
-
-    ``json_files``
-        Flattened list of input JSON/CFG paths from the positional argument or
-        ``jsonFiles`` YAML entry.
-    ``prefix``
-        Redirector/prefix applied when expanding file paths. Config files may
-        overwrite this during parsing.
-    ``executor``
-        Execution backend requested via ``--executor``. Validated against
-        :data:`LST_OF_KNOWN_EXECUTORS` before dispatch.
-    ``test``
-        Fast-test flag (``--test``) that triggers the runtime overrides for
-        ``nchunks``, ``chunksize`` and ``nworkers``.
-    ``pretend``
-        ``--pretend`` flag controlling whether the analysis exits after
-        inspecting the inputs.
-    ``nworkers``/``chunksize``/``nchunks``
-        Worker and chunking controls coerced to integers, with ``nchunks`` being
-        optional. ``--test`` mutates these fields downstream.
-    ``outname``/``outpath``
-        Output naming controls consumed when writing the pickled results.
-    ``treename``
-        Name of the tree to hand to coffea's runner.
-    ``do_errors`` and ``do_systs``
-        Booleans toggling covariance output and systematic processing.
-    ``split_lep_flavor``
-        Controls the flavor splitting logic in histogram key construction.
-    ``scenario_names``/``channel_feature_tags``
-        Scenario selection and feature tags resolved via metadata helpers. Empty
-        scenarios default to ``["TOP_22_006"]`` for backward compatibility.
-    ``skip_sr``/``skip_cr``
-        Region filters inherited by all channel lookups.
-    ``do_np``/``do_renormfact_envelope``
-        Post-processing toggles. ``do_renormfact_envelope`` remains dependent on
-        both ``do_systs`` and ``do_np`` as enforced in the main routine.
-    ``wc_list``
-        Normalized list of Wilson coefficients, extended from the sample
-        metadata when not explicitly provided.
-    ``port``
-        Work Queue port range stored as ``min-max`` string; converted to an
-        integer range when the backend requires it.
-    ``ecut``
-        Optional floating energy threshold applied during processor
-        instantiation.
-    """
-
-    json_files: List[str] = field(default_factory=list)
-    prefix: str = ""
-    executor: str = "work_queue"
-    test: bool = False
-    pretend: bool = False
-    nworkers: int = 8
-    chunksize: int = 100000
-    nchunks: Optional[int] = None
-    outname: str = "plotsTopEFT"
-    outpath: str = "histos"
-    treename: str = "Events"
-    do_errors: bool = False
-    do_systs: bool = False
-    split_lep_flavor: bool = False
-    scenario_names: List[str] = field(default_factory=list)
-    channel_feature_tags: List[str] = field(default_factory=list)
-    skip_sr: bool = False
-    skip_cr: bool = False
-    do_np: bool = False
-    do_renormfact_envelope: bool = False
-    wc_list: List[str] = field(default_factory=list)
-    port: str = "9123-9130"
-    ecut: Optional[float] = None
-
-
-def build_run_config(
-    args: argparse.Namespace,
-    defaults: argparse.Namespace,
-    options_path: Optional[str],
-) -> RunConfig:
-    """Return a fully merged :class:`RunConfig` instance.
-
-    Parameters
-    ----------
-    args
-        Parsed command-line arguments produced by ``argparse``.
-    defaults
-        Namespace containing the ``argparse`` default values. Used to detect
-        which command-line options were explicitly provided by the user so
-        they can take precedence over YAML overrides.
-    options_path
-        Path to a YAML file containing option overrides. When provided, values
-        from the YAML file override the script defaults, while command-line
-        arguments explicitly provided by the user take precedence over both the
-        defaults and the YAML configuration.
-    """
-
-    config = RunConfig()
-
-    field_specs: Dict[str, Any] = {
-        "jsonFiles": ("json_files", _coerce_json_files),
-        "json_files": ("json_files", _coerce_json_files),
-        "prefix": ("prefix", lambda v: "" if v is None else str(v)),
-        "executor": ("executor", lambda v: "" if v is None else str(v)),
-        "test": ("test", _coerce_bool),
-        "pretend": ("pretend", _coerce_bool),
-        "nworkers": ("nworkers", lambda v: _coerce_int(v, allow_none=False)),
-        "chunksize": ("chunksize", lambda v: _coerce_int(v, allow_none=False)),
-        "nchunks": ("nchunks", lambda v: _coerce_int(v, allow_none=True)),
-        "outname": ("outname", lambda v: "" if v is None else str(v)),
-        "outpath": ("outpath", lambda v: "" if v is None else str(v)),
-        "treename": ("treename", lambda v: "" if v is None else str(v)),
-        "do_errors": ("do_errors", _coerce_bool),
-        "do_systs": ("do_systs", _coerce_bool),
-        "split_lep_flavor": ("split_lep_flavor", _coerce_bool),
-        "scenarios": ("scenario_names", _normalize_sequence),
-        "channel_features": ("channel_feature_tags", _normalize_sequence),
-        "skip_sr": ("skip_sr", _coerce_bool),
-        "skip_cr": ("skip_cr", _coerce_bool),
-        "do_np": ("do_np", _coerce_bool),
-        "do_renormfact_envelope": ("do_renormfact_envelope", _coerce_bool),
-        "wc_list": ("wc_list", _normalize_sequence),
-        "ecut": ("ecut", _coerce_optional_float),
-        "port": ("port", _coerce_port),
-    }
-
-    def _apply_source(source: Dict[str, Any]):
-        for key, value in source.items():
-            if key not in field_specs:
-                continue
-            field_name, coercer = field_specs[key]
-            coerced = coercer(value)
-            setattr(config, field_name, coerced)
-
-    if options_path:
-        with open(options_path, "r") as handle:
-            options = yaml.safe_load(handle) or {}
-        if not isinstance(options, dict):
-            raise TypeError("Options YAML must define a mapping of overrides")
-        _apply_source(options)
-
-    cli_attr_map = {
-        "jsonFiles": "jsonFiles",
-        "prefix": "prefix",
-        "executor": "executor",
-        "test": "test",
-        "pretend": "pretend",
-        "nworkers": "nworkers",
-        "chunksize": "chunksize",
-        "nchunks": "nchunks",
-        "outname": "outname",
-        "outpath": "outpath",
-        "treename": "treename",
-        "do_errors": "do_errors",
-        "do_systs": "do_systs",
-        "split_lep_flavor": "split_lep_flavor",
-        "scenarios": "scenarios",
-        "channel_features": "channel_features",
-        "skip_sr": "skip_sr",
-        "skip_cr": "skip_cr",
-        "do_np": "do_np",
-        "do_renormfact_envelope": "do_renormfact_envelope",
-        "wc_list": "wc_list",
-        "ecut": "ecut",
-        "port": "port",
-    }
-
-    cli_values: Dict[str, Any] = {}
-    for key, attr_name in cli_attr_map.items():
-        if not hasattr(args, attr_name):
-            continue
-        current_value = getattr(args, attr_name)
-        default_value = getattr(defaults, attr_name, None)
-        if current_value != default_value:
-            cli_values[key] = current_value
-
-    _apply_source(cli_values)
-
-    config.scenario_names = _unique_preserving_order(config.scenario_names)
-    if not config.scenario_names:
-        config.scenario_names = ["TOP_22_006"]
-    config.channel_feature_tags = _unique_preserving_order(config.channel_feature_tags)
-    config.wc_list = _unique_preserving_order(config.wc_list)
-    return config
 
 
 def resolve_channel_groups(
@@ -844,7 +449,8 @@ if __name__ == "__main__":
 
     parser_defaults = parser.parse_args([])
     args = parser.parse_args()
-    config = build_run_config(args, parser_defaults, args.options)
+    config_builder = RunConfigBuilder(parser_defaults)
+    config = config_builder.build(args, args.options)
 
     # Check if we have valid options
     if config.executor not in LST_OF_KNOWN_EXECUTORS:
@@ -891,12 +497,32 @@ if __name__ == "__main__":
             # convert single values into a range of one element
             port.append(port[0])
 
+    metadata_path = topeft_path("params/metadata.yml")
+    with open(metadata_path, "r") as f:
+        metadata = yaml.safe_load(f) or {}
+
+    weight_variations = weight_variations_from_metadata(metadata, DEFAULT_WEIGHT_VARIATIONS)
+    missing_default_variations = [
+        variation
+        for variation in DEFAULT_WEIGHT_VARIATIONS
+        if variation not in weight_variations
+    ]
+    if missing_default_variations and config.do_systs:
+        warnings.warn(
+            "Default sum-of-weights variations will not be processed: "
+            + ", ".join(missing_default_variations),
+            RuntimeWarning,
+        )
+
     ### Load samples from json
-    sample_specs = collect_sample_configs(config.json_files, config.prefix)
-    samplesdict, flist = load_samples(sample_specs)
+    sample_loader = SampleLoader(
+        default_prefix=config.prefix, weight_variables=weight_variations
+    )
+    sample_specs = sample_loader.collect(config.json_files)
+    samplesdict, flist = sample_loader.load(sample_specs)
     for sample_name, sample_info in samplesdict.items():
         if not sample_info.get("isData", False) and config.do_systs:
-            for wgt_var in WGT_VAR_LST:
+            for wgt_var in weight_variations:
                 if wgt_var not in sample_info:
                     raise Exception(f'Missing weight variation "{wgt_var}".')
 
@@ -915,7 +541,7 @@ if __name__ == "__main__":
         # print("   - nGenEvents   : %i" % samplesdict[sname]["nGenEvents"])
         # print("   - SumWeights   : %i" % samplesdict[sname]["nSumOfWeights"])
         # if not samplesdict[sname]["isData"]:
-        #     for wgt_var in WGT_VAR_LST:
+        #     for wgt_var in weight_variations:
         #         if wgt_var in samplesdict[sname]:
         #             print(f"   - {wgt_var}: {samplesdict[sname][wgt_var]}")
         # print("   - Prefix       : %s" % samplesdict[sname]["redirector"])
@@ -945,10 +571,6 @@ if __name__ == "__main__":
             print("Wilson Coefficients: {}.".format(wc_print))
     else:
         print("No Wilson coefficients specified")
-
-    metadata_path = topeft_path("params/metadata.yml")
-    with open(metadata_path, "r") as f:
-        metadata = yaml.safe_load(f)
 
     golden_jsons = metadata.get("golden_jsons", {}) if metadata else {}
     if not golden_jsons:
@@ -1000,7 +622,7 @@ if __name__ == "__main__":
         required_features=config.channel_feature_tags,
     )
 
-    hist_lst: List[str] = _unique_preserving_order(var_defs.keys())
+    hist_lst: List[str] = unique_preserving_order(var_defs.keys())
     if not hist_lst:
         raise ValueError("Histogram selection resolved to an empty list")
 
