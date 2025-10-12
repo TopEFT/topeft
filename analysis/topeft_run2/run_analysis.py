@@ -1009,7 +1009,8 @@ if __name__ == "__main__":
         required_features=config.channel_feature_tags,
     )
 
-    hist_list_request = config.hist_list or []
+    hist_list_request = config.hist_list
+    using_default_hist_list = not hist_list_request
     if hist_list_request:
         hist_lst = list(hist_list_request)
     else:
@@ -1029,17 +1030,33 @@ if __name__ == "__main__":
         )
 
     incompatible_variables: List[str] = []
+    filtered_histograms: List[str] = []
     for var in hist_lst:
         required_features = VARIABLE_FEATURE_REQUIREMENTS.get(var)
         if not required_features:
+            filtered_histograms.append(var)
             continue
         missing_features = [
             feature for feature in required_features if feature not in active_channel_features
         ]
         if missing_features:
+            if using_default_hist_list:
+                print(
+                    "Skipping histogram '",
+                    var,
+                    "' because it requires inactive channel features: ",
+                    ", ".join(sorted(required_features)),
+                    sep="",
+                )
+                continue
             incompatible_variables.append(
                 f"{var} (requires: {', '.join(sorted(required_features))})"
             )
+            continue
+        filtered_histograms.append(var)
+
+    if using_default_hist_list:
+        hist_lst = filtered_histograms
 
     if incompatible_variables:
         raise ValueError(
@@ -1047,6 +1064,9 @@ if __name__ == "__main__":
             "channel features: "
             + "; ".join(incompatible_variables)
         )
+
+    if not hist_lst:
+        raise ValueError("Histogram selection resolved to an empty list")
 
     var_lst = hist_lst
 
