@@ -327,6 +327,8 @@ class HistogramPlanner:
         channel_map_mc = self._channel_planner.channel_app_map(is_data=False)
         channel_map_data = self._channel_planner.channel_app_map(is_data=True)
 
+        analysis_processor_module = None
+
         for sample, sample_info in samplesdict.items():
             ch_map = channel_map_data if sample_info.get("isData") else channel_map_mc
             grouped_variations = systematics_helper.grouped_variations_for_sample(
@@ -361,6 +363,10 @@ class HistogramPlanner:
 
                         flavored_channel_names: Tuple[str, ...] = ()
                         if self._config.split_lep_flavor:
+                            if analysis_processor_module is None:
+                                from . import (
+                                    analysis_processor as analysis_processor_module,
+                                )
                             flavored_candidates: List[str] = []
                             lep_flavors = channel_metadata.get("lep_flav_lst") or []
                             lep_chan_defs = channel_metadata.get("chan_def_lst") or []
@@ -370,7 +376,7 @@ class HistogramPlanner:
                                 for lep_flavor in lep_flavors:
                                     if not lep_flavor:
                                         continue
-                                    flavored_name = analysis_processor.construct_cat_name(
+                                    flavored_name = analysis_processor_module.construct_cat_name(
                                         lep_base,
                                         njet_str=jet_selection,
                                         flav_str=lep_flavor,
