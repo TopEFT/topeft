@@ -651,8 +651,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 jets_bc    = goodJets[bc_mask]
 
                 if is_run2:
-                    btag_method_bc    = "deepJet_comb"
-                    btag_method_light = "deepJet_incl"
+                    btagName = "deepJet"
+                    suffix_bc = "comb"
+                    suffix_light = "incl"
+                    btag_method_bc    = f"{btagName}_{suffix_bc}"
+                    btag_method_light = f"{btagName}_{suffix_light}"
                 elif is_run3:
                     if btagAlgo == "btagDeepFlavB":
                         btagName = "deepJet"
