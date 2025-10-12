@@ -25,6 +25,8 @@ from .run_analysis_helpers import (
     weight_variations_from_metadata,
 )
 
+DEFAULT_SCENARIO_NAME = "TOP_22_006"
+
 if TYPE_CHECKING:  # pragma: no cover - used only for type checking
     from topeft.modules.channel_metadata import ChannelMetadataHelper
     from topeft.modules.systematics import SystematicsHelper
@@ -772,6 +774,11 @@ def run_workflow(config: RunConfig) -> None:
         raise ValueError("Channel metadata is missing from params/metadata.yml")
 
     channel_helper = ChannelMetadataHelper(channels_metadata)
+    scenario_names = unique_preserving_order(config.scenario_names)
+    if not scenario_names:
+        scenario_names = [DEFAULT_SCENARIO_NAME]
+    config.scenario_names = list(scenario_names)
+
     channel_planner = ChannelPlanner(
         channel_helper,
         skip_sr=config.skip_sr,
