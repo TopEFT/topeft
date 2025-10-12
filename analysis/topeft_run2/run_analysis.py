@@ -7,7 +7,8 @@ import cloudpickle
 import gzip
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Mapping
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Mapping, Tuple
 
 import yaml
 
@@ -120,6 +121,96 @@ def _coerce_json_files(value: Any) -> List[str]:
             result.extend(_coerce_json_files(item))
         return result
     return [str(value)]
+
+
+def collect_sample_configs(
+    json_files: Sequence[str], default_prefix: str
+) -> List[Tuple[Path, str]]:
+    """Expand JSON/CFG inputs into explicit sample specifications."""
+
+    def _expand_path(path: Path, prefix: str) -> List[Tuple[Path, str]]:
+        if path.is_dir():
+            return [
+                (json_path.resolve(strict=True), prefix)
+                for json_path in sorted(path.glob("*.json"))
+            ]
+        if path.suffix.lower() == ".cfg":
+            return _parse_cfg_file(path.resolve(strict=True), prefix)
+        if path.suffix.lower() == ".json":
+            return [(path.resolve(strict=True), prefix)]
+        raise ValueError(f"Unsupported input type: {path}")
+
+    def _parse_cfg_file(cfg_path: Path, starting_prefix: str) -> List[Tuple[Path, str]]:
+        entries: List[Tuple[Path, str]] = []
+        prefix = starting_prefix
+        with cfg_path.open() as stream:
+            for raw_line in stream:
+                stripped = raw_line.split("#", 1)[0].strip()
+                if not stripped:
+                    continue
+                for token in (segment.strip() for segment in stripped.split(",")):
+                    if not token:
+                        continue
+                    candidate = Path(token).expanduser()
+                    if not candidate.is_absolute():
+                        candidate = cfg_path.parent / candidate
+                    suffix = candidate.suffix.lower()
+                    if suffix == ".cfg":
+                        entries.extend(
+                            _parse_cfg_file(candidate.resolve(strict=True), prefix)
+                        )
+                    elif suffix == ".json":
+                        entries.append((candidate.resolve(strict=True), prefix))
+                    elif candidate.exists():
+                        resolved = candidate.resolve(strict=True)
+                        if resolved.is_dir():
+                            entries.extend(_expand_path(resolved, prefix))
+                        else:
+                            entries.append((resolved, prefix))
+                    else:
+                        prefix = token
+        return entries
+
+    expanded: List[Tuple[Path, str]] = []
+    for json_file in json_files:
+        input_path = Path(json_file).expanduser()
+        if not input_path.is_absolute():
+            input_path = (Path.cwd() / input_path).resolve(strict=True)
+        else:
+            input_path = input_path.resolve(strict=True)
+        expanded.extend(_expand_path(input_path, default_prefix))
+    return expanded
+
+
+def load_samples(
+    sample_specs: Sequence[Tuple[Path, str]]
+) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, List[str]]]:
+    """Load JSON metadata and normalize numeric fields for each sample."""
+
+    samplesdict: Dict[str, Dict[str, Any]] = {}
+    flist: Dict[str, List[str]] = {}
+    for json_path, prefix in sample_specs:
+        prefix = prefix or ""
+        json_path = Path(json_path)
+        if not json_path.is_file():
+            raise FileNotFoundError(f"Input file {json_path} not found!")
+        sample_name = json_path.stem
+        with json_path.open() as jf:
+            sample_info = json.load(jf)
+        sample_info["redirector"] = prefix
+        files = list(sample_info.get("files", []))
+        sample_info["files"] = files
+        flist[sample_name] = [prefix + f for f in files]
+        sample_info["xsec"] = float(sample_info["xsec"])
+        sample_info["nEvents"] = int(sample_info["nEvents"])
+        sample_info["nGenEvents"] = int(sample_info["nGenEvents"])
+        sample_info["nSumOfWeights"] = float(sample_info["nSumOfWeights"])
+        if not sample_info.get("isData", False):
+            for wgt_var in WGT_VAR_LST:
+                if wgt_var in sample_info:
+                    sample_info[wgt_var] = float(sample_info[wgt_var])
+        samplesdict[sample_name] = sample_info
+    return samplesdict, flist
 
 
 def _coerce_optional_float(value: Any) -> Optional[float]:
@@ -801,83 +892,15 @@ if __name__ == "__main__":
             port.append(port[0])
 
     ### Load samples from json
-    samplesdict = {}
-    allInputFiles = []
-
-    def LoadJsonToSampleName(jsonFile, prefix):
-        sampleName = (
-            jsonFile if not "/" in jsonFile else jsonFile[jsonFile.rfind("/") + 1 :]
-        )
-        if sampleName.endswith(".json"):
-            sampleName = sampleName[:-5]
-        with open(jsonFile) as jf:
-            samplesdict[sampleName] = json.load(jf)
-            samplesdict[sampleName]["redirector"] = prefix
-
-    json_files = config.json_files
-    prefix = config.prefix
-
-    for jsonFile in json_files:
-        if os.path.isdir(jsonFile):
-            if not jsonFile.endswith("/"):
-                jsonFile += "/"
-            for f in os.path.listdir(jsonFile):
-                if f.endswith(".json"):
-                    allInputFiles.append(jsonFile + f)
-        else:
-            allInputFiles.append(jsonFile)
-
-    # Read from cfg files
-    for f in allInputFiles:
-        if not os.path.isfile(f):
-            raise Exception(f"[ERROR] Input file {f} not found!")
-        # This input file is a json file, not a cfg
-        if f.endswith(".json"):
-            LoadJsonToSampleName(f, prefix)
-        # Open cfg files
-        else:
-            with open(f) as fin:
-                print(" >> Reading json from cfg file...")
-                lines = fin.readlines()
-                for l in lines:
-                    if "#" in l:
-                        l = l[: l.find("#")]
-                    l = l.replace(" ", "").replace("\n", "")
-                    if l == "":
-                        continue
-                    if "," in l:
-                        l = l.split(",")
-                        for nl in l:
-                            if not os.path.isfile(l):
-                                prefix = nl
-                            else:
-                                LoadJsonToSampleName(nl, prefix)
-                    else:
-                        if not os.path.isfile(l):
-                            prefix = l
-                        else:
-                            LoadJsonToSampleName(l, prefix)
-
-    flist = {}
-    nevts_total = 0
-    for sname in samplesdict.keys():
-        samplesdict[sname]["files"] = samplesdict[sname]["files"]  # [0:1]
-        redirector = samplesdict[sname]["redirector"]
-        flist[sname] = [(redirector + f) for f in samplesdict[sname]["files"]]
-        samplesdict[sname]["year"] = samplesdict[sname]["year"]
-        samplesdict[sname]["xsec"] = float(samplesdict[sname]["xsec"])
-        samplesdict[sname]["nEvents"] = int(samplesdict[sname]["nEvents"])
-        nevts_total += samplesdict[sname]["nEvents"]
-        samplesdict[sname]["nGenEvents"] = int(samplesdict[sname]["nGenEvents"])
-        samplesdict[sname]["nSumOfWeights"] = float(samplesdict[sname]["nSumOfWeights"])
-        if not samplesdict[sname]["isData"]:
+    sample_specs = collect_sample_configs(config.json_files, config.prefix)
+    samplesdict, flist = load_samples(sample_specs)
+    for sample_name, sample_info in samplesdict.items():
+        if not sample_info.get("isData", False) and config.do_systs:
             for wgt_var in WGT_VAR_LST:
-                # Check that MC samples have all needed weight sums (only needed if doing systs)
-                if config.do_systs:
-                    if wgt_var not in samplesdict[sname]:
-                        raise Exception(f'Missing weight variation "{wgt_var}".')
-                    else:
-                        samplesdict[sname][wgt_var] = float(samplesdict[sname][wgt_var])
+                if wgt_var not in sample_info:
+                    raise Exception(f'Missing weight variation "{wgt_var}".')
+
+    nevts_total = sum(sample["nEvents"] for sample in samplesdict.values())
         # # Print file info
         # print(">> " + sname)
         # print(
