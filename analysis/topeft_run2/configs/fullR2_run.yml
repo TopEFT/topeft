@@ -1,0 +1,39 @@
+# Preset configurations for the Run 2 SR/CR histogram production.
+#
+# The `defaults` section captures shared options, while individual profiles
+# enumerate the overrides needed for a specific job type.  Select a profile at
+# runtime with `python run_analysis.py --options this_file.yml --options-profile cr`.
+# Command-line arguments still take precedence over both the defaults and the
+# profile entries, matching the behavior of `fullR2_run.sh`.
+---
+defaults:
+  # Common EFT configuration shared across SR/CR jobs.
+  do_systs: true
+  wc_list:
+    - ctG
+
+  # The base label used for output files.  Profiles append their own suffixes.
+  outname: refact_250901_c1
+
+default_profile: cr
+
+profiles:
+  sr:
+    description: Signal region histogram production (skip control regions).
+    jsonFiles:
+      - ../../input_samples/cfgs/mc_signal_samples_NDSkim.cfg
+      - ../../input_samples/cfgs/mc_background_samples_NDSkim.cfg
+      - ../../input_samples/cfgs/data_samples_NDSkim.cfg
+    skip_cr: true
+    outname: refact_250901_c1_SRs
+
+  cr:
+    description: Control region histogram production (skip signal regions).
+    jsonFiles:
+      - ../../input_samples/cfgs/mc_background_samples_cr_NDSkim.cfg
+    skip_sr: true
+    split_lep_flavor: true
+    executor: futures
+    chunksize: 50
+    nchunks: 1
+    outname: refact_250901_c1_CRs
