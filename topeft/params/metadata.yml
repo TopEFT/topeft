@@ -54,6 +54,8 @@ channels:
           histogram_variables:
             exclude:
               - ptz
+              - ptz_wtau
+              - tau0pt
           application_tags:
             mc:
               - isSR_2lSS
@@ -72,11 +74,19 @@ channels:
               subchannel: 3l_onZ
               tags:
                 - bmask_exactly1m
+              histogram_variables:
+                exclude:
+                  - ptz_wtau
+                  - tau0pt
             - name: 3l_onZ_2b
               channel: 3l
               subchannel: 3l_onZ
               tags:
                 - bmask_atleast2m
+              histogram_variables:
+                exclude:
+                  - ptz_wtau
+                  - tau0pt
             - name: 3l_m_offZ_1b
               channel: 3l_m
               subchannel: 3l_offZ
@@ -85,6 +95,8 @@ channels:
               histogram_variables:
                 exclude:
                   - ptz
+                  - ptz_wtau
+                  - tau0pt
             - name: 3l_m_offZ_2b
               channel: 3l_m
               subchannel: 3l_offZ
@@ -93,6 +105,8 @@ channels:
               histogram_variables:
                 exclude:
                   - ptz
+                  - ptz_wtau
+                  - tau0pt
             - name: 3l_p_offZ_1b
               channel: 3l_p
               subchannel: 3l_offZ
@@ -101,6 +115,8 @@ channels:
               histogram_variables:
                 exclude:
                   - ptz
+                  - ptz_wtau
+                  - tau0pt
             - name: 3l_p_offZ_2b
               channel: 3l_p
               subchannel: 3l_offZ
@@ -109,6 +125,8 @@ channels:
               histogram_variables:
                 exclude:
                   - ptz
+                  - ptz_wtau
+                  - tau0pt
           jet_bins:
             - '=2'
             - '=3'
@@ -133,6 +151,8 @@ channels:
           histogram_variables:
             exclude:
               - ptz
+              - ptz_wtau
+              - tau0pt
           application_tags:
             mc:
               - isSR_4l
@@ -186,6 +206,8 @@ channels:
           histogram_variables:
             exclude:
               - ptz
+              - ptz_wtau
+              - tau0pt
           application_tags:
             mc:
               - isSR_2lSS
@@ -212,9 +234,6 @@ channels:
                 - bmask_atleast1m2l
                 - 1tau
                 - offZ_tau
-              histogram_variables:
-                exclude:
-                  - ptz_wtau
             - name: 2lss_m_1tau_offZ
               channel: 2lss
               subchannel: 2l_m
@@ -222,9 +241,6 @@ channels:
                 - bmask_atleast1m2l
                 - 1tau
                 - offZ_tau
-              histogram_variables:
-                exclude:
-                  - ptz_wtau
             - name: 2lss_p_1tau_onZ
               channel: 2lss
               subchannel: 2l_p
@@ -260,9 +276,6 @@ channels:
                 - 2l_onZ
           jet_bins:
             - '>5'
-          histogram_variables:
-            exclude:
-              - ptz_wtau
           application_tags:
             mc:
               - isSR_2lOS
@@ -280,12 +293,20 @@ channels:
               tags:
                 - bmask_exactly1m
                 - 0tau
+              histogram_variables:
+                exclude:
+                  - ptz_wtau
+                  - tau0pt
             - name: 3l_onZ_2b
               channel: 3l
               subchannel: 3l_onZ
               tags:
                 - bmask_atleast2m
                 - 0tau
+              histogram_variables:
+                exclude:
+                  - ptz_wtau
+                  - tau0pt
             - name: 3l_m_offZ_1b
               channel: 3l_m
               subchannel: 3l_offZ
@@ -295,6 +316,8 @@ channels:
               histogram_variables:
                 exclude:
                   - ptz
+                  - ptz_wtau
+                  - tau0pt
             - name: 3l_m_offZ_2b
               channel: 3l_m
               subchannel: 3l_offZ
@@ -304,6 +327,8 @@ channels:
               histogram_variables:
                 exclude:
                   - ptz
+                  - ptz_wtau
+                  - tau0pt
             - name: 3l_p_offZ_1b
               channel: 3l_p
               subchannel: 3l_offZ
@@ -313,6 +338,8 @@ channels:
               histogram_variables:
                 exclude:
                   - ptz
+                  - ptz_wtau
+                  - tau0pt
             - name: 3l_p_offZ_2b
               channel: 3l_p
               subchannel: 3l_offZ
@@ -322,6 +349,8 @@ channels:
               histogram_variables:
                 exclude:
                   - ptz
+                  - ptz_wtau
+                  - tau0pt
             - name: 3l_1tau_1b
               tags:
                 - bmask_exactly1m
@@ -360,6 +389,8 @@ channels:
           histogram_variables:
             exclude:
               - ptz
+              - ptz_wtau
+              - tau0pt
           application_tags:
             mc:
               - isSR_4l
@@ -521,6 +552,10 @@ channels:
               histogram_variables:
                 exclude:
                   - ptz
+          histogram_variables:
+            exclude:
+              - ptz_wtau
+              - tau0pt
           jet_bins:
             - '=2'
             - '=3'
@@ -597,6 +632,8 @@ channels:
               - o0pt
               - b0pt
               - bl0pt
+              - ptz_wtau
+              - tau0pt
           application_tags:
             mc:
               - isSR_2lOS
@@ -695,6 +732,8 @@ channels:
           histogram_variables:
             exclude:
               - ptz
+              - ptz_wtau
+              - tau0pt
           application_tags:
             mc:
               - isSR_2lSS
@@ -758,6 +797,8 @@ channels:
           histogram_variables:
             exclude:
               - lt
+              - ptz_wtau
+              - tau0pt
           application_tags:
             mc:
               - isSR_3l
@@ -778,6 +819,8 @@ channels:
             exclude:
               - ptz
               - lt
+              - ptz_wtau
+              - tau0pt
           application_tags:
             mc:
               - isSR_4l
@@ -1045,214 +1088,214 @@ variables:
     - 1000
     label: '$m_{\ell\ell}$ (GeV) '
     definition: mll_0_1
-  # ptbl:
-  #   regular:
-  #   - 40
-  #   - 0
-  #   - 1000
-  #   variable:
-  #   - 0
-  #   - 100
-  #   - 200
-  #   - 400
-  #   label: '$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) '
-  #   definition: ak.flatten(ptbl)
-  # ptz:
-  #   regular:
-  #   - 12
-  #   - 0
-  #   - 600
-  #   variable:
-  #   - 0
-  #   - 200
-  #   - 300
-  #   - 400
-  #   - 500
-  #   label: '$p_{T}$ Z (GeV) '
-  #   definition: ptz
-  # njets:
-  #   regular:
-  #   - 10
-  #   - 0
-  #   - 10
-  #   variable_multi:
-  #     2l:
-  #     - 4
-  #     - 5
-  #     - 6
-  #     - 7
-  #     3l:
-  #     - 2
-  #     - 3
-  #     - 4
-  #     - 5
-  #     4l:
-  #     - 2
-  #     - 3
-  #     - 4
-  #   label: 'Jet multiplicity '
-  #   definition: njets
-  # nbtagsl:
-  #   regular:
-  #   - 5
-  #   - 0
-  #   - 5
-  #   label: 'Loose btag multiplicity '
-  #   definition: nbtagsl
-  # l0pt:
-  #   regular:
-  #   - 10
-  #   - 0
-  #   - 500
-  #   variable:
-  #   - 0
-  #   - 50
-  #   - 100
-  #   - 200
-  #   label: 'Leading lep $p_{T}$ (GeV) '
-  #   definition: l0.conept
-  # l1pt:
-  #   regular:
-  #   - 10
-  #   - 0
-  #   - 100
-  #   label: 'Subleading lep $p_{T}$ (GeV) '
-  #   definition: l1.conept
-  # l1eta:
-  #   regular:
-  #   - 20
-  #   - -2.5
-  #   - 2.5
-  #   label: 'Subleading $\eta$ '
-  #   definition: l1.eta
-  # j0pt:
-  #   regular:
-  #   - 10
-  #   - 0
-  #   - 500
-  #   label: 'Leading jet  $p_{T}$ (GeV) '
-  #   definition: ak.flatten(j0.pt)
-  # b0pt:
-  #   regular:
-  #   - 10
-  #   - 0
-  #   - 500
-  #   label: 'Leading b jet  $p_{T}$ (GeV) '
-  #   definition: ak.flatten(ptbl_bjet.pt)
-  # l0eta:
-  #   regular:
-  #   - 20
-  #   - -2.5
-  #   - 2.5
-  #   label: 'Leading lep $\eta$ '
-  #   definition: l0.eta
-  # j0eta:
-  #   regular:
-  #   - 30
-  #   - -3
-  #   - 3
-  #   label: 'Leading jet  $\eta$ '
-  #   definition: ak.flatten(j0.eta)
-  # ht:
-  #   regular:
-  #   - 20
-  #   - 0
-  #   - 1000
-  #   variable:
-  #   - 0
-  #   - 300
-  #   - 500
-  #   - 800
-  #   label: 'H$_{T}$ (GeV) '
-  #   definition: ht
-  # met:
-  #   regular:
-  #   - 20
-  #   - 0
-  #   - 400
-  #   label: MET (GeV)
-  #   definition: met.pt
-  # ljptsum:
-  #   regular:
-  #   - 11
-  #   - 0
-  #   - 1100
-  #   variable:
-  #   - 0
-  #   - 400
-  #   - 600
-  #   - 1000
-  #   label: 'S$_{T}$ (GeV) '
-  #   definition: ljptsum
-  # o0pt:
-  #   regular:
-  #   - 10
-  #   - 0
-  #   - 500
-  #   variable:
-  #   - 0
-  #   - 100
-  #   - 200
-  #   - 400
-  #   label: Leading l or b jet $p_{T}$ (GeV)
-  #   definition: o0pt
-  # bl0pt:
-  #   regular:
-  #   - 10
-  #   - 0
-  #   - 500
-  #   variable:
-  #   - 0
-  #   - 100
-  #   - 200
-  #   - 400
-  #   label: 'Leading (b+l) $p_{T}$ (GeV) '
-  #   definition: bl0pt
-  # lj0pt:
-  #   regular:
-  #   - 12
-  #   - 0
-  #   - 600
-  #   variable:
-  #   - 0
-  #   - 150
-  #   - 250
-  #   - 500
-  #   label: 'Leading pt of pair from l+j collection (GeV) '
-  #   definition: lj0pt
-  # ptz_wtau:
-  #   regular:
-  #   - 12
-  #   - 0
-  #   - 600
-  #   variable:
-  #   - 0
-  #   - 150
-  #   - 250
-  #   - 500
-  #   label: 'pt of lepton hadronic tau pair (GeV) '
-  #   definition: ptz_wtau
-  # tau0pt:
-  #   regular:
-  #   - 12
-  #   - 0
-  #   - 600
-  #   variable:
-  #   - 0
-  #   - 150
-  #   - 250
-  #   - 500
-  #   label: 'pt of leading hadronic tau (GeV) '
-  #   definition: tau0.pt
-  # lt:
-  #   regular:
-  #   - 12
-  #   - 0
-  #   - 600
-  #   variable:
-  #   - 0
-  #   - 150
-  #   - 250
-  #   - 500
-  #   label: Scalar sum of met at leading leptons (GeV)
-  #   definition: lt
+  ptbl:
+    regular:
+    - 40
+    - 0
+    - 1000
+    variable:
+    - 0
+    - 100
+    - 200
+    - 400
+    label: '$p_{T}^{b\mathrm{-}jet+\ell_{min(dR)}}$ (GeV) '
+    definition: ak.flatten(ptbl)
+  ptz:
+    regular:
+    - 12
+    - 0
+    - 600
+    variable:
+    - 0
+    - 200
+    - 300
+    - 400
+    - 500
+    label: '$p_{T}$ Z (GeV) '
+    definition: ptz
+  njets:
+    regular:
+    - 10
+    - 0
+    - 10
+    variable_multi:
+      2l:
+      - 4
+      - 5
+      - 6
+      - 7
+      3l:
+      - 2
+      - 3
+      - 4
+      - 5
+      4l:
+      - 2
+      - 3
+      - 4
+    label: 'Jet multiplicity '
+    definition: njets
+  nbtagsl:
+    regular:
+    - 5
+    - 0
+    - 5
+    label: 'Loose btag multiplicity '
+    definition: nbtagsl
+  l0pt:
+    regular:
+    - 10
+    - 0
+    - 500
+    variable:
+    - 0
+    - 50
+    - 100
+    - 200
+    label: 'Leading lep $p_{T}$ (GeV) '
+    definition: l0.conept
+  l1pt:
+    regular:
+    - 10
+    - 0
+    - 100
+    label: 'Subleading lep $p_{T}$ (GeV) '
+    definition: l1.conept
+  l1eta:
+    regular:
+    - 20
+    - -2.5
+    - 2.5
+    label: 'Subleading $\eta$ '
+    definition: l1.eta
+  j0pt:
+    regular:
+    - 10
+    - 0
+    - 500
+    label: 'Leading jet  $p_{T}$ (GeV) '
+    definition: ak.flatten(j0.pt)
+  b0pt:
+    regular:
+    - 10
+    - 0
+    - 500
+    label: 'Leading b jet  $p_{T}$ (GeV) '
+    definition: ak.flatten(ptbl_bjet.pt)
+  l0eta:
+    regular:
+    - 20
+    - -2.5
+    - 2.5
+    label: 'Leading lep $\eta$ '
+    definition: l0.eta
+  j0eta:
+    regular:
+    - 30
+    - -3
+    - 3
+    label: 'Leading jet  $\eta$ '
+    definition: ak.flatten(j0.eta)
+  ht:
+    regular:
+    - 20
+    - 0
+    - 1000
+    variable:
+    - 0
+    - 300
+    - 500
+    - 800
+    label: 'H$_{T}$ (GeV) '
+    definition: ht
+  met:
+    regular:
+    - 20
+    - 0
+    - 400
+    label: MET (GeV)
+    definition: met.pt
+  ljptsum:
+    regular:
+    - 11
+    - 0
+    - 1100
+    variable:
+    - 0
+    - 400
+    - 600
+    - 1000
+    label: 'S$_{T}$ (GeV) '
+    definition: ljptsum
+  o0pt:
+    regular:
+    - 10
+    - 0
+    - 500
+    variable:
+    - 0
+    - 100
+    - 200
+    - 400
+    label: Leading l or b jet $p_{T}$ (GeV)
+    definition: o0pt
+  bl0pt:
+    regular:
+    - 10
+    - 0
+    - 500
+    variable:
+    - 0
+    - 100
+    - 200
+    - 400
+    label: 'Leading (b+l) $p_{T}$ (GeV) '
+    definition: bl0pt
+  lj0pt:
+    regular:
+    - 12
+    - 0
+    - 600
+    variable:
+    - 0
+    - 150
+    - 250
+    - 500
+    label: 'Leading pt of pair from l+j collection (GeV) '
+    definition: lj0pt
+  ptz_wtau:
+    regular:
+    - 12
+    - 0
+    - 600
+    variable:
+    - 0
+    - 150
+    - 250
+    - 500
+    label: 'pt of lepton hadronic tau pair (GeV) '
+    definition: ptz_wtau
+  tau0pt:
+    regular:
+    - 12
+    - 0
+    - 600
+    variable:
+    - 0
+    - 150
+    - 250
+    - 500
+    label: 'pt of leading hadronic tau (GeV) '
+    definition: tau0.pt
+  lt:
+    regular:
+    - 12
+    - 0
+    - 600
+    variable:
+    - 0
+    - 150
+    - 250
+    - 500
+    label: Scalar sum of met at leading leptons (GeV)
+    definition: lt
