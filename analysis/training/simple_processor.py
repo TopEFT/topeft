@@ -4,11 +4,32 @@ import awkward as ak
 np.seterr(divide='ignore', invalid='ignore', over='ignore')
 from coffea import hist, processor
 from coffea.analysis_tools import PackedSelection
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional
 
 from topcoffea.modules.objects import *
 from topcoffea.modules.selection import *
 from topcoffea.modules.HistEFT import HistEFT
 import topcoffea.modules.eft_helper as efth
+
+
+@dataclass
+class ProcessingContext:
+    """Container carrying shared state between processing stages."""
+
+    events: Any
+    dataset: str
+    year: str
+    xsec: float
+    sow: float
+    is_data: bool
+    is_eft: bool
+    eft_coeffs: Optional[np.ndarray] = None
+    eft_w2_coeffs: Optional[np.ndarray] = None
+    selections: Optional[PackedSelection] = None
+    varnames: Dict[str, Any] = field(default_factory=dict)
+    hist_output: Any = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 class AnalysisProcessor(processor.ProcessorABC):
     def __init__(self, samples, wc_names_lst=[], do_errors=False, do_systematics=False, dtype=np.float32):
@@ -39,30 +60,59 @@ class AnalysisProcessor(processor.ProcessorABC):
 
     # Main function: run on a given dataset
     def process(self, events):
+        """Execute the full processing pipeline for a dataset."""
 
-        # Dataset parameters
-        dataset = events.metadata['dataset']
-        year   = self._samples[dataset]['year']
-        xsec   = self._samples[dataset]['xsec']
-        sow    = self._samples[dataset]['nSumOfWeights' ]
-        isData = self._samples[dataset]['isData']
+        context = self._prepare_context(events)
+        self._prepare_collections(context)
+        self._build_selections(context)
+        self._compute_weights(context)
+        self._fill_histograms(context)
+        return context.hist_output
+
+    def _prepare_context(self, events) -> ProcessingContext:
+        """Collect dataset-level metadata and EFT coefficients."""
+
+        dataset_key = events.metadata['dataset']
+        sample_info = self._samples[dataset_key]
+        dataset = dataset_key
+        year = sample_info['year']
+        xsec = sample_info['xsec']
+        sow = sample_info['nSumOfWeights']
+        is_data = sample_info['isData']
         datasets = ['SingleMuon', 'SingleElectron', 'EGamma', 'MuonEG', 'DoubleMuon', 'DoubleElectron']
         for d in datasets:
-            if d in dataset: dataset = dataset.split('_')[0]
+            if d in dataset:
+                dataset = dataset.split('_')[0]
 
-        # Extract the EFT quadratic coefficients and optionally use them to calculate the coefficients on the w**2 quartic function
-        # eft_coeffs is never Jagged so convert immediately to numpy for ease of use.
         eft_coeffs = ak.to_numpy(events['EFTfitCoefficients']) if hasattr(events, "EFTfitCoefficients") else None
         if eft_coeffs is not None:
-            # Check to see if the ordering of WCs for this sample matches what want
-            if self._samples[dataset]['WCnames'] != self._wc_names_lst:
-                eft_coeffs = efth.remap_coeffs(self._samples[dataset]['WCnames'], self._wc_names_lst, eft_coeffs)
-        eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs,self._dtype) if (self._do_errors and eft_coeffs is not None) else None
+            if sample_info['WCnames'] != self._wc_names_lst:
+                eft_coeffs = efth.remap_coeffs(sample_info['WCnames'], self._wc_names_lst, eft_coeffs)
+        eft_w2_coeffs = efth.calc_w2_coeffs(eft_coeffs, self._dtype) if (self._do_errors and eft_coeffs is not None) else None
 
-        # Initialize objects (GEN objects)
-        e = events.GenPart[abs(events.GenPart.pdgId)==11]
-        m = events.GenPart[abs(events.GenPart.pdgId)==13]
-        tau = events.GenPart[abs(events.GenPart.pdgId)==15]
+        context = ProcessingContext(
+            events=events,
+            dataset=dataset,
+            year=year,
+            xsec=xsec,
+            sow=sow,
+            is_data=is_data,
+            is_eft=sample_info['WCnames'] != [],
+            eft_coeffs=eft_coeffs,
+            eft_w2_coeffs=eft_w2_coeffs,
+            hist_output=self.accumulator.identity(),
+        )
+        context.metadata['dataset_key'] = dataset_key
+        return context
+
+    def _prepare_collections(self, context: ProcessingContext) -> None:
+        """Derive physics object collections and basic kinematic quantities."""
+
+        events = context.events
+
+        e = events.GenPart[abs(events.GenPart.pdgId) == 11]
+        m = events.GenPart[abs(events.GenPart.pdgId) == 13]
+        tau = events.GenPart[abs(events.GenPart.pdgId) == 15]
         j = events.GenJet
 
         run = events.run
@@ -70,25 +120,22 @@ class AnalysisProcessor(processor.ProcessorABC):
         event = events.event
 
         print("\n\nInfo about events:")
-        print("\trun:",run)
-        print("\tluminosityBlock:",luminosityBlock)
-        print("\tevent:",event)
+        print("\trun:", run)
+        print("\tluminosityBlock:", luminosityBlock)
+        print("\tevent:", event)
 
         print("\nLeptons before selection:")
-        print("\te pt",e.pt)
-        print("\te eta",e.eta)
-        print("\tm pt",m.pt)
-        print("\tm eta",m.eta)
+        print("\te pt", e.pt)
+        print("\te eta", e.eta)
+        print("\tm pt", m.pt)
+        print("\tm eta", m.eta)
 
-        ######## Lep selection  ########
-
-        e_selec = ( (e.pt>15) & (abs(e.eta)<2.5) )
-        m_selec = ( (m.pt>15) & (abs(m.eta)<2.5) )
+        e_selec = ((e.pt > 15) & (abs(e.eta) < 2.5))
+        m_selec = ((m.pt > 15) & (abs(m.eta) < 2.5))
         e = e[e_selec]
         m = m[m_selec]
 
-        # Put the e and mu togheter
-        l = ak.concatenate([e,m],axis=1)
+        l = ak.concatenate([e, m], axis=1)
 
         n_e = ak.num(e)
         n_m = ak.num(m)
@@ -96,71 +143,102 @@ class AnalysisProcessor(processor.ProcessorABC):
 
         at_least_two_leps = (n_l >= 2)
 
-        e0 = e[ak.argmax(e.pt,axis=-1,keepdims=True)]
-        m0 = m[ak.argmax(m.pt,axis=-1,keepdims=True)]
-        l0 = l[ak.argmax(l.pt,axis=-1,keepdims=True)]
+        e0 = e[ak.argmax(e.pt, axis=-1, keepdims=True)]
+        m0 = m[ak.argmax(m.pt, axis=-1, keepdims=True)]
+        l0 = l[ak.argmax(l.pt, axis=-1, keepdims=True)]
 
         print("\nLeptons after selection:")
-        print("\te pt",e.pt)
-        print("\tm pt",m.pt)
-        print("\tl pt:",l.pt)
+        print("\te pt", e.pt)
+        print("\tm pt", m.pt)
+        print("\tl pt:", l.pt)
         print("\tn e", n_e)
-        print("\tn m",n_m)
-        print("\tn l",n_l)
+        print("\tn m", n_m)
+        print("\tn l", n_l)
 
-        print("\nMask for at least two lep:",at_least_two_leps)
+        print("\nMask for at least two lep:", at_least_two_leps)
 
         print("\nLeading lepton info:")
-        print("\te0",e0.pt)
-        print("\tm0",m0.pt)
-        print("\tl0",l0.pt)
-
-        ######## Jet selection  ########
+        print("\te0", e0.pt)
+        print("\tm0", m0.pt)
+        print("\tl0", l0.pt)
 
         print("\nJet info:")
-        print("\tjpt before selection",j.pt)
+        print("\tjpt before selection", j.pt)
 
-        j_selec = ( (j.pt>30) & (abs(j.eta)<2.5) )
-        print("\tjselect",j_selec)
+        j_selec = ((j.pt > 30) & (abs(j.eta) < 2.5))
+        print("\tjselect", j_selec)
 
         j = j[j_selec]
-        print("\tjpt",j.pt)
+        print("\tjpt", j.pt)
 
-        j['isClean'] = isClean(j, e, drmin=0.4)& isClean(j, m, drmin=0.4)
+        j['isClean'] = isClean(j, e, drmin=0.4) & isClean(j, m, drmin=0.4)
         j_isclean = isClean(j, e, drmin=0.4) & isClean(j, m, drmin=0.4)
-        print("\tj is clean",j_isclean)
+        print("\tj is clean", j_isclean)
 
         j = j[j_isclean]
-        print("\tclean jets pt",j.pt)
+        print("\tclean jets pt", j.pt)
 
         n_j = ak.num(j)
-        print("\tn_j",n_j)
-        j0 = j[ak.argmax(j.pt,axis=-1,keepdims=True)]
+        print("\tn_j", n_j)
+        j0 = j[ak.argmax(j.pt, axis=-1, keepdims=True)]
 
-        print("\tj0pt",j0.pt)
+        print("\tj0pt", j0.pt)
 
         at_least_two_jets = (n_j >= 2)
-        print("\tat_least_two_jets",at_least_two_jets)
+        print("\tat_least_two_jets", at_least_two_jets)
 
-        ######## Selections and cuts ########
+        context.e = e
+        context.m = m
+        context.tau = tau
+        context.j = j
+        context.l = l
+        context.n_e = n_e
+        context.n_m = n_m
+        context.n_l = n_l
+        context.at_least_two_leps = at_least_two_leps
+        context.e0 = e0
+        context.m0 = m0
+        context.l0 = l0
+        context.n_j = n_j
+        context.j0 = j0
+        context.at_least_two_jets = at_least_two_jets
 
-        event_selec = (at_least_two_leps & at_least_two_jets)
-        print("\nEvent selection:",event_selec,"\n")
+    def _build_selections(self, context: ProcessingContext) -> None:
+        """Construct event selections and store them in the context."""
+
+        event_selec = (context.at_least_two_leps & context.at_least_two_jets)
+        print("\nEvent selection:", event_selec, "\n")
 
         selections = PackedSelection()
         selections.add('2l2j', event_selec)
 
-        varnames = {}
-        varnames['counts'] = np.ones_like(events.MET.pt)
-        varnames['njets'] = n_j
-        varnames['j0pt' ] = j0.pt
-        varnames['j0eta'] = j0.eta
-        varnames['l0pt' ] = l0.pt
+        context.selections = selections
+        context.event_selection = event_selec
 
-        ######## Fill histos ########
+    def _compute_weights(self, context: ProcessingContext) -> None:
+        """Populate variables to be histogrammed after selections."""
+
+        events = context.events
+        varnames: Dict[str, Any] = {}
+        varnames['counts'] = np.ones_like(events.MET.pt)
+        varnames['njets'] = context.n_j
+        varnames['j0pt'] = context.j0.pt
+        varnames['j0eta'] = context.j0.eta
+        varnames['l0pt'] = context.l0.pt
+
+        context.varnames = varnames
+
+    def _fill_histograms(self, context: ProcessingContext) -> None:
+        """Fill histograms using the prepared selections and variables."""
 
         print("\nFilling hists now...\n")
-        hout = self.accumulator.identity()
+        selections = context.selections
+        varnames = context.varnames
+        eft_coeffs = context.eft_coeffs
+        eft_w2_coeffs = context.eft_w2_coeffs
+        dataset = context.dataset
+        hout = context.hist_output
+
         for var, v in varnames.items():
             cut = selections.all("2l2j")
             values = v[cut]
@@ -177,7 +255,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             elif var == "l0pt":
                 hout[var].fill(l0pt=values, sample=dataset, channel="2l", cut="2l", eft_coeff=eft_coeffs_cut, eft_err_coeff=eft_w2_coeffs_cut)
 
-        return hout
+        context.hist_output = hout
 
     def postprocess(self, accumulator):
         return accumulator
