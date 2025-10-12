@@ -10,6 +10,7 @@ from .workflow import (
     normalize_jet_category,
     run_workflow,
 )
+from .quickstart import PreparedSamples, prepare_samples, run_quickstart
 
 __all__ = [
     "ChannelPlanner",
@@ -20,5 +21,8 @@ __all__ = [
     "RunWorkflow",
     "normalize_jet_category",
     "run_workflow",
+    "PreparedSamples",
+    "prepare_samples",
+    "run_quickstart",
 ]
 
