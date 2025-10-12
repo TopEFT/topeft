@@ -638,7 +638,7 @@ def ApplyTES(year, taus, isData, vsJetWP="Loose"):
         dmFlag = (flat_dm == 0) | (flat_dm == 1) | (flat_dm == 2) | (flat_dm == 10) | (flat_dm == 11)
         tes_whereFlag = kinFlag & dmFlag  # also flat
 
-        kinFlag = (flat_pt>20) & (flat_pt<205) & (flat_gen==5)
+        kinFlag = (flat_pt>20) & (flat_pt<205) & (flat_gen>=1) & (flat_gen<=4)
         dmFlag = ((flat_dm==0) | (flat_dm==1))
         fes_whereFlag = kinFlag & dmFlag  # also flat
         es_list.append(tes_whereFlag)
@@ -766,7 +766,7 @@ def ApplyFESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
         syst_lab += '_down'
 
     if is_run2:
-        kinFlag = (pt>20) & (pt<205) & (gen==5)
+        kinFlag = (pt>20) & (pt<205) & (gen>=1) & (gen<=4)
         dmFlag = ((taus.decayMode==0) | (taus.decayMode==1))
         whereFlag = kinFlag & dmFlag
 
@@ -782,7 +782,7 @@ def ApplyFESSystematic(year, taus, isData, syst_name, vsJetWP="Loose"):
         flat_dm  = ak.flatten(ak.fill_none(dm, -1), axis=1)
         flat_gen = ak.flatten(ak.fill_none(gen, 0), axis=1)
 
-        kinFlag = (flat_pt>20) & (flat_pt<205) & (flat_gen==5)
+        kinFlag = (flat_pt>20) & (flat_pt<205) & (flat_gen>=1) & (flat_gen<=4)
         dmFlag = ((flat_dm==0) | (flat_dm==1))
         whereFlag = kinFlag & dmFlag
 
