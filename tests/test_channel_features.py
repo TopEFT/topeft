@@ -1,4 +1,3 @@
-import ast
 from pathlib import Path
 
 import pytest
@@ -9,29 +8,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
+from analysis.topeft_run2.workflow import ChannelPlanner, normalize_jet_category
 from topeft.modules.channel_metadata import ChannelMetadataHelper
-
-_RUN_ANALYSIS_PATH = _REPO_ROOT / "analysis" / "topeft_run2" / "run_analysis.py"
-
-with _RUN_ANALYSIS_PATH.open("r", encoding="utf-8") as _run_analysis_file:
-    _RUN_ANALYSIS_SOURCE = _run_analysis_file.read()
-
-_RUN_ANALYSIS_AST = ast.parse(_RUN_ANALYSIS_SOURCE)
-
-_EXPORTED_FUNCTIONS = {}
-for node in _RUN_ANALYSIS_AST.body:
-    if isinstance(node, ast.FunctionDef) and node.name in {
-        "resolve_channel_groups",
-        "normalize_jet_category",
-        "build_channel_dict",
-    }:
-        _EXPORTED_FUNCTIONS[node.name] = ast.get_source_segment(
-            _RUN_ANALYSIS_SOURCE, node
-        )
-
-exec(_EXPORTED_FUNCTIONS["resolve_channel_groups"], globals())
-exec(_EXPORTED_FUNCTIONS["normalize_jet_category"], globals())
-exec(_EXPORTED_FUNCTIONS["build_channel_dict"], globals())
 
 
 MINIMAL_CHANNEL_METADATA = {
@@ -178,66 +156,87 @@ def channel_helper():
     return ChannelMetadataHelper(MINIMAL_CHANNEL_METADATA)
 
 
+def build_dict(
+    channel_helper,
+    channel,
+    application,
+    *,
+    is_data,
+    skip_sr,
+    skip_cr,
+    scenario_names=None,
+    required_features=None,
+):
+    planner = ChannelPlanner(
+        channel_helper,
+        skip_sr=skip_sr,
+        skip_cr=skip_cr,
+        scenario_names=scenario_names,
+        required_features=required_features,
+    )
+    return planner.build_channel_dict(channel, application, is_data=is_data)
+
+
 def test_build_channel_dict_includes_offz_features(channel_helper):
-    channel_dict = build_channel_dict(
+    channel_dict = build_dict(
+        channel_helper,
         "3l_p_offZ_low_1b_2j",
         "isSR_3l",
-        isData=False,
+        is_data=False,
         skip_sr=False,
         skip_cr=False,
-        channel_helper=channel_helper,
         scenario_names=["TOP_22_006"],
     )
     assert "offz_split" in channel_dict["features"]
 
 
 def test_build_channel_dict_includes_tau_features_for_control(channel_helper):
-    channel_dict = build_channel_dict(
+    channel_dict = build_dict(
+        channel_helper,
         "2los_1tau_Ftau_2j",
         "isSR_2lOS",
-        isData=False,
+        is_data=False,
         skip_sr=False,
         skip_cr=False,
-        channel_helper=channel_helper,
         scenario_names=["tau_analysis"],
     )
     assert "requires_tau" in channel_dict["features"]
 
 
 def test_build_channel_dict_preserves_features_when_sr_skipped(channel_helper):
-    channel_dict = build_channel_dict(
+    channel_dict = build_dict(
+        channel_helper,
         "2los_1tau_Ftau_2j",
         "isSR_2lOS",
-        isData=False,
+        is_data=False,
         skip_sr=True,
         skip_cr=False,
-        channel_helper=channel_helper,
         scenario_names=["tau_analysis"],
     )
     assert "requires_tau" in channel_dict["features"]
 
 
 def test_build_channel_dict_includes_forward_features(channel_helper):
-    channel_dict = build_channel_dict(
+    channel_dict = build_dict(
+        channel_helper,
         "2lss_fwd_p_4j",
         "isSR_2lSS",
-        isData=False,
+        is_data=False,
         skip_sr=False,
         skip_cr=False,
-        channel_helper=channel_helper,
         scenario_names=["fwd_analysis"],
     )
     assert "requires_forward" in channel_dict["features"]
 
 
 def test_resolve_channel_groups_infers_tau_control_regions(channel_helper):
-    sr_groups, cr_groups, features = resolve_channel_groups(
+    planner = ChannelPlanner(
         channel_helper,
         skip_sr=False,
         skip_cr=False,
-        scenario_names=None,
         required_features=["requires_tau"],
     )
+    sr_groups, cr_groups, features = planner.resolve_groups()
 
     assert any(group.name == "TAU_CH_LST_SR" for group in sr_groups)
     assert any(group.name == "TAU_CH_LST_CR" for group in cr_groups)
@@ -245,24 +244,37 @@ def test_resolve_channel_groups_infers_tau_control_regions(channel_helper):
 
 
 def test_build_channel_dict_respects_histogram_filters(channel_helper):
-    sr_channel = build_channel_dict(
+    sr_channel = build_dict(
+        channel_helper,
         "3l_p_offZ_1b_2j",
         "isSR_3l",
-        isData=False,
+        is_data=False,
         skip_sr=False,
         skip_cr=False,
-        channel_helper=channel_helper,
         scenario_names=["TOP_22_006"],
     )
     assert "tau0pt" in set(sr_channel.get("channel_var_blacklist", ()))
 
-    fwd_channel = build_channel_dict(
+    fwd_channel = build_dict(
+        channel_helper,
         "3l_p_offZ_low_1b_2j",
         "isSR_3l",
-        isData=False,
+        is_data=False,
         skip_sr=False,
         skip_cr=False,
-        channel_helper=channel_helper,
         scenario_names=["TOP_22_006"],
     )
     assert "lt" in set(fwd_channel.get("channel_var_whitelist", ()))
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("=2", "exactly_2j"),
+        (">4", "atleast_4j"),
+        ("<3", "atmost_3j"),
+    ],
+)
+def test_normalize_jet_category(raw, expected):
+    assert normalize_jet_category(raw) == expected
+

@@ -50,8 +50,18 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
 ### Run scripts and processors
 
 * `run_topeft.py` for `topeft.py`:
-    - This is the run script for the main `topeft.py` processor. Its usage is documented on the repository's main README. It uses either the `work_queue` or the `futures` executors (with `futures` it uses 8 cores by default). The `work_queue` executor makes use of remote resources, and you will need to submit workers using a `condor_submit_workers` command as explained on the main `topcoffea` README. You can configure the run with a number of command line arguments, but the most important one is the config file, where you list the samples you would like to process (by pointing to the JSON files for each sample, located inside of `topcoffea/json`. 
-    - Example usage: `python run_topeft.py ../../topcoffea/cfg/your_cfg.cfg`  
+    - This is the run script for the main `topeft.py` processor. Its usage is documented on the repository's main README. It uses either the `work_queue` or the `futures` executors (with `futures` it uses 8 cores by default). The `work_queue` executor makes use of remote resources, and you will need to submit workers using a `condor_submit_workers` command as explained on the main `topcoffea` README. You can configure the run with a number of command line arguments, but the most important one is the config file, where you list the samples you would like to process (by pointing to the JSON files for each sample, located inside of `topcoffea/json`.
+    - Example usage: `python run_topeft.py ../../topcoffea/cfg/your_cfg.cfg`
+
+* `run_analysis.py`:
+    - Provides the CLI entrypoint for the Run 2 Coffea workflow. The heavy lifting now lives in ``analysis.topeft_run2.workflow`` where the ``RunWorkflow`` class orchestrates channel planning, histogram scheduling, and executor setup.
+    - Python API example::
+
+        from topeft.analysis import run_workflow
+        from analysis.topeft_run2.run_analysis_helpers import RunConfig
+
+        config = RunConfig(json_files=["/path/to/sample.json"])
+        run_workflow(config)
 
 * `run_sow.py` for `sow_processor.py`:
     - This script runs over the provided json files and calculates the properer sum of weights
