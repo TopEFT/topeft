@@ -1028,7 +1028,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             ptbl_bjet = ptbl_bjet[ak.argmax(ptbl_bjet.pt,axis=-1,keepdims=True)] # Only save hardest b-jet
             ptbl_lep = l_fo_conept_sorted
             ptbl = (ptbl_bjet.nearest(ptbl_lep) + ptbl_bjet).pt
-            ptbl = ak.values_astype(ak.fill_none(ptbl, -1), np.float32)
 
             # Z pt (pt of the ll pair that form the Z for the onZ categories)
             ptz = te_es.get_Z_pt(l_fo_conept_sorted_padded[:,0:3],10.0)
