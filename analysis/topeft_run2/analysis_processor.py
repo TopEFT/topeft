@@ -378,6 +378,10 @@ class AnalysisProcessor(processor.ProcessorABC):
         # Build FO collection
         m_fo = mu[mu.isPres & mu.isLooseM & mu.isFO]
         e_fo = ele[ele.isPres & ele.isLooseE & ele.isFO]
+        if "seediEtaOriX" not in ak.fields(e_fo):
+            e_fo["seediEtaOriX"] = ak.zeros_like(e_fo.pt)
+        if "seediPhiOriY" not in ak.fields(e_fo):
+            e_fo["seediPhiOriY"] = ak.zeros_like(e_fo.pt)
 
         # Attach the lepton SFs to the electron and muons collections
         AttachElectronSF(e_fo, year=year, looseWP="none" if is_run3 else "wpLnoiso", useRun3MVA=self.useRun3MVA) #Run3 ready
@@ -1077,15 +1081,28 @@ class AnalysisProcessor(processor.ProcessorABC):
             counts = np.ones_like(events['event'])
             is_l0_electron = (abs(l0.pdgId)==11)
             is_l1_electron = (abs(l1.pdgId)==11)
-            #l0_seed_etaorx = l0[is_l0_electron].seediEtaOriX
-            #l0_seed_phiory = l0[is_l0_electron].seediPhiOriY
-            #l1_seed_etaorx = l1[is_l1_electron].seediEtaOriX
-            #l1_seed_phiory = l1[is_l1_electron].seediPhiOriY
-
-            l0_seed_etaorx = l0.seediEtaOriX
-            l0_seed_phiory = l0.seediPhiOriY
-            l1_seed_etaorx = l1.seediEtaOriX
-            l1_seed_phiory = l1.seediPhiOriY
+            default_l0_seed = ak.zeros_like(l0.pt)
+            default_l1_seed = ak.zeros_like(l1.pt)
+            l0_seed_etaorx = ak.where(
+                is_l0_electron,
+                getattr(l0, "seediEtaOriX", default_l0_seed),
+                default_l0_seed,
+            )
+            l0_seed_phiory = ak.where(
+                is_l0_electron,
+                getattr(l0, "seediPhiOriY", default_l0_seed),
+                default_l0_seed,
+            )
+            l1_seed_etaorx = ak.where(
+                is_l1_electron,
+                getattr(l1, "seediEtaOriX", default_l1_seed),
+                default_l1_seed,
+            )
+            l1_seed_phiory = ak.where(
+                is_l1_electron,
+                getattr(l1, "seediPhiOriY", default_l1_seed),
+                default_l1_seed,
+            )
 
             # Variables we will loop over when filling hists
             varnames = {}
