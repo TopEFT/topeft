@@ -437,6 +437,7 @@ if __name__ == "__main__":
                         else:
                             LoadJsonToSampleName(l, prefix)
 
+        
     flist = {}
     nevts_total = 0
     for sname in samplesdict.keys():
@@ -481,6 +482,9 @@ if __name__ == "__main__":
         for fname in samplesdict[sname]["files"]:
             print("     %s" % fname)
 
+        if executor == "futures":
+            break
+            
     if pretend:
         print("pretending...")
         exit()
@@ -537,7 +541,7 @@ if __name__ == "__main__":
             # use mid-range compression for chunks results.
             # Valid values are 0 (minimum compression, less memory
             # usage) to 16 (maximum compression, more memory usage).
-            "compression": 0,
+            "compression": 8,
             # automatically find an adequate resource allocation for tasks.
             # tasks are first tried using the maximum resources seen of previously ran
             # tasks. on resource exhaustion, they are retried with the maximum resource
