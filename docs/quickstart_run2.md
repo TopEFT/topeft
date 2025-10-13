@@ -108,8 +108,9 @@ misconfigurations are caught early.
 
     ```yaml
     # configs/fullR2_run_tau_fwd.yml
-    infile: ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
-    scenario:
+    jsonFiles:
+      - ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
+    scenarios:
       - TOP_22_006
       - tau_analysis
       - fwd_analysis
