@@ -107,6 +107,31 @@ Additional reference material for the module structure and configuration helpers
 is available in the [analysis processing primer](docs/analysis_processing.md) and
 the [YAML configuration guide](docs/run_analysis_configuration.md).
 
+### Metadata configuration
+
+The Run 2 helpers, quickstarts, and processors all read from
+`topeft/params/metadata.yml`.  This YAML file is the single source of truth for
+which regions run, which histogram variables are kept, and which systematic
+variations are evaluated.  Key sections include:
+
+| Metadata key | Controls | Processor impact |
+| --- | --- | --- |
+| `channels.groups[].regions` | Channel definitions, lepton/jet binning, and application tags. | Drives channel activation inside `ChannelPlanner` and the per-task metadata passed to the Coffea processor. |
+| `channels.groups[].histogram_variables` | Include/exclude lists for variables per region. | Filters the histogram catalogue built by `HistogramPlanner` so the processor only schedules the variables you request. |
+| `variables` | Bin edges, labels, and callable definitions for histograms. | Supplies the axis configuration for every histogram task. |
+| `scenarios` | Scenario bundles that map friendly names to channel groups. | Enables CLI/YAML `--scenario` toggles and the quickstart presets. |
+| `systematics` | Weight and object variations (with optional year/scenario guards). | Determines which sum-of-weights keys and shape variations the processor evaluates when `--do-systs` is set. |
+| `golden_jsons` | Year-tagged certified-luminosity files. | Guides data-quality filtering when running over data JSONs. |
+
+When you need a custom configuration, copy the metadata file to a new name (for
+example `analysis/topeft_run2/configs/metadata_myteam.yml`) so your edits stay
+isolated.  Point the quickstart helper at the clone via `--metadata` and, for
+full workflow runs, either swap the cloned file into
+`topeft/params/metadata.yml` or keep it in a feature branch so editable installs
+pick up the updated contents.  The [metadata configuration guide]
+(docs/run_analysis_configuration.md#metadata-configuration) expands on the
+available keys and shows how the planners consume them.
+
 ### Migration note: scenario-only channel activation
 
 As of this release, the ``--channel-feature`` flag has been retired.  Channel

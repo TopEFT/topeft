@@ -11,6 +11,37 @@ examples (``docs/quickstart_run2.md`` and ``docs/quickstart_top22_006.md``).  Th
 YAML options file is optional, but using it keeps custom runs reproducible and
 makes it easy to share presets with collaborators.
 
+## Metadata configuration {#metadata-configuration}
+
+The workflow resolves all region, variable, and systematic choices from
+``topeft/params/metadata.yml`` before it touches the Coffea executors.  The file
+is packaged with the module so that quickstarts, CLI runs, and YAML-driven
+profiles all agree on the same catalogue of tasks.  The table below summarises
+the metadata sections that feed directly into the planners:
+
+| Metadata key | Controls | Processor impact |
+| --- | --- | --- |
+| ``channels.groups[].regions`` | Channel labels, subchannels, jet bins, tags, and application assignments. | Guides :class:`ChannelPlanner` when enumerating signal/control regions and annotating each Coffea task. |
+| ``channels.groups[].histogram_variables`` | Per-region include/exclude rules for histogram names. | Filters the :class:`HistogramPlanner` combinations so only approved variables are scheduled. |
+| ``variables`` | Histogram axis definitions, binning, and callable expressions. | Becomes the histogram catalogue consumed by :class:`AnalysisProcessor`. |
+| ``scenarios`` | Friendly scenario names mapped to channel groups. | Powers the ``--scenario`` CLI flag and YAML ``scenarios`` lists. |
+| ``systematics`` | Weight, object, and theory variations (with optional year or feature guards). | Supplies :func:`weight_variations_from_metadata` and the systematic helper with the variations to evaluate when ``do_systs`` is enabled. |
+| ``golden_jsons`` | Year-indexed data-quality JSON files. | Enables automated golden JSON lookups when running over data samples. |
+
+When customising an analysis, clone the file rather than editing the baseline in
+place.  A common workflow is:
+
+1. Copy ``topeft/params/metadata.yml`` to ``analysis/topeft_run2/configs/metadata_<tag>.yml`` (or another tracked location).
+2. Update the cloned YAML with any new regions, variables, or systematics.
+3. Point ``python -m topeft.quickstart`` at the clone with ``--metadata`` to test
+   the changes quickly.  For ``run_analysis.py`` runs, keep the clone committed in
+   your branch so editable installs pick up the modifications, or temporarily
+   replace ``topeft/params/metadata.yml`` with the customised version while the
+   branch is active.
+
+The quickstart and scenario guides link back to this section so that anyone
+tweaking the Run 2 configuration knows where each dial is sourced.
+
 ## Overview of the configuration pipeline
 
 ``run_analysis.py`` executes the steps below when launched from the repository
