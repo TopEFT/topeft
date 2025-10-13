@@ -42,6 +42,8 @@ CR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in CR_GROUP_INFO.items()}
 SR_GRP_PATTERNS = {k: v.get("patterns", []) for k, v in SR_GROUP_INFO.items()}
 CR_GRP_MAP = {k: [] for k in CR_GRP_PATTERNS.keys()}
 SR_GRP_MAP = {k: [] for k in SR_GRP_PATTERNS.keys()}
+CR_KNOWN_CHANNELS = {chan for chans in CR_CHAN_DICT.values() for chan in chans}
+SR_KNOWN_CHANNELS = {chan for chans in SR_CHAN_DICT.values() for chan in chans}
 FILL_COLORS = {k: v.get("color") for k, v in {**CR_GROUP_INFO, **SR_GROUP_INFO}.items()}
 WCPT_EXAMPLE = _META["WCPT_EXAMPLE"]
 LUMI_COM_PAIRS = _META["LUMI_COM_PAIRS"]
@@ -86,14 +88,6 @@ def _apply_channel_transforms(channel_name, transformations):
         else:
             raise ValueError(f"Unsupported channel transformation '{transform}'")
     return transformed
-
-
-def _channel_base_name(channel_name):
-    if "_" not in channel_name:
-        return channel_name
-    return channel_name.rsplit("_", 1)[0]
-
-
 def validate_channel_group(histos, expected_labels, transformations, region, subgroup, variable):
     if not isinstance(histos, (list, tuple)):
         histos = [histos]
@@ -110,19 +104,32 @@ def validate_channel_group(histos, expected_labels, transformations, region, sub
         return
 
     expected_set = set(expected_labels)
-    expected_bases = {_channel_base_name(label) for label in expected_set}
+    expected_transformed = {
+        _apply_channel_transforms(label, transformations) for label in expected_set
+    }
+
+    region_known_channels = {
+        "CR": CR_KNOWN_CHANNELS,
+        "SR": SR_KNOWN_CHANNELS,
+    }.get(region)
+    transformed_known_channels = None
+    if region_known_channels is not None:
+        transformed_known_channels = {
+            _apply_channel_transforms(label, transformations)
+            for label in region_known_channels
+        }
 
     stray_channels = set()
 
     for channel in available_channels:
         transformed = _apply_channel_transforms(channel, transformations)
-        base_name = _channel_base_name(transformed)
-        if base_name not in expected_bases:
+        if transformed in expected_transformed:
             continue
-        if transformed in expected_set:
+        if region_known_channels is not None and channel in region_known_channels:
             continue
-        else:
-            stray_channels.add(channel)
+        if transformed_known_channels is not None and transformed in transformed_known_channels:
+            continue
+        stray_channels.add(channel)
 
     if stray_channels:
         var_str = f" for variable '{variable}'" if variable is not None else ""
