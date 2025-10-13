@@ -321,6 +321,7 @@ class RunConfig:
     port: str = "9123-9130"
     ecut: Optional[float] = None
     summary_verbosity: str = "brief"
+    log_tasks: bool = False
 
 
 class RunConfigBuilder:
@@ -363,6 +364,7 @@ class RunConfigBuilder:
             "ecut": ("ecut", coerce_optional_float),
             "port": ("port", coerce_port),
             "summary_verbosity": ("summary_verbosity", coerce_summary_verbosity),
+            "log_tasks": ("log_tasks", coerce_bool),
         }
 
         def _apply_source(source: Mapping[str, Any]):

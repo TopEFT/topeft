@@ -119,6 +119,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--log-tasks",
+        action="store_true",
+        help=(
+            "Print a single-line futures submission log for each histogram task, "
+            "showing the (sample, channel, variable, application, systematic) tuple."
+        ),
+    )
+    parser.add_argument(
         "--scenario",
         dest="scenarios",
         action="append",
