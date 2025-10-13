@@ -95,6 +95,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         systematic_variations=None,
         available_systematics=None,
         metadata_path: Optional[str] = None,
+        debug_logging: bool = False,
     ):
 
         self._sample = sample
@@ -125,7 +126,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             key: set(values) for key, values in self._available_systematics.items()
         }
         self._metadata_path = metadata_path
-
+        self._debug_logging = bool(debug_logging)
         self._golden_json_path = golden_json_path
         if self._sample.get("isData") and not self._golden_json_path:
             raise ValueError("golden_json_path must be provided for data samples")
@@ -348,6 +349,10 @@ class AnalysisProcessor(processor.ProcessorABC):
                 break
 
         return dataset_for_histograms, dataset_for_triggers
+
+    def _debug(self, message: str, *args) -> None:
+        if self._debug_logging:
+            logger.debug(message, *args)
 
     # Main function: run on a given dataset
     def process(self, events):
@@ -597,9 +602,12 @@ class AnalysisProcessor(processor.ProcessorABC):
                 or variation_base_str.endswith("tau_fake")
             )
 
-            print("\n\n\n\n\n")
-            print(f"Processing variation '{variation_name}' (type: {variation_type}, base: {variation_base})")
-            print("\n\n\n\n\n")
+            self._debug(
+                "Processing variation '%s' (type: %s, base: %s)",
+                variation_name,
+                variation_type,
+                variation_base,
+            )
 
             object_variation = "nominal"
             weight_variations_to_run = []
@@ -633,9 +641,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                 group_key = (variation.base, variation.component, variation.year)
                 group_info = group_mapping.get(group_key, {})
                 
-                print("\n\n\n\n\n")
-                print("group_mapping:", group_mapping, "\ngroup_key:", group_key, "\ngroup_info:", group_info)
-                print("\n\n\n\n\n") 
+                if group_mapping:
+                    self._debug(
+                        "Variation group mapping for '%s': mapping=%s key=%s info=%s",
+                        variation_name,
+                        group_mapping,
+                        group_key,
+                        group_info,
+                    )
                 
                 if not group_info and variation.metadata.get("sum_of_weights"):
                     group_info = {
@@ -1456,13 +1469,14 @@ class AnalysisProcessor(processor.ProcessorABC):
                     if base_ch_name != self.channel:
                         continue
 
-                    print("\n\n\n\n\n\n")
-                    print("Filling for channel:", ch_name)
-                    print("base channel:", base_ch_name)
-
-                    for cut in cuts_lst:
-                        print("  cut:", cut)
-                        print("    n passed:", selections.all(cut))
+                    if self._debug_logging:
+                        cut_pass_info = {cut: selections.all(cut) for cut in cuts_lst}
+                        self._debug(
+                            "Filling histograms for channel '%s' (base '%s') with cuts %s",
+                            ch_name,
+                            base_ch_name,
+                            cut_pass_info,
+                        )
 
                     all_cuts_mask = selections.all(*cuts_lst)
                     if self._ecut_threshold is not None:
@@ -1499,13 +1513,13 @@ class AnalysisProcessor(processor.ProcessorABC):
                     
                     hout[histkey].fill(**axes_fill_info_dict)
 
-                    print("\n")
-                    print("Filling histkey:", histkey)
-                    print("  all_cuts_mask:", all_cuts_mask)
-                    print("  with axes_fill_info_dict:", axes_fill_info_dict)
-                    print("  dense_axis_vals[all_cuts_mask]", ak.to_list(dense_axis_vals[all_cuts_mask]))
-                    #print("  dense_axis_vals", dense_axis_vals)
-                    print("\n\n\n\n\n\n\n")
+                    if self._debug_logging:
+                        filled_count = int(np.count_nonzero(np.asarray(all_cuts_mask)))
+                        self._debug(
+                            "Filled histkey %s with %d selected events",
+                            histkey,
+                            filled_count,
+                        )
 
                     axes_fill_info_dict = {
                         dense_axis_name + "_sumw2": dense_axis_vals[all_cuts_mask],
