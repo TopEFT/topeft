@@ -62,7 +62,7 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
             --summary-verbosity full
 
       Switch to the signal-region preset by appending ``--options-profile sr`` and, if desired, ``--log-tasks`` for a verbose per-histogram submission trace.
-    - Metadata scenarios from ``topeft/params/metadata.yml`` can be selected via ``--scenario`` (defaults to ``TOP_22_006``).  Additional bundles include ``tau_analysis`` for the tau-enriched categories and ``fwd_analysis`` for the forward-jet study.  The arguments may be repeated to combine scenarios, and feature tags such as ``--channel-feature requires_tau`` can be layered on top.
+    - Metadata scenarios from ``topeft/params/metadata.yml`` can be selected via ``--scenario`` (defaults to ``TOP_22_006``).  Additional bundles include ``tau_analysis`` for the tau-enriched categories and ``fwd_analysis`` for the forward-jet study.  Repeat the argument to combine scenarios when you want the tau, forward, and off-Z variations active in the same run.
     - Python API example::
 
         from topeft.analysis import run_workflow

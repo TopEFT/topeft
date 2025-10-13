@@ -14,9 +14,9 @@ The high-level flow is:
 2. :class:`analysis.topeft_run2.run_analysis_helpers.SampleLoader` expands the
    input manifests and returns a normalized ``samplesdict`` together with the
    expanded file list per sample.
-3. :class:`analysis.topeft_run2.workflow.ChannelPlanner` resolves metadata
-   scenarios and feature tags, producing channel dictionaries that are attached
-   to each histogram task.
+3. :class:`analysis.topeft_run2.workflow.ChannelPlanner` resolves the metadata
+   scenarios declared in ``topeft/params/metadata.yml`` and attaches the
+   resulting channel dictionaries to each histogram task.
 4. :class:`analysis.topeft_run2.workflow.HistogramPlanner` enumerates histogram
    combinations by crossing samples, channel metadata, Coffea applications, and
    systematic toggles.  The result is a :class:`HistogramPlan` which records the
@@ -36,8 +36,10 @@ aspects are worth keeping in mind when extending it:
 
 * **Channel metadata** – the processor expects the ``channel_dict`` passed by
   the workflow to provide ``jet_selection``, ``chan_def_lst``, ``lep_flav_lst``,
-  ``appl_region`` and an optional ``features`` collection.  The flags control
-  specialised paths such as ``requires_tau`` or ``offz_split``.
+  ``appl_region`` and an optional ``features`` collection.  The flags are
+  derived from the active metadata scenarios (for example, the tau, forward, or
+  off-Z refinements) and inform specialised paths such as ``requires_tau`` or
+  ``offz_split``.
 * **Systematics** – the ``available_systematics`` mapping is produced by the
   :class:`SystematicsHelper` inside the workflow.  It contains the full matrix of
   weight variations, object shifts, and fake-factor toggles that the metadata
@@ -97,9 +99,9 @@ listed below:
   instances, new metadata (for example, systematic tags) can be attached without
   touching the executor or processor code.
 * **Channel overrides** – wrap :class:`ChannelPlanner` to inject or filter
-  feature tags programmatically.  This is useful for dry runs that focus on
-  validation categories or to introduce new experimental regions while metadata
-  changes are still under review.
+  metadata-driven channel groups programmatically.  This is useful for dry runs
+  that focus on validation categories or to introduce new experimental regions
+  while metadata changes are still under review.
 
 ## Reusing the workflow from Python
 

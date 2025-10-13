@@ -14,6 +14,11 @@ Each section starts from a clean checkout of the repository with the editable
 recommended environment setup).  The commands shown below assume that you are in
 ``analysis/topeft_run2`` unless otherwise noted.
 
+!!! note
+    The ``--channel-feature`` flag has been retired.  Use the scenarios below—on
+    their own or in combination—to activate the tau, forward, and off-Z
+    variations.
+
 ## Running individual scenarios
 
 ### TOP_22_006 baseline
@@ -82,17 +87,20 @@ python -m topeft.quickstart \
     --scenario fwd_analysis
 ```
 
-## Combining scenarios and feature tags
+## Combining scenarios
 
 Metadata scenarios can be combined to produce hybrid category selections.  The
 planner validates that the requested combinations are compatible before any
-processing starts, so invalid bundles fail fast.
+processing starts, so invalid bundles fail fast.  The baseline ``TOP_22_006``
+scenario already ships with the refined off-Z split; layering ``tau_analysis``
+or ``fwd_analysis`` on top keeps those specialised categories active alongside
+the shared control regions.
 
 ### YAML profiles
 
 To combine scenarios in a YAML profile, set the ``scenario`` key to a list.  The
 following snippet extends the default Run 2 configuration with both the tau and
-forward regions while enabling the ``requires_tau`` feature tag:
+forward regions:
 
 ```yaml
 # configs/fullR2_run_tau_fwd.yml
@@ -101,8 +109,6 @@ scenario:
   - TOP_22_006
   - tau_analysis
   - fwd_analysis
-feature_tags:
-  - requires_tau
 ```
 
 YAML values merge with the base profile when the file is passed through
@@ -112,16 +118,14 @@ combined configuration.
 ### Command-line overrides
 
 You can request the same combination directly on the command line.  Each time
-``--scenario`` or ``--feature`` is provided the value is appended to the active
-set:
+``--scenario`` is provided the value is appended to the active set:
 
 ```bash
 python run_analysis.py \
     --options configs/fullR2_run.yml \
     --scenario TOP_22_006 \
     --scenario tau_analysis \
-    --scenario fwd_analysis \
-    --feature requires_tau
+    --scenario fwd_analysis
 ```
 
 For quickstart tests, the equivalent call is:
@@ -132,9 +136,8 @@ python -m topeft.quickstart \
     --prefix root://cmsxrootd.fnal.gov/ \
     --scenario TOP_22_006 \
     --scenario tau_analysis \
-    --scenario fwd_analysis \
-    --feature requires_tau
+    --scenario fwd_analysis
 ```
 
-The planner will echo the resolved category and feature list before launching
-the Coffea processor, making it easy to confirm the combined configuration.
+The planner will echo the resolved scenario list before launching the Coffea
+processor, making it easy to confirm the combined configuration.
