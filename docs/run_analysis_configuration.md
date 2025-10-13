@@ -54,8 +54,12 @@ root::
    ``taskvine``).  Each histogram task yields an
    :class:`analysis.topeft_run2.analysis_processor.AnalysisProcessor` instance
    configured for the corresponding sample and channel.  Progress is summarized
-   according to ``summary_verbosity`` and (optionally) mirrored in the
-   single-line ``log_tasks`` messages.
+   according to ``summary_verbosity``—``"brief"`` prints bullet lists of the
+   unique samples, channel/application pairs, variables, and systematics that
+   will be processed, while ``"full"`` prepends the same lists to the
+   combination table and structured dump (including a reminder when
+   ``split_lep_flavor`` is active).  These details are optionally mirrored in
+   the single-line ``log_tasks`` messages.
 
 The helpers are designed so that the resulting :class:`RunConfig` can be stored
 or passed around.  For example, the quickstart workflow returns the configuration
@@ -117,9 +121,9 @@ The table below summarises the most common extension hooks:
 The quickstart helper (``python -m topeft.quickstart``) produces a YAML snippet
 when called with ``--emit-options``.  Saving the output provides a reproducible
 baseline that can be tweaked manually before feeding it to ``run_analysis.py``.
-Common adjustments include enabling ``do_systs``, tweaking ``summary_verbosity``
-for longer planning output, and switching executors once the run is ready to
-scale beyond the local machine.
+Common adjustments include enabling ``do_systs``, tweaking
+``summary_verbosity`` to show only the bullet lists or the full table, and
+switching executors once the run is ready to scale beyond the local machine.
 
 ## Troubleshooting checklist
 

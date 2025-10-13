@@ -763,6 +763,28 @@ class RunWorkflow:
         if not plan.summary or verbosity == "none":
             return
 
+        samples = unique_preserving_order(str(entry.sample) for entry in plan.summary)
+        channel_pairs = unique_preserving_order(
+            (str(entry.channel), str(entry.application)) for entry in plan.summary
+        )
+        variables = unique_preserving_order(str(entry.variable) for entry in plan.summary)
+        systematics = unique_preserving_order(str(entry.systematic) for entry in plan.summary)
+
+        def _format_values(values: Sequence[str]) -> str:
+            return ", ".join(values) if values else "None"
+
+        print("\nPlanned histogram summary:")
+        print(f"- Samples: {_format_values(samples)}")
+        print(
+            "- Channels & applications: "
+            + _format_values([f"{channel} ({application})" for channel, application in channel_pairs])
+        )
+        print(f"- Variables: {_format_values(variables)}")
+        print(f"- Systematics: {_format_values(systematics)}")
+
+        if verbosity == "brief":
+            return
+
         headers = ("Sample", "Channel", "Variable", "Application", "Systematic")
         rows = [
             (
@@ -781,14 +803,17 @@ class RunWorkflow:
         ]
         row_format = "  ".join(f"{{:{width}}}" for width in column_widths)
 
+        if getattr(self._config, "split_lep_flavor", False):
+            print(
+                "\nNote: lepton-flavor channels reuse the processor task configured for their base channel "
+                "when flavor splitting is enabled."
+            )
+
         print("\nPlanned histogram combinations:")
         print(row_format.format(*headers))
         print("  ".join("-" * width for width in column_widths))
         for row in rows:
             print(row_format.format(*row))
-
-        if verbosity != "full":
-            return
 
         summary_payload = [asdict(entry) for entry in plan.summary]
 
