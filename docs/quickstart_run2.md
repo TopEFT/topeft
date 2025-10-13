@@ -56,6 +56,28 @@ Saving the snippet as ``ttz_quickstart.json`` allows you to run the helper with
 ``python -m topeft.quickstart ttz_quickstart.json --prefix root://cmsxrootd.fnal.gov/``.
 The prefix ensures that the remote EOS path is opened via XRootD.
 
+## Metadata configuration
+
+Quickstart jobs lean entirely on ``topeft/params/metadata.yml`` to decide which
+regions, histograms, and weight variations to run.  Before editing the file,
+consult the [metadata configuration guide](run_analysis_configuration.md#metadata-configuration)
+for a full breakdown of each section.  The highlights are:
+
+* ``channels.groups`` enumerate the signal/control regions and include any
+  per-region histogram include/exclude lists.
+* ``variables`` provides the histogram catalogue (binning, labels, callable
+  definitions) consumed by the Coffea processor.
+* ``scenarios`` expose friendly names that map to channel bundles and power the
+  ``--scenario`` flag used throughout the quickstarts.
+* ``systematics`` lists the available weight/object variations.  The helper
+  inspects this block whenever ``--do-systs`` is requested.
+
+To test custom metadata, copy ``topeft/params/metadata.yml`` to a new location,
+edit the clone, and pass it to the helper via ``--metadata``.  Keeping the clone
+under version control (for example ``analysis/topeft_run2/configs/metadata_dev.yml``)
+makes it easy to promote the same configuration to the full workflow once the
+quickstart validation looks good.
+
 ### Metadata scenarios
 
 The Run 2 metadata (``topeft/params/metadata.yml``) defines the channel bundles

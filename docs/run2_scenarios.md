@@ -14,6 +14,9 @@ Each section starts from a clean checkout of the repository with the editable
 recommended environment setup).  The commands shown below assume that you are in
 ``analysis/topeft_run2`` unless otherwise noted.
 
+For details on how the scenarios map onto metadata-driven channel and histogram
+definitions, refer back to the [metadata configuration guide](run_analysis_configuration.md#metadata-configuration).
+
 !!! important
     Once ``--options`` is supplied the YAML file becomes authoritative.  Append
     ``:profile`` to select a preset (for example ``configs/fullR2_run.yml:sr``)
