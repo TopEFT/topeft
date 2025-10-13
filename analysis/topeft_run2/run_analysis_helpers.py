@@ -309,6 +309,7 @@ class RunConfig:
     outname: str = "plotsTopEFT"
     outpath: str = "histos"
     treename: str = "Events"
+    metadata_path: Optional[str] = None
     do_errors: bool = False
     do_systs: bool = False
     split_lep_flavor: bool = False
@@ -350,6 +351,14 @@ class RunConfigBuilder:
             "outname": ("outname", lambda v: "" if v is None else str(v)),
             "outpath": ("outpath", lambda v: "" if v is None else str(v)),
             "treename": ("treename", lambda v: "" if v is None else str(v)),
+            "metadata": (
+                "metadata_path",
+                lambda v: None if v in (None, "") else str(v),
+            ),
+            "metadata_path": (
+                "metadata_path",
+                lambda v: None if v in (None, "") else str(v),
+            ),
             "do_errors": ("do_errors", coerce_bool),
             "do_systs": ("do_systs", coerce_bool),
             "split_lep_flavor": ("split_lep_flavor", coerce_bool),
@@ -458,6 +467,7 @@ class RunConfigBuilder:
                 "outname": "outname",
                 "outpath": "outpath",
                 "treename": "treename",
+                "metadata": "metadata",
                 "do_errors": "do_errors",
                 "do_systs": "do_systs",
                 "split_lep_flavor": "split_lep_flavor",

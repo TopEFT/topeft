@@ -12,6 +12,9 @@ defaults:
   wc_list:
     - ctG
 
+  # Select the metadata bundle that drives region and variable planning.
+  metadata: topeft/params/metadata.yml
+
   # Default scenario grouping used for reinterpretation studies.
   scenarios:
     - TOP_22_006
