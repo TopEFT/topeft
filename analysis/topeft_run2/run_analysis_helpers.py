@@ -150,6 +150,21 @@ def coerce_port(value: Any) -> str:
     return str(value)
 
 
+def coerce_summary_verbosity(value: Any) -> str:
+    """Normalize summary verbosity configuration to a supported value."""
+
+    if value is None:
+        return "brief"
+
+    normalized = str(value).strip().lower()
+    if normalized in {"none", "brief", "full"}:
+        return normalized
+
+    raise ValueError(
+        "summary_verbosity must be one of 'none', 'brief', or 'full'"
+    )
+
+
 class SampleLoader:
     """Helper responsible for expanding input specifications and loading samples."""
 
@@ -305,6 +320,7 @@ class RunConfig:
     wc_list: List[str] = field(default_factory=list)
     port: str = "9123-9130"
     ecut: Optional[float] = None
+    summary_verbosity: str = "brief"
 
 
 class RunConfigBuilder:
@@ -346,6 +362,7 @@ class RunConfigBuilder:
             "wc_list": ("wc_list", normalize_sequence),
             "ecut": ("ecut", coerce_optional_float),
             "port": ("port", coerce_port),
+            "summary_verbosity": ("summary_verbosity", coerce_summary_verbosity),
         }
 
         def _apply_source(source: Mapping[str, Any]):

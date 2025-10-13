@@ -6,16 +6,37 @@ are designed to be lightweight wrappers around the existing functionality while
 making the orchestration of a run easier to understand and reuse from Python
 code.  The main entry point is :class:`RunWorkflow` together with the
 ``run_workflow`` convenience function.
+
+During planning the workflow records every histogram combination that will be
+submitted to Coffea.  Each entry tracks the ``(sample, channel, variable,
+application, systematic)`` tuple that uniquely identifies a histogram fill.
+The combinations are exposed through :class:`HistogramPlan` and printed just
+before task submission.  The ``summary_verbosity`` configuration controls
+whether no summary (``"none"``), only a table (``"brief"``), or both a table
+and structured YAML/JSON dump (``"full"``) are emitted.
 """
 
 from __future__ import annotations
 
 import gzip
+import json
 import os
 import time
 import warnings
-from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple, TYPE_CHECKING
+from dataclasses import asdict, dataclass
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    TYPE_CHECKING,
+)
 
 from .run_analysis_helpers import (
     DEFAULT_WEIGHT_VARIATIONS,
@@ -287,11 +308,23 @@ class HistogramTask:
 
 
 @dataclass(frozen=True)
+class HistogramCombination:
+    """Canonical tuple describing a histogram that will be filled."""
+
+    sample: str
+    channel: str
+    variable: str
+    application: str
+    systematic: str
+
+
+@dataclass(frozen=True)
 class HistogramPlan:
     """Collection of histogram tasks computed for a workflow."""
 
     tasks: List[HistogramTask]
     histogram_names: Sequence[str]
+    summary: Sequence[HistogramCombination]
 
 
 class HistogramPlanner:
@@ -325,6 +358,8 @@ class HistogramPlanner:
         }
 
         tasks: List[HistogramTask] = []
+        summary_entries: List[HistogramCombination] = []
+        seen_summary_keys: Set[Tuple[str, str, str, str, str]] = set()
 
         channel_map_mc = self._channel_planner.channel_app_map(is_data=False)
         channel_map_data = self._channel_planner.channel_app_map(is_data=True)
@@ -409,6 +444,35 @@ class HistogramPlanner:
                                     )
                                 hist_keys[variation.name] = tuple(key_entries)
 
+                                for entry in key_entries:
+                                    systematic = entry[4]
+                                    if isinstance(systematic, tuple):
+                                        systematic_str = ":".join(
+                                            str(component) for component in systematic
+                                        )
+                                    else:
+                                        systematic_str = str(systematic)
+
+                                    summary_key = (
+                                        str(entry[3]),
+                                        str(entry[1]),
+                                        str(entry[0]),
+                                        str(entry[2]),
+                                        systematic_str,
+                                    )
+                                    if summary_key in seen_summary_keys:
+                                        continue
+                                    seen_summary_keys.add(summary_key)
+                                    summary_entries.append(
+                                        HistogramCombination(
+                                            sample=summary_key[0],
+                                            channel=summary_key[1],
+                                            variable=summary_key[2],
+                                            application=summary_key[3],
+                                            systematic=summary_key[4],
+                                        )
+                                    )
+
                             tasks.append(
                                 HistogramTask(
                                     sample=sample,
@@ -424,7 +488,11 @@ class HistogramPlanner:
                                 )
                             )
 
-        return HistogramPlan(tasks=tasks, histogram_names=hist_lst)
+        return HistogramPlan(
+            tasks=tasks,
+            histogram_names=hist_lst,
+            summary=tuple(summary_entries),
+        )
 
 
 class ExecutorFactory:
@@ -582,6 +650,8 @@ class RunWorkflow:
 
         histogram_plan = self._histogram_planner.plan(samplesdict, systematics_helper)
 
+        self._emit_histogram_summary(histogram_plan)
+
         runner = self._executor_factory.create_runner()
 
         output: Dict[str, Any] = {}
@@ -645,6 +715,55 @@ class RunWorkflow:
             )
 
         self._store_output(output)
+
+    def _emit_histogram_summary(self, plan: HistogramPlan) -> None:
+        """Print the planned histogram combinations based on the configured verbosity."""
+
+        verbosity = getattr(self._config, "summary_verbosity", "brief") or "brief"
+        verbosity = str(verbosity).strip().lower()
+        if verbosity not in {"none", "brief", "full"}:
+            verbosity = "brief"
+
+        if not plan.summary or verbosity == "none":
+            return
+
+        headers = ("Sample", "Channel", "Variable", "Application", "Systematic")
+        rows = [
+            (
+                str(entry.sample),
+                str(entry.channel),
+                str(entry.variable),
+                str(entry.application),
+                str(entry.systematic),
+            )
+            for entry in plan.summary
+        ]
+
+        column_widths = [
+            max(len(header), *(len(row[idx]) for row in rows)) if rows else len(header)
+            for idx, header in enumerate(headers)
+        ]
+        row_format = "  ".join(f"{{:{width}}}" for width in column_widths)
+
+        print("\nPlanned histogram combinations:")
+        print(row_format.format(*headers))
+        print("  ".join("-" * width for width in column_widths))
+        for row in rows:
+            print(row_format.format(*row))
+
+        if verbosity != "full":
+            return
+
+        summary_payload = [asdict(entry) for entry in plan.summary]
+
+        print("\nStructured summary:")
+        try:
+            import yaml  # type: ignore
+
+            dumped = yaml.safe_dump(summary_payload, sort_keys=False).strip()
+            print(dumped or "[]")
+        except Exception:  # pragma: no cover - optional dependency
+            print(json.dumps(summary_payload, indent=2))
 
     def _validate_config(self) -> None:
         if self._config.executor not in LST_OF_KNOWN_EXECUTORS:
@@ -813,6 +932,7 @@ __all__ = [
     "ChannelPlanner",
     "HistogramPlanner",
     "HistogramPlan",
+    "HistogramCombination",
     "HistogramTask",
     "ExecutorFactory",
     "RunWorkflow",
