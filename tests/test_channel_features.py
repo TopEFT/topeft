@@ -165,14 +165,12 @@ def build_dict(
     skip_sr,
     skip_cr,
     scenario_names=None,
-    required_features=None,
 ):
     planner = ChannelPlanner(
         channel_helper,
         skip_sr=skip_sr,
         skip_cr=skip_cr,
         scenario_names=scenario_names,
-        required_features=required_features,
     )
     return planner.build_channel_dict(channel, application, is_data=is_data)
 
@@ -234,7 +232,7 @@ def test_resolve_channel_groups_infers_tau_control_regions(channel_helper):
         channel_helper,
         skip_sr=False,
         skip_cr=False,
-        required_features=["requires_tau"],
+        scenario_names=["tau_analysis"],
     )
     sr_groups, cr_groups, features = planner.resolve_groups()
 

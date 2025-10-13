@@ -70,13 +70,11 @@ class ChannelPlanner:
         skip_sr: bool = False,
         skip_cr: bool = False,
         scenario_names: Optional[Sequence[str]] = None,
-        required_features: Optional[Sequence[str]] = None,
     ) -> None:
         self._channel_helper = channel_helper
         self._skip_sr = bool(skip_sr)
         self._skip_cr = bool(skip_cr)
         self._scenario_names = list(scenario_names or [])
-        self._required_features = list(required_features or [])
 
         self._sr_groups = None
         self._cr_groups = None
@@ -230,7 +228,6 @@ class ChannelPlanner:
         cr_groups: List[Any] = []
         active_features = set()
         seen_groups = set()
-        required_feature_set = set(self._required_features)
 
         channel_helper = self._channel_helper
 
@@ -255,24 +252,8 @@ class ChannelPlanner:
             for group_name in channel_helper.scenario_groups(scenario_name):
                 _register_group(group_name)
 
-        if required_feature_set:
-            feature_matched_groups = set()
-            for group_name in channel_helper.group_names():
-                group = channel_helper.group(group_name)
-                if set(group.features) & required_feature_set:
-                    feature_matched_groups.add(group_name)
-                    _register_group(group_name)
-
-            if feature_matched_groups:
-                for scenario_name in channel_helper.scenario_names():
-                    scenario_groups = channel_helper.scenario_groups(scenario_name)
-                    if any(group_name in scenario_groups for group_name in feature_matched_groups):
-                        for group_name in scenario_groups:
-                            if group_name not in feature_matched_groups:
-                                _register_group(group_name)
-
         if not sr_groups and not cr_groups and not seen_groups:
-            raise ValueError("No channel groups selected. Please specify a scenario or feature tag")
+            raise ValueError("No channel groups selected. Please specify at least one scenario")
 
         self._sr_groups = tuple(sr_groups)
         self._cr_groups = tuple(cr_groups)

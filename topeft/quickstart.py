@@ -44,12 +44,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Metadata scenario to activate (default: %(default)s).",
     )
     parser.add_argument(
-        "--feature",
-        dest="features",
-        action="append",
-        help="Optional metadata feature tags to enable (may be specified multiple times).",
-    )
-    parser.add_argument(
         "--variable",
         dest="variables",
         action="append",
@@ -154,7 +148,6 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
         scenario=args.scenario,
         metadata_path=args.metadata,
         prefix=args.prefix,
-        channel_features=args.features,
         variables=variables,
     )
 
@@ -171,7 +164,6 @@ def main(argv: Optional[Iterable[str]] = None) -> None:
         scenario=args.scenario,
         metadata_path=args.metadata,
         prefix=args.prefix,
-        channel_features=args.features,
         variables=variables,
         executor=args.executor,
         nworkers=args.nworkers,
