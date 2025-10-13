@@ -27,15 +27,21 @@ CR_CHAN_DICT:
     - 2lss_ee_CR_2j
     - 2lss_em_CR_2j
     - 2lss_mm_CR_2j
+    - 2lss_ee_CR_3j
+    - 2lss_em_CR_3j
+    - 2lss_mm_CR_3j
   cr_2lss_ee:
     - 2lss_ee_CR_1j
     - 2lss_ee_CR_2j
+    - 2lss_ee_CR_3j
   cr_2lss_em:
     - 2lss_em_CR_1j
     - 2lss_em_CR_2j
+    - 2lss_em_CR_3j
   cr_2lss_mm:
     - 2lss_mm_CR_1j
     - 2lss_mm_CR_2j
+    - 2lss_mm_CR_3j
   cr_2lss_flip:
     - 2lss_ee_CRflip_3j
   cr_3l:
@@ -58,25 +64,6 @@ CR_CHAN_DICT:
   cr_3l_mmm:
     - 3l_mmm_CR_0j
     - 3l_mmm_CR_1j
-  cr_2los_1tau:
-    - 2los_ee_1tau_Ftau_2j
-    - 2los_ee_1tau_Ftau_3j
-    - 2los_ee_1tau_Ftau_4j
-    - 2los_em_1tau_Ftau_2j
-    - 2los_em_1tau_Ftau_3j
-    - 2los_em_1tau_Ftau_4j
-    - 2los_mm_1tau_Ftau_2j
-    - 2los_mm_1tau_Ftau_3j
-    - 2los_mm_1tau_Ftau_4j
-    - 2los_ee_1tau_Ttau_2j
-    - 2los_ee_1tau_Ttau_3j
-    - 2los_ee_1tau_Ttau_4j
-    - 2los_em_1tau_Ttau_2j
-    - 2los_em_1tau_Ttau_3j
-    - 2los_em_1tau_Ttau_4j
-    - 2los_mm_1tau_Ttau_2j
-    - 2los_mm_1tau_Ttau_3j
-    - 2los_mm_1tau_Ttau_4j
   cr_2los_1tau_Ftau:
     - 2los_ee_1tau_Ftau_2j
     - 2los_ee_1tau_Ftau_3j
@@ -94,27 +81,6 @@ CR_CHAN_DICT:
     - 2los_em_1tau_Ttau_2j
     - 2los_em_1tau_Ttau_3j
     - 2los_em_1tau_Ttau_4j
-    - 2los_mm_1tau_Ttau_2j
-    - 2los_mm_1tau_Ttau_3j
-    - 2los_mm_1tau_Ttau_4j
-  cr_2los_1tau_ee:
-    - 2los_ee_1tau_Ftau_2j
-    - 2los_ee_1tau_Ftau_3j
-    - 2los_ee_1tau_Ftau_4j
-    - 2los_ee_1tau_Ttau_2j
-    - 2los_ee_1tau_Ttau_3j
-    - 2los_ee_1tau_Ttau_4j
-  cr_2los_1tau_em:
-    - 2los_em_1tau_Ftau_2j
-    - 2los_em_1tau_Ftau_3j
-    - 2los_em_1tau_Ftau_4j
-    - 2los_em_1tau_Ttau_2j
-    - 2los_em_1tau_Ttau_3j
-    - 2los_em_1tau_Ttau_4j
-  cr_2los_1tau_mm:
-    - 2los_mm_1tau_Ftau_2j
-    - 2los_mm_1tau_Ftau_3j
-    - 2los_mm_1tau_Ftau_4j
     - 2los_mm_1tau_Ttau_2j
     - 2los_mm_1tau_Ttau_3j
     - 2los_mm_1tau_Ttau_4j
@@ -187,40 +153,36 @@ SR_CHAN_DICT:
     - 4l_3j
   4l_4j:
     - 4l_4j
-  # tau_h signal regions follow histogram naming where:
-  #   - _7j denotes the ≥6-jet bin for the 2lss tau channels, and
-  #   - _6j captures the highest jet bins for the 2los and 3l tau categories
-  #     (≥6 jets for 2los, ≥5 jets for 3l).
   2lss_1tau_onZ:
     - 2lss_m_1tau_onZ_3j
     - 2lss_m_1tau_onZ_4j
     - 2lss_m_1tau_onZ_5j
-    - 2lss_m_1tau_onZ_7j
+    - 2lss_m_1tau_onZ_6j
     - 2lss_p_1tau_onZ_3j
     - 2lss_p_1tau_onZ_4j
     - 2lss_p_1tau_onZ_5j
-    - 2lss_p_1tau_onZ_7j
+    - 2lss_p_1tau_onZ_6j
   2lss_1tau_offZ:
     - 2lss_m_1tau_offZ_3j
     - 2lss_m_1tau_offZ_4j
     - 2lss_m_1tau_offZ_5j
-    - 2lss_m_1tau_offZ_7j
+    - 2lss_m_1tau_offZ_6j
     - 2lss_p_1tau_offZ_3j
     - 2lss_p_1tau_offZ_4j
     - 2lss_p_1tau_offZ_5j
-    - 2lss_p_1tau_offZ_7j
+    - 2lss_p_1tau_offZ_6j
   2los_onZ_1tau:
-    - 2los_onZ_1tau_6j
+    - 2los_onZ_1tau_5j
   3l_1tau_1b:
     - 3l_1tau_1b_2j
     - 3l_1tau_1b_3j
     - 3l_1tau_1b_4j
-    - 3l_1tau_1b_6j
+    - 3l_1tau_1b_5j
   3l_1tau_2b:
     - 3l_1tau_2b_2j
     - 3l_1tau_2b_3j
     - 3l_1tau_2b_4j
-    - 3l_1tau_2b_6j
+    - 3l_1tau_2b_5j
 CR_GRP_MAP:
   Data:
     color: black
