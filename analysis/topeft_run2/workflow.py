@@ -13,7 +13,10 @@ application, systematic)`` tuple that uniquely identifies a histogram fill.
 The combinations are exposed through :class:`HistogramPlan` and printed just
 before task submission.  The ``summary_verbosity`` configuration controls
 whether no summary (``"none"``), only a table (``"brief"``), or both a table
-and structured YAML/JSON dump (``"full"``) are emitted.
+and structured YAML/JSON dump (``"full"``) are emitted.  When the
+``log_tasks`` flag is enabled, the futures executor also emits a concise
+single-line log echoing the identifying tuple for each submitted histogram
+task.
 """
 
 from __future__ import annotations
@@ -606,6 +609,36 @@ class RunWorkflow:
         self._executor_factory = executor_factory
         self._weight_variations = list(weight_variations)
 
+    def _log_task_submission(self, task: HistogramTask) -> None:
+        """Emit a concise log describing the histogram combinations for ``task``."""
+
+        if self._config.executor != "futures" or not getattr(self._config, "log_tasks", False):
+            return
+
+        combination_labels: List[str] = []
+        for entries in task.hist_keys.values():
+            for var, channel, application, sample, systematic in entries:
+                if isinstance(systematic, tuple):
+                    systematic_label = ":".join(str(component) for component in systematic)
+                else:
+                    systematic_label = str(systematic)
+
+                combination_labels.append(
+                    "({0}, {1}, {2}, {3}, {4})".format(
+                        str(sample),
+                        str(channel),
+                        str(var),
+                        str(application),
+                        systematic_label,
+                    )
+                )
+
+        if not combination_labels:
+            return
+
+        unique_labels = unique_preserving_order(combination_labels)
+        print(f"[futures] submitting histogram task for {', '.join(unique_labels)}")
+
     def run(self) -> None:
         from topeft.modules.systematics import SystematicsHelper
         from topcoffea.modules.paths import topcoffea_path
@@ -696,6 +729,7 @@ class RunWorkflow:
                 available_systematics=task.available_systematics,
             )
 
+            self._log_task_submission(task)
             out = runner({task.sample: sample_flist}, self._config.treename, processor_instance)
             output.update(out)
 
