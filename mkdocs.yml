@@ -4,10 +4,14 @@ docs_dir: docs
 theme:
   name: readthedocs
 nav:
-  - Quickstarts:
+  - Home: index.md
+  - Getting started:
       - Run 2 quickstart pipeline: quickstart_run2.md
       - TOP-22-006 script walkthrough: quickstart_top22_006.md
-  - Analysis Workflow:
+  - Scenario playbooks:
+      - Run 2 scenarios:
+          - Run 2 metadata scenarios guide: run2_scenarios.md
+  - Workflow reference:
       - Run analysis configuration flow: run_analysis_configuration.md
       - Workflow and processor reference: analysis_processing.md
 markdown_extensions:
