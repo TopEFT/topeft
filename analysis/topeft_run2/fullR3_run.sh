@@ -82,7 +82,8 @@ echo "OUT_NAME: $OUT_NAME"
 
 # Build the configuration file list
 CFGS_PATH="../../input_samples/cfgs"
-CFGS="${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg,${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg,${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
+#CFGS="${CFGS_PATH}/NDSkim_${YEAR}_background_samples.cfg,${CFGS_PATH}/NDSkim_${YEAR}_data_samples.cfg,${CFGS_PATH}/NDSkim_${YEAR}_signal_samples.cfg"
+CFGS="${CFGS_PATH}/NDSkim_${YEAR}_background_samples_loc.cfg"
 
 # Define options based on mode
 if [[ "$FLAG_CR" == "true" ]]; then

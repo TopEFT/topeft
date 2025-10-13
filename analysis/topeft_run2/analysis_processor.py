@@ -457,8 +457,8 @@ class AnalysisProcessor(processor.ProcessorABC):
             cleaning_taus = tau_loose
             nLtau  = ak.num(tau_loose)
 
-            tau_F_mask = (ak.num(tau_vloose) >= 1)
-            tau_L_mask = (nLtau >= 1)
+            tau_F_mask = (ak.num(tau_vloose) == 1)
+            tau_L_mask = (nLtau == 1)
             no_tau_mask = (nLtau == 0)
 
             tau0 = ak.where(tau_L_mask, tau0_loose, tau0_vloose)
@@ -471,11 +471,11 @@ class AnalysisProcessor(processor.ProcessorABC):
                 n_tau_loose = int(ak.sum(tau_L_mask))
                 n_tau_vloose_only = int(ak.sum(tau_F_mask & ~tau_L_mask))
                 print(
-                    f"[Tau WP check] Events with >=1 VLoose tau: {n_tau_vloose}; >=1 Loose tau: {n_tau_loose}; VLoose-only: {n_tau_vloose_only}"
+                    f"\n\n\n\n\n\n\n\n\n[Tau WP check] Events with >=1 VLoose tau: {ak.to_list(n_tau_vloose)};\n>=1 Loose tau: {ak.to_list(n_tau_loose)};\nVLoose-only: {ak.to_list(n_tau_vloose_only)}\n\n\n\n\n\n\n\n\n"
                 )
                 masks_identical = bool(ak.all(tau_F_mask == tau_L_mask)) if len(events) > 0 else False
                 if masks_identical and (n_tau_vloose > 0 or n_tau_loose > 0):
-                    raise AssertionError("Fτ and Tτ masks are identical; check tau WP separation")
+                    raise AssertionError("Ftau and Ttau masks are identical; check tau WP separation")
                 self._tau_wp_checked = True
 
         else:
