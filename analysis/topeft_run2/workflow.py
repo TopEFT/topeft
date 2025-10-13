@@ -5,7 +5,9 @@ core steps performed by :mod:`analysis.topeft_run2.run_analysis`.  The helpers
 are designed to be lightweight wrappers around the existing functionality while
 making the orchestration of a run easier to understand and reuse from Python
 code.  The main entry point is :class:`RunWorkflow` together with the
-``run_workflow`` convenience function.
+``run_workflow`` convenience function.  A detailed walkthrough of the execution
+flow, systematic catalogue, and extension hooks lives in
+``docs/analysis_processing.md``.
 
 During planning the workflow records every histogram combination that will be
 submitted to Coffea.  Each entry tracks the ``(sample, channel, variable,

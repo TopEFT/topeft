@@ -1,4 +1,12 @@
 #!/usr/bin/env python
+"""Coffea processor used by ``run_analysis.py`` and workflow helpers.
+
+The processor responsibilities, expected inputs, and extension hooks are
+documented in ``docs/analysis_processing.md``.  That guide also links the
+systematic catalogue exposed through ``topeft/params/metadata.yml`` with the
+``RunWorkflow`` planner and the YAML quickstart workflow.
+"""
+
 import copy
 from collections import OrderedDict
 import coffea

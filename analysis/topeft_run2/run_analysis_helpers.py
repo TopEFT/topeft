@@ -5,7 +5,8 @@ previously defined inline in :mod:`run_analysis`.  The goal is to make the main
 script easier to read by isolating the type coercion, configuration merging and
 sample loading logic.  The helpers are intentionally lightweight so they can be
 shared across future scripts or tests without pulling in the full execution
-stack.
+stack.  A narrative description of the configuration pipeline and YAML profile
+workflow lives in ``docs/run_analysis_configuration.md``.
 """
 from __future__ import annotations
 

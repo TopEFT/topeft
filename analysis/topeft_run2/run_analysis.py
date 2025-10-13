@@ -2,9 +2,11 @@
 
 """Command-line interface for the Run 2 analysis workflow.
 
-For a step-by-step walkthrough of the environment prerequisites, metadata
-bundles, and example invocations that mirror ``fullR2_run.sh``, see the
-``docs/quickstart_top22_006.md`` guide in the repository root.
+The YAML-first configuration pipeline, helper responsibilities, and common
+extension points are documented in ``docs/run_analysis_configuration.md``.  For
+a step-by-step walkthrough of environment prerequisites, metadata bundles, and
+example invocations that mirror ``fullR2_run.sh``, consult the
+``docs/quickstart_top22_006.md`` guide.
 """
 
 from __future__ import annotations
