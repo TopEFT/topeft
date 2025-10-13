@@ -33,8 +33,11 @@ an ``outname`` of ``quickstart`` (so you can expect something like
 
 ### Samples JSON
 
-The quickstart helpers use the same JSON description as the full workflow.  A
-minimal example targeting a public CMS Run 2 file is shown below:
+The quickstart helpers use the same JSON description as the full workflow.
+Refer to the [sample metadata reference](sample_metadata_reference.md) for a
+complete breakdown of required keys, optional systematic sums of weights, and
+common validation fixes.  A minimal example targeting a public CMS Run 2 file is
+shown below:
 
 ```json
 {
