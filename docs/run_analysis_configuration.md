@@ -6,6 +6,9 @@ analysis.  This page documents how the configuration is normalized, how the
 helpers cooperate, and which extension points are available when adapting the
 workflow to new samples or channels.
 
+If you only need a quick lookup of supported CLI flags and YAML keys, jump to
+the dedicated [`run_analysis.py` CLI and YAML reference](run_analysis_cli_reference.md).
+
 The guide follows the same YAML-first workflow presented in the quickstart
 examples (``docs/quickstart_run2.md`` and ``docs/quickstart_top22_006.md``).  The
 YAML options file is optional, but using it keeps custom runs reproducible and

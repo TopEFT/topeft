@@ -15,4 +15,5 @@ straight to the information you need.
 ## Workflow reference
 
 - [Run analysis configuration flow](run_analysis_configuration.md)
+- [`run_analysis.py` CLI and YAML reference](run_analysis_cli_reference.md)
 - [Workflow and processor reference](analysis_processing.md)

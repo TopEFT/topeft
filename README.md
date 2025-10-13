@@ -104,8 +104,9 @@ guide](docs/quickstart_top22_006.md) and the [Run 2 quickstart
 overview](docs/quickstart_run2.md).
 
 Additional reference material for the module structure and configuration helpers
-is available in the [analysis processing primer](docs/analysis_processing.md) and
-the [YAML configuration guide](docs/run_analysis_configuration.md).
+is available in the [analysis processing primer](docs/analysis_processing.md),
+the [YAML configuration guide](docs/run_analysis_configuration.md), and the
+[`run_analysis.py` CLI/YAML reference](docs/run_analysis_cli_reference.md).
 
 ### Metadata configuration
 
