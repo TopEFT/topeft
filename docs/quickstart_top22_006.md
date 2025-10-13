@@ -89,13 +89,42 @@ scenario and feature-tag combinations.
    precedence over the YAML values, making it straightforward to adapt the
    quickstart to your local environment.
 
-## Next steps
+## Next steps {#top22-quickstart-next-steps}
 
-The quickstart configuration is intended to mirror the production defaults.
-From here you can:
+!!! note "Next steps"
+    The quickstart profile keeps the run intentionally light so you can iterate
+    quickly.  When you are ready to exercise the tau or forward reinterpretation
+    categories, follow the [Run 2 metadata scenarios guide](run2_scenarios.md)
+    and extend the preset with additional ``--scenario`` flags:
 
-- Update the metadata paths in the YAML if you maintain custom sample lists.
-- Override executor settings or chunking parameters on the command line to
-  match your compute resources.
-- Feed the generated histograms into the datacard machinery documented in the
-  Run 2 README once you are ready to progress beyond the initial SR/CR runs.
+    ```bash
+    python run_analysis.py \
+        --options configs/fullR2_run.yml \
+        --scenario tau_analysis
+    ```
+
+    Swap in ``fwd_analysis`` to validate the forward-jet categories, or append
+    both options to confirm the combined selection before submitting longer
+    jobs:
+
+    ```bash
+    python run_analysis.py \
+        --options configs/fullR2_run.yml \
+        --scenario tau_analysis \
+        --scenario fwd_analysis
+    ```
+
+    When you want to track the combination in version control, clone the preset
+    into a dedicated YAML override so the workflow stays reproducible:
+
+    ```yaml
+    # configs/fullR2_run_tau_fwd.yml
+    infile: ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
+    scenario:
+      - TOP_22_006
+      - tau_analysis
+      - fwd_analysis
+    ```
+
+    Launching ``python run_analysis.py --options configs/fullR2_run_tau_fwd.yml``
+    keeps the validation loop short while layering on the extra categories.
