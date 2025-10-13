@@ -53,7 +53,10 @@ Before running the workflow you will need:
 The Run 2 preset lives at
 `analysis/topeft_run2/configs/fullR2_run.yml`.  It mirrors the historic
 `fullR2_run.sh` script while setting the default scenario to `TOP_22_006` so
-both the SR and CR jobs can be launched from the same configuration file.
+both the SR and CR jobs can be launched from the same configuration file.  When
+you are ready to extend the quickstart to the tau or forward-jet regions, refer
+to the [Run 2 metadata scenarios guide](run2_scenarios.md) for the additional
+scenario and feature-tag combinations.
 
 1. Change into the Run 2 analysis directory:
 

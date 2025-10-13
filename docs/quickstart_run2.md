@@ -64,7 +64,9 @@ which matches the reinterpretation categories used in the main analysis.  Use
 ``--scenario`` to activate other bundles or pass the option multiple times to
 combine them.  Feature tags (``--feature requires_tau`` for example) can be used
 in addition to scenarios to enable dedicated regions advertised by the metadata
-file.
+file.  For a step-by-step walkthrough of each scenario—including how to combine
+bundles and feature tags in YAML or on the command line—see the
+[Run 2 metadata scenarios guide](run2_scenarios.md).
 
 During :func:`prepare_samples`, both the scenario names and feature tags are
 validated via the :class:`analysis.topeft_run2.workflow.ChannelPlanner`.  Passing
