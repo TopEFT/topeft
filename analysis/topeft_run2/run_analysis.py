@@ -142,15 +142,6 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
-        "--channel-feature",
-        dest="channel_features",
-        action="append",
-        help=(
-            "Include channel groups advertising the specified feature tag"
-            " (for example 'offz_split' or 'requires_tau')."
-        ),
-    )
-    parser.add_argument(
         "--skip-sr",
         action="store_true",
         help="Skip all signal region categories",

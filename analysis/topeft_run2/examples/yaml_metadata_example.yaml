@@ -9,8 +9,6 @@ chunksize: 160000
 outpath: example_outputs_yaml
 scenarios:
   - TOP_22_006
-channel_features:
-  - default
 skip_cr: false
 skip_sr: false
 do_np: true

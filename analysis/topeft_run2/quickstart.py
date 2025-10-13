@@ -268,7 +268,6 @@ def run_quickstart(
         do_systs=do_systs,
         split_lep_flavor=split_lep_flavor,
         scenario_names=list(prepared.scenario_names),
-        channel_feature_tags=list(prepared.channel_features),
         skip_sr=skip_sr,
         skip_cr=skip_cr,
         do_np=do_np,
@@ -286,7 +285,7 @@ def run_quickstart(
         skip_sr=config.skip_sr,
         skip_cr=config.skip_cr,
         scenario_names=config.scenario_names,
-        required_features=config.channel_feature_tags,
+        required_features=prepared.channel_features,
     )
 
     histogram_planner = HistogramPlanner(
