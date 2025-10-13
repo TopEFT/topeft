@@ -72,10 +72,15 @@ Systematic variations originate from two sources and meet inside the workflow:
   by type.  The processor interprets those labels to register weight and object
   shifts.
 
-When ``RunConfig.summary_verbosity`` is ``"full"`` the workflow prints both a
-human-readable table and a YAML payload describing every planned histogram.
-This is particularly useful when validating that the requested systematics match
-team expectations after editing metadata.
+The workflow always starts the summary with compact bullet lists describing the
+unique samples, channel/application pairs, variables, and systematic labels that
+will be processed when ``RunConfig.summary_verbosity`` is ``"brief"`` or
+``"full"``.  Selecting ``"full"`` retains the per-combination table and
+structured YAML (or JSON) payload printed previously.  When
+``split_lep_flavor`` is enabled, the detailed table also reminds readers that
+flavored channels reuse the processor task constructed for their base channel.
+These summaries are particularly useful when validating that the requested
+systematics match team expectations after editing metadata.
 
 ## Extending the workflow
 

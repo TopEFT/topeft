@@ -116,8 +116,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="brief",
         help=(
             "Control the histogram summary emitted before task submission. "
-            "'none' disables the summary, 'brief' prints a table, and "
-            "'full' also includes a structured dump."
+            "'none' disables the summary, 'brief' prints bullet lists of the "
+            "planned samples, channel/application pairs, variables, and "
+            "systematics, and 'full' prepends those lists to the per-combination "
+            "table plus the structured dump (including a note when "
+            "--split-lep-flavor is active)."
         ),
     )
     parser.add_argument(
