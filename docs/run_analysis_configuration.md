@@ -81,7 +81,9 @@ root::
 4. **Sample discovery** – :class:`analysis.topeft_run2.run_analysis_helpers.SampleLoader`
    expands positional inputs into concrete JSON files, parsing ``.cfg`` bundles
    and directories when necessary.  The loader attaches redirectors, validates
-   files, and normalizes numeric metadata.
+   files, and normalizes numeric metadata.  See the
+   [sample metadata reference](sample_metadata_reference.md) for a manifest
+   checklist and troubleshooting advice tailored to this stage.
 5. **Metadata planning** – :class:`analysis.topeft_run2.workflow.ChannelPlanner`
    and :class:`analysis.topeft_run2.workflow.HistogramPlanner` translate the
    selected metadata scenarios and variable definitions into the list of

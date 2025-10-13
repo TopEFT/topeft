@@ -12,6 +12,7 @@ nav:
       - Run 2 scenarios:
           - Run 2 metadata scenarios guide: run2_scenarios.md
   - Workflow reference:
+      - Sample metadata reference: sample_metadata_reference.md
       - Run analysis configuration flow: run_analysis_configuration.md
       - Workflow and processor reference: analysis_processing.md
 markdown_extensions:
