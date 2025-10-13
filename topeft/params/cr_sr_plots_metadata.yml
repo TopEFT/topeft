@@ -183,65 +183,65 @@ CR_CHAN_DICT:
     - 2lss_mm_p_1tau_onZ_6j
     - 2lss_mm_p_1tau_onZ_7j
   cr_2los_1tau:
-    - 2lss_ee_1tau_Ftau_2j
-    - 2lss_ee_1tau_Ftau_3j
-    - 2lss_ee_1tau_Ftau_4j
-    - 2lss_em_1tau_Ftau_2j
-    - 2lss_em_1tau_Ftau_3j
-    - 2lss_em_1tau_Ftau_4j
-    - 2lss_mm_1tau_Ftau_2j
-    - 2lss_mm_1tau_Ftau_3j
-    - 2lss_mm_1tau_Ftau_4j
-    - 2lss_ee_1tau_Ttau_2j
-    - 2lss_ee_1tau_Ttau_3j
-    - 2lss_ee_1tau_Ttau_4j
-    - 2lss_em_1tau_Ttau_2j
-    - 2lss_em_1tau_Ttau_3j
-    - 2lss_em_1tau_Ttau_4j
-    - 2lss_mm_1tau_Ttau_2j
-    - 2lss_mm_1tau_Ttau_3j
-    - 2lss_mm_1tau_Ttau_4j
+    - 2los_ee_1tau_Ftau_2j
+    - 2los_ee_1tau_Ftau_3j
+    - 2los_ee_1tau_Ftau_4j
+    - 2los_em_1tau_Ftau_2j
+    - 2los_em_1tau_Ftau_3j
+    - 2los_em_1tau_Ftau_4j
+    - 2los_mm_1tau_Ftau_2j
+    - 2los_mm_1tau_Ftau_3j
+    - 2los_mm_1tau_Ftau_4j
+    - 2los_ee_1tau_Ttau_2j
+    - 2los_ee_1tau_Ttau_3j
+    - 2los_ee_1tau_Ttau_4j
+    - 2los_em_1tau_Ttau_2j
+    - 2los_em_1tau_Ttau_3j
+    - 2los_em_1tau_Ttau_4j
+    - 2los_mm_1tau_Ttau_2j
+    - 2los_mm_1tau_Ttau_3j
+    - 2los_mm_1tau_Ttau_4j
   cr_2los_1tau_Ftau:
-    - 2lss_ee_1tau_Ftau_2j
-    - 2lss_ee_1tau_Ftau_3j
-    - 2lss_ee_1tau_Ftau_4j
-    - 2lss_em_1tau_Ftau_2j
-    - 2lss_em_1tau_Ftau_3j
-    - 2lss_em_1tau_Ftau_4j
-    - 2lss_mm_1tau_Ftau_2j
-    - 2lss_mm_1tau_Ftau_3j
-    - 2lss_mm_1tau_Ftau_4j
+    - 2los_ee_1tau_Ftau_2j
+    - 2los_ee_1tau_Ftau_3j
+    - 2los_ee_1tau_Ftau_4j
+    - 2los_em_1tau_Ftau_2j
+    - 2los_em_1tau_Ftau_3j
+    - 2los_em_1tau_Ftau_4j
+    - 2los_mm_1tau_Ftau_2j
+    - 2los_mm_1tau_Ftau_3j
+    - 2los_mm_1tau_Ftau_4j
   cr_2los_1tau_Ttau:
-    - 2lss_ee_1tau_Ttau_2j
-    - 2lss_ee_1tau_Ttau_3j
-    - 2lss_ee_1tau_Ttau_4j
-    - 2lss_em_1tau_Ttau_2j
-    - 2lss_em_1tau_Ttau_3j
-    - 2lss_em_1tau_Ttau_4j
-    - 2lss_mm_1tau_Ttau_2j
-    - 2lss_mm_1tau_Ttau_3j
-    - 2lss_mm_1tau_Ttau_4j
+    - 2los_ee_1tau_Ttau_2j
+    - 2los_ee_1tau_Ttau_3j
+    - 2los_ee_1tau_Ttau_4j
+    - 2los_em_1tau_Ttau_2j
+    - 2los_em_1tau_Ttau_3j
+    - 2los_em_1tau_Ttau_4j
+    - 2los_mm_1tau_Ttau_2j
+    - 2los_mm_1tau_Ttau_3j
+    - 2los_mm_1tau_Ttau_4j
   cr_2los_1tau_ee:
-    - 2lss_ee_1tau_Ftau_2j
-    - 2lss_ee_1tau_Ftau_3j
-    - 2lss_ee_1tau_Ftau_4j
-    - 2lss_ee_1tau_Ttau_2j
-    - 2lss_ee_1tau_Ttau_3j
-    - 2lss_ee_1tau_Ttau_4j
+    - 2los_ee_1tau_Ftau_2j
+    - 2los_ee_1tau_Ftau_3j
+    - 2los_ee_1tau_Ftau_4j
+    - 2los_ee_1tau_Ttau_2j
+    - 2los_ee_1tau_Ttau_3j
+    - 2los_ee_1tau_Ttau_4j
   cr_2los_1tau_em:
-    - 2lss_em_1tau_Ftau_2j
-    - 2lss_em_1tau_Ftau_3j
-    - 2lss_em_1tau_Ftau_4j
-    - 2lss_em_1tau_Ttau_2j
-    - 2lss_em_1tau_Ttau_3j
-    - 2lss_em_1tau_Ttau_4j
+    - 2los_em_1tau_Ftau_2j
+    - 2los_em_1tau_Ftau_3j
+    - 2los_em_1tau_Ftau_4j
+    - 2los_em_1tau_Ttau_2j
+    - 2los_em_1tau_Ttau_3j
+    - 2los_em_1tau_Ttau_4j
   cr_2los_1tau_mm:
-    - 2lss_mm_1tau_Ftau_2j
-    - 2lss_mm_1tau_Ftau_3j
-    - 2lss_mm_1tau_Ftau_4j
-    - 2lss_mm_1tau_Ttau_2j
-    - 2lss_mm_1tau_Ttau_3j
-    - 2lss_mm_1tau_Ttau_4j
+    - 2los_mm_1tau_Ftau_2j
+    - 2los_mm_1tau_Ftau_3j
+    - 2los_mm_1tau_Ftau_4j
+    - 2los_mm_1tau_Ttau_2j
+    - 2los_mm_1tau_Ttau_3j
+    - 2los_mm_1tau_Ttau_4j
   cr_1l_1tau:
     - 1l_e_1tau_CR_2j
     - 1l_e_1tau_CR_3j
