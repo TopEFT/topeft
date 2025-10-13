@@ -73,6 +73,56 @@ validated via the :class:`analysis.topeft_run2.workflow.ChannelPlanner`.  Passin
 unknown identifiers raises a ``ValueError`` before any processing starts so that
 misconfigurations are caught early.
 
+### Next steps {#run2-quickstart-next-steps}
+
+!!! note "Next steps"
+    Keep the workflow lightweight while layering on additional validation
+    targets.  The [Run 2 metadata scenarios guide](run2_scenarios.md) walks
+    through each bundle in detail, including how to mix feature tags.  To reuse
+    this helper for the tau- or forward-focused reinterpretations, add the
+    scenario switches directly on the command line:
+
+    ```bash
+    python -m topeft.quickstart \
+        input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+        --prefix root://cmsxrootd.fnal.gov/ \
+        --scenario tau_analysis
+    ```
+
+    Swap ``tau_analysis`` for ``fwd_analysis`` to validate the forward
+    categories, or request both in a single run when you want to confirm the
+    combined configuration:
+
+    ```bash
+    python -m topeft.quickstart \
+        input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+        --prefix root://cmsxrootd.fnal.gov/ \
+        --scenario TOP_22_006 \
+        --scenario tau_analysis \
+        --scenario fwd_analysis
+    ```
+
+    To keep the combined scenario close at hand for the full workflow, mirror
+    the same list in a YAML override for :mod:`run_analysis.py` before scaling
+    up.  Start by copying ``analysis/topeft_run2/configs/fullR2_run.yml`` to
+    ``analysis/topeft_run2/configs/fullR2_run_tau_fwd.yml`` so all of the other
+    defaults remain aligned, then update the new file's sample list and
+    scenarios as shown below:
+
+    ```yaml
+    # analysis/topeft_run2/configs/fullR2_run_tau_fwd.yml
+    jsonFiles:
+      - ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
+    scenarios:
+      - TOP_22_006
+      - tau_analysis
+      - fwd_analysis
+    ```
+
+    Launching ``python run_analysis.py --options configs/fullR2_run_tau_fwd.yml``
+    keeps the validation fast while aligning the configuration with the
+    quickstart dry run.
+
 ### Systematic toggles
 
 Systematic variations are disabled by default to keep the run lightweight.
