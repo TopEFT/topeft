@@ -104,10 +104,13 @@ misconfigurations are caught early.
 
     To keep the combined scenario close at hand for the full workflow, mirror
     the same list in a YAML override for :mod:`run_analysis.py` before scaling
-    up:
+    up.  Start by copying ``analysis/topeft_run2/configs/fullR2_run.yml`` to
+    ``analysis/topeft_run2/configs/fullR2_run_tau_fwd.yml`` so all of the other
+    defaults remain aligned, then update the new file's sample list and
+    scenarios as shown below:
 
     ```yaml
-    # configs/fullR2_run_tau_fwd.yml
+    # analysis/topeft_run2/configs/fullR2_run_tau_fwd.yml
     jsonFiles:
       - ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
     scenarios:

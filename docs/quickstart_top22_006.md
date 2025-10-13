@@ -115,10 +115,14 @@ scenario and feature-tag combinations.
     ```
 
     When you want to track the combination in version control, clone the preset
-    into a dedicated YAML override so the workflow stays reproducible:
+    into a dedicated YAML override so the workflow stays reproducible.  Copy
+    ``analysis/topeft_run2/configs/fullR2_run.yml`` to
+    ``analysis/topeft_run2/configs/fullR2_run_tau_fwd.yml`` and adjust the new
+    file's entries as shown below so that the extra categories are activated by
+    default:
 
     ```yaml
-    # configs/fullR2_run_tau_fwd.yml
+    # analysis/topeft_run2/configs/fullR2_run_tau_fwd.yml
     jsonFiles:
       - ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
     scenarios:
