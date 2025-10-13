@@ -12,6 +12,10 @@ defaults:
   wc_list:
     - ctG
 
+  # Default scenario grouping used for reinterpretation studies.
+  scenarios:
+    - TOP_22_006
+
   # The base label used for output files.  Profiles append their own suffixes.
   outname: refact_250901_c1
 

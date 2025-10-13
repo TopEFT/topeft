@@ -63,6 +63,11 @@ This directory contains scripts for the Full Run 2 EFT analysis. This README doc
         config = RunConfig(json_files=["/path/to/sample.json"])
         run_workflow(config)
 
+    - A step-by-step walkthrough of the command-line interface, including the
+      default metadata bundles and example invocations that mirror
+      ``fullR2_run.sh``, is available in the
+      [TOP-22-006 quickstart guide](../docs/quickstart_top22_006.md).
+
 * `run_sow.py` for `sow_processor.py`:
     - This script runs over the provided json files and calculates the properer sum of weights
     - Example usage: `python run_sow.py ../../topcoffea/json/signal_samples/private_UL/UL17_tHq_b1.json --xrd root://deepthought.crc.nd.edu/`

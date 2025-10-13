@@ -58,6 +58,9 @@ Executable examples for both the CLI-only and YAML-metadata workflows are provid
 ./analysis/topeft_run2/examples/run_with_yaml.sh
 ```
 The YAML script uses `analysis/topeft_run2/examples/yaml_metadata_example.yaml` to supply configuration values that mirror the refactored options loader.
+If you would like a guided walkthrough of the Run 2 workflow—including the
+required environment, metadata bundles, and example commands—see the
+[TOP-22-006 quickstart guide](docs/quickstart_top22_006.md).
 To make use of distributed resources, the `work queue` executor can be used. To use the work queue executor, just change the executor option to  `-x work_queue` and run the run script as before. Next, you will need to request some workers to execute the tasks on the distributed resources. Please note that the workers must be submitted from the same environment that you are running the run script from (so this will usually mean you want to activate the env in another terminal, and run the `condor_submit_workers` command from there. Here is an example `condor_submit_workers` command (remembering to activate the env prior to running the command):
 ```
 conda activate coffea-env

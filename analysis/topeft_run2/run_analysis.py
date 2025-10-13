@@ -1,6 +1,11 @@
 #!/usr/bin/env python
 
-"""Command-line interface for the Run 2 analysis workflow."""
+"""Command-line interface for the Run 2 analysis workflow.
+
+For a step-by-step walkthrough of the environment prerequisites, metadata
+bundles, and example invocations that mirror ``fullR2_run.sh``, see the
+``docs/quickstart_top22_006.md`` guide in the repository root.
+"""
 
 from __future__ import annotations
 
