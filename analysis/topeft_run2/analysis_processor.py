@@ -68,6 +68,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self.tau_h_analysis = tau_h_analysis
         self.fwd_analysis = fwd_analysis
         self.useRun3MVA = useRun3MVA #can be switched to False use the alternative cuts
+        self._tau_wp_checked = False
 
         self._hist_axis_map = {}
         self._hist_sumw2_axis_mapping = {}
@@ -414,7 +415,7 @@ class AnalysisProcessor(processor.ProcessorABC):
             tau["isLoose"] = tauSelection.isLooseTau(vs_jet)
             tau["iseTight"] = tauSelection.iseTightTau(vs_e)
             tau["ismTight"] = tauSelection.ismTightTau(vs_mu)
-            tau["isPres"] = tauSelection.isPresTau(
+            tau["isPresVLoose"] = tauSelection.isPresTau(
                 tau.pt,
                 tau.eta,
                 tau.dxy,
@@ -423,7 +424,20 @@ class AnalysisProcessor(processor.ProcessorABC):
                 vs_e,
                 vs_mu,
                 minpt=20,
+                vsJetWP="VLoose",
             )
+            tau["isPresLoose"] = tauSelection.isPresTau(
+                tau.pt,
+                tau.eta,
+                tau.dxy,
+                tau.dz,
+                vs_jet,
+                vs_e,
+                vs_mu,
+                minpt=20,
+                vsJetWP="Loose",
+            )
+            tau["isPres"] = tau["isPresVLoose"]
 
             tau["isClean"] = te_os.isClean(tau, l_fo, drmin=0.3)
             tau["isGood"]  =  tau["isClean"] & tau["isPres"]
@@ -432,12 +446,37 @@ class AnalysisProcessor(processor.ProcessorABC):
             tau['DMflag'] = ((tau.decayMode==0) | (tau.decayMode==1) | (tau.decayMode==10) | (tau.decayMode==11))
             tau = tau[tau['DMflag']]
 
-            cleaning_taus = tau[tau["isLoose"]>0]
-            nLtau  = ak.num(tau[tau["isLoose"]>0] )
+            tau_vloose = tau
+            tau_vloose_padded = ak.pad_none(tau_vloose, 1)
+            tau0_vloose = tau_vloose_padded[:,0]
+
+            tau_loose = tau_vloose[tau_vloose["isLoose"]>0]
+            tau_loose_padded = ak.pad_none(tau_loose, 1)
+            tau0_loose = tau_loose_padded[:,0]
+
+            cleaning_taus = tau_loose
+            nLtau  = ak.num(tau_loose)
+
+            tau_F_mask = (ak.num(tau_vloose) >= 1)
+            tau_L_mask = (nLtau >= 1)
+            no_tau_mask = (nLtau == 0)
+
+            tau0 = ak.where(tau_L_mask, tau0_loose, tau0_vloose)
+
             if not isData:
-                AttachTauSF(events,tau,year=year)
-            tau_padded = ak.pad_none(tau, 1)
-            tau0 = tau_padded[:,0]
+                AttachTauSF(events, tau_loose, year=year, vsJetWP="Loose")
+
+            if (not self._tau_wp_checked) and len(events) > 0:
+                n_tau_vloose = int(ak.sum(tau_F_mask))
+                n_tau_loose = int(ak.sum(tau_L_mask))
+                n_tau_vloose_only = int(ak.sum(tau_F_mask & ~tau_L_mask))
+                print(
+                    f"[Tau WP check] Events with >=1 VLoose tau: {n_tau_vloose}; >=1 Loose tau: {n_tau_loose}; VLoose-only: {n_tau_vloose_only}"
+                )
+                masks_identical = bool(ak.all(tau_F_mask == tau_L_mask)) if len(events) > 0 else False
+                if masks_identical and (n_tau_vloose > 0 or n_tau_loose > 0):
+                    raise AssertionError("Fτ and Tτ masks are identical; check tau WP separation")
+                self._tau_wp_checked = True
 
         else:
             if is_run2:
@@ -868,12 +907,6 @@ class AnalysisProcessor(processor.ProcessorABC):
             charge2l_1 = ak.fill_none(((l0.charge+l1.charge)!=0),False)
             charge3l_p = ak.fill_none(((l0.charge+l1.charge+l2.charge)>0),False)
             charge3l_m = ak.fill_none(((l0.charge+l1.charge+l2.charge)<0),False)
-            if self.tau_h_analysis:
-                tau_F_mask  = (ak.num(tau[tau["isVLoose"]>0]) >=1)
-                tau_L_mask  = (ak.num(tau[tau["isLoose"]>0]) >=1)
-                no_tau_mask = (ak.num(tau[tau["isLoose"]>0])==0)
-
-
             ######### Store boolean masks with PackedSelection ##########
 
             selections = PackedSelection(dtype='uint64')
