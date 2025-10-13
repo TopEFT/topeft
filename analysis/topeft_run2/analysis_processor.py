@@ -21,7 +21,7 @@ from topcoffea.modules.histEFT import HistEFT
 from coffea import processor
 from coffea.analysis_tools import PackedSelection
 from coffea.lumi_tools import LumiMask
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from topcoffea.modules.paths import topcoffea_path
 import topcoffea.modules.eft_helper as efth
@@ -94,6 +94,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         golden_json_path=None,
         systematic_variations=None,
         available_systematics=None,
+        metadata_path: Optional[str] = None,
     ):
 
         self._sample = sample
@@ -123,6 +124,7 @@ class AnalysisProcessor(processor.ProcessorABC):
         self._available_systematics_sets = {
             key: set(values) for key, values in self._available_systematics.items()
         }
+        self._metadata_path = metadata_path
 
         self._golden_json_path = golden_json_path
         if self._sample.get("isData") and not self._golden_json_path:

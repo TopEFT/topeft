@@ -28,6 +28,7 @@ import json
 import os
 import time
 import warnings
+from pathlib import Path
 from dataclasses import asdict, dataclass
 from typing import (
     Any,
@@ -583,6 +584,7 @@ class RunWorkflow:
         histogram_planner: HistogramPlanner,
         executor_factory: ExecutorFactory,
         weight_variations: Sequence[str],
+        metadata_path: str,
     ) -> None:
         self._config = config
         self._metadata = metadata
@@ -591,6 +593,7 @@ class RunWorkflow:
         self._histogram_planner = histogram_planner
         self._executor_factory = executor_factory
         self._weight_variations = list(weight_variations)
+        self._metadata_path = metadata_path
 
     def _log_task_submission(self, task: HistogramTask) -> None:
         """Emit a concise log describing the histogram combinations for ``task``."""
@@ -645,11 +648,16 @@ class RunWorkflow:
 
         golden_jsons = self._metadata.get("golden_jsons", {}) if self._metadata else {}
         if not golden_jsons:
-            raise ValueError("golden_jsons mapping missing from metadata.")
+            raise ValueError(
+                f"golden_jsons mapping missing from metadata ({self._metadata_path})."
+            )
 
         var_defs = self._metadata.get("variables")
         if not isinstance(var_defs, Mapping):
-            raise TypeError("metadata['variables'] must be a mapping of histogram definitions")
+            raise TypeError(
+                "metadata['variables'] must be a mapping of histogram definitions "
+                f"(source: {self._metadata_path})"
+            )
 
         sample_years = {
             str(samplesdict[sample_name]["year"])
@@ -690,7 +698,8 @@ class RunWorkflow:
                     golden_json_relpath = golden_jsons[year_key]
                 except KeyError as exc:
                     raise ValueError(
-                        f"No golden JSON configured for data year '{year_key}'."
+                        f"No golden JSON configured for data year '{year_key}' in "
+                        f"{self._metadata_path}."
                     ) from exc
                 golden_json_path = topcoffea_path(golden_json_relpath)
                 if not os.path.exists(golden_json_path):
@@ -710,6 +719,7 @@ class RunWorkflow:
                 golden_json_path=golden_json_path,
                 systematic_variations=task.variations,
                 available_systematics=task.available_systematics,
+                metadata_path=self._metadata_path,
             )
 
             self._log_task_submission(task)
@@ -921,8 +931,21 @@ def run_workflow(config: RunConfig) -> None:
     from topeft.modules.channel_metadata import ChannelMetadataHelper
     from topeft.modules.paths import topeft_path
 
-    metadata_path = topeft_path("params/metadata.yml")
-    with open(metadata_path, "r", encoding="utf-8") as handle:
+    default_metadata_path = topeft_path("params/metadata.yml")
+    metadata_source = config.metadata_path or default_metadata_path
+    candidate_path = Path(metadata_source).expanduser()
+    if not candidate_path.is_absolute():
+        candidate_path = Path.cwd() / candidate_path
+    try:
+        metadata_file = candidate_path.resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(
+            f"Metadata file '{metadata_source}' could not be found."
+        ) from exc
+
+    config.metadata_path = str(metadata_file)
+
+    with metadata_file.open("r", encoding="utf-8") as handle:
         metadata = yaml.safe_load(handle) or {}
 
     weight_variations = weight_variations_from_metadata(metadata, DEFAULT_WEIGHT_VARIATIONS)
@@ -932,7 +955,9 @@ def run_workflow(config: RunConfig) -> None:
 
     channels_metadata = metadata.get("channels")
     if not channels_metadata:
-        raise ValueError("Channel metadata is missing from params/metadata.yml")
+        raise ValueError(
+            f"Channel metadata is missing from the metadata YAML ({metadata_file})."
+        )
 
     channel_helper = ChannelMetadataHelper(channels_metadata)
     scenario_names = unique_preserving_order(config.scenario_names)
@@ -965,6 +990,7 @@ def run_workflow(config: RunConfig) -> None:
         histogram_planner=histogram_planner,
         executor_factory=executor_factory,
         weight_variations=weight_variations,
+        metadata_path=str(metadata_file),
     )
     workflow.run()
 

@@ -91,6 +91,14 @@ scenarios declared in ``topeft/params/metadata.yml``.
    reproducible.  Drop ``--options`` entirely if you need a one-off CLI-driven
    run.
 
+   When you need to test changes to the metadata catalogue, clone
+   ``topeft/params/metadata.yml`` and pass the new path with ``--metadata``.  For
+   example, to reuse the JSON inputs above with a custom metadata bundle in
+   ``configs/metadata_dev.yml`` run::
+
+       python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+           --metadata configs/metadata_dev.yml --executor futures --nworkers 1
+
 ## Next steps {#top22-quickstart-next-steps}
 
 !!! note "Next steps"
@@ -107,11 +115,13 @@ scenarios declared in ``topeft/params/metadata.yml``.
     into a dedicated YAML override so the workflow stays reproducible.  Copy
     ``analysis/topeft_run2/configs/fullR2_run.yml`` to
     ``analysis/topeft_run2/configs/fullR2_run_tau_fwd.yml`` and adjust the new
-    file's entries as shown below so that the extra categories are activated by
-    default:
+    file's metadata pointer and entries as shown below so that the extra
+    categories are activated by default:
 
     ```yaml
     # analysis/topeft_run2/configs/fullR2_run_tau_fwd.yml
+    metadata: configs/metadata_dev.yml
+    # (clone topeft/params/metadata.yml to configs/metadata_dev.yml before editing)
     jsonFiles:
       - ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
     scenarios:

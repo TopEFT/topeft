@@ -125,12 +125,21 @@ variations are evaluated.  Key sections include:
 
 When you need a custom configuration, copy the metadata file to a new name (for
 example `analysis/topeft_run2/configs/metadata_myteam.yml`) so your edits stay
-isolated.  Point the quickstart helper at the clone via `--metadata` and, for
-full workflow runs, either swap the cloned file into
-`topeft/params/metadata.yml` or keep it in a feature branch so editable installs
-pick up the updated contents.  The [metadata configuration guide]
-(docs/run_analysis_configuration.md#metadata-configuration) expands on the
-available keys and shows how the planners consume them.
+isolated.  Both the quickstart helper and `run_analysis.py` accept the clone via
+`--metadata`, removing the need to swap files in `topeft/params/metadata.yml`.
+When you are driving the workflow through a YAML profile, set a top-level
+`metadata: configs/metadata_myteam.yml` entry so the override lives alongside
+the rest of your configuration knobs.
+For example, the following command launches the full workflow with a bespoke
+metadata bundle kept alongside your analysis configs:
+
+```bash
+python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+    --metadata configs/metadata_myteam.yml --executor futures --nworkers 1 --chunksize 128000
+```
+
+The [metadata configuration guide](docs/run_analysis_configuration.md#metadata-configuration)
+expands on the available keys and shows how the planners consume them.
 
 ### Migration note: scenario-only channel activation
 

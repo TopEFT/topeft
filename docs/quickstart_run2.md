@@ -76,7 +76,14 @@ To test custom metadata, copy ``topeft/params/metadata.yml`` to a new location,
 edit the clone, and pass it to the helper via ``--metadata``.  Keeping the clone
 under version control (for example ``analysis/topeft_run2/configs/metadata_dev.yml``)
 makes it easy to promote the same configuration to the full workflow once the
-quickstart validation looks good.
+quickstart validation looks good.  The same path can be handed to
+``analysis/topeft_run2/run_analysis.py`` via ``--metadata`` when you are ready to
+run the full job:
+
+```bash
+python run_analysis.py ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json \
+    --metadata configs/metadata_dev.yml --executor futures
+```
 
 ### Metadata scenarios
 
@@ -135,11 +142,13 @@ misconfigurations are caught early.
     the same list in a YAML override for :mod:`run_analysis.py` before scaling
     up.  Start by copying ``analysis/topeft_run2/configs/fullR2_run.yml`` to
     ``analysis/topeft_run2/configs/fullR2_run_tau_fwd.yml`` so all of the other
-    defaults remain aligned, then update the new file's sample list and
-    scenarios as shown below:
+    defaults remain aligned, then update the new file's metadata pointer, sample
+    list, and scenarios as shown below:
 
     ```yaml
     # analysis/topeft_run2/configs/fullR2_run_tau_fwd.yml
+    metadata: configs/metadata_dev.yml
+    # (clone topeft/params/metadata.yml to configs/metadata_dev.yml before editing)
     jsonFiles:
       - ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
     scenarios:

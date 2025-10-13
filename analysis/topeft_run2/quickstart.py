@@ -43,6 +43,7 @@ class PreparedSamples:
     """Container describing the input samples resolved for a quickstart run."""
 
     metadata: Mapping[str, MutableMapping[str, object]]
+    metadata_path: Path
     samples: Mapping[str, Mapping[str, object]]
     file_lists: Mapping[str, Sequence[str]]
     json_files: Tuple[str, ...]
@@ -61,7 +62,7 @@ class PreparedSamples:
         )
 
 
-def _load_metadata(metadata_path: Optional[str]) -> MutableMapping[str, object]:
+def _load_metadata(metadata_path: Optional[str]) -> Tuple[MutableMapping[str, object], Path]:
     try:  # pragma: no cover - optional dependency resolution
         import yaml
     except ImportError as exc:  # pragma: no cover
@@ -69,12 +70,15 @@ def _load_metadata(metadata_path: Optional[str]) -> MutableMapping[str, object]:
 
     if metadata_path is None:
         metadata_path = topeft_path("params/metadata.yml")
-    metadata_file = Path(metadata_path).expanduser().resolve()
+    candidate = Path(metadata_path).expanduser()
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+    metadata_file = candidate.resolve(strict=True)
     with metadata_file.open("r", encoding="utf-8") as handle:
         loaded = yaml.safe_load(handle) or {}
     if not isinstance(loaded, MutableMapping):
         raise TypeError("Metadata YAML must define a mapping of configuration blocks")
-    return copy.deepcopy(loaded)  # ensure callers can mutate safely
+    return copy.deepcopy(loaded), metadata_file  # ensure callers can mutate safely
 
 
 def _select_variables(
@@ -146,7 +150,7 @@ def prepare_samples(
         variables advertised in the metadata are retained.
     """
 
-    metadata = _load_metadata(metadata_path)
+    metadata, resolved_metadata_path = _load_metadata(metadata_path)
     variable_names = _select_variables(metadata, variables)
 
     weight_variations = tuple(
@@ -176,7 +180,9 @@ def prepare_samples(
 
     channels_metadata = metadata.get("channels")
     if not channels_metadata:
-        raise ValueError("Channel metadata is missing from the metadata YAML")
+        raise ValueError(
+            f"Channel metadata is missing from the metadata YAML ({resolved_metadata_path})."
+        )
 
     scenario_names = unique_preserving_order(normalize_sequence(scenario))
     if not scenario_names:
@@ -193,6 +199,7 @@ def prepare_samples(
 
     return PreparedSamples(
         metadata=metadata,
+        metadata_path=resolved_metadata_path,
         samples=samplesdict,
         file_lists=file_lists,
         json_files=tuple(str(path) for path in json_inputs),
@@ -253,6 +260,7 @@ def run_quickstart(
         outname=outname,
         outpath=str(output_dir),
         treename=treename or prepared.treename,
+        metadata_path=str(prepared.metadata_path),
         do_systs=do_systs,
         split_lep_flavor=split_lep_flavor,
         scenario_names=list(prepared.scenario_names),
@@ -291,6 +299,7 @@ def run_quickstart(
         histogram_planner=histogram_planner,
         executor_factory=executor_factory,
         weight_variations=prepared.weight_variations,
+        metadata_path=str(prepared.metadata_path),
     )
     workflow.run()
     return config

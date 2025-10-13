@@ -96,6 +96,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Name of the tree inside the files",
     )
     parser.add_argument(
+        "--metadata",
+        default=None,
+        help=(
+            "Path to the metadata YAML describing channels, variables, and"
+            " systematics. Defaults to topeft/params/metadata.yml when"
+            " omitted."
+        ),
+    )
+    parser.add_argument(
         "--do-errors",
         action="store_true",
         help="Save the w**2 coefficients",
