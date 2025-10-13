@@ -187,7 +187,10 @@ SR_CHAN_DICT:
     - 4l_3j
   4l_4j:
     - 4l_4j
-  # tau_h signal regions follow histogram naming where _7j denotes the ≥6-jet bin.
+  # tau_h signal regions follow histogram naming where:
+  #   - _7j denotes the ≥6-jet bin for the 2lss tau channels, and
+  #   - _6j captures the highest jet bins for the 2los and 3l tau categories
+  #     (≥6 jets for 2los, ≥5 jets for 3l).
   2lss_1tau_onZ:
     - 2lss_m_1tau_onZ_3j
     - 2lss_m_1tau_onZ_4j
@@ -208,7 +211,6 @@ SR_CHAN_DICT:
     - 2lss_p_1tau_offZ_7j
   2los_onZ_1tau:
     - 2los_onZ_1tau_6j
-  # For 3l tau categories the _6j suffix corresponds to the ≥5-jet bin in histograms.
   3l_1tau_1b:
     - 3l_1tau_1b_2j
     - 3l_1tau_1b_3j
