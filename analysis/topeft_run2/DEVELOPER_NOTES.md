@@ -2,8 +2,8 @@
 
 This note summarizes how the Run 2 analysis processor reacts to the channel feature
 tags declared in the metadata.  Scenarios selected via ``run_analysis.py``'s
-``--scenario`` option or direct ``--channel-feature`` requests enable the behaviors
-described below. The information is distilled from `analysis_processor.py` so future
+``--scenario`` option enable the behaviors described below. The information is
+distilled from `analysis_processor.py` so future
 metadata-driven refactors can reproduce the same logic.
 
 ## Histogram variables

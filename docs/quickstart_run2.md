@@ -56,21 +56,28 @@ Saving the snippet as ``ttz_quickstart.json`` allows you to run the helper with
 ``python -m topeft.quickstart ttz_quickstart.json --prefix root://cmsxrootd.fnal.gov/``.
 The prefix ensures that the remote EOS path is opened via XRootD.
 
-### Metadata scenarios and feature tags
+### Metadata scenarios
 
-The Run 2 metadata (``topeft/params/metadata.yml``) defines multiple channel
-scenarios.  The quickstart helpers use the ``TOP_22_006`` scenario by default,
-which matches the reinterpretation categories used in the main analysis.  Use
-``--scenario`` to activate other bundles or pass the option multiple times to
-combine them.  Feature tags (``--feature requires_tau`` for example) can be used
-in addition to scenarios to enable dedicated regions advertised by the metadata
-file.  For a step-by-step walkthrough of each scenario—including how to combine
-bundles and feature tags in YAML or on the command line—see the
-[Run 2 metadata scenarios guide](run2_scenarios.md).
+The Run 2 metadata (``topeft/params/metadata.yml``) defines the channel bundles
+exposed by the quickstart helpers.  Channel activation is now controlled solely
+through the scenario list:
 
-During :func:`prepare_samples`, both the scenario names and feature tags are
-validated via the :class:`analysis.topeft_run2.workflow.ChannelPlanner`.  Passing
-unknown identifiers raises a ``ValueError`` before any processing starts so that
+* ``TOP_22_006`` – Baseline reinterpretation categories, including the refined
+  off-Z trilepton split.
+* ``tau_analysis`` – Extends the baseline with the tau-enriched regions.
+* ``fwd_analysis`` – Adds the forward-jet selections on top of the shared
+  control suite.
+
+Pass ``--scenario`` one or more times to request the combinations you need.  For
+example, ``--scenario TOP_22_006 --scenario tau_analysis`` layers the tau
+categories onto the baseline job, while adding ``--scenario fwd_analysis`` in
+the same command keeps the forward selections active as well.  For a
+step-by-step walkthrough of each scenario—including how to mix them in YAML—see
+the [Run 2 metadata scenarios guide](run2_scenarios.md).
+
+During :func:`prepare_samples`, the scenario names are validated via the
+:class:`analysis.topeft_run2.workflow.ChannelPlanner`.  Passing unknown
+identifiers raises a ``ValueError`` before any processing starts so that
 misconfigurations are caught early.
 
 ### Next steps {#run2-quickstart-next-steps}
@@ -78,9 +85,9 @@ misconfigurations are caught early.
 !!! note "Next steps"
     Keep the workflow lightweight while layering on additional validation
     targets.  The [Run 2 metadata scenarios guide](run2_scenarios.md) walks
-    through each bundle in detail, including how to mix feature tags.  To reuse
-    this helper for the tau- or forward-focused reinterpretations, add the
-    scenario switches directly on the command line:
+    through each bundle in detail.  To reuse this helper for the tau- or
+    forward-focused reinterpretations, add the scenario switches directly on the
+    command line:
 
     ```bash
     python -m topeft.quickstart \

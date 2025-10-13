@@ -90,15 +90,16 @@ but the YAML and CLI entry points can target additional scenarios defined in
 `topeft/params/metadata.yml`:
 
 - `TOP_22_006` – Baseline Run 2 reinterpretation with the shared control suite.
-- `tau_analysis` – Adds the tau-enriched signal/control regions and feature
-  flags needed for the dedicated tau study.
+- `tau_analysis` – Adds the tau-enriched signal/control regions needed for the
+  dedicated tau study.
 - `fwd_analysis` – Enables the forward-jet categories while reusing the common
   control regions.
 
-Scenarios can be combined by passing `--scenario` multiple times or by copying
-the relevant blocks in your YAML profile.  Detailed instructions for running each
-bundle individually, mixing them in YAML, and layering feature tags are provided
-in the [Run 2 metadata scenarios guide](docs/run2_scenarios.md).  For a guided
+Channel activation is controlled entirely by these scenario selections.  Scenarios
+can be combined by passing `--scenario` multiple times or by copying the relevant
+blocks in your YAML profile.  Detailed instructions for running each bundle
+individually and mixing them in YAML are provided in the
+[Run 2 metadata scenarios guide](docs/run2_scenarios.md).  For a guided
 walkthrough of the Run 2 workflow—including environment setup, metadata
 bundles, and extended examples—see the [TOP-22-006 quickstart
 guide](docs/quickstart_top22_006.md) and the [Run 2 quickstart
@@ -107,6 +108,15 @@ overview](docs/quickstart_run2.md).
 Additional reference material for the module structure and configuration helpers
 is available in the [analysis processing primer](docs/analysis_processing.md) and
 the [YAML configuration guide](docs/run_analysis_configuration.md).
+
+### Migration note: scenario-only channel activation
+
+As of this release, the ``--channel-feature`` flag has been retired.  Channel
+activation is now driven entirely by the metadata scenarios documented in
+``topeft/params/metadata.yml``.  Use ``--scenario`` (either repeated on the
+command line or listed in a YAML profile) to enable the tau, forward, or other
+specialised selections.  The [Run 2 metadata scenarios guide](docs/run2_scenarios.md)
+collects end-to-end examples of the recommended combinations.
 
 If you prefer a minimal smoke test before running the full configuration,
 consider the quickstart helper:

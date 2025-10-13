@@ -56,7 +56,8 @@ The Run 2 preset lives at
 both the SR and CR jobs can be launched from the same configuration file.  When
 you are ready to extend the quickstart to the tau or forward-jet regions, refer
 to the [Run 2 metadata scenarios guide](run2_scenarios.md) for the additional
-scenario and feature-tag combinations.
+scenario combinations.  Channel activation is handled entirely by the metadata
+scenarios declared in ``topeft/params/metadata.yml``.
 
 1. Change into the Run 2 analysis directory:
 
@@ -93,9 +94,10 @@ scenario and feature-tag combinations.
 
 !!! note "Next steps"
     The quickstart profile keeps the run intentionally light so you can iterate
-    quickly.  When you are ready to exercise the tau or forward reinterpretation
-    categories, follow the [Run 2 metadata scenarios guide](run2_scenarios.md)
-    and extend the preset with additional ``--scenario`` flags:
+    quickly.  When you are ready to exercise the tau, forward, or off-Z focused
+    reinterpretation categories, follow the
+    [Run 2 metadata scenarios guide](run2_scenarios.md) and extend the preset
+    with additional ``--scenario`` flags:
 
     ```bash
     python run_analysis.py \
@@ -103,9 +105,10 @@ scenario and feature-tag combinations.
         --scenario tau_analysis
     ```
 
-    Swap in ``fwd_analysis`` to validate the forward-jet categories, or append
-    both options to confirm the combined selection before submitting longer
-    jobs:
+    Swap in ``fwd_analysis`` to validate the forward-jet categories.  Because the
+    ``TOP_22_006`` bundle already carries the refined off-Z splitting, combining
+    both options keeps the tau, forward, and off-Z variations active before
+    submitting longer jobs:
 
     ```bash
     python run_analysis.py \
@@ -126,7 +129,7 @@ scenario and feature-tag combinations.
     jsonFiles:
       - ../../input_samples/sample_jsons/test_samples/UL17_private_ttH_for_CI.json
     scenarios:
-      - TOP_22_006
+      - TOP_22_006  # Baseline reinterpretation with the off-Z split
       - tau_analysis
       - fwd_analysis
     ```

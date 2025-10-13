@@ -4,7 +4,7 @@
 Information extracted from the grouped schema embedded in `topeft/params/metadata.yml` under `channels.groups` and `channels.scenarios`. The content mirrors `analysis/channels_schema.yaml` so that metadata consumers no longer need to cross-reference separate lists of channels and applications.
 
 ## Group Overview
-Each entry in `channels.groups` represents a coherent collection of regions with shared descriptions, jet-bin definitions, and application tags. Scenario lists attached to each group indicate where the configuration is valid. Optional `features` lists document metadata flags (e.g., off-Z splits or tau requirements) that downstream tools can toggle on.
+Each entry in `channels.groups` represents a coherent collection of regions with shared descriptions, jet-bin definitions, and application tags. Scenario lists attached to each group indicate where the configuration is valid. Optional `features` lists document metadata flags (e.g., off-Z splits or tau requirements) that downstream tools consume when the corresponding scenarios are active.
 
 - **`TOP22_006_CH_LST_SR`** – Baseline Run 2 ttH multilepton signal regions for the TOP-22-006 reinterpretation. Provides 2ℓSS (charge-split, 4–≥7 jets), 3ℓ (on-Z/off-Z split with 1–2 b-tags), and 4ℓ categories with both signal and associated control application tags for MC and data.【F:topeft/params/metadata.yml†L10-L120】
 - **`TAU_CH_LST_SR`** – Tau-enhanced signal regions extending the baseline bins with explicit tau-enriched selections (0τ, 1τ, and opposite-sign tau channels) plus corresponding jet bins and application tags. Declares the `requires_tau` feature flag for easy discovery.【F:topeft/params/metadata.yml†L121-L312】
@@ -25,9 +25,9 @@ Consumers can use these scenario definitions to pick the appropriate set of chan
 ### Selecting scenarios in `run_analysis.py`
 The command-line front-end now accepts ``--scenario`` to activate one or more of the
 metadata-defined combinations above (defaulting to ``TOP_22_006`` when unspecified).
-Additional channel groups can be pulled in by advertising feature tags via
-``--channel-feature`` (for example ``--channel-feature requires_tau``). The helper
-functions resolve the requested scenarios and features to determine which regions and
+Additional channel groups can be pulled in by repeating ``--scenario`` with the
+combinations described above.  The helper functions resolve the requested
+scenarios (and their associated feature flags) to determine which regions and
 systematics should run.
 
 ## Histogram variables

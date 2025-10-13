@@ -45,10 +45,10 @@ root::
    and directories when necessary.  The loader attaches redirectors, validates
    files, and normalizes numeric metadata.
 5. **Metadata planning** – :class:`analysis.topeft_run2.workflow.ChannelPlanner`
-   and :class:`analysis.topeft_run2.workflow.HistogramPlanner` translate channel
-   scenarios, feature tags, and variable definitions into the list of histogram
-   tasks.  This is where ``--scenario``, ``--channel-feature``, ``--skip-sr`` and
-   similar knobs take effect.
+   and :class:`analysis.topeft_run2.workflow.HistogramPlanner` translate the
+   selected metadata scenarios and variable definitions into the list of
+   histogram tasks.  This is where ``--scenario``, ``--skip-sr`` and similar
+   knobs take effect.
 6. **Execution** – :class:`analysis.topeft_run2.workflow.ExecutorFactory`
    instantiates the selected backend (``futures``, ``work_queue`` or
    ``taskvine``).  Each histogram task yields an
@@ -79,8 +79,8 @@ Systematic switches are managed collaboratively by the helpers:
   that :class:`analysis.topeft_run2.workflow.RunWorkflow` can validate the
   metadata before any Coffea tasks are submitted.
 * :class:`analysis.topeft_run2.workflow.SystematicsHelper` (instantiated inside
-  the workflow) cross-references the metadata with the activated features and
-  the requested year, building the final structure that
+  the workflow) cross-references the metadata with the scenario-provided feature
+  flags and the requested year, building the final structure that
   :class:`AnalysisProcessor` consumes.
 
 When ``--do-renormfact-envelope`` is enabled, the workflow enforces the presence
@@ -97,7 +97,7 @@ The table below summarises the most common extension hooks:
 | ------ | -------------- | ------------- |
 | :class:`RunConfigBuilder` | Merge CLI, defaults, and YAML into a :class:`RunConfig`. | Subclass the builder and override :meth:`build` to recognise additional YAML keys (for example, executor-specific settings).  The CLI parser can expose the same flag so that existing scripts keep working. |
 | :class:`SampleLoader` | Resolve JSON/CFG inputs and normalize metadata. | Provide a custom ``SampleLoader`` to support other manifest formats (for example, CSV).  The replacement object must offer ``collect`` and ``load`` methods returning the same structures. |
-| :class:`analysis.topeft_run2.workflow.ChannelPlanner` | Activate channels according to scenarios and feature tags. | Extend :class:`topeft.modules.channel_metadata.ChannelMetadataHelper` or wrap the planner to insert additional filters (for example, dropping jet categories). |
+| :class:`analysis.topeft_run2.workflow.ChannelPlanner` | Activate channels according to metadata scenarios. | Extend :class:`topeft.modules.channel_metadata.ChannelMetadataHelper` or wrap the planner to insert additional filters (for example, dropping jet categories). |
 | :class:`analysis.topeft_run2.workflow.HistogramPlanner` | Enumerate histogram combinations for execution. | Pass a custom planner that rewrites the histogram list (for example, sampling only a subset of variables) before the workflow starts the executor. |
 | :class:`analysis.topeft_run2.workflow.ExecutorFactory` | Configure the execution backend. | Supply a factory that sets up distributed resources (for example, a site-specific Work Queue profile).  The factory only needs to return an object with a ``create_runner`` method. |
 | :func:`analysis.topeft_run2.workflow.run_workflow` | Convenience wrapper mirroring the CLI. | Import the function and feed it the :class:`RunConfig` returned by the quickstart helpers when you want to programmatically drive the workflow from notebooks or scripts. |
