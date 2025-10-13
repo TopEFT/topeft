@@ -19,8 +19,28 @@ class run2TauSelection:
     def __init__(self):
         pass
 
-    def isPresTau(self, pt, eta, dxy, dz, idDeepTauVSjet, idDeepTauVSe, idDeepTauVSmu, minpt=20.0):
-        return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTauVSjet>>3 & 1 ==1)&(idDeepTauVSe>>1 & 1 ==1)&(idDeepTauVSmu>>1 & 1 ==1)
+    def isPresTau(self, pt, eta, dxy, dz, idDeepTauVSjet, idDeepTauVSe, idDeepTauVSmu, minpt=20.0, vsJetWP="Loose"):
+        wp_bit_map = {
+            "VLoose": 2,
+            "Loose": 3,
+            "Medium": 4,
+            "Tight": 5,
+            "VTight": 6,
+            "VVTight": 7,
+        }
+        if vsJetWP not in wp_bit_map:
+            raise ValueError(f"Unsupported DeepTau VSjet working point '{vsJetWP}' for Run 2")
+
+        base_mask = (
+            (pt > minpt)
+            & (abs(eta) < get_te_param("eta_t_cut"))
+            & (abs(dxy) < get_te_param("dxy_tau_cut"))
+            & (abs(dz) < get_te_param("dz_tau_cut"))
+            & (((idDeepTauVSe >> 1) & 1) == 1)
+            & (((idDeepTauVSmu >> 1) & 1) == 1)
+        )
+        vsjet_mask = (((idDeepTauVSjet >> wp_bit_map[vsJetWP]) & 1) == 1)
+        return base_mask & vsjet_mask
 
     def isVLooseTau(self, idDeepTauVSjet):
         return (idDeepTauVSjet>>2 & 1)
@@ -50,8 +70,28 @@ class run3TauSelection:
     def __init__(self):
         pass
 
-    def isPresTau(self, pt, eta, dxy, dz, idDeepTauVSjet, idDeepTauVSe, idDeepTauVSmu, minpt=20.0):
-        return  (pt>minpt)&(abs(eta)<get_te_param("eta_t_cut"))&(abs(dxy)<get_te_param("dxy_tau_cut"))&(abs(dz)<get_te_param("dz_tau_cut"))&(idDeepTauVSjet >= 4)&(idDeepTauVSe >= 2)&(idDeepTauVSmu >= 2)
+    def isPresTau(self, pt, eta, dxy, dz, idDeepTauVSjet, idDeepTauVSe, idDeepTauVSmu, minpt=20.0, vsJetWP="Loose"):
+        wp_thresholds = {
+            "VLoose": 3,
+            "Loose": 4,
+            "Medium": 5,
+            "Tight": 6,
+            "VTight": 7,
+            "VVTight": 8,
+        }
+        if vsJetWP not in wp_thresholds:
+            raise ValueError(f"Unsupported DeepTau VSjet working point '{vsJetWP}' for Run 3")
+
+        base_mask = (
+            (pt > minpt)
+            & (abs(eta) < get_te_param("eta_t_cut"))
+            & (abs(dxy) < get_te_param("dxy_tau_cut"))
+            & (abs(dz) < get_te_param("dz_tau_cut"))
+            & (idDeepTauVSe >= 2)
+            & (idDeepTauVSmu >= 2)
+        )
+        vsjet_mask = idDeepTauVSjet >= wp_thresholds[vsJetWP]
+        return base_mask & vsjet_mask
 
     def isVLooseTau(self, idDeepTauVSjet):
         return (idDeepTauVSjet >= 3)
